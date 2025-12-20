@@ -1,0 +1,270 @@
+# Glow Up Tennis - Design Guidelines
+
+## Authentication Architecture
+
+**Auth Required**: Yes
+- Social/multiplayer features (chat channels, friends, ranking)
+- Backend sync for XP, currency, and progression data across devices
+- Multi-user system with coaches and admins
+
+**Implementation**:
+- Apple Sign-In (primary for iOS, App Store requirement)
+- Google Sign-In (Android & cross-platform support)
+- Email/password as fallback option
+- Privacy policy and terms of service links on sign-up screens
+
+**Account Management**:
+- Settings screen includes:
+  - Avatar customization (tennis-themed avatars)
+  - Display name editing
+  - Log out with confirmation alert
+  - Delete account (nested: Settings > Account > Delete with double confirmation)
+
+---
+
+## Navigation Architecture
+
+**Primary Navigation**: Hamburger Drawer + Fixed Header/Footer
+- App has 10+ feature areas requiring drawer navigation
+- Persistent header displays critical player stats (XP, currency, level)
+- Persistent footer provides quick chat access
+- Core action (earning XP/lessons) accessed via drawer menu
+
+**Drawer Menu Structure**:
+1. Lessons
+2. Quest
+3. Match
+4. Ranking
+5. Friends
+6. Game Lobby
+7. Events Calendar
+8. Payments
+9. Settings
+10. Logout (with confirmation)
+
+**Information Hierarchy**:
+- Home screen = Glow Engine Score Dashboard (5 skill categories)
+- Header = Always visible player stats overlay
+- Footer = Collapsible chat interface
+- All screens maintain consistent header/footer presence
+
+---
+
+## Screen Specifications
+
+### 1. Home Screen (Glow Engine Dashboard)
+**Purpose**: Display player's skill progression across 5 categories
+
+**Layout**:
+- **Header**: Custom persistent header (NOT navigation default)
+  - Left: Hamburger menu icon
+  - Center: Player avatar (circular, 40px) + name + level badge
+  - Right: Currency indicators (diamond rackets, bronze coins)
+  - Below: XP progress bar with glow effect (full-width, 6px height)
+  - Total Glow Engine Score displayed under XP bar
+  - Background: Semi-transparent #1A1A1A with blur
+  - Height: 140px including XP bar
+
+- **Main Content**: Scrollable card grid
+  - 5 skill category cards in 2-column grid (last row centered)
+  - Each card shows: icon, category name, current score, progress ring
+  - Cards: #2D2D2D background, 12px rounded corners, subtle glow on active
+  - Safe area top inset: headerHeight + 16px
+  - Safe area bottom inset: footerHeight + 16px
+
+- **Footer**: Custom collapsible chat (NOT tab bar)
+  - Collapsed: Shows latest message preview (60px height)
+  - Expanded: Full chat interface (60% screen height)
+  - Tap to expand/collapse with smooth animation
+  - Background: #2D2D2D with top border glow effect
+
+**Components**: Card grid, progress rings, custom header, collapsible panel
+
+---
+
+### 2. Chat Interface (Footer Expansion)
+**Purpose**: Quick access to 5 channel types with notifications
+
+**Layout**:
+- Channel tabs at top: Academy, Squad, Friends, Coaches, Admin
+- Message list with WhatsApp-style bubbles
+- Emoticon reaction buttons on each message (tap to add)
+- System notifications for level-ups (highlighted in #39FF14)
+- Input field at bottom with send button
+
+**Visual**:
+- User messages: Right-aligned, #2ECC40 background
+- Other messages: Left-aligned, #2D2D2D background
+- Reactions: Small circular badges with emoji, overlaid on message corner
+- Timestamp: Gray text, 10px font size
+
+---
+
+### 3. Profile/Settings Screen
+**Purpose**: Manage account, preferences, and avatar
+
+**Layout**:
+- **Header**: Default navigation with "Profile" title
+  - Right button: "Save" (when editing)
+  - Transparent background
+
+- **Main Content**: Scrollable form
+  - Avatar selection (grid of tennis-themed preset avatars)
+  - Display name input field
+  - Theme toggle (dark mode default)
+  - Notification preferences
+  - Account management section (bottom)
+  - Safe area top inset: headerHeight + 24px
+  - Safe area bottom inset: insets.bottom + 24px
+
+- **Buttons**: Submit/Cancel at bottom of form (not in header)
+
+**Assets Needed**: 8-10 tennis-themed avatar presets (racket, ball, trophy variations)
+
+---
+
+### 4. Drawer Menu Screens
+**Common Layout**:
+- Default navigation header with screen title
+- Back button (auto-handled by drawer)
+- Scrollable content area
+- Consistent safe area insets
+
+**Specific Screens**:
+- **Lessons**: List of available lessons with booking status
+- **Quest**: Daily/weekly challenge cards with progress
+- **Match**: Match history + schedule new match button
+- **Ranking**: Leaderboard list with filter chips
+- **Friends**: Friend list with add friend floating button
+- **Game Lobby**: Available multiplayer sessions
+- **Events Calendar**: Calendar view with event markers
+- **Payments**: Transaction history + add currency button
+
+---
+
+## Design System
+
+### Color Palette
+**Primary Colors**:
+- Tennis Green: `#2ECC40` (primary actions, highlights)
+- Gold Trophy: `#FFD700` (achievements, rewards)
+- Energetic Orange: `#FF851B` (accents, CTAs)
+
+**Background & UI**:
+- Dark Background: `#1A1A1A` (screen backgrounds)
+- Card Grey: `#2D2D2D` (elevated surfaces)
+- XP Cyan: `#00D4FF` (progress indicators with glow)
+
+**Currency**:
+- Diamond Silver: `#E0E0E0` (hard currency icon)
+- Bronze Coin: `#CD7F32` (soft currency icon)
+
+**Feedback**:
+- Success Neon: `#39FF14` (level-ups, achievements)
+- Error Red: `#FF4444` (form errors, warnings)
+- Disabled Gray: `#666666` (inactive elements)
+
+### Typography
+**Font Families**:
+- Headings: Rajdhani Bold (gaming feel)
+- Body: Poppins Regular/Medium
+- Stats/Numbers: Montserrat SemiBold (clarity)
+
+**Scale**:
+- H1 (Screen Titles): 28px, Rajdhani Bold
+- H2 (Card Titles): 20px, Poppins SemiBold
+- Body: 16px, Poppins Regular
+- Caption (Stats): 14px, Montserrat Medium
+- Small (Timestamps): 12px, Poppins Regular
+
+**Line Heights**: 1.4x for readability in dark theme
+
+### Spacing System
+- xs: 4px
+- sm: 8px
+- md: 12px
+- lg: 16px
+- xl: 24px
+- xxl: 32px
+
+### Component Specifications
+
+**Skill Category Cards**:
+- Size: Full-width minus 32px horizontal padding (2-column grid with 12px gap)
+- Height: 160px minimum
+- Background: #2D2D2D
+- Border radius: 12px
+- Active glow: 0 0 16px rgba(46, 204, 64, 0.3)
+- Content: Icon (top), name (center), score + ring (bottom)
+
+**XP Progress Bar**:
+- Height: 6px
+- Background: #2D2D2D
+- Fill: Linear gradient (#00D4FF to #2ECC40)
+- Glow effect: 0 0 8px rgba(0, 212, 255, 0.6)
+- Animated on XP gain
+
+**Buttons**:
+- Primary: #2ECC40 background, white text, 48px height, 12px radius
+- Secondary: Outline #2ECC40, transparent bg, 48px height
+- Icon buttons: 44x44px tap target minimum
+- Floating action button: 56x56px, #FF851B, drop shadow (offset 0,2 opacity 0.1 radius 2)
+
+**Chat Bubbles**:
+- Max width: 75% screen width
+- Padding: 12px horizontal, 8px vertical
+- Border radius: 16px (rounded corners on appropriate sides)
+- Tail: None (clean WhatsApp style)
+
+**Currency Indicators**:
+- Icon size: 20x20px
+- Value: Montserrat SemiBold 14px
+- Container: Horizontal layout with 6px gap
+- Background: Semi-transparent #2D2D2D with 8px padding
+
+### Visual Effects
+**Glow Effects** (sparingly used):
+- XP bar: Cyan glow during progress animation
+- Level-up: Full-screen green (#39FF14) flash effect
+- Active cards: Subtle green glow on tap
+
+**Shadows**:
+- Cards: None by default (rely on background contrast)
+- Floating button ONLY: shadowOffset {width: 0, height: 2}, shadowOpacity: 0.10, shadowRadius: 2
+- Header: Subtle bottom border (#2ECC40, 1px, 0.3 opacity)
+
+**Animations**:
+- Level-up: Scale + fade + confetti particles
+- XP gain: Smooth fill animation (300ms ease-out)
+- Chat expand: Spring animation (tension 100, friction 10)
+- Card interactions: Scale to 0.98 on press
+
+### Icons
+**System Icons**: Use Feather icons from @expo/vector-icons
+- Navigation: menu, settings, x (close)
+- Actions: plus, edit-2, trash-2, send
+- Social: message-circle, users, award
+- Currency: No emojis - use custom tennis racket and ball SVG icons
+
+**Custom Assets Required**:
+1. Tennis racket icon (diamond currency)
+2. Tennis ball icon (bronze currency)
+3. 8-10 tennis-themed avatars (player presets)
+4. 5 skill category icons (Tactical, Mental, Technical, Physical, Social)
+5. Trophy/medal icons for achievements
+
+### Accessibility
+- All touchable elements: Minimum 44x44px tap target
+- Color contrast: WCAG AA compliant (light text on dark backgrounds)
+- Press feedback: Opacity 0.7 or scale 0.98 on all touchables
+- Screen reader labels: Meaningful descriptions for all icons
+- Chat messages: Timestamp + sender info for context
+- XP progress: Announce percentage on update
+- Haptic feedback: On level-up and achievement unlock
+
+### Responsive Behavior
+- All layouts use flexbox for device size adaptation
+- Minimum safe area insets respected on all screens
+- Chat footer: Max 60% screen height when expanded
+- Card grid: Switches to single column on very small screens (<350px width)
+- Typography scales down 10% on small screens
