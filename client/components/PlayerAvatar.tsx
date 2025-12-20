@@ -1,0 +1,97 @@
+import React from "react";
+import { View, StyleSheet, Pressable } from "react-native";
+import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+
+import { ThemedText } from "@/components/ThemedText";
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+
+interface PlayerAvatarProps {
+  avatar: string;
+  name?: string;
+  level?: number;
+  size?: number;
+  showLevel?: boolean;
+  onPress?: () => void;
+}
+
+const AVATAR_ICONS: Record<string, keyof typeof Feather.glyphMap> = {
+  player: "user",
+  racket: "maximize-2",
+  ball: "circle",
+  trophy: "award",
+  star: "star",
+  crown: "award",
+  flame: "zap",
+  lightning: "zap",
+  coach: "briefcase",
+  system: "bell",
+};
+
+export function PlayerAvatar({
+  avatar,
+  name,
+  level,
+  size = 40,
+  showLevel = false,
+  onPress,
+}: PlayerAvatarProps) {
+  const iconName = AVATAR_ICONS[avatar] || "user";
+
+  const content = (
+    <View style={[styles.container, { width: size, height: size }]}>
+      <LinearGradient
+        colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}
+      >
+        <Feather name={iconName} size={size * 0.5} color={Colors.dark.backgroundRoot} />
+      </LinearGradient>
+      {showLevel && level !== undefined ? (
+        <View style={styles.levelBadge}>
+          <ThemedText style={styles.levelText}>{level}</ThemedText>
+        </View>
+      ) : null}
+    </View>
+  );
+
+  if (onPress) {
+    return (
+      <Pressable onPress={onPress} style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}>
+        {content}
+      </Pressable>
+    );
+  }
+
+  return content;
+}
+
+const styles = StyleSheet.create({
+  container: {
+    position: "relative",
+  },
+  avatar: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  levelBadge: {
+    position: "absolute",
+    bottom: -4,
+    right: -4,
+    backgroundColor: Colors.dark.gold,
+    borderRadius: BorderRadius.full,
+    minWidth: 20,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: Colors.dark.backgroundRoot,
+  },
+  levelText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
+  },
+});

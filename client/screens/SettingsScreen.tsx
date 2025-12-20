@@ -1,0 +1,243 @@
+import React, { useState, useEffect } from "react";
+import { View, StyleSheet, Pressable, TextInput, Alert } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useHeaderHeight } from "@react-navigation/elements";
+import { Feather } from "@expo/vector-icons";
+
+import { ThemedText } from "@/components/ThemedText";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/Button";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { usePlayer } from "@/context/PlayerContext";
+import { AVATAR_PRESETS } from "@/constants/playerData";
+
+export default function SettingsScreen() {
+  const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
+  const { player, updateProfile, resetData } = usePlayer();
+  const [name, setName] = useState(player.name);
+  const [selectedAvatar, setSelectedAvatar] = useState(player.avatar);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    setName(player.name);
+    setSelectedAvatar(player.avatar);
+  }, [player.name, player.avatar]);
+
+  const handleAvatarSelect = (avatar: string) => {
+    setSelectedAvatar(avatar);
+    setHasChanges(true);
+  };
+
+  const handleNameChange = (text: string) => {
+    setName(text);
+    setHasChanges(true);
+  };
+
+  const handleSave = async () => {
+    await updateProfile(name, selectedAvatar);
+    setHasChanges(false);
+    Alert.alert("Success", "Profile updated successfully!");
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "Are you sure you want to delete your account? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Confirm Deletion",
+              "All your progress will be lost forever. This is your final warning.",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Delete Forever",
+                  style: "destructive",
+                  onPress: async () => {
+                    await resetData();
+                    Alert.alert("Account Deleted", "Your account has been deleted.");
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
+  return (
+    <KeyboardAwareScrollViewCompat
+      style={styles.container}
+      contentContainerStyle={{
+        paddingTop: headerHeight + Spacing.lg,
+        paddingBottom: insets.bottom + Spacing.xl,
+        paddingHorizontal: Spacing.lg,
+      }}
+      scrollIndicatorInsets={{ bottom: insets.bottom }}
+    >
+      <Card style={styles.section}>
+        <ThemedText style={styles.sectionTitle}>Avatar</ThemedText>
+        <View style={styles.avatarGrid}>
+          {AVATAR_PRESETS.map((avatar) => (
+            <Pressable
+              key={avatar}
+              onPress={() => handleAvatarSelect(avatar)}
+              style={[
+                styles.avatarOption,
+                selectedAvatar === avatar && styles.avatarSelected,
+              ]}
+            >
+              <PlayerAvatar avatar={avatar} size={50} />
+            </Pressable>
+          ))}
+        </View>
+      </Card>
+
+      <Card style={styles.section}>
+        <ThemedText style={styles.sectionTitle}>Display Name</ThemedText>
+        <TextInput
+          value={name}
+          onChangeText={handleNameChange}
+          style={styles.input}
+          placeholderTextColor={Colors.dark.disabled}
+          placeholder="Enter your name"
+        />
+      </Card>
+
+      <Card style={styles.section}>
+        <ThemedText style={styles.sectionTitle}>Preferences</ThemedText>
+        <Pressable style={styles.settingRow}>
+          <View style={styles.settingInfo}>
+            <Feather name="bell" size={20} color={Colors.dark.text} />
+            <ThemedText style={styles.settingText}>Notifications</ThemedText>
+          </View>
+          <Feather name="toggle-right" size={24} color={Colors.dark.primary} />
+        </Pressable>
+        <Pressable style={styles.settingRow}>
+          <View style={styles.settingInfo}>
+            <Feather name="volume-2" size={20} color={Colors.dark.text} />
+            <ThemedText style={styles.settingText}>Sound Effects</ThemedText>
+          </View>
+          <Feather name="toggle-right" size={24} color={Colors.dark.primary} />
+        </Pressable>
+        <Pressable style={styles.settingRow}>
+          <View style={styles.settingInfo}>
+            <Feather name="smartphone" size={20} color={Colors.dark.text} />
+            <ThemedText style={styles.settingText}>Haptic Feedback</ThemedText>
+          </View>
+          <Feather name="toggle-right" size={24} color={Colors.dark.primary} />
+        </Pressable>
+      </Card>
+
+      {hasChanges ? (
+        <Button onPress={handleSave} style={styles.saveButton}>
+          Save Changes
+        </Button>
+      ) : null}
+
+      <Card style={[styles.section, styles.dangerSection]}>
+        <ThemedText style={styles.sectionTitle}>Account</ThemedText>
+        <Pressable
+          onPress={handleDeleteAccount}
+          style={styles.dangerButton}
+        >
+          <Feather name="trash-2" size={20} color={Colors.dark.error} />
+          <ThemedText style={styles.dangerText}>Delete Account</ThemedText>
+        </Pressable>
+      </Card>
+
+      <View style={styles.footer}>
+        <ThemedText style={styles.version}>Glow Up Tennis v1.0.0</ThemedText>
+      </View>
+    </KeyboardAwareScrollViewCompat>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  section: {
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    marginBottom: Spacing.md,
+  },
+  avatarGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.md,
+  },
+  avatarOption: {
+    padding: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  avatarSelected: {
+    borderColor: Colors.dark.primary,
+  },
+  input: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    color: Colors.dark.text,
+    fontSize: 16,
+  },
+  settingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundSecondary,
+  },
+  settingInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  settingText: {
+    fontSize: 16,
+    color: Colors.dark.text,
+  },
+  saveButton: {
+    marginBottom: Spacing.lg,
+  },
+  dangerSection: {
+    marginTop: Spacing.xl,
+  },
+  dangerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.md,
+  },
+  dangerText: {
+    fontSize: 16,
+    color: Colors.dark.error,
+    fontWeight: "600",
+  },
+  footer: {
+    alignItems: "center",
+    marginTop: Spacing.xl,
+  },
+  version: {
+    fontSize: 12,
+    color: Colors.dark.disabled,
+  },
+});
