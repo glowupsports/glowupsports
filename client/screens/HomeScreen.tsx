@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, FlatList, Dimensions, Pressable, RefreshControl } from "react-native";
+import { View, StyleSheet, ScrollView, Dimensions, Pressable, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -20,7 +20,7 @@ const CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - CARD_GAP) / 2;
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { player, earnXP, updateSkill, refreshPlayer, isLoading } = usePlayer();
+  const { player, earnXP, updateSkill, refreshPlayer } = usePlayer();
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -50,62 +50,25 @@ export default function HomeScreen() {
     }
   };
 
-  const renderSkillCard = ({ item, index }: { item: SkillCategory; index: number }) => {
-    const isLastItem = index === player.skills.length - 1;
-    const isOddCount = player.skills.length % 2 === 1;
-    const shouldCenter = isLastItem && isOddCount;
+  const skills = player.skills;
+  const skillRows: SkillCategory[][] = [];
+  for (let i = 0; i < skills.length; i += 2) {
+    skillRows.push(skills.slice(i, i + 2));
+  }
 
-    return (
-      <View
-        style={[
-          styles.cardWrapper,
-          { width: CARD_WIDTH },
-          shouldCenter && styles.centeredCard,
-        ]}
-      >
-        <SkillCategoryCard skill={item} onPress={() => handleSkillPress(item)} />
-      </View>
-    );
-  };
-
-  const ListHeader = () => (
-    <View style={styles.listHeader}>
-      <ThemedText style={styles.sectionTitle}>Glow Engine</ThemedText>
-      <ThemedText style={styles.sectionSubtitle}>
-        Tap a skill to practice and earn XP
-      </ThemedText>
-    </View>
-  );
-
-  const ListFooter = () => (
-    <View style={styles.listFooter}>
-      <Pressable
-        onPress={handleQuickXP}
-        style={({ pressed }) => [styles.quickXPButton, { opacity: pressed ? 0.8 : 1 }]}
-      >
-        <Feather name="zap" size={20} color={Colors.dark.backgroundRoot} />
-        <ThemedText style={styles.quickXPText}>Quick Practice +100 XP</ThemedText>
-      </Pressable>
-    </View>
-  );
+  const fullWidth = SCREEN_WIDTH - HORIZONTAL_PADDING * 2;
 
   return (
     <View style={styles.container}>
       <CustomHeader />
 
-      <FlatList
-        data={player.skills}
-        keyExtractor={(item) => item.id}
-        renderItem={renderSkillCard}
-        numColumns={2}
-        columnWrapperStyle={styles.row}
+      <ScrollView
         contentContainerStyle={[
-          styles.listContent,
+          styles.scrollContent,
           { paddingTop: headerHeight + Spacing.lg, paddingBottom: footerHeight + Spacing.xl },
         ]}
         scrollIndicatorInsets={{ bottom: insets.bottom + footerHeight }}
-        ListHeaderComponent={ListHeader}
-        ListFooterComponent={ListFooter}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -114,8 +77,51 @@ export default function HomeScreen() {
             progressViewOffset={headerHeight}
           />
         }
-        showsVerticalScrollIndicator={false}
-      />
+      >
+        <View style={styles.listHeader}>
+          <ThemedText style={styles.sectionTitle}>Glow Engine</ThemedText>
+          <ThemedText style={styles.sectionSubtitle}>
+            Tap a skill to practice and earn XP
+          </ThemedText>
+        </View>
+
+        <View style={styles.skillsGrid}>
+          {skillRows.map((row, rowIndex) => {
+            const isSingleItem = row.length === 1;
+            return (
+              <View 
+                key={rowIndex} 
+                style={[
+                  styles.skillRow,
+                  isSingleItem && styles.singleItemRow,
+                ]}
+              >
+                {row.map((skill) => (
+                  <View 
+                    key={skill.id} 
+                    style={[
+                      styles.cardWrapper,
+                      isSingleItem && { width: fullWidth },
+                    ]}
+                  >
+                    <SkillCategoryCard skill={skill} onPress={() => handleSkillPress(skill)} />
+                  </View>
+                ))}
+              </View>
+            );
+          })}
+        </View>
+
+        <View style={styles.listFooter}>
+          <Pressable
+            onPress={handleQuickXP}
+            style={({ pressed }) => [styles.quickXPButton, { opacity: pressed ? 0.8 : 1 }]}
+          >
+            <Feather name="zap" size={20} color={Colors.dark.backgroundRoot} />
+            <ThemedText style={styles.quickXPText}>Quick Practice +100 XP</ThemedText>
+          </Pressable>
+        </View>
+      </ScrollView>
 
       <ChatFooter />
 
@@ -133,7 +139,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
   },
-  listContent: {
+  scrollContent: {
     paddingHorizontal: HORIZONTAL_PADDING,
   },
   listHeader: {
@@ -150,15 +156,18 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     opacity: 0.6,
   },
-  row: {
+  skillsGrid: {
     gap: CARD_GAP,
-    marginBottom: CARD_GAP,
+  },
+  skillRow: {
+    flexDirection: "row",
+    gap: CARD_GAP,
+  },
+  singleItemRow: {
+    justifyContent: "center",
   },
   cardWrapper: {
-    flex: 1,
-  },
-  centeredCard: {
-    marginHorizontal: CARD_WIDTH / 2 + CARD_GAP / 2,
+    width: CARD_WIDTH,
   },
   listFooter: {
     marginTop: Spacing.lg,
