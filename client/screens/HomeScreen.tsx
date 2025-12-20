@@ -1,26 +1,45 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, ScrollView, Dimensions, Pressable, RefreshControl } from "react-native";
+import { View, StyleSheet, ScrollView, Pressable, RefreshControl, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { useNavigation } from "@react-navigation/native";
+import { DrawerNavigationProp } from "@react-navigation/drawer";
 
 import { ThemedText } from "@/components/ThemedText";
-import { SkillCategoryCard } from "@/components/SkillCategoryCard";
 import { CustomHeader } from "@/components/CustomHeader";
 import { ChatFooter } from "@/components/ChatFooter";
 import { LevelUpModal } from "@/components/LevelUpModal";
+import { Card } from "@/components/Card";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { usePlayer } from "@/context/PlayerContext";
-import { SkillCategory } from "@/constants/playerData";
+import { DrawerParamList } from "@/navigation/DrawerNavigator";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const CARD_GAP = Spacing.md;
-const HORIZONTAL_PADDING = Spacing.lg;
-const CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - CARD_GAP) / 2;
+
+type NavProp = DrawerNavigationProp<DrawerParamList>;
+
+interface QuickAction {
+  id: string;
+  title: string;
+  subtitle: string;
+  icon: string;
+  color: string;
+  xpReward: number;
+  screen?: keyof DrawerParamList;
+}
+
+const QUICK_ACTIONS: QuickAction[] = [
+  { id: "lessons", title: "Lessons", subtitle: "Learn new skills", icon: "book-open", color: Colors.dark.xpCyan, xpReward: 100, screen: "Lessons" },
+  { id: "quest", title: "Quests", subtitle: "Complete challenges", icon: "compass", color: Colors.dark.orange, xpReward: 150, screen: "Quest" },
+  { id: "match", title: "Play Match", subtitle: "Test your skills", icon: "play-circle", color: Colors.dark.successNeon, xpReward: 200, screen: "Match" },
+  { id: "ranking", title: "Ranking", subtitle: "See your position", icon: "bar-chart-2", color: Colors.dark.gold, xpReward: 0, screen: "Ranking" },
+];
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { player, earnXP, updateSkill, refreshPlayer } = usePlayer();
+  const navigation = useNavigation<NavProp>();
+  const { player, earnXP, refreshPlayer } = usePlayer();
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -33,12 +52,10 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [refreshPlayer]);
 
-  const handleSkillPress = async (skill: SkillCategory) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await updateSkill(skill.id, 5);
-    const leveledUp = await earnXP(50);
-    if (leveledUp) {
-      setShowLevelUp(true);
+  const handleQuickAction = async (action: QuickAction) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (action.screen) {
+      navigation.navigate(action.screen);
     }
   };
 
@@ -49,14 +66,6 @@ export default function HomeScreen() {
       setShowLevelUp(true);
     }
   };
-
-  const skills = player.skills;
-  const skillRows: SkillCategory[][] = [];
-  for (let i = 0; i < skills.length; i += 2) {
-    skillRows.push(skills.slice(i, i + 2));
-  }
-
-  const fullWidth = SCREEN_WIDTH - HORIZONTAL_PADDING * 2;
 
   return (
     <View style={styles.container}>
@@ -78,41 +87,47 @@ export default function HomeScreen() {
           />
         }
       >
-        <View style={styles.listHeader}>
-          <ThemedText style={styles.sectionTitle}>Glow Engine</ThemedText>
-          <ThemedText style={styles.sectionSubtitle}>
-            Tap a skill to practice and earn XP
-          </ThemedText>
+        <View style={styles.welcomeSection}>
+          <ThemedText style={styles.welcomeText}>Welcome back,</ThemedText>
+          <ThemedText style={styles.nameText}>{player.name.split(" ")[0]}</ThemedText>
         </View>
 
-        <View style={styles.skillsGrid}>
-          {skillRows.map((row, rowIndex) => {
-            const isSingleItem = row.length === 1;
-            return (
-              <View 
-                key={rowIndex} 
-                style={[
-                  styles.skillRow,
-                  isSingleItem && styles.singleItemRow,
-                ]}
-              >
-                {row.map((skill) => (
-                  <View 
-                    key={skill.id} 
-                    style={[
-                      styles.cardWrapper,
-                      isSingleItem && { width: fullWidth },
-                    ]}
-                  >
-                    <SkillCategoryCard skill={skill} onPress={() => handleSkillPress(skill)} />
-                  </View>
-                ))}
+        <View style={styles.tipCard}>
+          <View style={styles.tipIcon}>
+            <Feather name="sun" size={20} color={Colors.dark.successNeon} />
+          </View>
+          <View style={styles.tipContent}>
+            <ThemedText style={styles.tipTitle}>Tap your Glow Score above</ThemedText>
+            <ThemedText style={styles.tipText}>to see all your skill categories and practice</ThemedText>
+          </View>
+          <Feather name="chevron-up" size={20} color={Colors.dark.text} style={styles.tipArrow} />
+        </View>
+
+        <ThemedText style={styles.sectionTitle}>Quick Actions</ThemedText>
+
+        <View style={styles.actionsGrid}>
+          {QUICK_ACTIONS.map((action) => (
+            <Card
+              key={action.id}
+              style={styles.actionCard}
+              onPress={() => handleQuickAction(action)}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: `${action.color}20` }]}>
+                <Feather name={action.icon as keyof typeof Feather.glyphMap} size={24} color={action.color} />
               </View>
-            );
-          })}
+              <ThemedText style={styles.actionTitle}>{action.title}</ThemedText>
+              <ThemedText style={styles.actionSubtitle}>{action.subtitle}</ThemedText>
+              {action.xpReward > 0 ? (
+                <View style={styles.xpBadge}>
+                  <Feather name="zap" size={12} color={Colors.dark.xpCyan} />
+                  <ThemedText style={styles.xpBadgeText}>+{action.xpReward} XP</ThemedText>
+                </View>
+              ) : null}
+            </Card>
+          ))}
         </View>
 
-        <View style={styles.listFooter}>
+        <View style={styles.quickXPSection}>
           <Pressable
             onPress={handleQuickXP}
             style={({ pressed }) => [styles.quickXPButton, { opacity: pressed ? 0.8 : 1 }]}
@@ -121,6 +136,26 @@ export default function HomeScreen() {
             <ThemedText style={styles.quickXPText}>Quick Practice +100 XP</ThemedText>
           </Pressable>
         </View>
+
+        <Card style={styles.statsCard}>
+          <ThemedText style={styles.statsTitle}>Today's Progress</ThemedText>
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <ThemedText style={styles.statValue}>{player.currentXP.toLocaleString()}</ThemedText>
+              <ThemedText style={styles.statLabel}>XP Earned</ThemedText>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <ThemedText style={styles.statValue}>{player.level}</ThemedText>
+              <ThemedText style={styles.statLabel}>Level</ThemedText>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <ThemedText style={[styles.statValue, { color: Colors.dark.successNeon }]}>{player.totalGlowScore}</ThemedText>
+              <ThemedText style={styles.statLabel}>Glow Score</ThemedText>
+            </View>
+          </View>
+        </Card>
       </ScrollView>
 
       <ChatFooter />
@@ -140,37 +175,111 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundRoot,
   },
   scrollContent: {
-    paddingHorizontal: HORIZONTAL_PADDING,
+    paddingHorizontal: Spacing.lg,
   },
-  listHeader: {
+  welcomeSection: {
     marginBottom: Spacing.lg,
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: Colors.dark.text,
-    marginBottom: Spacing.xs,
-  },
-  sectionSubtitle: {
-    fontSize: 14,
+  welcomeText: {
+    fontSize: 16,
     color: Colors.dark.text,
     opacity: 0.6,
   },
-  skillsGrid: {
-    gap: CARD_GAP,
+  nameText: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: Colors.dark.text,
   },
-  skillRow: {
+  tipCard: {
     flexDirection: "row",
-    gap: CARD_GAP,
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.md,
+    marginBottom: Spacing.xl,
+    borderWidth: 1,
+    borderColor: Colors.dark.successNeon + "40",
   },
-  singleItemRow: {
+  tipIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.successNeon + "20",
+    alignItems: "center",
     justifyContent: "center",
   },
-  cardWrapper: {
-    width: CARD_WIDTH,
+  tipContent: {
+    flex: 1,
+    marginLeft: Spacing.md,
   },
-  listFooter: {
-    marginTop: Spacing.lg,
+  tipTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  tipText: {
+    fontSize: 12,
+    color: Colors.dark.text,
+    opacity: 0.6,
+    marginTop: 2,
+  },
+  tipArrow: {
+    opacity: 0.5,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: Spacing.md,
+  },
+  actionsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.md,
+  },
+  actionCard: {
+    width: (SCREEN_WIDTH - Spacing.lg * 2 - Spacing.md) / 2,
+    padding: Spacing.lg,
+    alignItems: "center",
+  },
+  actionIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: BorderRadius.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.sm,
+  },
+  actionTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    textAlign: "center",
+  },
+  actionSubtitle: {
+    fontSize: 12,
+    color: Colors.dark.text,
+    opacity: 0.6,
+    textAlign: "center",
+    marginTop: 2,
+  },
+  xpBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: Spacing.sm,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  xpBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan,
+  },
+  quickXPSection: {
+    marginTop: Spacing.xl,
     alignItems: "center",
   },
   quickXPButton: {
@@ -186,5 +295,39 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: Colors.dark.backgroundRoot,
+  },
+  statsCard: {
+    marginTop: Spacing.xl,
+    padding: Spacing.lg,
+  },
+  statsTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    marginBottom: Spacing.md,
+  },
+  statsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  statItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: Colors.dark.text,
+    opacity: 0.6,
+    marginTop: 4,
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: Colors.dark.backgroundSecondary,
   },
 });

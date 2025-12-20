@@ -14,6 +14,7 @@ export interface Player {
 export interface SkillCategory {
   id: string;
   name: string;
+  description: string;
   icon: string;
   score: number;
   maxScore: number;
@@ -54,6 +55,7 @@ export const INITIAL_PLAYER: Player = {
     {
       id: "tactical",
       name: "Tactical",
+      description: "Court strategy and shot selection",
       icon: "target",
       score: 185,
       maxScore: 250,
@@ -62,6 +64,7 @@ export const INITIAL_PLAYER: Player = {
     {
       id: "mental",
       name: "Mental",
+      description: "Focus, confidence and pressure handling",
       icon: "zap",
       score: 162,
       maxScore: 250,
@@ -70,6 +73,7 @@ export const INITIAL_PLAYER: Player = {
     {
       id: "technical",
       name: "Technical",
+      description: "Stroke mechanics and ball control",
       icon: "tool",
       score: 198,
       maxScore: 250,
@@ -78,6 +82,7 @@ export const INITIAL_PLAYER: Player = {
     {
       id: "physical",
       name: "Physical",
+      description: "Speed, stamina and strength",
       icon: "activity",
       score: 175,
       maxScore: 250,
@@ -86,6 +91,7 @@ export const INITIAL_PLAYER: Player = {
     {
       id: "social",
       name: "Social",
+      description: "Teamwork and sportsmanship",
       icon: "users",
       score: 127,
       maxScore: 250,

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, StyleSheet, Pressable, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
@@ -10,6 +10,7 @@ import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
 import { XPProgressBar } from "@/components/XPProgressBar";
 import { GlowScoreDisplay } from "@/components/GlowScoreDisplay";
+import { GlowScoreModal } from "@/components/GlowScoreModal";
 import { Colors, Spacing } from "@/constants/theme";
 import { usePlayer } from "@/context/PlayerContext";
 
@@ -17,6 +18,7 @@ export function CustomHeader() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { player } = usePlayer();
+  const [showGlowModal, setShowGlowModal] = useState(false);
 
   const openDrawer = () => {
     navigation.dispatch(DrawerActions.openDrawer());
@@ -56,8 +58,16 @@ export function CustomHeader() {
       </View>
 
       <View style={styles.glowSection}>
-        <GlowScoreDisplay score={player.totalGlowScore} />
+        <GlowScoreDisplay 
+          score={player.totalGlowScore} 
+          onPress={() => setShowGlowModal(true)}
+        />
       </View>
+
+      <GlowScoreModal
+        visible={showGlowModal}
+        onClose={() => setShowGlowModal(false)}
+      />
     </>
   );
 

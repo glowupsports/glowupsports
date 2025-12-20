@@ -1,20 +1,22 @@
 import React from "react";
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 
 interface GlowScoreDisplayProps {
   score: number;
   size?: "small" | "large";
+  onPress?: () => void;
 }
 
-export function GlowScoreDisplay({ score, size = "small" }: GlowScoreDisplayProps) {
+export function GlowScoreDisplay({ score, size = "small", onPress }: GlowScoreDisplayProps) {
   const isLarge = size === "large";
+  const isTappable = !!onPress;
 
-  return (
-    <View style={styles.container}>
+  const content = (
+    <View style={[styles.container, isTappable && styles.tappable]}>
       <Feather
         name="sun"
         size={isLarge ? 24 : 16}
@@ -22,8 +24,21 @@ export function GlowScoreDisplay({ score, size = "small" }: GlowScoreDisplayProp
       />
       <ThemedText style={[styles.label, isLarge && styles.labelLarge]}>Glow Score</ThemedText>
       <ThemedText style={[styles.score, isLarge && styles.scoreLarge]}>{score}</ThemedText>
+      {isTappable ? (
+        <Feather name="chevron-right" size={16} color={Colors.dark.text} style={styles.chevron} />
+      ) : null}
     </View>
   );
+
+  if (onPress) {
+    return (
+      <Pressable onPress={onPress} style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}>
+        {content}
+      </Pressable>
+    );
+  }
+
+  return content;
 }
 
 const styles = StyleSheet.create({
@@ -31,6 +46,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
+  },
+  tappable: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
   },
   label: {
     fontSize: 12,
@@ -47,5 +68,9 @@ const styles = StyleSheet.create({
   },
   scoreLarge: {
     fontSize: 20,
+  },
+  chevron: {
+    opacity: 0.5,
+    marginLeft: 2,
   },
 });
