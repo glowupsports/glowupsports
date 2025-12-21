@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, StyleSheet, FlatList, Pressable, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -68,7 +68,7 @@ export default function QuestScreen() {
       >
         <View style={styles.questHeader}>
           <View style={[styles.iconContainer, { backgroundColor: isComplete ? Colors.dark.successNeon : Colors.dark.primary }]}>
-            <Feather name={item.icon as keyof typeof Feather.glyphMap} size={20} color={Colors.dark.backgroundRoot} />
+            <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={20} color={Colors.dark.backgroundRoot} />
           </View>
           <View style={styles.questInfo}>
             <ThemedText style={styles.questTitle}>{item.title}</ThemedText>
@@ -88,11 +88,11 @@ export default function QuestScreen() {
         </View>
         <View style={styles.rewards}>
           <View style={styles.rewardItem}>
-            <Feather name="zap" size={14} color={Colors.dark.xpCyan} />
+            <Ionicons name="flash-outline" size={14} color={Colors.dark.xpCyan} />
             <ThemedText style={styles.rewardText}>+{item.reward.xp} XP</ThemedText>
           </View>
           <View style={styles.rewardItem}>
-            <Feather name="circle" size={14} color={Colors.dark.bronzeCoin} />
+            <Ionicons name="ellipse-outline" size={14} color={Colors.dark.bronzeCoin} />
             <ThemedText style={styles.rewardText}>+{item.reward.coins}</ThemedText>
           </View>
         </View>

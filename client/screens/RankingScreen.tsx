@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, StyleSheet, FlatList, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
@@ -64,7 +64,7 @@ export default function RankingScreen() {
     >
       <View style={styles.rankContainer}>
         {item.rank <= 3 ? (
-          <Feather name="award" size={24} color={getRankColor(item.rank)} />
+          <Ionicons name="ribbon-outline" size={24} color={getRankColor(item.rank)} />
         ) : (
           <ThemedText style={[styles.rankText, { color: getRankColor(item.rank) }]}>
             #{item.rank}
@@ -79,7 +79,7 @@ export default function RankingScreen() {
         <ThemedText style={styles.playerLevel}>Level {item.level}</ThemedText>
       </View>
       <View style={styles.scoreContainer}>
-        <Feather name="sun" size={16} color={Colors.dark.successNeon} />
+        <Ionicons name="sunny-outline" size={16} color={Colors.dark.successNeon} />
         <ThemedText style={styles.scoreValue}>{item.glowScore}</ThemedText>
       </View>
     </Pressable>

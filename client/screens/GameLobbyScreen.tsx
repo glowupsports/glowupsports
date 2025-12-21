@@ -2,7 +2,7 @@ import React from "react";
 import { View, StyleSheet, FlatList, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
@@ -54,7 +54,7 @@ export default function GameLobbyScreen() {
         </View>
         <View style={styles.sessionFooter}>
           <View style={styles.playerCount}>
-            <Feather name="users" size={16} color={Colors.dark.text} />
+            <Ionicons name="people-outline" size={16} color={Colors.dark.text} />
             <ThemedText style={styles.countText}>
               {item.players}/{item.maxPlayers} Players
             </ThemedText>
@@ -87,19 +87,19 @@ export default function GameLobbyScreen() {
           <View style={styles.header}>
             <ThemedText style={styles.headerTitle}>Active Games</ThemedText>
             <View style={styles.refreshButton}>
-              <Feather name="refresh-cw" size={18} color={Colors.dark.primary} />
+              <Ionicons name="refresh-outline" size={18} color={Colors.dark.primary} />
             </View>
           </View>
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Feather name="grid" size={48} color={Colors.dark.disabled} />
+            <Ionicons name="grid-outline" size={48} color={Colors.dark.disabled} />
             <ThemedText style={styles.emptyText}>No active games</ThemedText>
           </View>
         }
       />
       <Pressable style={[styles.fab, { bottom: insets.bottom + Spacing.xl }]}>
-        <Feather name="plus" size={24} color={Colors.dark.buttonText} />
+        <Ionicons name="add-outline" size={24} color={Colors.dark.buttonText} />
       </Pressable>
     </View>
   );

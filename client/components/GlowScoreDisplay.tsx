@@ -1,6 +1,6 @@
 import React from "react";
 import { View, StyleSheet, Pressable } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
@@ -17,15 +17,15 @@ export function GlowScoreDisplay({ score, size = "small", onPress }: GlowScoreDi
 
   const content = (
     <View style={[styles.container, isTappable && styles.tappable]}>
-      <Feather
-        name="sun"
+      <Ionicons
+        name="sunny-outline"
         size={isLarge ? 24 : 16}
         color={Colors.dark.successNeon}
       />
       <ThemedText style={[styles.label, isLarge && styles.labelLarge]}>Glow Score</ThemedText>
       <ThemedText style={[styles.score, isLarge && styles.scoreLarge]}>{score}</ThemedText>
       {isTappable ? (
-        <Feather name="chevron-right" size={16} color={Colors.dark.text} style={styles.chevron} />
+        <Ionicons name="chevron-forward-outline" size={16} color={Colors.dark.text} style={styles.chevron} />
       ) : null}
     </View>
   );

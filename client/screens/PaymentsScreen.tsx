@@ -2,7 +2,7 @@ import React from "react";
 import { View, StyleSheet, FlatList, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
@@ -39,18 +39,18 @@ export default function PaymentsScreen() {
   const headerHeight = useHeaderHeight();
   const { player } = usePlayer();
 
-  const getTypeIcon = (type: Transaction["type"]): keyof typeof Feather.glyphMap => {
+  const getTypeIcon = (type: Transaction["type"]): keyof typeof Ionicons.glyphMap => {
     switch (type) {
-      case "purchase": return "shopping-cart";
-      case "reward": return "gift";
-      case "lesson": return "book-open";
+      case "purchase": return "cart-outline";
+      case "reward": return "gift-outline";
+      case "lesson": return "book-outline";
     }
   };
 
   const renderTransaction = ({ item }: { item: Transaction }) => (
     <View style={styles.transactionRow}>
       <View style={styles.transactionIcon}>
-        <Feather name={getTypeIcon(item.type)} size={18} color={Colors.dark.text} />
+        <Ionicons name={getTypeIcon(item.type)} size={18} color={Colors.dark.text} />
       </View>
       <View style={styles.transactionInfo}>
         <ThemedText style={styles.transactionDesc} numberOfLines={1}>{item.description}</ThemedText>
@@ -59,7 +59,7 @@ export default function PaymentsScreen() {
       <View style={styles.transactionAmount}>
         {item.diamonds ? (
           <View style={styles.amountRow}>
-            <Feather name="hexagon" size={14} color={item.diamonds > 0 ? Colors.dark.successNeon : Colors.dark.error} />
+            <Ionicons name="diamond-outline" size={14} color={item.diamonds > 0 ? Colors.dark.successNeon : Colors.dark.error} />
             <ThemedText style={[styles.amountText, { color: item.diamonds > 0 ? Colors.dark.successNeon : Colors.dark.error }]}>
               {item.diamonds > 0 ? `+${item.diamonds}` : item.diamonds}
             </ThemedText>
@@ -67,7 +67,7 @@ export default function PaymentsScreen() {
         ) : null}
         {item.coins ? (
           <View style={styles.amountRow}>
-            <Feather name="circle" size={14} color={item.coins > 0 ? Colors.dark.successNeon : Colors.dark.error} />
+            <Ionicons name="ellipse-outline" size={14} color={item.coins > 0 ? Colors.dark.successNeon : Colors.dark.error} />
             <ThemedText style={[styles.amountText, { color: item.coins > 0 ? Colors.dark.successNeon : Colors.dark.error }]}>
               {item.coins > 0 ? `+${item.coins}` : item.coins}
             </ThemedText>
@@ -103,12 +103,12 @@ export default function PaymentsScreen() {
                 <View style={styles.packContent}>
                   {pack.diamonds ? (
                     <>
-                      <Feather name="hexagon" size={24} color={Colors.dark.diamondSilver} />
+                      <Ionicons name="diamond-outline" size={24} color={Colors.dark.diamondSilver} />
                       <ThemedText style={styles.packAmount}>{pack.diamonds}</ThemedText>
                     </>
                   ) : (
                     <>
-                      <Feather name="circle" size={24} color={Colors.dark.bronzeCoin} />
+                      <Ionicons name="ellipse-outline" size={24} color={Colors.dark.bronzeCoin} />
                       <ThemedText style={styles.packAmount}>{pack.coins}</ThemedText>
                     </>
                   )}

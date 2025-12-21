@@ -56,7 +56,7 @@ export const INITIAL_PLAYER: Player = {
       id: "tactical",
       name: "Tactical",
       description: "Court strategy and shot selection",
-      icon: "target",
+      icon: "locate-outline",
       score: 185,
       maxScore: 250,
       color: "#00D4FF",
@@ -65,7 +65,7 @@ export const INITIAL_PLAYER: Player = {
       id: "mental",
       name: "Mental",
       description: "Focus, confidence and pressure handling",
-      icon: "zap",
+      icon: "flash-outline",
       score: 162,
       maxScore: 250,
       color: "#FF851B",
@@ -74,7 +74,7 @@ export const INITIAL_PLAYER: Player = {
       id: "technical",
       name: "Technical",
       description: "Stroke mechanics and ball control",
-      icon: "tool",
+      icon: "construct-outline",
       score: 198,
       maxScore: 250,
       color: "#2ECC40",
@@ -83,7 +83,7 @@ export const INITIAL_PLAYER: Player = {
       id: "physical",
       name: "Physical",
       description: "Speed, stamina and strength",
-      icon: "activity",
+      icon: "pulse-outline",
       score: 175,
       maxScore: 250,
       color: "#FFD700",
@@ -92,7 +92,7 @@ export const INITIAL_PLAYER: Player = {
       id: "social",
       name: "Social",
       description: "Teamwork and sportsmanship",
-      icon: "users",
+      icon: "people-outline",
       score: 127,
       maxScore: 250,
       color: "#39FF14",
@@ -101,11 +101,11 @@ export const INITIAL_PLAYER: Player = {
 };
 
 export const CHAT_CHANNELS: { id: ChatChannel; name: string; icon: string }[] = [
-  { id: "academy", name: "Academy", icon: "home" },
-  { id: "squad", name: "Squad", icon: "users" },
-  { id: "friends", name: "Friends", icon: "heart" },
-  { id: "coaches", name: "Coaches", icon: "award" },
-  { id: "admin", name: "Admin", icon: "shield" },
+  { id: "academy", name: "Academy", icon: "home-outline" },
+  { id: "squad", name: "Squad", icon: "people-outline" },
+  { id: "friends", name: "Friends", icon: "heart-outline" },
+  { id: "coaches", name: "Coaches", icon: "ribbon-outline" },
+  { id: "admin", name: "Admin", icon: "shield-outline" },
 ];
 
 export const INITIAL_MESSAGES: ChatMessage[] = [
@@ -153,15 +153,15 @@ export const INITIAL_MESSAGES: ChatMessage[] = [
 ];
 
 export const DRAWER_ITEMS = [
-  { id: "lessons", name: "Lessons", icon: "book-open" },
-  { id: "quest", name: "Quest", icon: "compass" },
-  { id: "match", name: "Match", icon: "play-circle" },
-  { id: "ranking", name: "Ranking", icon: "bar-chart-2" },
-  { id: "friends", name: "Friends", icon: "users" },
-  { id: "gameLobby", name: "Game Lobby", icon: "grid" },
-  { id: "events", name: "Events Calendar", icon: "calendar" },
-  { id: "payments", name: "Payments", icon: "credit-card" },
-  { id: "settings", name: "Settings", icon: "settings" },
+  { id: "lessons", name: "Lessons", icon: "book-outline" },
+  { id: "quest", name: "Quest", icon: "compass-outline" },
+  { id: "match", name: "Match", icon: "play-circle-outline" },
+  { id: "ranking", name: "Ranking", icon: "bar-chart-outline" },
+  { id: "friends", name: "Friends", icon: "people-outline" },
+  { id: "gameLobby", name: "Game Lobby", icon: "grid-outline" },
+  { id: "events", name: "Events Calendar", icon: "calendar-outline" },
+  { id: "payments", name: "Payments", icon: "card-outline" },
+  { id: "settings", name: "Settings", icon: "settings-outline" },
 ];
 
 export const AVATAR_PRESETS = [

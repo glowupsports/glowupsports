@@ -2,7 +2,7 @@ import React from "react";
 import { View, StyleSheet, FlatList, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
@@ -30,12 +30,12 @@ export default function EventsScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
 
-  const getTypeIcon = (type: CalendarEvent["type"]): keyof typeof Feather.glyphMap => {
+  const getTypeIcon = (type: CalendarEvent["type"]): keyof typeof Ionicons.glyphMap => {
     switch (type) {
-      case "tournament": return "award";
-      case "lesson": return "book-open";
-      case "practice": return "target";
-      case "social": return "users";
+      case "tournament": return "ribbon-outline";
+      case "lesson": return "book-outline";
+      case "practice": return "locate-outline";
+      case "social": return "people-outline";
     }
   };
 
@@ -52,17 +52,17 @@ export default function EventsScreen() {
     <Card style={styles.eventCard}>
       <View style={styles.eventHeader}>
         <View style={[styles.typeIcon, { backgroundColor: getTypeColor(item.type) }]}>
-          <Feather name={getTypeIcon(item.type)} size={20} color={Colors.dark.backgroundRoot} />
+          <Ionicons name={getTypeIcon(item.type)} size={20} color={Colors.dark.backgroundRoot} />
         </View>
         <View style={styles.eventInfo}>
           <ThemedText style={styles.eventTitle}>{item.title}</ThemedText>
           <View style={styles.eventMeta}>
             <View style={styles.metaItem}>
-              <Feather name="calendar" size={14} color={Colors.dark.text} />
+              <Ionicons name="calendar-outline" size={14} color={Colors.dark.text} />
               <ThemedText style={styles.metaText}>{item.date}</ThemedText>
             </View>
             <View style={styles.metaItem}>
-              <Feather name="clock" size={14} color={Colors.dark.text} />
+              <Ionicons name="time-outline" size={14} color={Colors.dark.text} />
               <ThemedText style={styles.metaText}>{item.time}</ThemedText>
             </View>
           </View>
@@ -70,7 +70,7 @@ export default function EventsScreen() {
       </View>
       <View style={styles.eventFooter}>
         <View style={styles.locationRow}>
-          <Feather name="map-pin" size={14} color={Colors.dark.text} />
+          <Ionicons name="location-outline" size={14} color={Colors.dark.text} />
           <ThemedText style={styles.locationText}>{item.location}</ThemedText>
         </View>
         <Pressable
@@ -81,7 +81,7 @@ export default function EventsScreen() {
         >
           {item.registered ? (
             <>
-              <Feather name="check" size={14} color={Colors.dark.buttonText} />
+              <Ionicons name="checkmark-outline" size={14} color={Colors.dark.buttonText} />
               <ThemedText style={styles.registerText}>Registered</ThemedText>
             </>
           ) : (
@@ -109,7 +109,7 @@ export default function EventsScreen() {
         <View style={styles.header}>
           <ThemedText style={styles.headerTitle}>Upcoming Events</ThemedText>
           <Pressable style={styles.calendarToggle}>
-            <Feather name="calendar" size={18} color={Colors.dark.primary} />
+            <Ionicons name="calendar-outline" size={18} color={Colors.dark.primary} />
           </Pressable>
         </View>
       }

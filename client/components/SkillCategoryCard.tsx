@@ -1,6 +1,6 @@
 import React from "react";
 import { View, StyleSheet, Pressable } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -48,8 +48,8 @@ export function SkillCategoryCard({ skill, onPress }: SkillCategoryCardProps) {
       style={[styles.card, animatedStyle]}
     >
       <View style={styles.iconContainer}>
-        <Feather
-          name={skill.icon as keyof typeof Feather.glyphMap}
+        <Ionicons
+          name={skill.icon as keyof typeof Ionicons.glyphMap}
           size={28}
           color={skill.color}
         />

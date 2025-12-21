@@ -2,7 +2,7 @@ import React from "react";
 import { View, StyleSheet, FlatList, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -52,11 +52,11 @@ export default function LessonsScreen() {
     }
   };
 
-  const getStatusIcon = (status: Lesson["status"]): keyof typeof Feather.glyphMap => {
+  const getStatusIcon = (status: Lesson["status"]): keyof typeof Ionicons.glyphMap => {
     switch (status) {
-      case "completed": return "check-circle";
-      case "available": return "play-circle";
-      case "locked": return "lock";
+      case "completed": return "checkmark-circle-outline";
+      case "available": return "play-circle-outline";
+      case "locked": return "lock-closed-outline";
     }
   };
 
@@ -70,19 +70,19 @@ export default function LessonsScreen() {
           <ThemedText style={styles.lessonTitle}>{item.title}</ThemedText>
           <ThemedText style={styles.lessonCoach}>{item.coach}</ThemedText>
         </View>
-        <Feather name={getStatusIcon(item.status)} size={24} color={getStatusColor(item.status)} />
+        <Ionicons name={getStatusIcon(item.status)} size={24} color={getStatusColor(item.status)} />
       </View>
       <View style={styles.lessonMeta}>
         <View style={styles.metaItem}>
-          <Feather name="clock" size={14} color={Colors.dark.text} />
+          <Ionicons name="time-outline" size={14} color={Colors.dark.text} />
           <ThemedText style={styles.metaText}>{item.duration}</ThemedText>
         </View>
         <View style={styles.metaItem}>
-          <Feather name="zap" size={14} color={Colors.dark.xpCyan} />
+          <Ionicons name="flash-outline" size={14} color={Colors.dark.xpCyan} />
           <ThemedText style={[styles.metaText, { color: Colors.dark.xpCyan }]}>+{item.xpReward} XP</ThemedText>
         </View>
         <View style={styles.metaItem}>
-          <Feather name="circle" size={14} color={Colors.dark.bronzeCoin} />
+          <Ionicons name="ellipse-outline" size={14} color={Colors.dark.bronzeCoin} />
           <ThemedText style={[styles.metaText, { color: Colors.dark.bronzeCoin }]}>+{item.coinsReward}</ThemedText>
         </View>
       </View>

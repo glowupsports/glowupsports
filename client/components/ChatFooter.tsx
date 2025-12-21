@@ -8,7 +8,7 @@ import {
   Dimensions,
   Platform,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -71,16 +71,16 @@ export function ChatFooter() {
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
-  const getReactionIcon = (emoji: string): keyof typeof Feather.glyphMap => {
-    const icons: Record<string, keyof typeof Feather.glyphMap> = {
-      thumbsup: "thumbs-up",
-      heart: "heart",
-      fire: "zap",
-      trophy: "award",
-      star: "star",
-      zap: "zap",
+  const getReactionIcon = (emoji: string): keyof typeof Ionicons.glyphMap => {
+    const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
+      thumbsup: "thumbs-up-outline",
+      heart: "heart-outline",
+      fire: "flash-outline",
+      trophy: "ribbon-outline",
+      star: "star-outline",
+      zap: "flash-outline",
     };
-    return icons[emoji] || "smile";
+    return icons[emoji] || "happy-outline";
   };
 
   const renderMessage = ({ item }: { item: ChatMessage }) => {
@@ -90,7 +90,7 @@ export function ChatFooter() {
     if (isSystem) {
       return (
         <View style={styles.systemMessage}>
-          <Feather name="bell" size={14} color={Colors.dark.successNeon} />
+          <Ionicons name="notifications-outline" size={14} color={Colors.dark.successNeon} />
           <ThemedText style={styles.systemText}>{item.message}</ThemedText>
         </View>
       );
@@ -120,7 +120,7 @@ export function ChatFooter() {
                   reaction.userReacted && styles.reactionBadgeActive,
                 ]}
               >
-                <Feather
+                <Ionicons
                   name={getReactionIcon(reaction.emoji)}
                   size={12}
                   color={reaction.userReacted ? Colors.dark.primary : Colors.dark.text}
@@ -141,7 +141,7 @@ export function ChatFooter() {
                 }}
                 style={styles.reactionOption}
               >
-                <Feather name={getReactionIcon(emoji)} size={18} color={Colors.dark.text} />
+                <Ionicons name={getReactionIcon(emoji)} size={18} color={Colors.dark.text} />
               </Pressable>
             ))}
           </View>
@@ -157,8 +157,8 @@ export function ChatFooter() {
         style={styles.header}
       >
         <View style={styles.headerLeft}>
-          <Feather
-            name="message-circle"
+          <Ionicons
+            name="chatbubble-outline"
             size={20}
             color={Colors.dark.primary}
           />
@@ -173,8 +173,8 @@ export function ChatFooter() {
             <ThemedText style={styles.headerTitle}>Chat</ThemedText>
           )}
         </View>
-        <Feather
-          name={isExpanded ? "chevron-down" : "chevron-up"}
+        <Ionicons
+          name={isExpanded ? "chevron-down-outline" : "chevron-up-outline"}
           size={20}
           color={Colors.dark.text}
         />
@@ -192,8 +192,8 @@ export function ChatFooter() {
                   currentChannel === channel.id && styles.channelTabActive,
                 ]}
               >
-                <Feather
-                  name={channel.icon as keyof typeof Feather.glyphMap}
+                <Ionicons
+                  name={channel.icon as keyof typeof Ionicons.glyphMap}
                   size={16}
                   color={currentChannel === channel.id ? Colors.dark.primary : Colors.dark.text}
                 />
@@ -236,7 +236,7 @@ export function ChatFooter() {
                 { opacity: pressed ? 0.7 : 1 },
               ]}
             >
-              <Feather name="send" size={20} color={Colors.dark.buttonText} />
+              <Ionicons name="send-outline" size={20} color={Colors.dark.buttonText} />
             </Pressable>
           </View>
         </View>

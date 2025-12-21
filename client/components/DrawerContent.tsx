@@ -1,7 +1,7 @@
 import React from "react";
 import { View, StyleSheet, Pressable, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { DrawerContentComponentProps } from "@react-navigation/drawer";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -75,8 +75,8 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
                 { opacity: pressed ? 0.7 : 1 },
               ]}
             >
-              <Feather
-                name={item.icon as keyof typeof Feather.glyphMap}
+              <Ionicons
+                name={item.icon as keyof typeof Ionicons.glyphMap}
                 size={22}
                 color={isActive ? Colors.dark.primary : Colors.dark.text}
               />
@@ -95,7 +95,7 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
           onPress={handleLogout}
           style={({ pressed }) => [styles.logoutButton, { opacity: pressed ? 0.7 : 1 }]}
         >
-          <Feather name="log-out" size={22} color={Colors.dark.error} />
+          <Ionicons name="log-out-outline" size={22} color={Colors.dark.error} />
           <ThemedText style={styles.logoutText}>Logout</ThemedText>
         </Pressable>
       </View>

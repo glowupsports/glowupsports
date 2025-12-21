@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { View, StyleSheet, ScrollView, Pressable, RefreshControl, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
 import { DrawerNavigationProp } from "@react-navigation/drawer";
@@ -30,10 +30,10 @@ interface QuickAction {
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
-  { id: "lessons", title: "Lessons", subtitle: "Learn new skills", icon: "book-open", color: Colors.dark.xpCyan, xpReward: 100, screen: "Lessons" },
-  { id: "quest", title: "Quests", subtitle: "Complete challenges", icon: "compass", color: Colors.dark.orange, xpReward: 150, screen: "Quest" },
-  { id: "match", title: "Play Match", subtitle: "Test your skills", icon: "play-circle", color: Colors.dark.successNeon, xpReward: 200, screen: "Match" },
-  { id: "ranking", title: "Ranking", subtitle: "See your position", icon: "bar-chart-2", color: Colors.dark.gold, xpReward: 0, screen: "Ranking" },
+  { id: "lessons", title: "Lessons", subtitle: "Learn new skills", icon: "book-outline", color: Colors.dark.xpCyan, xpReward: 100, screen: "Lessons" },
+  { id: "quest", title: "Quests", subtitle: "Complete challenges", icon: "compass-outline", color: Colors.dark.orange, xpReward: 150, screen: "Quest" },
+  { id: "match", title: "Play Match", subtitle: "Test your skills", icon: "play-circle-outline", color: Colors.dark.successNeon, xpReward: 200, screen: "Match" },
+  { id: "ranking", title: "Ranking", subtitle: "See your position", icon: "bar-chart-outline", color: Colors.dark.gold, xpReward: 0, screen: "Ranking" },
 ];
 
 export default function HomeScreen() {
@@ -94,13 +94,13 @@ export default function HomeScreen() {
 
         <View style={styles.tipCard}>
           <View style={styles.tipIcon}>
-            <Feather name="sun" size={20} color={Colors.dark.successNeon} />
+            <Ionicons name="sunny-outline" size={20} color={Colors.dark.successNeon} />
           </View>
           <View style={styles.tipContent}>
             <ThemedText style={styles.tipTitle}>Tap your Glow Score above</ThemedText>
             <ThemedText style={styles.tipText}>to see all your skill categories and practice</ThemedText>
           </View>
-          <Feather name="chevron-up" size={20} color={Colors.dark.text} style={styles.tipArrow} />
+          <Ionicons name="chevron-up-outline" size={20} color={Colors.dark.text} style={styles.tipArrow} />
         </View>
 
         <ThemedText style={styles.sectionTitle}>Quick Actions</ThemedText>
@@ -113,13 +113,13 @@ export default function HomeScreen() {
               onPress={() => handleQuickAction(action)}
             >
               <View style={[styles.actionIcon, { backgroundColor: `${action.color}20` }]}>
-                <Feather name={action.icon as keyof typeof Feather.glyphMap} size={24} color={action.color} />
+                <Ionicons name={action.icon as keyof typeof Ionicons.glyphMap} size={24} color={action.color} />
               </View>
               <ThemedText style={styles.actionTitle}>{action.title}</ThemedText>
               <ThemedText style={styles.actionSubtitle}>{action.subtitle}</ThemedText>
               {action.xpReward > 0 ? (
                 <View style={styles.xpBadge}>
-                  <Feather name="zap" size={12} color={Colors.dark.xpCyan} />
+                  <Ionicons name="flash-outline" size={12} color={Colors.dark.xpCyan} />
                   <ThemedText style={styles.xpBadgeText}>+{action.xpReward} XP</ThemedText>
                 </View>
               ) : null}
@@ -132,7 +132,7 @@ export default function HomeScreen() {
             onPress={handleQuickXP}
             style={({ pressed }) => [styles.quickXPButton, { opacity: pressed ? 0.8 : 1 }]}
           >
-            <Feather name="zap" size={20} color={Colors.dark.backgroundRoot} />
+            <Ionicons name="flash-outline" size={20} color={Colors.dark.backgroundRoot} />
             <ThemedText style={styles.quickXPText}>Quick Practice +100 XP</ThemedText>
           </Pressable>
         </View>

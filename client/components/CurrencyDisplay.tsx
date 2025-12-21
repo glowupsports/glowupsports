@@ -1,6 +1,6 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
@@ -22,13 +22,13 @@ export function CurrencyDisplay({ diamonds, coins, compact = false }: CurrencyDi
   return (
     <View style={styles.container}>
       <View style={[styles.currencyItem, !compact && styles.currencyItemPadded]}>
-        <Feather name="hexagon" size={compact ? 16 : 18} color={Colors.dark.diamondSilver} />
+        <Ionicons name="diamond-outline" size={compact ? 16 : 18} color={Colors.dark.diamondSilver} />
         <ThemedText style={[styles.value, compact && styles.valueCompact]}>
           {formatNumber(diamonds)}
         </ThemedText>
       </View>
       <View style={[styles.currencyItem, !compact && styles.currencyItemPadded]}>
-        <Feather name="circle" size={compact ? 16 : 18} color={Colors.dark.bronzeCoin} />
+        <Ionicons name="ellipse-outline" size={compact ? 16 : 18} color={Colors.dark.bronzeCoin} />
         <ThemedText style={[styles.value, compact && styles.valueCompact]}>
           {formatNumber(coins)}
         </ThemedText>

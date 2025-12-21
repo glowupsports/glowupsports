@@ -8,7 +8,7 @@ import {
   Text,
   Modal,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
@@ -53,13 +53,13 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
             },
           ]}
         >
-          <Feather name="alert-circle" size={20} color={Colors.dark.text} />
+          <Ionicons name="alert-circle-outline" size={20} color={Colors.dark.text} />
         </Pressable>
       ) : null}
 
       <View style={styles.content}>
         <View style={styles.iconContainer}>
-          <Feather name="alert-triangle" size={64} color={Colors.dark.orange} />
+          <Ionicons name="warning-outline" size={64} color={Colors.dark.orange} />
         </View>
         <ThemedText type="h1" style={styles.title}>
           Game Over!
@@ -80,7 +80,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
             },
           ]}
         >
-          <Feather name="refresh-cw" size={20} color={Colors.dark.buttonText} />
+          <Ionicons name="refresh-outline" size={20} color={Colors.dark.buttonText} />
           <ThemedText
             type="body"
             style={[styles.buttonText, { color: Colors.dark.buttonText }]}
@@ -110,7 +110,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
                     { opacity: pressed ? 0.6 : 1 },
                   ]}
                 >
-                  <Feather name="x" size={24} color={Colors.dark.text} />
+                  <Ionicons name="close-outline" size={24} color={Colors.dark.text} />
                 </Pressable>
               </View>
 

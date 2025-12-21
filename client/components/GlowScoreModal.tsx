@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, StyleSheet, Modal, Pressable, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 
@@ -31,7 +31,7 @@ function SkillItem({ skill, onPress }: { skill: SkillCategory; onPress: () => vo
     >
       <View style={styles.skillLeft}>
         <View style={[styles.skillIcon, { backgroundColor: `${skill.color}20` }]}>
-          <Feather name={skill.icon as keyof typeof Feather.glyphMap} size={24} color={skill.color} />
+          <Ionicons name={skill.icon as keyof typeof Ionicons.glyphMap} size={24} color={skill.color} />
         </View>
         <View style={styles.skillInfo}>
           <ThemedText style={styles.skillName}>{skill.name}</ThemedText>
@@ -99,7 +99,7 @@ export function GlowScoreModal({ visible, onClose }: GlowScoreModalProps) {
           
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              <Feather name="sun" size={28} color={Colors.dark.successNeon} />
+              <Ionicons name="sunny-outline" size={28} color={Colors.dark.successNeon} />
               <View>
                 <ThemedText style={styles.title}>Glow Score</ThemedText>
                 <ThemedText style={styles.subtitle}>Your tennis mastery level</ThemedText>

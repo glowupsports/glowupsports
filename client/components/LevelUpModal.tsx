@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { View, StyleSheet, Modal, Pressable } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -61,7 +61,7 @@ export function LevelUpModal({ visible, level, onClose }: LevelUpModalProps) {
       <Animated.View style={[styles.overlay, overlayStyle]}>
         <Animated.View style={[styles.content, contentStyle]}>
           <Animated.View style={[styles.iconContainer, iconStyle]}>
-            <Feather name="award" size={64} color={Colors.dark.gold} />
+            <Ionicons name="ribbon-outline" size={64} color={Colors.dark.gold} />
           </Animated.View>
           <ThemedText style={styles.title}>Level Up!</ThemedText>
           <ThemedText style={styles.level}>Level {level}</ThemedText>

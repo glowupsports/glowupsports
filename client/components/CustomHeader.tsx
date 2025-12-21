@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, StyleSheet, Pressable, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { DrawerActions, useNavigation } from "@react-navigation/native";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -31,7 +31,7 @@ export function CustomHeader() {
           onPress={openDrawer}
           style={({ pressed }) => [styles.menuButton, { opacity: pressed ? 0.7 : 1 }]}
         >
-          <Feather name="menu" size={24} color={Colors.dark.text} />
+          <Ionicons name="menu-outline" size={24} color={Colors.dark.text} />
         </Pressable>
 
         <View style={styles.playerInfo}>

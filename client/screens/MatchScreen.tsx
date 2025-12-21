@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, StyleSheet, FlatList, Pressable, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -78,7 +78,7 @@ export default function MatchScreen() {
           </View>
           {isUpcoming ? (
             <View style={styles.upcomingBadge}>
-              <Feather name="clock" size={14} color={Colors.dark.orange} />
+              <Ionicons name="time-outline" size={14} color={Colors.dark.orange} />
               <ThemedText style={styles.upcomingText}>Play</ThemedText>
             </View>
           ) : (
@@ -94,13 +94,13 @@ export default function MatchScreen() {
               <ThemedText style={styles.scoreValue}>{item.score}</ThemedText>
             </View>
             <View style={styles.xpContainer}>
-              <Feather name="zap" size={16} color={Colors.dark.xpCyan} />
+              <Ionicons name="flash-outline" size={16} color={Colors.dark.xpCyan} />
               <ThemedText style={styles.xpValue}>+{item.xpEarned} XP</ThemedText>
             </View>
           </View>
         ) : (
           <View style={styles.prepareButton}>
-            <Feather name="play" size={16} color={Colors.dark.buttonText} />
+            <Ionicons name="play-outline" size={16} color={Colors.dark.buttonText} />
             <ThemedText style={styles.prepareText}>Tap to Play Match</ThemedText>
           </View>
         )}
@@ -142,7 +142,7 @@ export default function MatchScreen() {
         onPress={handleAddMatch}
         style={[styles.fab, { bottom: insets.bottom + Spacing.xl }]}
       >
-        <Feather name="plus" size={24} color={Colors.dark.buttonText} />
+        <Ionicons name="add-outline" size={24} color={Colors.dark.buttonText} />
       </Pressable>
     </View>
   );

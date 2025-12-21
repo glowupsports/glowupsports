@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { View, StyleSheet, Pressable, TextInput, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
@@ -116,24 +116,24 @@ export default function SettingsScreen() {
         <ThemedText style={styles.sectionTitle}>Preferences</ThemedText>
         <Pressable style={styles.settingRow}>
           <View style={styles.settingInfo}>
-            <Feather name="bell" size={20} color={Colors.dark.text} />
+            <Ionicons name="notifications-outline" size={20} color={Colors.dark.text} />
             <ThemedText style={styles.settingText}>Notifications</ThemedText>
           </View>
-          <Feather name="toggle-right" size={24} color={Colors.dark.primary} />
+          <Ionicons name="toggle-outline" size={24} color={Colors.dark.primary} />
         </Pressable>
         <Pressable style={styles.settingRow}>
           <View style={styles.settingInfo}>
-            <Feather name="volume-2" size={20} color={Colors.dark.text} />
+            <Ionicons name="volume-high-outline" size={20} color={Colors.dark.text} />
             <ThemedText style={styles.settingText}>Sound Effects</ThemedText>
           </View>
-          <Feather name="toggle-right" size={24} color={Colors.dark.primary} />
+          <Ionicons name="toggle-outline" size={24} color={Colors.dark.primary} />
         </Pressable>
         <Pressable style={styles.settingRow}>
           <View style={styles.settingInfo}>
-            <Feather name="smartphone" size={20} color={Colors.dark.text} />
+            <Ionicons name="phone-portrait-outline" size={20} color={Colors.dark.text} />
             <ThemedText style={styles.settingText}>Haptic Feedback</ThemedText>
           </View>
-          <Feather name="toggle-right" size={24} color={Colors.dark.primary} />
+          <Ionicons name="toggle-outline" size={24} color={Colors.dark.primary} />
         </Pressable>
       </Card>
 
@@ -149,7 +149,7 @@ export default function SettingsScreen() {
           onPress={handleDeleteAccount}
           style={styles.dangerButton}
         >
-          <Feather name="trash-2" size={20} color={Colors.dark.error} />
+          <Ionicons name="trash-outline" size={20} color={Colors.dark.error} />
           <ThemedText style={styles.dangerText}>Delete Account</ThemedText>
         </Pressable>
       </Card>

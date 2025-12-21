@@ -1,6 +1,6 @@
 import React from "react";
 import { View, StyleSheet, Pressable } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -15,17 +15,17 @@ interface PlayerAvatarProps {
   onPress?: () => void;
 }
 
-const AVATAR_ICONS: Record<string, keyof typeof Feather.glyphMap> = {
-  player: "user",
-  racket: "maximize-2",
-  ball: "circle",
-  trophy: "award",
-  star: "star",
-  crown: "award",
-  flame: "zap",
-  lightning: "zap",
-  coach: "briefcase",
-  system: "bell",
+const AVATAR_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  player: "person-outline",
+  racket: "expand-outline",
+  ball: "ellipse-outline",
+  trophy: "ribbon-outline",
+  star: "star-outline",
+  crown: "ribbon-outline",
+  flame: "flash-outline",
+  lightning: "flash-outline",
+  coach: "briefcase-outline",
+  system: "notifications-outline",
 };
 
 export function PlayerAvatar({
@@ -46,7 +46,7 @@ export function PlayerAvatar({
         end={{ x: 1, y: 1 }}
         style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}
       >
-        <Feather name={iconName} size={size * 0.5} color={Colors.dark.backgroundRoot} />
+        <Ionicons name={iconName} size={size * 0.5} color={Colors.dark.backgroundRoot} />
       </LinearGradient>
       {showLevel && level !== undefined ? (
         <View style={styles.levelBadge}>

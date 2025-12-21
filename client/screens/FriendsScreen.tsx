@@ -2,7 +2,7 @@ import React from "react";
 import { View, StyleSheet, FlatList, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
@@ -59,10 +59,10 @@ export default function FriendsScreen() {
       </View>
       <View style={styles.actions}>
         <Pressable style={styles.actionButton}>
-          <Feather name="message-circle" size={20} color={Colors.dark.primary} />
+          <Ionicons name="chatbubble-outline" size={20} color={Colors.dark.primary} />
         </Pressable>
         <Pressable style={styles.actionButton}>
-          <Feather name="play" size={20} color={Colors.dark.orange} />
+          <Ionicons name="play-outline" size={20} color={Colors.dark.orange} />
         </Pressable>
       </View>
     </Pressable>
@@ -94,7 +94,7 @@ export default function FriendsScreen() {
         }
       />
       <Pressable style={[styles.fab, { bottom: insets.bottom + Spacing.xl }]}>
-        <Feather name="user-plus" size={24} color={Colors.dark.buttonText} />
+        <Ionicons name="person-add-outline" size={24} color={Colors.dark.buttonText} />
       </Pressable>
     </View>
   );
