@@ -11,12 +11,15 @@ import { Button } from "@/components/Button";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { usePlayer } from "@/context/PlayerContext";
+import { useAppMode } from "@/context/AppModeContext";
 import { AVATAR_PRESETS } from "@/constants/playerData";
+import * as Haptics from "expo-haptics";
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const { player, updateProfile, resetData } = usePlayer();
+  const { setMode } = useAppMode();
   const [name, setName] = useState(player.name);
   const [selectedAvatar, setSelectedAvatar] = useState(player.avatar);
   const [hasChanges, setHasChanges] = useState(false);
@@ -100,6 +103,24 @@ export default function SettingsScreen() {
           ))}
         </View>
       </Card>
+
+      {/* Switch to Coach App */}
+      <Pressable
+        style={styles.switchAppButton}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          setMode("coach");
+        }}
+      >
+        <View style={styles.switchAppContent}>
+          <Ionicons name="swap-horizontal" size={24} color={Colors.dark.primary} />
+          <View>
+            <ThemedText style={styles.switchAppTitle}>Switch to Coach App</ThemedText>
+            <ThemedText style={styles.switchAppDescription}>View as a coach</ThemedText>
+          </View>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={Colors.dark.tabIconDefault} />
+      </Pressable>
 
       <Card style={styles.section}>
         <ThemedText style={styles.sectionTitle}>Display Name</ThemedText>
@@ -189,6 +210,32 @@ const styles = StyleSheet.create({
   },
   avatarSelected: {
     borderColor: Colors.dark.primary,
+  },
+  switchAppButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  switchAppContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  switchAppTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  switchAppDescription: {
+    fontSize: 12,
+    color: Colors.dark.tabIconDefault,
+    marginTop: 2,
   },
   input: {
     backgroundColor: Colors.dark.backgroundSecondary,
