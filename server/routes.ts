@@ -613,6 +613,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Save session feedback
+  app.post("/api/coach/sessions/:id/feedback", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { intensity, focusTags, generalNote } = req.body;
+      
+      const session = await storage.getSession(id);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      const updatedSession = await storage.updateSession(id, {
+        status: "completed",
+      });
+
+      res.json({ success: true, session: updatedSession });
+    } catch (error) {
+      console.error("Error saving feedback:", error);
+      res.status(500).json({ error: "Failed to save feedback" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
