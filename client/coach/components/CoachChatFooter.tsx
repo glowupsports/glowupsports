@@ -58,6 +58,16 @@ interface Conversation {
 
 const REACTION_EMOJIS = ["thumbsup", "heart", "fire", "trophy", "star"];
 
+type ChatTab = "players" | "coaches" | "academy" | "squad" | "admin";
+
+const CHAT_TABS: { id: ChatTab; name: string; icon: keyof typeof Ionicons.glyphMap; types: string[] }[] = [
+  { id: "players", name: "Players", icon: "people-outline", types: ["direct_message", "coach_player"] },
+  { id: "coaches", name: "Coaches", icon: "ribbon-outline", types: ["coach_coach"] },
+  { id: "academy", name: "Academy", icon: "home-outline", types: ["academy"] },
+  { id: "squad", name: "Squad", icon: "fitness-outline", types: ["squad", "group"] },
+  { id: "admin", name: "Admin", icon: "shield-outline", types: ["admin"] },
+];
+
 export function CoachChatFooter() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -66,6 +76,7 @@ export function CoachChatFooter() {
   const [inputText, setInputText] = useState("");
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [showReactions, setShowReactions] = useState<string | null>(null);
+  const [currentTab, setCurrentTab] = useState<ChatTab>("players");
   const flatListRef = useRef<FlatList>(null);
 
   const height = useSharedValue(FOOTER_COLLAPSED + insets.bottom);
@@ -157,8 +168,24 @@ export function CoachChatFooter() {
     return icons[emoji] || "happy-outline";
   };
 
+  const currentTabConfig = CHAT_TABS.find(t => t.id === currentTab);
+  const filteredConversations = conversations.filter(conv => {
+    if (currentTab === "players") {
+      return conv.playerId !== null || currentTabConfig?.types.includes(conv.type);
+    }
+    return currentTabConfig?.types.includes(conv.type) ?? false;
+  });
+  const displayConversations = filteredConversations.length > 0 ? filteredConversations : 
+    (currentTab === "players" ? conversations : []);
   const latestConversation = conversations[0];
   const unreadCount = unreadData?.unreadCount || 0;
+
+  const handleTabChange = (tab: ChatTab) => {
+    setCurrentTab(tab);
+    if (selectedConversation && !CHAT_TABS.find(t => t.id === tab)?.types.includes(selectedConversation.type)) {
+      setSelectedConversation(null);
+    }
+  };
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isOwn = item.senderType === "coach" && item.senderCoachId === coach?.id;
@@ -225,37 +252,69 @@ export function CoachChatFooter() {
     );
   };
 
-  const renderConversationList = () => (
-    <FlatList
-      data={conversations}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => (
+  const renderTabBar = () => (
+    <View style={styles.tabBar}>
+      {CHAT_TABS.map((tab) => (
         <Pressable
-          onPress={() => setSelectedConversation(item)}
-          style={styles.conversationItem}
+          key={tab.id}
+          onPress={() => handleTabChange(tab.id)}
+          style={[
+            styles.tab,
+            currentTab === tab.id && styles.tabActive,
+          ]}
         >
-          <View style={styles.conversationAvatar}>
-            <Ionicons name="person" size={20} color={Colors.dark.text} />
-          </View>
-          <View style={styles.conversationInfo}>
-            <ThemedText style={styles.conversationName}>
-              {item.playerName || item.title || "Chat"}
-            </ThemedText>
-            {item.lastMessagePreview ? (
-              <ThemedText numberOfLines={1} style={styles.conversationPreview}>
-                {item.lastMessagePreview}
-              </ThemedText>
-            ) : null}
-          </View>
+          <Ionicons
+            name={tab.icon}
+            size={16}
+            color={currentTab === tab.id ? Colors.dark.primary : Colors.dark.text}
+          />
+          <ThemedText
+            style={[
+              styles.tabName,
+              currentTab === tab.id && styles.tabNameActive,
+            ]}
+          >
+            {tab.name}
+          </ThemedText>
         </Pressable>
-      )}
-      ListEmptyComponent={
-        <View style={styles.emptyState}>
-          <Ionicons name="chatbubbles-outline" size={40} color={Colors.dark.tabIconDefault} />
-          <ThemedText style={styles.emptyText}>No conversations yet</ThemedText>
-        </View>
-      }
-    />
+      ))}
+    </View>
+  );
+
+  const renderConversationList = () => (
+    <>
+      {renderTabBar()}
+      <FlatList
+        data={displayConversations}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <Pressable
+            onPress={() => setSelectedConversation(item)}
+            style={styles.conversationItem}
+          >
+            <View style={styles.conversationAvatar}>
+              <Ionicons name="person" size={20} color={Colors.dark.text} />
+            </View>
+            <View style={styles.conversationInfo}>
+              <ThemedText style={styles.conversationName}>
+                {item.playerName || item.title || "Chat"}
+              </ThemedText>
+              {item.lastMessagePreview ? (
+                <ThemedText numberOfLines={1} style={styles.conversationPreview}>
+                  {item.lastMessagePreview}
+                </ThemedText>
+              ) : null}
+            </View>
+          </Pressable>
+        )}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Ionicons name="chatbubbles-outline" size={40} color={Colors.dark.tabIconDefault} />
+            <ThemedText style={styles.emptyText}>No {currentTabConfig?.name.toLowerCase()} chats yet</ThemedText>
+          </View>
+        }
+      />
+    </>
   );
 
   return (
@@ -416,6 +475,35 @@ const styles = StyleSheet.create({
   },
   expandedContent: {
     flex: 1,
+  },
+  tabBar: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.sm,
+    gap: Spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundSecondary,
+    paddingBottom: Spacing.sm,
+  },
+  tab: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+  },
+  tabActive: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  tabName: {
+    fontSize: 11,
+    color: Colors.dark.text,
+    opacity: 0.7,
+  },
+  tabNameActive: {
+    color: Colors.dark.primary,
+    opacity: 1,
+    fontWeight: "600",
   },
   conversationHeader: {
     flexDirection: "row",
