@@ -38,14 +38,15 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <CustomHeader />
+    <ImageBackground
+      source={tennisCourtBg}
+      style={styles.fullScreenBackground}
+      resizeMode="cover"
+      imageStyle={styles.backgroundImageStyle}
+    >
+      <View style={styles.container}>
+        <CustomHeader />
 
-      <ImageBackground
-        source={tennisCourtBg}
-        style={styles.backgroundImage}
-        resizeMode="cover"
-      >
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
@@ -108,25 +109,33 @@ export default function HomeScreen() {
           </View>
         </Card>
         </ScrollView>
-      </ImageBackground>
 
-      <ChatFooter />
+        <ChatFooter />
 
-      <LevelUpModal
-        visible={showLevelUp}
-        level={player.level}
-        onClose={() => setShowLevelUp(false)}
-      />
-    </View>
+        <LevelUpModal
+          visible={showLevelUp}
+          level={player.level}
+          onClose={() => setShowLevelUp(false)}
+        />
+      </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  fullScreenBackground: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
   },
-  backgroundImage: {
+  backgroundImageStyle: {
+    resizeMode: "cover",
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  container: {
     flex: 1,
   },
   scrollContent: {
