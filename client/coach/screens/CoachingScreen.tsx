@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -154,12 +154,19 @@ interface SessionPlayer {
   player: { id: string; name: string; ballLevel: string | null };
 }
 
+type SkillChipState = "stable" | "up" | "down";
+
+interface SkillProgress {
+  [skill: string]: SkillChipState;
+}
+
 interface PlayerFeedbackState {
   playerId: string;
   playerName: string;
   progressTrend: ProgressTrend;
   effortLevel: EffortLevel;
   note: string;
+  skillProgress: SkillProgress;
 }
 
 function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
@@ -171,27 +178,117 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
   const [focusTags, setFocusTags] = useState<string[]>([]);
   const [generalNote, setGeneralNote] = useState("");
   const [playerFeedback, setPlayerFeedback] = useState<PlayerFeedbackState[]>([]);
+  const [expandedPlayers, setExpandedPlayers] = useState<Set<string>>(new Set());
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const { data: sessionPlayers = [] } = useQuery<SessionPlayer[]>({
     queryKey: [`/api/coach/sessions/${selectedSession?.id}/players`],
     enabled: !!selectedSession,
   });
 
+  // Determine if this is a private session (1 player) or group session (>1 player)
+  const isPrivateSession = sessionPlayers.length === 1;
+
+  // Default skills for tracking
+  const skillChips = ["Forehand", "Backhand", "Serve", "Volley", "Movement", "Mental"];
+
   React.useEffect(() => {
     if (sessionPlayers.length > 0) {
+      const validPlayers = sessionPlayers.filter((sp) => sp.player && sp.player.name);
       setPlayerFeedback(
-        sessionPlayers
-          .filter((sp) => sp.player && sp.player.name)
-          .map((sp) => ({
-            playerId: sp.playerId,
-            playerName: sp.player.name,
-            progressTrend: "stable" as ProgressTrend,
-            effortLevel: "normal" as EffortLevel,
-            note: "",
-          }))
+        validPlayers.map((sp) => ({
+          playerId: sp.playerId,
+          playerName: sp.player.name,
+          progressTrend: "stable" as ProgressTrend,
+          effortLevel: "normal" as EffortLevel,
+          note: "",
+          skillProgress: {},
+        }))
       );
+      // For private sessions, expand all players by default
+      // For group sessions, collapse all players by default
+      if (validPlayers.length === 1) {
+        setExpandedPlayers(new Set(validPlayers.map(sp => sp.playerId)));
+      } else {
+        setExpandedPlayers(new Set());
+      }
     }
   }, [sessionPlayers]);
+
+  const togglePlayerExpanded = (playerId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setExpandedPlayers(prev => {
+      const next = new Set(prev);
+      if (next.has(playerId)) {
+        next.delete(playerId);
+      } else {
+        next.add(playerId);
+      }
+      return next;
+    });
+  };
+
+  const applyEffortToAll = (effortLevel: EffortLevel) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setPlayerFeedback(prev => prev.map(pf => ({ ...pf, effortLevel })));
+  };
+
+  const setAsExpected = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setPlayerFeedback(prev => prev.map(pf => ({
+      ...pf,
+      progressTrend: "stable" as ProgressTrend,
+      effortLevel: "normal" as EffortLevel,
+      skillProgress: {},
+    })));
+    setIntensity("normal");
+    setMood("neutral");
+  };
+
+  const cycleSkillState = (playerId: string, skill: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPlayerFeedback(prev => prev.map(pf => {
+      if (pf.playerId !== playerId) return pf;
+      const currentState = pf.skillProgress[skill] || "stable";
+      // Cycle: stable -> up -> down -> stable
+      let nextState: SkillChipState = "stable";
+      if (currentState === "stable") nextState = "up";
+      else if (currentState === "up") nextState = "down";
+      else nextState = "stable";
+      
+      const newSkillProgress = { ...pf.skillProgress };
+      if (nextState === "stable") {
+        delete newSkillProgress[skill];
+      } else {
+        newSkillProgress[skill] = nextState;
+      }
+      return { ...pf, skillProgress: newSkillProgress };
+    }));
+  };
+
+  const getSkillChipStyle = (state: SkillChipState | undefined) => {
+    switch (state) {
+      case "up": return { backgroundColor: Colors.dark.primary + "20", borderColor: Colors.dark.primary };
+      case "down": return { backgroundColor: Colors.dark.error + "20", borderColor: Colors.dark.error };
+      default: return {};
+    }
+  };
+
+  const getSkillChipIcon = (state: SkillChipState | undefined): keyof typeof Ionicons.glyphMap | null => {
+    switch (state) {
+      case "up": return "trending-up";
+      case "down": return "trending-down";
+      default: return null;
+    }
+  };
+
+  const getSkillChipColor = (state: SkillChipState | undefined) => {
+    switch (state) {
+      case "up": return Colors.dark.primary;
+      case "down": return Colors.dark.error;
+      default: return Colors.dark.tabIconDefault;
+    }
+  };
 
   const updatePlayerFeedback = (
     playerId: string,
@@ -299,12 +396,17 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
       queryClient.invalidateQueries({ queryKey: ["/api/progress/domains"] });
-      setSelectedSession(null);
-      setIntensity("normal");
-      setMood("neutral");
-      setFocusTags([]);
-      setGeneralNote("");
-      setPlayerFeedback([]);
+      // Show success overlay briefly
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        setSelectedSession(null);
+        setIntensity("normal");
+        setMood("neutral");
+        setFocusTags([]);
+        setGeneralNote("");
+        setPlayerFeedback([]);
+      }, 1200);
     },
     onError: (error: Error) => {
       Alert.alert("Error", error.message || "Failed to save feedback");
@@ -336,15 +438,25 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
 
   if (selectedSession) {
     return (
-      <ScrollView
-        style={styles.feedbackForm}
-        contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
-        showsVerticalScrollIndicator={false}
-      >
-        <Pressable style={styles.backRow} onPress={() => setSelectedSession(null)}>
-          <Ionicons name="arrow-back" size={20} color={Colors.dark.text} />
-          <Text style={styles.backText}>Back to overview</Text>
-        </Pressable>
+      <View style={{ flex: 1 }}>
+        {showSuccess ? (
+          <View style={styles.successOverlay}>
+            <View style={styles.successContent}>
+              <Ionicons name="checkmark-circle" size={64} color={Colors.dark.primary} />
+              <Text style={styles.successText}>Feedback Saved</Text>
+              <Text style={styles.successSubtext}>Progress updated for all players</Text>
+            </View>
+          </View>
+        ) : null}
+        <ScrollView
+          style={styles.feedbackForm}
+          contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
+          showsVerticalScrollIndicator={false}
+        >
+          <Pressable style={styles.backRow} onPress={() => setSelectedSession(null)}>
+            <Ionicons name="arrow-back" size={20} color={Colors.dark.text} />
+            <Text style={styles.backText}>Back to overview</Text>
+          </Pressable>
 
         <View style={styles.feedbackHeader}>
           <Text style={styles.feedbackTitle}>Session Feedback</Text>
@@ -387,7 +499,7 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
         </View>
 
         <View style={styles.feedbackSection}>
-          <Text style={styles.feedbackLabel}>Player Mood</Text>
+          <Text style={styles.feedbackLabel}>Observed Mood</Text>
           <View style={styles.intensityRow}>
             {([
               { value: "good", label: "Good", icon: "happy-outline" as const, color: Colors.dark.primary },
@@ -420,7 +532,7 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
         </View>
 
         <View style={styles.feedbackSection}>
-          <Text style={styles.feedbackLabel}>Focus areas</Text>
+          <Text style={styles.feedbackLabel}>Session Focus (optional)</Text>
           <View style={styles.tagsGrid}>
             {availableTags.map((tag) => (
               <Pressable
@@ -438,76 +550,177 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
 
         {playerFeedback.length > 0 && (
           <View style={styles.feedbackSection}>
-            <Text style={styles.feedbackLabel}>Player Feedback</Text>
-            {playerFeedback.map((pf) => (
-              <View key={pf.playerId} style={styles.playerFeedbackCard}>
-                <Text style={styles.playerFeedbackName}>{pf.playerName}</Text>
-                
-                <View style={styles.playerFeedbackRow}>
-                  <Text style={styles.playerFeedbackLabel}>Progress</Text>
-                  <View style={styles.trendButtons}>
-                    {([
-                      { value: "up", icon: "trending-up" as const, color: Colors.dark.primary },
-                      { value: "stable", icon: "remove" as const, color: Colors.dark.orange },
-                      { value: "down", icon: "trending-down" as const, color: Colors.dark.error },
-                    ] as const).map((opt) => (
-                      <Pressable
-                        key={opt.value}
-                        style={[
-                          styles.trendButton,
-                          pf.progressTrend === opt.value && { backgroundColor: opt.color + "20", borderColor: opt.color },
-                        ]}
-                        onPress={() => updatePlayerFeedback(pf.playerId, "progressTrend", opt.value)}
-                      >
-                        <Ionicons
-                          name={opt.icon}
-                          size={16}
-                          color={pf.progressTrend === opt.value ? opt.color : Colors.dark.disabled}
+            <View style={styles.feedbackLabelRow}>
+              <Text style={styles.feedbackLabel}>Player Feedback</Text>
+              {playerFeedback.length > 1 ? (
+                <View style={styles.quickActionsRow}>
+                  <Pressable
+                    style={styles.applyAllButton}
+                    onPress={() => applyEffortToAll("normal")}
+                  >
+                    <Ionicons name="copy-outline" size={12} color={Colors.dark.tabIconDefault} />
+                    <Text style={styles.applyAllText}>All Normal</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+            </View>
+            
+            {/* Quick action for standard sessions */}
+            <Pressable
+              style={styles.asExpectedButton}
+              onPress={setAsExpected}
+            >
+              <Ionicons name="checkmark-circle-outline" size={16} color={Colors.dark.xpCyan} />
+              <Text style={styles.asExpectedText}>Session went as expected</Text>
+            </Pressable>
+
+            {playerFeedback.map((pf) => {
+              const isExpanded = expandedPlayers.has(pf.playerId);
+              return (
+                <View key={pf.playerId} style={styles.playerFeedbackCard}>
+                  <Pressable 
+                    style={styles.playerFeedbackHeader}
+                    onPress={() => togglePlayerExpanded(pf.playerId)}
+                  >
+                    <Text style={styles.playerFeedbackName}>{pf.playerName}</Text>
+                    <View style={styles.playerFeedbackHeaderRight}>
+                      {!isExpanded && pf.progressTrend !== "stable" ? (
+                        <Ionicons 
+                          name={pf.progressTrend === "up" ? "trending-up" : "trending-down"}
+                          size={14}
+                          color={pf.progressTrend === "up" ? Colors.dark.primary : Colors.dark.error}
+                          style={{ marginRight: Spacing.sm }}
                         />
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
+                      ) : null}
+                      <Ionicons 
+                        name={isExpanded ? "chevron-up" : "chevron-down"}
+                        size={18}
+                        color={Colors.dark.tabIconDefault}
+                      />
+                    </View>
+                  </Pressable>
+                  
+                  {isExpanded ? (
+                    <>
+                      <View style={styles.playerFeedbackRow}>
+                        <Text style={styles.playerFeedbackLabel}>Observed Progress</Text>
+                        <View style={styles.trendButtons}>
+                          {([
+                            { value: "up", icon: "trending-up" as const, color: Colors.dark.primary },
+                            { value: "stable", icon: "remove" as const, color: Colors.dark.orange },
+                            { value: "down", icon: "trending-down" as const, color: Colors.dark.error },
+                          ] as const).map((opt) => (
+                            <Pressable
+                              key={opt.value}
+                              style={[
+                                styles.trendButton,
+                                pf.progressTrend === opt.value && { backgroundColor: opt.color + "20", borderColor: opt.color },
+                              ]}
+                              onPress={() => updatePlayerFeedback(pf.playerId, "progressTrend", opt.value)}
+                            >
+                              <Ionicons
+                                name={opt.icon}
+                                size={16}
+                                color={pf.progressTrend === opt.value ? opt.color : Colors.dark.disabled}
+                              />
+                            </Pressable>
+                          ))}
+                        </View>
+                      </View>
 
-                <View style={styles.playerFeedbackRow}>
-                  <Text style={styles.playerFeedbackLabel}>Effort</Text>
-                  <View style={styles.trendButtons}>
-                    {([
-                      { value: "high", label: "High", color: Colors.dark.primary },
-                      { value: "normal", label: "OK", color: Colors.dark.orange },
-                      { value: "low", label: "Low", color: Colors.dark.error },
-                    ] as const).map((opt) => (
-                      <Pressable
-                        key={opt.value}
-                        style={[
-                          styles.effortButton,
-                          pf.effortLevel === opt.value && { backgroundColor: opt.color + "20", borderColor: opt.color },
-                        ]}
-                        onPress={() => updatePlayerFeedback(pf.playerId, "effortLevel", opt.value)}
-                      >
-                        <Text
-                          style={[
-                            styles.effortButtonText,
-                            pf.effortLevel === opt.value && { color: opt.color },
-                          ]}
-                        >
-                          {opt.label}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
+                      <View style={styles.playerFeedbackRow}>
+                        <Text style={styles.playerFeedbackLabel}>Effort</Text>
+                        <View style={styles.trendButtons}>
+                          {([
+                            { value: "high", label: "High", color: Colors.dark.primary },
+                            { value: "normal", label: "Normal", color: Colors.dark.orange },
+                            { value: "low", label: "Low", color: Colors.dark.error },
+                          ] as const).map((opt) => (
+                            <Pressable
+                              key={opt.value}
+                              style={[
+                                styles.effortButton,
+                                pf.effortLevel === opt.value && { backgroundColor: opt.color + "20", borderColor: opt.color },
+                              ]}
+                              onPress={() => updatePlayerFeedback(pf.playerId, "effortLevel", opt.value)}
+                            >
+                              <Text
+                                style={[
+                                  styles.effortButtonText,
+                                  pf.effortLevel === opt.value && { color: opt.color },
+                                ]}
+                              >
+                                {opt.label}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      </View>
 
-                <TextInput
-                  style={styles.playerNoteInput}
-                  placeholder="Quick note..."
-                  placeholderTextColor={Colors.dark.tabIconDefault}
-                  value={pf.note}
-                  onChangeText={(text) => updatePlayerFeedback(pf.playerId, "note", text)}
-                  maxLength={100}
-                />
-              </View>
-            ))}
+                      <View style={styles.skillChipsSection}>
+                        <Text style={styles.playerFeedbackLabel}>Skills (tap to toggle)</Text>
+                        <View style={styles.skillChipsGrid}>
+                          {/* Sort skill chips: focused skills first, then others */}
+                          {[...skillChips].sort((a, b) => {
+                            const aFocused = focusTags.includes(a);
+                            const bFocused = focusTags.includes(b);
+                            if (aFocused && !bFocused) return -1;
+                            if (!aFocused && bFocused) return 1;
+                            return 0;
+                          }).map((skill) => {
+                            const state = pf.skillProgress[skill];
+                            const icon = getSkillChipIcon(state);
+                            const isFocused = focusTags.includes(skill);
+                            return (
+                              <Pressable
+                                key={skill}
+                                style={[
+                                  styles.skillChip,
+                                  isFocused && !state && styles.skillChipFocused,
+                                  getSkillChipStyle(state),
+                                ]}
+                                onPress={() => cycleSkillState(pf.playerId, skill)}
+                              >
+                                {isFocused && !state ? (
+                                  <Ionicons name="star" size={10} color={Colors.dark.gold} />
+                                ) : icon ? (
+                                  <Ionicons name={icon} size={12} color={getSkillChipColor(state)} />
+                                ) : null}
+                                <Text style={[
+                                  styles.skillChipText, 
+                                  { color: getSkillChipColor(state) },
+                                  isFocused && !state && { color: Colors.dark.gold },
+                                ]}>
+                                  {skill}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                        {/* Warning when too many skills (>7) marked as improved */}
+                        {Object.values(pf.skillProgress).filter(s => s === "up").length > 7 ? (
+                          <View style={styles.skillWarning}>
+                            <Ionicons name="warning-outline" size={14} color={Colors.dark.orange} />
+                            <Text style={styles.skillWarningText}>
+                              Many skills improved - consider focusing on key areas
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+
+                      <TextInput
+                        style={styles.playerNoteInput}
+                        placeholder="Optional coach note..."
+                        placeholderTextColor={Colors.dark.tabIconDefault}
+                        value={pf.note}
+                        onChangeText={(text) => updatePlayerFeedback(pf.playerId, "note", text)}
+                        maxLength={100}
+                      />
+                    </>
+                  ) : null}
+                </View>
+              );
+            })}
           </View>
         )}
 
@@ -538,7 +751,8 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
             </>
           )}
         </Pressable>
-      </ScrollView>
+        </ScrollView>
+      </View>
     );
   }
 
@@ -1190,6 +1404,47 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     marginBottom: Spacing.sm,
   },
+  feedbackLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.sm,
+  },
+  quickActionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  applyAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  applyAllText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+  },
+  asExpectedButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "40",
+    borderStyle: "dashed",
+    marginBottom: Spacing.sm,
+  },
+  asExpectedText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.xpCyan,
+  },
   intensityRow: {
     flexDirection: "row",
     gap: Spacing.sm,
@@ -1256,11 +1511,19 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     gap: Spacing.sm,
   },
+  playerFeedbackHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  playerFeedbackHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   playerFeedbackName: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
     color: Colors.dark.text,
-    marginBottom: Spacing.xs,
   },
   playerFeedbackRow: {
     flexDirection: "row",
@@ -1305,6 +1568,49 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     marginTop: Spacing.xs,
   },
+  skillChipsSection: {
+    marginTop: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  skillChipsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
+  },
+  skillChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.disabled,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  skillChipFocused: {
+    borderColor: Colors.dark.gold + "60",
+    backgroundColor: Colors.dark.gold + "10",
+  },
+  skillChipText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+  },
+  skillWarning: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    backgroundColor: Colors.dark.orange + "15",
+    borderRadius: BorderRadius.sm,
+  },
+  skillWarningText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.orange,
+  },
   saveButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -1322,6 +1628,26 @@ const styles = StyleSheet.create({
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
     color: "#FFF",
+  },
+  successOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.dark.backgroundRoot + "F5",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 100,
+  },
+  successContent: {
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  successText: {
+    ...Typography.h3,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  successSubtext: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.tabIconDefault,
   },
   createTemplateButton: {
     flexDirection: "row",
