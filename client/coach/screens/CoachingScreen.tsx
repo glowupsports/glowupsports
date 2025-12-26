@@ -69,6 +69,33 @@ interface PlayerFeedback {
   note: string;
 }
 
+interface SkillDomain {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string | null;
+  icon: string | null;
+  sortOrder: number | null;
+}
+
+interface PlayerSkillState {
+  id: string;
+  playerId: string;
+  domainId: string;
+  progressValue: number;
+  trend: string | null;
+  momentum: string | null;
+  confidenceScore: number | null;
+  assessmentStatus: string | null;
+  isFrozen: boolean | null;
+  domain: SkillDomain | null;
+}
+
+interface PlayerXpData {
+  totalXp: number;
+  transactions: { id: string; xpAmount: number; source: string; description: string | null; createdAt: string }[];
+}
+
 export default function CoachingScreen() {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<TabType>("today");
@@ -212,13 +239,64 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
     });
   };
 
+  const { data: domains = [] } = useQuery<SkillDomain[]>({
+    queryKey: ["/api/progress/domains"],
+  });
+
   const saveFeedbackMutation = useMutation({
     mutationFn: async (data: { sessionId: string; feedback: any }) => {
-      return apiRequest("POST", `/api/coach/sessions/${data.sessionId}/feedback`, data.feedback);
+      // Save session feedback
+      await apiRequest("POST", `/api/coach/sessions/${data.sessionId}/feedback`, data.feedback);
+      
+      // Submit skill observations to Progress Engine V2 for each player
+      const coachId = calendarData?.ownSessions?.[0]?.coachId;
+      if (coachId && domains.length > 0) {
+        for (const pf of data.feedback.playerFeedback) {
+          // Map progressTrend to domain observations
+          // We create observations for Technical domain based on progress trend
+          const technicalDomain = domains.find(d => d.name === "technical");
+          const mentalDomain = domains.find(d => d.name === "mental");
+          
+          const observations = [];
+          
+          // Technical domain observation based on progressTrend
+          if (technicalDomain) {
+            observations.push({
+              domainId: technicalDomain.id,
+              direction: pf.progressTrend === "up" ? "up" : pf.progressTrend === "down" ? "down" : "stable",
+              effortLevel: pf.effortLevel,
+              note: pf.note || null,
+            });
+          }
+          
+          // Mental domain observation based on mood
+          if (mentalDomain && data.feedback.mood) {
+            observations.push({
+              domainId: mentalDomain.id,
+              direction: data.feedback.mood === "good" ? "up" : data.feedback.mood === "low" ? "down" : "stable",
+              effortLevel: pf.effortLevel,
+              note: null,
+            });
+          }
+
+          if (observations.length > 0) {
+            try {
+              await apiRequest("POST", `/api/coach/sessions/${data.sessionId}/observations`, {
+                playerId: pf.playerId,
+                coachId,
+                observations,
+              });
+            } catch (err) {
+              console.error("Failed to submit observations for player:", pf.playerId, err);
+            }
+          }
+        }
+      }
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/progress/domains"] });
       setSelectedSession(null);
       setIntensity("normal");
       setMood("neutral");
@@ -520,41 +598,128 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
   );
 }
 
+type AssessmentStatus = "not_yet" | "developing" | "meets" | "above";
+
 function ProgressTab({ insets }: { insets: { bottom: number } }) {
-  const { data: playersWithProgress = [], isLoading } = useQuery<PlayerWithProgress[]>({
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerWithProgress | null>(null);
+  const [assessmentMode, setAssessmentMode] = useState(false);
+  const [pendingAssessments, setPendingAssessments] = useState<Record<string, AssessmentStatus>>({});
+  const queryClient = useQueryClient();
+  const { calendarData } = useCoach();
+
+  // Get coachId from calendar data (coach's own sessions)
+  const coachId = calendarData?.ownSessions?.[0]?.coachId;
+  
+  const { data: players = [], isLoading: playersLoading } = useQuery<PlayerWithProgress[]>({
     queryKey: ["/api/coach/players/progress"],
   });
 
-  const SKILL_AREAS = [
-    { key: "forehand", label: "Forehand", icon: "tennisball-outline" },
-    { key: "backhand", label: "Backhand", icon: "tennisball-outline" },
-    { key: "serve", label: "Service", icon: "arrow-up-outline" },
-    { key: "volley", label: "Volley", icon: "hand-right-outline" },
-    { key: "movement", label: "Movement", icon: "footsteps-outline" },
-    { key: "mental", label: "Mental", icon: "bulb-outline" },
-  ];
+  const { data: domains = [] } = useQuery<SkillDomain[]>({
+    queryKey: ["/api/progress/domains"],
+  });
 
-  const getTrendIcon = (trend: string): keyof typeof Ionicons.glyphMap => {
+  const { data: skillStates = [], isLoading: statesLoading } = useQuery<PlayerSkillState[]>({
+    queryKey: [`/api/players/${selectedPlayer?.id}/skill-state`],
+    enabled: !!selectedPlayer,
+  });
+
+  const { data: xpData } = useQuery<PlayerXpData>({
+    queryKey: [`/api/players/${selectedPlayer?.id}/xp`],
+    enabled: !!selectedPlayer,
+  });
+
+  const submitAssessmentMutation = useMutation({
+    mutationFn: async (data: { playerId: string; domainId: string; status: AssessmentStatus }) => {
+      return apiRequest("POST", `/api/players/${data.playerId}/assessments`, {
+        domainId: data.domainId,
+        status: data.status,
+        coachId: coachId,
+        notes: null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/players/${selectedPlayer?.id}/skill-state`] });
+    },
+  });
+
+  const toggleAssessment = (domainId: string, status: AssessmentStatus) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPendingAssessments(prev => {
+      if (prev[domainId] === status) {
+        const { [domainId]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [domainId]: status };
+    });
+  };
+
+  const saveAssessments = async () => {
+    if (!selectedPlayer) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    for (const [domainId, status] of Object.entries(pendingAssessments)) {
+      await submitAssessmentMutation.mutateAsync({
+        playerId: selectedPlayer.id,
+        domainId,
+        status,
+      });
+    }
+    
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setPendingAssessments({});
+    setAssessmentMode(false);
+  };
+
+  const getDomainIcon = (iconName: string | null): keyof typeof Ionicons.glyphMap => {
+    switch (iconName) {
+      case "tennisball-outline": return "tennisball-outline";
+      case "brain-outline": return "bulb-outline";
+      case "fitness-outline": return "fitness-outline";
+      case "people-outline": return "people-outline";
+      case "bulb-outline": return "flash-outline";
+      default: return "star-outline";
+    }
+  };
+
+  const getTrendIcon = (trend: string | null): keyof typeof Ionicons.glyphMap => {
     switch (trend) {
-      case "up": return "trending-up";
-      case "down": return "trending-down";
+      case "improving": return "trending-up";
+      case "focus": return "trending-down";
       default: return "remove";
     }
   };
 
-  const getTrendColor = (trend: string) => {
+  const getTrendColor = (trend: string | null) => {
     switch (trend) {
-      case "up": return Colors.dark.primary;
-      case "down": return Colors.dark.error;
+      case "improving": return Colors.dark.primary;
+      case "focus": return Colors.dark.error;
       default: return Colors.dark.tabIconDefault;
     }
   };
 
-  const getRatingColor = (rating: number) => {
-    if (rating >= 4) return Colors.dark.primary;
-    if (rating >= 3) return Colors.dark.gold;
-    if (rating >= 2) return "#FF851B";
-    return Colors.dark.error;
+  const getMomentumColor = (momentum: string | null) => {
+    switch (momentum) {
+      case "strong": return Colors.dark.primary;
+      case "slowing": return Colors.dark.orange;
+      default: return Colors.dark.xpCyan;
+    }
+  };
+
+  const getProgressColor = (value: number) => {
+    if (value >= 70) return Colors.dark.primary;
+    if (value >= 40) return Colors.dark.xpCyan;
+    if (value >= 20) return Colors.dark.gold;
+    return Colors.dark.tabIconDefault;
+  };
+
+  const getAssessmentBadge = (status: string | null) => {
+    switch (status) {
+      case "above": return { label: "Above", color: Colors.dark.primary };
+      case "meets": return { label: "Meets", color: Colors.dark.xpCyan };
+      case "developing": return { label: "Developing", color: Colors.dark.gold };
+      case "not_yet": return { label: "Not Yet", color: Colors.dark.orange };
+      default: return { label: "No Assessment", color: Colors.dark.disabled };
+    }
   };
 
   const getLevelColor = (level: string | null) => {
@@ -568,7 +733,7 @@ function ProgressTab({ insets }: { insets: { bottom: number } }) {
     }
   };
 
-  if (isLoading) {
+  if (playersLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.dark.primary} />
@@ -577,7 +742,209 @@ function ProgressTab({ insets }: { insets: { bottom: number } }) {
     );
   }
 
-  if (playersWithProgress.length === 0) {
+  // Player Detail View
+  if (selectedPlayer) {
+    return (
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
+        showsVerticalScrollIndicator={false}
+      >
+        <Pressable
+          style={styles.backRow}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setSelectedPlayer(null);
+          }}
+        >
+          <Ionicons name="chevron-back" size={20} color={Colors.dark.primary} />
+          <Text style={styles.backText}>All Players</Text>
+        </Pressable>
+
+        <View style={styles.playerDetailHeader}>
+          <View style={styles.playerAvatarLarge}>
+            <Text style={styles.playerInitialLarge}>{selectedPlayer.name.charAt(0).toUpperCase()}</Text>
+          </View>
+          <View style={styles.playerDetailInfo}>
+            <Text style={styles.playerDetailName}>{selectedPlayer.name}</Text>
+            <View style={styles.playerDetailMeta}>
+              {selectedPlayer.ballLevel ? (
+                <View style={[styles.levelBadgeLarge, { borderColor: getLevelColor(selectedPlayer.ballLevel) }]}>
+                  <View style={[styles.levelDotLarge, { backgroundColor: getLevelColor(selectedPlayer.ballLevel) }]} />
+                  <Text style={[styles.levelBadgeTextLarge, { color: getLevelColor(selectedPlayer.ballLevel) }]}>
+                    {selectedPlayer.ballLevel} Ball
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+          <Pressable
+            style={[styles.assessmentToggle, assessmentMode && styles.assessmentToggleActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setAssessmentMode(!assessmentMode);
+              if (assessmentMode) {
+                setPendingAssessments({});
+              }
+            }}
+          >
+            <Ionicons 
+              name={assessmentMode ? "close" : "clipboard-outline"} 
+              size={18} 
+              color={assessmentMode ? Colors.dark.text : Colors.dark.gold} 
+            />
+          </Pressable>
+        </View>
+
+        {assessmentMode ? (
+          <View style={styles.assessmentBanner}>
+            <Ionicons name="information-circle-outline" size={16} color={Colors.dark.gold} />
+            <Text style={styles.assessmentBannerText}>Assessment Mode - Tap domains to set levels</Text>
+          </View>
+        ) : null}
+
+        {/* XP Display */}
+        {xpData ? (
+          <View style={styles.xpCard}>
+            <View style={styles.xpHeader}>
+              <Ionicons name="star" size={24} color={Colors.dark.gold} />
+              <Text style={styles.xpTotal}>{xpData.totalXp} XP</Text>
+            </View>
+            {xpData.transactions.length > 0 ? (
+              <View style={styles.xpHistory}>
+                <Text style={styles.xpHistoryTitle}>Recent XP</Text>
+                {xpData.transactions.slice(0, 3).map((tx) => (
+                  <View key={tx.id} style={styles.xpTransaction}>
+                    <Text style={styles.xpAmount}>+{tx.xpAmount}</Text>
+                    <Text style={styles.xpSource}>{tx.description || tx.source}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
+        {/* Skill Domains */}
+        <Text style={styles.sectionTitle}>Skill Domains</Text>
+        {statesLoading ? (
+          <ActivityIndicator size="small" color={Colors.dark.primary} />
+        ) : (
+          <View style={styles.domainGrid}>
+            {skillStates.map((state) => {
+              const assessment = getAssessmentBadge(state.assessmentStatus);
+              return (
+                <View key={state.id} style={styles.domainCard}>
+                  <View style={styles.domainHeader}>
+                    <Ionicons
+                      name={getDomainIcon(state.domain?.icon || null)}
+                      size={20}
+                      color={getProgressColor(state.progressValue)}
+                    />
+                    <Text style={styles.domainName}>{state.domain?.displayName || "Unknown"}</Text>
+                    {state.isFrozen ? (
+                      <Ionicons name="snow-outline" size={14} color={Colors.dark.xpCyan} />
+                    ) : null}
+                  </View>
+                  
+                  {/* Progress Bar */}
+                  <View style={styles.progressBarContainer}>
+                    <View style={styles.progressBarBg}>
+                      <View 
+                        style={[
+                          styles.progressBarFill, 
+                          { 
+                            width: `${state.progressValue}%`,
+                            backgroundColor: getProgressColor(state.progressValue)
+                          }
+                        ]} 
+                      />
+                    </View>
+                    <Text style={[styles.progressValue, { color: getProgressColor(state.progressValue) }]}>
+                      {state.progressValue}%
+                    </Text>
+                  </View>
+
+                  {assessmentMode ? (
+                    <View style={styles.assessmentOptions}>
+                      {(["not_yet", "developing", "meets", "above"] as AssessmentStatus[]).map((status) => {
+                        const badge = getAssessmentBadge(status);
+                        const isSelected = pendingAssessments[state.domainId] === status;
+                        const isCurrent = state.assessmentStatus === status;
+                        return (
+                          <Pressable
+                            key={status}
+                            style={[
+                              styles.assessmentOption,
+                              isSelected && { backgroundColor: badge.color + "30", borderColor: badge.color },
+                              isCurrent && !isSelected && { opacity: 0.6 },
+                            ]}
+                            onPress={() => toggleAssessment(state.domainId, status)}
+                          >
+                            <Text style={[styles.assessmentOptionText, { color: isSelected ? badge.color : Colors.dark.tabIconDefault }]}>
+                              {badge.label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  ) : (
+                    <>
+                      <View style={styles.domainMeta}>
+                        <View style={styles.trendBadge}>
+                          <Ionicons
+                            name={getTrendIcon(state.trend)}
+                            size={12}
+                            color={getTrendColor(state.trend)}
+                          />
+                          <Text style={[styles.trendText, { color: getTrendColor(state.trend) }]}>
+                            {state.trend === "improving" ? "Improving" : state.trend === "focus" ? "Needs Focus" : "Stable"}
+                          </Text>
+                        </View>
+                        <View style={[styles.assessmentBadge, { backgroundColor: assessment.color + "20" }]}>
+                          <Text style={[styles.assessmentText, { color: assessment.color }]}>{assessment.label}</Text>
+                        </View>
+                      </View>
+
+                      {state.momentum ? (
+                        <View style={styles.momentumRow}>
+                          <Ionicons name="flash-outline" size={12} color={getMomentumColor(state.momentum)} />
+                          <Text style={[styles.momentumText, { color: getMomentumColor(state.momentum) }]}>
+                            Momentum: {state.momentum.charAt(0).toUpperCase() + state.momentum.slice(1)}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {assessmentMode && Object.keys(pendingAssessments).length > 0 ? (
+          <Pressable
+            style={[styles.saveAssessmentsButton, submitAssessmentMutation.isPending && { opacity: 0.6 }]}
+            onPress={saveAssessments}
+            disabled={submitAssessmentMutation.isPending}
+          >
+            {submitAssessmentMutation.isPending ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={20} color="#FFF" />
+                <Text style={styles.saveAssessmentsText}>
+                  Save {Object.keys(pendingAssessments).length} Assessment{Object.keys(pendingAssessments).length > 1 ? "s" : ""}
+                </Text>
+              </>
+            )}
+          </Pressable>
+        ) : null}
+      </ScrollView>
+    );
+  }
+
+  // Player List View
+  if (players.length === 0) {
     return (
       <ScrollView
         style={styles.content}
@@ -603,91 +970,42 @@ function ProgressTab({ insets }: { insets: { bottom: number } }) {
       showsVerticalScrollIndicator={false}
     >
       <Text style={styles.sectionTitle}>Player Progress</Text>
-      <Text style={styles.sectionSubtitle}>{playersWithProgress.length} players</Text>
+      <Text style={styles.sectionSubtitle}>{players.length} players - Tap to view details</Text>
 
-      {playersWithProgress.map((player) => {
-        const hasProgress = player.progressSummary.some(p => p.avgRating > 0);
-        
-        return (
-          <View key={player.id} style={styles.progressCard}>
-            <View style={styles.progressCardHeader}>
-              <View style={styles.playerAvatarSmall}>
-                <Text style={styles.playerInitialSmall}>{player.name.charAt(0).toUpperCase()}</Text>
-              </View>
-              <View style={styles.progressPlayerInfo}>
-                <Text style={styles.progressPlayerName}>{player.name}</Text>
-                <View style={styles.progressMeta}>
-                  {player.ballLevel ? (
-                    <View style={styles.levelBadge}>
-                      <View style={[styles.levelDotSmall, { backgroundColor: getLevelColor(player.ballLevel) }]} />
-                      <Text style={styles.levelBadgeText}>{player.ballLevel}</Text>
-                    </View>
-                  ) : null}
-                  {player.totalNotes > 0 ? (
-                    <View style={styles.notesBadge}>
-                      <Ionicons name="document-text-outline" size={12} color={Colors.dark.tabIconDefault} />
-                      <Text style={styles.notesBadgeText}>{player.totalNotes}</Text>
-                    </View>
-                  ) : null}
-                </View>
+      {players.map((player) => (
+        <Pressable
+          key={player.id}
+          style={styles.progressCard}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setSelectedPlayer(player);
+          }}
+        >
+          <View style={styles.progressCardHeader}>
+            <View style={styles.playerAvatarSmall}>
+              <Text style={styles.playerInitialSmall}>{player.name.charAt(0).toUpperCase()}</Text>
+            </View>
+            <View style={styles.progressPlayerInfo}>
+              <Text style={styles.progressPlayerName}>{player.name}</Text>
+              <View style={styles.progressMeta}>
+                {player.ballLevel ? (
+                  <View style={styles.levelBadge}>
+                    <View style={[styles.levelDotSmall, { backgroundColor: getLevelColor(player.ballLevel) }]} />
+                    <Text style={styles.levelBadgeText}>{player.ballLevel}</Text>
+                  </View>
+                ) : null}
+                {player.totalNotes > 0 ? (
+                  <View style={styles.notesBadge}>
+                    <Ionicons name="document-text-outline" size={12} color={Colors.dark.tabIconDefault} />
+                    <Text style={styles.notesBadgeText}>{player.totalNotes}</Text>
+                  </View>
+                ) : null}
               </View>
             </View>
-
-            {hasProgress ? (
-              <View style={styles.skillGrid}>
-                {SKILL_AREAS.map((skill) => {
-                  const progress = player.progressSummary.find(p => p.skillArea === skill.key);
-                  const rating = progress?.avgRating || 0;
-                  const trend = progress?.trend || "stable";
-
-                  return (
-                    <View key={skill.key} style={styles.skillItem}>
-                      <View style={styles.skillHeader}>
-                        <Ionicons
-                          name={skill.icon as keyof typeof Ionicons.glyphMap}
-                          size={14}
-                          color={Colors.dark.tabIconDefault}
-                        />
-                        <Text style={styles.skillLabel}>{skill.label}</Text>
-                      </View>
-                      <View style={styles.skillRating}>
-                        {rating > 0 ? (
-                          <>
-                            <Text style={[styles.ratingValue, { color: getRatingColor(rating) }]}>
-                              {rating.toFixed(1)}
-                            </Text>
-                            <Ionicons
-                              name={getTrendIcon(trend)}
-                              size={14}
-                              color={getTrendColor(trend)}
-                            />
-                          </>
-                        ) : (
-                          <Text style={styles.noRating}>-</Text>
-                        )}
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            ) : (
-              <View style={styles.noProgressCard}>
-                <Ionicons name="analytics-outline" size={24} color={Colors.dark.disabled} />
-                <Text style={styles.noProgressText}>No progress yet</Text>
-              </View>
-            )}
-
-            {player.recentNote ? (
-              <View style={styles.recentNoteCard}>
-                <Ionicons name="document-text-outline" size={14} color={Colors.dark.tabIconDefault} />
-                <Text style={styles.recentNoteText} numberOfLines={2}>
-                  {player.recentNote.content}
-                </Text>
-              </View>
-            ) : null}
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.tabIconDefault} />
           </View>
-        );
-      })}
+        </Pressable>
+      ))}
     </ScrollView>
   );
 }
@@ -1153,5 +1471,236 @@ const styles = StyleSheet.create({
     fontSize: Typography.small.fontSize,
     color: Colors.dark.tabIconDefault,
     fontStyle: "italic",
+  },
+  // Progress Engine V2 Styles
+  playerDetailHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.lg,
+    marginBottom: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+  },
+  playerAvatarLarge: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.dark.primary + "30",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playerInitialLarge: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  playerDetailInfo: {
+    flex: 1,
+  },
+  playerDetailName: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+  },
+  playerDetailMeta: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  levelBadgeLarge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+  },
+  levelDotLarge: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  levelBadgeTextLarge: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "600",
+  },
+  xpCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.xl,
+  },
+  xpHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  xpTotal: {
+    ...Typography.h2,
+    color: Colors.dark.gold,
+  },
+  xpHistory: {
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.disabled,
+  },
+  xpHistoryTitle: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+    marginBottom: Spacing.sm,
+  },
+  xpTransaction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  xpAmount: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.primary,
+    minWidth: 40,
+  },
+  xpSource: {
+    flex: 1,
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+  },
+  domainGrid: {
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+  },
+  domainCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+  },
+  domainHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  domainName: {
+    flex: 1,
+    ...Typography.h4,
+    color: Colors.dark.text,
+  },
+  progressBarContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  progressBarBg: {
+    flex: 1,
+    height: 8,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  progressValue: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    minWidth: 40,
+    textAlign: "right",
+  },
+  domainMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  trendBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  trendText: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "500",
+  },
+  assessmentBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  assessmentText: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "500",
+  },
+  assessmentToggle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  assessmentToggleActive: {
+    backgroundColor: Colors.dark.gold + "30",
+  },
+  assessmentBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.gold + "15",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  assessmentBannerText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.gold,
+  },
+  assessmentOptions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.xs,
+  },
+  assessmentOption: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.disabled,
+  },
+  assessmentOptionText: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "500",
+  },
+  saveAssessmentsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.gold,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.lg,
+  },
+  saveAssessmentsText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: "#FFF",
+  },
+  momentumRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.backgroundRoot,
+  },
+  momentumText: {
+    fontSize: Typography.small.fontSize,
   },
 });

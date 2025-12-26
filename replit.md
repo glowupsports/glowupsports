@@ -166,3 +166,15 @@ Advanced player development tracking system with 5 skill domains, anti-abuse rul
 3. Player skill state updates (progress value, trend, momentum)
 4. Formal assessments can be created (not_yet → developing → meets → above)
 5. Level readiness calculates if all domain requirements are met + minimum sessions
+
+### Frontend Integration (CoachingScreen.tsx)
+- **Progress Tab**: Displays all players with tap-to-view details
+- **Player Detail View**: Shows 5 skill domains with progress bars (0-100%), trend indicators (improving/stable/focus), momentum tracking, and assessment badges
+- **XP Display**: Shows total XP and recent XP transactions in player detail view
+- **Assessment Mode**: Toggle button in player header activates assessment selection UI
+  - Coaches can select assessment status (Not Yet, Developing, Meets, Above) per domain
+  - Pending assessments are saved in batch with a save button
+- **Today Feedback Integration**: When submitting session feedback, skill observations are automatically created:
+  - Technical domain observation based on progressTrend (up/stable/down)
+  - Mental domain observation based on player mood (good/neutral/low)
+  - Effort level from per-player feedback applied to both observations
