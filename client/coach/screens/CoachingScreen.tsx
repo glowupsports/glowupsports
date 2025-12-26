@@ -86,9 +86,9 @@ export default function CoachingScreen() {
 
       <View style={styles.tabBar}>
         {([
-          { id: "today", label: "Vandaag", icon: "today-outline" },
-          { id: "progress", label: "Voortgang", icon: "trending-up-outline" },
-          { id: "plans", label: "Plannen", icon: "document-text-outline" },
+          { id: "today", label: "Today", icon: "today-outline" },
+          { id: "progress", label: "Progress", icon: "trending-up-outline" },
+          { id: "plans", label: "Plans", icon: "document-text-outline" },
         ] as const).map((tab) => (
           <Pressable
             key={tab.id}
@@ -177,7 +177,7 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
       setGeneralNote("");
     },
     onError: (error: Error) => {
-      Alert.alert("Fout", error.message || "Feedback opslaan mislukt");
+      Alert.alert("Error", error.message || "Failed to save feedback");
     },
   });
 
@@ -222,7 +222,7 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
         </View>
 
         <View style={styles.feedbackSection}>
-          <Text style={styles.feedbackLabel}>Intensiteit</Text>
+          <Text style={styles.feedbackLabel}>Intensity</Text>
           <View style={styles.intensityRow}>
             {([
               { value: "light", label: "Light", color: Colors.dark.primary },
@@ -294,7 +294,7 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
           ) : (
             <>
               <Ionicons name="checkmark-circle" size={20} color="#FFF" />
-              <Text style={styles.saveButtonText}>Feedback Opslaan</Text>
+              <Text style={styles.saveButtonText}>Save Feedback</Text>
             </>
           )}
         </Pressable>
@@ -308,12 +308,12 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
       contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.sectionTitle}>Lessen van vandaag</Text>
+      <Text style={styles.sectionTitle}>Today's Lessons</Text>
       {todaysSessions.length === 0 ? (
         <View style={styles.emptyCard}>
           <Ionicons name="checkmark-done-circle-outline" size={48} color={Colors.dark.primary} />
-          <Text style={styles.emptyText}>Geen afgeronde lessen vandaag</Text>
-          <Text style={styles.emptySubtext}>Feedback verschijnt hier na elke les</Text>
+          <Text style={styles.emptyText}>No completed lessons today</Text>
+          <Text style={styles.emptySubtext}>Feedback will appear here after each lesson</Text>
         </View>
       ) : (
         todaysSessions.map((session) => {
@@ -340,7 +340,7 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
                 </Text>
                 {needsFeedback ? (
                   <View style={styles.pendingBadge}>
-                    <Text style={styles.pendingText}>Feedback open</Text>
+                    <Text style={styles.pendingText}>Needs feedback</Text>
                   </View>
                 ) : (
                   <View style={styles.doneBadge}>
@@ -412,7 +412,7 @@ function ProgressTab({ insets }: { insets: { bottom: number } }) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.dark.primary} />
-        <Text style={styles.loadingText}>Voortgang laden...</Text>
+        <Text style={styles.loadingText}>Loading progress...</Text>
       </View>
     );
   }
@@ -424,12 +424,12 @@ function ProgressTab({ insets }: { insets: { bottom: number } }) {
         contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.sectionTitle}>Speler Voortgang</Text>
+        <Text style={styles.sectionTitle}>Player Progress</Text>
         <View style={styles.emptyCard}>
           <Ionicons name="trending-up-outline" size={48} color={Colors.dark.xpCyan} />
-          <Text style={styles.emptyText}>Geen spelers gevonden</Text>
+          <Text style={styles.emptyText}>No players found</Text>
           <Text style={styles.emptySubtext}>
-            Voeg spelers toe om hun voortgang bij te houden
+            Add players to track their progress
           </Text>
         </View>
       </ScrollView>
@@ -442,8 +442,8 @@ function ProgressTab({ insets }: { insets: { bottom: number } }) {
       contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.sectionTitle}>Speler Voortgang</Text>
-      <Text style={styles.sectionSubtitle}>{playersWithProgress.length} spelers</Text>
+      <Text style={styles.sectionTitle}>Player Progress</Text>
+      <Text style={styles.sectionSubtitle}>{playersWithProgress.length} players</Text>
 
       {playersWithProgress.map((player) => {
         const hasProgress = player.progressSummary.some(p => p.avgRating > 0);
@@ -513,7 +513,7 @@ function ProgressTab({ insets }: { insets: { bottom: number } }) {
             ) : (
               <View style={styles.noProgressCard}>
                 <Ionicons name="analytics-outline" size={24} color={Colors.dark.disabled} />
-                <Text style={styles.noProgressText}>Nog geen voortgang</Text>
+                <Text style={styles.noProgressText}>No progress yet</Text>
               </View>
             )}
 
@@ -539,16 +539,16 @@ function PlansTab({ insets }: { insets: { bottom: number } }) {
       contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.sectionTitle}>Lesvoorbereiding</Text>
+      <Text style={styles.sectionTitle}>Lesson Preparation</Text>
       <View style={styles.emptyCard}>
         <Ionicons name="document-text-outline" size={48} color={Colors.dark.gold} />
         <Text style={styles.emptyText}>Session Templates</Text>
         <Text style={styles.emptySubtext}>
-          Maak templates voor je lessen en koppel ze aan je kalender
+          Create templates for your lessons and link them to your calendar
         </Text>
         <Pressable style={styles.createTemplateButton}>
           <Ionicons name="add-circle-outline" size={20} color={Colors.dark.primary} />
-          <Text style={styles.createTemplateText}>Template maken</Text>
+          <Text style={styles.createTemplateText}>Create Template</Text>
         </Pressable>
       </View>
     </ScrollView>
