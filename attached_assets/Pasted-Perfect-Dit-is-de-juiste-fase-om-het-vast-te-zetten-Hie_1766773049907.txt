@@ -1,0 +1,308 @@
+Perfect. Dit is de juiste fase om het vast te zetten.
+Hieronder krijg je een definitieve, build-ready Month UX spec + keiharde Glow visual rules.
+Geen vaagheid. Dit is wat je team letterlijk kan bouwen.
+
+🔒 DEFINITIEVE MONTH UX SPEC
+
+(Coach Calendar – Glow Up Tennis)
+
+🎯 Doel van Month View (belangrijk om te onthouden)
+
+Month view is NOOIT:
+
+plannen
+
+schuiven
+
+details bekijken
+
+Month view is ALTIJD:
+
+macro-overzicht
+
+energie & ruimte voelen
+
+snelle beslissingen nemen
+
+Daarom: 2 modi.
+
+🔁 MONTH TOGGLE (verplicht)
+
+Bovenin, onder Day | Week | Month:
+
+Month:   [ Load ]   [ Availability ]
+
+
+Default: Load
+
+Toggle is sticky (onthouden per coach)
+
+🟢 MODE 1 — MONTH · LOAD
+🧠 Mentale vraag die dit beantwoordt
+
+“Hoe zwaar is mijn maand als coach?”
+
+📐 LAYOUT STRUCTUUR
+Grid
+
+7 kolommen (Mon–Sun)
+
+5–6 rijen (weken)
+
+GEEN harde lijnen
+
+Cards met spacing (niet strak tegen elkaar)
+
+🟩 DAG-CARD (BELANGRIJK)
+
+Elke dag is een card, geen vakje.
+
+Card bevat exact 4 lagen:
+1️⃣ Datum (laagste hiërarchie)
+
+Klein
+
+Links boven
+
+60–70% opacity
+
+No bold
+
+➡️ Datum is context, geen focus.
+
+2️⃣ Load Visual (HOOFDELEMENT)
+
+Dit is waar de “wow” zit.
+
+❌ Niet
+
+dunne streepjes
+
+simpele blokjes
+
+stoplichtkleuren
+
+✅ Wel (kies 1 – mijn aanbeveling staat ⭐)
+
+⭐ A) Soft Gradient Fill (aanrader)
+
+Onderkant van card vult zich omhoog
+
+Hoogte = aantal uren
+
+Kleur = intensiteit
+
+Zachte gradient, geen harde rand
+
+Alternatieven (ook ok):
+
+B) Radial glow (cirkel vult zich)
+
+C) Heat-glow onderrand
+
+🎨 Load kleuren (Glow gradient)
+
+Gebruik NOOIT pure rood/geel/groen.
+
+Gebruik:
+
+Light → Neon green → lime
+
+Medium → lime → amber
+
+Heavy → amber → orange
+
+Overload → orange → soft red
+
+➡️ Premium
+➡️ Volwassen
+➡️ Niet kinderachtig
+
+3️⃣ Load label (optioneel, subtiel)
+
+Onderin de card, klein:
+
+5h
+
+
+Geen “hours”
+
+Geen iconen
+
+Alleen getal + h
+
+Alleen tonen als >0
+
+4️⃣ States (overlay, zeldzaam)
+
+🏖 Holiday → card faded + blue tint
+
+❌ Unavailable → diagonal soft pattern
+
+⭐ Special day → zachte glow outline
+
+❌ WAT ABSOLUUT NIET IN LOAD MODE ZIT
+
+Tijden
+
+Sessies
+
+Courts
+
+Drag & drop
+
+Klikbare details
+
+Tap op card → Day View
+
+🔵 MODE 2 — MONTH · AVAILABILITY
+🧠 Mentale vraag die dit beantwoordt
+
+“Waar heb ik deze maand nog ruimte?”
+
+Dit is NIET hetzelfde als load.
+
+📐 LAYOUT
+
+Zelfde grid, zelfde cards
+➡️ Consistentie = rust
+
+🟦 DAG-CARD (Availability)
+Wat we tonen:
+
+Beschikbaarheid-status, geen uren.
+
+Card states (max 3)
+
+🟢 Open
+Veel ruimte om te plannen
+
+🟡 Limited
+Enkele slots beschikbaar
+
+⚫ Full / Blocked
+Geen ruimte
+
+➡️ Geen gradients
+➡️ Geen details
+➡️ 1 duidelijke kleur per dag
+
+Mini-hint (optioneel)
+
+Onderin:
+
+2 slots
+
+
+OF niets.
+
+Interactie
+
+Tap → Week Availability View
+
+Long press (later) → “Suggest session”
+
+❌ Wat hier niet zit
+
+Geen uren
+
+Geen load bars
+
+Geen intensiteit
+
+Geen planning
+
+Availability ≠ workload.
+
+🎨 GLOW VISUAL RULES (DIT MAAKT HET “WOW”)
+
+Dit is cruciaal. Hier win of verlies je premium-feel.
+
+1️⃣ Cards, geen grids
+
+Border radius: medium (8–12px)
+
+Subtle shadow (donker, niet licht)
+
+Cards “zweven” licht boven achtergrond
+
+➡️ Minder Excel
+➡️ Meer product
+
+2️⃣ Diepte > lijnen
+
+Geen borders
+
+Gebruik:
+
+schaduw
+
+gradient
+
+opacity
+
+Glow = licht, geen lijnen.
+
+3️⃣ Kleur is informatie, geen decoratie
+
+Elke kleur heeft betekenis
+
+Geen felle primaire kleuren
+
+Alles licht gedempt (dark-mode first)
+
+4️⃣ Rust = premium
+
+Veel spacing
+
+Geen icon overload
+
+Geen cijfers in het midden
+
+Alles “ademt”
+
+Als je denkt: “kan dit weg?”
+→ Ja, weg ermee.
+
+5️⃣ Animatie (minimaal, maar luxe)
+
+Month switch → fade + slight scale
+
+Toggle switch → smooth slide
+
+Geen bounce
+
+Geen speelsheid
+
+Glow ≠ speelgoed.
+
+🧠 CONSISTENTIE MET WEEK & DAY
+View	Rol
+Day	Opereren
+Week	Beslissen
+Month	Reflecteren & vooruitkijken
+
+Elke view:
+
+andere density
+
+ander detailniveau
+
+ander tempo
+
+Dit is product maturity.
+
+🏁 DEFINITIEVE CONCLUSIE
+
+Ja — Month had een toggle nodig
+Ja — de oude versie was te kinderachtig
+
+Met deze spec:
+
+voelt Month volwassen
+
+voelt het premium
+
+voelt het als “coach power tool”
+
+past het perfect bij Glow DNA

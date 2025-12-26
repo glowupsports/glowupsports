@@ -245,23 +245,22 @@ export default function NowPlayingCard({
 
           <View style={styles.detailsRow}>
             <View style={styles.detailItem}>
-              <Ionicons name="location-outline" size={16} color={Colors.dark.tabIconDefault} />
+              <Ionicons name="location-outline" size={12} color={Colors.dark.tabIconDefault} />
               <Text style={styles.detailText}>{getCourtName(activeSession!.courtId)}</Text>
             </View>
             <View style={styles.detailItem}>
-              <Ionicons name="time-outline" size={16} color={Colors.dark.tabIconDefault} />
+              <Ionicons name="time-outline" size={12} color={Colors.dark.tabIconDefault} />
               <Text style={styles.detailText}>{activeSession!.duration} min</Text>
             </View>
+            {activeSession!.players && activeSession!.players.length > 0 ? (
+              <View style={styles.detailItem}>
+                <Ionicons name="people-outline" size={12} color={Colors.dark.tabIconDefault} />
+                <Text style={styles.detailText} numberOfLines={1}>
+                  {activeSession!.players.map((p) => p.name).join(", ")}
+                </Text>
+              </View>
+            ) : null}
           </View>
-
-          {activeSession!.players && activeSession!.players.length > 0 ? (
-            <View style={styles.playersRow}>
-              <Ionicons name="people-outline" size={16} color={Colors.dark.tabIconDefault} />
-              <Text style={styles.playersText} numberOfLines={1}>
-                {activeSession!.players.map((p) => p.name).join(", ")}
-              </Text>
-            </View>
-          ) : null}
         </View>
 
         {isActive ? (
@@ -270,21 +269,21 @@ export default function NowPlayingCard({
               style={[styles.actionButton, styles.primaryAction]}
               onPress={() => handleAction(() => onAttendance(activeSession!))}
             >
-              <Ionicons name="checkmark-circle-outline" size={18} color="#FFF" />
+              <Ionicons name="checkmark-circle-outline" size={14} color="#FFF" />
               <Text style={styles.actionText}>Attendance</Text>
             </Pressable>
             <Pressable
               style={styles.actionButton}
               onPress={() => handleAction(() => onExtend(activeSession!))}
             >
-              <Ionicons name="add-circle-outline" size={18} color={Colors.dark.text} />
+              <Ionicons name="add-circle-outline" size={14} color={Colors.dark.text} />
               <Text style={styles.actionTextSecondary}>Extend</Text>
             </Pressable>
             <Pressable
               style={styles.actionButton}
               onPress={() => handleAction(() => onEnd(activeSession!))}
             >
-              <Ionicons name="stop-circle-outline" size={18} color="#FF6B35" />
+              <Ionicons name="stop-circle-outline" size={14} color="#FF6B35" />
               <Text style={[styles.actionTextSecondary, { color: "#FF6B35" }]}>End</Text>
             </Pressable>
           </View>
@@ -297,20 +296,21 @@ export default function NowPlayingCard({
 const styles = StyleSheet.create({
   container: {
     marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.md,
-    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.sm,
+    borderRadius: BorderRadius.md,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(46, 204, 64, 0.2)",
   },
   gradient: {
-    padding: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
   },
   statusContainer: {
     flexDirection: "row",
@@ -329,18 +329,19 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   countdown: {
-    alignItems: "flex-end",
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 4,
   },
   countdownNumber: {
-    fontSize: Typography.h2.fontSize,
+    fontSize: Typography.body.fontSize,
     fontWeight: "700",
     color: Colors.dark.text,
     fontVariant: ["tabular-nums"],
   },
   countdownLabel: {
-    fontSize: Typography.caption.fontSize,
+    fontSize: Typography.small.fontSize,
     color: Colors.dark.tabIconDefault,
-    marginTop: -2,
   },
   timeUntil: {
     fontSize: Typography.small.fontSize,
@@ -348,7 +349,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   sessionInfo: {
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   mainInfo: {
     flexDirection: "row",
@@ -382,21 +383,11 @@ const styles = StyleSheet.create({
     fontSize: Typography.small.fontSize,
     color: Colors.dark.tabIconDefault,
   },
-  playersRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-  },
-  playersText: {
-    fontSize: Typography.small.fontSize,
-    color: Colors.dark.tabIconDefault,
-    flex: 1,
-  },
   actions: {
     flexDirection: "row",
-    gap: Spacing.sm,
-    marginTop: Spacing.md,
-    paddingTop: Spacing.md,
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
     borderTopWidth: 1,
     borderTopColor: "rgba(255, 255, 255, 0.1)",
   },
@@ -405,9 +396,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: Spacing.xs,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
+    gap: 4,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
     backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   primaryAction: {

@@ -141,6 +141,7 @@ export default function CalendarScreen() {
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{ courtId: string; time: Date } | null>(null);
   const [selectedSessionForAttendance, setSelectedSessionForAttendance] = useState<Session | null>(null);
+  const [weekMode, setWeekMode] = useState<"overview" | "availability">("overview");
 
   // Fetch available coaches
   const { data: coaches = [], isLoading: coachesLoading } = useQuery<CoachData[]>({
@@ -584,6 +585,24 @@ export default function CalendarScreen() {
               </Pressable>
             </View>
           )}
+          {viewMode === "week" && (
+            <View style={styles.weekModeToggle}>
+              <Pressable
+                style={[styles.weekModeButton, weekMode === "overview" && styles.weekModeButtonActive]}
+                onPress={() => setWeekMode("overview")}
+              >
+                <Ionicons name="analytics-outline" size={14} color={weekMode === "overview" ? Colors.dark.backgroundRoot : Colors.dark.text} />
+                <Text style={[styles.weekModeText, weekMode === "overview" && styles.weekModeTextActive]}>Overview</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.weekModeButton, weekMode === "availability" && styles.weekModeButtonActive]}
+                onPress={() => setWeekMode("availability")}
+              >
+                <Ionicons name="time-outline" size={14} color={weekMode === "availability" ? Colors.dark.backgroundRoot : Colors.dark.text} />
+                <Text style={[styles.weekModeText, weekMode === "availability" && styles.weekModeTextActive]}>Slots</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
         {/* Date Navigation */}
@@ -701,6 +720,11 @@ export default function CalendarScreen() {
                       .filter((s) => s.courtId === court.id)
                       .map((session) => {
                         const { top, height } = getSessionPosition(session);
+                        const now = new Date();
+                        const sessionEnd = new Date(session.endTime);
+                        const sessionStart = new Date(session.startTime);
+                        const isPast = sessionEnd < now;
+                        const isActive = now >= sessionStart && now < sessionEnd;
                         const sessionLabel = session.sessionType === "private" ? "Private" :
                                             session.sessionType === "semi_private" ? "Semi" :
                                             session.sessionType === "group" ? "Group" :
@@ -718,7 +742,9 @@ export default function CalendarScreen() {
                                 top,
                                 height: height - 2,
                                 backgroundColor: getSessionTypeColor(session.sessionType),
+                                opacity: isPast ? 0.5 : 1,
                               },
+                              isActive && styles.sessionBlockActive,
                             ]}
                           >
                             <Text style={styles.sessionText} numberOfLines={1}>
@@ -765,8 +791,8 @@ export default function CalendarScreen() {
         </>
       )}
 
-      {/* WEEK VIEW */}
-      {viewMode === "week" && (
+      {/* WEEK VIEW - OVERVIEW MODE */}
+      {viewMode === "week" && weekMode === "overview" && (
         <ScrollView 
           style={styles.calendarScroll} 
           showsVerticalScrollIndicator={false}
@@ -835,6 +861,154 @@ export default function CalendarScreen() {
             );
           })}
         </ScrollView>
+      )}
+
+      {/* WEEK VIEW - AVAILABILITY MODE */}
+      {viewMode === "week" && weekMode === "availability" && (
+        <View style={styles.availabilityContainer}>
+          {/* Next Free Slots Quick Scan */}
+          {(() => {
+            const freeSlots: { date: Date; courtId: string; courtName: string; hour: number }[] = [];
+            const slotHours = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
+            
+            weekDates.forEach(date => {
+              const daySessions = getSessionsForDate(date);
+              courts.forEach(court => {
+                slotHours.forEach(hour => {
+                  const slotStart = new Date(date);
+                  slotStart.setHours(hour, 0, 0, 0);
+                  const slotEnd = new Date(date);
+                  slotEnd.setHours(hour + 1, 0, 0, 0);
+                  
+                  const isOccupied = daySessions.some(s => {
+                    const sStart = new Date(s.startTime);
+                    const sEnd = new Date(s.endTime);
+                    return s.courtId === court.id && sStart < slotEnd && sEnd > slotStart;
+                  });
+                  
+                  if (!isOccupied && freeSlots.length < 4) {
+                    freeSlots.push({ date, courtId: court.id, courtName: court.name, hour });
+                  }
+                });
+              });
+            });
+            
+            return freeSlots.length > 0 ? (
+              <View style={styles.freeSlotsBar}>
+                <Text style={styles.freeSlotsLabel}>Next free:</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {freeSlots.slice(0, 4).map((slot, i) => (
+                    <Pressable 
+                      key={i} 
+                      style={styles.freeSlotChip}
+                      onPress={() => {
+                        const slotDate = new Date(slot.date);
+                        slotDate.setHours(slot.hour, 0, 0, 0);
+                        setSelectedSlot({ courtId: slot.courtId, time: slotDate });
+                        setShowCreateDrawer(true);
+                      }}
+                    >
+                      <Text style={styles.freeSlotText}>
+                        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][slot.date.getDay()]} {formatTime(slot.hour)}
+                      </Text>
+                      <Text style={styles.freeSlotCourt}>{slot.courtName}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : null;
+          })()}
+          
+          {/* Availability Grid */}
+          <ScrollView style={styles.calendarScroll} showsVerticalScrollIndicator={false}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.availabilityGrid}>
+                {/* Time Column */}
+                <View style={styles.availTimeColumn}>
+                  <View style={styles.availCornerCell} />
+                  {[8, 10, 12, 14, 16, 18, 20].map(hour => (
+                    <View key={hour} style={styles.availTimeCell}>
+                      <Text style={styles.availTimeText}>{formatTime(hour)}</Text>
+                    </View>
+                  ))}
+                </View>
+                
+                {/* Day Columns */}
+                {weekDates.map((date, dayIdx) => {
+                  const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+                  const isToday = date.toDateString() === new Date().toDateString();
+                  const daySessions = getSessionsForDate(date);
+                  
+                  return (
+                    <View key={dayIdx} style={styles.availDayColumn}>
+                      {/* Day Header */}
+                      <View style={[styles.availDayHeader, isToday && styles.availDayHeaderToday]}>
+                        <Text style={[styles.availDayName, isToday && styles.availDayNameToday]}>{dayNames[dayIdx]}</Text>
+                        <Text style={styles.availDayDate}>{date.getDate()}</Text>
+                      </View>
+                      
+                      {/* Time Blocks (2-hour chunks) */}
+                      {[8, 10, 12, 14, 16, 18, 20].map(hour => {
+                        const blockStart = new Date(date);
+                        blockStart.setHours(hour, 0, 0, 0);
+                        const blockEnd = new Date(date);
+                        blockEnd.setHours(hour + 2, 0, 0, 0);
+                        
+                        // Check occupancy per court
+                        const courtOccupancy = courts.map(court => {
+                          const occupied = daySessions.some(s => {
+                            const sStart = new Date(s.startTime);
+                            const sEnd = new Date(s.endTime);
+                            return s.courtId === court.id && sStart < blockEnd && sEnd > blockStart;
+                          });
+                          return { court, occupied };
+                        });
+                        
+                        const allFree = courtOccupancy.every(c => !c.occupied);
+                        const allBusy = courtOccupancy.every(c => c.occupied);
+                        const partialFree = !allFree && !allBusy;
+                        
+                        return (
+                          <Pressable 
+                            key={hour} 
+                            style={[
+                              styles.availBlock,
+                              allFree && styles.availBlockFree,
+                              allBusy && styles.availBlockBusy,
+                              partialFree && styles.availBlockPartial,
+                            ]}
+                            onPress={() => {
+                              if (!allBusy) {
+                                const freeCourt = courtOccupancy.find(c => !c.occupied);
+                                if (freeCourt) {
+                                  setSelectedSlot({ courtId: freeCourt.court.id, time: blockStart });
+                                  setShowCreateDrawer(true);
+                                }
+                              }
+                            }}
+                          >
+                            {/* Mini court indicators */}
+                            <View style={styles.courtIndicators}>
+                              {courtOccupancy.map((co, i) => (
+                                <View 
+                                  key={i} 
+                                  style={[
+                                    styles.courtDot,
+                                    co.occupied ? styles.courtDotBusy : styles.courtDotFree
+                                  ]} 
+                                />
+                              ))}
+                            </View>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          </ScrollView>
+        </View>
       )}
 
       {/* MONTH VIEW */}
@@ -1156,6 +1330,10 @@ const styles = StyleSheet.create({
     padding: Spacing.xs,
     overflow: "hidden",
   },
+  sessionBlockActive: {
+    borderWidth: 2,
+    borderColor: Colors.dark.text,
+  },
   sessionText: {
     ...Typography.caption,
     color: Colors.dark.backgroundRoot,
@@ -1404,5 +1582,154 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: Colors.dark.tabIconDefault,
     fontWeight: "600",
+  },
+  // Week mode toggle styles
+  weekModeToggle: {
+    flexDirection: "row",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.xs,
+    padding: 2,
+  },
+  weekModeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.xs - 2,
+    gap: 4,
+  },
+  weekModeButtonActive: {
+    backgroundColor: Colors.dark.primary,
+  },
+  weekModeText: {
+    ...Typography.caption,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  weekModeTextActive: {
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  // Availability mode styles
+  availabilityContainer: {
+    flex: 1,
+  },
+  freeSlotsBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    gap: Spacing.sm,
+  },
+  freeSlotsLabel: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+    fontWeight: "600",
+  },
+  freeSlotChip: {
+    backgroundColor: Colors.dark.primary + "20",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    marginRight: Spacing.sm,
+  },
+  freeSlotText: {
+    ...Typography.caption,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  freeSlotCourt: {
+    ...Typography.caption,
+    fontSize: 10,
+    color: Colors.dark.tabIconDefault,
+  },
+  availabilityGrid: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.sm,
+    paddingBottom: Spacing.xl,
+  },
+  availTimeColumn: {
+    width: 45,
+  },
+  availCornerCell: {
+    height: 50,
+  },
+  availTimeCell: {
+    height: 50,
+    justifyContent: "center",
+  },
+  availTimeText: {
+    ...Typography.caption,
+    fontSize: 10,
+    color: Colors.dark.disabled,
+  },
+  availDayColumn: {
+    width: 48,
+    marginHorizontal: 2,
+  },
+  availDayHeader: {
+    height: 50,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.xs,
+    marginBottom: 2,
+  },
+  availDayHeaderToday: {
+    backgroundColor: Colors.dark.primary + "30",
+  },
+  availDayName: {
+    ...Typography.caption,
+    fontSize: 10,
+    color: Colors.dark.tabIconDefault,
+    fontWeight: "600",
+  },
+  availDayNameToday: {
+    color: Colors.dark.primary,
+  },
+  availDayDate: {
+    ...Typography.body,
+    fontSize: 14,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  availBlock: {
+    height: 50,
+    borderRadius: BorderRadius.xs,
+    marginBottom: 2,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.backgroundTertiary,
+  },
+  availBlockFree: {
+    backgroundColor: Colors.dark.primary + "15",
+    borderColor: Colors.dark.primary + "30",
+  },
+  availBlockBusy: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderColor: Colors.dark.backgroundTertiary,
+  },
+  availBlockPartial: {
+    backgroundColor: Colors.dark.gold + "15",
+    borderColor: Colors.dark.gold + "30",
+  },
+  courtIndicators: {
+    flexDirection: "row",
+    gap: 3,
+  },
+  courtDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  courtDotFree: {
+    backgroundColor: Colors.dark.primary,
+  },
+  courtDotBusy: {
+    backgroundColor: Colors.dark.disabled,
   },
 });
