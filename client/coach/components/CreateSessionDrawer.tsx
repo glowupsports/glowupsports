@@ -108,11 +108,18 @@ export default function CreateSessionDrawer({
     mutationFn: async (sessionData: any) => {
       return apiRequest("POST", "/api/coach/sessions", sessionData);
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       refetchCalendar();
       queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
       onClose();
       resetForm();
+      
+      if (data && typeof data === "object" && data.summary && Array.isArray(data.summary.skippedWeeks) && data.summary.skippedWeeks.length > 0) {
+        Alert.alert(
+          "Sessions Created",
+          `Created ${data.summary.created} of ${data.summary.requested} sessions. Skipped weeks ${data.summary.skippedWeeks.join(", ")} due to conflicts.`
+        );
+      }
     },
     onError: (error: Error) => {
       Alert.alert("Error", error.message || "Failed to create session");

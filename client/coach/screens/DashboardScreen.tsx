@@ -61,6 +61,24 @@ export default function DashboardScreen() {
     return upcoming[0] || null;
   }, [todaysSessions]);
 
+  const coachLoad = useMemo(() => {
+    const maxDailyMinutes = 360;
+    const totalMinutes = todaysSessions.reduce((acc, s) => acc + s.duration, 0);
+    const completedMinutes = todaysSessions
+      .filter((s) => new Date(s.endTime) < new Date())
+      .reduce((acc, s) => acc + s.duration, 0);
+    const remainingMinutes = totalMinutes - completedMinutes;
+    const loadPercent = Math.min(100, Math.round((totalMinutes / maxDailyMinutes) * 100));
+    const progressPercent = totalMinutes > 0 ? Math.round((completedMinutes / totalMinutes) * 100) : 0;
+    
+    let loadLevel: "light" | "moderate" | "high" | "intense" = "light";
+    if (totalMinutes >= 300) loadLevel = "intense";
+    else if (totalMinutes >= 240) loadLevel = "high";
+    else if (totalMinutes >= 120) loadLevel = "moderate";
+    
+    return { totalMinutes, completedMinutes, remainingMinutes, loadPercent, progressPercent, loadLevel };
+  }, [todaysSessions]);
+
   const currentSession = useMemo(() => {
     const now = new Date();
     return todaysSessions.find((session) => {
@@ -204,6 +222,95 @@ export default function DashboardScreen() {
               </View>
             )}
           </LinearGradient>
+        </View>
+
+        <View style={styles.loadCard}>
+          <View style={styles.loadHeader}>
+            <View style={styles.loadTitleRow}>
+              <Ionicons name="battery-charging-outline" size={20} color={Colors.dark.primary} />
+              <Text style={styles.loadTitle}>Coach Energy</Text>
+            </View>
+            <View
+              style={[
+                styles.loadLevelBadge,
+                {
+                  backgroundColor:
+                    coachLoad.loadLevel === "intense"
+                      ? Colors.dark.error + "20"
+                      : coachLoad.loadLevel === "high"
+                      ? Colors.dark.orange + "20"
+                      : coachLoad.loadLevel === "moderate"
+                      ? Colors.dark.gold + "20"
+                      : Colors.dark.primary + "20",
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.loadLevelText,
+                  {
+                    color:
+                      coachLoad.loadLevel === "intense"
+                        ? Colors.dark.error
+                        : coachLoad.loadLevel === "high"
+                        ? Colors.dark.orange
+                        : coachLoad.loadLevel === "moderate"
+                        ? Colors.dark.gold
+                        : Colors.dark.primary,
+                  },
+                ]}
+              >
+                {coachLoad.loadLevel.charAt(0).toUpperCase() + coachLoad.loadLevel.slice(1)}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.loadBarsContainer}>
+            <View style={styles.loadBarRow}>
+              <Text style={styles.loadBarLabel}>Load</Text>
+              <View style={styles.loadBarBackground}>
+                <View
+                  style={[
+                    styles.loadBarFill,
+                    {
+                      width: `${coachLoad.loadPercent}%`,
+                      backgroundColor:
+                        coachLoad.loadLevel === "intense"
+                          ? Colors.dark.error
+                          : coachLoad.loadLevel === "high"
+                          ? Colors.dark.orange
+                          : Colors.dark.primary,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.loadBarValue}>{Math.round(coachLoad.loadPercent)}%</Text>
+            </View>
+
+            <View style={styles.loadBarRow}>
+              <Text style={styles.loadBarLabel}>Progress</Text>
+              <View style={styles.loadBarBackground}>
+                <View
+                  style={[
+                    styles.loadBarFill,
+                    {
+                      width: `${coachLoad.progressPercent}%`,
+                      backgroundColor: Colors.dark.xpCyan,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.loadBarValue}>{coachLoad.progressPercent}%</Text>
+            </View>
+          </View>
+
+          <Text style={styles.loadSubtext}>
+            {coachLoad.completedMinutes > 0
+              ? `${coachLoad.completedMinutes}m coached, ${coachLoad.totalMinutes - coachLoad.completedMinutes}m remaining`
+              : coachLoad.totalMinutes > 0
+              ? `${coachLoad.totalMinutes}m scheduled today`
+              : "No sessions scheduled"}
+          </Text>
         </View>
 
         {alerts.length > 0 ? (
@@ -361,6 +468,72 @@ const styles = StyleSheet.create({
   coachName: {
     ...Typography.h1,
     color: Colors.dark.text,
+  },
+  loadCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  loadHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  loadTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  loadTitle: {
+    ...Typography.h4,
+    color: Colors.dark.text,
+  },
+  loadLevelBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+  },
+  loadLevelText: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "600",
+  },
+  loadBarsContainer: {
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  loadBarRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  loadBarLabel: {
+    width: 50,
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+  },
+  loadBarBackground: {
+    flex: 1,
+    height: 8,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  loadBarFill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  loadBarValue: {
+    width: 40,
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.text,
+    textAlign: "right",
+  },
+  loadSubtext: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.tabIconDefault,
+    marginTop: Spacing.xs,
   },
   todayCard: {
     borderRadius: BorderRadius.lg,

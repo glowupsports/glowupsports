@@ -99,3 +99,8 @@ Preferred communication style: Simple, everyday language.
 - Implemented date-aware Focus Mode showing 5 hours around current time
 - Added long-press quick actions on session blocks (Mark Attendance, Extend, End, Cancel)
 - Translated all Dutch text to English (Private, Semi-Private, Group, etc.)
+- Per-player feedback system: progress trend (up/stable/down), effort level (high/normal/low), individual notes
+- Coach Load/Progress indicator: shows workload percentage and progress through day's sessions
+- Recurring sessions: creates sessions for multiple weeks with per-week conflict checking
+- Smart Warning System: Level 1 (tight schedule), Level 2 (travel time), Level 3 (conflicts)
+- Skipped weeks notification: alerts user when recurring sessions skip weeks due to conflicts

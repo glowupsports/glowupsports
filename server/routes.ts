@@ -122,9 +122,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Check travel time from previous session
+      interface Warning {
+        level: 1 | 2 | 3;
+        type: string;
+        message: string;
+      }
+      const warnings: Warning[] = [];
+      
+      // Get adjacent sessions for the coach on the same day
+      const dayStart = new Date(start);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(start);
+      dayEnd.setHours(23, 59, 59, 999);
+      const coachSessions = await storage.getSessionsByCoach(coachId as string, dayStart, dayEnd);
+      
+      for (const session of coachSessions) {
+        if (excludeSessionId && session.id === excludeSessionId) continue;
+        
+        const sessionStart = new Date(session.startTime);
+        const sessionEnd = new Date(session.endTime);
+        const requiredTravelTime = session.travelTime || 0;
+        
+        // Check if session ends just before new session
+        if (sessionEnd <= start) {
+          const gapMinutes = (start.getTime() - sessionEnd.getTime()) / 60000;
+          if (gapMinutes < requiredTravelTime) {
+            warnings.push({
+              level: 2,
+              type: "travel_time",
+              message: `Not enough travel time (${Math.round(gapMinutes)}m available, ${requiredTravelTime}m needed)`,
+            });
+          } else if (gapMinutes < 5) {
+            warnings.push({
+              level: 1,
+              type: "tight_schedule",
+              message: `Only ${Math.round(gapMinutes)} minutes between sessions`,
+            });
+          }
+        }
+        
+        // Check if new session ends just before existing session
+        if (end <= sessionStart) {
+          const gapMinutes = (sessionStart.getTime() - end.getTime()) / 60000;
+          if (gapMinutes < requiredTravelTime) {
+            warnings.push({
+              level: 2,
+              type: "travel_time",
+              message: `Not enough travel time to next session (${Math.round(gapMinutes)}m available)`,
+            });
+          } else if (gapMinutes < 5) {
+            warnings.push({
+              level: 1,
+              type: "tight_schedule",
+              message: `Only ${Math.round(gapMinutes)} minutes before next session`,
+            });
+          }
+        }
+      }
+
+      // Add Level 3 conflicts
+      conflicts.forEach((conflict) => {
+        warnings.push({ level: 3, type: "conflict", message: conflict });
+      });
+
       res.json({ 
         conflicts,
-        hasConflicts: conflicts.length > 0 
+        warnings,
+        hasConflicts: conflicts.length > 0,
+        maxWarningLevel: warnings.length > 0 ? Math.max(...warnings.map(w => w.level)) : 0,
       });
     } catch (error) {
       console.error("Error checking conflicts:", error);
@@ -175,43 +241,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Create session
-      const session = await storage.createSession({
-        coachId,
-        courtId,
-        locationId,
-        startTime: start,
-        endTime: end,
-        duration,
-        sessionType,
-        ballLevel,
-        skillLevel,
-        isRecurring: weekCount && weekCount > 1,
-        weekCount,
-        travelTime: travelTime || 0,
-        paymentStatus: "unpaid",
-        status: "scheduled",
-      });
+      // Create sessions (single or recurring)
+      const sessionsToCreate = weekCount && weekCount > 1 ? weekCount : 1;
+      const recurringGroupId = sessionsToCreate > 1 ? crypto.randomUUID() : null;
+      const createdSessions = [];
+      const skippedWeeks: number[] = [];
 
-      // Add players if provided
-      if (playerIds && Array.isArray(playerIds)) {
-        for (const playerId of playerIds) {
-          await storage.addPlayerToSession({
-            sessionId: session.id,
-            playerId,
-          });
+      for (let week = 0; week < sessionsToCreate; week++) {
+        const weekStart = new Date(start.getTime() + week * 7 * 24 * 60 * 60 * 1000);
+        const weekEnd = new Date(weekStart.getTime() + duration * 60000);
+
+        // Check conflicts for each week
+        const weekCoachConflict = await storage.checkCoachConflict(coachId, weekStart, weekEnd);
+        const weekCourtConflict = await storage.checkCourtConflict(courtId, weekStart, weekEnd);
+        
+        if (weekCoachConflict || weekCourtConflict) {
+          skippedWeeks.push(week + 1);
+          continue;
         }
+
+        const session = await storage.createSession({
+          coachId,
+          courtId,
+          locationId,
+          startTime: weekStart,
+          endTime: weekEnd,
+          duration,
+          sessionType,
+          ballLevel,
+          skillLevel,
+          isRecurring: sessionsToCreate > 1,
+          recurringGroupId,
+          weekCount: sessionsToCreate,
+          travelTime: travelTime || 0,
+          paymentStatus: "unpaid",
+          status: "scheduled",
+        });
+
+        // Add players if provided
+        if (playerIds && Array.isArray(playerIds)) {
+          for (const playerId of playerIds) {
+            await storage.addPlayerToSession({
+              sessionId: session.id,
+              playerId,
+            });
+          }
+        }
+
+        createdSessions.push(session);
+      }
+
+      if (createdSessions.length === 0) {
+        return res.status(409).json({ 
+          error: "All time slots have conflicts",
+          message: "Could not create any sessions due to conflicts"
+        });
       }
 
       // Audit log
       await storage.createAuditLog({
         entityType: "session",
-        entityId: session.id,
-        action: "create",
+        entityId: createdSessions[0].id,
+        action: sessionsToCreate > 1 ? `create_recurring_${createdSessions.length}` : "create",
         performedBy: coachId,
       });
 
-      res.status(201).json(session);
+      // For recurring sessions, return summary with skipped weeks info
+      if (sessionsToCreate > 1) {
+        res.status(201).json({
+          sessions: createdSessions,
+          summary: {
+            requested: sessionsToCreate,
+            created: createdSessions.length,
+            skippedWeeks: skippedWeeks,
+          }
+        });
+      } else {
+        res.status(201).json(createdSessions[0]);
+      }
     } catch (error) {
       console.error("Error creating session:", error);
       res.status(500).json({ error: "Failed to create session" });
