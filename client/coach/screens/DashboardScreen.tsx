@@ -220,7 +220,7 @@ export default function DashboardScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 80 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 160 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Header with Coach Level + XP */}
@@ -271,7 +271,7 @@ export default function DashboardScreen() {
             style={[styles.quickNavChip, styles.quickNavChipActive]}
             onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
           >
-            <Ionicons name="home" size={14} color={Colors.dark.backgroundRoot} />
+            <Ionicons name="sunny-outline" size={16} color={Colors.dark.backgroundRoot} />
             <Text style={[styles.quickNavChipText, styles.quickNavChipTextActive]}>Today</Text>
           </Pressable>
           <Pressable 
@@ -281,7 +281,7 @@ export default function DashboardScreen() {
               handleNavigate("Calendar");
             }}
           >
-            <Ionicons name="calendar-outline" size={14} color={Colors.dark.text} />
+            <Ionicons name="calendar-outline" size={16} color={Colors.dark.text} />
             <Text style={styles.quickNavChipText}>Week</Text>
           </Pressable>
           <Pressable 
@@ -291,7 +291,7 @@ export default function DashboardScreen() {
               handleNavigate("Coaching");
             }}
           >
-            <Ionicons name="clipboard-outline" size={14} color={Colors.dark.text} />
+            <Ionicons name="chatbox-outline" size={16} color={Colors.dark.text} />
             <Text style={styles.quickNavChipText}>Feedback</Text>
             {pendingFeedbackCount > 0 ? (
               <View style={styles.quickNavBadge}>
@@ -306,28 +306,8 @@ export default function DashboardScreen() {
               handleNavigate("Players");
             }}
           >
-            <Ionicons name="people-outline" size={14} color={Colors.dark.text} />
+            <Ionicons name="people-outline" size={16} color={Colors.dark.text} />
             <Text style={styles.quickNavChipText}>Players</Text>
-          </Pressable>
-          <Pressable 
-            style={styles.quickNavChip}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              handleNavigate("CoachProfile");
-            }}
-          >
-            <Ionicons name="trending-up-outline" size={14} color={Colors.dark.text} />
-            <Text style={styles.quickNavChipText}>Progress</Text>
-          </Pressable>
-          <Pressable 
-            style={styles.quickNavChip}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              handleNavigate("ChatInbox");
-            }}
-          >
-            <Ionicons name="chatbubble-outline" size={14} color={Colors.dark.text} />
-            <Text style={styles.quickNavChipText}>Chat</Text>
           </Pressable>
         </ScrollView>
 
