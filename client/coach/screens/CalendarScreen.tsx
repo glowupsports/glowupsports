@@ -311,6 +311,99 @@ export default function CalendarScreen() {
     });
   };
 
+  const getDayStats = (date: Date) => {
+    const daySessions = getSessionsForDate(date);
+    
+    // Calculate duration from start/end when missing
+    const getSessionDuration = (s: Session) => {
+      if (s.duration && s.duration > 0) return s.duration;
+      const start = new Date(s.startTime);
+      const end = new Date(s.endTime);
+      return Math.round((end.getTime() - start.getTime()) / (1000 * 60));
+    };
+    
+    const totalMinutes = daySessions.reduce((acc, s) => acc + getSessionDuration(s), 0);
+    const totalHours = Math.round(totalMinutes / 60 * 10) / 10;
+    const uniqueCourts = new Set(daySessions.map(s => s.courtId).filter(Boolean)).size;
+    
+    // Calculate time distribution by DURATION (morning: 6-12, afternoon: 12-17, evening: 17-23)
+    let morningMinutes = 0;
+    let afternoonMinutes = 0;
+    let eveningMinutes = 0;
+    
+    daySessions.forEach(s => {
+      const startTime = new Date(s.startTime);
+      const endTime = new Date(s.endTime);
+      const duration = getSessionDuration(s);
+      
+      // Use decimal hours for accurate period allocation
+      const startDecimal = startTime.getHours() + startTime.getMinutes() / 60;
+      const endDecimal = endTime.getHours() + endTime.getMinutes() / 60;
+      const sessionSpan = endDecimal - startDecimal || 1;
+      
+      // Morning: 6-12, Afternoon: 12-17, Evening: 17-23
+      // Calculate overlap with each period using clamped interval
+      const morningOverlap = Math.max(0, Math.min(endDecimal, 12) - Math.max(startDecimal, 6));
+      const afternoonOverlap = Math.max(0, Math.min(endDecimal, 17) - Math.max(startDecimal, 12));
+      const eveningOverlap = Math.max(0, Math.min(endDecimal, 23) - Math.max(startDecimal, 17));
+      
+      // Distribute duration proportionally to overlap
+      morningMinutes += (morningOverlap / sessionSpan) * duration;
+      afternoonMinutes += (afternoonOverlap / sessionSpan) * duration;
+      eveningMinutes += (eveningOverlap / sessionSpan) * duration;
+    });
+    
+    // Normalize to fill levels (max 3 hours = 180 min as full bar)
+    const maxPeriodMinutes = 180;
+    const morningFill = Math.min(1, morningMinutes / maxPeriodMinutes);
+    const afternoonFill = Math.min(1, afternoonMinutes / maxPeriodMinutes);
+    const eveningFill = Math.min(1, eveningMinutes / maxPeriodMinutes);
+    
+    // Calculate energy level based on total hours AND back-to-back detection
+    let backToBackCount = 0;
+    const sortedSessions = [...daySessions].sort((a, b) => 
+      new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+    );
+    for (let i = 1; i < sortedSessions.length; i++) {
+      const prevEnd = new Date(sortedSessions[i - 1].endTime).getTime();
+      const currStart = new Date(sortedSessions[i].startTime).getTime();
+      const gap = (currStart - prevEnd) / (1000 * 60); // gap in minutes
+      if (gap < 15) backToBackCount++;
+    }
+    
+    // Energy scoring: hours + back-to-back penalty
+    const loadScore = totalHours + (backToBackCount * 0.5);
+    let energyLevel: "green" | "orange" | "red" = "green";
+    if (loadScore >= 7 || totalHours >= 8) {
+      energyLevel = "red";
+    } else if (loadScore >= 4.5 || totalHours >= 5) {
+      energyLevel = "orange";
+    }
+    
+    return {
+      sessions: daySessions.length,
+      totalHours,
+      courts: uniqueCourts,
+      energyLevel,
+      morningFill,
+      afternoonFill,
+      eveningFill,
+      morningMinutes: Math.round(morningMinutes),
+      afternoonMinutes: Math.round(afternoonMinutes),
+      eveningMinutes: Math.round(eveningMinutes),
+      backToBackCount,
+      loadScore,
+    };
+  };
+
+  const getEnergyColor = (level: "green" | "orange" | "red") => {
+    switch (level) {
+      case "green": return Colors.dark.primary;
+      case "orange": return Colors.dark.gold;
+      case "red": return Colors.dark.error;
+    }
+  };
+
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
     setViewMode("day");
@@ -470,24 +563,26 @@ export default function CalendarScreen() {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.headerTitle}>Coach Calendar</Text>
-          <View style={styles.headerActions}>
-            <Pressable
-              style={[styles.toggleButton, focusMode && styles.toggleActive]}
-              onPress={() => setFocusMode(!focusMode)}
-            >
-              <Ionicons
-                name="eye-outline"
-                size={18}
-                color={focusMode ? Colors.dark.backgroundRoot : Colors.dark.text}
-              />
-            </Pressable>
-            <Pressable
-              style={styles.gridToggle}
-              onPress={() => setTimeGrid(timeGrid === 30 ? 60 : 30)}
-            >
-              <Text style={styles.gridToggleText}>{timeGrid}m</Text>
-            </Pressable>
-          </View>
+          {viewMode === "day" && (
+            <View style={styles.headerActions}>
+              <Pressable
+                style={[styles.toggleButton, focusMode && styles.toggleActive]}
+                onPress={() => setFocusMode(!focusMode)}
+              >
+                <Ionicons
+                  name="eye-outline"
+                  size={18}
+                  color={focusMode ? Colors.dark.backgroundRoot : Colors.dark.text}
+                />
+              </Pressable>
+              <Pressable
+                style={styles.gridToggle}
+                onPress={() => setTimeGrid(timeGrid === 30 ? 60 : 30)}
+              >
+                <Text style={styles.gridToggleText}>{timeGrid}m</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
         {/* Date Navigation */}
@@ -671,60 +766,73 @@ export default function CalendarScreen() {
 
       {/* WEEK VIEW */}
       {viewMode === "week" && (
-        <ScrollView style={styles.calendarScroll} showsVerticalScrollIndicator={false}>
-          {/* Week Day Headers */}
-          <View style={styles.weekDayHeaders}>
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day, idx) => {
-              const date = weekDates[idx];
-              const isToday = date.toDateString() === new Date().toDateString();
-              const isSelected = date.toDateString() === selectedDate.toDateString();
-              return (
-                <Pressable 
-                  key={day} 
-                  style={[styles.weekDayHeader, isSelected && styles.weekDayHeaderSelected]}
-                  onPress={() => handleDateSelect(date)}
-                >
-                  <Text style={[styles.weekDayText, isToday && styles.weekDayTextToday]}>{day}</Text>
-                  <Text style={[styles.weekDayNumber, isToday && styles.weekDayNumberToday, isSelected && styles.weekDayNumberSelected]}>
-                    {date.getDate()}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+        <ScrollView 
+          style={styles.calendarScroll} 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.weekCardsContainer}
+        >
+          {weekDates.map((date, idx) => {
+            const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+            const isToday = date.toDateString() === new Date().toDateString();
+            const stats = getDayStats(date);
+            const energyColor = getEnergyColor(stats.energyLevel);
+            
+            return (
+              <Pressable 
+                key={idx} 
+                style={[styles.dayCard, isToday && styles.dayCardToday]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  handleDateSelect(date);
+                }}
+              >
+                {/* Card Header */}
+                <View style={styles.dayCardHeader}>
+                  <View style={styles.dayCardDateInfo}>
+                    <Text style={[styles.dayCardDayName, isToday && styles.dayCardDayNameToday]}>
+                      {dayNames[idx]}
+                    </Text>
+                    <Text style={styles.dayCardDate}>{date.getDate()}</Text>
+                  </View>
+                  <View style={[styles.energyIndicator, { backgroundColor: energyColor + "30" }]}>
+                    <View style={[styles.energyFill, { backgroundColor: energyColor, width: `${Math.min(100, stats.totalHours * 12.5)}%` }]} />
+                  </View>
+                </View>
 
-          {/* Week Sessions Grid */}
-          <View style={styles.weekGrid}>
-            {weekDates.map((date, idx) => {
-              const daySessions = getSessionsForDate(date);
-              const isToday = date.toDateString() === new Date().toDateString();
-              return (
-                <Pressable 
-                  key={idx} 
-                  style={[styles.weekDayColumn, isToday && styles.weekDayColumnToday]}
-                  onPress={() => handleDateSelect(date)}
-                >
-                  {daySessions.length === 0 ? (
-                    <Text style={styles.weekNoSessions}>-</Text>
-                  ) : (
-                    daySessions.slice(0, 5).map((session) => (
-                      <View 
-                        key={session.id} 
-                        style={[styles.weekSessionDot, { backgroundColor: getSessionTypeColor(session.sessionType) }]}
-                      >
-                        <Text style={styles.weekSessionTime} numberOfLines={1}>
-                          {new Date(session.startTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
-                        </Text>
-                      </View>
-                    ))
-                  )}
-                  {daySessions.length > 5 && (
-                    <Text style={styles.weekMoreSessions}>+{daySessions.length - 5}</Text>
-                  )}
-                </Pressable>
-              );
-            })}
-          </View>
+                {/* Time Distribution */}
+                <View style={styles.timeDistribution}>
+                  <View style={styles.timeZone}>
+                    <View style={[styles.timeBar, { height: `${stats.morningFill * 100}%`, backgroundColor: stats.morningMinutes > 0 ? Colors.dark.xpCyan : Colors.dark.backgroundTertiary }]} />
+                    <Text style={styles.timeZoneLabel}>AM</Text>
+                  </View>
+                  <View style={styles.timeZone}>
+                    <View style={[styles.timeBar, { height: `${stats.afternoonFill * 100}%`, backgroundColor: stats.afternoonMinutes > 0 ? Colors.dark.primary : Colors.dark.backgroundTertiary }]} />
+                    <Text style={styles.timeZoneLabel}>PM</Text>
+                  </View>
+                  <View style={styles.timeZone}>
+                    <View style={[styles.timeBar, { height: `${stats.eveningFill * 100}%`, backgroundColor: stats.eveningMinutes > 0 ? Colors.dark.gold : Colors.dark.backgroundTertiary }]} />
+                    <Text style={styles.timeZoneLabel}>EVE</Text>
+                  </View>
+                </View>
+
+                {/* Mini Stats */}
+                <View style={styles.dayCardStats}>
+                  <View style={styles.dayCardStat}>
+                    <Ionicons name="calendar-outline" size={12} color={Colors.dark.tabIconDefault} />
+                    <Text style={styles.dayCardStatText}>{stats.sessions}</Text>
+                  </View>
+                  <View style={styles.dayCardStat}>
+                    <Ionicons name="tennisball-outline" size={12} color={Colors.dark.tabIconDefault} />
+                    <Text style={styles.dayCardStatText}>{stats.courts}</Text>
+                  </View>
+                  <View style={styles.dayCardStat}>
+                    <Ionicons name="time-outline" size={12} color={Colors.dark.tabIconDefault} />
+                    <Text style={styles.dayCardStatText}>{stats.totalHours}h</Text>
+                  </View>
+                </View>
+              </Pressable>
+            );
+          })}
         </ScrollView>
       )}
 
@@ -1087,79 +1195,89 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.disabled,
   },
-  weekDayHeaders: {
-    flexDirection: "row",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+  weekCardsContainer: {
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  dayCard: {
     backgroundColor: Colors.dark.backgroundSecondary,
-  },
-  weekDayHeader: {
-    flex: 1,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    flexDirection: "row",
     alignItems: "center",
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.sm,
+    gap: Spacing.md,
   },
-  weekDayHeaderSelected: {
-    backgroundColor: Colors.dark.primary + "30",
+  dayCardToday: {
+    borderWidth: 2,
+    borderColor: Colors.dark.primary,
   },
-  weekDayText: {
+  dayCardHeader: {
+    width: 70,
+    alignItems: "center",
+  },
+  dayCardDateInfo: {
+    alignItems: "center",
+    marginBottom: Spacing.xs,
+  },
+  dayCardDayName: {
     ...Typography.caption,
-    color: Colors.dark.disabled,
-    marginBottom: 2,
+    color: Colors.dark.tabIconDefault,
+    fontWeight: "600",
   },
-  weekDayTextToday: {
+  dayCardDayNameToday: {
     color: Colors.dark.primary,
   },
-  weekDayNumber: {
-    ...Typography.h4,
+  dayCardDate: {
+    ...Typography.h3,
     color: Colors.dark.text,
   },
-  weekDayNumberToday: {
-    color: Colors.dark.primary,
-    fontWeight: "700",
+  energyIndicator: {
+    width: 60,
+    height: 6,
+    borderRadius: 3,
+    overflow: "hidden",
   },
-  weekDayNumberSelected: {
-    fontWeight: "700",
+  energyFill: {
+    height: "100%",
+    borderRadius: 3,
   },
-  weekGrid: {
-    flexDirection: "row",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    minHeight: 300,
-  },
-  weekDayColumn: {
+  timeDistribution: {
     flex: 1,
-    alignItems: "center",
-    paddingVertical: Spacing.sm,
-    borderLeftWidth: 1,
-    borderLeftColor: Colors.dark.backgroundTertiary,
+    flexDirection: "row",
+    height: 50,
     gap: Spacing.xs,
-    minHeight: 200,
+    alignItems: "flex-end",
+    justifyContent: "center",
   },
-  weekDayColumnToday: {
-    backgroundColor: Colors.dark.primary + "10",
-  },
-  weekNoSessions: {
-    ...Typography.body,
-    color: Colors.dark.disabled,
-  },
-  weekSessionDot: {
-    width: "90%",
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.xs,
-    borderRadius: BorderRadius.xs,
+  timeZone: {
     alignItems: "center",
+    width: 30,
+    height: "100%",
+    justifyContent: "flex-end",
   },
-  weekSessionTime: {
-    ...Typography.caption,
-    color: Colors.dark.backgroundRoot,
-    fontWeight: "600",
-    fontSize: 10,
+  timeBar: {
+    width: 20,
+    borderRadius: 4,
+    minHeight: 4,
   },
-  weekMoreSessions: {
+  timeZoneLabel: {
     ...Typography.caption,
-    color: Colors.dark.disabled,
-    marginTop: Spacing.xs,
+    fontSize: 9,
+    color: Colors.dark.tabIconDefault,
+    marginTop: 2,
+  },
+  dayCardStats: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  dayCardStat: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  dayCardStatText: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
   },
   monthDayHeaders: {
     flexDirection: "row",
