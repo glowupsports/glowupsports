@@ -1,8 +1,12 @@
-# Glow Up Tennis
+# Glow Up Tennis / Coach App
 
 ## Overview
 
-Glow Up Tennis is a gamified tennis learning mobile application built with React Native and Expo. Players earn XP points from tennis lessons, level up, and track their progress across five skill categories (Tactical, Mental, Technical, Physical, Social) through a "Glow Engine Score" system. The app features a dark-themed gaming aesthetic inspired by Duolingo and Solo Leveling, with neon accents and progression mechanics.
+This project contains two apps:
+1. **Coach App (Active)**: Professional tennis coach management application with calendar, session booking, attendance tracking, player management, coaching feedback, notes hub, and progress tracking.
+2. **Glow Up Tennis (Paused)**: Gamified tennis learning mobile application for players.
+
+The app uses a dark-themed gaming aesthetic with neon green (#2ECC40) primary color and cyan accents (#00D4FF).
 
 ## User Preferences
 
@@ -58,3 +62,30 @@ Preferred communication style: Simple, everyday language.
 - iOS: Native with Apple Sign-In planned
 - Android: Native with edge-to-edge display enabled
 - Web: Single-page output via Expo web build
+
+## Coach App Features
+
+### Database Schema (shared/schema.ts)
+- **coaches**: Coach profiles and settings
+- **players**: Player profiles with ball level, skill level, medical notes
+- **sessions**: Session scheduling with duration, type, status
+- **sessionPlayers**: Many-to-many relationship for group sessions
+- **playerHolidays**: Player vacation/unavailability periods
+- **sessionFeedback**: Session feedback with intensity and focus tags
+- **playerNotes**: Coach notes per player (categories: technique, mental, physical, next-lesson, general)
+- **playerProgress**: Progress snapshots per skill area (forehand, backhand, serve, volley, movement, mental)
+
+### API Endpoints (server/routes.ts)
+- `/api/coach/*` - Coach calendar, sessions, dashboard stats
+- `/api/players/*` - Player CRUD, search, notes, progress tracking
+- `/api/players/:id/notes` - GET/POST notes, DELETE/PATCH for pin toggle
+- `/api/players/:id/progress` - GET history, GET summary, POST entry
+- `/api/coach/players/progress` - All players with progress summaries
+
+### Key Screens (client/coach/screens/)
+- **DashboardScreen**: Alerts, quick actions, today's overview
+- **CalendarScreen**: Day/Week/Month views, session management
+- **PlayersScreen**: Player list, detail view with notes hub, medical notes
+- **CoachingScreen**: Today tab (feedback), Progress tab (skill tracking), Plans tab
+- **SessionScreen**: Attendance tracking with offline support
+- **SettingsScreen**: Coach preferences and notifications

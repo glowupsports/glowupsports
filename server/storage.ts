@@ -1,5 +1,6 @@
 import { db } from "./db";
 import { eq, and, gte, lte, ne, or } from "drizzle-orm";
+import { desc } from "drizzle-orm";
 import {
   coaches,
   locations,
@@ -12,6 +13,8 @@ import {
   sessionFeedback,
   auditLogs,
   offlineQueue,
+  playerNotes,
+  playerProgress,
   type Coach,
   type InsertCoach,
   type Location,
@@ -32,6 +35,10 @@ import {
   type InsertAuditLog,
   type OfflineQueue,
   type InsertOfflineQueue,
+  type PlayerNote,
+  type InsertPlayerNote,
+  type PlayerProgress,
+  type InsertPlayerProgress,
 } from "@shared/schema";
 
 export const storage = {
@@ -341,5 +348,69 @@ export const storage = {
 
   async markSynced(id: string): Promise<void> {
     await db.update(offlineQueue).set({ synced: true }).where(eq(offlineQueue.id, id));
+  },
+
+  // ==================== PLAYER NOTES ====================
+  async getPlayerNotes(playerId: string): Promise<PlayerNote[]> {
+    return db
+      .select()
+      .from(playerNotes)
+      .where(eq(playerNotes.playerId, playerId))
+      .orderBy(desc(playerNotes.isPinned), desc(playerNotes.createdAt));
+  },
+
+  async createPlayerNote(data: InsertPlayerNote): Promise<PlayerNote> {
+    const noteData = {
+      ...data,
+      category: data.category || "general",
+      isPinned: data.isPinned ?? false,
+    };
+    const result = await db.insert(playerNotes).values(noteData).returning();
+    return result[0];
+  },
+
+  async deletePlayerNote(id: string): Promise<void> {
+    await db.delete(playerNotes).where(eq(playerNotes.id, id));
+  },
+
+  async toggleNotePin(id: string, isPinned: boolean): Promise<PlayerNote> {
+    const result = await db
+      .update(playerNotes)
+      .set({ isPinned: isPinned })
+      .where(eq(playerNotes.id, id))
+      .returning();
+    return result[0];
+  },
+
+  // ==================== PLAYER PROGRESS ====================
+  async getPlayerProgress(playerId: string): Promise<PlayerProgress[]> {
+    return db
+      .select()
+      .from(playerProgress)
+      .where(eq(playerProgress.playerId, playerId))
+      .orderBy(desc(playerProgress.createdAt));
+  },
+
+  async createPlayerProgress(data: InsertPlayerProgress): Promise<PlayerProgress> {
+    const result = await db.insert(playerProgress).values(data).returning();
+    return result[0];
+  },
+
+  async getProgressSummary(playerId: string): Promise<{ skillArea: string; avgRating: number; trend: string }[]> {
+    const progress = await db
+      .select()
+      .from(playerProgress)
+      .where(eq(playerProgress.playerId, playerId))
+      .orderBy(desc(playerProgress.createdAt));
+    
+    const skillAreas = ["forehand", "backhand", "serve", "volley", "movement", "mental"];
+    return skillAreas.map(area => {
+      const areaProgress = progress.filter(p => p.skillArea === area);
+      const avgRating = areaProgress.length > 0 
+        ? areaProgress.reduce((sum, p) => sum + (p.rating || 0), 0) / areaProgress.length 
+        : 0;
+      const latestTrend = areaProgress[0]?.trend || "stable";
+      return { skillArea: area, avgRating: Math.round(avgRating * 10) / 10, trend: latestTrend };
+    });
   },
 };

@@ -7,13 +7,16 @@ import {
   ScrollView,
   TextInput,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { apiRequest } from "@/lib/query-client";
+import { useCoach } from "@/coach/context/CoachContext";
 
 interface Player {
   id: string;
@@ -27,6 +30,26 @@ interface Player {
   lastLessonDate: string | null;
   createdAt: string;
 }
+
+interface PlayerNote {
+  id: string;
+  playerId: string | null;
+  coachId: string | null;
+  content: string;
+  category: string;
+  isPinned: boolean;
+  sessionId: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+const NOTE_CATEGORIES = [
+  { value: "technique", label: "Techniek", icon: "fitness-outline" as const },
+  { value: "mental", label: "Mentaal", icon: "bulb-outline" as const },
+  { value: "physical", label: "Fysiek", icon: "body-outline" as const },
+  { value: "next-lesson", label: "Volgende Les", icon: "arrow-forward-outline" as const },
+  { value: "general", label: "Algemeen", icon: "document-text-outline" as const },
+];
 
 export default function PlayersScreen() {
   const insets = useSafeAreaInsets();
@@ -248,6 +271,68 @@ function PlayerDetailView({
   onBack: () => void;
   insets: { top: number; bottom: number };
 }) {
+  const { coach } = useCoach();
+  const queryClient = useQueryClient();
+  const [showAddNote, setShowAddNote] = useState(false);
+  const [newNoteContent, setNewNoteContent] = useState("");
+  const [newNoteCategory, setNewNoteCategory] = useState("general");
+
+  const { data: notes = [], isLoading: notesLoading } = useQuery<PlayerNote[]>({
+    queryKey: [`/api/players/${player.id}/notes`],
+  });
+
+  const addNoteMutation = useMutation({
+    mutationFn: async (data: { content: string; category: string }) => {
+      return apiRequest("POST", `/api/players/${player.id}/notes`, {
+        ...data,
+        coachId: coach?.id,
+      });
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: [`/api/players/${player.id}/notes`] });
+      setNewNoteContent("");
+      setNewNoteCategory("general");
+      setShowAddNote(false);
+    },
+    onError: (error: Error) => {
+      Alert.alert("Fout", error.message || "Notitie opslaan mislukt");
+    },
+  });
+
+  const deleteNoteMutation = useMutation({
+    mutationFn: async (noteId: string) => {
+      return apiRequest("DELETE", `/api/players/${player.id}/notes/${noteId}`);
+    },
+    onSuccess: () => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      queryClient.invalidateQueries({ queryKey: [`/api/players/${player.id}/notes`] });
+    },
+  });
+
+  const togglePinMutation = useMutation({
+    mutationFn: async ({ noteId, isPinned }: { noteId: string; isPinned: boolean }) => {
+      return apiRequest("PATCH", `/api/players/${player.id}/notes/${noteId}/pin`, { isPinned });
+    },
+    onSuccess: () => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      queryClient.invalidateQueries({ queryKey: [`/api/players/${player.id}/notes`] });
+    },
+  });
+
+  const handleAddNote = () => {
+    if (!newNoteContent.trim()) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    addNoteMutation.mutate({ content: newNoteContent.trim(), category: newNoteCategory });
+  };
+
+  const handleDeleteNote = (noteId: string) => {
+    Alert.alert("Notitie Verwijderen", "Weet je zeker dat je deze notitie wilt verwijderen?", [
+      { text: "Annuleren", style: "cancel" },
+      { text: "Verwijderen", style: "destructive", onPress: () => deleteNoteMutation.mutate(noteId) },
+    ]);
+  };
+
   const getLevelColor = (level: string | null) => {
     switch (level?.toLowerCase()) {
       case "red":
@@ -264,6 +349,20 @@ function PlayerDetailView({
         return Colors.dark.disabled;
     }
   };
+
+  const getCategoryInfo = (category: string | null) => {
+    return NOTE_CATEGORIES.find(c => c.value === category) || NOTE_CATEGORIES[4];
+  };
+
+  const formatNoteDate = (date: string | null) => {
+    if (!date) return "";
+    const d = new Date(date);
+    return d.toLocaleDateString("nl-NL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  };
+
+  const pinnedNotes = notes.filter(n => n.isPinned);
+  const regularNotes = notes.filter(n => !n.isPinned);
+  const nextLessonNotes = notes.filter(n => n.category === "next-lesson");
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -299,6 +398,16 @@ function PlayerDetailView({
             </View>
           ) : null}
         </View>
+
+        {nextLessonNotes.length > 0 ? (
+          <View style={styles.nextLessonSection}>
+            <View style={styles.nextLessonHeader}>
+              <Ionicons name="arrow-forward-circle" size={20} color={Colors.dark.primary} />
+              <Text style={styles.nextLessonTitle}>Suggestie Volgende Les</Text>
+            </View>
+            <Text style={styles.nextLessonText}>{nextLessonNotes[0].content}</Text>
+          </View>
+        ) : null}
 
         <View style={styles.infoSection}>
           <Text style={styles.sectionLabel}>Basisinfo</Text>
@@ -353,14 +462,149 @@ function PlayerDetailView({
         </View>
 
         <View style={styles.infoSection}>
-          <Text style={styles.sectionLabel}>Coach Notes</Text>
-          <View style={styles.notesCard}>
-            <Text style={styles.noNotesText}>Geen notities</Text>
-            <Pressable style={styles.addNoteButton}>
+          <View style={styles.notesSectionHeader}>
+            <Text style={styles.sectionLabel}>Coach Notes</Text>
+            <Text style={styles.notesCount}>{notes.length} notities</Text>
+          </View>
+
+          {showAddNote ? (
+            <View style={styles.addNoteForm}>
+              <View style={styles.categoryPicker}>
+                {NOTE_CATEGORIES.map((cat) => (
+                  <Pressable
+                    key={cat.value}
+                    style={[
+                      styles.categoryChip,
+                      newNoteCategory === cat.value && styles.categoryChipActive,
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setNewNoteCategory(cat.value);
+                    }}
+                  >
+                    <Ionicons
+                      name={cat.icon}
+                      size={14}
+                      color={newNoteCategory === cat.value ? Colors.dark.primary : Colors.dark.tabIconDefault}
+                    />
+                    <Text
+                      style={[
+                        styles.categoryChipText,
+                        newNoteCategory === cat.value && styles.categoryChipTextActive,
+                      ]}
+                    >
+                      {cat.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              <TextInput
+                style={styles.noteInput}
+                placeholder="Schrijf een notitie..."
+                placeholderTextColor={Colors.dark.tabIconDefault}
+                value={newNoteContent}
+                onChangeText={setNewNoteContent}
+                multiline
+                maxLength={500}
+              />
+              <View style={styles.noteActions}>
+                <Pressable
+                  style={styles.cancelButton}
+                  onPress={() => {
+                    setShowAddNote(false);
+                    setNewNoteContent("");
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>Annuleren</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.saveNoteButton, addNoteMutation.isPending && styles.saveNoteButtonDisabled]}
+                  onPress={handleAddNote}
+                  disabled={addNoteMutation.isPending || !newNoteContent.trim()}
+                >
+                  {addNoteMutation.isPending ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <Text style={styles.saveNoteButtonText}>Opslaan</Text>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <Pressable
+              style={styles.addNoteButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowAddNote(true);
+              }}
+            >
               <Ionicons name="add-circle-outline" size={20} color={Colors.dark.primary} />
               <Text style={styles.addNoteText}>Notitie toevoegen</Text>
             </Pressable>
-          </View>
+          )}
+
+          {notesLoading ? (
+            <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginTop: Spacing.md }} />
+          ) : notes.length === 0 ? (
+            <View style={styles.emptyNotesCard}>
+              <Ionicons name="document-text-outline" size={32} color={Colors.dark.disabled} />
+              <Text style={styles.noNotesText}>Nog geen notities</Text>
+            </View>
+          ) : (
+            <View style={styles.notesList}>
+              {pinnedNotes.map((note) => {
+                const catInfo = getCategoryInfo(note.category);
+                return (
+                  <View key={note.id} style={[styles.noteCard, styles.pinnedNoteCard]}>
+                    <View style={styles.noteHeader}>
+                      <View style={styles.noteCategoryBadge}>
+                        <Ionicons name={catInfo.icon} size={12} color={Colors.dark.primary} />
+                        <Text style={styles.noteCategoryText}>{catInfo.label}</Text>
+                      </View>
+                      <Ionicons name="pin" size={14} color={Colors.dark.gold} />
+                    </View>
+                    <Text style={styles.noteContent}>{note.content}</Text>
+                    <View style={styles.noteFooter}>
+                      <Text style={styles.noteDate}>{formatNoteDate(note.createdAt)}</Text>
+                      <View style={styles.noteFooterActions}>
+                        <Pressable onPress={() => togglePinMutation.mutate({ noteId: note.id, isPinned: false })}>
+                          <Ionicons name="pin-outline" size={18} color={Colors.dark.tabIconDefault} />
+                        </Pressable>
+                        <Pressable onPress={() => handleDeleteNote(note.id)}>
+                          <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+                        </Pressable>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+              {regularNotes.map((note) => {
+                const catInfo = getCategoryInfo(note.category);
+                return (
+                  <View key={note.id} style={styles.noteCard}>
+                    <View style={styles.noteHeader}>
+                      <View style={styles.noteCategoryBadge}>
+                        <Ionicons name={catInfo.icon} size={12} color={Colors.dark.tabIconDefault} />
+                        <Text style={styles.noteCategoryText}>{catInfo.label}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.noteContent}>{note.content}</Text>
+                    <View style={styles.noteFooter}>
+                      <Text style={styles.noteDate}>{formatNoteDate(note.createdAt)}</Text>
+                      <View style={styles.noteFooterActions}>
+                        <Pressable onPress={() => togglePinMutation.mutate({ noteId: note.id, isPinned: true })}>
+                          <Ionicons name="pin-outline" size={18} color={Colors.dark.tabIconDefault} />
+                        </Pressable>
+                        <Pressable onPress={() => handleDeleteNote(note.id)}>
+                          <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+                        </Pressable>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -636,9 +880,182 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.sm,
   },
   addNoteText: {
     fontSize: Typography.body.fontSize,
     color: Colors.dark.primary,
+  },
+  nextLessonSection: {
+    backgroundColor: Colors.dark.primary + "15",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.dark.primary,
+  },
+  nextLessonHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  nextLessonTitle: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.primary,
+  },
+  nextLessonText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+  },
+  notesSectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  notesCount: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+  },
+  addNoteForm: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  categoryPicker: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.xs,
+    marginBottom: Spacing.md,
+  },
+  categoryChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.backgroundRoot,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.full,
+  },
+  categoryChipActive: {
+    backgroundColor: Colors.dark.primary + "20",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary,
+  },
+  categoryChipText: {
+    fontSize: 11,
+    color: Colors.dark.tabIconDefault,
+  },
+  categoryChipTextActive: {
+    color: Colors.dark.primary,
+  },
+  noteInput: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    minHeight: 80,
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+    textAlignVertical: "top",
+  },
+  noteActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  cancelButton: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  cancelButtonText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.tabIconDefault,
+  },
+  saveNoteButton: {
+    backgroundColor: Colors.dark.primary,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    minWidth: 80,
+    alignItems: "center",
+  },
+  saveNoteButtonDisabled: {
+    opacity: 0.5,
+  },
+  saveNoteButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: "#FFF",
+  },
+  emptyNotesCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  notesList: {
+    marginTop: Spacing.md,
+    gap: Spacing.sm,
+  },
+  noteCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+  },
+  pinnedNoteCard: {
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "50",
+    backgroundColor: Colors.dark.gold + "08",
+  },
+  noteHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  noteCategoryBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.backgroundRoot,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+  },
+  noteCategoryText: {
+    fontSize: 10,
+    color: Colors.dark.tabIconDefault,
+  },
+  noteContent: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+    lineHeight: 22,
+  },
+  noteFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  noteDate: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.tabIconDefault,
+  },
+  noteFooterActions: {
+    flexDirection: "row",
+    gap: Spacing.md,
   },
 });

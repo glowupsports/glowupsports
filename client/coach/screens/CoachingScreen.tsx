@@ -12,11 +12,30 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+
+interface ProgressSummary {
+  skillArea: string;
+  avgRating: number;
+  trend: string;
+}
+
+interface PlayerWithProgress {
+  id: string;
+  name: string;
+  ballLevel: string | null;
+  progressSummary: ProgressSummary[];
+  totalNotes: number;
+  recentNote?: {
+    content: string;
+    category: string | null;
+    createdAt: string | null;
+  };
+}
 
 type TabType = "today" | "progress" | "plans";
 type ProgressTrend = "up" | "stable" | "down";
@@ -342,6 +361,81 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
 }
 
 function ProgressTab({ insets }: { insets: { bottom: number } }) {
+  const { data: playersWithProgress = [], isLoading } = useQuery<PlayerWithProgress[]>({
+    queryKey: ["/api/coach/players/progress"],
+  });
+
+  const SKILL_AREAS = [
+    { key: "forehand", label: "Forehand", icon: "tennisball-outline" },
+    { key: "backhand", label: "Backhand", icon: "tennisball-outline" },
+    { key: "serve", label: "Service", icon: "arrow-up-outline" },
+    { key: "volley", label: "Volley", icon: "hand-right-outline" },
+    { key: "movement", label: "Beweging", icon: "footsteps-outline" },
+    { key: "mental", label: "Mentaal", icon: "bulb-outline" },
+  ];
+
+  const getTrendIcon = (trend: string): keyof typeof Ionicons.glyphMap => {
+    switch (trend) {
+      case "up": return "trending-up";
+      case "down": return "trending-down";
+      default: return "remove";
+    }
+  };
+
+  const getTrendColor = (trend: string) => {
+    switch (trend) {
+      case "up": return Colors.dark.primary;
+      case "down": return Colors.dark.error;
+      default: return Colors.dark.tabIconDefault;
+    }
+  };
+
+  const getRatingColor = (rating: number) => {
+    if (rating >= 4) return Colors.dark.primary;
+    if (rating >= 3) return Colors.dark.gold;
+    if (rating >= 2) return "#FF851B";
+    return Colors.dark.error;
+  };
+
+  const getLevelColor = (level: string | null) => {
+    switch (level?.toLowerCase()) {
+      case "red": return "#FF4444";
+      case "orange": return "#FF851B";
+      case "green": return "#2ECC40";
+      case "yellow": return "#FFDC00";
+      case "glow": return "#00D4FF";
+      default: return Colors.dark.disabled;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <Text style={styles.loadingText}>Voortgang laden...</Text>
+      </View>
+    );
+  }
+
+  if (playersWithProgress.length === 0) {
+    return (
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.sectionTitle}>Speler Voortgang</Text>
+        <View style={styles.emptyCard}>
+          <Ionicons name="trending-up-outline" size={48} color={Colors.dark.xpCyan} />
+          <Text style={styles.emptyText}>Geen spelers gevonden</Text>
+          <Text style={styles.emptySubtext}>
+            Voeg spelers toe om hun voortgang bij te houden
+          </Text>
+        </View>
+      </ScrollView>
+    );
+  }
+
   return (
     <ScrollView
       style={styles.content}
@@ -349,13 +443,91 @@ function ProgressTab({ insets }: { insets: { bottom: number } }) {
       showsVerticalScrollIndicator={false}
     >
       <Text style={styles.sectionTitle}>Speler Voortgang</Text>
-      <View style={styles.emptyCard}>
-        <Ionicons name="trending-up-outline" size={48} color={Colors.dark.xpCyan} />
-        <Text style={styles.emptyText}>Voortgang overzicht</Text>
-        <Text style={styles.emptySubtext}>
-          Hier zie je de langetermijn voortgang van je spelers op basis van feedback
-        </Text>
-      </View>
+      <Text style={styles.sectionSubtitle}>{playersWithProgress.length} spelers</Text>
+
+      {playersWithProgress.map((player) => {
+        const hasProgress = player.progressSummary.some(p => p.avgRating > 0);
+        
+        return (
+          <View key={player.id} style={styles.progressCard}>
+            <View style={styles.progressCardHeader}>
+              <View style={styles.playerAvatarSmall}>
+                <Text style={styles.playerInitialSmall}>{player.name.charAt(0).toUpperCase()}</Text>
+              </View>
+              <View style={styles.progressPlayerInfo}>
+                <Text style={styles.progressPlayerName}>{player.name}</Text>
+                <View style={styles.progressMeta}>
+                  {player.ballLevel ? (
+                    <View style={styles.levelBadge}>
+                      <View style={[styles.levelDotSmall, { backgroundColor: getLevelColor(player.ballLevel) }]} />
+                      <Text style={styles.levelBadgeText}>{player.ballLevel}</Text>
+                    </View>
+                  ) : null}
+                  {player.totalNotes > 0 ? (
+                    <View style={styles.notesBadge}>
+                      <Ionicons name="document-text-outline" size={12} color={Colors.dark.tabIconDefault} />
+                      <Text style={styles.notesBadgeText}>{player.totalNotes}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+            </View>
+
+            {hasProgress ? (
+              <View style={styles.skillGrid}>
+                {SKILL_AREAS.map((skill) => {
+                  const progress = player.progressSummary.find(p => p.skillArea === skill.key);
+                  const rating = progress?.avgRating || 0;
+                  const trend = progress?.trend || "stable";
+
+                  return (
+                    <View key={skill.key} style={styles.skillItem}>
+                      <View style={styles.skillHeader}>
+                        <Ionicons
+                          name={skill.icon as keyof typeof Ionicons.glyphMap}
+                          size={14}
+                          color={Colors.dark.tabIconDefault}
+                        />
+                        <Text style={styles.skillLabel}>{skill.label}</Text>
+                      </View>
+                      <View style={styles.skillRating}>
+                        {rating > 0 ? (
+                          <>
+                            <Text style={[styles.ratingValue, { color: getRatingColor(rating) }]}>
+                              {rating.toFixed(1)}
+                            </Text>
+                            <Ionicons
+                              name={getTrendIcon(trend)}
+                              size={14}
+                              color={getTrendColor(trend)}
+                            />
+                          </>
+                        ) : (
+                          <Text style={styles.noRating}>-</Text>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={styles.noProgressCard}>
+                <Ionicons name="analytics-outline" size={24} color={Colors.dark.disabled} />
+                <Text style={styles.noProgressText}>Nog geen voortgang</Text>
+              </View>
+            )}
+
+            {player.recentNote ? (
+              <View style={styles.recentNoteCard}>
+                <Ionicons name="document-text-outline" size={14} color={Colors.dark.tabIconDefault} />
+                <Text style={styles.recentNoteText} numberOfLines={2}>
+                  {player.recentNote.content}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        );
+      })}
     </ScrollView>
   );
 }
@@ -624,5 +796,146 @@ const styles = StyleSheet.create({
   createTemplateText: {
     fontSize: Typography.body.fontSize,
     color: Colors.dark.primary,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  loadingText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.tabIconDefault,
+  },
+  sectionSubtitle: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+    marginBottom: Spacing.md,
+    marginHorizontal: Spacing.lg,
+  },
+  progressCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  progressCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  playerAvatarSmall: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.primary + "30",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playerInitialSmall: {
+    fontSize: Typography.h4.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.primary,
+  },
+  progressPlayerInfo: {
+    flex: 1,
+  },
+  progressPlayerName: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  progressMeta: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: 2,
+  },
+  levelBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  levelDotSmall: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  levelBadgeText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.tabIconDefault,
+    textTransform: "capitalize",
+  },
+  notesBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  notesBadgeText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.tabIconDefault,
+  },
+  skillGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  skillItem: {
+    width: "31%",
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+  },
+  skillHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 4,
+  },
+  skillLabel: {
+    fontSize: 10,
+    color: Colors.dark.tabIconDefault,
+  },
+  skillRating: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  ratingValue: {
+    fontSize: Typography.h4.fontSize,
+    fontWeight: "700",
+  },
+  noRating: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.disabled,
+  },
+  noProgressCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+  },
+  noProgressText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.disabled,
+  },
+  recentNoteCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  recentNoteText: {
+    flex: 1,
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+    fontStyle: "italic",
   },
 });

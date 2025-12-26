@@ -635,6 +635,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== PLAYER NOTES (COACH MEMORY HUB) ====================
+
+  // Get notes for a player
+  app.get("/api/players/:id/notes", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const notes = await storage.getPlayerNotes(id);
+      res.json(notes);
+    } catch (error) {
+      console.error("Error fetching player notes:", error);
+      res.status(500).json({ error: "Failed to fetch notes" });
+    }
+  });
+
+  // Add a note for a player
+  app.post("/api/players/:id/notes", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { content, category, coachId, sessionId } = req.body;
+      
+      if (!content || !content.trim()) {
+        return res.status(400).json({ error: "Content is required" });
+      }
+
+      if (!id) {
+        return res.status(400).json({ error: "Player ID is required" });
+      }
+
+      const note = await storage.createPlayerNote({
+        playerId: id,
+        coachId: coachId || null,
+        content: content.trim(),
+        category: category || "general",
+        sessionId: sessionId || null,
+        isPinned: false,
+      });
+      res.status(201).json(note);
+    } catch (error) {
+      console.error("Error creating player note:", error);
+      res.status(500).json({ error: "Failed to create note" });
+    }
+  });
+
+  // Delete a player note
+  app.delete("/api/players/:playerId/notes/:noteId", async (req: Request, res: Response) => {
+    try {
+      const { noteId } = req.params;
+      await storage.deletePlayerNote(noteId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting player note:", error);
+      res.status(500).json({ error: "Failed to delete note" });
+    }
+  });
+
+  // Toggle note pin
+  app.patch("/api/players/:playerId/notes/:noteId/pin", async (req: Request, res: Response) => {
+    try {
+      const { noteId } = req.params;
+      const { isPinned } = req.body;
+      const note = await storage.toggleNotePin(noteId, isPinned);
+      res.json(note);
+    } catch (error) {
+      console.error("Error toggling note pin:", error);
+      res.status(500).json({ error: "Failed to toggle pin" });
+    }
+  });
+
+  // ==================== PLAYER PROGRESS ====================
+
+  // Get progress history for a player
+  app.get("/api/players/:id/progress", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const progress = await storage.getPlayerProgress(id);
+      res.json(progress);
+    } catch (error) {
+      console.error("Error fetching player progress:", error);
+      res.status(500).json({ error: "Failed to fetch progress" });
+    }
+  });
+
+  // Get progress summary for a player (aggregated by skill area)
+  app.get("/api/players/:id/progress/summary", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const summary = await storage.getProgressSummary(id);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching progress summary:", error);
+      res.status(500).json({ error: "Failed to fetch progress summary" });
+    }
+  });
+
+  // Add progress entry for a player
+  app.post("/api/players/:id/progress", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { skillArea, rating, trend, notes, coachId, sessionId } = req.body;
+      
+      if (!skillArea) {
+        return res.status(400).json({ error: "Skill area is required" });
+      }
+
+      const progress = await storage.createPlayerProgress({
+        playerId: id,
+        coachId,
+        sessionId,
+        skillArea,
+        rating,
+        trend: trend || "stable",
+        notes,
+      });
+      res.status(201).json(progress);
+    } catch (error) {
+      console.error("Error creating player progress:", error);
+      res.status(500).json({ error: "Failed to create progress" });
+    }
+  });
+
+  // Get all players with their progress summary (for coaching dashboard)
+  app.get("/api/coach/players/progress", async (req: Request, res: Response) => {
+    try {
+      const allPlayers = await storage.getAllPlayers();
+      const playersWithProgress = await Promise.all(
+        allPlayers.map(async (player) => {
+          const summary = await storage.getProgressSummary(player.id);
+          const notes = await storage.getPlayerNotes(player.id);
+          const pinnedNotes = notes.filter(n => n.isPinned);
+          const recentNote = notes[0];
+          return {
+            ...player,
+            progressSummary: summary,
+            pinnedNotes,
+            recentNote,
+            totalNotes: notes.length,
+          };
+        })
+      );
+      res.json(playersWithProgress);
+    } catch (error) {
+      console.error("Error fetching players with progress:", error);
+      res.status(500).json({ error: "Failed to fetch players with progress" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

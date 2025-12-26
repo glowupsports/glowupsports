@@ -221,3 +221,43 @@ export const offlineQueue = pgTable("offline_queue", {
 export const insertOfflineQueueSchema = createInsertSchema(offlineQueue).omit({ id: true, createdAt: true });
 export type InsertOfflineQueue = z.infer<typeof insertOfflineQueueSchema>;
 export type OfflineQueue = typeof offlineQueue.$inferSelect;
+
+// Player Notes (Coach Memory Hub)
+export const playerNotes = pgTable("player_notes", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id),
+  coachId: varchar("coach_id").references(() => coaches.id),
+  content: text("content").notNull(),
+  category: text("category").default("general").notNull(), // technique/mental/physical/general/next-lesson
+  isPinned: boolean("is_pinned").default(false).notNull(),
+  sessionId: varchar("session_id").references(() => sessions.id), // optional link to session
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPlayerNoteSchema = createInsertSchema(playerNotes).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertPlayerNote = z.infer<typeof insertPlayerNoteSchema>;
+export type PlayerNote = typeof playerNotes.$inferSelect;
+
+// Player Progress Snapshots
+export const playerProgress = pgTable("player_progress", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id),
+  coachId: varchar("coach_id").references(() => coaches.id),
+  sessionId: varchar("session_id").references(() => sessions.id),
+  
+  skillArea: text("skill_area").notNull(), // forehand/backhand/serve/volley/movement/mental
+  rating: integer("rating"), // 1-5 rating
+  trend: text("trend"), // up/stable/down
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPlayerProgressSchema = createInsertSchema(playerProgress).omit({ id: true, createdAt: true });
+export type InsertPlayerProgress = z.infer<typeof insertPlayerProgressSchema>;
+export type PlayerProgress = typeof playerProgress.$inferSelect;
