@@ -16,7 +16,6 @@ import * as Haptics from "expo-haptics";
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import MiniTimeline from "@/coach/components/MiniTimeline";
-import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 
 interface Session {
   id: string;
@@ -220,7 +219,7 @@ export default function DashboardScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 160 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.xl }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Header with Coach Level + XP */}
@@ -271,8 +270,8 @@ export default function DashboardScreen() {
             style={[styles.quickNavChip, styles.quickNavChipActive]}
             onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
           >
-            <Ionicons name="sunny-outline" size={16} color={Colors.dark.backgroundRoot} />
-            <Text style={[styles.quickNavChipText, styles.quickNavChipTextActive]}>Today</Text>
+            <Ionicons name="home" size={16} color={Colors.dark.backgroundRoot} />
+            <Text style={[styles.quickNavChipText, styles.quickNavChipTextActive]}>Home</Text>
           </Pressable>
           <Pressable 
             style={styles.quickNavChip}
@@ -282,22 +281,7 @@ export default function DashboardScreen() {
             }}
           >
             <Ionicons name="calendar-outline" size={16} color={Colors.dark.text} />
-            <Text style={styles.quickNavChipText}>Week</Text>
-          </Pressable>
-          <Pressable 
-            style={styles.quickNavChip}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              handleNavigate("Coaching");
-            }}
-          >
-            <Ionicons name="chatbox-outline" size={16} color={Colors.dark.text} />
-            <Text style={styles.quickNavChipText}>Feedback</Text>
-            {pendingFeedbackCount > 0 ? (
-              <View style={styles.quickNavBadge}>
-                <Text style={styles.quickNavBadgeText}>{pendingFeedbackCount}</Text>
-              </View>
-            ) : null}
+            <Text style={styles.quickNavChipText}>Calendar</Text>
           </Pressable>
           <Pressable 
             style={styles.quickNavChip}
@@ -308,6 +292,26 @@ export default function DashboardScreen() {
           >
             <Ionicons name="people-outline" size={16} color={Colors.dark.text} />
             <Text style={styles.quickNavChipText}>Players</Text>
+          </Pressable>
+          <Pressable 
+            style={styles.quickNavChip}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              handleNavigate("Coaching");
+            }}
+          >
+            <Ionicons name="clipboard-outline" size={16} color={Colors.dark.text} />
+            <Text style={styles.quickNavChipText}>Coaching</Text>
+          </Pressable>
+          <Pressable 
+            style={styles.quickNavChip}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              handleNavigate("Settings");
+            }}
+          >
+            <Ionicons name="settings-outline" size={16} color={Colors.dark.text} />
+            <Text style={styles.quickNavChipText}>Settings</Text>
           </Pressable>
         </ScrollView>
 
@@ -604,8 +608,6 @@ export default function DashboardScreen() {
           </View>
         ) : null}
       </ScrollView>
-
-      <CoachChatFooter />
     </View>
   );
 }
