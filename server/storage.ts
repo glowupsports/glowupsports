@@ -304,6 +304,21 @@ export const storage = {
   },
 
   async addPlayerToSession(data: InsertSessionPlayer): Promise<SessionPlayer> {
+    // Check if player is already in the session to prevent duplicates
+    if (data.sessionId && data.playerId) {
+      const existing = await db
+        .select()
+        .from(sessionPlayers)
+        .where(
+          and(
+            eq(sessionPlayers.sessionId, data.sessionId),
+            eq(sessionPlayers.playerId, data.playerId)
+          )
+        );
+      if (existing.length > 0) {
+        return existing[0]; // Return existing entry instead of creating duplicate
+      }
+    }
     const result = await db.insert(sessionPlayers).values(data).returning();
     return result[0];
   },
