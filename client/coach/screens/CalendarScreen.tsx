@@ -142,6 +142,7 @@ export default function CalendarScreen() {
   const [selectedSlot, setSelectedSlot] = useState<{ courtId: string; time: Date } | null>(null);
   const [selectedSessionForAttendance, setSelectedSessionForAttendance] = useState<Session | null>(null);
   const [weekMode, setWeekMode] = useState<"overview" | "availability">("overview");
+  const [monthMode, setMonthMode] = useState<"load" | "availability">("load");
 
   // Fetch available coaches
   const { data: coaches = [], isLoading: coachesLoading } = useQuery<CoachData[]>({
@@ -498,7 +499,7 @@ export default function CalendarScreen() {
     switch (type) {
       case "private":
         return Colors.dark.primary;
-      case "semi":
+      case "semi_private":
         return Colors.dark.xpCyan;
       case "group":
         return Colors.dark.orange;
@@ -506,6 +507,21 @@ export default function CalendarScreen() {
         return Colors.dark.gold;
       default:
         return Colors.dark.primary;
+    }
+  };
+
+  const getSessionTypeGradient = (type: string): [string, string] => {
+    switch (type) {
+      case "private":
+        return ["#3AE374", "#1E8449"];
+      case "semi_private":
+        return ["#00E5FF", "#0097A7"];
+      case "group":
+        return ["#FF8A50", "#D84315"];
+      case "physical":
+        return ["#FFD54F", "#F9A825"];
+      default:
+        return ["#3AE374", "#1E8449"];
     }
   };
 
@@ -730,6 +746,7 @@ export default function CalendarScreen() {
                                             session.sessionType === "group" ? "Group" :
                                             session.sessionType === "physical" ? "Physical" :
                                             session.sessionType;
+                        const gradientColors = getSessionTypeGradient(session.sessionType);
                         return (
                           <Pressable
                             key={session.id}
@@ -740,23 +757,29 @@ export default function CalendarScreen() {
                               styles.sessionBlock,
                               {
                                 top,
-                                height: height - 2,
-                                backgroundColor: getSessionTypeColor(session.sessionType),
+                                height: height - 4,
                                 opacity: isPast ? 0.5 : 1,
                               },
                               isActive && styles.sessionBlockActive,
                             ]}
                           >
-                            <Text style={styles.sessionText} numberOfLines={1}>
-                              {sessionLabel}
-                            </Text>
-                            <Text style={styles.sessionTime} numberOfLines={1}>
-                              {new Date(session.startTime).toLocaleTimeString("en-US", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                hour12: false,
-                              })}
-                            </Text>
+                            <LinearGradient
+                              colors={gradientColors}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 1 }}
+                              style={styles.sessionGradient}
+                            >
+                              <Text style={styles.sessionText} numberOfLines={1}>
+                                {sessionLabel}
+                              </Text>
+                              <Text style={styles.sessionTime} numberOfLines={1}>
+                                {new Date(session.startTime).toLocaleTimeString("en-US", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  hour12: false,
+                                })}
+                              </Text>
+                            </LinearGradient>
                           </Pressable>
                         );
                       })}
@@ -1013,95 +1036,126 @@ export default function CalendarScreen() {
 
       {/* MONTH VIEW */}
       {viewMode === "month" && (
-        <ScrollView style={styles.calendarScroll} showsVerticalScrollIndicator={false}>
-          {/* Month Day Headers */}
-          <View style={styles.monthDayHeaders}>
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
-              <Text key={day} style={styles.monthDayHeaderText}>{day}</Text>
-            ))}
+        <View style={{ flex: 1 }}>
+          {/* Month Mode Toggle */}
+          <View style={styles.monthModeToggle}>
+            <Pressable
+              style={[styles.monthModeButton, monthMode === "load" && styles.monthModeButtonActive]}
+              onPress={() => setMonthMode("load")}
+            >
+              <Ionicons name="flame-outline" size={14} color={monthMode === "load" ? Colors.dark.backgroundRoot : Colors.dark.text} />
+              <Text style={[styles.monthModeText, monthMode === "load" && styles.monthModeTextActive]}>Load</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.monthModeButton, monthMode === "availability" && styles.monthModeButtonActive]}
+              onPress={() => setMonthMode("availability")}
+            >
+              <Ionicons name="calendar-outline" size={14} color={monthMode === "availability" ? Colors.dark.backgroundRoot : Colors.dark.text} />
+              <Text style={[styles.monthModeText, monthMode === "availability" && styles.monthModeTextActive]}>Availability</Text>
+            </Pressable>
           </View>
 
-          {/* Month Grid */}
-          {monthDates.map((week, weekIdx) => {
-            // Calculate week load for background tint using raw minutes for precision
-            const weekDates = week.filter(d => d !== null) as Date[];
-            const weekSessions = weekDates.flatMap(d => getSessionsForDate(d));
-            const getSessionDuration = (s: Session) => {
-              if (s.duration && s.duration > 0) return s.duration;
-              const start = new Date(s.startTime);
-              const end = new Date(s.endTime);
-              return Math.round((end.getTime() - start.getTime()) / (1000 * 60));
-            };
-            const weekTotalMinutes = weekSessions.reduce((acc, s) => acc + getSessionDuration(s), 0);
-            const weekAvgMinutesPerDay = weekDates.length > 0 ? weekTotalMinutes / weekDates.length : 0;
-            const weekIsHeavy = weekAvgMinutesPerDay >= 300; // 5 hours = 300 min
-            const weekIsBusy = weekAvgMinutesPerDay >= 180; // 3 hours = 180 min
-            
-            return (
-              <View 
-                key={weekIdx} 
-                style={[
-                  styles.monthWeekRow,
-                  weekIsHeavy && styles.monthWeekHeavy,
-                  !weekIsHeavy && weekIsBusy && styles.monthWeekBusy,
-                ]}
-              >
-                {week.map((date, dayIdx) => {
-                  if (!date) {
-                    return <View key={dayIdx} style={styles.monthDayEmpty} />;
-                  }
-                  const stats = getDayStats(date);
-                  const isToday = date.toDateString() === new Date().toDateString();
-                  const isSelected = date.toDateString() === selectedDate.toDateString();
-                  const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                  const loadColor = getEnergyColor(stats.energyLevel);
-                  // Use raw minutes for precise bar height: 480 min (8h) = full bar
-                  const loadHeight = Math.min(100, (stats.totalMinutes / 480) * 100);
-                  
-                  return (
-                    <Pressable 
-                      key={dayIdx} 
-                      style={[
-                        styles.monthDay, 
-                        isWeekend && styles.monthDayWeekend,
-                        isToday && styles.monthDayToday, 
-                        isSelected && styles.monthDaySelected
-                      ]}
-                      onPress={() => handleDateSelect(date)}
-                    >
-                      {/* Date number (small, top-left) */}
-                      <Text style={[
-                        styles.monthDayNumber, 
-                        isWeekend && styles.monthDayNumberWeekend,
-                        isToday && styles.monthDayNumberToday
-                      ]}>
-                        {date.getDate()}
-                      </Text>
-                      
-                      {/* Load bar (main visual element) */}
-                      <View style={styles.monthLoadContainer}>
-                        <View 
-                          style={[
-                            styles.monthLoadBar, 
-                            { 
-                              height: `${loadHeight}%`, 
-                              backgroundColor: stats.totalHours > 0 ? loadColor : Colors.dark.backgroundTertiary 
-                            }
-                          ]} 
-                        />
-                      </View>
-                      
-                      {/* Hours stat (bottom) */}
-                      {stats.totalHours > 0 && (
-                        <Text style={styles.monthHoursText}>{stats.totalHours}h</Text>
-                      )}
-                    </Pressable>
-                  );
-                })}
-              </View>
-            );
-          })}
-        </ScrollView>
+          <ScrollView style={styles.calendarScroll} showsVerticalScrollIndicator={false}>
+            {/* Month Day Headers */}
+            <View style={styles.monthDayHeaders}>
+              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+                <Text key={day} style={styles.monthDayHeaderText}>{day}</Text>
+              ))}
+            </View>
+
+            {/* Month Grid */}
+            {monthDates.map((week, weekIdx) => {
+              return (
+                <View key={weekIdx} style={styles.monthWeekRowPremium}>
+                  {week.map((date, dayIdx) => {
+                    if (!date) {
+                      return <View key={dayIdx} style={styles.monthDayCardEmpty} />;
+                    }
+                    const stats = getDayStats(date);
+                    const isToday = date.toDateString() === new Date().toDateString();
+                    const isSelected = date.toDateString() === selectedDate.toDateString();
+                    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                    
+                    // Load mode: gradient fill based on hours
+                    const loadHeight = Math.min(100, (stats.totalMinutes / 480) * 100);
+                    const loadGradient: [string, string] = stats.totalMinutes >= 360 
+                      ? ["#FF6B35", "#D84315"] // Heavy: orange-red
+                      : stats.totalMinutes >= 240 
+                        ? ["#FFD54F", "#F9A825"] // Busy: amber
+                        : stats.totalMinutes > 0 
+                          ? ["#3AE374", "#1E8449"] // Normal: green
+                          : ["transparent", "transparent"];
+                    
+                    // Availability mode: derive status from actual booked hours
+                    // Capacity assumption: 8 hours max per day, each slot = ~1 hour
+                    const maxCapacity = 8;
+                    const bookedHours = stats.totalHours;
+                    const freeHours = Math.max(0, maxCapacity - bookedHours);
+                    // Thresholds: 5+ free hours = open, 2-4 = limited, <2 = full
+                    const availabilityStatus = freeHours >= 5 ? "open" : freeHours >= 2 ? "limited" : "full";
+                    // Display remaining slots (only if actually open/limited)
+                    const displaySlots = Math.floor(freeHours);
+                    
+                    return (
+                      <Pressable 
+                        key={dayIdx} 
+                        style={[
+                          styles.monthDayCard, 
+                          isWeekend && styles.monthDayCardWeekend,
+                          isToday && styles.monthDayCardToday, 
+                          isSelected && styles.monthDayCardSelected
+                        ]}
+                        onPress={() => handleDateSelect(date)}
+                      >
+                        {/* Date number (small, top-left) */}
+                        <Text style={[
+                          styles.monthDayCardNumber, 
+                          isWeekend && styles.monthDayCardNumberWeekend,
+                          isToday && styles.monthDayCardNumberToday
+                        ]}>
+                          {date.getDate()}
+                        </Text>
+                        
+                        {monthMode === "load" ? (
+                          <>
+                            {/* Gradient fill from bottom */}
+                            {stats.totalMinutes > 0 && (
+                              <View style={[styles.monthLoadFillContainer, { height: `${loadHeight}%` }]}>
+                                <LinearGradient
+                                  colors={loadGradient}
+                                  style={styles.monthLoadFill}
+                                  start={{ x: 0, y: 1 }}
+                                  end={{ x: 0, y: 0 }}
+                                />
+                              </View>
+                            )}
+                            {/* Hours label */}
+                            {stats.totalHours > 0 && (
+                              <Text style={styles.monthHoursLabel}>{stats.totalHours}h</Text>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {/* Availability indicator */}
+                            <View style={[
+                              styles.monthAvailabilityIndicator,
+                              availabilityStatus === "open" && styles.monthAvailabilityOpen,
+                              availabilityStatus === "limited" && styles.monthAvailabilityLimited,
+                              availabilityStatus === "full" && styles.monthAvailabilityFull,
+                            ]} />
+                            {availabilityStatus !== "full" && displaySlots > 0 && (
+                              <Text style={styles.monthSlotsLabel}>{displaySlots}h</Text>
+                            )}
+                          </>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              );
+            })}
+          </ScrollView>
+        </View>
       )}
 
       {/* Loading Overlay */}
@@ -1256,8 +1310,10 @@ const styles = StyleSheet.create({
   courtHeaders: {
     flexDirection: "row",
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    paddingVertical: Spacing.md,
+    backgroundColor: "rgba(30, 30, 35, 0.95)",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.08)",
   },
   timeColumnHeader: {
     width: TIME_COLUMN_WIDTH,
@@ -1269,7 +1325,8 @@ const styles = StyleSheet.create({
   courtHeaderText: {
     ...Typography.small,
     color: Colors.dark.text,
-    fontWeight: "600",
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
   calendarScroll: {
     flex: 1,
@@ -1299,7 +1356,7 @@ const styles = StyleSheet.create({
     width: COURT_LANE_WIDTH,
     position: "relative",
     borderLeftWidth: 1,
-    borderLeftColor: Colors.dark.backgroundTertiary,
+    borderLeftColor: "rgba(255, 255, 255, 0.06)",
   },
   hourSlot: {
     height: HOUR_HEIGHT_60,
@@ -1311,7 +1368,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: Colors.dark.backgroundTertiary,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   halfHourLine: {
     position: "absolute",
@@ -1319,31 +1376,45 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: Colors.dark.backgroundTertiary,
-    opacity: 0.5,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
   },
   sessionBlock: {
     position: "absolute",
-    left: 2,
-    right: 2,
-    borderRadius: BorderRadius.xs,
-    padding: Spacing.xs,
+    left: 3,
+    right: 3,
+    borderRadius: BorderRadius.md,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
   },
   sessionBlockActive: {
     borderWidth: 2,
     borderColor: Colors.dark.text,
+    shadowColor: Colors.dark.primary,
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+  },
+  sessionGradient: {
+    flex: 1,
+    padding: Spacing.sm,
+    justifyContent: "center",
   },
   sessionText: {
     ...Typography.caption,
-    color: Colors.dark.backgroundRoot,
-    fontWeight: "600",
+    color: "#FFFFFF",
+    fontWeight: "700",
+    textShadowColor: "rgba(0, 0, 0, 0.3)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   sessionTime: {
     ...Typography.caption,
-    color: Colors.dark.backgroundRoot,
-    opacity: 0.8,
+    color: "rgba(255, 255, 255, 0.9)",
     fontSize: 10,
+    fontWeight: "500",
   },
   blockedBlock: {
     position: "absolute",
@@ -1582,6 +1653,148 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: Colors.dark.tabIconDefault,
     fontWeight: "600",
+  },
+  // Premium Month View styles
+  monthModeToggle: {
+    flexDirection: "row",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: 3,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+  },
+  monthModeButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    gap: 6,
+  },
+  monthModeButtonActive: {
+    backgroundColor: Colors.dark.primary,
+  },
+  monthModeText: {
+    ...Typography.caption,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  monthModeTextActive: {
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  monthWeekRowPremium: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.md,
+    gap: 6,
+    marginBottom: 6,
+  },
+  monthDayCard: {
+    flex: 1,
+    borderRadius: BorderRadius.md,
+    backgroundColor: "rgba(40, 40, 45, 0.8)",
+    minHeight: 70,
+    padding: 6,
+    overflow: "hidden",
+    position: "relative",
+  },
+  monthDayCardEmpty: {
+    flex: 1,
+    borderRadius: BorderRadius.md,
+    backgroundColor: "rgba(30, 30, 35, 0.4)",
+    minHeight: 70,
+  },
+  monthDayCardWeekend: {
+    backgroundColor: "rgba(35, 35, 40, 0.6)",
+  },
+  monthDayCardToday: {
+    borderWidth: 2,
+    borderColor: Colors.dark.primary,
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  monthDayCardSelected: {
+    borderWidth: 2,
+    borderColor: Colors.dark.text,
+  },
+  monthDayCardNumber: {
+    ...Typography.caption,
+    fontSize: 11,
+    color: "rgba(255, 255, 255, 0.6)",
+    fontWeight: "500",
+    zIndex: 2,
+  },
+  monthDayCardNumberWeekend: {
+    color: "rgba(255, 255, 255, 0.4)",
+  },
+  monthDayCardNumberToday: {
+    color: Colors.dark.primary,
+    fontWeight: "700",
+  },
+  monthLoadFillContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderBottomLeftRadius: BorderRadius.md,
+    borderBottomRightRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  monthLoadFill: {
+    flex: 1,
+    opacity: 0.7,
+  },
+  monthHoursLabel: {
+    position: "absolute",
+    bottom: 4,
+    right: 6,
+    ...Typography.caption,
+    fontSize: 10,
+    color: "rgba(255, 255, 255, 0.8)",
+    fontWeight: "600",
+    zIndex: 2,
+  },
+  monthAvailabilityIndicator: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginTop: -8,
+    marginLeft: -8,
+  },
+  monthAvailabilityOpen: {
+    backgroundColor: "#3AE374",
+    shadowColor: "#3AE374",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  monthAvailabilityLimited: {
+    backgroundColor: "#FFD54F",
+    shadowColor: "#FFD54F",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  monthAvailabilityFull: {
+    backgroundColor: "rgba(100, 100, 100, 0.5)",
+  },
+  monthSlotsLabel: {
+    position: "absolute",
+    bottom: 4,
+    right: 6,
+    ...Typography.caption,
+    fontSize: 10,
+    color: "rgba(255, 255, 255, 0.6)",
+    fontWeight: "500",
   },
   // Week mode toggle styles
   weekModeToggle: {
