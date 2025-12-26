@@ -175,4 +175,4 @@ export const AVATAR_PRESETS = [
   "lightning",
 ];
 
-export const REACTION_EMOJIS = ["thumbsup", "heart", "fire", "trophy", "star", "zap"];
+export const REACTION_EMOJIS = ["thumbsup", "heart", "fire", "trophy", "star", "flash"];

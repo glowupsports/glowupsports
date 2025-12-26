@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, FlatList, Pressable, Alert } from "react-native";
+import { View, StyleSheet, FlatList, Pressable, Alert, ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { Ionicons } from "@expo/vector-icons";
@@ -22,10 +22,10 @@ interface Quest {
 }
 
 const INITIAL_QUESTS: Quest[] = [
-  { id: "1", title: "Practice Forehand", description: "Complete 3 forehand drills", progress: 2, target: 3, reward: { xp: 150, coins: 50 }, type: "daily", icon: "target" },
-  { id: "2", title: "Social Butterfly", description: "Send 5 messages in chat", progress: 3, target: 5, reward: { xp: 100, coins: 30 }, type: "daily", icon: "message-circle" },
-  { id: "3", title: "Consistency King", description: "Practice 5 days in a row", progress: 3, target: 5, reward: { xp: 500, coins: 200 }, type: "weekly", icon: "calendar" },
-  { id: "4", title: "Match Winner", description: "Win 3 matches this week", progress: 1, target: 3, reward: { xp: 400, coins: 150 }, type: "weekly", icon: "award" },
+  { id: "1", title: "Practice Forehand", description: "Complete 3 forehand drills", progress: 2, target: 3, reward: { xp: 150, coins: 50 }, type: "daily", icon: "radio-button-on-outline" },
+  { id: "2", title: "Social Butterfly", description: "Send 5 messages in chat", progress: 3, target: 5, reward: { xp: 100, coins: 30 }, type: "daily", icon: "chatbubble-outline" },
+  { id: "3", title: "Consistency King", description: "Practice 5 days in a row", progress: 3, target: 5, reward: { xp: 500, coins: 200 }, type: "weekly", icon: "calendar-outline" },
+  { id: "4", title: "Match Winner", description: "Win 3 matches this week", progress: 1, target: 3, reward: { xp: 400, coins: 150 }, type: "weekly", icon: "ribbon-outline" },
 ];
 
 export default function QuestScreen() {
@@ -63,7 +63,7 @@ export default function QuestScreen() {
 
     return (
       <Card 
-        style={[styles.questCard, isComplete && styles.completeCard]}
+        style={StyleSheet.flatten([styles.questCard, isComplete ? styles.completeCard : {}]) as ViewStyle}
         onPress={() => isComplete ? handleClaimReward(item) : handleProgressQuest(item)}
       >
         <View style={styles.questHeader}>
