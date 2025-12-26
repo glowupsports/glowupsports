@@ -111,10 +111,13 @@ export function CoachProvider({ children }: { children: ReactNode }) {
   };
 
   const dateStr = selectedDate.toISOString().split("T")[0];
+  const calendarQueryPath = coach?.id 
+    ? `/api/coach/calendar?coachId=${coach.id}&date=${dateStr}&view=${viewMode}` 
+    : null;
 
   const { data: calendarData, isLoading, refetch: refetchCalendar } = useQuery<CalendarData>({
-    queryKey: ["/api/coach/calendar", { date: dateStr, view: viewMode, coachId: coach?.id }],
-    enabled: !!coach?.id,
+    queryKey: [calendarQueryPath],
+    enabled: !!coach?.id && !!calendarQueryPath,
   });
 
   return (

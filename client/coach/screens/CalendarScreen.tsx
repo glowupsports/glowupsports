@@ -75,6 +75,18 @@ export default function CalendarScreen() {
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{ courtId: string; time: Date } | null>(null);
 
+  // Fetch available coaches
+  const { data: coaches = [], isLoading: coachesLoading } = useQuery<CoachData[]>({
+    queryKey: ["/api/coaches"],
+  });
+
+  // Auto-select first coach if none selected
+  useEffect(() => {
+    if (!coach && coaches.length > 0) {
+      setCoach(coaches[0]);
+    }
+  }, [coach, coaches, setCoach]);
+
   const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
   const courts = calendarData?.courts || [];
   const ownSessions = calendarData?.ownSessions || [];
@@ -145,18 +157,6 @@ export default function CalendarScreen() {
         return Colors.dark.primary;
     }
   };
-
-  // Fetch available coaches
-  const { data: coaches = [], isLoading: coachesLoading } = useQuery<CoachData[]>({
-    queryKey: ["/api/coaches"],
-  });
-
-  // Auto-select first coach if none selected
-  useEffect(() => {
-    if (!coach && coaches.length > 0) {
-      setCoach(coaches[0]);
-    }
-  }, [coach, coaches, setCoach]);
 
   if (!coach) {
     return (
@@ -276,7 +276,7 @@ export default function CalendarScreen() {
       {/* Court Headers */}
       <View style={styles.courtHeaders}>
         <View style={styles.timeColumnHeader} />
-        {courts.slice(0, 3).map((court) => (
+        {courts.map((court) => (
           <View key={court.id} style={styles.courtHeader}>
             <Text style={styles.courtHeaderText}>{court.name}</Text>
           </View>
@@ -297,7 +297,7 @@ export default function CalendarScreen() {
 
           {/* Court Lanes */}
           <View style={styles.courtLanesContainer}>
-            {courts.slice(0, 3).map((court, courtIndex) => (
+            {courts.map((court, courtIndex) => (
               <View key={court.id} style={styles.courtLane}>
                 {/* Hour grid lines and clickable slots */}
                 {hours.map((hour) => (
