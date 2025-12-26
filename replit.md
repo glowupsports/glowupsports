@@ -220,4 +220,8 @@ Advanced player development tracking system with 5 skill domains, anti-abuse rul
   - **Weighted Glow Score** (backend):
     - Calculated from 5 domain scores with weights: Technical 30%, Mental 20%, Physical 20%, Social 15%, Tactical 15%
     - Returned in progress summary API: `/api/players/:id/progress/summary`
-    - Includes glowScore (0-100), skills array, and domainScores array
+    - Backward-compatible: Returns array of skills with glowScore (0-100) and domainScores on first element
+    - Domain lookup uses proper JOIN with skillDomains table for reliable score calculation
+  - **Per-player Skill Group Expansion**:
+    - Each player's skill groups (Technical, Physical, Mental) maintain separate expansion state
+    - Technical group open by default for all players
