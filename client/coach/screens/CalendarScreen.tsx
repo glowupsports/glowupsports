@@ -1035,7 +1035,7 @@ export default function CalendarScreen() {
 
       {/* MONTH VIEW */}
       {viewMode === "month" && (
-        <View style={{ flex: 1 }}>
+        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
           {/* Month Mode Toggle */}
           <View style={styles.monthModeToggle}>
             <Pressable
@@ -1054,7 +1054,7 @@ export default function CalendarScreen() {
             </Pressable>
           </View>
 
-          <ScrollView style={styles.calendarScroll} showsVerticalScrollIndicator={false}>
+          <View>
             {/* Month Day Headers */}
             <View style={styles.monthDayHeaders}>
               {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
@@ -1153,7 +1153,7 @@ export default function CalendarScreen() {
                 </View>
               );
             })}
-          </ScrollView>
+          </View>
           
           {/* Day Context Panel - Always visible, updates with selected day */}
           <View style={styles.dayContextPanel}>
@@ -1360,7 +1360,7 @@ export default function CalendarScreen() {
               );
             })()}
           </View>
-        </View>
+        </ScrollView>
       )}
 
       {/* Loading Overlay */}
