@@ -121,3 +121,48 @@ Preferred communication style: Simple, everyday language.
 - Blocked sessions dashed border styling in calendar
 - Dashboard header buttons for quick navigation to notifications and profile
 - Auto-renew detection API for recurring sessions approaching week 9-10
+
+## Progress Engine V2
+
+### Overview
+Advanced player development tracking system with 5 skill domains, anti-abuse rules, XP gamification, and level progression.
+
+### Database Schema (8 new tables)
+- **skill_domains**: 5 domains (Technical, Mental, Physical, Social, Tactical)
+- **player_skill_state**: Current progress per player per domain (0-100 value, trend, momentum, confidence)
+- **session_skill_observations**: Individual coach observations with direction (up/stable/down) and effort level
+- **level_requirements**: Requirements for ball level progression (Red 1-3, Orange 1-3, Green 1-3, Yellow)
+- **coach_stats_rollup**: Anti-abuse calibration stats for coach observation patterns
+- **player_progress_flags**: Issue tracking (farm_flag, inconsistency_flag, speedrun_flag)
+- **domain_assessments**: Formal evaluation snapshots (not_yet/developing/meets/above)
+- **xp_transactions**: XP gains from sessions, effort bonuses, milestones
+
+### Anti-Abuse System
+- **Diminishing Returns**: Multiple observations per session have reduced impact (1.0 → 0.7 → 0.5 → 0.3)
+- **Down-Guard**: Max 1 effective down per 3 sessions to prevent rapid progress loss
+- **Cooldown**: Recent up observations have reduced impact (within 48 hours = 50% effect)
+- **Confidence Guard**: Players with low confidence (< 30) are protected from hard drops
+
+### XP Engine
+- Base Session XP: 10
+- Effort Multiplier: High (1.2x), Normal (1.0x), Low (0.8x)
+- Skill Improvement Bonus: +5 XP per upward observation
+
+### API Endpoints (server/routes.ts)
+- `GET /api/progress/domains` - Get all 5 skill domains
+- `GET /api/players/:id/skill-state` - Get player's current progress per domain
+- `POST /api/coach/sessions/:sessionId/observations` - Submit skill observations with anti-abuse rules
+- `GET /api/coach/sessions/:sessionId/observations` - Get observations for a session
+- `POST /api/players/:id/assessments` - Create formal assessment
+- `GET /api/players/:id/assessments` - Get player's assessment history
+- `GET /api/progress/levels` - Get level requirements
+- `GET /api/players/:id/level-readiness/:level` - Check if player is ready for level promotion
+- `GET /api/players/:id/xp` - Get player's XP total and transactions
+- `POST /api/players/:id/progress-freeze` - Freeze/unfreeze progress during holidays/injury
+
+### Level Progression Flow
+1. Coach submits observations per domain (up/stable/down + effort level)
+2. System calculates delta with anti-abuse rules
+3. Player skill state updates (progress value, trend, momentum)
+4. Formal assessments can be created (not_yet → developing → meets → above)
+5. Level readiness calculates if all domain requirements are met + minimum sessions

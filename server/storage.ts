@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { eq, and, gte, lte, ne, or, inArray } from "drizzle-orm";
-import { desc } from "drizzle-orm";
+import { desc, asc } from "drizzle-orm";
 import {
   coaches,
   locations,
@@ -17,6 +17,15 @@ import {
   playerProgress,
   sessionTemplates,
   coachNotifications,
+  // Progress Engine V2
+  skillDomains,
+  playerSkillState,
+  sessionSkillObservations,
+  levelRequirements,
+  coachStatsRollup,
+  playerProgressFlags,
+  domainAssessments,
+  xpTransactions,
   type Coach,
   type InsertCoach,
   type Location,
@@ -45,6 +54,23 @@ import {
   type InsertSessionTemplate,
   type CoachNotification,
   type InsertCoachNotification,
+  // Progress Engine V2 types
+  type SkillDomain,
+  type InsertSkillDomain,
+  type PlayerSkillState,
+  type InsertPlayerSkillState,
+  type SessionSkillObservation,
+  type InsertSessionSkillObservation,
+  type LevelRequirement,
+  type InsertLevelRequirement,
+  type CoachStatsRollup,
+  type InsertCoachStatsRollup,
+  type PlayerProgressFlag,
+  type InsertPlayerProgressFlag,
+  type DomainAssessment,
+  type InsertDomainAssessment,
+  type XpTransaction,
+  type InsertXpTransaction,
 } from "@shared/schema";
 
 export const storage = {
@@ -603,5 +629,355 @@ export const storage = {
   async updateCoach(id: string, data: Partial<InsertCoach>): Promise<Coach> {
     const result = await db.update(coaches).set(data).where(eq(coaches.id, id)).returning();
     return result[0];
+  },
+
+  // ==================== PROGRESS ENGINE V2 ====================
+
+  // Skill Domains
+  async getAllSkillDomains(): Promise<SkillDomain[]> {
+    return db.select().from(skillDomains).orderBy(asc(skillDomains.sortOrder));
+  },
+
+  async getSkillDomain(id: string): Promise<SkillDomain | undefined> {
+    const result = await db.select().from(skillDomains).where(eq(skillDomains.id, id));
+    return result[0];
+  },
+
+  async getSkillDomainByName(name: string): Promise<SkillDomain | undefined> {
+    const result = await db.select().from(skillDomains).where(eq(skillDomains.name, name));
+    return result[0];
+  },
+
+  async createSkillDomain(data: InsertSkillDomain): Promise<SkillDomain> {
+    const result = await db.insert(skillDomains).values(data).returning();
+    return result[0];
+  },
+
+  async seedSkillDomains(): Promise<void> {
+    const existingDomains = await db.select().from(skillDomains);
+    if (existingDomains.length > 0) return; // Already seeded
+
+    const domains = [
+      { name: "technical", displayName: "Technical", description: "Strokes, technique, consistency", icon: "tennisball-outline", sortOrder: 1 },
+      { name: "mental", displayName: "Mental", description: "Focus, resilience, confidence", icon: "brain-outline", sortOrder: 2 },
+      { name: "physical", displayName: "Physical", description: "Fitness, speed, endurance", icon: "fitness-outline", sortOrder: 3 },
+      { name: "social", displayName: "Social", description: "Teamwork, sportsmanship, communication", icon: "people-outline", sortOrder: 4 },
+      { name: "tactical", displayName: "Tactical", description: "Strategy, decision-making, game IQ", icon: "bulb-outline", sortOrder: 5 },
+    ];
+
+    for (const domain of domains) {
+      await db.insert(skillDomains).values(domain);
+    }
+  },
+
+  // Player Skill State
+  async getPlayerSkillStates(playerId: string): Promise<PlayerSkillState[]> {
+    return db
+      .select()
+      .from(playerSkillState)
+      .where(eq(playerSkillState.playerId, playerId));
+  },
+
+  async getPlayerSkillState(playerId: string, domainId: string): Promise<PlayerSkillState | undefined> {
+    const result = await db
+      .select()
+      .from(playerSkillState)
+      .where(and(
+        eq(playerSkillState.playerId, playerId),
+        eq(playerSkillState.domainId, domainId)
+      ));
+    return result[0];
+  },
+
+  async upsertPlayerSkillState(data: InsertPlayerSkillState): Promise<PlayerSkillState> {
+    // Check if state exists
+    const existing = await db
+      .select()
+      .from(playerSkillState)
+      .where(and(
+        eq(playerSkillState.playerId, data.playerId),
+        eq(playerSkillState.domainId, data.domainId)
+      ));
+
+    if (existing.length > 0) {
+      const result = await db
+        .update(playerSkillState)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(playerSkillState.id, existing[0].id))
+        .returning();
+      return result[0];
+    }
+
+    const result = await db.insert(playerSkillState).values(data).returning();
+    return result[0];
+  },
+
+  async initializePlayerSkillStates(playerId: string): Promise<void> {
+    const domains = await db.select().from(skillDomains);
+    for (const domain of domains) {
+      const existing = await db
+        .select()
+        .from(playerSkillState)
+        .where(and(
+          eq(playerSkillState.playerId, playerId),
+          eq(playerSkillState.domainId, domain.id)
+        ));
+      
+      if (existing.length === 0) {
+        await db.insert(playerSkillState).values({
+          playerId,
+          domainId: domain.id,
+          progressValue: 0,
+          trend: "stable",
+          momentum: "building",
+          confidenceScore: 50,
+        });
+      }
+    }
+  },
+
+  // Session Skill Observations
+  async getSessionSkillObservations(sessionId: string): Promise<SessionSkillObservation[]> {
+    return db
+      .select()
+      .from(sessionSkillObservations)
+      .where(eq(sessionSkillObservations.sessionId, sessionId))
+      .orderBy(desc(sessionSkillObservations.createdAt));
+  },
+
+  async getPlayerRecentObservations(playerId: string, limit: number = 10): Promise<SessionSkillObservation[]> {
+    return db
+      .select()
+      .from(sessionSkillObservations)
+      .where(eq(sessionSkillObservations.playerId, playerId))
+      .orderBy(desc(sessionSkillObservations.createdAt))
+      .limit(limit);
+  },
+
+  async createSkillObservation(data: InsertSessionSkillObservation): Promise<SessionSkillObservation> {
+    const result = await db.insert(sessionSkillObservations).values(data).returning();
+    return result[0];
+  },
+
+  async getObservationCountForDomain(playerId: string, domainId: string, sessionCount: number = 3): Promise<{ upCount: number; downCount: number }> {
+    // Get recent sessions for this player
+    const recentObservations = await db
+      .select()
+      .from(sessionSkillObservations)
+      .where(and(
+        eq(sessionSkillObservations.playerId, playerId),
+        eq(sessionSkillObservations.domainId, domainId)
+      ))
+      .orderBy(desc(sessionSkillObservations.createdAt))
+      .limit(sessionCount);
+
+    const upCount = recentObservations.filter(o => o.direction === "up").length;
+    const downCount = recentObservations.filter(o => o.direction === "down").length;
+
+    return { upCount, downCount };
+  },
+
+  async getRecentDownSessionsForPlayer(playerId: string, sessionLimit: number = 3): Promise<string[]> {
+    // First, get the player's last N sessions (by chronological order)
+    const allPlayerObservations = await db
+      .select()
+      .from(sessionSkillObservations)
+      .where(eq(sessionSkillObservations.playerId, playerId))
+      .orderBy(desc(sessionSkillObservations.createdAt));
+
+    // Extract the last N distinct sessions chronologically
+    const lastNSessions: string[] = [];
+    for (const obs of allPlayerObservations) {
+      if (!lastNSessions.includes(obs.sessionId)) {
+        lastNSessions.push(obs.sessionId);
+        if (lastNSessions.length >= sessionLimit) break;
+      }
+    }
+
+    // Now check which of these last N sessions had "down" observations
+    const sessionsWithDowns: string[] = [];
+    for (const sessionId of lastNSessions) {
+      const hasDown = allPlayerObservations.some(
+        obs => obs.sessionId === sessionId && obs.direction === "down"
+      );
+      if (hasDown) {
+        sessionsWithDowns.push(sessionId);
+      }
+    }
+
+    return sessionsWithDowns;
+  },
+
+  // Level Requirements
+  async getLevelRequirements(ballLevel: string): Promise<LevelRequirement[]> {
+    return db
+      .select()
+      .from(levelRequirements)
+      .where(eq(levelRequirements.ballLevel, ballLevel));
+  },
+
+  async getAllLevelRequirements(): Promise<LevelRequirement[]> {
+    return db.select().from(levelRequirements);
+  },
+
+  async createLevelRequirement(data: InsertLevelRequirement): Promise<LevelRequirement> {
+    const result = await db.insert(levelRequirements).values(data).returning();
+    return result[0];
+  },
+
+  // Domain Assessments
+  async getPlayerAssessments(playerId: string): Promise<DomainAssessment[]> {
+    return db
+      .select()
+      .from(domainAssessments)
+      .where(eq(domainAssessments.playerId, playerId))
+      .orderBy(desc(domainAssessments.createdAt));
+  },
+
+  async createAssessment(data: InsertDomainAssessment): Promise<DomainAssessment> {
+    const result = await db.insert(domainAssessments).values(data).returning();
+    return result[0];
+  },
+
+  async getLatestAssessment(playerId: string, domainId: string): Promise<DomainAssessment | undefined> {
+    const result = await db
+      .select()
+      .from(domainAssessments)
+      .where(and(
+        eq(domainAssessments.playerId, playerId),
+        eq(domainAssessments.domainId, domainId)
+      ))
+      .orderBy(desc(domainAssessments.createdAt))
+      .limit(1);
+    return result[0];
+  },
+
+  // Coach Stats Rollup (V2)
+  async getCoachStats(coachId: string): Promise<CoachStatsRollup | undefined> {
+    const result = await db.select().from(coachStatsRollup).where(eq(coachStatsRollup.coachId, coachId));
+    return result[0];
+  },
+
+  async upsertCoachStats(data: InsertCoachStatsRollup): Promise<CoachStatsRollup> {
+    const existing = await db.select().from(coachStatsRollup).where(eq(coachStatsRollup.coachId, data.coachId));
+    
+    if (existing.length > 0) {
+      const result = await db
+        .update(coachStatsRollup)
+        .set({ ...data, lastCalculatedAt: new Date() })
+        .where(eq(coachStatsRollup.id, existing[0].id))
+        .returning();
+      return result[0];
+    }
+
+    const result = await db.insert(coachStatsRollup).values(data).returning();
+    return result[0];
+  },
+
+  // Player Progress Flags (V2)
+  async getPlayerFlags(playerId: string): Promise<PlayerProgressFlag[]> {
+    return db
+      .select()
+      .from(playerProgressFlags)
+      .where(and(
+        eq(playerProgressFlags.playerId, playerId),
+        eq(playerProgressFlags.isActive, true)
+      ));
+  },
+
+  async createPlayerFlag(data: InsertPlayerProgressFlag): Promise<PlayerProgressFlag> {
+    const result = await db.insert(playerProgressFlags).values(data).returning();
+    return result[0];
+  },
+
+  async resolvePlayerFlag(id: string): Promise<void> {
+    await db
+      .update(playerProgressFlags)
+      .set({ isActive: false, resolvedAt: new Date() })
+      .where(eq(playerProgressFlags.id, id));
+  },
+
+  // XP Transactions
+  async getPlayerXpTransactions(playerId: string, limit: number = 50): Promise<XpTransaction[]> {
+    return db
+      .select()
+      .from(xpTransactions)
+      .where(eq(xpTransactions.playerId, playerId))
+      .orderBy(desc(xpTransactions.createdAt))
+      .limit(limit);
+  },
+
+  async createXpTransaction(data: InsertXpTransaction): Promise<XpTransaction> {
+    const result = await db.insert(xpTransactions).values(data).returning();
+    return result[0];
+  },
+
+  async getPlayerTotalXp(playerId: string): Promise<number> {
+    const transactions = await db
+      .select()
+      .from(xpTransactions)
+      .where(eq(xpTransactions.playerId, playerId));
+    
+    return transactions.reduce((sum, t) => sum + t.xpAmount, 0);
+  },
+
+  // Progress calculation helper
+  async calculatePlayerLevelReadiness(playerId: string, targetLevel: string): Promise<{
+    isReady: boolean;
+    requirements: { domainId: string; domainName: string; required: string; current: string; met: boolean }[];
+    sessionCount: number;
+    minSessionsRequired: number;
+  }> {
+    const requirements = await db
+      .select()
+      .from(levelRequirements)
+      .where(eq(levelRequirements.ballLevel, targetLevel));
+
+    const skillStates = await db
+      .select()
+      .from(playerSkillState)
+      .where(eq(playerSkillState.playerId, playerId));
+
+    const domains = await db.select().from(skillDomains);
+    const domainMap = new Map(domains.map(d => [d.id, d]));
+
+    // Count sessions player has participated in
+    const playerSessionCount = await db
+      .select()
+      .from(sessionPlayers)
+      .where(eq(sessionPlayers.playerId, playerId));
+
+    const results = requirements.map(req => {
+      const state = skillStates.find(s => s.domainId === req.domainId);
+      const domain = domainMap.get(req.domainId);
+      
+      const statusOrder = ["not_yet", "developing", "meets", "above"];
+      const currentIndex = statusOrder.indexOf(state?.assessmentStatus || "not_yet");
+      const requiredIndex = statusOrder.indexOf(req.minStatus);
+
+      return {
+        domainId: req.domainId,
+        domainName: domain?.displayName || "Unknown",
+        required: req.minStatus,
+        current: state?.assessmentStatus || "not_yet",
+        met: currentIndex >= requiredIndex,
+      };
+    });
+
+    // Use the strictest (maximum) minSessions across all domain requirements
+    const minSessionsRequired = requirements.reduce((max, req) => {
+      const reqSessions = req.minSessionsAtLevel || 8;
+      return Math.max(max, reqSessions);
+    }, 8);
+    
+    const allRequirementsMet = results.every(r => r.met);
+    const hasEnoughSessions = playerSessionCount.length >= minSessionsRequired;
+
+    return {
+      isReady: allRequirementsMet && hasEnoughSessions,
+      requirements: results,
+      sessionCount: playerSessionCount.length,
+      minSessionsRequired,
+    };
   },
 };

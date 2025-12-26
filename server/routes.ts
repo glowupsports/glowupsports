@@ -1070,6 +1070,355 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== PROGRESS ENGINE V2 API ====================
+
+  // Get all skill domains
+  app.get("/api/progress/domains", async (req: Request, res: Response) => {
+    try {
+      // Seed domains if not present
+      await storage.seedSkillDomains();
+      const domains = await storage.getAllSkillDomains();
+      res.json(domains);
+    } catch (error) {
+      console.error("Error fetching skill domains:", error);
+      res.status(500).json({ error: "Failed to fetch skill domains" });
+    }
+  });
+
+  // Get player skill states (current progress per domain)
+  app.get("/api/players/:id/skill-state", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      
+      // Initialize skill states if not present
+      await storage.seedSkillDomains();
+      await storage.initializePlayerSkillStates(id);
+      
+      const states = await storage.getPlayerSkillStates(id);
+      const domains = await storage.getAllSkillDomains();
+      
+      // Merge domain info with state
+      const statesWithDomains = states.map(state => {
+        const domain = domains.find(d => d.id === state.domainId);
+        return {
+          ...state,
+          domain: domain || null,
+        };
+      });
+      
+      res.json(statesWithDomains);
+    } catch (error) {
+      console.error("Error fetching player skill states:", error);
+      res.status(500).json({ error: "Failed to fetch skill states" });
+    }
+  });
+
+  // Submit skill observations for a session
+  app.post("/api/coach/sessions/:sessionId/observations", async (req: Request, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+      const { playerId, coachId, observations } = req.body;
+      // observations: [{ domainId, direction: 'up'|'stable'|'down', effortLevel: 'high'|'normal'|'low', note? }]
+
+      if (!playerId || !coachId || !observations || !Array.isArray(observations)) {
+        return res.status(400).json({ error: "playerId, coachId, and observations array required" });
+      }
+
+      const results = [];
+      let skillImprovementXp = 0;
+      const effortLevels: string[] = [];
+
+      // Count observations per session for diminishing returns
+      const observationCounts: Record<string, number> = {};
+      
+      // Track sessions with downs for down-guard (per session basis)
+      const recentDownSessions = await storage.getRecentDownSessionsForPlayer(playerId, 3);
+      
+      // Track if we've already applied a down in this session
+      let downAppliedThisSession = false;
+
+      for (const obs of observations) {
+        const { domainId, direction, effortLevel, note } = obs;
+        
+        // Track effort levels (we'll use average for session XP)
+        effortLevels.push(effortLevel);
+        
+        // Get current state
+        const currentState = await storage.getPlayerSkillState(playerId, domainId);
+        
+        // Calculate diminishing return factor
+        const countKey = `${sessionId}-${playerId}-${domainId}`;
+        observationCounts[countKey] = (observationCounts[countKey] || 0) + 1;
+        const obsCount = observationCounts[countKey];
+        const diminishingFactors = [1.0, 0.7, 0.5, 0.3, 0.3];
+        const diminishingFactor = diminishingFactors[Math.min(obsCount - 1, 4)];
+
+        // Calculate raw delta
+        let rawDelta = 0;
+        if (direction === "up") rawDelta = 5;
+        else if (direction === "down") rawDelta = -3;
+        // stable = 0
+
+        // Calculate effort multiplier for this observation's delta
+        let effortMultiplier = 1.0;
+        if (effortLevel === "high") effortMultiplier = 1.2;
+        else if (effortLevel === "low") effortMultiplier = 0.8;
+
+        // Check for down-guard (max 1 effective down per 3 sessions - on session basis)
+        let wasDownGuarded = false;
+        if (direction === "down") {
+          // Check if we already have a down in last 3 sessions OR already applied one this session
+          const hasRecentDown = recentDownSessions.length >= 1 && !recentDownSessions.includes(sessionId);
+          if (hasRecentDown || downAppliedThisSession) {
+            wasDownGuarded = true;
+            rawDelta = 0; // Convert to stable
+          } else {
+            // This is the first down in this session and no recent down sessions
+            downAppliedThisSession = true;
+          }
+        }
+
+        // Check cooldown (if up was given recently, reduce impact)
+        let wasCooldownApplied = false;
+        if (direction === "up" && currentState?.lastUpDate) {
+          const hoursSinceLastUp = (Date.now() - new Date(currentState.lastUpDate).getTime()) / (1000 * 60 * 60);
+          if (hoursSinceLastUp < 48) { // Within 48 hours
+            wasCooldownApplied = true;
+            rawDelta = Math.round(rawDelta * 0.5);
+          }
+        }
+
+        // Calculate applied delta
+        let appliedDelta = Math.round(rawDelta * effortMultiplier * diminishingFactor);
+
+        // Confidence guard: prevent hard drops
+        if (appliedDelta < 0 && currentState?.confidenceScore && currentState.confidenceScore < 30) {
+          appliedDelta = 0; // Don't allow drops when confidence is low
+        }
+
+        // Create observation record
+        const observation = await storage.createSkillObservation({
+          sessionId,
+          playerId,
+          coachId,
+          domainId,
+          direction,
+          effortLevel,
+          note,
+          rawDelta,
+          appliedDelta,
+          wasDownGuarded,
+          wasCooldownApplied,
+          diminishingReturnFactor: String(diminishingFactor),
+        });
+        results.push(observation);
+
+        // Update player skill state
+        const newProgressValue = Math.max(0, Math.min(100, (currentState?.progressValue || 0) + appliedDelta));
+        
+        // Calculate new trend based on recent observations
+        const recentObs = await storage.getPlayerRecentObservations(playerId, 5);
+        const domainObs = recentObs.filter(o => o.domainId === domainId);
+        const upCount = domainObs.filter(o => o.direction === "up").length;
+        const downCount = domainObs.filter(o => o.direction === "down").length;
+        
+        let newTrend = "stable";
+        if (upCount >= 3) newTrend = "improving";
+        else if (downCount >= 2) newTrend = "focus";
+
+        // Calculate momentum
+        let newMomentum = "building";
+        if (upCount >= 4) newMomentum = "strong";
+        else if (downCount >= 2 || (upCount === 0 && domainObs.length >= 3)) newMomentum = "slowing";
+
+        // Update confidence score
+        let newConfidence = currentState?.confidenceScore || 50;
+        if (direction === "up") newConfidence = Math.min(100, newConfidence + 5);
+        else if (direction === "down") newConfidence = Math.max(0, newConfidence - 3);
+
+        await storage.upsertPlayerSkillState({
+          playerId,
+          domainId,
+          progressValue: newProgressValue,
+          trend: newTrend,
+          momentum: newMomentum,
+          confidenceScore: newConfidence,
+          lastUpDate: direction === "up" ? new Date() : currentState?.lastUpDate || undefined,
+          upCountRecent: direction === "up" ? (currentState?.upCountRecent || 0) + 1 : currentState?.upCountRecent || 0,
+          downCountRecent: direction === "down" ? (currentState?.downCountRecent || 0) + 1 : currentState?.downCountRecent || 0,
+        });
+
+        // Calculate skill improvement XP bonus (per upward observation)
+        if (direction === "up") {
+          skillImprovementXp += 5;
+        }
+      }
+
+      // Calculate session effort multiplier based on most common effort level
+      const effortCounts = { high: 0, normal: 0, low: 0 };
+      for (const level of effortLevels) {
+        if (level === "high") effortCounts.high++;
+        else if (level === "low") effortCounts.low++;
+        else effortCounts.normal++;
+      }
+      
+      // Use the most frequent effort level for session XP
+      let sessionEffortMultiplier = 1.0;
+      if (effortCounts.high >= effortCounts.normal && effortCounts.high >= effortCounts.low) {
+        sessionEffortMultiplier = 1.2;
+      } else if (effortCounts.low >= effortCounts.normal && effortCounts.low >= effortCounts.high) {
+        sessionEffortMultiplier = 0.8;
+      }
+      
+      // Calculate total XP: Base 10 per session (once) + effort multiplier + skill improvement bonuses
+      const baseSessionXp = Math.round(10 * sessionEffortMultiplier);
+      const totalXpGained = baseSessionXp + skillImprovementXp;
+
+      // Create XP transaction
+      if (totalXpGained > 0) {
+        await storage.createXpTransaction({
+          playerId,
+          sessionId,
+          xpAmount: totalXpGained,
+          source: "session",
+          description: `Session: ${baseSessionXp} base + ${skillImprovementXp} skill bonus`,
+        });
+      }
+
+      res.status(201).json({ 
+        observations: results, 
+        xpGained: totalXpGained,
+        message: `${results.length} observations recorded` 
+      });
+    } catch (error) {
+      console.error("Error creating skill observations:", error);
+      res.status(500).json({ error: "Failed to create observations" });
+    }
+  });
+
+  // Get session observations
+  app.get("/api/coach/sessions/:sessionId/observations", async (req: Request, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+      const observations = await storage.getSessionSkillObservations(sessionId);
+      res.json(observations);
+    } catch (error) {
+      console.error("Error fetching session observations:", error);
+      res.status(500).json({ error: "Failed to fetch observations" });
+    }
+  });
+
+  // Create assessment for a player
+  app.post("/api/players/:id/assessments", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { coachId, domainId, status, notes, isBaseline } = req.body;
+
+      if (!coachId || !domainId || !status) {
+        return res.status(400).json({ error: "coachId, domainId, and status required" });
+      }
+
+      // Get previous status
+      const latestAssessment = await storage.getLatestAssessment(id, domainId);
+      const previousStatus = latestAssessment?.status || null;
+
+      const assessment = await storage.createAssessment({
+        playerId: id,
+        coachId,
+        domainId,
+        status,
+        previousStatus,
+        notes,
+        isBaseline: isBaseline || !latestAssessment, // First assessment is always baseline
+      });
+
+      // Update player skill state with new assessment
+      await storage.upsertPlayerSkillState({
+        playerId: id,
+        domainId,
+        assessmentStatus: status,
+        lastAssessmentDate: new Date(),
+      });
+
+      res.status(201).json(assessment);
+    } catch (error) {
+      console.error("Error creating assessment:", error);
+      res.status(500).json({ error: "Failed to create assessment" });
+    }
+  });
+
+  // Get player assessments
+  app.get("/api/players/:id/assessments", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const assessments = await storage.getPlayerAssessments(id);
+      res.json(assessments);
+    } catch (error) {
+      console.error("Error fetching assessments:", error);
+      res.status(500).json({ error: "Failed to fetch assessments" });
+    }
+  });
+
+  // Get level requirements
+  app.get("/api/progress/levels", async (req: Request, res: Response) => {
+    try {
+      const requirements = await storage.getAllLevelRequirements();
+      res.json(requirements);
+    } catch (error) {
+      console.error("Error fetching level requirements:", error);
+      res.status(500).json({ error: "Failed to fetch level requirements" });
+    }
+  });
+
+  // Get level readiness for a player
+  app.get("/api/players/:id/level-readiness/:level", async (req: Request, res: Response) => {
+    try {
+      const { id, level } = req.params;
+      const readiness = await storage.calculatePlayerLevelReadiness(id, level);
+      res.json(readiness);
+    } catch (error) {
+      console.error("Error calculating level readiness:", error);
+      res.status(500).json({ error: "Failed to calculate level readiness" });
+    }
+  });
+
+  // Get player XP and transactions
+  app.get("/api/players/:id/xp", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const totalXp = await storage.getPlayerTotalXp(id);
+      const transactions = await storage.getPlayerXpTransactions(id, 20);
+      res.json({ totalXp, transactions });
+    } catch (error) {
+      console.error("Error fetching player XP:", error);
+      res.status(500).json({ error: "Failed to fetch XP" });
+    }
+  });
+
+  // Freeze/unfreeze player progress
+  app.post("/api/players/:id/progress-freeze", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { freeze, reason } = req.body;
+
+      const skillStates = await storage.getPlayerSkillStates(id);
+      
+      for (const state of skillStates) {
+        await storage.upsertPlayerSkillState({
+          playerId: id,
+          domainId: state.domainId,
+          isFrozen: freeze,
+          freezeReason: freeze ? reason : null,
+        });
+      }
+
+      res.json({ success: true, frozen: freeze, reason });
+    } catch (error) {
+      console.error("Error updating progress freeze:", error);
+      res.status(500).json({ error: "Failed to update progress freeze" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

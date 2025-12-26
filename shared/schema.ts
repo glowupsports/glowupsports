@@ -301,3 +301,195 @@ export const coachNotifications = pgTable("coach_notifications", {
 export const insertCoachNotificationSchema = createInsertSchema(coachNotifications).omit({ id: true, createdAt: true });
 export type InsertCoachNotification = z.infer<typeof insertCoachNotificationSchema>;
 export type CoachNotification = typeof coachNotifications.$inferSelect;
+
+// ==================== PROGRESS ENGINE V2 ====================
+
+// Skill Domains (Technical, Mental, Physical, Social, Tactical)
+export const skillDomains = pgTable("skill_domains", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(), // technical/mental/physical/social/tactical
+  displayName: text("display_name").notNull(),
+  description: text("description"),
+  icon: text("icon"), // icon name for UI
+  sortOrder: integer("sort_order").default(0),
+});
+
+export const insertSkillDomainSchema = createInsertSchema(skillDomains).omit({ id: true });
+export type InsertSkillDomain = z.infer<typeof insertSkillDomainSchema>;
+export type SkillDomain = typeof skillDomains.$inferSelect;
+
+// Player Skill State - Current state per player per domain
+export const playerSkillState = pgTable("player_skill_state", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  domainId: varchar("domain_id").references(() => skillDomains.id).notNull(),
+  
+  progressValue: integer("progress_value").default(0).notNull(), // 0-100
+  trend: text("trend").default("stable"), // improving/stable/focus
+  momentum: text("momentum").default("building"), // building/strong/slowing
+  confidenceScore: integer("confidence_score").default(50), // internal score for protection
+  
+  // Assessment status
+  assessmentStatus: text("assessment_status"), // not_yet/developing/meets/above
+  lastAssessmentDate: timestamp("last_assessment_date"),
+  
+  // Cooldown tracking
+  lastUpDate: timestamp("last_up_date"),
+  upCountRecent: integer("up_count_recent").default(0), // count of ↑ in recent sessions
+  downCountRecent: integer("down_count_recent").default(0), // count of ↓ in recent sessions
+  
+  // Progress freeze
+  isFrozen: boolean("is_frozen").default(false),
+  freezeReason: text("freeze_reason"), // holiday/injury
+  
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPlayerSkillStateSchema = createInsertSchema(playerSkillState).omit({ id: true, updatedAt: true });
+export type InsertPlayerSkillState = z.infer<typeof insertPlayerSkillStateSchema>;
+export type PlayerSkillState = typeof playerSkillState.$inferSelect;
+
+// Session Skill Observations - Individual coach observations per session
+export const sessionSkillObservations = pgTable("session_skill_observations", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => sessions.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  domainId: varchar("domain_id").references(() => skillDomains.id).notNull(),
+  
+  direction: text("direction").notNull(), // up/stable/down
+  effortLevel: text("effort_level").notNull(), // high/normal/low
+  note: text("note"),
+  
+  // Calculated impact (after anti-abuse rules)
+  rawDelta: integer("raw_delta"), // original delta before rules
+  appliedDelta: integer("applied_delta"), // actual delta after rules
+  
+  // Anti-abuse tracking
+  wasDownGuarded: boolean("was_down_guarded").default(false),
+  wasCooldownApplied: boolean("was_cooldown_applied").default(false),
+  diminishingReturnFactor: numeric("diminishing_return_factor"), // 1.0, 0.7, 0.5, 0.3
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSessionSkillObservationSchema = createInsertSchema(sessionSkillObservations).omit({ id: true, createdAt: true });
+export type InsertSessionSkillObservation = z.infer<typeof insertSessionSkillObservationSchema>;
+export type SessionSkillObservation = typeof sessionSkillObservations.$inferSelect;
+
+// Level Requirements - What's needed for each ball level
+export const levelRequirements = pgTable("level_requirements", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  ballLevel: text("ball_level").notNull(), // red1/red2/red3/orange1/orange2/orange3/green1/green2/green3/yellow
+  domainId: varchar("domain_id").references(() => skillDomains.id).notNull(),
+  
+  minStatus: text("min_status").notNull(), // not_yet/developing/meets/above
+  minProgressValue: integer("min_progress_value"), // optional minimum 0-100
+  minSessionsAtLevel: integer("min_sessions_at_level").default(8), // minimum exposure
+  
+  description: text("description"),
+});
+
+export const insertLevelRequirementSchema = createInsertSchema(levelRequirements).omit({ id: true });
+export type InsertLevelRequirement = z.infer<typeof insertLevelRequirementSchema>;
+export type LevelRequirement = typeof levelRequirements.$inferSelect;
+
+// Coach Stats Rollup - For anti-abuse calibration (V2)
+export const coachStatsRollup = pgTable("coach_stats_rollup", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  
+  // Rolling 30-session stats
+  highEffortRate30: numeric("high_effort_rate_30"), // % of high effort given
+  upRate30: numeric("up_rate_30"), // % of ↑ observations
+  downRate30: numeric("down_rate_30"), // % of ↓ observations
+  avgUpPerSession: numeric("avg_up_per_session"),
+  
+  // Calibration factor
+  severityFactor: numeric("severity_factor").default("1.0"), // 0.9-1.1 for normalization
+  
+  // Flags
+  isHighEffortSpammer: boolean("is_high_effort_spammer").default(false),
+  isUpSpammer: boolean("is_up_spammer").default(false),
+  
+  lastCalculatedAt: timestamp("last_calculated_at").defaultNow(),
+});
+
+export const insertCoachStatsRollupSchema = createInsertSchema(coachStatsRollup).omit({ id: true, lastCalculatedAt: true });
+export type InsertCoachStatsRollup = z.infer<typeof insertCoachStatsRollupSchema>;
+export type CoachStatsRollup = typeof coachStatsRollup.$inferSelect;
+
+// Player Progress Flags - For tracking issues (V2)
+export const playerProgressFlags = pgTable("player_progress_flags", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  
+  flagType: text("flag_type").notNull(), // farm_flag/inconsistency_flag/speedrun_flag
+  severity: text("severity").default("low"), // low/medium/high
+  isActive: boolean("is_active").default(true),
+  
+  description: text("description"),
+  metadata: jsonb("metadata"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+});
+
+export const insertPlayerProgressFlagSchema = createInsertSchema(playerProgressFlags).omit({ id: true, createdAt: true });
+export type InsertPlayerProgressFlag = z.infer<typeof insertPlayerProgressFlagSchema>;
+export type PlayerProgressFlag = typeof playerProgressFlags.$inferSelect;
+
+// Domain Assessments - Formal evaluation snapshots
+export const domainAssessments = pgTable("domain_assessments", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  domainId: varchar("domain_id").references(() => skillDomains.id).notNull(),
+  
+  status: text("status").notNull(), // not_yet/developing/meets/above
+  previousStatus: text("previous_status"),
+  
+  notes: text("notes"),
+  isBaseline: boolean("is_baseline").default(false), // first assessment for player
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertDomainAssessmentSchema = createInsertSchema(domainAssessments).omit({ id: true, createdAt: true });
+export type InsertDomainAssessment = z.infer<typeof insertDomainAssessmentSchema>;
+export type DomainAssessment = typeof domainAssessments.$inferSelect;
+
+// XP Transactions - Track XP gains
+export const xpTransactions = pgTable("xp_transactions", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  sessionId: varchar("session_id").references(() => sessions.id),
+  
+  xpAmount: integer("xp_amount").notNull(),
+  source: text("source").notNull(), // session/effort_bonus/skill_improvement/quest/streak/milestone
+  
+  description: text("description"),
+  metadata: jsonb("metadata"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertXpTransactionSchema = createInsertSchema(xpTransactions).omit({ id: true, createdAt: true });
+export type InsertXpTransaction = z.infer<typeof insertXpTransactionSchema>;
+export type XpTransaction = typeof xpTransactions.$inferSelect;
