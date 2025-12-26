@@ -521,3 +521,104 @@ export const coachXpTransactions = pgTable("coach_xp_transactions", {
 export const insertCoachXpTransactionSchema = createInsertSchema(coachXpTransactions).omit({ id: true, createdAt: true });
 export type InsertCoachXpTransaction = z.infer<typeof insertCoachXpTransactionSchema>;
 export type CoachXpTransaction = typeof coachXpTransactions.$inferSelect;
+
+// ==================== GLOW CHAT SYSTEM ====================
+
+// Conversations - Chat threads between participants
+export const conversations = pgTable("conversations", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  type: text("type").notNull(), // coach_player, coach_parent, coach_coach, group
+  title: text("title"), // For group chats
+  
+  // Context for coach_player chats
+  playerId: varchar("player_id").references(() => players.id),
+  coachId: varchar("coach_id").references(() => coaches.id),
+  
+  lastMessageAt: timestamp("last_message_at"),
+  lastMessagePreview: text("last_message_preview"),
+  
+  isArchived: boolean("is_archived").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertConversationSchema = createInsertSchema(conversations).omit({ id: true, createdAt: true });
+export type InsertConversation = z.infer<typeof insertConversationSchema>;
+export type Conversation = typeof conversations.$inferSelect;
+
+// Conversation Participants - Who is in each chat
+export const conversationParticipants = pgTable("conversation_participants", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").references(() => conversations.id).notNull(),
+  
+  // Participant can be coach, player, or parent (parent links to player)
+  participantType: text("participant_type").notNull(), // coach, player, parent
+  coachId: varchar("coach_id").references(() => coaches.id),
+  playerId: varchar("player_id").references(() => players.id),
+  
+  role: text("role").default("member"), // owner, admin, member
+  canPost: boolean("can_post").default(true),
+  
+  lastReadAt: timestamp("last_read_at"),
+  muteUntil: timestamp("mute_until"),
+  
+  joinedAt: timestamp("joined_at").defaultNow(),
+});
+
+export const insertConversationParticipantSchema = createInsertSchema(conversationParticipants).omit({ id: true, joinedAt: true });
+export type InsertConversationParticipant = z.infer<typeof insertConversationParticipantSchema>;
+export type ConversationParticipant = typeof conversationParticipants.$inferSelect;
+
+// Messages - Individual chat messages
+export const messages = pgTable("messages", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").references(() => conversations.id).notNull(),
+  
+  // Sender - null for system messages
+  senderType: text("sender_type"), // coach, player, parent, system
+  senderCoachId: varchar("sender_coach_id").references(() => coaches.id),
+  senderPlayerId: varchar("sender_player_id").references(() => players.id),
+  
+  body: text("body").notNull(),
+  messageType: text("message_type").default("text"), // text, quick_feedback, system, xp_award
+  
+  replyToId: varchar("reply_to_id"), // For threaded replies
+  
+  // XP awarded for this message (if any)
+  xpAwarded: integer("xp_awarded"),
+  
+  isEdited: boolean("is_edited").default(false),
+  isDeleted: boolean("is_deleted").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type Message = typeof messages.$inferSelect;
+
+// Message Reactions - Emoji reactions on messages
+export const messageReactions = pgTable("message_reactions", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  messageId: varchar("message_id").references(() => messages.id).notNull(),
+  
+  // Reactor
+  reactorType: text("reactor_type").notNull(), // coach, player, parent
+  reactorCoachId: varchar("reactor_coach_id").references(() => coaches.id),
+  reactorPlayerId: varchar("reactor_player_id").references(() => players.id),
+  
+  emoji: text("emoji").notNull(), // thumbsup, heart, fire, trophy, star
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertMessageReactionSchema = createInsertSchema(messageReactions).omit({ id: true, createdAt: true });
+export type InsertMessageReaction = z.infer<typeof insertMessageReactionSchema>;
+export type MessageReaction = typeof messageReactions.$inferSelect;

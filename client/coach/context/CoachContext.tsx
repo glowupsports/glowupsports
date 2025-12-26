@@ -9,6 +9,8 @@ interface Coach {
   phone: string | null;
   homeLocationId: string | null;
   hourlyRate: string | null;
+  level: number | null;
+  totalXp: number | null;
 }
 
 interface Location {

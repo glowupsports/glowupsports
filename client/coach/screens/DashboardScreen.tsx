@@ -259,6 +259,76 @@ export default function DashboardScreen() {
           </View>
         </View>
 
+        {/* Horizontal Quick Nav Menu */}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.quickNavScroll}
+          contentContainerStyle={styles.quickNavContent}
+        >
+          <Pressable 
+            style={[styles.quickNavChip, styles.quickNavChipActive]}
+            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+          >
+            <Ionicons name="home" size={14} color={Colors.dark.backgroundRoot} />
+            <Text style={[styles.quickNavChipText, styles.quickNavChipTextActive]}>Today</Text>
+          </Pressable>
+          <Pressable 
+            style={styles.quickNavChip}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              handleNavigate("Calendar");
+            }}
+          >
+            <Ionicons name="calendar-outline" size={14} color={Colors.dark.text} />
+            <Text style={styles.quickNavChipText}>Week</Text>
+          </Pressable>
+          <Pressable 
+            style={styles.quickNavChip}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              handleNavigate("Coaching");
+            }}
+          >
+            <Ionicons name="clipboard-outline" size={14} color={Colors.dark.text} />
+            <Text style={styles.quickNavChipText}>Feedback</Text>
+            {pendingFeedbackCount > 0 ? (
+              <View style={styles.quickNavBadge}>
+                <Text style={styles.quickNavBadgeText}>{pendingFeedbackCount}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+          <Pressable 
+            style={styles.quickNavChip}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              handleNavigate("Players");
+            }}
+          >
+            <Ionicons name="people-outline" size={14} color={Colors.dark.text} />
+            <Text style={styles.quickNavChipText}>Players</Text>
+          </Pressable>
+          <Pressable 
+            style={styles.quickNavChip}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              handleNavigate("CoachProfile");
+            }}
+          >
+            <Ionicons name="trending-up-outline" size={14} color={Colors.dark.text} />
+            <Text style={styles.quickNavChipText}>Progress</Text>
+          </Pressable>
+          <Pressable 
+            style={styles.quickNavChip}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          >
+            <Ionicons name="chatbubble-outline" size={14} color={Colors.dark.text} />
+            <Text style={styles.quickNavChipText}>Chat</Text>
+          </Pressable>
+        </ScrollView>
+
         {/* FOCUS Card (formerly TODAY Card) */}
         <View style={styles.focusCard}>
           <LinearGradient
@@ -658,6 +728,54 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundSecondary,
     alignItems: "center",
     justifyContent: "center",
+  },
+  
+  // Quick Nav Menu
+  quickNavScroll: {
+    marginHorizontal: -Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  quickNavContent: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  quickNavChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  quickNavChipActive: {
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
+  },
+  quickNavChipText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  quickNavChipTextActive: {
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  quickNavBadge: {
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.dark.error,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 2,
+  },
+  quickNavBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.text,
   },
   
   // Focus Card (formerly TODAY)
