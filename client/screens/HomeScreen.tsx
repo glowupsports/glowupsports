@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, ScrollView, Pressable, RefreshControl } from "react-native";
+import { View, StyleSheet, ScrollView, Pressable, RefreshControl, ImageBackground } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -11,6 +11,8 @@ import { LevelUpModal } from "@/components/LevelUpModal";
 import { Card } from "@/components/Card";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { usePlayer } from "@/context/PlayerContext";
+
+const tennisCourtBg = require("../../assets/images/tennis-court-bg.png");
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -39,22 +41,27 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <CustomHeader />
 
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingTop: headerHeight + Spacing.lg, paddingBottom: footerHeight + Spacing.xl },
-        ]}
-        scrollIndicatorInsets={{ bottom: insets.bottom + footerHeight }}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={Colors.dark.primary}
-            progressViewOffset={headerHeight}
-          />
-        }
+      <ImageBackground
+        source={tennisCourtBg}
+        style={styles.backgroundImage}
+        resizeMode="cover"
       >
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingTop: headerHeight + Spacing.lg, paddingBottom: footerHeight + Spacing.xl },
+          ]}
+          scrollIndicatorInsets={{ bottom: insets.bottom + footerHeight }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={Colors.dark.primary}
+              progressViewOffset={headerHeight}
+            />
+          }
+        >
         <View style={styles.welcomeSection}>
           <ThemedText style={styles.welcomeText}>Welcome back,</ThemedText>
           <ThemedText style={styles.nameText}>{player.name.split(" ")[0]}</ThemedText>
@@ -100,7 +107,8 @@ export default function HomeScreen() {
             </View>
           </View>
         </Card>
-      </ScrollView>
+        </ScrollView>
+      </ImageBackground>
 
       <ChatFooter />
 
@@ -117,6 +125,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  backgroundImage: {
+    flex: 1,
   },
   scrollContent: {
     paddingHorizontal: Spacing.lg,
