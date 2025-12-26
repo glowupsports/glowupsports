@@ -15,6 +15,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import CreateSessionDrawer from "@/coach/components/CreateSessionDrawer";
+import NowPlayingCard from "@/coach/components/NowPlayingCard";
+import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
 
 interface CoachData {
   id: string;
@@ -75,6 +77,7 @@ export default function CalendarScreen() {
 
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{ courtId: string; time: Date } | null>(null);
+  const [selectedSessionForAttendance, setSelectedSessionForAttendance] = useState<Session | null>(null);
 
   // Fetch available coaches
   const { data: coaches = [], isLoading: coachesLoading } = useQuery<CoachData[]>({
@@ -133,6 +136,18 @@ export default function CalendarScreen() {
 
   const goToToday = () => {
     setSelectedDate(new Date());
+  };
+
+  const handleAttendance = (session: Session) => {
+    setSelectedSessionForAttendance(session);
+  };
+
+  const handleExtendSession = (session: Session) => {
+    console.log("Extend session:", session.id);
+  };
+
+  const handleEndSession = (session: Session) => {
+    console.log("End session:", session.id);
   };
 
   const getCurrentTimePosition = () => {
@@ -274,6 +289,16 @@ export default function CalendarScreen() {
         </View>
       </View>
 
+      {/* Now Playing Card */}
+      <NowPlayingCard
+        sessions={ownSessions}
+        courts={courts}
+        selectedDate={selectedDate}
+        onAttendance={handleAttendance}
+        onExtend={handleExtendSession}
+        onEnd={handleEndSession}
+      />
+
       {/* Court Headers */}
       <View style={styles.courtHeaders}>
         <View style={styles.timeColumnHeader} />
@@ -387,6 +412,16 @@ export default function CalendarScreen() {
         }}
         initialCourtId={selectedSlot?.courtId}
         initialTime={selectedSlot?.time}
+      />
+
+      {/* Attendance Drawer */}
+      <AttendanceDrawer
+        visible={!!selectedSessionForAttendance}
+        session={selectedSessionForAttendance}
+        onClose={() => setSelectedSessionForAttendance(null)}
+        onSave={() => {
+          setSelectedSessionForAttendance(null);
+        }}
       />
     </View>
   );
