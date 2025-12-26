@@ -102,47 +102,47 @@ CoachApp
 ## Features Checklist
 
 ### Calendar (Day View - Primary)
-- [ ] Vertical timeline (06:00-23:00)
-- [ ] Horizontal court lanes
-- [ ] 30m ↔ 60m grid toggle
-- [ ] Now-line with pulsing dot
+- [x] Vertical timeline (06:00-23:00)
+- [x] Horizontal court lanes
+- [x] 30m ↔ 60m grid toggle
+- [x] Now-line with pulsing dot
 - [ ] Timezone display
-- [ ] Own sessions = full visible
-- [ ] Other coaches = BLOCKED (gray, no details)
+- [x] Own sessions = full visible
+- [x] Other coaches = BLOCKED (gray, no details)
 
 ### Modes & Overlays
-- [ ] Focus Mode (next 2-3 hours only)
+- [x] Focus Mode (next 2-3 hours only)
 - [ ] Insights Mode (heatmap)
 - [ ] Mini Timeline
 - [ ] Coach Load Indicator (green/orange/red)
 
 ### Booking Flow
-- [ ] Tap empty slot → slide-up drawer
+- [x] Tap empty slot → slide-up drawer
 - [ ] Lesson or Court Booking choice
-- [ ] Duration dropdown (60/90/120)
-- [ ] Session type (private/semi/group/physical/activity)
+- [x] Duration dropdown (60/90/120)
+- [x] Session type (private/semi/group/physical/activity)
 - [ ] Level (ball: red/orange/green/yellow/glow)
-- [ ] Recurring (1/5/10/15/20 weeks)
+- [x] Recurring (1/5/10/15/20 weeks)
 - [ ] Week-9 auto-renew notification
-- [ ] Player search & multi-select
+- [x] Player search & multi-select
 - [ ] Guest/walk-in player option
 
 ### Conflict Rules
-- [ ] No double booking coach
-- [ ] No double booking court
-- [ ] No double booking player
+- [x] No double booking coach
+- [x] No double booking court
+- [x] No double booking player
 - [ ] Travel time check on location change
 
 ### Now Playing Card
-- [ ] Current session display
-- [ ] Countdown timer
-- [ ] Quick actions (attendance, extend, end)
+- [x] Current session display
+- [x] Countdown timer
+- [x] Quick actions (attendance, extend, end)
 
 ### Attendance (Offline-First)
-- [ ] Present / Late / Absent / Holiday status
-- [ ] Late dropdown (5/10/15/20/30/>30 min)
-- [ ] Absent reason dropdown
-- [ ] Offline queue with auto-sync
+- [x] Present / Late / Absent / Holiday status
+- [x] Late dropdown (5/10/15/20/30/>30 min)
+- [x] Absent reason dropdown
+- [x] Offline queue with auto-sync
 
 ### Holiday Mode
 - [ ] Player marks holiday in Player App
@@ -162,15 +162,28 @@ CoachApp
 ### December 26, 2025
 - Created COACH_APP_PLAN.md
 - Architecture decision: Option 2 (shared project)
-- Starting database schema setup
+- Database schema complete with all V1+V2 tables
+- API routes implemented for coach calendar and sessions
+- CoachNavigator built with drawer-based navigation
+- CalendarScreen with Day View (time column, court lanes, session blocks, now-line)
+- CreateSessionDrawer with booking flow, conflict checking, recurring options
+- NowPlayingCard with countdown timer and quick actions (attendance, extend, end)
+- AttendanceDrawer with Present/Late/Absent/Holiday statuses and offline queue
 
 ---
 
+## Completed
+1. ✅ Create database tables with Drizzle
+2. ✅ Build API routes
+3. ✅ Create CoachNavigator (separate from PlayerNavigator)
+4. ✅ Build CalendarScreen with Day View
+5. ✅ Build CreateSessionDrawer
+6. ✅ Build NowPlayingCard
+7. ✅ Build AttendanceDrawer
+
 ## Next Steps
-1. Create database tables with Drizzle
-2. Build API routes
-3. Create CoachNavigator (separate from PlayerNavigator)
-4. Build CalendarScreen with Day View
-5. Build CreateSessionDrawer
-6. Build NowPlayingCard
-7. Build AttendanceDrawer
+1. Add Week/Month view modes
+2. Add Insights Mode (heatmap overlay)
+3. Add Coach Load Indicator
+4. Implement holiday mode display
+5. Add travel time warning for location changes
