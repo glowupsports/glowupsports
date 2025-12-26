@@ -84,8 +84,18 @@ Preferred communication style: Simple, everyday language.
 
 ### Key Screens (client/coach/screens/)
 - **DashboardScreen**: Alerts, quick actions, today's overview
-- **CalendarScreen**: Day/Week/Month views, session management
+- **CalendarScreen**: Day/Week/Month views, 30/60min grid toggle, Focus Mode, Now-Line with pulsing dot, long-press quick actions
 - **PlayersScreen**: Player list, detail view with notes hub, medical notes
-- **CoachingScreen**: Today tab (feedback), Progress tab (skill tracking), Plans tab
+- **CoachingScreen**: Today tab (feedback with mood selector), Progress tab (skill tracking), Plans tab
 - **SessionScreen**: Attendance tracking with offline support
 - **SettingsScreen**: Coach preferences and notifications
+
+### Recent Updates (December 2025)
+- Fixed timezone bug in calendar API - proper UTC date parsing for session display
+- Added CreateSessionDrawer options: ball level selector (red/orange/green/yellow/glow), skill level (1/2/3), week count (1/5/10/15/20), travel time (0-30 min)
+- Added mood selector to feedback system (good/neutral/low)
+- Implemented 30/60 min grid toggle with dynamic hour heights
+- Added real-time Now-Line with animated pulsing dot (only visible on today)
+- Implemented date-aware Focus Mode showing 5 hours around current time
+- Added long-press quick actions on session blocks (Mark Attendance, Extend, End, Cancel)
+- Translated all Dutch text to English (Private, Semi-Private, Group, etc.)
