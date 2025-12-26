@@ -1,10 +1,8 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, ScrollView, Pressable, RefreshControl, Dimensions } from "react-native";
+import { View, StyleSheet, ScrollView, Pressable, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useNavigation } from "@react-navigation/native";
-import { DrawerNavigationProp } from "@react-navigation/drawer";
 
 import { ThemedText } from "@/components/ThemedText";
 import { CustomHeader } from "@/components/CustomHeader";
@@ -13,32 +11,9 @@ import { LevelUpModal } from "@/components/LevelUpModal";
 import { Card } from "@/components/Card";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { usePlayer } from "@/context/PlayerContext";
-import { DrawerParamList } from "@/navigation/DrawerNavigator";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
-type NavProp = DrawerNavigationProp<DrawerParamList>;
-
-interface QuickAction {
-  id: string;
-  title: string;
-  subtitle: string;
-  icon: string;
-  color: string;
-  xpReward: number;
-  screen?: keyof DrawerParamList;
-}
-
-const QUICK_ACTIONS: QuickAction[] = [
-  { id: "lessons", title: "Lessons", subtitle: "Learn new skills", icon: "book-outline", color: Colors.dark.xpCyan, xpReward: 100, screen: "Lessons" },
-  { id: "quest", title: "Quests", subtitle: "Complete challenges", icon: "compass-outline", color: Colors.dark.orange, xpReward: 150, screen: "Quest" },
-  { id: "match", title: "Play Match", subtitle: "Test your skills", icon: "play-circle-outline", color: Colors.dark.successNeon, xpReward: 200, screen: "Match" },
-  { id: "ranking", title: "Ranking", subtitle: "See your position", icon: "bar-chart-outline", color: Colors.dark.gold, xpReward: 0, screen: "Ranking" },
-];
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<NavProp>();
   const { player, earnXP, refreshPlayer } = usePlayer();
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -51,13 +26,6 @@ export default function HomeScreen() {
     await refreshPlayer();
     setRefreshing(false);
   }, [refreshPlayer]);
-
-  const handleQuickAction = async (action: QuickAction) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (action.screen) {
-      navigation.navigate(action.screen);
-    }
-  };
 
   const handleQuickXP = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -101,30 +69,6 @@ export default function HomeScreen() {
             <ThemedText style={styles.tipText}>to see all your skill categories and practice</ThemedText>
           </View>
           <Ionicons name="chevron-up-outline" size={20} color={Colors.dark.text} style={styles.tipArrow} />
-        </View>
-
-        <ThemedText style={styles.sectionTitle}>Quick Actions</ThemedText>
-
-        <View style={styles.actionsGrid}>
-          {QUICK_ACTIONS.map((action) => (
-            <Card
-              key={action.id}
-              style={styles.actionCard}
-              onPress={() => handleQuickAction(action)}
-            >
-              <View style={[styles.actionIcon, { backgroundColor: `${action.color}20` }]}>
-                <Ionicons name={action.icon as keyof typeof Ionicons.glyphMap} size={24} color={action.color} />
-              </View>
-              <ThemedText style={styles.actionTitle}>{action.title}</ThemedText>
-              <ThemedText style={styles.actionSubtitle}>{action.subtitle}</ThemedText>
-              {action.xpReward > 0 ? (
-                <View style={styles.xpBadge}>
-                  <Ionicons name="flash-outline" size={12} color={Colors.dark.xpCyan} />
-                  <ThemedText style={styles.xpBadgeText}>+{action.xpReward} XP</ThemedText>
-                </View>
-              ) : null}
-            </Card>
-          ))}
         </View>
 
         <View style={styles.quickXPSection}>
@@ -225,58 +169,6 @@ const styles = StyleSheet.create({
   },
   tipArrow: {
     opacity: 0.5,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: Colors.dark.text,
-    marginBottom: Spacing.md,
-  },
-  actionsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.md,
-  },
-  actionCard: {
-    width: (SCREEN_WIDTH - Spacing.lg * 2 - Spacing.md) / 2,
-    padding: Spacing.lg,
-    alignItems: "center",
-  },
-  actionIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: BorderRadius.sm,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: Spacing.sm,
-  },
-  actionTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: Colors.dark.text,
-    textAlign: "center",
-  },
-  actionSubtitle: {
-    fontSize: 12,
-    color: Colors.dark.text,
-    opacity: 0.6,
-    textAlign: "center",
-    marginTop: 2,
-  },
-  xpBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginTop: Spacing.sm,
-    backgroundColor: Colors.dark.xpCyan + "20",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.full,
-  },
-  xpBadgeText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: Colors.dark.xpCyan,
   },
   quickXPSection: {
     marginTop: Spacing.xl,
