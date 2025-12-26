@@ -322,6 +322,7 @@ export default function DashboardScreen() {
             style={styles.quickNavChip}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              handleNavigate("ChatInbox");
             }}
           >
             <Ionicons name="chatbubble-outline" size={14} color={Colors.dark.text} />
