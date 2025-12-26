@@ -690,6 +690,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update court
+  app.patch("/api/courts/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const court = await storage.updateCourt(id, req.body);
+      res.json(court);
+    } catch (error) {
+      console.error("Error updating court:", error);
+      res.status(500).json({ error: "Failed to update court" });
+    }
+  });
+
+  // Delete court
+  app.delete("/api/courts/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteCourt(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting court:", error);
+      res.status(500).json({ error: "Failed to delete court" });
+    }
+  });
+
   // Get all players with last lesson date
   app.get("/api/players", async (req: Request, res: Response) => {
     try {

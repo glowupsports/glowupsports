@@ -123,6 +123,15 @@ export const storage = {
     return result[0];
   },
 
+  async updateCourt(id: string, data: Partial<InsertCourt>): Promise<Court> {
+    const result = await db.update(courts).set(data).where(eq(courts.id, id)).returning();
+    return result[0];
+  },
+
+  async deleteCourt(id: string): Promise<void> {
+    await db.delete(courts).where(eq(courts.id, id));
+  },
+
   // ==================== PLAYERS ====================
   async getPlayer(id: string): Promise<Player | undefined> {
     const result = await db.select().from(players).where(eq(players.id, id));

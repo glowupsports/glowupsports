@@ -7,14 +7,37 @@ import {
   ScrollView,
   Switch,
   Alert,
+  TextInput,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { apiRequest } from "@/lib/query-client";
+
+interface Court {
+  id: string;
+  name: string;
+  color: string | null;
+  locationId: string | null;
+  isActive: boolean;
+}
+
+const COURT_COLORS = [
+  "#2ECC40", // Green (primary)
+  "#00D4FF", // Cyan
+  "#FF6B35", // Orange
+  "#FFD700", // Gold
+  "#9B59B6", // Purple
+  "#E91E63", // Pink
+  "#3498DB", // Blue
+  "#95A5A6", // Gray
+];
 
 interface CoachSettings {
   defaultDuration: 60 | 90;
@@ -44,9 +67,91 @@ const defaultSettings: CoachSettings = {
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const { coach, focusMode, setFocusMode } = useCoach();
   const [settings, setSettings] = useState<CoachSettings>(defaultSettings);
   const [hasChanges, setHasChanges] = useState(false);
+  const [showCourtModal, setShowCourtModal] = useState(false);
+  const [editingCourt, setEditingCourt] = useState<Court | null>(null);
+  const [newCourtName, setNewCourtName] = useState("");
+  const [newCourtColor, setNewCourtColor] = useState(COURT_COLORS[0]);
+
+  const { data: courts = [], isLoading: courtsLoading } = useQuery<Court[]>({
+    queryKey: ["/api/courts"],
+  });
+
+  const createCourtMutation = useMutation({
+    mutationFn: async ({ name, color }: { name: string; color: string }) => {
+      return apiRequest("POST", "/api/courts", { name, color, isActive: true });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      setShowCourtModal(false);
+      setNewCourtName("");
+      setNewCourtColor(COURT_COLORS[0]);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  const updateCourtMutation = useMutation({
+    mutationFn: async ({ id, name, color }: { id: string; name: string; color: string }) => {
+      return apiRequest("PATCH", `/api/courts/${id}`, { name, color });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      setEditingCourt(null);
+      setNewCourtName("");
+      setNewCourtColor(COURT_COLORS[0]);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  const deleteCourtMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/courts/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  const handleAddCourt = () => {
+    setEditingCourt(null);
+    setNewCourtName("");
+    setNewCourtColor(COURT_COLORS[0]);
+    setShowCourtModal(true);
+  };
+
+  const handleEditCourt = (court: Court) => {
+    setEditingCourt(court);
+    setNewCourtName(court.name);
+    setNewCourtColor(court.color || COURT_COLORS[0]);
+    setShowCourtModal(true);
+  };
+
+  const handleDeleteCourt = (court: Court) => {
+    Alert.alert(
+      "Delete Court",
+      `Are you sure you want to delete "${court.name}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: () => deleteCourtMutation.mutate(court.id) },
+      ]
+    );
+  };
+
+  const handleSaveCourt = () => {
+    if (!newCourtName.trim()) return;
+    if (editingCourt) {
+      updateCourtMutation.mutate({ id: editingCourt.id, name: newCourtName.trim(), color: newCourtColor });
+    } else {
+      createCourtMutation.mutate({ name: newCourtName.trim(), color: newCourtColor });
+    }
+  };
 
   useEffect(() => {
     loadSettings();
@@ -225,6 +330,39 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Courts</Text>
+            <Pressable style={styles.addButton} onPress={handleAddCourt}>
+              <Ionicons name="add" size={20} color={Colors.dark.primary} />
+            </Pressable>
+          </View>
+
+          {courts.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>No courts yet</Text>
+              <Text style={styles.emptyStateSubtext}>Add your first court to get started</Text>
+            </View>
+          ) : (
+            courts.map((court) => (
+              <View key={court.id} style={styles.courtRow}>
+                <View style={styles.courtInfo}>
+                  <View style={[styles.courtColorDot, { backgroundColor: court.color || Colors.dark.primary }]} />
+                  <Text style={styles.courtName}>{court.name}</Text>
+                </View>
+                <View style={styles.courtActions}>
+                  <Pressable style={styles.courtActionButton} onPress={() => handleEditCourt(court)}>
+                    <Ionicons name="pencil" size={18} color={Colors.dark.tabIconDefault} />
+                  </Pressable>
+                  <Pressable style={styles.courtActionButton} onPress={() => handleDeleteCourt(court)}>
+                    <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+                  </Pressable>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Focus Mode</Text>
 
           <View style={styles.settingRow}>
@@ -343,7 +481,7 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>App Info</Text>
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Versie</Text>
+            <Text style={styles.infoLabel}>Version</Text>
             <Text style={styles.infoValue}>1.0.0</Text>
           </View>
           <View style={styles.infoRow}>
@@ -352,6 +490,60 @@ export default function SettingsScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={showCourtModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCourtModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{editingCourt ? "Edit Court" : "Add Court"}</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Court name"
+              placeholderTextColor={Colors.dark.disabled}
+              value={newCourtName}
+              onChangeText={setNewCourtName}
+              autoFocus
+            />
+            <Text style={styles.colorPickerLabel}>Court Color</Text>
+            <View style={styles.colorPicker}>
+              {COURT_COLORS.map((color) => (
+                <Pressable
+                  key={color}
+                  style={[
+                    styles.colorOption,
+                    { backgroundColor: color },
+                    newCourtColor === color && styles.colorOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setNewCourtColor(color);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  {newCourtColor === color ? (
+                    <Ionicons name="checkmark" size={16} color={Colors.dark.backgroundRoot} />
+                  ) : null}
+                </Pressable>
+              ))}
+            </View>
+            <View style={styles.modalButtons}>
+              <Pressable style={styles.modalCancelButton} onPress={() => setShowCourtModal(false)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.modalSaveButton, !newCourtName.trim() && styles.modalSaveButtonDisabled]} 
+                onPress={handleSaveCourt}
+                disabled={!newCourtName.trim()}
+              >
+                <Text style={styles.modalSaveText}>{editingCourt ? "Save" : "Add"}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -536,5 +728,150 @@ const styles = StyleSheet.create({
   infoValue: {
     fontSize: Typography.body.fontSize,
     color: Colors.dark.text,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+  },
+  addButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.primary + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyState: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
+    alignItems: "center",
+  },
+  emptyStateText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+    marginBottom: Spacing.xs,
+  },
+  emptyStateSubtext: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.tabIconDefault,
+  },
+  courtRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  courtInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  courtColorDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
+  courtName: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  courtActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  courtActionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  modalContent: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    width: "100%",
+    maxWidth: 320,
+  },
+  modalTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    marginBottom: Spacing.lg,
+    textAlign: "center",
+  },
+  modalInput: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+    marginBottom: Spacing.lg,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  modalCancelButton: {
+    flex: 1,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    alignItems: "center",
+  },
+  modalCancelText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.tabIconDefault,
+  },
+  modalSaveButton: {
+    flex: 1,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+  },
+  modalSaveButtonDisabled: {
+    opacity: 0.5,
+  },
+  modalSaveText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  colorPickerLabel: {
+    ...Typography.small,
+    color: Colors.dark.tabIconDefault,
+    marginBottom: Spacing.sm,
+  },
+  colorPicker: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  colorOption: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  colorOptionSelected: {
+    borderWidth: 2,
+    borderColor: Colors.dark.text,
   },
 });

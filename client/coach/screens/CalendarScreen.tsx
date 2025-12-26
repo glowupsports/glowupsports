@@ -224,6 +224,98 @@ export default function CalendarScreen() {
     setSelectedDate(new Date());
   };
 
+  const getWeekDates = (date: Date): Date[] => {
+    const day = date.getDay();
+    const monday = new Date(date);
+    monday.setDate(date.getDate() - (day === 0 ? 6 : day - 1));
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      return d;
+    });
+  };
+
+  const weekDates = useMemo(() => getWeekDates(selectedDate), [selectedDate]);
+
+  const changeWeek = (weeks: number) => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + weeks * 7);
+    setSelectedDate(newDate);
+  };
+
+  const changeMonth = (months: number) => {
+    const currentMonth = selectedDate.getMonth();
+    const currentYear = selectedDate.getFullYear();
+    const targetMonth = currentMonth + months;
+    const targetYear = currentYear + Math.floor(targetMonth / 12);
+    const normalizedMonth = ((targetMonth % 12) + 12) % 12;
+    const lastDayOfTargetMonth = new Date(targetYear, normalizedMonth + 1, 0).getDate();
+    const currentDay = selectedDate.getDate();
+    const newDay = Math.min(currentDay, lastDayOfTargetMonth);
+    const newDate = new Date(targetYear, normalizedMonth, newDay);
+    setSelectedDate(newDate);
+  };
+
+  const getMonthDates = (date: Date): (Date | null)[][] => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startPadding = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+    const weeks: (Date | null)[][] = [];
+    let week: (Date | null)[] = [];
+    
+    for (let i = 0; i < startPadding; i++) {
+      week.push(null);
+    }
+    
+    for (let day = 1; day <= lastDay.getDate(); day++) {
+      week.push(new Date(year, month, day));
+      if (week.length === 7) {
+        weeks.push(week);
+        week = [];
+      }
+    }
+    
+    if (week.length > 0) {
+      while (week.length < 7) {
+        week.push(null);
+      }
+      weeks.push(week);
+    }
+    
+    return weeks;
+  };
+
+  const monthDates = useMemo(() => getMonthDates(selectedDate), [selectedDate]);
+
+  const formatMonthYear = (date: Date) => {
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    return `${months[date.getMonth()]} ${date.getFullYear()}`;
+  };
+
+  const formatWeekRange = (dates: Date[]) => {
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const first = dates[0];
+    const last = dates[6];
+    if (first.getMonth() === last.getMonth()) {
+      return `${first.getDate()} - ${last.getDate()} ${months[first.getMonth()]}`;
+    }
+    return `${first.getDate()} ${months[first.getMonth()]} - ${last.getDate()} ${months[last.getMonth()]}`;
+  };
+
+  const getSessionsForDate = (date: Date) => {
+    return ownSessions.filter((s) => {
+      const sessionDate = new Date(s.startTime);
+      return sessionDate.toDateString() === date.toDateString();
+    });
+  };
+
+  const handleDateSelect = (date: Date) => {
+    setSelectedDate(date);
+    setViewMode("day");
+  };
+
   const handleAttendance = (session: Session) => {
     setSelectedSessionForAttendance(session);
   };
@@ -400,18 +492,36 @@ export default function CalendarScreen() {
 
         {/* Date Navigation */}
         <View style={styles.dateNav}>
-          <Pressable style={styles.dateNavButton} onPress={() => changeDate(-1)}>
+          <Pressable 
+            style={styles.dateNavButton} 
+            onPress={() => {
+              if (viewMode === "day") changeDate(-1);
+              else if (viewMode === "week") changeWeek(-1);
+              else changeMonth(-1);
+            }}
+          >
             <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
           </Pressable>
           <Pressable style={styles.dateDisplay} onPress={goToToday}>
-            <Text style={styles.dateText}>{formatDate(selectedDate)}</Text>
-            {selectedDate.toDateString() === new Date().toDateString() && (
+            <Text style={styles.dateText}>
+              {viewMode === "day" && formatDate(selectedDate)}
+              {viewMode === "week" && formatWeekRange(weekDates)}
+              {viewMode === "month" && formatMonthYear(selectedDate)}
+            </Text>
+            {selectedDate.toDateString() === new Date().toDateString() && viewMode === "day" && (
               <View style={styles.todayBadge}>
                 <Text style={styles.todayBadgeText}>TODAY</Text>
               </View>
             )}
           </Pressable>
-          <Pressable style={styles.dateNavButton} onPress={() => changeDate(1)}>
+          <Pressable 
+            style={styles.dateNavButton} 
+            onPress={() => {
+              if (viewMode === "day") changeDate(1);
+              else if (viewMode === "week") changeWeek(1);
+              else changeMonth(1);
+            }}
+          >
             <Ionicons name="chevron-forward" size={24} color={Colors.dark.text} />
           </Pressable>
         </View>
@@ -437,120 +547,236 @@ export default function CalendarScreen() {
         </View>
       </View>
 
-      {/* Now Playing Card */}
-      <NowPlayingCard
-        sessions={ownSessions}
-        courts={courts}
-        selectedDate={selectedDate}
-        onAttendance={handleAttendance}
-        onExtend={handleExtendSession}
-        onEnd={handleEndSession}
-      />
+      {/* Now Playing Card - only in day view */}
+      {viewMode === "day" && (
+        <NowPlayingCard
+          sessions={ownSessions}
+          courts={courts}
+          selectedDate={selectedDate}
+          onAttendance={handleAttendance}
+          onExtend={handleExtendSession}
+          onEnd={handleEndSession}
+        />
+      )}
 
-      {/* Court Headers */}
-      <View style={styles.courtHeaders}>
-        <View style={styles.timeColumnHeader} />
-        {courts.map((court) => (
-          <View key={court.id} style={styles.courtHeader}>
-            <Text style={styles.courtHeaderText}>{court.name}</Text>
-          </View>
-        ))}
-      </View>
-
-      {/* Calendar Grid */}
-      <ScrollView style={styles.calendarScroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.calendarGrid}>
-          {/* Time Column */}
-          <View style={styles.timeColumn}>
-            {hours.map((hour) => (
-              <View key={hour} style={[styles.timeSlot, { height: hourHeight }]}>
-                <Text style={styles.timeText}>{formatTime(hour)}</Text>
+      {/* DAY VIEW */}
+      {viewMode === "day" && (
+        <>
+          {/* Court Headers */}
+          <View style={styles.courtHeaders}>
+            <View style={styles.timeColumnHeader} />
+            {courts.map((court) => (
+              <View key={court.id} style={styles.courtHeader}>
+                <Text style={styles.courtHeaderText}>{court.name}</Text>
               </View>
             ))}
           </View>
 
-          {/* Court Lanes */}
-          <View style={styles.courtLanesContainer}>
-            {courts.map((court, courtIndex) => (
-              <View key={court.id} style={styles.courtLane}>
-                {/* Hour grid lines and clickable slots */}
+          {/* Calendar Grid */}
+          <ScrollView style={styles.calendarScroll} showsVerticalScrollIndicator={false}>
+            <View style={styles.calendarGrid}>
+              {/* Time Column */}
+              <View style={styles.timeColumn}>
                 {hours.map((hour) => (
-                  <Pressable
-                    key={hour}
-                    style={[styles.hourSlot, { height: hourHeight }]}
-                    onPress={() => handleSlotPress(court.id, hour)}
-                  >
-                    <View style={styles.hourLine} />
-                    {timeGrid === 30 && <View style={[styles.halfHourLine, { top: hourHeight / 2 }]} />}
-                  </Pressable>
+                  <View key={hour} style={[styles.timeSlot, { height: hourHeight }]}>
+                    <Text style={styles.timeText}>{formatTime(hour)}</Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* Court Lanes */}
+              <View style={styles.courtLanesContainer}>
+                {courts.map((court, courtIndex) => (
+                  <View key={court.id} style={styles.courtLane}>
+                    {/* Hour grid lines and clickable slots */}
+                    {hours.map((hour) => (
+                      <Pressable
+                        key={hour}
+                        style={[styles.hourSlot, { height: hourHeight }]}
+                        onPress={() => handleSlotPress(court.id, hour)}
+                      >
+                        <View style={styles.hourLine} />
+                        {timeGrid === 30 && <View style={[styles.halfHourLine, { top: hourHeight / 2 }]} />}
+                      </Pressable>
+                    ))}
+
+                    {/* Render sessions for this court */}
+                    {ownSessions
+                      .filter((s) => s.courtId === court.id)
+                      .map((session) => {
+                        const { top, height } = getSessionPosition(session);
+                        const sessionLabel = session.sessionType === "private" ? "Private" :
+                                            session.sessionType === "semi_private" ? "Semi" :
+                                            session.sessionType === "group" ? "Group" :
+                                            session.sessionType === "physical" ? "Physical" :
+                                            session.sessionType;
+                        return (
+                          <Pressable
+                            key={session.id}
+                            onPress={() => handleAttendance(session)}
+                            onLongPress={() => handleSessionLongPress(session)}
+                            delayLongPress={300}
+                            style={[
+                              styles.sessionBlock,
+                              {
+                                top,
+                                height: height - 2,
+                                backgroundColor: getSessionTypeColor(session.sessionType),
+                              },
+                            ]}
+                          >
+                            <Text style={styles.sessionText} numberOfLines={1}>
+                              {sessionLabel}
+                            </Text>
+                            <Text style={styles.sessionTime} numberOfLines={1}>
+                              {new Date(session.startTime).toLocaleTimeString("en-US", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: false,
+                              })}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+
+                    {/* Render blocked sessions */}
+                    {blockedSessions
+                      .filter((s) => s.courtId === court.id)
+                      .map((session) => {
+                        const { top, height } = getSessionPosition(session);
+                        return (
+                          <View
+                            key={session.id}
+                            style={[styles.blockedBlock, { top, height: height - 2 }]}
+                          >
+                            <Text style={styles.blockedText}>Unavailable</Text>
+                          </View>
+                        );
+                      })}
+                  </View>
                 ))}
 
-                {/* Render sessions for this court */}
-                {ownSessions
-                  .filter((s) => s.courtId === court.id)
-                  .map((session) => {
-                    const { top, height } = getSessionPosition(session);
-                    const sessionLabel = session.sessionType === "private" ? "Private" :
-                                        session.sessionType === "semi_private" ? "Semi" :
-                                        session.sessionType === "group" ? "Group" :
-                                        session.sessionType === "physical" ? "Physical" :
-                                        session.sessionType;
-                    return (
-                      <Pressable
-                        key={session.id}
-                        onPress={() => handleAttendance(session)}
-                        onLongPress={() => handleSessionLongPress(session)}
-                        delayLongPress={300}
-                        style={[
-                          styles.sessionBlock,
-                          {
-                            top,
-                            height: height - 2,
-                            backgroundColor: getSessionTypeColor(session.sessionType),
-                          },
-                        ]}
-                      >
-                        <Text style={styles.sessionText} numberOfLines={1}>
-                          {sessionLabel}
-                        </Text>
-                        <Text style={styles.sessionTime} numberOfLines={1}>
-                          {new Date(session.startTime).toLocaleTimeString("en-US", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: false,
-                          })}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-
-                {/* Render blocked sessions */}
-                {blockedSessions
-                  .filter((s) => s.courtId === court.id)
-                  .map((session) => {
-                    const { top, height } = getSessionPosition(session);
-                    return (
-                      <View
-                        key={session.id}
-                        style={[styles.blockedBlock, { top, height: height - 2 }]}
-                      >
-                        <Text style={styles.blockedText}>Unavailable</Text>
-                      </View>
-                    );
-                  })}
+                {/* Now Line */}
+                {nowPosition !== null && isToday && (
+                  <View style={[styles.nowLine, { top: nowPosition }]}>
+                    <PulsingDot />
+                    <View style={styles.nowLineBar} />
+                  </View>
+                )}
               </View>
-            ))}
+            </View>
+          </ScrollView>
+        </>
+      )}
 
-            {/* Now Line */}
-            {nowPosition !== null && isToday && (
-              <View style={[styles.nowLine, { top: nowPosition }]}>
-                <PulsingDot />
-                <View style={styles.nowLineBar} />
-              </View>
-            )}
+      {/* WEEK VIEW */}
+      {viewMode === "week" && (
+        <ScrollView style={styles.calendarScroll} showsVerticalScrollIndicator={false}>
+          {/* Week Day Headers */}
+          <View style={styles.weekDayHeaders}>
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day, idx) => {
+              const date = weekDates[idx];
+              const isToday = date.toDateString() === new Date().toDateString();
+              const isSelected = date.toDateString() === selectedDate.toDateString();
+              return (
+                <Pressable 
+                  key={day} 
+                  style={[styles.weekDayHeader, isSelected && styles.weekDayHeaderSelected]}
+                  onPress={() => handleDateSelect(date)}
+                >
+                  <Text style={[styles.weekDayText, isToday && styles.weekDayTextToday]}>{day}</Text>
+                  <Text style={[styles.weekDayNumber, isToday && styles.weekDayNumberToday, isSelected && styles.weekDayNumberSelected]}>
+                    {date.getDate()}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
-        </View>
-      </ScrollView>
+
+          {/* Week Sessions Grid */}
+          <View style={styles.weekGrid}>
+            {weekDates.map((date, idx) => {
+              const daySessions = getSessionsForDate(date);
+              const isToday = date.toDateString() === new Date().toDateString();
+              return (
+                <Pressable 
+                  key={idx} 
+                  style={[styles.weekDayColumn, isToday && styles.weekDayColumnToday]}
+                  onPress={() => handleDateSelect(date)}
+                >
+                  {daySessions.length === 0 ? (
+                    <Text style={styles.weekNoSessions}>-</Text>
+                  ) : (
+                    daySessions.slice(0, 5).map((session) => (
+                      <View 
+                        key={session.id} 
+                        style={[styles.weekSessionDot, { backgroundColor: getSessionTypeColor(session.sessionType) }]}
+                      >
+                        <Text style={styles.weekSessionTime} numberOfLines={1}>
+                          {new Date(session.startTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
+                        </Text>
+                      </View>
+                    ))
+                  )}
+                  {daySessions.length > 5 && (
+                    <Text style={styles.weekMoreSessions}>+{daySessions.length - 5}</Text>
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
+        </ScrollView>
+      )}
+
+      {/* MONTH VIEW */}
+      {viewMode === "month" && (
+        <ScrollView style={styles.calendarScroll} showsVerticalScrollIndicator={false}>
+          {/* Month Day Headers */}
+          <View style={styles.monthDayHeaders}>
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+              <Text key={day} style={styles.monthDayHeaderText}>{day}</Text>
+            ))}
+          </View>
+
+          {/* Month Grid */}
+          {monthDates.map((week, weekIdx) => (
+            <View key={weekIdx} style={styles.monthWeekRow}>
+              {week.map((date, dayIdx) => {
+                if (!date) {
+                  return <View key={dayIdx} style={styles.monthDayEmpty} />;
+                }
+                const daySessions = getSessionsForDate(date);
+                const isToday = date.toDateString() === new Date().toDateString();
+                const isSelected = date.toDateString() === selectedDate.toDateString();
+                return (
+                  <Pressable 
+                    key={dayIdx} 
+                    style={[styles.monthDay, isToday && styles.monthDayToday, isSelected && styles.monthDaySelected]}
+                    onPress={() => handleDateSelect(date)}
+                  >
+                    <Text style={[styles.monthDayNumber, isToday && styles.monthDayNumberToday]}>
+                      {date.getDate()}
+                    </Text>
+                    {daySessions.length > 0 && (
+                      <View style={styles.monthSessionDots}>
+                        {daySessions.slice(0, 3).map((session, sIdx) => (
+                          <View 
+                            key={sIdx} 
+                            style={[styles.monthSessionDot, { backgroundColor: getSessionTypeColor(session.sessionType) }]} 
+                          />
+                        ))}
+                      </View>
+                    )}
+                    {daySessions.length > 0 && (
+                      <Text style={styles.monthSessionCount}>{daySessions.length}</Text>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
+          ))}
+        </ScrollView>
+      )}
 
       {/* Loading Overlay */}
       {isLoading && (
@@ -860,5 +1086,143 @@ const styles = StyleSheet.create({
   coachEmail: {
     ...Typography.small,
     color: Colors.dark.disabled,
+  },
+  weekDayHeaders: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  weekDayHeader: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  weekDayHeaderSelected: {
+    backgroundColor: Colors.dark.primary + "30",
+  },
+  weekDayText: {
+    ...Typography.caption,
+    color: Colors.dark.disabled,
+    marginBottom: 2,
+  },
+  weekDayTextToday: {
+    color: Colors.dark.primary,
+  },
+  weekDayNumber: {
+    ...Typography.h4,
+    color: Colors.dark.text,
+  },
+  weekDayNumberToday: {
+    color: Colors.dark.primary,
+    fontWeight: "700",
+  },
+  weekDayNumberSelected: {
+    fontWeight: "700",
+  },
+  weekGrid: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    minHeight: 300,
+  },
+  weekDayColumn: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    borderLeftWidth: 1,
+    borderLeftColor: Colors.dark.backgroundTertiary,
+    gap: Spacing.xs,
+    minHeight: 200,
+  },
+  weekDayColumnToday: {
+    backgroundColor: Colors.dark.primary + "10",
+  },
+  weekNoSessions: {
+    ...Typography.body,
+    color: Colors.dark.disabled,
+  },
+  weekSessionDot: {
+    width: "90%",
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.xs,
+    borderRadius: BorderRadius.xs,
+    alignItems: "center",
+  },
+  weekSessionTime: {
+    ...Typography.caption,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+    fontSize: 10,
+  },
+  weekMoreSessions: {
+    ...Typography.caption,
+    color: Colors.dark.disabled,
+    marginTop: Spacing.xs,
+  },
+  monthDayHeaders: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  monthDayHeaderText: {
+    flex: 1,
+    ...Typography.caption,
+    color: Colors.dark.disabled,
+    textAlign: "center",
+    fontWeight: "600",
+  },
+  monthWeekRow: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.lg,
+  },
+  monthDay: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.backgroundTertiary,
+    minHeight: 70,
+  },
+  monthDayEmpty: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.backgroundTertiary,
+    minHeight: 70,
+  },
+  monthDayToday: {
+    backgroundColor: Colors.dark.primary + "15",
+  },
+  monthDaySelected: {
+    borderColor: Colors.dark.primary,
+    borderWidth: 2,
+  },
+  monthDayNumber: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  monthDayNumberToday: {
+    color: Colors.dark.primary,
+    fontWeight: "700",
+  },
+  monthSessionDots: {
+    flexDirection: "row",
+    gap: 2,
+    marginTop: Spacing.xs,
+  },
+  monthSessionDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  monthSessionCount: {
+    ...Typography.caption,
+    color: Colors.dark.disabled,
+    marginTop: 2,
+    fontSize: 10,
   },
 });

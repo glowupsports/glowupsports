@@ -61,6 +61,7 @@ export const courts = pgTable("courts", {
     .default(sql`gen_random_uuid()`),
   locationId: varchar("location_id").references(() => locations.id),
   name: text("name").notNull(),
+  color: varchar("color", { length: 7 }).default("#2ECC40"),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
