@@ -14,28 +14,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "date and coachId are required" });
       }
 
-      const targetDate = new Date(date as string);
+      // Parse date string as UTC to avoid timezone issues
+      const dateStr = date as string;
+      const [year, month, day] = dateStr.split("-").map(Number);
+      const targetDate = new Date(Date.UTC(year, month - 1, day));
       let startDate: Date;
       let endDate: Date;
 
       switch (view) {
         case "week":
-          const dayOfWeek = targetDate.getDay();
+          const dayOfWeek = targetDate.getUTCDay();
           startDate = new Date(targetDate);
-          startDate.setDate(targetDate.getDate() - dayOfWeek);
-          startDate.setHours(0, 0, 0, 0);
+          startDate.setUTCDate(targetDate.getUTCDate() - dayOfWeek);
+          startDate.setUTCHours(0, 0, 0, 0);
           endDate = new Date(startDate);
-          endDate.setDate(startDate.getDate() + 7);
+          endDate.setUTCDate(startDate.getUTCDate() + 7);
+          endDate.setUTCHours(23, 59, 59, 999);
           break;
         case "month":
-          startDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
-          endDate = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0, 23, 59, 59);
+          startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+          endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
           break;
         default: // day
-          startDate = new Date(targetDate);
-          startDate.setHours(0, 0, 0, 0);
-          endDate = new Date(targetDate);
-          endDate.setHours(23, 59, 59, 999);
+          startDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+          endDate = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
       }
 
       // Get own sessions (full data)

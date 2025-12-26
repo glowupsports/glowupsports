@@ -126,6 +126,7 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
   const queryClient = useQueryClient();
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [intensity, setIntensity] = useState<Intensity>("normal");
+  const [mood, setMood] = useState<"good" | "neutral" | "low">("neutral");
   const [focusTags, setFocusTags] = useState<string[]>([]);
   const [generalNote, setGeneralNote] = useState("");
 
@@ -173,6 +174,7 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
       queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
       setSelectedSession(null);
       setIntensity("normal");
+      setMood("neutral");
       setFocusTags([]);
       setGeneralNote("");
     },
@@ -188,6 +190,7 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
       sessionId: selectedSession.id,
       feedback: {
         intensity,
+        mood,
         focusTags,
         generalNote,
       },
@@ -211,7 +214,7 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
       >
         <Pressable style={styles.backRow} onPress={() => setSelectedSession(null)}>
           <Ionicons name="arrow-back" size={20} color={Colors.dark.text} />
-          <Text style={styles.backText}>Terug naar overzicht</Text>
+          <Text style={styles.backText}>Back to overview</Text>
         </Pressable>
 
         <View style={styles.feedbackHeader}>
@@ -255,7 +258,40 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
         </View>
 
         <View style={styles.feedbackSection}>
-          <Text style={styles.feedbackLabel}>Focus gebieden</Text>
+          <Text style={styles.feedbackLabel}>Player Mood</Text>
+          <View style={styles.intensityRow}>
+            {([
+              { value: "good", label: "Good", icon: "happy-outline" as const, color: Colors.dark.primary },
+              { value: "neutral", label: "Neutral", icon: "remove-outline" as const, color: Colors.dark.orange },
+              { value: "low", label: "Low", icon: "sad-outline" as const, color: Colors.dark.error },
+            ] as const).map((opt) => (
+              <Pressable
+                key={opt.value}
+                style={[
+                  styles.intensityButton,
+                  mood === opt.value && { backgroundColor: opt.color + "20", borderColor: opt.color },
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setMood(opt.value);
+                }}
+              >
+                <Ionicons name={opt.icon} size={18} color={mood === opt.value ? opt.color : Colors.dark.disabled} />
+                <Text
+                  style={[
+                    styles.intensityText,
+                    mood === opt.value && { color: opt.color },
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.feedbackSection}>
+          <Text style={styles.feedbackLabel}>Focus areas</Text>
           <View style={styles.tagsGrid}>
             {availableTags.map((tag) => (
               <Pressable
@@ -331,11 +367,11 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
               <View style={styles.sessionInfo}>
                 <Text style={styles.sessionType}>
                   {session.sessionType === "private"
-                    ? "Prive"
+                    ? "Private"
                     : session.sessionType === "semi_private"
-                    ? "Semi-Prive"
+                    ? "Semi-Private"
                     : session.sessionType === "group"
-                    ? "Groep"
+                    ? "Group"
                     : session.sessionType}
                 </Text>
                 {needsFeedback ? (
@@ -345,7 +381,7 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
                 ) : (
                   <View style={styles.doneBadge}>
                     <Ionicons name="checkmark" size={14} color={Colors.dark.primary} />
-                    <Text style={styles.doneText}>Afgerond</Text>
+                    <Text style={styles.doneText}>Completed</Text>
                   </View>
                 )}
               </View>
@@ -370,8 +406,8 @@ function ProgressTab({ insets }: { insets: { bottom: number } }) {
     { key: "backhand", label: "Backhand", icon: "tennisball-outline" },
     { key: "serve", label: "Service", icon: "arrow-up-outline" },
     { key: "volley", label: "Volley", icon: "hand-right-outline" },
-    { key: "movement", label: "Beweging", icon: "footsteps-outline" },
-    { key: "mental", label: "Mentaal", icon: "bulb-outline" },
+    { key: "movement", label: "Movement", icon: "footsteps-outline" },
+    { key: "mental", label: "Mental", icon: "bulb-outline" },
   ];
 
   const getTrendIcon = (trend: string): keyof typeof Ionicons.glyphMap => {

@@ -32,17 +32,34 @@ interface CreateSessionDrawerProps {
   initialTime?: Date;
 }
 
-type SessionType = "private" | "semi" | "group" | "physical" | "cardio";
-type RecurringType = "none" | "weekly" | "biweekly";
+type SessionType = "private" | "semi_private" | "group" | "physical" | "activity";
+type BallLevel = "red" | "orange" | "green" | "yellow" | "glow";
+type SkillLevel = 1 | 2 | 3;
 
 const SESSION_TYPES: { value: SessionType; label: string; color: string }[] = [
   { value: "private", label: "Private", color: Colors.dark.primary },
-  { value: "semi", label: "Semi-Private", color: Colors.dark.xpCyan },
+  { value: "semi_private", label: "Semi-Private", color: Colors.dark.xpCyan },
   { value: "group", label: "Group", color: Colors.dark.orange },
   { value: "physical", label: "Physical", color: Colors.dark.gold },
-  { value: "cardio", label: "Cardio Tennis", color: Colors.dark.error },
+  { value: "activity", label: "Activity", color: Colors.dark.error },
 ];
 
+const BALL_LEVELS: { value: BallLevel; label: string; color: string }[] = [
+  { value: "red", label: "Red", color: "#FF4444" },
+  { value: "orange", label: "Orange", color: "#FF851B" },
+  { value: "green", label: "Green", color: "#2ECC40" },
+  { value: "yellow", label: "Yellow", color: "#FFDC00" },
+  { value: "glow", label: "Glow", color: "#00D4FF" },
+];
+
+const SKILL_LEVELS: { value: SkillLevel; label: string }[] = [
+  { value: 1, label: "Beginner" },
+  { value: 2, label: "Intermediate" },
+  { value: 3, label: "Advanced" },
+];
+
+const WEEK_COUNTS = [1, 5, 10, 15, 20];
+const TRAVEL_TIMES = [0, 5, 10, 15, 20, 30];
 const DURATIONS = [30, 45, 60, 90, 120];
 
 export default function CreateSessionDrawer({
@@ -60,8 +77,11 @@ export default function CreateSessionDrawer({
   const [selectedCourtId, setSelectedCourtId] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<Date>(new Date());
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
-  const [recurringType, setRecurringType] = useState<RecurringType>("none");
-  const [recurringWeeks, setRecurringWeeks] = useState(4);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [weekCount, setWeekCount] = useState(10);
+  const [ballLevel, setBallLevel] = useState<BallLevel | null>(null);
+  const [skillLevel, setSkillLevel] = useState<SkillLevel | null>(null);
+  const [travelTime, setTravelTime] = useState(0);
   const [notes, setNotes] = useState("");
   const [isChecking, setIsChecking] = useState(false);
   const [conflicts, setConflicts] = useState<string[]>([]);
@@ -104,8 +124,11 @@ export default function CreateSessionDrawer({
     setDuration(60);
     setSelectedCourtId(null);
     setSelectedPlayers([]);
-    setRecurringType("none");
-    setRecurringWeeks(4);
+    setIsRecurring(false);
+    setWeekCount(10);
+    setBallLevel(null);
+    setSkillLevel(null);
+    setTravelTime(0);
     setNotes("");
     setConflicts([]);
   };
@@ -169,20 +192,20 @@ export default function CreateSessionDrawer({
     const endTime = new Date(startTime);
     endTime.setMinutes(endTime.getMinutes() + duration);
 
-    const isRecurring = recurringType !== "none";
-    const weekCount = isRecurring ? recurringWeeks : 1;
-
     const sessionData = {
       coachId: coach?.id,
       courtId: selectedCourtId,
       startTime: startTime.toISOString(),
       duration,
       sessionType,
+      ballLevel,
+      skillLevel,
+      travelTime,
       status: "scheduled",
       notes,
       playerIds: selectedPlayers.map((p) => p.id),
       isRecurring,
-      weekCount,
+      weekCount: isRecurring ? weekCount : 1,
     };
 
     createSessionMutation.mutate(sessionData);
@@ -415,80 +438,150 @@ export default function CreateSessionDrawer({
             </View>
           </View>
 
+          {/* Ball Level */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Ball Level</Text>
+            <View style={styles.optionsRow}>
+              {BALL_LEVELS.map((level) => (
+                <Pressable
+                  key={level.value}
+                  onPress={() => setBallLevel(ballLevel === level.value ? null : level.value)}
+                  style={[
+                    styles.levelChip,
+                    ballLevel === level.value && {
+                      backgroundColor: level.color,
+                      borderColor: level.color,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.levelChipText,
+                      ballLevel === level.value && styles.levelChipTextActive,
+                    ]}
+                  >
+                    {level.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          {/* Skill Level */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Skill Level</Text>
+            <View style={styles.optionsRow}>
+              {SKILL_LEVELS.map((level) => (
+                <Pressable
+                  key={level.value}
+                  onPress={() => setSkillLevel(skillLevel === level.value ? null : level.value)}
+                  style={[
+                    styles.optionChip,
+                    skillLevel === level.value && styles.optionChipActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.optionChipText,
+                      skillLevel === level.value && styles.optionChipTextActive,
+                    ]}
+                  >
+                    {level.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
           {/* Recurring Options */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Recurring</Text>
             <View style={styles.optionsRow}>
               <Pressable
-                onPress={() => setRecurringType("none")}
+                onPress={() => setIsRecurring(false)}
                 style={[
                   styles.optionChip,
-                  recurringType === "none" && styles.optionChipActive,
+                  !isRecurring && styles.optionChipActive,
                 ]}
               >
                 <Text
                   style={[
                     styles.optionChipText,
-                    recurringType === "none" && styles.optionChipTextActive,
+                    !isRecurring && styles.optionChipTextActive,
                   ]}
                 >
                   One-time
                 </Text>
               </Pressable>
               <Pressable
-                onPress={() => setRecurringType("weekly")}
+                onPress={() => setIsRecurring(true)}
                 style={[
                   styles.optionChip,
-                  recurringType === "weekly" && styles.optionChipActive,
+                  isRecurring && styles.optionChipActive,
                 ]}
               >
                 <Text
                   style={[
                     styles.optionChipText,
-                    recurringType === "weekly" && styles.optionChipTextActive,
+                    isRecurring && styles.optionChipTextActive,
                   ]}
                 >
                   Weekly
                 </Text>
               </Pressable>
-              <Pressable
-                onPress={() => setRecurringType("biweekly")}
-                style={[
-                  styles.optionChip,
-                  recurringType === "biweekly" && styles.optionChipActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.optionChipText,
-                    recurringType === "biweekly" && styles.optionChipTextActive,
-                  ]}
-                >
-                  Bi-weekly
-                </Text>
-              </Pressable>
             </View>
-            {recurringType !== "none" && (
-              <View style={styles.recurringWeeks}>
-                <Text style={styles.recurringLabel}>For</Text>
-                <View style={styles.weeksSelector}>
-                  <Pressable
-                    onPress={() => setRecurringWeeks(Math.max(1, recurringWeeks - 1))}
-                    style={styles.weekAdjust}
-                  >
-                    <Ionicons name="remove" size={16} color={Colors.dark.text} />
-                  </Pressable>
-                  <Text style={styles.weeksText}>{recurringWeeks}</Text>
-                  <Pressable
-                    onPress={() => setRecurringWeeks(Math.min(52, recurringWeeks + 1))}
-                    style={styles.weekAdjust}
-                  >
-                    <Ionicons name="add" size={16} color={Colors.dark.text} />
-                  </Pressable>
+            {isRecurring && (
+              <View style={styles.weekCountSection}>
+                <Text style={styles.weekCountLabel}>Number of weeks:</Text>
+                <View style={styles.optionsRow}>
+                  {WEEK_COUNTS.map((weeks) => (
+                    <Pressable
+                      key={weeks}
+                      onPress={() => setWeekCount(weeks)}
+                      style={[
+                        styles.optionChip,
+                        weekCount === weeks && styles.optionChipActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.optionChipText,
+                          weekCount === weeks && styles.optionChipTextActive,
+                        ]}
+                      >
+                        {weeks}
+                      </Text>
+                    </Pressable>
+                  ))}
                 </View>
-                <Text style={styles.recurringLabel}>weeks</Text>
               </View>
             )}
+          </View>
+
+          {/* Travel Time */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Travel Time</Text>
+            <View style={styles.optionsRow}>
+              {TRAVEL_TIMES.map((time) => (
+                <Pressable
+                  key={time}
+                  onPress={() => setTravelTime(time)}
+                  style={[
+                    styles.optionChip,
+                    travelTime === time && styles.optionChipActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.optionChipText,
+                      travelTime === time && styles.optionChipTextActive,
+                    ]}
+                  >
+                    {time === 0 ? "None" : `${time}m`}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
 
           {/* Notes */}
@@ -752,5 +845,31 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     minHeight: 80,
     textAlignVertical: "top",
+  },
+  levelChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    borderWidth: 2,
+    borderColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    marginRight: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  levelChipText: {
+    ...Typography.small,
+    color: Colors.dark.disabled,
+    fontWeight: "600",
+  },
+  levelChipTextActive: {
+    color: Colors.dark.text,
+  },
+  weekCountSection: {
+    marginTop: Spacing.md,
+  },
+  weekCountLabel: {
+    ...Typography.small,
+    color: Colors.dark.disabled,
+    marginBottom: Spacing.sm,
   },
 });

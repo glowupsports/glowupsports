@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,16 @@ import {
   Pressable,
   Dimensions,
   ActivityIndicator,
+  Alert,
 } from "react-native";
+import * as Haptics from "expo-haptics";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -30,9 +39,63 @@ interface CoachData {
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const TIME_COLUMN_WIDTH = 50;
 const COURT_LANE_WIDTH = (SCREEN_WIDTH - TIME_COLUMN_WIDTH - Spacing.lg * 2) / 3;
-const HOUR_HEIGHT = 80;
+const HOUR_HEIGHT_60 = 80;
+const HOUR_HEIGHT_30 = 60;
 const START_HOUR = 6;
 const END_HOUR = 23;
+
+function PulsingDot() {
+  const opacity = useSharedValue(1);
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withTiming(0.3, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+    scale.value = withRepeat(
+      withTiming(1.3, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <View style={pulsingStyles.container}>
+      <Animated.View style={[pulsingStyles.outer, animatedStyle]} />
+      <View style={pulsingStyles.inner} />
+    </View>
+  );
+}
+
+const pulsingStyles = StyleSheet.create({
+  container: {
+    width: 16,
+    height: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: -8,
+  },
+  outer: {
+    position: "absolute",
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.dark.error,
+  },
+  inner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.dark.error,
+  },
+});
 
 interface Session {
   id: string;
@@ -91,7 +154,30 @@ export default function CalendarScreen() {
     }
   }, [coach, coaches, setCoach]);
 
-  const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
+  const hourHeight = timeGrid === 30 ? HOUR_HEIGHT_30 : HOUR_HEIGHT_60;
+  
+  const isToday = useMemo(() => {
+    const today = new Date();
+    return (
+      selectedDate.getFullYear() === today.getFullYear() &&
+      selectedDate.getMonth() === today.getMonth() &&
+      selectedDate.getDate() === today.getDate()
+    );
+  }, [selectedDate]);
+  
+  const displayHours = useMemo(() => {
+    if (focusMode && isToday) {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const focusStart = Math.max(START_HOUR, currentHour - 1);
+      const focusEnd = Math.min(END_HOUR, currentHour + 3);
+      return Array.from({ length: focusEnd - focusStart + 1 }, (_, i) => focusStart + i);
+    }
+    return Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
+  }, [focusMode, isToday]);
+  
+  const focusBaseHour = focusMode && isToday ? displayHours[0] : START_HOUR;
+  const hours = displayHours;
   const courts = calendarData?.courts || [];
   const ownSessions = calendarData?.ownSessions || [];
   const blockedSessions = calendarData?.blockedSessions || [];
@@ -111,8 +197,8 @@ export default function CalendarScreen() {
     const endTime = new Date(session.endTime);
     const startHour = startTime.getHours() + startTime.getMinutes() / 60;
     const endHour = endTime.getHours() + endTime.getMinutes() / 60;
-    const top = (startHour - START_HOUR) * HOUR_HEIGHT;
-    const height = (endHour - startHour) * HOUR_HEIGHT;
+    const top = (startHour - focusBaseHour) * hourHeight;
+    const height = (endHour - startHour) * hourHeight;
     return { top, height };
   };
 
@@ -150,11 +236,73 @@ export default function CalendarScreen() {
     console.log("End session:", session.id);
   };
 
-  const getCurrentTimePosition = () => {
+  const handleSessionLongPress = (session: Session) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
     const now = new Date();
-    const hours = now.getHours() + now.getMinutes() / 60;
-    if (hours < START_HOUR || hours > END_HOUR) return null;
-    return (hours - START_HOUR) * HOUR_HEIGHT;
+    const startTime = new Date(session.startTime);
+    const endTime = new Date(session.endTime);
+    const isActive = now >= startTime && now < endTime;
+    const isUpcoming = now < startTime;
+    const isPast = now >= endTime;
+    
+    const options: { text: string; onPress?: () => void; style?: "cancel" | "default" | "destructive" }[] = [
+      { text: "Cancel", style: "cancel" },
+    ];
+    
+    if (isActive || isPast) {
+      options.unshift({
+        text: "Mark Attendance",
+        onPress: () => handleAttendance(session),
+      });
+    }
+    
+    if (isActive) {
+      options.unshift({
+        text: "Extend Session (+15m)",
+        onPress: () => handleExtendSession(session),
+      });
+      options.unshift({
+        text: "End Session Now",
+        onPress: () => handleEndSession(session),
+        style: "destructive",
+      });
+    }
+    
+    if (isUpcoming) {
+      options.unshift({
+        text: "Cancel Session",
+        onPress: () => {
+          Alert.alert(
+            "Cancel Session",
+            "Are you sure you want to cancel this session?",
+            [
+              { text: "No", style: "cancel" },
+              { text: "Yes, Cancel", style: "destructive", onPress: () => console.log("Cancel:", session.id) },
+            ]
+          );
+        },
+        style: "destructive",
+      });
+    }
+    
+    const sessionType = session.sessionType === "private" ? "Private" : 
+                       session.sessionType === "semi_private" ? "Semi-Private" : 
+                       session.sessionType === "group" ? "Group" : session.sessionType;
+    
+    Alert.alert(
+      `${sessionType} Session`,
+      `${new Date(session.startTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })} - ${new Date(session.endTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}`,
+      options
+    );
+  };
+
+  const getCurrentTimePosition = () => {
+    if (!isToday) return null;
+    const now = new Date();
+    const currentHours = now.getHours() + now.getMinutes() / 60;
+    if (currentHours < focusBaseHour || currentHours > END_HOUR) return null;
+    return (currentHours - focusBaseHour) * hourHeight;
   };
 
   const nowPosition = getCurrentTimePosition();
@@ -315,7 +463,7 @@ export default function CalendarScreen() {
           {/* Time Column */}
           <View style={styles.timeColumn}>
             {hours.map((hour) => (
-              <View key={hour} style={styles.timeSlot}>
+              <View key={hour} style={[styles.timeSlot, { height: hourHeight }]}>
                 <Text style={styles.timeText}>{formatTime(hour)}</Text>
               </View>
             ))}
@@ -329,11 +477,11 @@ export default function CalendarScreen() {
                 {hours.map((hour) => (
                   <Pressable
                     key={hour}
-                    style={styles.hourSlot}
+                    style={[styles.hourSlot, { height: hourHeight }]}
                     onPress={() => handleSlotPress(court.id, hour)}
                   >
                     <View style={styles.hourLine} />
-                    {timeGrid === 30 && <View style={styles.halfHourLine} />}
+                    {timeGrid === 30 && <View style={[styles.halfHourLine, { top: hourHeight / 2 }]} />}
                   </Pressable>
                 ))}
 
@@ -342,9 +490,17 @@ export default function CalendarScreen() {
                   .filter((s) => s.courtId === court.id)
                   .map((session) => {
                     const { top, height } = getSessionPosition(session);
+                    const sessionLabel = session.sessionType === "private" ? "Private" :
+                                        session.sessionType === "semi_private" ? "Semi" :
+                                        session.sessionType === "group" ? "Group" :
+                                        session.sessionType === "physical" ? "Physical" :
+                                        session.sessionType;
                     return (
                       <Pressable
                         key={session.id}
+                        onPress={() => handleAttendance(session)}
+                        onLongPress={() => handleSessionLongPress(session)}
+                        delayLongPress={300}
                         style={[
                           styles.sessionBlock,
                           {
@@ -355,7 +511,7 @@ export default function CalendarScreen() {
                         ]}
                       >
                         <Text style={styles.sessionText} numberOfLines={1}>
-                          {session.sessionType}
+                          {sessionLabel}
                         </Text>
                         <Text style={styles.sessionTime} numberOfLines={1}>
                           {new Date(session.startTime).toLocaleTimeString("en-US", {
@@ -386,9 +542,9 @@ export default function CalendarScreen() {
             ))}
 
             {/* Now Line */}
-            {nowPosition !== null && (
+            {nowPosition !== null && isToday && (
               <View style={[styles.nowLine, { top: nowPosition }]}>
-                <View style={styles.nowDot} />
+                <PulsingDot />
                 <View style={styles.nowLineBar} />
               </View>
             )}
@@ -574,7 +730,7 @@ const styles = StyleSheet.create({
     width: TIME_COLUMN_WIDTH,
   },
   timeSlot: {
-    height: HOUR_HEIGHT,
+    height: HOUR_HEIGHT_60,
     justifyContent: "flex-start",
     paddingTop: 2,
   },
@@ -594,7 +750,7 @@ const styles = StyleSheet.create({
     borderLeftColor: Colors.dark.backgroundTertiary,
   },
   hourSlot: {
-    height: HOUR_HEIGHT,
+    height: HOUR_HEIGHT_60,
     position: "relative",
   },
   hourLine: {
@@ -607,7 +763,7 @@ const styles = StyleSheet.create({
   },
   halfHourLine: {
     position: "absolute",
-    top: HOUR_HEIGHT / 2,
+    top: HOUR_HEIGHT_60 / 2,
     left: 0,
     right: 0,
     height: 1,
