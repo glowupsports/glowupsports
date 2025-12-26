@@ -690,16 +690,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all players
+  // Get all players with last lesson date
   app.get("/api/players", async (req: Request, res: Response) => {
     try {
       const { search } = req.query;
+      let playerList;
       if (search) {
-        const foundPlayers = await storage.searchPlayers(search as string);
-        return res.json(foundPlayers);
+        playerList = await storage.searchPlayers(search as string);
+      } else {
+        playerList = await storage.getAllPlayers();
       }
-      const allPlayers = await storage.getAllPlayers();
-      res.json(allPlayers);
+      
+      // Enhance each player with their last lesson date
+      const playersWithLessonDates = await Promise.all(
+        playerList.map(async (player) => {
+          const lastLesson = await storage.getPlayerLastSession(player.id);
+          return {
+            ...player,
+            lastLessonDate: lastLesson?.startTime || null,
+          };
+        })
+      );
+      
+      res.json(playersWithLessonDates);
     } catch (error) {
       console.error("Error fetching players:", error);
       res.status(500).json({ error: "Failed to fetch players" });

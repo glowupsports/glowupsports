@@ -1048,7 +1048,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     paddingTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: Colors.dark.border,
+    borderTopColor: Colors.dark.headerBorder,
   },
   noteDate: {
     fontSize: Typography.caption.fontSize,

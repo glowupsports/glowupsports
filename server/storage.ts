@@ -273,6 +273,30 @@ export const storage = {
     return db.select().from(sessionPlayers).where(eq(sessionPlayers.sessionId, sessionId));
   },
 
+  async getPlayerLastSession(playerId: string): Promise<Session | null> {
+    // Get all session IDs for this player
+    const playerSessionEntries = await db
+      .select({ sessionId: sessionPlayers.sessionId })
+      .from(sessionPlayers)
+      .where(eq(sessionPlayers.playerId, playerId));
+    
+    const sessionIds = playerSessionEntries
+      .map(ps => ps.sessionId)
+      .filter((id): id is string => id !== null);
+    
+    if (sessionIds.length === 0) return null;
+    
+    // Find the most recent session
+    const result = await db
+      .select()
+      .from(sessions)
+      .where(inArray(sessions.id, sessionIds))
+      .orderBy(desc(sessions.startTime))
+      .limit(1);
+    
+    return result[0] || null;
+  },
+
   async getSessionPlayersWithDetails(sessionId: string): Promise<Array<{
     id: string;
     name: string;
