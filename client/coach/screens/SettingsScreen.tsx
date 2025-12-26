@@ -71,7 +71,7 @@ export default function SettingsScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       console.error("Failed to save settings:", error);
-      Alert.alert("Fout", "Instellingen opslaan mislukt");
+      Alert.alert("Error", "Failed to save settings");
     }
   };
 
@@ -94,7 +94,7 @@ export default function SettingsScreen() {
       />
 
       <View style={styles.header}>
-        <Text style={styles.title}>Instellingen</Text>
+        <Text style={styles.title}>Settings</Text>
       </View>
 
       <ScrollView
@@ -115,14 +115,14 @@ export default function SettingsScreen() {
         ) : null}
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Standaard Instellingen</Text>
+          <Text style={styles.sectionTitle}>Default Settings</Text>
 
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
               <Ionicons name="time-outline" size={24} color={Colors.dark.tabIconDefault} />
               <View>
-                <Text style={styles.settingLabel}>Standaard lesduur</Text>
-                <Text style={styles.settingDescription}>Voor nieuwe lessen</Text>
+                <Text style={styles.settingLabel}>Default lesson duration</Text>
+                <Text style={styles.settingDescription}>For new lessons</Text>
               </View>
             </View>
             <View style={styles.durationButtons}>
@@ -165,8 +165,8 @@ export default function SettingsScreen() {
             <View style={styles.settingInfo}>
               <Ionicons name="repeat-outline" size={24} color={Colors.dark.tabIconDefault} />
               <View>
-                <Text style={styles.settingLabel}>Standaard recurring</Text>
-                <Text style={styles.settingDescription}>{settings.defaultRecurringWeeks} weken</Text>
+                <Text style={styles.settingLabel}>Default recurring</Text>
+                <Text style={styles.settingDescription}>{settings.defaultRecurringWeeks} weeks</Text>
               </View>
             </View>
             <View style={styles.weekButtons}>
@@ -196,8 +196,8 @@ export default function SettingsScreen() {
             <View style={styles.settingInfo}>
               <Ionicons name="car-outline" size={24} color={Colors.dark.tabIconDefault} />
               <View>
-                <Text style={styles.settingLabel}>Standaard reistijd</Text>
-                <Text style={styles.settingDescription}>{settings.defaultTravelTime} minuten</Text>
+                <Text style={styles.settingLabel}>Default travel time</Text>
+                <Text style={styles.settingDescription}>{settings.defaultTravelTime} minutes</Text>
               </View>
             </View>
             <View style={styles.travelButtons}>
@@ -231,8 +231,8 @@ export default function SettingsScreen() {
             <View style={styles.settingInfo}>
               <Ionicons name="eye-outline" size={24} color={Colors.dark.tabIconDefault} />
               <View>
-                <Text style={styles.settingLabel}>Focus Mode nu</Text>
-                <Text style={styles.settingDescription}>Verberg afleiding tijdens les</Text>
+                <Text style={styles.settingLabel}>Focus Mode now</Text>
+                <Text style={styles.settingDescription}>Hide distractions during lessons</Text>
               </View>
             </View>
             <Switch
@@ -251,7 +251,7 @@ export default function SettingsScreen() {
               <Ionicons name="flash-outline" size={24} color={Colors.dark.tabIconDefault} />
               <View>
                 <Text style={styles.settingLabel}>Auto Focus Mode</Text>
-                <Text style={styles.settingDescription}>Automatisch aan bij les start</Text>
+                <Text style={styles.settingDescription}>Automatically enable at lesson start</Text>
               </View>
             </View>
             <Switch
@@ -264,14 +264,14 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notificaties</Text>
+          <Text style={styles.sectionTitle}>Notifications</Text>
 
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
               <Ionicons name="notifications-outline" size={24} color={Colors.dark.tabIconDefault} />
               <View>
-                <Text style={styles.settingLabel}>Notificaties</Text>
-                <Text style={styles.settingDescription}>Alle meldingen</Text>
+                <Text style={styles.settingLabel}>Notifications</Text>
+                <Text style={styles.settingDescription}>All notifications</Text>
               </View>
             </View>
             <Switch
@@ -286,8 +286,8 @@ export default function SettingsScreen() {
             <View style={styles.settingInfo}>
               <Ionicons name="alarm-outline" size={24} color={Colors.dark.tabIconDefault} />
               <View>
-                <Text style={styles.settingLabel}>Les herinnering</Text>
-                <Text style={styles.settingDescription}>{settings.lessonReminderMinutes} min voor les</Text>
+                <Text style={styles.settingLabel}>Lesson reminder</Text>
+                <Text style={styles.settingDescription}>{settings.lessonReminderMinutes} min before lesson</Text>
               </View>
             </View>
             <Switch
@@ -302,8 +302,8 @@ export default function SettingsScreen() {
             <View style={styles.settingInfo}>
               <Ionicons name="warning-outline" size={24} color={Colors.dark.tabIconDefault} />
               <View>
-                <Text style={styles.settingLabel}>Reistijd waarschuwing</Text>
-                <Text style={styles.settingDescription}>Alert bij korte reistijd</Text>
+                <Text style={styles.settingLabel}>Travel time warning</Text>
+                <Text style={styles.settingDescription}>Alert for short travel time</Text>
               </View>
             </View>
             <Switch
@@ -322,8 +322,8 @@ export default function SettingsScreen() {
             <View style={styles.settingInfo}>
               <Ionicons name="cloud-outline" size={24} color={Colors.dark.tabIconDefault} />
               <View>
-                <Text style={styles.settingLabel}>Automatisch syncen</Text>
-                <Text style={styles.settingDescription}>Sync bij online verbinding</Text>
+                <Text style={styles.settingLabel}>Auto sync</Text>
+                <Text style={styles.settingDescription}>Sync when online</Text>
               </View>
             </View>
             <Switch
@@ -336,7 +336,7 @@ export default function SettingsScreen() {
 
           <Pressable style={styles.syncButton}>
             <Ionicons name="sync-outline" size={20} color={Colors.dark.primary} />
-            <Text style={styles.syncButtonText}>Handmatig syncen</Text>
+            <Text style={styles.syncButtonText}>Sync manually</Text>
           </Pressable>
         </View>
 
