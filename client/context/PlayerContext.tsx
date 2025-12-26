@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { Player, ChatMessage, ChatChannel, INITIAL_PLAYER, INITIAL_MESSAGES } from "@/constants/playerData";
 import * as storage from "@/lib/storage";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
 
 interface PlayerContextType {
   player: Player;
@@ -16,6 +17,25 @@ interface PlayerContextType {
   sendMessage: (message: string) => Promise<void>;
   toggleReaction: (messageId: string, emoji: string) => Promise<void>;
   resetData: () => Promise<void>;
+  loadConversationMessages: () => Promise<void>;
+  initializeCoachConversation: () => Promise<void>;
+  conversationId: string | null;
+}
+
+interface ApiMessage {
+  id: string;
+  conversationId: string;
+  senderType: string | null;
+  senderCoachId: string | null;
+  senderPlayerId: string | null;
+  body: string;
+  messageType: string | null;
+  createdAt: string;
+  reactions: Array<{
+    id: string;
+    emoji: string;
+    reactorType: string;
+  }>;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -25,6 +45,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
   const [isLoading, setIsLoading] = useState(true);
   const [currentChannel, setCurrentChannel] = useState<ChatChannel>("academy");
+  const [conversationId, setConversationId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -88,6 +109,83 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setPlayer(updatedPlayer);
   }, []);
 
+  const convertApiMessageToChat = useCallback((msg: ApiMessage): ChatMessage => {
+    const reactionCounts: Record<string, { count: number; userReacted: boolean }> = {};
+    msg.reactions.forEach((r) => {
+      if (!reactionCounts[r.emoji]) {
+        reactionCounts[r.emoji] = { count: 0, userReacted: false };
+      }
+      reactionCounts[r.emoji].count++;
+      if (r.reactorType === "player") {
+        reactionCounts[r.emoji].userReacted = true;
+      }
+    });
+    
+    return {
+      id: msg.id,
+      channel: "coaches" as ChatChannel,
+      senderId: msg.senderType === "player" ? (msg.senderPlayerId || "player") : (msg.senderCoachId || "coach"),
+      senderName: msg.senderType === "player" ? player.name : "Coach",
+      senderAvatar: msg.senderType === "player" ? player.avatar : "coach",
+      message: msg.body,
+      timestamp: new Date(msg.createdAt),
+      reactions: Object.entries(reactionCounts).map(([emoji, data]) => ({
+        emoji,
+        count: data.count,
+        userReacted: data.userReacted,
+      })),
+      isSystemMessage: msg.messageType === "system",
+    };
+  }, [player]);
+
+  const loadConversationMessages = useCallback(async () => {
+    if (!conversationId) return;
+    try {
+      const url = new URL(`/api/conversations/${conversationId}/messages`, getApiUrl());
+      const response = await fetch(url.toString());
+      if (response.ok) {
+        const apiMessages: ApiMessage[] = await response.json();
+        const coachMessages = apiMessages.map(convertApiMessageToChat);
+        setMessages((prev) => {
+          const nonCoachMessages = prev.filter((m) => m.channel !== "coaches");
+          return [...nonCoachMessages, ...coachMessages];
+        });
+      }
+    } catch (error) {
+      console.error("Error loading conversation messages:", error);
+    }
+  }, [conversationId, convertApiMessageToChat]);
+
+  const initializeCoachConversation = useCallback(async () => {
+    try {
+      const url = new URL(`/api/players/${player.id}/conversations`, getApiUrl());
+      const response = await fetch(url.toString());
+      if (response.ok) {
+        const conversations = await response.json();
+        const coachPlayerConvo = conversations.find(
+          (c: { type: string }) => c.type === "coach_player"
+        );
+        if (coachPlayerConvo) {
+          setConversationId(coachPlayerConvo.id);
+        }
+      }
+    } catch (error) {
+      console.error("Error initializing coach conversation:", error);
+    }
+  }, [player.id]);
+
+  useEffect(() => {
+    if (currentChannel === "coaches" && !conversationId) {
+      initializeCoachConversation();
+    }
+  }, [currentChannel, conversationId, initializeCoachConversation]);
+
+  useEffect(() => {
+    if (conversationId && currentChannel === "coaches") {
+      loadConversationMessages();
+    }
+  }, [conversationId, currentChannel, loadConversationMessages]);
+
   const sendMessage = useCallback(async (messageText: string) => {
     const newMessage: ChatMessage = {
       id: `msg-${Date.now()}`,
@@ -102,7 +200,21 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const updatedMessages = [...messages, newMessage];
     setMessages(updatedMessages);
     await storage.saveMessages(updatedMessages);
-  }, [currentChannel, player, messages]);
+
+    if (currentChannel === "coaches" && conversationId) {
+      try {
+        const url = new URL(`/api/conversations/${conversationId}/messages`, getApiUrl());
+        await apiRequest(url.toString(), "POST", {
+          senderType: "player",
+          senderPlayerId: player.id,
+          body: messageText,
+          messageType: "text",
+        });
+      } catch (error) {
+        console.error("Error sending message to API:", error);
+      }
+    }
+  }, [currentChannel, player, messages, conversationId]);
 
   const toggleReaction = useCallback(async (messageId: string, emoji: string) => {
     const updatedMessages = messages.map((msg) => {
@@ -137,7 +249,21 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     });
     setMessages(updatedMessages);
     await storage.saveMessages(updatedMessages);
-  }, [messages]);
+
+    const targetMessage = messages.find((m) => m.id === messageId);
+    if (targetMessage?.channel === "coaches" && conversationId) {
+      try {
+        const url = new URL(`/api/messages/${messageId}/reactions`, getApiUrl());
+        await apiRequest(url.toString(), "POST", {
+          reactorType: "player",
+          reactorPlayerId: player.id,
+          emoji,
+        });
+      } catch (error) {
+        console.error("Error toggling reaction via API:", error);
+      }
+    }
+  }, [messages, conversationId, player.id]);
 
   const resetData = useCallback(async () => {
     await storage.clearAllData();
@@ -161,6 +287,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         sendMessage,
         toggleReaction,
         resetData,
+        loadConversationMessages,
+        initializeCoachConversation,
+        conversationId,
       }}
     >
       {children}
