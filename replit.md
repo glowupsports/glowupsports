@@ -74,6 +74,8 @@ Preferred communication style: Simple, everyday language.
 - **sessionFeedback**: Session feedback with intensity and focus tags
 - **playerNotes**: Coach notes per player (categories: technique, mental, physical, next-lesson, general)
 - **playerProgress**: Progress snapshots per skill area (forehand, backhand, serve, volley, movement, mental)
+- **sessionTemplates**: Reusable session configurations with default players, ball level, duration
+- **coachNotifications**: Notification center (auto_renew, payment, feedback, holiday, absence, reminder)
 
 ### API Endpoints (server/routes.ts)
 - `/api/coach/*` - Coach calendar, sessions, dashboard stats
@@ -81,14 +83,20 @@ Preferred communication style: Simple, everyday language.
 - `/api/players/:id/notes` - GET/POST notes, DELETE/PATCH for pin toggle
 - `/api/players/:id/progress` - GET history, GET summary, POST entry
 - `/api/coach/players/progress` - All players with progress summaries
+- `/api/coach/templates` - GET/POST session templates, DELETE by id
+- `/api/coach/notifications` - GET/DELETE notifications, PATCH mark read
+- `/api/coach/auto-renew-alerts` - GET recurring sessions approaching week 9-10
+- `/api/coach/profile/:id` - GET/PATCH coach profile
 
 ### Key Screens (client/coach/screens/)
-- **DashboardScreen**: Alerts, quick actions, today's overview
-- **CalendarScreen**: Day/Week/Month views, 30/60min grid toggle, Focus Mode, Now-Line with pulsing dot, long-press quick actions
+- **DashboardScreen**: Alerts, quick actions, today's overview, mini timeline, header nav to notifications/profile
+- **CalendarScreen**: Day/Week/Month views, 30/60min grid toggle, Focus Mode, Now-Line with pulsing dot, long-press quick actions, blocked sessions with dashed borders
 - **PlayersScreen**: Player list, detail view with notes hub, medical notes
 - **CoachingScreen**: Today tab (feedback with mood selector), Progress tab (skill tracking), Plans tab
 - **SessionScreen**: Attendance tracking with offline support
 - **SettingsScreen**: Coach preferences and notifications
+- **NotificationsScreen**: Notification center with mark-read, delete, priority indicators
+- **CoachProfileScreen**: Coach profile viewing and editing
 
 ### Recent Updates (December 2025)
 - Fixed timezone bug in calendar API - proper UTC date parsing for session display
@@ -104,3 +112,12 @@ Preferred communication style: Simple, everyday language.
 - Recurring sessions: creates sessions for multiple weeks with per-week conflict checking
 - Smart Warning System: Level 1 (tight schedule), Level 2 (travel time), Level 3 (conflicts)
 - Skipped weeks notification: alerts user when recurring sessions skip weeks due to conflicts
+- Add Players button in Attendance modal with search and multi-select
+- Session templates API for saving/reusing session configurations
+- Coach notifications schema and API with priority levels
+- Mini Timeline component showing today's session flow on dashboard
+- Notifications Center screen with read/delete functionality
+- Coach Profile screen with editable fields
+- Blocked sessions dashed border styling in calendar
+- Dashboard header buttons for quick navigation to notifications and profile
+- Auto-renew detection API for recurring sessions approaching week 9-10

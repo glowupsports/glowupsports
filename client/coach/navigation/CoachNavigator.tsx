@@ -10,6 +10,8 @@ import PlayersScreen from "@/coach/screens/PlayersScreen";
 import CoachingScreen from "@/coach/screens/CoachingScreen";
 import SettingsScreen from "@/coach/screens/SettingsScreen";
 import HistoryScreen from "@/coach/screens/HistoryScreen";
+import NotificationsScreen from "@/coach/screens/NotificationsScreen";
+import CoachProfileScreen from "@/coach/screens/CoachProfileScreen";
 import { Colors } from "@/constants/theme";
 
 export type CoachTabParamList = {
@@ -23,6 +25,8 @@ export type CoachTabParamList = {
 export type CoachStackParamList = {
   CoachTabs: undefined;
   History: undefined;
+  Notifications: undefined;
+  CoachProfile: undefined;
 };
 
 const Tab = createBottomTabNavigator<CoachTabParamList>();
@@ -113,6 +117,20 @@ export default function CoachNavigator() {
       <Stack.Screen 
         name="History" 
         component={HistoryScreen}
+        options={{
+          presentation: "modal",
+        }}
+      />
+      <Stack.Screen 
+        name="Notifications" 
+        component={NotificationsScreen}
+        options={{
+          presentation: "modal",
+        }}
+      />
+      <Stack.Screen 
+        name="CoachProfile" 
+        component={CoachProfileScreen}
         options={{
           presentation: "modal",
         }}

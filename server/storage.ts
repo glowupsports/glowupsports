@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, and, gte, lte, ne, or } from "drizzle-orm";
+import { eq, and, gte, lte, ne, or, inArray } from "drizzle-orm";
 import { desc } from "drizzle-orm";
 import {
   coaches,
@@ -15,6 +15,8 @@ import {
   offlineQueue,
   playerNotes,
   playerProgress,
+  sessionTemplates,
+  coachNotifications,
   type Coach,
   type InsertCoach,
   type Location,
@@ -39,6 +41,10 @@ import {
   type InsertPlayerNote,
   type PlayerProgress,
   type InsertPlayerProgress,
+  type SessionTemplate,
+  type InsertSessionTemplate,
+  type CoachNotification,
+  type InsertCoachNotification,
 } from "@shared/schema";
 
 export const storage = {
@@ -237,7 +243,8 @@ export const storage = {
 
     if (playerSessions.length === 0) return false;
 
-    const sessionIds = playerSessions.map(ps => ps.sessionId);
+    const sessionIds = playerSessions.map(ps => ps.sessionId).filter((id): id is string => id !== null);
+    if (sessionIds.length === 0) return false;
     
     // Check if any of those sessions overlap with the proposed time
     const conflicts = await db
@@ -412,5 +419,120 @@ export const storage = {
       const latestTrend = areaProgress[0]?.trend || "stable";
       return { skillArea: area, avgRating: Math.round(avgRating * 10) / 10, trend: latestTrend };
     });
+  },
+
+  // ==================== SESSION TEMPLATES ====================
+  async getSessionTemplates(coachId: string): Promise<SessionTemplate[]> {
+    return db
+      .select()
+      .from(sessionTemplates)
+      .where(eq(sessionTemplates.coachId, coachId))
+      .orderBy(desc(sessionTemplates.createdAt));
+  },
+
+  async createSessionTemplate(data: InsertSessionTemplate): Promise<SessionTemplate> {
+    const result = await db.insert(sessionTemplates).values(data).returning();
+    return result[0];
+  },
+
+  async deleteSessionTemplate(id: string): Promise<void> {
+    await db.delete(sessionTemplates).where(eq(sessionTemplates.id, id));
+  },
+
+  // ==================== COACH NOTIFICATIONS ====================
+  async getCoachNotifications(coachId: string): Promise<CoachNotification[]> {
+    return db
+      .select()
+      .from(coachNotifications)
+      .where(eq(coachNotifications.coachId, coachId))
+      .orderBy(desc(coachNotifications.createdAt));
+  },
+
+  async createNotification(data: InsertCoachNotification): Promise<CoachNotification> {
+    const result = await db.insert(coachNotifications).values(data).returning();
+    return result[0];
+  },
+
+  async markNotificationRead(id: string): Promise<void> {
+    await db.update(coachNotifications).set({ isRead: true }).where(eq(coachNotifications.id, id));
+  },
+
+  async markAllNotificationsRead(coachId: string): Promise<void> {
+    await db.update(coachNotifications).set({ isRead: true }).where(eq(coachNotifications.coachId, coachId));
+  },
+
+  async deleteNotification(id: string): Promise<void> {
+    await db.delete(coachNotifications).where(eq(coachNotifications.id, id));
+  },
+
+  // ==================== AUTO-RENEW ALERTS ====================
+  async getAutoRenewAlerts(coachId: string): Promise<{ playerId: string; playerName: string; weekNumber: number; lastSessionDate: string }[]> {
+    // Get all sessions grouped by recurring series (based on same time slot/player combo)
+    // Find sessions where we're at week 9+ to alert for renewal
+    const now = new Date();
+    const tenWeeksAgo = new Date(now.getTime() - 10 * 7 * 24 * 60 * 60 * 1000);
+    
+    const coachSessions = await db
+      .select()
+      .from(sessions)
+      .where(and(
+        eq(sessions.coachId, coachId),
+        gte(sessions.startTime, tenWeeksAgo),
+        lte(sessions.startTime, now)
+      ))
+      .orderBy(desc(sessions.startTime));
+
+    // Group sessions by dayOfWeek + time slot to detect recurring series
+    const recurringGroups = new Map<string, Session[]>();
+    for (const session of coachSessions) {
+      const startTime = new Date(session.startTime);
+      const dayOfWeek = startTime.getUTCDay();
+      const hour = startTime.getUTCHours();
+      const minute = startTime.getUTCMinutes();
+      const key = `${dayOfWeek}-${hour}:${minute}`;
+      
+      if (!recurringGroups.has(key)) {
+        recurringGroups.set(key, []);
+      }
+      recurringGroups.get(key)!.push(session);
+    }
+
+    const alerts: { playerId: string; playerName: string; weekNumber: number; lastSessionDate: string }[] = [];
+    
+    for (const [, groupSessions] of recurringGroups) {
+      if (groupSessions.length >= 8) {
+        // This is likely a recurring series
+        const weekNumber = groupSessions.length;
+        if (weekNumber >= 9 && weekNumber <= 10) {
+          // Get players from the first session
+          const sessionPlayerRecords = await db
+            .select()
+            .from(sessionPlayers)
+            .where(eq(sessionPlayers.sessionId, groupSessions[0].id));
+          
+          for (const sp of sessionPlayerRecords) {
+            if (sp.playerId) {
+              const player = await db.select().from(players).where(eq(players.id, sp.playerId));
+              if (player[0]) {
+                alerts.push({
+                  playerId: sp.playerId,
+                  playerName: player[0].name,
+                  weekNumber,
+                  lastSessionDate: groupSessions[0].startTime.toISOString(),
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return alerts;
+  },
+
+  // ==================== COACH UPDATE ====================
+  async updateCoach(id: string, data: Partial<InsertCoach>): Promise<Coach> {
+    const result = await db.update(coaches).set(data).where(eq(coaches.id, id)).returning();
+    return result[0];
   },
 };

@@ -890,6 +890,162 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== SESSION TEMPLATES API ====================
+
+  // Get all session templates for a coach
+  app.get("/api/coach/templates", async (req: Request, res: Response) => {
+    try {
+      const { coachId } = req.query;
+      if (!coachId) {
+        return res.status(400).json({ error: "coachId is required" });
+      }
+      const templates = await storage.getSessionTemplates(coachId as string);
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching templates:", error);
+      res.status(500).json({ error: "Failed to fetch templates" });
+    }
+  });
+
+  // Create a session template
+  app.post("/api/coach/templates", async (req: Request, res: Response) => {
+    try {
+      const { coachId, name, sessionType, duration, ballLevel, skillLevel, defaultPlayerIds, notes } = req.body;
+      
+      if (!coachId || !name || !sessionType || !duration) {
+        return res.status(400).json({ error: "coachId, name, sessionType, and duration are required" });
+      }
+
+      const template = await storage.createSessionTemplate({
+        coachId,
+        name,
+        sessionType,
+        duration,
+        ballLevel,
+        skillLevel,
+        defaultPlayerIds,
+        notes,
+      });
+      res.status(201).json(template);
+    } catch (error) {
+      console.error("Error creating template:", error);
+      res.status(500).json({ error: "Failed to create template" });
+    }
+  });
+
+  // Delete a session template
+  app.delete("/api/coach/templates/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteSessionTemplate(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting template:", error);
+      res.status(500).json({ error: "Failed to delete template" });
+    }
+  });
+
+  // ==================== NOTIFICATIONS API ====================
+
+  // Get notifications for a coach
+  app.get("/api/coach/notifications", async (req: Request, res: Response) => {
+    try {
+      const { coachId } = req.query;
+      if (!coachId) {
+        return res.status(400).json({ error: "coachId is required" });
+      }
+      const notifications = await storage.getCoachNotifications(coachId as string);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ error: "Failed to fetch notifications" });
+    }
+  });
+
+  // Mark notification as read
+  app.patch("/api/coach/notifications/:id/read", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      await storage.markNotificationRead(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking notification read:", error);
+      res.status(500).json({ error: "Failed to mark notification read" });
+    }
+  });
+
+  // Mark all notifications as read
+  app.post("/api/coach/notifications/mark-all-read", async (req: Request, res: Response) => {
+    try {
+      const { coachId } = req.body;
+      if (!coachId) {
+        return res.status(400).json({ error: "coachId is required" });
+      }
+      await storage.markAllNotificationsRead(coachId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking all notifications read:", error);
+      res.status(500).json({ error: "Failed to mark all notifications read" });
+    }
+  });
+
+  // Delete notification
+  app.delete("/api/coach/notifications/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteNotification(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      res.status(500).json({ error: "Failed to delete notification" });
+    }
+  });
+
+  // Get auto-renew alerts (sessions near week 9/10)
+  app.get("/api/coach/auto-renew-alerts", async (req: Request, res: Response) => {
+    try {
+      const { coachId } = req.query;
+      if (!coachId) {
+        return res.status(400).json({ error: "coachId is required" });
+      }
+      const alerts = await storage.getAutoRenewAlerts(coachId as string);
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching auto-renew alerts:", error);
+      res.status(500).json({ error: "Failed to fetch auto-renew alerts" });
+    }
+  });
+
+  // ==================== COACH PROFILE API ====================
+
+  // Get coach profile
+  app.get("/api/coach/profile/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coach = await storage.getCoach(id);
+      if (!coach) {
+        return res.status(404).json({ error: "Coach not found" });
+      }
+      res.json(coach);
+    } catch (error) {
+      console.error("Error fetching coach profile:", error);
+      res.status(500).json({ error: "Failed to fetch coach profile" });
+    }
+  });
+
+  // Update coach profile
+  app.patch("/api/coach/profile/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const updated = await storage.updateCoach(id, updates);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating coach profile:", error);
+      res.status(500).json({ error: "Failed to update coach profile" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

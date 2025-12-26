@@ -7,16 +7,19 @@ import {
   Modal,
   ActivityIndicator,
   Alert,
+  ScrollView,
+  TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 type AttendanceStatus = "present" | "late" | "absent" | "holiday";
 type LateMinutes = 5 | 10 | 15 | 20 | 30 | 999;
@@ -50,11 +53,19 @@ interface AttendanceRecord {
   absentReason?: AbsentReason;
 }
 
+interface AvailablePlayer {
+  id: string;
+  name: string;
+  ballLevel?: string | null;
+  skillLevel?: number | null;
+}
+
 interface AttendanceDrawerProps {
   visible: boolean;
   session: Session | null;
   onClose: () => void;
   onSave: () => void;
+  onPlayersAdded?: () => void;
 }
 
 const OFFLINE_QUEUE_KEY = "coach_offline_attendance_queue";
@@ -64,12 +75,47 @@ export default function AttendanceDrawer({
   session,
   onClose,
   onSave,
+  onPlayersAdded,
 }: AttendanceDrawerProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [attendance, setAttendance] = useState<Map<string, AttendanceRecord>>(new Map());
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(false);
+  const [showAddPlayers, setShowAddPlayers] = useState(false);
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const { data: allPlayers = [] } = useQuery<AvailablePlayer[]>({
+    queryKey: ["/api/players"],
+    enabled: visible && showAddPlayers,
+  });
+
+  const existingPlayerIds = session?.players?.map(p => p.id) || [];
+  const filteredPlayers = allPlayers.filter(p => 
+    !existingPlayerIds.includes(p.id) &&
+    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const addPlayersMutation = useMutation({
+    mutationFn: async (playerIds: string[]) => {
+      const promises = playerIds.map(playerId =>
+        apiRequest("POST", `/api/coach/sessions/${session?.id}/players`, { playerId })
+      );
+      return Promise.all(promises);
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      setShowAddPlayers(false);
+      setSelectedPlayerIds([]);
+      setSearchQuery("");
+      onPlayersAdded?.();
+    },
+    onError: (error: Error) => {
+      Alert.alert("Error", error.message || "Failed to add players");
+    },
+  });
 
   useEffect(() => {
     if (session?.players) {
@@ -275,12 +321,95 @@ export default function AttendanceDrawer({
           </Pressable>
         </View>
 
-        {/* Player List */}
-        {players.length === 0 ? (
+        {/* Add Players Mode */}
+        {showAddPlayers ? (
+          <View style={styles.addPlayersContainer}>
+            <View style={styles.addPlayersHeader}>
+              <Pressable onPress={() => setShowAddPlayers(false)} style={styles.backButton}>
+                <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+              </Pressable>
+              <Text style={styles.addPlayersTitle}>Add Players</Text>
+              <Pressable
+                style={[styles.confirmButton, selectedPlayerIds.length === 0 && styles.confirmButtonDisabled]}
+                onPress={() => addPlayersMutation.mutate(selectedPlayerIds)}
+                disabled={selectedPlayerIds.length === 0 || addPlayersMutation.isPending}
+              >
+                {addPlayersMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={styles.confirmButtonText}>Add ({selectedPlayerIds.length})</Text>
+                )}
+              </Pressable>
+            </View>
+            
+            <View style={styles.searchContainer}>
+              <Ionicons name="search" size={20} color={Colors.dark.disabled} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search players..."
+                placeholderTextColor={Colors.dark.disabled}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {searchQuery.length > 0 ? (
+                <Pressable onPress={() => setSearchQuery("")}>
+                  <Ionicons name="close-circle" size={20} color={Colors.dark.disabled} />
+                </Pressable>
+              ) : null}
+            </View>
+
+            <KeyboardAwareScrollViewCompat style={styles.playerSelectList} showsVerticalScrollIndicator={false}>
+              {filteredPlayers.map((player) => {
+                const isSelected = selectedPlayerIds.includes(player.id);
+                return (
+                  <Pressable
+                    key={player.id}
+                    style={[styles.playerSelectItem, isSelected && styles.playerSelectItemActive]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSelectedPlayerIds(prev =>
+                        isSelected ? prev.filter(id => id !== player.id) : [...prev, player.id]
+                      );
+                    }}
+                  >
+                    <View style={styles.playerSelectInfo}>
+                      {player.ballLevel ? (
+                        <View style={[styles.levelBadge, { backgroundColor: getLevelColor(player.ballLevel) }]}>
+                          <Text style={styles.levelText}>{player.ballLevel}</Text>
+                        </View>
+                      ) : null}
+                      <Text style={styles.playerSelectName}>{player.name}</Text>
+                    </View>
+                    <View style={[styles.checkbox, isSelected && styles.checkboxActive]}>
+                      {isSelected ? (
+                        <Ionicons name="checkmark" size={16} color="#FFF" />
+                      ) : null}
+                    </View>
+                  </Pressable>
+                );
+              })}
+              {filteredPlayers.length === 0 ? (
+                <View style={styles.noPlayersFound}>
+                  <Text style={styles.noPlayersText}>No players found</Text>
+                </View>
+              ) : null}
+            </KeyboardAwareScrollViewCompat>
+          </View>
+        ) : players.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="people-outline" size={64} color={Colors.dark.disabled} />
             <Text style={styles.emptyText}>No players in this session</Text>
             <Text style={styles.emptySubtext}>Add players to track attendance</Text>
+            <Pressable
+              style={styles.addPlayersButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setShowAddPlayers(true);
+              }}
+            >
+              <Ionicons name="person-add" size={20} color="#FFF" />
+              <Text style={styles.addPlayersButtonText}>Add Players</Text>
+            </Pressable>
           </View>
         ) : (
           <View style={styles.playerList}>
@@ -590,5 +719,124 @@ const styles = StyleSheet.create({
   offlineText: {
     fontSize: Typography.small.fontSize,
     color: Colors.dark.orange,
+  },
+  addPlayersButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.primary,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    marginTop: Spacing.xl,
+  },
+  addPlayersButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: "#FFF",
+  },
+  addPlayersContainer: {
+    flex: 1,
+  },
+  addPlayersHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+  },
+  backButton: {
+    padding: Spacing.xs,
+  },
+  addPlayersTitle: {
+    fontSize: Typography.h3.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  confirmButton: {
+    backgroundColor: Colors.dark.primary,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    minWidth: 80,
+    alignItems: "center",
+  },
+  confirmButtonDisabled: {
+    opacity: 0.5,
+  },
+  confirmButtonText: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "600",
+    color: "#FFF",
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginHorizontal: Spacing.lg,
+    marginVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+    padding: 0,
+  },
+  playerSelectList: {
+    flex: 1,
+    paddingHorizontal: Spacing.lg,
+  },
+  playerSelectItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.xs,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  playerSelectItemActive: {
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.primary + "10",
+  },
+  playerSelectInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  playerSelectName: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "500",
+    color: Colors.dark.text,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: BorderRadius.xs,
+    borderWidth: 2,
+    borderColor: Colors.dark.disabled,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxActive: {
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
+  },
+  noPlayersFound: {
+    alignItems: "center",
+    paddingVertical: Spacing.xl,
+  },
+  noPlayersText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.disabled,
   },
 });

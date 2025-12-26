@@ -15,6 +15,7 @@ import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import MiniTimeline from "@/coach/components/MiniTimeline";
 
 interface Session {
   id: string;
@@ -163,8 +164,26 @@ export default function DashboardScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.greeting}>{getGreeting()},</Text>
-          <Text style={styles.coachName}>{coach.name}</Text>
+          <View>
+            <Text style={styles.greeting}>{getGreeting()},</Text>
+            <Text style={styles.coachName}>{coach.name}</Text>
+          </View>
+          <View style={styles.headerActions}>
+            <Pressable
+              style={styles.headerButton}
+              onPress={() => handleNavigate("Notifications")}
+            >
+              <Ionicons name="notifications-outline" size={24} color={Colors.dark.text} />
+            </Pressable>
+            <Pressable
+              style={styles.headerButton}
+              onPress={() => handleNavigate("CoachProfile")}
+            >
+              <View style={styles.avatarSmall}>
+                <Ionicons name="person" size={16} color={Colors.dark.primary} />
+              </View>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.todayCard}>
@@ -383,6 +402,20 @@ export default function DashboardScreen() {
 
         {todaysSessions.length > 0 ? (
           <View style={styles.sessionsSection}>
+            <Text style={styles.sectionTitle}>Today's Timeline</Text>
+            <View style={styles.timelineCard}>
+              <MiniTimeline
+                sessions={todaysSessions.map(s => ({
+                  ...s,
+                  players: (s as any).players || [],
+                }))}
+              />
+            </View>
+          </View>
+        ) : null}
+
+        {todaysSessions.length > 0 ? (
+          <View style={styles.sessionsSection}>
             <Text style={styles.sectionTitle}>Today's Lessons</Text>
             {todaysSessions.map((session) => {
               const isPast = new Date(session.endTime) < new Date();
@@ -459,7 +492,25 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: Spacing.xl,
+  },
+  headerActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  headerButton: {
+    padding: Spacing.xs,
+  },
+  avatarSmall: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.primary + "20",
+    alignItems: "center",
+    justifyContent: "center",
   },
   greeting: {
     fontSize: Typography.body.fontSize,
@@ -468,6 +519,11 @@ const styles = StyleSheet.create({
   coachName: {
     ...Typography.h1,
     color: Colors.dark.text,
+  },
+  timelineCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
   },
   loadCard: {
     backgroundColor: Colors.dark.backgroundSecondary,

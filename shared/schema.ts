@@ -261,3 +261,43 @@ export const playerProgress = pgTable("player_progress", {
 export const insertPlayerProgressSchema = createInsertSchema(playerProgress).omit({ id: true, createdAt: true });
 export type InsertPlayerProgress = z.infer<typeof insertPlayerProgressSchema>;
 export type PlayerProgress = typeof playerProgress.$inferSelect;
+
+// Session Templates
+export const sessionTemplates = pgTable("session_templates", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").references(() => coaches.id),
+  name: text("name").notNull(),
+  sessionType: text("session_type").notNull(),
+  duration: integer("duration").notNull(),
+  ballLevel: text("ball_level"),
+  skillLevel: integer("skill_level"),
+  defaultPlayerIds: jsonb("default_player_ids"), // JSON array of player IDs
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSessionTemplateSchema = createInsertSchema(sessionTemplates).omit({ id: true, createdAt: true });
+export type InsertSessionTemplate = z.infer<typeof insertSessionTemplateSchema>;
+export type SessionTemplate = typeof sessionTemplates.$inferSelect;
+
+// Coach Notifications
+export const coachNotifications = pgTable("coach_notifications", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").references(() => coaches.id),
+  type: text("type").notNull(), // auto_renew/payment/feedback/holiday/absence/reminder
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  priority: text("priority").default("medium"), // high/medium/low
+  isRead: boolean("is_read").default(false),
+  actionUrl: text("action_url"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCoachNotificationSchema = createInsertSchema(coachNotifications).omit({ id: true, createdAt: true });
+export type InsertCoachNotification = z.infer<typeof insertCoachNotificationSchema>;
+export type CoachNotification = typeof coachNotifications.$inferSelect;
