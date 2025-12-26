@@ -1551,9 +1551,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         conversations.map(async (conv) => {
           const participants = await storage.getConversationParticipants(conv.id);
           
-          // Get player name if coach_player conversation
+          // Get player name for conversations with a player
           let playerName = null;
-          if (conv.type === "coach_player" && conv.playerId) {
+          if (conv.playerId) {
             const player = await storage.getPlayer(conv.playerId);
             playerName = player?.name;
           }
@@ -1579,7 +1579,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const enriched = await Promise.all(
         conversations.map(async (conv) => {
           let coachName = null;
-          if (conv.type === "coach_player" && conv.coachId) {
+          if (conv.coachId) {
             const coach = await storage.getCoach(conv.coachId);
             coachName = coach?.name;
           }
