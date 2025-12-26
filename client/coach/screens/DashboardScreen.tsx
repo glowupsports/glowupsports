@@ -90,7 +90,7 @@ export default function DashboardScreen() {
       result.push({
         id: "feedback",
         type: "feedback",
-        message: `${sessionsNeedingFeedback.length} lessen wachten op feedback`,
+        message: `${sessionsNeedingFeedback.length} lessons awaiting feedback`,
         priority: "medium",
       });
     }
@@ -112,9 +112,9 @@ export default function DashboardScreen() {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return "Goedemorgen";
-    if (hour < 18) return "Goedemiddag";
-    return "Goedenavond";
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
   };
 
   if (!coach) {
@@ -168,14 +168,14 @@ export default function DashboardScreen() {
             <View style={styles.todayStats}>
               <View style={styles.statItem}>
                 <Text style={styles.statNumber}>{todaysSessions.length}</Text>
-                <Text style={styles.statLabel}>Lessen</Text>
+                <Text style={styles.statLabel}>Lessons</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
                 <Text style={styles.statNumber}>
                   {todaysSessions.reduce((acc, s) => acc + s.duration, 0)}
                 </Text>
-                <Text style={styles.statLabel}>Minuten</Text>
+                <Text style={styles.statLabel}>Minutes</Text>
               </View>
             </View>
 
@@ -183,7 +183,7 @@ export default function DashboardScreen() {
               <View style={styles.nextLessonContainer}>
                 <View style={styles.nextLessonBadge}>
                   <View style={styles.liveDot} />
-                  <Text style={styles.nextLessonBadgeText}>NU BEZIG</Text>
+                  <Text style={styles.nextLessonBadgeText}>IN PROGRESS</Text>
                 </View>
                 <Text style={styles.nextLessonTime}>
                   {formatTime(currentSession.startTime)} - {formatTime(currentSession.endTime)}
@@ -191,16 +191,16 @@ export default function DashboardScreen() {
               </View>
             ) : nextSession ? (
               <View style={styles.nextLessonContainer}>
-                <Text style={styles.nextLessonLabel}>Volgende les over</Text>
+                <Text style={styles.nextLessonLabel}>Next lesson in</Text>
                 <Text style={styles.nextLessonTime}>{getTimeUntil(nextSession.startTime)}</Text>
               </View>
             ) : todaysSessions.length === 0 ? (
               <View style={styles.nextLessonContainer}>
-                <Text style={styles.noLessonsText}>Geen lessen vandaag</Text>
+                <Text style={styles.noLessonsText}>No lessons today</Text>
               </View>
             ) : (
               <View style={styles.nextLessonContainer}>
-                <Text style={styles.noLessonsText}>Alle lessen afgerond</Text>
+                <Text style={styles.noLessonsText}>All lessons completed</Text>
               </View>
             )}
           </LinearGradient>
@@ -242,20 +242,20 @@ export default function DashboardScreen() {
         ) : null}
 
         <View style={styles.quickActions}>
-          <Text style={styles.sectionTitle}>Snelle acties</Text>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionGrid}>
             <Pressable style={styles.actionCard} onPress={() => handleNavigate("Calendar")}>
               <View style={[styles.actionIconContainer, { backgroundColor: Colors.dark.primary + "20" }]}>
                 <Ionicons name="calendar-outline" size={24} color={Colors.dark.primary} />
               </View>
-              <Text style={styles.actionText}>Kalender</Text>
+              <Text style={styles.actionText}>Calendar</Text>
             </Pressable>
 
             <Pressable style={styles.actionCard} onPress={() => handleNavigate("Players")}>
               <View style={[styles.actionIconContainer, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
                 <Ionicons name="people-outline" size={24} color={Colors.dark.xpCyan} />
               </View>
-              <Text style={styles.actionText}>Spelers</Text>
+              <Text style={styles.actionText}>Players</Text>
             </Pressable>
 
             <Pressable style={styles.actionCard} onPress={() => handleNavigate("Coaching")}>
@@ -269,14 +269,14 @@ export default function DashboardScreen() {
               <View style={[styles.actionIconContainer, { backgroundColor: Colors.dark.gold + "20" }]}>
                 <Ionicons name="time-outline" size={24} color={Colors.dark.gold} />
               </View>
-              <Text style={styles.actionText}>Geschiedenis</Text>
+              <Text style={styles.actionText}>History</Text>
             </Pressable>
           </View>
         </View>
 
         {todaysSessions.length > 0 ? (
           <View style={styles.sessionsSection}>
-            <Text style={styles.sectionTitle}>Lessen vandaag</Text>
+            <Text style={styles.sectionTitle}>Today's Lessons</Text>
             {todaysSessions.map((session) => {
               const isPast = new Date(session.endTime) < new Date();
               const isCurrent =
@@ -299,20 +299,20 @@ export default function DashboardScreen() {
                   <View style={styles.sessionInfo}>
                     <Text style={[styles.sessionType, isPast && styles.sessionTypePast]}>
                       {session.sessionType === "private"
-                        ? "Prive"
+                        ? "Private"
                         : session.sessionType === "semi_private"
-                        ? "Semi-Prive"
+                        ? "Semi-Private"
                         : session.sessionType === "group"
-                        ? "Groep"
+                        ? "Group"
                         : session.sessionType}
                     </Text>
                     {isCurrent ? (
                       <View style={styles.currentBadge}>
-                        <Text style={styles.currentBadgeText}>NU</Text>
+                        <Text style={styles.currentBadgeText}>NOW</Text>
                       </View>
                     ) : isPast ? (
                       <View style={styles.pastBadge}>
-                        <Text style={styles.pastBadgeText}>Afgerond</Text>
+                        <Text style={styles.pastBadgeText}>Done</Text>
                       </View>
                     ) : null}
                   </View>
