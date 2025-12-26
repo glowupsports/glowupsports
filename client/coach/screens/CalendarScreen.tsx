@@ -143,6 +143,7 @@ export default function CalendarScreen() {
   const [selectedSessionForAttendance, setSelectedSessionForAttendance] = useState<Session | null>(null);
   const [weekMode, setWeekMode] = useState<"overview" | "availability">("overview");
   const [monthMode, setMonthMode] = useState<"load" | "availability">("load");
+  const [expandedAvailBlock, setExpandedAvailBlock] = useState<string | null>(null);
 
   // Fetch available coaches
   const { data: coaches = [], isLoading: coachesLoading } = useQuery<CoachData[]>({
@@ -991,6 +992,9 @@ export default function CalendarScreen() {
                         const allBusy = courtOccupancy.every(c => c.occupied);
                         const partialFree = !allFree && !allBusy;
                         
+                        const blockKey = `${dayIdx}-${hour}`;
+                        const isExpanded = expandedAvailBlock === blockKey;
+                        
                         return (
                           <Pressable 
                             key={hour} 
@@ -1001,6 +1005,7 @@ export default function CalendarScreen() {
                               partialFree && styles.availBlockPartial,
                             ]}
                             onPress={() => {
+                              // Single tap opens create drawer (preserves original flow)
                               if (!allBusy) {
                                 const freeCourt = courtOccupancy.find(c => !c.occupied);
                                 if (freeCourt) {
@@ -1008,20 +1013,28 @@ export default function CalendarScreen() {
                                   setShowCreateDrawer(true);
                                 }
                               }
+                              setExpandedAvailBlock(null);
                             }}
+                            onLongPress={() => {
+                              // Long-press shows court details
+                              setExpandedAvailBlock(isExpanded ? null : blockKey);
+                            }}
+                            delayLongPress={300}
                           >
-                            {/* Mini court indicators */}
-                            <View style={styles.courtIndicators}>
-                              {courtOccupancy.map((co, i) => (
-                                <View 
-                                  key={i} 
-                                  style={[
-                                    styles.courtDot,
-                                    co.occupied ? styles.courtDotBusy : styles.courtDotFree
-                                  ]} 
-                                />
-                              ))}
-                            </View>
+                            {/* Mini court indicators - only visible on long-press */}
+                            {isExpanded && (
+                              <View style={styles.courtIndicators}>
+                                {courtOccupancy.map((co, i) => (
+                                  <View 
+                                    key={i} 
+                                    style={[
+                                      styles.courtDot,
+                                      co.occupied ? styles.courtDotBusy : styles.courtDotFree
+                                    ]} 
+                                  />
+                                ))}
+                              </View>
+                            )}
                           </Pressable>
                         );
                       })}
@@ -1501,8 +1514,11 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   dayCardToday: {
-    borderWidth: 2,
-    borderColor: Colors.dark.primary,
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 6,
   },
   dayCardHeader: {
     width: 70,
@@ -1709,17 +1725,18 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(35, 35, 40, 0.6)",
   },
   monthDayCardToday: {
-    borderWidth: 2,
-    borderColor: Colors.dark.primary,
     shadowColor: Colors.dark.primary,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 8,
   },
   monthDayCardSelected: {
-    borderWidth: 2,
-    borderColor: Colors.dark.text,
+    shadowColor: Colors.dark.text,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 4,
   },
   monthDayCardNumber: {
     ...Typography.caption,
@@ -1762,30 +1779,30 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: "50%",
     left: "50%",
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    marginTop: -8,
-    marginLeft: -8,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginTop: -5,
+    marginLeft: -5,
   },
   monthAvailabilityOpen: {
     backgroundColor: "#3AE374",
     shadowColor: "#3AE374",
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 3,
   },
   monthAvailabilityLimited: {
     backgroundColor: "#FFD54F",
     shadowColor: "#FFD54F",
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 3,
   },
   monthAvailabilityFull: {
-    backgroundColor: "rgba(100, 100, 100, 0.5)",
+    backgroundColor: "rgba(80, 80, 80, 0.3)",
   },
   monthSlotsLabel: {
     position: "absolute",
@@ -1841,13 +1858,16 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   freeSlotChip: {
-    backgroundColor: Colors.dark.primary + "20",
-    borderWidth: 1,
-    borderColor: Colors.dark.primary + "40",
+    backgroundColor: Colors.dark.primary + "15",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
     marginRight: Spacing.sm,
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
   freeSlotText: {
     ...Typography.caption,
@@ -1910,39 +1930,46 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   availBlock: {
-    height: 50,
+    height: 44,
     borderRadius: BorderRadius.xs,
     marginBottom: 2,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: Colors.dark.backgroundTertiary,
+    backgroundColor: "rgba(35, 35, 40, 0.3)",
   },
   availBlockFree: {
-    backgroundColor: Colors.dark.primary + "15",
-    borderColor: Colors.dark.primary + "30",
+    backgroundColor: Colors.dark.primary + "12",
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 1,
   },
   availBlockBusy: {
-    backgroundColor: Colors.dark.backgroundTertiary,
-    borderColor: Colors.dark.backgroundTertiary,
+    backgroundColor: "rgba(45, 45, 50, 0.4)",
   },
   availBlockPartial: {
-    backgroundColor: Colors.dark.gold + "15",
-    borderColor: Colors.dark.gold + "30",
+    backgroundColor: Colors.dark.gold + "10",
+    shadowColor: Colors.dark.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 1,
   },
   courtIndicators: {
     flexDirection: "row",
-    gap: 3,
+    gap: 2,
+    opacity: 0.6,
   },
   courtDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
   },
   courtDotFree: {
     backgroundColor: Colors.dark.primary,
   },
   courtDotBusy: {
-    backgroundColor: Colors.dark.disabled,
+    backgroundColor: "rgba(80, 80, 85, 0.5)",
   },
 });
