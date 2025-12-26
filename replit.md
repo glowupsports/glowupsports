@@ -178,3 +178,12 @@ Advanced player development tracking system with 5 skill domains, anti-abuse rul
   - Technical domain observation based on progressTrend (up/stable/down)
   - Mental domain observation based on player mood (good/neutral/low)
   - Effort level from per-player feedback applied to both observations
+- **Session Feedback UX Enhancements** (December 2025):
+  - Copy tweaks: "Observed Mood", "Observed Progress", "Optional coach note", "Session Focus" labels
+  - Context-aware expansion: Private sessions (1 player) expand by default, group sessions collapse
+  - Tap-to-toggle skill chips: Cycle through stable → up → down for Forehand, Backhand, Serve, Volley, Movement, Mental
+  - "Apply to all" button for group sessions to set all players to normal effort
+  - Auto-highlight skills matching Session Focus selection (star icon, moved to front)
+  - "Session went as expected" quick action: Sets all stable progress, normal effort
+  - Visual feedback after save: Success overlay with checkmark for 1.2 seconds
+  - Skill warning: Appears when >7 skills marked as improved for a player
