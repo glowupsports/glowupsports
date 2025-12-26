@@ -731,9 +731,9 @@ export default function CalendarScreen() {
                       </Pressable>
                     ))}
 
-                    {/* Render sessions for this court */}
+                    {/* Render sessions for this court (or unassigned sessions in first court) */}
                     {ownSessions
-                      .filter((s) => s.courtId === court.id)
+                      .filter((s) => s.courtId === court.id || (s.courtId === null && courtIndex === 0))
                       .map((session) => {
                         const { top, height } = getSessionPosition(session);
                         const now = new Date();
@@ -786,7 +786,7 @@ export default function CalendarScreen() {
 
                     {/* Render blocked sessions */}
                     {blockedSessions
-                      .filter((s) => s.courtId === court.id)
+                      .filter((s) => s.courtId === court.id || (s.courtId === null && courtIndex === 0))
                       .map((session) => {
                         const { top, height } = getSessionPosition(session);
                         return (

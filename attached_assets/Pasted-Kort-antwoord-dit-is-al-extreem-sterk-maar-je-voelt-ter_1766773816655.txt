@@ -1,0 +1,254 @@
+Kort antwoord: dit is al extreem sterk — maar je voelt terecht dat er nog 1 laag ontbreekt om het écht Glow / Playtomic / Google Calendar quality te maken.
+Ik ga je eerlijk, scherp en gestructureerd zeggen wat er nog mist en wat je wel / niet moet toevoegen.
+
+🔍 HET GROTE PLAATJE (mijn oordeel)
+
+Je hebt nu 4 grote pijlers al heel goed staan:
+
+Coach Flow (dag → les → feedback) ✅
+
+Gamified Progress Engine (5 core domains) ✅
+
+Operational Calendar (boeken, verplaatsen, blokkeren) ✅
+
+Coach UX / Focus / Energy / Offline ✅
+
+👉 Wat nog ontbreekt is visuele en cognitieve helderheid op planning-niveau
+Niet méér features — maar betere mentale modellen voor de coach.
+
+1️⃣ WAT MIST ER NOG IN DE CALENDAR (BELANGRIJKSTE GAP)
+❌ Probleem dat je zelf voelt (terecht)
+
+Week & Month views voelen:
+
+niet “pro”
+
+niet snel
+
+niet decision-making ready
+
+Coach kan niet instant zeggen:
+
+“Ja, volgende week dinsdag om 16:00 heb ik nog plek op Court 2”
+
+🎯 Oorzaak
+
+Je hebt maar één visuele representatie per view, terwijl coaches 2 verschillende vragen hebben:
+
+🧠 COACH HEEFT TWEE MENTAAL MODES
+MODE A — Operational Mode (wat gebeurt er precies?)
+
+“Waar geef ik les, met wie, op welke baan?”
+
+MODE B — Sales / Planning Mode (waar is ruimte?)
+
+“Waar heb ik nog plek om iets bij te boeken?”
+
+👉 ÉÉN view kan dit niet tegelijk goed doen.
+
+2️⃣ DE OPLOSSING (HIER ZIT JE “WOW”)
+🔀 DUAL-MODE CALENDAR (per view)
+🌞 Day View (al bijna perfect)
+
+Laat dit zoals het is, met kleine tweaks:
+
+✔ Lanes per court
+✔ Now-line
+✔ Now Playing card
+✔ Drag & drop
+✔ Attendance / Extend / End
+
+🔧 Kleine upgrade:
+
+Free gaps subtiel highlighten (dotted glow)
+
+“Next free slot” chip bovenin
+
+📅 Week View → TOGGLE: Timeline | Availability
+🔹 Mode 1: Timeline (zoals nu, maar cleaner)
+
+Voor:
+
+inzicht in dagen
+
+workload
+
+structuur
+
+👉 Deze heb je grotendeels al.
+
+🔥 Mode 2: Availability Grid (DIT MIS JE NU)
+
+Dit is je Playtomic / Google Calendar killer.
+
+Wat het is:
+
+Grid:
+
+kolommen = dagen
+
+rijen = tijd (08:00 – 22:00)
+
+Elk vakje:
+
+🟢 Vrij
+
+🔴 Bezet
+
+⚫ Geblokkeerd (andere coach / travel)
+
+Extra’s:
+
+Tap op 🟢 → “Create session”
+
+Long-press → multi-select slots
+
+Court filter bovenin
+
+👉 Coach kan in 2 seconden zeggen of er plek is.
+
+💡 Dit hoeft geen volledige details te tonen — alleen beschikbaarheid.
+
+🗓 Month View → TOGGLE: Workload | Availability
+🔹 Mode 1: Workload (wat je nu hebt, maar mooier)
+
+Elke dag:
+
+verticale bar = minuten
+
+kleur = intensity
+
+Weekends iets dimmer
+
+Hover / tap → mini breakdown
+
+🔥 Mode 2: Availability Heatmap
+
+Dag = “hoe vol is deze dag?”
+
+Groen = veel ruimte
+
+Oranje = half
+
+Rood = bijna vol
+
+👉 Coach denkt:
+
+“Deze week kan ik nog sales pushen, volgende niet.”
+
+3️⃣ VISUAL STIJL — WAAROM HET NU “KINDERACHTIG” VOELT
+
+Je gevoel klopt. Redenen:
+
+❌ Wat nu misgaat
+
+Te veel losse blokjes
+
+Te weinig diepte
+
+Geen visuele hiërarchie
+
+Te veel “UI component look”
+
+✨ GLOW CALENDAR DESIGN RULES (belangrijk!)
+🎨 1. Minder outlines, meer layers
+
+Cards “zweven”
+
+Schaduwen i.p.v. lijnen
+
+Achtergrond = gradient / noise
+
+🎨 2. Tijd = hoofdrol
+
+Tijd-as altijd duidelijk
+
+Rustige ticks
+
+Labels pas bij focus
+
+🎨 3. Kleur = betekenis (nooit decoratie)
+
+Groen = beschikbaar / positief
+
+Oranje = aandacht
+
+Rood = conflict / overload
+
+🎨 4. Animatie = feedback
+
+Toggle = smooth morph
+
+Drag = magnet snap
+
+Now-line = subtiel pulse
+
+4️⃣ PROGRESS & COACH FEEDBACK — MIS JE NOG IETS?
+
+Je Progress-systeem is inhoudelijk ijzersterk.
+Wat je nog kunt toevoegen (optioneel, maar Glow-level):
+
+🧩 A) SOCIAL SKILLS (je vroeg hier terecht naar)
+
+Voeg bij Player Feedback:
+
+Social Observations (1–2 taps max):
+
+🤝 Teamwork
+
+👂 Coachability
+
+🎯 Respect
+
+⭐ Leadership
+
+➡️ Geen cijfers
+➡️ Alleen ↑ / → / ↓
+➡️ Telt langzaam mee in Social domain
+
+🧩 B) “WHY” zichtbaar maken voor speler
+
+Speler ziet later:
+
+“Je Social score steeg omdat je beter samenwerkte in groepslessen.”
+
+➡️ Motiverend
+➡️ Transparant
+➡️ Anti-bullshit
+
+🧩 C) Coach Confidence Guard (anti-abuse)
+
+Je had hier al regels voor — goed.
+
+Extra:
+
+Max % progress per week
+
+AI flag bij extreme stijgingen
+
+Vergelijking met andere coaches (achter de schermen)
+
+5️⃣ WAT JE NIET MOET TOEVOEGEN (BELANGRIJK)
+
+❌ Geen extra tabjes
+❌ Geen cijfers per skill per les
+❌ Geen verplichte lange evaluaties
+❌ Geen “admin dashboards” voor coach
+
+👉 Snel, intuïtief, eerlijk.
+
+✅ EINDCONCLUSIE (BELANGRIJK)
+
+Wat je nu hebt:
+
+90% van een wereldklasse coach app
+
+Beter dan 90% van tennis tools
+
+Wat je nog nodig hebt:
+
+Dual-mode Week & Month views
+
+Availability-first thinking
+
+Iets meer visuele volwassenheid
