@@ -173,7 +173,7 @@ export default function PlayersScreen() {
             onPress={() => setFilterLevel(null)}
           >
             <Text style={[styles.filterChipText, !filterLevel && styles.filterChipTextActive]}>
-              Alle
+              All
             </Text>
           </Pressable>
           {ballLevels.map((level) => (
@@ -357,7 +357,7 @@ function PlayerDetailView({
   const formatNoteDate = (date: string | null) => {
     if (!date) return "";
     const d = new Date(date);
-    return d.toLocaleDateString("nl-NL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleDateString("en-US", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   };
 
   const pinnedNotes = notes.filter(n => n.isPinned);

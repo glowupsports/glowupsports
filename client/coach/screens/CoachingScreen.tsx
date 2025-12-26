@@ -272,10 +272,10 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
         </View>
 
         <View style={styles.feedbackSection}>
-          <Text style={styles.feedbackLabel}>Algemene notitie (optioneel)</Text>
+          <Text style={styles.feedbackLabel}>General note (optional)</Text>
           <TextInput
             style={styles.noteInput}
-            placeholder="Korte notitie over de sessie..."
+            placeholder="Short note about the session..."
             placeholderTextColor={Colors.dark.tabIconDefault}
             value={generalNote}
             onChangeText={setGeneralNote}

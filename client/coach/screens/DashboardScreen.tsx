@@ -155,9 +155,9 @@ export default function DashboardScreen() {
             style={styles.todayGradient}
           >
             <View style={styles.todayHeader}>
-              <Text style={styles.todayLabel}>VANDAAG</Text>
+              <Text style={styles.todayLabel}>TODAY</Text>
               <Text style={styles.todayDate}>
-                {today.toLocaleDateString("nl-NL", {
+                {today.toLocaleDateString("en-US", {
                   weekday: "long",
                   day: "numeric",
                   month: "long",

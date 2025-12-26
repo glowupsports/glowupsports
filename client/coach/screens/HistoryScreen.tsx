@@ -61,7 +61,7 @@ export default function HistoryScreen() {
   const groupedSessions = useMemo(() => {
     const groups: { [key: string]: Session[] } = {};
     filteredSessions.forEach((session) => {
-      const date = new Date(session.startTime).toLocaleDateString("nl-NL", {
+      const date = new Date(session.startTime).toLocaleDateString("en-US", {
         weekday: "long",
         day: "numeric",
         month: "long",
@@ -83,15 +83,15 @@ export default function HistoryScreen() {
   const getSessionTypeLabel = (type: string) => {
     switch (type) {
       case "private":
-        return "Prive";
+        return "Private";
       case "semi_private":
-        return "Semi-Prive";
+        return "Semi-Private";
       case "group":
-        return "Groep";
+        return "Group";
       case "physical":
-        return "Fysiek";
+        return "Physical";
       case "activity":
-        return "Activiteit";
+        return "Activity";
       default:
         return type;
     }
@@ -125,8 +125,8 @@ export default function HistoryScreen() {
             <Ionicons name="close" size={24} color={Colors.dark.text} />
           </Pressable>
           <View style={styles.headerTitles}>
-            <Text style={styles.title}>Geschiedenis</Text>
-            <Text style={styles.subtitle}>{pastSessions.length} afgeronde lessen</Text>
+            <Text style={styles.title}>History</Text>
+            <Text style={styles.subtitle}>{pastSessions.length} completed lessons</Text>
           </View>
           <View style={{ width: 40 }} />
         </View>
@@ -135,10 +135,10 @@ export default function HistoryScreen() {
       <View style={styles.filterContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {([
-            { value: "all", label: "Alle" },
-            { value: "private", label: "Prive" },
-            { value: "semi_private", label: "Semi-Prive" },
-            { value: "group", label: "Groep" },
+            { value: "all", label: "All" },
+            { value: "private", label: "Private" },
+            { value: "semi_private", label: "Semi-Private" },
+            { value: "group", label: "Group" },
           ] as const).map((filter) => (
             <Pressable
               key={filter.value}
@@ -165,7 +165,7 @@ export default function HistoryScreen() {
       ) : Object.keys(groupedSessions).length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="time-outline" size={64} color={Colors.dark.disabled} />
-          <Text style={styles.emptyText}>Geen afgeronde lessen</Text>
+          <Text style={styles.emptyText}>No completed lessons</Text>
         </View>
       ) : (
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -217,7 +217,7 @@ function SessionDetailView({
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString("nl-NL", {
+    return new Date(date).toLocaleDateString("en-US", {
       weekday: "long",
       day: "numeric",
       month: "long",
@@ -228,15 +228,15 @@ function SessionDetailView({
   const getSessionTypeLabel = (type: string) => {
     switch (type) {
       case "private":
-        return "Prive";
+        return "Private";
       case "semi_private":
-        return "Semi-Prive";
+        return "Semi-Private";
       case "group":
-        return "Groep";
+        return "Group";
       case "physical":
-        return "Fysiek";
+        return "Physical";
       case "activity":
-        return "Activiteit";
+        return "Activity";
       default:
         return type;
     }
@@ -253,7 +253,7 @@ function SessionDetailView({
         <Pressable style={styles.backButton} onPress={onBack}>
           <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
         </Pressable>
-        <Text style={styles.detailTitle}>Sessie Details</Text>
+        <Text style={styles.detailTitle}>Session Details</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -277,23 +277,23 @@ function SessionDetailView({
         </View>
 
         <View style={styles.infoSection}>
-          <Text style={styles.sectionLabel}>Duur</Text>
+          <Text style={styles.sectionLabel}>Duration</Text>
           <View style={styles.infoCard}>
-            <Text style={styles.infoValue}>{session.duration} minuten</Text>
+            <Text style={styles.infoValue}>{session.duration} minutes</Text>
           </View>
         </View>
 
         <View style={styles.infoSection}>
-          <Text style={styles.sectionLabel}>Spelers</Text>
+          <Text style={styles.sectionLabel}>Players</Text>
           <View style={styles.infoCard}>
-            <Text style={styles.placeholderText}>Geen spelerdata beschikbaar</Text>
+            <Text style={styles.placeholderText}>No player data available</Text>
           </View>
         </View>
 
         <View style={styles.infoSection}>
           <Text style={styles.sectionLabel}>Feedback</Text>
           <View style={styles.infoCard}>
-            <Text style={styles.placeholderText}>Geen feedback beschikbaar</Text>
+            <Text style={styles.placeholderText}>No feedback available</Text>
           </View>
         </View>
       </ScrollView>
@@ -417,9 +417,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-  },
-  backButton: {
-    padding: Spacing.xs,
   },
   detailTitle: {
     ...Typography.h3,

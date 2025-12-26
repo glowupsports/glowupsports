@@ -66,7 +66,7 @@ function CoachTabs() {
         name="Calendar"
         component={CalendarScreen}
         options={{
-          tabBarLabel: "Kalender",
+          tabBarLabel: "Calendar",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calendar-outline" size={size} color={color} />
           ),
@@ -76,7 +76,7 @@ function CoachTabs() {
         name="Players"
         component={PlayersScreen}
         options={{
-          tabBarLabel: "Spelers",
+          tabBarLabel: "Players",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people-outline" size={size} color={color} />
           ),
