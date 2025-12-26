@@ -273,6 +273,36 @@ export const storage = {
     return db.select().from(sessionPlayers).where(eq(sessionPlayers.sessionId, sessionId));
   },
 
+  async getSessionPlayersWithDetails(sessionId: string): Promise<Array<{
+    id: string;
+    name: string;
+    level: string | null;
+    ballLevel: string | null;
+    skillLevel: number | null;
+    status: string | null;
+    lateMinutes: number | null;
+    absentReason: string | null;
+  }>> {
+    const result = await db
+      .select({
+        id: players.id,
+        name: players.name,
+        ballLevel: players.ballLevel,
+        skillLevel: players.skillLevel,
+        status: sessionPlayers.attendanceStatus,
+        lateMinutes: sessionPlayers.lateMinutes,
+        absentReason: sessionPlayers.absenceReason,
+      })
+      .from(sessionPlayers)
+      .innerJoin(players, eq(sessionPlayers.playerId, players.id))
+      .where(eq(sessionPlayers.sessionId, sessionId));
+    
+    return result.map(p => ({
+      ...p,
+      level: p.ballLevel || "green",
+    }));
+  },
+
   async addPlayerToSession(data: InsertSessionPlayer): Promise<SessionPlayer> {
     const result = await db.insert(sessionPlayers).values(data).returning();
     return result[0];

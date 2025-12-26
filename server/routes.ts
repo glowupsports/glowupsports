@@ -43,6 +43,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get own sessions (full data)
       const ownSessions = await storage.getSessionsByCoach(coachId as string, startDate, endDate);
       
+      // Fetch players for each session using efficient join query
+      const sessionsWithPlayers = await Promise.all(
+        ownSessions.map(async (session) => {
+          const players = await storage.getSessionPlayersWithDetails(session.id);
+          return {
+            ...session,
+            players,
+          };
+        })
+      );
+      
       // Get blocked sessions (other coaches, no details)
       const blockedSessions = await storage.getBlockedSessions(coachId as string, startDate, endDate);
       const blockedSessionsMinimal = blockedSessions.map(s => ({
@@ -58,7 +69,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const locations = await storage.getAllLocations();
 
       res.json({
-        ownSessions,
+        ownSessions: sessionsWithPlayers,
         blockedSessions: blockedSessionsMinimal,
         courts,
         locations,
