@@ -34,6 +34,8 @@ interface CoachData {
   phone: string | null;
   homeLocationId: string | null;
   hourlyRate: string | null;
+  level: number | null;
+  totalXp: number | null;
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");

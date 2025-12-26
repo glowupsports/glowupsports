@@ -28,6 +28,11 @@ import {
   xpTransactions,
   // Coach XP System
   coachXpTransactions,
+  // Glow Chat System
+  conversations,
+  conversationParticipants,
+  messages,
+  messageReactions,
   type Coach,
   type InsertCoach,
   type Location,
@@ -75,6 +80,15 @@ import {
   type InsertXpTransaction,
   type CoachXpTransaction,
   type InsertCoachXpTransaction,
+  // Glow Chat types
+  type Conversation,
+  type InsertConversation,
+  type ConversationParticipant,
+  type InsertConversationParticipant,
+  type Message,
+  type InsertMessage,
+  type MessageReaction,
+  type InsertMessageReaction,
 } from "@shared/schema";
 
 export const storage = {
@@ -1084,5 +1098,264 @@ export const storage = {
       sessionCount: playerSessionCount.length,
       minSessionsRequired,
     };
+  },
+
+  // ==================== GLOW CHAT SYSTEM ====================
+  
+  // Conversations
+  async getConversation(id: string): Promise<Conversation | undefined> {
+    const result = await db.select().from(conversations).where(eq(conversations.id, id));
+    return result[0];
+  },
+
+  async getConversationsForCoach(coachId: string): Promise<Conversation[]> {
+    const participantConversations = await db
+      .select({ conversationId: conversationParticipants.conversationId })
+      .from(conversationParticipants)
+      .where(
+        and(
+          eq(conversationParticipants.coachId, coachId),
+          eq(conversationParticipants.participantType, "coach")
+        )
+      );
+    
+    const conversationIds = participantConversations.map(p => p.conversationId);
+    if (conversationIds.length === 0) return [];
+    
+    return db
+      .select()
+      .from(conversations)
+      .where(
+        and(
+          inArray(conversations.id, conversationIds),
+          eq(conversations.isArchived, false)
+        )
+      )
+      .orderBy(desc(conversations.lastMessageAt));
+  },
+
+  async getConversationsForPlayer(playerId: string): Promise<Conversation[]> {
+    const participantConversations = await db
+      .select({ conversationId: conversationParticipants.conversationId })
+      .from(conversationParticipants)
+      .where(
+        and(
+          eq(conversationParticipants.playerId, playerId),
+          eq(conversationParticipants.participantType, "player")
+        )
+      );
+    
+    const conversationIds = participantConversations.map(p => p.conversationId);
+    if (conversationIds.length === 0) return [];
+    
+    return db
+      .select()
+      .from(conversations)
+      .where(
+        and(
+          inArray(conversations.id, conversationIds),
+          eq(conversations.isArchived, false)
+        )
+      )
+      .orderBy(desc(conversations.lastMessageAt));
+  },
+
+  async createConversation(data: InsertConversation): Promise<Conversation> {
+    const result = await db.insert(conversations).values(data).returning();
+    return result[0];
+  },
+
+  async updateConversation(id: string, data: Partial<InsertConversation>): Promise<Conversation | undefined> {
+    const result = await db.update(conversations).set(data).where(eq(conversations.id, id)).returning();
+    return result[0];
+  },
+
+  async getOrCreateCoachPlayerConversation(coachId: string, playerId: string): Promise<Conversation> {
+    // Check if conversation already exists
+    const existing = await db
+      .select()
+      .from(conversations)
+      .where(
+        and(
+          eq(conversations.type, "coach_player"),
+          eq(conversations.coachId, coachId),
+          eq(conversations.playerId, playerId)
+        )
+      );
+    
+    if (existing.length > 0) return existing[0];
+    
+    // Create new conversation
+    const conv = await db.insert(conversations).values({
+      type: "coach_player",
+      coachId,
+      playerId,
+    }).returning();
+    
+    // Add participants
+    await db.insert(conversationParticipants).values([
+      { conversationId: conv[0].id, participantType: "coach", coachId, role: "owner", canPost: true },
+      { conversationId: conv[0].id, participantType: "player", playerId, role: "member", canPost: true },
+    ]);
+    
+    return conv[0];
+  },
+
+  // Participants
+  async getConversationParticipants(conversationId: string): Promise<ConversationParticipant[]> {
+    return db.select().from(conversationParticipants).where(eq(conversationParticipants.conversationId, conversationId));
+  },
+
+  async addConversationParticipant(data: InsertConversationParticipant): Promise<ConversationParticipant> {
+    const result = await db.insert(conversationParticipants).values(data).returning();
+    return result[0];
+  },
+
+  async updateParticipantLastRead(conversationId: string, participantType: string, participantId: string): Promise<void> {
+    if (participantType === "coach") {
+      await db.update(conversationParticipants)
+        .set({ lastReadAt: new Date() })
+        .where(
+          and(
+            eq(conversationParticipants.conversationId, conversationId),
+            eq(conversationParticipants.coachId, participantId)
+          )
+        );
+    } else if (participantType === "player") {
+      await db.update(conversationParticipants)
+        .set({ lastReadAt: new Date() })
+        .where(
+          and(
+            eq(conversationParticipants.conversationId, conversationId),
+            eq(conversationParticipants.playerId, participantId)
+          )
+        );
+    }
+  },
+
+  // Messages
+  async getMessages(conversationId: string, limit: number = 50): Promise<Message[]> {
+    return db
+      .select()
+      .from(messages)
+      .where(
+        and(
+          eq(messages.conversationId, conversationId),
+          eq(messages.isDeleted, false)
+        )
+      )
+      .orderBy(desc(messages.createdAt))
+      .limit(limit);
+  },
+
+  async createMessage(data: InsertMessage): Promise<Message> {
+    const result = await db.insert(messages).values(data).returning();
+    
+    // Update conversation last message
+    await db.update(conversations).set({
+      lastMessageAt: new Date(),
+      lastMessagePreview: data.body.substring(0, 100),
+    }).where(eq(conversations.id, data.conversationId));
+    
+    return result[0];
+  },
+
+  async deleteMessage(id: string): Promise<void> {
+    await db.update(messages).set({ isDeleted: true }).where(eq(messages.id, id));
+  },
+
+  // Reactions
+  async getMessageReactions(messageId: string): Promise<MessageReaction[]> {
+    return db.select().from(messageReactions).where(eq(messageReactions.messageId, messageId));
+  },
+
+  async addReaction(data: InsertMessageReaction): Promise<MessageReaction> {
+    const result = await db.insert(messageReactions).values(data).returning();
+    return result[0];
+  },
+
+  async removeReaction(messageId: string, reactorType: string, reactorId: string, emoji: string): Promise<void> {
+    if (reactorType === "coach") {
+      await db.delete(messageReactions).where(
+        and(
+          eq(messageReactions.messageId, messageId),
+          eq(messageReactions.reactorCoachId, reactorId),
+          eq(messageReactions.emoji, emoji)
+        )
+      );
+    } else {
+      await db.delete(messageReactions).where(
+        and(
+          eq(messageReactions.messageId, messageId),
+          eq(messageReactions.reactorPlayerId, reactorId),
+          eq(messageReactions.emoji, emoji)
+        )
+      );
+    }
+  },
+
+  // Unread count
+  async getUnreadCountForCoach(coachId: string): Promise<number> {
+    const participations = await db
+      .select()
+      .from(conversationParticipants)
+      .where(
+        and(
+          eq(conversationParticipants.coachId, coachId),
+          eq(conversationParticipants.participantType, "coach")
+        )
+      );
+    
+    let unreadCount = 0;
+    
+    for (const p of participations) {
+      const lastRead = p.lastReadAt || new Date(0);
+      const unreadMessages = await db
+        .select()
+        .from(messages)
+        .where(
+          and(
+            eq(messages.conversationId, p.conversationId),
+            gte(messages.createdAt, lastRead),
+            ne(messages.senderCoachId, coachId),
+            eq(messages.isDeleted, false)
+          )
+        );
+      unreadCount += unreadMessages.length;
+    }
+    
+    return unreadCount;
+  },
+
+  async getUnreadCountForPlayer(playerId: string): Promise<number> {
+    const participations = await db
+      .select()
+      .from(conversationParticipants)
+      .where(
+        and(
+          eq(conversationParticipants.playerId, playerId),
+          eq(conversationParticipants.participantType, "player")
+        )
+      );
+    
+    let unreadCount = 0;
+    
+    for (const p of participations) {
+      const lastRead = p.lastReadAt || new Date(0);
+      const unreadMessages = await db
+        .select()
+        .from(messages)
+        .where(
+          and(
+            eq(messages.conversationId, p.conversationId),
+            gte(messages.createdAt, lastRead),
+            ne(messages.senderPlayerId, playerId),
+            eq(messages.isDeleted, false)
+          )
+        );
+      unreadCount += unreadMessages.length;
+    }
+    
+    return unreadCount;
   },
 };
