@@ -209,3 +209,15 @@ Advanced player development tracking system with 5 skill domains, anti-abuse rul
   - **Domain Preview Chips (read-only)**:
     - Shows auto-calculated impact on 5 domains (Technical, Mental, Physical, Social, Tactical)
     - Green = improving, Red = needs work, Gray = stable
+  - **Passive Social Growth**:
+    - Group sessions (>1 player) with high effort = automatic Social domain growth
+    - Group sessions with normal effort = stable Social
+    - No negative impact unless explicit social issue
+  - **Skill Groups Toggle**:
+    - Skills organized into collapsible groups: Technical, Physical, Mental
+    - Technical group (Forehand, Backhand, Serve, Volley) open by default
+    - Collapsed groups show badge with count of modified skills
+  - **Weighted Glow Score** (backend):
+    - Calculated from 5 domain scores with weights: Technical 30%, Mental 20%, Physical 20%, Social 15%, Tactical 15%
+    - Returned in progress summary API: `/api/players/:id/progress/summary`
+    - Includes glowScore (0-100), skills array, and domainScores array

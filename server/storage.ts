@@ -518,7 +518,7 @@ export const storage = {
     return result[0];
   },
 
-  async getProgressSummary(playerId: string): Promise<{ skillArea: string; avgRating: number; trend: string }[]> {
+  async getProgressSummary(playerId: string): Promise<{ skillArea: string; avgRating: number; trend: string; glowScore?: number; domainScores?: { domain: string; score: number; trend: string }[] }[]> {
     const progress = await db
       .select()
       .from(playerProgress)
@@ -526,7 +526,7 @@ export const storage = {
       .orderBy(desc(playerProgress.createdAt));
     
     const skillAreas = ["forehand", "backhand", "serve", "volley", "movement", "mental"];
-    return skillAreas.map(area => {
+    const skills = skillAreas.map(area => {
       const areaProgress = progress.filter(p => p.skillArea === area);
       const avgRating = areaProgress.length > 0 
         ? areaProgress.reduce((sum, p) => sum + (p.rating || 0), 0) / areaProgress.length 
@@ -534,6 +534,54 @@ export const storage = {
       const latestTrend = areaProgress[0]?.trend || "stable";
       return { skillArea: area, avgRating: Math.round(avgRating * 10) / 10, trend: latestTrend };
     });
+
+    // Get domain skill states for weighted Glow Score
+    const domainStatesWithNames = await db
+      .select({
+        progressValue: playerSkillState.progressValue,
+        trend: playerSkillState.trend,
+        domainName: skillDomains.name,
+      })
+      .from(playerSkillState)
+      .leftJoin(skillDomains, eq(playerSkillState.domainId, skillDomains.id))
+      .where(eq(playerSkillState.playerId, playerId));
+
+    // Domain weights: Technical 30%, Mental 20%, Physical 20%, Social 15%, Tactical 15%
+    const domainWeights: Record<string, number> = {
+      technical: 0.30,
+      mental: 0.20,
+      physical: 0.20,
+      social: 0.15,
+      tactical: 0.15,
+    };
+
+    // Map domain names to scores
+    const domainScores = ["technical", "mental", "physical", "social", "tactical"].map(domain => {
+      const state = domainStatesWithNames.find(s => s.domainName?.toLowerCase() === domain);
+      return {
+        domain,
+        score: state?.progressValue || 0,
+        trend: state?.trend || "stable",
+      };
+    });
+
+    // Calculate weighted Glow Score (0-100)
+    let glowScore = 0;
+    domainScores.forEach(d => {
+      const weight = domainWeights[d.domain] || 0;
+      glowScore += d.score * weight;
+    });
+    glowScore = Math.round(glowScore);
+
+    // Return backward-compatible array with glowScore and domainScores on first element
+    if (skills.length > 0) {
+      return skills.map((skill, index) => 
+        index === 0 
+          ? { ...skill, glowScore, domainScores } 
+          : skill
+      );
+    }
+    return skills;
   },
 
   // ==================== SESSION TEMPLATES ====================

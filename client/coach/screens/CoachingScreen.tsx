@@ -194,6 +194,8 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
   const [expandedPlayers, setExpandedPlayers] = useState<Set<string>>(new Set());
   const [showSuccess, setShowSuccess] = useState(false);
   const [showSkillSelector, setShowSkillSelector] = useState<string | null>(null); // playerId for skill selector
+  // Per-player skill group expansion state: { playerId: Set<groupKey> }
+  const [playerExpandedSkillGroups, setPlayerExpandedSkillGroups] = useState<Record<string, Set<string>>>({});
 
   const { data: sessionPlayers = [] } = useQuery<SessionPlayer[]>({
     queryKey: [`/api/coach/sessions/${selectedSession?.id}/players`],
@@ -205,6 +207,28 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
 
   // Default skills for tracking
   const skillChips = ["Forehand", "Backhand", "Serve", "Volley", "Movement", "Mental"];
+  
+  // Skill Groups for collapsible sections
+  const skillGroups = [
+    { key: "Technical", label: "Technical", skills: ["Forehand", "Backhand", "Serve", "Volley"] },
+    { key: "Physical", label: "Physical", skills: ["Movement"] },
+    { key: "Mental", label: "Mental", skills: ["Mental"] },
+  ];
+  
+  const toggleSkillGroup = (playerId: string, groupKey: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPlayerExpandedSkillGroups(prev => {
+      const currentPlayerGroups = prev[playerId] || new Set(["Technical"]); // Default Technical open
+      const next = new Set(currentPlayerGroups);
+      if (next.has(groupKey)) next.delete(groupKey);
+      else next.add(groupKey);
+      return { ...prev, [playerId]: next };
+    });
+  };
+  
+  const getPlayerExpandedGroups = (playerId: string): Set<string> => {
+    return playerExpandedSkillGroups[playerId] || new Set(["Technical"]); // Default Technical open
+  };
 
   React.useEffect(() => {
     if (sessionPlayers.length > 0) {
@@ -312,6 +336,8 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
     const hasSocialSignal = socialSignals.some(s => pf.quickSignals.includes(s));
     if (hasSocialSignal) social = "up";
     else if (pf.socialIssue) social = "down";
+    // Passive Social growth: group sessions with normal+ effort = passive growth
+    else if (sessionPlayers.length > 1 && pf.effortLevel === "high") social = "up";
     else if (sessionPlayers.length > 1 && pf.effortLevel !== "low") social = "stable";
 
     if (pf.quickSignals.includes("smart_decisions") || focusTags.includes("Positioning") || focusTags.includes("Shot choice")) tactical = "up";
@@ -994,44 +1020,87 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
 
                       <View style={styles.skillChipsSection}>
                         <Text style={styles.playerFeedbackLabel}>Skills (tap to toggle)</Text>
-                        <View style={styles.skillChipsGrid}>
-                          {/* Sort skill chips: focused skills first, then others */}
-                          {[...skillChips].sort((a, b) => {
-                            const aFocused = focusTags.includes(a);
-                            const bFocused = focusTags.includes(b);
-                            if (aFocused && !bFocused) return -1;
-                            if (!aFocused && bFocused) return 1;
-                            return 0;
-                          }).map((skill) => {
-                            const state = pf.skillProgress[skill];
-                            const icon = getSkillChipIcon(state);
-                            const isFocused = focusTags.includes(skill);
-                            return (
-                              <Pressable
-                                key={skill}
-                                style={[
-                                  styles.skillChip,
-                                  isFocused && !state && styles.skillChipFocused,
-                                  getSkillChipStyle(state),
-                                ]}
-                                onPress={() => cycleSkillState(pf.playerId, skill)}
+                        {/* Skill Groups - Collapsible (per-player) */}
+                        {skillGroups.map((group) => {
+                          const playerGroups = getPlayerExpandedGroups(pf.playerId);
+                          const isExpanded = playerGroups.has(group.key);
+                          const groupSkillsWithState = group.skills.filter(s => pf.skillProgress[s]);
+                          const hasUpSkills = group.skills.some(s => pf.skillProgress[s] === "up");
+                          const hasDownSkills = group.skills.some(s => pf.skillProgress[s] === "down");
+                          
+                          return (
+                            <View key={group.key} style={styles.skillGroupContainer}>
+                              <Pressable 
+                                style={styles.skillGroupHeader}
+                                onPress={() => toggleSkillGroup(pf.playerId, group.key)}
                               >
-                                {isFocused && !state ? (
-                                  <Ionicons name="star" size={10} color={Colors.dark.gold} />
-                                ) : icon ? (
-                                  <Ionicons name={icon} size={12} color={getSkillChipColor(state)} />
-                                ) : null}
-                                <Text style={[
-                                  styles.skillChipText, 
-                                  { color: getSkillChipColor(state) },
-                                  isFocused && !state && { color: Colors.dark.gold },
-                                ]}>
-                                  {skill}
-                                </Text>
+                                <View style={styles.skillGroupHeaderLeft}>
+                                  <Ionicons 
+                                    name={isExpanded ? "chevron-down" : "chevron-forward"} 
+                                    size={16} 
+                                    color={Colors.dark.tabIconDefault} 
+                                  />
+                                  <Text style={styles.skillGroupLabel}>{group.label}</Text>
+                                  {!isExpanded && groupSkillsWithState.length > 0 ? (
+                                    <View style={styles.skillGroupBadge}>
+                                      {hasUpSkills ? (
+                                        <Ionicons name="trending-up" size={10} color={Colors.dark.primary} />
+                                      ) : hasDownSkills ? (
+                                        <Ionicons name="trending-down" size={10} color={Colors.dark.error} />
+                                      ) : null}
+                                      <Text style={[
+                                        styles.skillGroupBadgeText,
+                                        hasUpSkills && { color: Colors.dark.primary },
+                                        hasDownSkills && { color: Colors.dark.error },
+                                      ]}>
+                                        {groupSkillsWithState.length}
+                                      </Text>
+                                    </View>
+                                  ) : null}
+                                </View>
                               </Pressable>
-                            );
-                          })}
-                        </View>
+                              {isExpanded ? (
+                                <View style={styles.skillChipsGrid}>
+                                  {group.skills.sort((a, b) => {
+                                    const aFocused = focusTags.includes(a);
+                                    const bFocused = focusTags.includes(b);
+                                    if (aFocused && !bFocused) return -1;
+                                    if (!aFocused && bFocused) return 1;
+                                    return 0;
+                                  }).map((skill) => {
+                                    const state = pf.skillProgress[skill];
+                                    const icon = getSkillChipIcon(state);
+                                    const isFocused = focusTags.includes(skill);
+                                    return (
+                                      <Pressable
+                                        key={skill}
+                                        style={[
+                                          styles.skillChip,
+                                          isFocused && !state && styles.skillChipFocused,
+                                          getSkillChipStyle(state),
+                                        ]}
+                                        onPress={() => cycleSkillState(pf.playerId, skill)}
+                                      >
+                                        {isFocused && !state ? (
+                                          <Ionicons name="star" size={10} color={Colors.dark.gold} />
+                                        ) : icon ? (
+                                          <Ionicons name={icon} size={12} color={getSkillChipColor(state)} />
+                                        ) : null}
+                                        <Text style={[
+                                          styles.skillChipText, 
+                                          { color: getSkillChipColor(state) },
+                                          isFocused && !state && { color: Colors.dark.gold },
+                                        ]}>
+                                          {skill}
+                                        </Text>
+                                      </Pressable>
+                                    );
+                                  })}
+                                </View>
+                              ) : null}
+                            </View>
+                          );
+                        })}
                         {/* Warning when too many skills (>7) marked as improved */}
                         {Object.values(pf.skillProgress).filter(s => s === "up").length > 7 ? (
                           <View style={styles.skillWarning}>
@@ -1906,6 +1975,38 @@ const styles = StyleSheet.create({
   skillChipsSection: {
     marginTop: Spacing.sm,
     gap: Spacing.xs,
+  },
+  skillGroupContainer: {
+    marginBottom: Spacing.xs,
+  },
+  skillGroupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.xs,
+  },
+  skillGroupHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  skillGroupLabel: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+    fontWeight: "500" as const,
+  },
+  skillGroupBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    marginLeft: Spacing.xs,
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    backgroundColor: Colors.dark.disabled + "30",
+    borderRadius: BorderRadius.xs,
+  },
+  skillGroupBadgeText: {
+    fontSize: Typography.small.fontSize - 2,
+    color: Colors.dark.tabIconDefault,
   },
   skillChipsGrid: {
     flexDirection: "row",
