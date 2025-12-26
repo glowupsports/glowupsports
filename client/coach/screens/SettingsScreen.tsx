@@ -17,6 +17,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
+import { useAppMode } from "@/context/AppModeContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
@@ -69,6 +70,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { coach, focusMode, setFocusMode } = useCoach();
+  const { setMode } = useAppMode();
   const [settings, setSettings] = useState<CoachSettings>(defaultSettings);
   const [hasChanges, setHasChanges] = useState(false);
   const [showCourtModal, setShowCourtModal] = useState(false);
@@ -218,6 +220,24 @@ export default function SettingsScreen() {
             </View>
           </View>
         ) : null}
+
+        {/* Switch to Player App */}
+        <Pressable
+          style={styles.switchAppButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setMode("player");
+          }}
+        >
+          <View style={styles.switchAppContent}>
+            <Ionicons name="swap-horizontal" size={24} color={Colors.dark.primary} />
+            <View>
+              <Text style={styles.switchAppTitle}>Switch to Player App</Text>
+              <Text style={styles.switchAppDescription}>View as a player</Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={Colors.dark.tabIconDefault} />
+        </Pressable>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Default Settings</Text>
@@ -596,6 +616,32 @@ const styles = StyleSheet.create({
   profileEmail: {
     fontSize: Typography.body.fontSize,
     color: Colors.dark.tabIconDefault,
+  },
+  switchAppButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.xl,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  switchAppContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  switchAppTitle: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  switchAppDescription: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+    marginTop: 2,
   },
   section: {
     marginBottom: Spacing.xl,
