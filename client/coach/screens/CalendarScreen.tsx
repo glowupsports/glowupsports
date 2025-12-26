@@ -143,7 +143,6 @@ export default function CalendarScreen() {
   const [selectedSessionForAttendance, setSelectedSessionForAttendance] = useState<Session | null>(null);
   const [weekMode, setWeekMode] = useState<"overview" | "availability">("overview");
   const [monthMode, setMonthMode] = useState<"load" | "availability">("load");
-  const [expandedAvailBlock, setExpandedAvailBlock] = useState<string | null>(null);
 
   // Fetch available coaches
   const { data: coaches = [], isLoading: coachesLoading } = useQuery<CoachData[]>({
@@ -887,163 +886,150 @@ export default function CalendarScreen() {
         </ScrollView>
       )}
 
-      {/* WEEK VIEW - AVAILABILITY MODE */}
+      {/* WEEK VIEW - AVAILABILITY MODE (Energy Bands) */}
       {viewMode === "week" && weekMode === "availability" && (
         <View style={styles.availabilityContainer}>
-          {/* Next Free Slots Quick Scan */}
-          {(() => {
-            const freeSlots: { date: Date; courtId: string; courtName: string; hour: number }[] = [];
-            const slotHours = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
-            
-            weekDates.forEach(date => {
+          {/* Energy Bands - Fluid visualization */}
+          <View style={styles.energyBandsContainer}>
+            {weekDates.map((date, dayIdx) => {
+              const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+              const isToday = date.toDateString() === new Date().toDateString();
+              const isSelected = date.toDateString() === selectedDate.toDateString();
               const daySessions = getSessionsForDate(date);
-              courts.forEach(court => {
-                slotHours.forEach(hour => {
-                  const slotStart = new Date(date);
-                  slotStart.setHours(hour, 0, 0, 0);
-                  const slotEnd = new Date(date);
-                  slotEnd.setHours(hour + 1, 0, 0, 0);
-                  
+              
+              // Calculate availability: total possible hours vs booked hours
+              const totalHours = 14; // 8:00 - 22:00
+              const totalSlots = totalHours * courts.length;
+              
+              let bookedSlots = 0;
+              for (let hour = 8; hour < 22; hour++) {
+                const slotStart = new Date(date);
+                slotStart.setHours(hour, 0, 0, 0);
+                const slotEnd = new Date(date);
+                slotEnd.setHours(hour + 1, 0, 0, 0);
+                
+                courts.forEach(court => {
                   const isOccupied = daySessions.some(s => {
                     const sStart = new Date(s.startTime);
                     const sEnd = new Date(s.endTime);
                     return s.courtId === court.id && sStart < slotEnd && sEnd > slotStart;
                   });
-                  
-                  if (!isOccupied && freeSlots.length < 4) {
-                    freeSlots.push({ date, courtId: court.id, courtName: court.name, hour });
-                  }
+                  if (isOccupied) bookedSlots++;
                 });
-              });
-            });
-            
-            return freeSlots.length > 0 ? (
-              <View style={styles.freeSlotsBar}>
-                <Text style={styles.freeSlotsLabel}>Next free:</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {freeSlots.slice(0, 4).map((slot, i) => (
-                    <Pressable 
-                      key={i} 
-                      style={styles.freeSlotChip}
-                      onPress={() => {
-                        const slotDate = new Date(slot.date);
-                        slotDate.setHours(slot.hour, 0, 0, 0);
-                        setSelectedSlot({ courtId: slot.courtId, time: slotDate });
-                        setShowCreateDrawer(true);
-                      }}
-                    >
-                      <Text style={styles.freeSlotText}>
-                        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][slot.date.getDay()]} {formatTime(slot.hour)}
-                      </Text>
-                      <Text style={styles.freeSlotCourt}>{slot.courtName}</Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              </View>
-            ) : null;
-          })()}
-          
-          {/* Availability Grid */}
-          <ScrollView style={styles.calendarScroll} showsVerticalScrollIndicator={false}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.availabilityGrid}>
-                {/* Time Column */}
-                <View style={styles.availTimeColumn}>
-                  <View style={styles.availCornerCell} />
-                  {[8, 10, 12, 14, 16, 18, 20].map(hour => (
-                    <View key={hour} style={styles.availTimeCell}>
-                      <Text style={styles.availTimeText}>{formatTime(hour)}</Text>
-                    </View>
-                  ))}
-                </View>
-                
-                {/* Day Columns */}
-                {weekDates.map((date, dayIdx) => {
-                  const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-                  const isToday = date.toDateString() === new Date().toDateString();
-                  const daySessions = getSessionsForDate(date);
+              }
+              
+              const availabilityPercent = Math.max(0, (totalSlots - bookedSlots) / totalSlots * 100);
+              const freeHours = Math.round(((totalSlots - bookedSlots) / courts.length));
+              
+              // Energy color based on availability
+              const energyColor = availabilityPercent > 60 
+                ? Colors.dark.primary 
+                : availabilityPercent > 30 
+                  ? Colors.dark.gold 
+                  : "#FF6B6B";
+              
+              // Find first free slot for this day
+              const findFirstFreeSlot = () => {
+                for (let hour = 8; hour < 22; hour++) {
+                  const slotStart = new Date(date);
+                  slotStart.setHours(hour, 0, 0, 0);
+                  const slotEnd = new Date(date);
+                  slotEnd.setHours(hour + 1, 0, 0, 0);
                   
-                  return (
-                    <View key={dayIdx} style={styles.availDayColumn}>
-                      {/* Day Header */}
-                      <View style={[styles.availDayHeader, isToday && styles.availDayHeaderToday]}>
-                        <Text style={[styles.availDayName, isToday && styles.availDayNameToday]}>{dayNames[dayIdx]}</Text>
-                        <Text style={styles.availDayDate}>{date.getDate()}</Text>
-                      </View>
-                      
-                      {/* Time Blocks (2-hour chunks) */}
-                      {[8, 10, 12, 14, 16, 18, 20].map(hour => {
-                        const blockStart = new Date(date);
-                        blockStart.setHours(hour, 0, 0, 0);
-                        const blockEnd = new Date(date);
-                        blockEnd.setHours(hour + 2, 0, 0, 0);
-                        
-                        // Check occupancy per court
-                        const courtOccupancy = courts.map(court => {
-                          const occupied = daySessions.some(s => {
-                            const sStart = new Date(s.startTime);
-                            const sEnd = new Date(s.endTime);
-                            return s.courtId === court.id && sStart < blockEnd && sEnd > blockStart;
-                          });
-                          return { court, occupied };
-                        });
-                        
-                        const allFree = courtOccupancy.every(c => !c.occupied);
-                        const allBusy = courtOccupancy.every(c => c.occupied);
-                        const partialFree = !allFree && !allBusy;
-                        
-                        const blockKey = `${dayIdx}-${hour}`;
-                        const isExpanded = expandedAvailBlock === blockKey;
-                        
-                        return (
-                          <Pressable 
-                            key={hour} 
-                            style={[
-                              styles.availBlock,
-                              allFree && styles.availBlockFree,
-                              allBusy && styles.availBlockBusy,
-                              partialFree && styles.availBlockPartial,
-                            ]}
-                            onPress={() => {
-                              // Single tap opens create drawer (preserves original flow)
-                              if (!allBusy) {
-                                const freeCourt = courtOccupancy.find(c => !c.occupied);
-                                if (freeCourt) {
-                                  setSelectedSlot({ courtId: freeCourt.court.id, time: blockStart });
-                                  setShowCreateDrawer(true);
-                                }
-                              }
-                              setExpandedAvailBlock(null);
-                            }}
-                            onLongPress={() => {
-                              // Long-press shows court details
-                              setExpandedAvailBlock(isExpanded ? null : blockKey);
-                            }}
-                            delayLongPress={300}
-                          >
-                            {/* Mini court indicators - only visible on long-press */}
-                            {isExpanded && (
-                              <View style={styles.courtIndicators}>
-                                {courtOccupancy.map((co, i) => (
-                                  <View 
-                                    key={i} 
-                                    style={[
-                                      styles.courtDot,
-                                      co.occupied ? styles.courtDotBusy : styles.courtDotFree
-                                    ]} 
-                                  />
-                                ))}
-                              </View>
-                            )}
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  );
-                })}
-              </View>
-            </ScrollView>
-          </ScrollView>
+                  for (const court of courts) {
+                    const isOccupied = daySessions.some(s => {
+                      const sStart = new Date(s.startTime);
+                      const sEnd = new Date(s.endTime);
+                      return s.courtId === court.id && sStart < slotEnd && sEnd > slotStart;
+                    });
+                    if (!isOccupied) {
+                      return { courtId: court.id, time: slotStart };
+                    }
+                  }
+                }
+                return null;
+              };
+              
+              return (
+                <Pressable 
+                  key={dayIdx} 
+                  style={[
+                    styles.energyBandColumn,
+                    isToday && styles.energyBandToday,
+                    isSelected && styles.energyBandSelected,
+                  ]}
+                  onPress={() => {
+                    // First tap selects the date and switches to day view
+                    setSelectedDate(date);
+                    setViewMode("day");
+                  }}
+                  onLongPress={() => {
+                    // Long press opens create drawer with first free slot
+                    setSelectedDate(date);
+                    const freeSlot = findFirstFreeSlot();
+                    if (freeSlot) {
+                      setSelectedSlot(freeSlot);
+                      setShowCreateDrawer(true);
+                    }
+                  }}
+                  delayLongPress={300}
+                >
+                  {/* Day Label */}
+                  <View style={styles.energyBandHeader}>
+                    <Text style={[styles.energyBandDayName, isToday && styles.energyBandDayNameToday]}>
+                      {dayNames[dayIdx]}
+                    </Text>
+                    <Text style={[styles.energyBandDate, isToday && styles.energyBandDateToday]}>
+                      {date.getDate()}
+                    </Text>
+                  </View>
+                  
+                  {/* Energy Bar - Gradient fill from bottom */}
+                  <View style={styles.energyBarContainer}>
+                    <LinearGradient
+                      colors={[
+                        energyColor + "00",
+                        energyColor + "15",
+                        energyColor + "40",
+                      ]}
+                      style={[
+                        styles.energyBarFill,
+                        { height: `${availabilityPercent}%` }
+                      ]}
+                    />
+                    
+                    {/* Subtle glow at top of energy */}
+                    {availabilityPercent > 10 && (
+                      <View 
+                        style={[
+                          styles.energyBarGlow,
+                          { 
+                            bottom: `${availabilityPercent - 5}%`,
+                            backgroundColor: energyColor,
+                            shadowColor: energyColor,
+                          }
+                        ]} 
+                      />
+                    )}
+                  </View>
+                  
+                  {/* Availability Label */}
+                  <View style={styles.energyBandFooter}>
+                    <Text style={[styles.energyBandHours, { color: energyColor }]}>
+                      {freeHours}h
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+          
+          {/* Subtle time hint at bottom */}
+          <View style={styles.energyTimeHint}>
+            <Text style={styles.energyTimeHintText}>8:00</Text>
+            <View style={styles.energyTimeHintLine} />
+            <Text style={styles.energyTimeHintText}>22:00</Text>
+          </View>
         </View>
       )}
 
@@ -1168,6 +1154,212 @@ export default function CalendarScreen() {
               );
             })}
           </ScrollView>
+          
+          {/* Day Context Panel - Always visible, updates with selected day */}
+          <View style={styles.dayContextPanel}>
+            {/* Header */}
+            <View style={styles.dayContextHeader}>
+              <Ionicons name="calendar" size={16} color={Colors.dark.primary} />
+              <Text style={styles.dayContextDate}>
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][selectedDate.getDay()]}{" "}
+                {selectedDate.getDate()}{" "}
+                {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][selectedDate.getMonth()]}
+              </Text>
+              {selectedDate.toDateString() === new Date().toDateString() && (
+                <Text style={styles.dayContextTodayBadge}>Today</Text>
+              )}
+            </View>
+            
+            {/* Mode-dependent content */}
+            {(() => {
+              const stats = getDayStats(selectedDate);
+              const daySessions = getSessionsForDate(selectedDate);
+              
+              // Calculate if there are any free slots
+              const hasAvailability = (() => {
+                for (let hour = 8; hour < 22; hour++) {
+                  const slotStart = new Date(selectedDate);
+                  slotStart.setHours(hour, 0, 0, 0);
+                  const slotEnd = new Date(selectedDate);
+                  slotEnd.setHours(hour + 1, 0, 0, 0);
+                  
+                  for (const court of courts) {
+                    const isOccupied = daySessions.some(s => {
+                      const sStart = new Date(s.startTime);
+                      const sEnd = new Date(s.endTime);
+                      return s.courtId === court.id && sStart < slotEnd && sEnd > slotStart;
+                    });
+                    if (!isOccupied) return true;
+                  }
+                }
+                return false;
+              })();
+              
+              if (monthMode === "load") {
+                // Load mode - show sessions and workload
+                // Calculate peak time from actual session distribution
+                const morningMinutes = daySessions.filter(s => new Date(s.startTime).getHours() < 12).reduce((sum, s) => {
+                  const mins = (new Date(s.endTime).getTime() - new Date(s.startTime).getTime()) / 60000;
+                  return sum + mins;
+                }, 0);
+                const afternoonMinutes = daySessions.filter(s => {
+                  const hour = new Date(s.startTime).getHours();
+                  return hour >= 12 && hour < 17;
+                }).reduce((sum, s) => {
+                  const mins = (new Date(s.endTime).getTime() - new Date(s.startTime).getTime()) / 60000;
+                  return sum + mins;
+                }, 0);
+                const eveningMinutes = daySessions.filter(s => new Date(s.startTime).getHours() >= 17).reduce((sum, s) => {
+                  const mins = (new Date(s.endTime).getTime() - new Date(s.startTime).getTime()) / 60000;
+                  return sum + mins;
+                }, 0);
+                
+                const peakTime = stats.sessions === 0 ? "—" 
+                  : eveningMinutes >= morningMinutes && eveningMinutes >= afternoonMinutes ? "Evening"
+                  : afternoonMinutes >= morningMinutes ? "Afternoon" : "Morning";
+                const loadLevel = stats.totalMinutes >= 360 ? "High load" : stats.totalMinutes >= 240 ? "Moderate" : "Light";
+                
+                return (
+                  <View style={styles.dayContextContent}>
+                    <View style={styles.dayContextRow}>
+                      <Text style={styles.dayContextLabel}>{stats.sessions} sessions</Text>
+                      <Text style={styles.dayContextDot}>·</Text>
+                      <Text style={styles.dayContextLabel}>{stats.totalMinutes} min</Text>
+                    </View>
+                    {stats.sessions > 0 && (
+                      <View style={styles.dayContextRow}>
+                        <Text style={styles.dayContextMeta}>Peak: {peakTime}</Text>
+                        <Text style={styles.dayContextDot}>·</Text>
+                        <Text style={[
+                          styles.dayContextMeta,
+                          stats.totalMinutes >= 360 && { color: "#FF6B6B" },
+                          stats.totalMinutes >= 240 && stats.totalMinutes < 360 && { color: Colors.dark.gold },
+                        ]}>{loadLevel}</Text>
+                      </View>
+                    )}
+                    
+                    {/* Mini load bar */}
+                    <View style={styles.dayContextLoadBar}>
+                      <View 
+                        style={[
+                          styles.dayContextLoadFill,
+                          { 
+                            width: `${Math.min(100, (stats.totalMinutes / 480) * 100)}%`,
+                            backgroundColor: stats.totalMinutes >= 360 ? "#FF6B6B" : stats.totalMinutes >= 240 ? Colors.dark.gold : Colors.dark.primary,
+                          }
+                        ]} 
+                      />
+                    </View>
+                  </View>
+                );
+              } else {
+                // Availability mode - show free slots
+                const freeSlots: { courtId: string; courtName: string; hour: number }[] = [];
+                for (let hour = 8; hour < 22; hour++) {
+                  const slotStart = new Date(selectedDate);
+                  slotStart.setHours(hour, 0, 0, 0);
+                  const slotEnd = new Date(selectedDate);
+                  slotEnd.setHours(hour + 1, 0, 0, 0);
+                  
+                  courts.forEach(court => {
+                    const isOccupied = daySessions.some(s => {
+                      const sStart = new Date(s.startTime);
+                      const sEnd = new Date(s.endTime);
+                      return s.courtId === court.id && sStart < slotEnd && sEnd > slotStart;
+                    });
+                    if (!isOccupied && freeSlots.length < 5) {
+                      freeSlots.push({ courtId: court.id, courtName: court.name, hour });
+                    }
+                  });
+                }
+                
+                return (
+                  <View style={styles.dayContextContent}>
+                    {freeSlots.length > 0 ? (
+                      <>
+                        <Text style={styles.dayContextAvailLabel}>Available today:</Text>
+                        {freeSlots.slice(0, 3).map((slot, i) => (
+                          <Pressable 
+                            key={i} 
+                            style={styles.dayContextSlot}
+                            onPress={() => {
+                              const slotTime = new Date(selectedDate);
+                              slotTime.setHours(slot.hour, 0, 0, 0);
+                              setSelectedSlot({ courtId: slot.courtId, time: slotTime });
+                              setShowCreateDrawer(true);
+                            }}
+                          >
+                            <Text style={styles.dayContextSlotTime}>{formatTime(slot.hour)} - {formatTime(slot.hour + 1)}</Text>
+                            <Text style={styles.dayContextSlotCourt}>{slot.courtName}</Text>
+                          </Pressable>
+                        ))}
+                        {freeSlots.length > 3 && (
+                          <Text style={styles.dayContextMoreSlots}>+{freeSlots.length - 3} more available</Text>
+                        )}
+                      </>
+                    ) : (
+                      <Text style={styles.dayContextNoSlots}>Fully booked</Text>
+                    )}
+                  </View>
+                );
+              }
+            })()}
+            
+            {/* Quick Action - disabled when fully booked */}
+            {(() => {
+              const daySessions = getSessionsForDate(selectedDate);
+              // Check if there are any free slots
+              let firstFreeSlot: { courtId: string; time: Date } | null = null;
+              for (let hour = 8; hour < 22 && !firstFreeSlot; hour++) {
+                const slotStart = new Date(selectedDate);
+                slotStart.setHours(hour, 0, 0, 0);
+                const slotEnd = new Date(selectedDate);
+                slotEnd.setHours(hour + 1, 0, 0, 0);
+                
+                for (const court of courts) {
+                  const isOccupied = daySessions.some(s => {
+                    const sStart = new Date(s.startTime);
+                    const sEnd = new Date(s.endTime);
+                    return s.courtId === court.id && sStart < slotEnd && sEnd > slotStart;
+                  });
+                  if (!isOccupied) {
+                    firstFreeSlot = { courtId: court.id, time: slotStart };
+                    break;
+                  }
+                }
+              }
+              
+              const isFullyBooked = !firstFreeSlot;
+              
+              return (
+                <Pressable 
+                  style={[
+                    styles.dayContextAction,
+                    isFullyBooked && styles.dayContextActionDisabled,
+                  ]}
+                  onPress={() => {
+                    if (firstFreeSlot) {
+                      setSelectedSlot(firstFreeSlot);
+                      setShowCreateDrawer(true);
+                    }
+                  }}
+                  disabled={isFullyBooked}
+                >
+                  <Ionicons 
+                    name={isFullyBooked ? "close-circle-outline" : "add-circle-outline"} 
+                    size={16} 
+                    color={isFullyBooked ? Colors.dark.disabled : Colors.dark.primary} 
+                  />
+                  <Text style={[
+                    styles.dayContextActionText,
+                    isFullyBooked && styles.dayContextActionTextDisabled,
+                  ]}>
+                    {isFullyBooked ? "Fully booked" : "Book on this day"}
+                  </Text>
+                </Pressable>
+              );
+            })()}
+          </View>
         </View>
       )}
 
@@ -1840,136 +2032,232 @@ const styles = StyleSheet.create({
     color: Colors.dark.backgroundRoot,
     fontWeight: "600",
   },
-  // Availability mode styles
+  // Availability mode styles - Energy Bands
   availabilityContainer: {
     flex: 1,
-  },
-  freeSlotsBar: {
-    flexDirection: "row",
-    alignItems: "center",
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    paddingTop: Spacing.md,
+  },
+  energyBandsContainer: {
+    flexDirection: "row",
+    flex: 1,
     gap: Spacing.sm,
   },
-  freeSlotsLabel: {
-    ...Typography.caption,
-    color: Colors.dark.tabIconDefault,
-    fontWeight: "600",
+  energyBandColumn: {
+    flex: 1,
+    backgroundColor: "rgba(30, 30, 35, 0.4)",
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+    minHeight: 280,
   },
-  freeSlotChip: {
-    backgroundColor: Colors.dark.primary + "15",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
-    marginRight: Spacing.sm,
+  energyBandToday: {
     shadowColor: Colors.dark.primary,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  freeSlotText: {
-    ...Typography.caption,
-    color: Colors.dark.primary,
-    fontWeight: "600",
+  energyBandSelected: {
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 6,
   },
-  freeSlotCourt: {
+  energyBandHeader: {
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    paddingTop: Spacing.md,
+  },
+  energyBandDayName: {
     ...Typography.caption,
-    fontSize: 10,
+    fontSize: 11,
     color: Colors.dark.tabIconDefault,
+    fontWeight: "600",
+    letterSpacing: 0.5,
   },
-  availabilityGrid: {
+  energyBandDayNameToday: {
+    color: Colors.dark.primary,
+  },
+  energyBandDate: {
+    ...Typography.body,
+    fontSize: 18,
+    color: Colors.dark.text,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  energyBandDateToday: {
+    color: Colors.dark.primary,
+  },
+  energyBarContainer: {
+    flex: 1,
+    justifyContent: "flex-end",
+    marginHorizontal: Spacing.xs,
+    marginBottom: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    overflow: "hidden",
+    backgroundColor: "rgba(20, 20, 25, 0.3)",
+  },
+  energyBarFill: {
+    width: "100%",
+    borderRadius: BorderRadius.sm,
+  },
+  energyBarGlow: {
+    position: "absolute",
+    left: "20%",
+    right: "20%",
+    height: 3,
+    borderRadius: 2,
+    opacity: 0.6,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  energyBandFooter: {
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    paddingBottom: Spacing.md,
+  },
+  energyBandHours: {
+    ...Typography.caption,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  energyTimeHint: {
     flexDirection: "row",
-    paddingHorizontal: Spacing.sm,
-    paddingBottom: Spacing.xl,
-  },
-  availTimeColumn: {
-    width: 45,
-  },
-  availCornerCell: {
-    height: 50,
-  },
-  availTimeCell: {
-    height: 50,
+    alignItems: "center",
     justifyContent: "center",
+    paddingVertical: Spacing.md,
+    opacity: 0.4,
   },
-  availTimeText: {
+  energyTimeHintText: {
     ...Typography.caption,
     fontSize: 10,
     color: Colors.dark.disabled,
   },
-  availDayColumn: {
-    width: 48,
-    marginHorizontal: 2,
+  energyTimeHintLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.dark.disabled,
+    marginHorizontal: Spacing.md,
+    opacity: 0.3,
   },
-  availDayHeader: {
-    height: 50,
+  // Day Context Panel styles
+  dayContextPanel: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.05)",
+  },
+  dayContextHeader: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.xs,
-    marginBottom: 2,
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
   },
-  availDayHeaderToday: {
-    backgroundColor: Colors.dark.primary + "30",
-  },
-  availDayName: {
-    ...Typography.caption,
-    fontSize: 10,
-    color: Colors.dark.tabIconDefault,
-    fontWeight: "600",
-  },
-  availDayNameToday: {
-    color: Colors.dark.primary,
-  },
-  availDayDate: {
+  dayContextDate: {
     ...Typography.body,
-    fontSize: 14,
     color: Colors.dark.text,
     fontWeight: "600",
   },
-  availBlock: {
-    height: 44,
-    borderRadius: BorderRadius.xs,
-    marginBottom: 2,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(35, 35, 40, 0.3)",
-  },
-  availBlockFree: {
-    backgroundColor: Colors.dark.primary + "12",
-    shadowColor: Colors.dark.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  availBlockBusy: {
-    backgroundColor: "rgba(45, 45, 50, 0.4)",
-  },
-  availBlockPartial: {
-    backgroundColor: Colors.dark.gold + "10",
-    shadowColor: Colors.dark.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  courtIndicators: {
-    flexDirection: "row",
-    gap: 2,
-    opacity: 0.6,
-  },
-  courtDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-  },
-  courtDotFree: {
+  dayContextTodayBadge: {
+    ...Typography.caption,
+    fontSize: 10,
+    color: Colors.dark.backgroundRoot,
     backgroundColor: Colors.dark.primary,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+    fontWeight: "600",
   },
-  courtDotBusy: {
-    backgroundColor: "rgba(80, 80, 85, 0.5)",
+  dayContextContent: {
+    gap: Spacing.xs,
+  },
+  dayContextRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  dayContextLabel: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  dayContextDot: {
+    ...Typography.caption,
+    color: Colors.dark.disabled,
+  },
+  dayContextMeta: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+  },
+  dayContextLoadBar: {
+    height: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 2,
+    marginTop: Spacing.xs,
+    overflow: "hidden",
+  },
+  dayContextLoadFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  dayContextAvailLabel: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+    marginBottom: Spacing.xs,
+  },
+  dayContextSlot: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    backgroundColor: Colors.dark.primary + "10",
+    borderRadius: BorderRadius.xs,
+    marginBottom: 4,
+  },
+  dayContextSlotTime: {
+    ...Typography.caption,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  dayContextSlotCourt: {
+    ...Typography.caption,
+    fontSize: 11,
+    color: Colors.dark.tabIconDefault,
+  },
+  dayContextMoreSlots: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+    fontStyle: "italic",
+    marginTop: Spacing.xs,
+  },
+  dayContextNoSlots: {
+    ...Typography.caption,
+    color: Colors.dark.disabled,
+    fontStyle: "italic",
+  },
+  dayContextAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.dark.primary + "15",
+    borderRadius: BorderRadius.sm,
+  },
+  dayContextActionText: {
+    ...Typography.body,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  dayContextActionDisabled: {
+    backgroundColor: "rgba(60, 60, 65, 0.3)",
+  },
+  dayContextActionTextDisabled: {
+    color: Colors.dark.disabled,
   },
 });
