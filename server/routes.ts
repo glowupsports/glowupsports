@@ -68,6 +68,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check for conflicts before booking
+  app.get("/api/coach/sessions/check-conflict", async (req: Request, res: Response) => {
+    try {
+      const { courtId, coachId, startTime, endTime, playerIds, excludeSessionId } = req.query;
+
+      if (!courtId || !coachId || !startTime || !endTime) {
+        return res.status(400).json({ error: "Missing required parameters" });
+      }
+
+      const start = new Date(startTime as string);
+      const end = new Date(endTime as string);
+      const conflicts: string[] = [];
+
+      // Check coach conflict
+      const coachConflict = await storage.checkCoachConflict(
+        coachId as string, 
+        start, 
+        end, 
+        excludeSessionId as string | undefined
+      );
+      if (coachConflict) {
+        conflicts.push("Coach is already booked for this time");
+      }
+
+      // Check court conflict
+      const courtConflict = await storage.checkCourtConflict(
+        courtId as string, 
+        start, 
+        end,
+        excludeSessionId as string | undefined
+      );
+      if (courtConflict) {
+        conflicts.push("Court is already booked for this time");
+      }
+
+      // Check player conflicts if provided
+      if (playerIds) {
+        const playerIdArray = Array.isArray(playerIds) ? playerIds : [playerIds];
+        for (const playerId of playerIdArray) {
+          const playerConflict = await storage.checkPlayerConflict(
+            playerId as string, 
+            start, 
+            end,
+            excludeSessionId as string | undefined
+          );
+          if (playerConflict) {
+            conflicts.push(`Player is already booked for this time`);
+            break;
+          }
+        }
+      }
+
+      res.json({ 
+        conflicts,
+        hasConflicts: conflicts.length > 0 
+      });
+    } catch (error) {
+      console.error("Error checking conflicts:", error);
+      res.status(500).json({ error: "Failed to check conflicts" });
+    }
+  });
+
   // Create session
   app.post("/api/coach/sessions", async (req: Request, res: Response) => {
     try {

@@ -221,6 +221,39 @@ export const storage = {
     return conflicts.length > 0;
   },
 
+  async checkPlayerConflict(playerId: string, startTime: Date, endTime: Date, excludeSessionId?: string): Promise<boolean> {
+    // First get all sessions the player is in
+    const playerSessions = await db
+      .select({ sessionId: sessionPlayers.sessionId })
+      .from(sessionPlayers)
+      .where(eq(sessionPlayers.playerId, playerId));
+
+    if (playerSessions.length === 0) return false;
+
+    const sessionIds = playerSessions.map(ps => ps.sessionId);
+    
+    // Check if any of those sessions overlap with the proposed time
+    const conflicts = await db
+      .select()
+      .from(sessions)
+      .where(
+        and(
+          inArray(sessions.id, sessionIds),
+          eq(sessions.status, "scheduled"),
+          or(
+            and(lte(sessions.startTime, startTime), gte(sessions.endTime, startTime)),
+            and(lte(sessions.startTime, endTime), gte(sessions.endTime, endTime)),
+            and(gte(sessions.startTime, startTime), lte(sessions.endTime, endTime))
+          )
+        )
+      );
+    
+    if (excludeSessionId) {
+      return conflicts.filter(s => s.id !== excludeSessionId).length > 0;
+    }
+    return conflicts.length > 0;
+  },
+
   // ==================== SESSION PLAYERS ====================
   async getSessionPlayers(sessionId: string): Promise<SessionPlayer[]> {
     return db.select().from(sessionPlayers).where(eq(sessionPlayers.sessionId, sessionId));

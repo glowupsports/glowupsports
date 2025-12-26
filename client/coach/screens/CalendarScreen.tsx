@@ -14,6 +14,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useQuery } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import CreateSessionDrawer from "@/coach/components/CreateSessionDrawer";
 
 interface CoachData {
   id: string;
@@ -376,6 +377,17 @@ export default function CalendarScreen() {
           <Text style={styles.loadingText}>Loading...</Text>
         </View>
       )}
+
+      {/* Create Session Drawer */}
+      <CreateSessionDrawer
+        visible={showCreateDrawer}
+        onClose={() => {
+          setShowCreateDrawer(false);
+          setSelectedSlot(null);
+        }}
+        initialCourtId={selectedSlot?.courtId}
+        initialTime={selectedSlot?.time}
+      />
     </View>
   );
 }
