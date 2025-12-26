@@ -16,6 +16,7 @@ import * as Haptics from "expo-haptics";
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import MiniTimeline from "@/coach/components/MiniTimeline";
+import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 
 interface Session {
   id: string;
@@ -219,7 +220,7 @@ export default function DashboardScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.xl }]}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 80 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Header with Coach Level + XP */}
@@ -623,6 +624,8 @@ export default function DashboardScreen() {
           </View>
         ) : null}
       </ScrollView>
+
+      <CoachChatFooter />
     </View>
   );
 }
