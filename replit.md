@@ -187,3 +187,11 @@ Advanced player development tracking system with 5 skill domains, anti-abuse rul
   - "Session went as expected" quick action: Sets all stable progress, normal effort
   - Visual feedback after save: Success overlay with checkmark for 1.2 seconds
   - Skill warning: Appears when >7 skills marked as improved for a player
+  - **Skill-linked Progress Flow**:
+    - Session Focus determines WHERE (which skills)
+    - Observed Progress determines HOW (up/stable/down)
+    - Effort determines HOW STRONG (high/normal/low)
+    - Auto-apply: When coach selects focus skills and taps ↑/↓, those skills are automatically marked
+    - Long-press on ↑/↓ opens inline skill selector for optional refinement
+    - Tapping "Applied to: ..." hint also opens refinement selector
+    - If no focus selected, shows "General progress" indicator

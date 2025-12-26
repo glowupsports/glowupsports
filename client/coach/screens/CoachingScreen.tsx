@@ -180,6 +180,7 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
   const [playerFeedback, setPlayerFeedback] = useState<PlayerFeedbackState[]>([]);
   const [expandedPlayers, setExpandedPlayers] = useState<Set<string>>(new Set());
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showSkillSelector, setShowSkillSelector] = useState<string | null>(null); // playerId for skill selector
 
   const { data: sessionPlayers = [] } = useQuery<SessionPlayer[]>({
     queryKey: [`/api/coach/sessions/${selectedSession?.id}/players`],
@@ -243,6 +244,7 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
     })));
     setIntensity("normal");
     setMood("neutral");
+    setShowSkillSelector(null); // Close any open skill selectors
   };
 
   const cycleSkillState = (playerId: string, skill: string) => {
@@ -297,10 +299,42 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
   ) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setPlayerFeedback((prev) =>
-      prev.map((pf) =>
-        pf.playerId === playerId ? { ...pf, [field]: value } : pf
-      )
+      prev.map((pf) => {
+        if (pf.playerId !== playerId) return pf;
+        
+        // When progressTrend changes, auto-apply to focus skills
+        if (field === "progressTrend" && focusTags.length > 0) {
+          const newSkillProgress: SkillProgress = { ...pf.skillProgress };
+          const currentTrend = pf.progressTrend;
+          
+          // Only auto-apply if switching from stable to up/down (initial selection)
+          // Don't overwrite if already set (respects manual refinements)
+          if (currentTrend === "stable" && (value === "up" || value === "down")) {
+            // Apply the trend to all focus skills
+            for (const skill of focusTags) {
+              if (!(skill in newSkillProgress)) {
+                newSkillProgress[skill] = value as SkillChipState;
+              }
+            }
+          } else if (value === "stable") {
+            // Clear skills when going back to stable
+            for (const skill of focusTags) {
+              delete newSkillProgress[skill];
+            }
+          }
+          // If switching between up/down, keep existing skill selections
+          
+          return { ...pf, [field]: value, skillProgress: newSkillProgress };
+        }
+        
+        return { ...pf, [field]: value };
+      })
     );
+    
+    // Close skill selector when going to stable
+    if (field === "progressTrend" && value === "stable") {
+      setShowSkillSelector(null);
+    }
   };
 
   const today = new Date();
@@ -617,6 +651,14 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
                                 pf.progressTrend === opt.value && { backgroundColor: opt.color + "20", borderColor: opt.color },
                               ]}
                               onPress={() => updatePlayerFeedback(pf.playerId, "progressTrend", opt.value)}
+                              onLongPress={() => {
+                                if (opt.value !== "stable" && focusTags.length > 0) {
+                                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                  updatePlayerFeedback(pf.playerId, "progressTrend", opt.value);
+                                  setShowSkillSelector(pf.playerId);
+                                }
+                              }}
+                              delayLongPress={400}
                             >
                               <Ionicons
                                 name={opt.icon}
@@ -627,6 +669,91 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
                           ))}
                         </View>
                       </View>
+                      
+                      {/* Inline skill selector (appears on long-press) */}
+                      {showSkillSelector === pf.playerId ? (
+                        <View style={styles.skillSelectorContainer}>
+                          <View style={styles.skillSelectorHeader}>
+                            <Text style={styles.skillSelectorTitle}>
+                              Refine which skills {pf.progressTrend === "up" ? "improved" : "need work"}:
+                            </Text>
+                            <Pressable 
+                              onPress={() => setShowSkillSelector(null)}
+                              hitSlop={8}
+                            >
+                              <Ionicons name="close" size={18} color={Colors.dark.tabIconDefault} />
+                            </Pressable>
+                          </View>
+                          <View style={styles.skillSelectorChips}>
+                            {focusTags.map((skill) => {
+                              const isSelected = pf.skillProgress[skill] === pf.progressTrend;
+                              return (
+                                <Pressable
+                                  key={skill}
+                                  style={[
+                                    styles.skillSelectorChip,
+                                    isSelected && { 
+                                      backgroundColor: pf.progressTrend === "up" ? Colors.dark.primary + "20" : Colors.dark.error + "20",
+                                      borderColor: pf.progressTrend === "up" ? Colors.dark.primary : Colors.dark.error,
+                                    },
+                                  ]}
+                                  onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                    setPlayerFeedback(prev => prev.map(p => {
+                                      if (p.playerId !== pf.playerId) return p;
+                                      const newSkillProgress = { ...p.skillProgress };
+                                      if (isSelected) {
+                                        delete newSkillProgress[skill];
+                                      } else {
+                                        newSkillProgress[skill] = pf.progressTrend as SkillChipState;
+                                      }
+                                      return { ...p, skillProgress: newSkillProgress };
+                                    }));
+                                  }}
+                                >
+                                  <Ionicons 
+                                    name={isSelected ? "checkmark-circle" : "ellipse-outline"} 
+                                    size={14} 
+                                    color={isSelected 
+                                      ? (pf.progressTrend === "up" ? Colors.dark.primary : Colors.dark.error)
+                                      : Colors.dark.tabIconDefault
+                                    } 
+                                  />
+                                  <Text style={[
+                                    styles.skillSelectorChipText,
+                                    isSelected && { 
+                                      color: pf.progressTrend === "up" ? Colors.dark.primary : Colors.dark.error,
+                                    },
+                                  ]}>
+                                    {skill}
+                                  </Text>
+                                </Pressable>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      ) : null}
+                      
+                      {/* Show focus skills connection hint */}
+                      {focusTags.length > 0 && pf.progressTrend !== "stable" && showSkillSelector !== pf.playerId ? (
+                        <Pressable 
+                          style={styles.focusLinkHint}
+                          onPress={() => setShowSkillSelector(pf.playerId)}
+                        >
+                          <Ionicons name="link-outline" size={12} color={Colors.dark.tabIconDefault} />
+                          <Text style={styles.focusLinkText}>
+                            Applied to: {focusTags.join(", ")}
+                          </Text>
+                          <Ionicons name="chevron-forward" size={10} color={Colors.dark.tabIconDefault} />
+                        </Pressable>
+                      ) : focusTags.length === 0 && pf.progressTrend !== "stable" ? (
+                        <View style={styles.focusLinkHint}>
+                          <Ionicons name="information-circle-outline" size={12} color={Colors.dark.tabIconDefault} />
+                          <Text style={styles.focusLinkText}>
+                            General progress (no focus selected)
+                          </Text>
+                        </View>
+                      ) : null}
 
                       <View style={styles.playerFeedbackRow}>
                         <Text style={styles.playerFeedbackLabel}>Effort</Text>
@@ -1610,6 +1737,61 @@ const styles = StyleSheet.create({
   skillWarningText: {
     fontSize: Typography.small.fontSize,
     color: Colors.dark.orange,
+  },
+  focusLinkHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.sm,
+  },
+  focusLinkText: {
+    fontSize: Typography.small.fontSize - 1,
+    color: Colors.dark.tabIconDefault,
+    fontStyle: "italic",
+    flex: 1,
+  },
+  skillSelectorContainer: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    marginTop: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.dark.disabled + "40",
+  },
+  skillSelectorHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.sm,
+  },
+  skillSelectorTitle: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  skillSelectorChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.xs,
+  },
+  skillSelectorChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.disabled,
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  skillSelectorChipText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
   },
   saveButton: {
     flexDirection: "row",
