@@ -44,11 +44,11 @@ interface PlayerNote {
 }
 
 const NOTE_CATEGORIES = [
-  { value: "technique", label: "Techniek", icon: "fitness-outline" as const },
-  { value: "mental", label: "Mentaal", icon: "bulb-outline" as const },
-  { value: "physical", label: "Fysiek", icon: "body-outline" as const },
-  { value: "next-lesson", label: "Volgende Les", icon: "arrow-forward-outline" as const },
-  { value: "general", label: "Algemeen", icon: "document-text-outline" as const },
+  { value: "technique", label: "Technique", icon: "fitness-outline" as const },
+  { value: "mental", label: "Mental", icon: "bulb-outline" as const },
+  { value: "physical", label: "Physical", icon: "body-outline" as const },
+  { value: "next-lesson", label: "Next Lesson", icon: "arrow-forward-outline" as const },
+  { value: "general", label: "General", icon: "document-text-outline" as const },
 ];
 
 export default function PlayersScreen() {
@@ -103,22 +103,22 @@ export default function PlayersScreen() {
       case "injured":
         return { color: Colors.dark.error, icon: "bandage" as const, label: "Injured" };
       case "new":
-        return { color: Colors.dark.primary, icon: "sparkles" as const, label: "Nieuw" };
+        return { color: Colors.dark.primary, icon: "sparkles" as const, label: "New" };
       default:
         return null;
     }
   };
 
   const formatDate = (date: string | null) => {
-    if (!date) return "Geen lessen";
+    if (!date) return "No lessons";
     const d = new Date(date);
     const now = new Date();
     const diff = now.getTime() - d.getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    if (days === 0) return "Vandaag";
-    if (days === 1) return "Gisteren";
-    if (days < 7) return `${days} dagen geleden`;
-    return d.toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
+    if (days === 0) return "Today";
+    if (days === 1) return "Yesterday";
+    if (days < 7) return `${days} days ago`;
+    return d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
   };
 
   const handleSelectPlayer = (player: Player) => {
@@ -144,8 +144,8 @@ export default function PlayersScreen() {
       />
 
       <View style={styles.header}>
-        <Text style={styles.title}>Spelers</Text>
-        <Text style={styles.subtitle}>{players.length} spelers</Text>
+        <Text style={styles.title}>Players</Text>
+        <Text style={styles.subtitle}>{players.length} players</Text>
       </View>
 
       <View style={styles.searchContainer}>
@@ -153,7 +153,7 @@ export default function PlayersScreen() {
           <Ionicons name="search-outline" size={20} color={Colors.dark.tabIconDefault} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Zoek speler..."
+            placeholder="Search players..."
             placeholderTextColor={Colors.dark.tabIconDefault}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -207,7 +207,7 @@ export default function PlayersScreen() {
         <View style={styles.emptyContainer}>
           <Ionicons name="people-outline" size={64} color={Colors.dark.disabled} />
           <Text style={styles.emptyText}>
-            {searchQuery ? "Geen spelers gevonden" : "Geen spelers"}
+            {searchQuery ? "No players found" : "No players"}
           </Text>
         </View>
       ) : (
@@ -296,7 +296,7 @@ function PlayerDetailView({
       setShowAddNote(false);
     },
     onError: (error: Error) => {
-      Alert.alert("Fout", error.message || "Notitie opslaan mislukt");
+      Alert.alert("Error", error.message || "Failed to save note");
     },
   });
 
@@ -327,9 +327,9 @@ function PlayerDetailView({
   };
 
   const handleDeleteNote = (noteId: string) => {
-    Alert.alert("Notitie Verwijderen", "Weet je zeker dat je deze notitie wilt verwijderen?", [
-      { text: "Annuleren", style: "cancel" },
-      { text: "Verwijderen", style: "destructive", onPress: () => deleteNoteMutation.mutate(noteId) },
+    Alert.alert("Delete Note", "Are you sure you want to delete this note?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: () => deleteNoteMutation.mutate(noteId) },
     ]);
   };
 
@@ -375,7 +375,7 @@ function PlayerDetailView({
         <Pressable style={styles.backButton} onPress={onBack}>
           <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
         </Pressable>
-        <Text style={styles.detailTitle}>Speler Profiel</Text>
+        <Text style={styles.detailTitle}>Player Profile</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -403,14 +403,14 @@ function PlayerDetailView({
           <View style={styles.nextLessonSection}>
             <View style={styles.nextLessonHeader}>
               <Ionicons name="arrow-forward-circle" size={20} color={Colors.dark.primary} />
-              <Text style={styles.nextLessonTitle}>Suggestie Volgende Les</Text>
+              <Text style={styles.nextLessonTitle}>Next Lesson Suggestion</Text>
             </View>
             <Text style={styles.nextLessonText}>{nextLessonNotes[0].content}</Text>
           </View>
         ) : null}
 
         <View style={styles.infoSection}>
-          <Text style={styles.sectionLabel}>Basisinfo</Text>
+          <Text style={styles.sectionLabel}>Basic Info</Text>
           <View style={styles.infoCard}>
             {player.email ? (
               <View style={styles.infoRow}>
@@ -435,7 +435,7 @@ function PlayerDetailView({
 
         {player.medicalNotes ? (
           <View style={styles.infoSection}>
-            <Text style={styles.sectionLabel}>Medische notities</Text>
+            <Text style={styles.sectionLabel}>Medical Notes</Text>
             <View style={[styles.infoCard, styles.warningCard]}>
               <Ionicons name="medical-outline" size={20} color={Colors.dark.error} />
               <Text style={styles.medicalText}>{player.medicalNotes}</Text>
@@ -444,19 +444,19 @@ function PlayerDetailView({
         ) : null}
 
         <View style={styles.infoSection}>
-          <Text style={styles.sectionLabel}>Attendance Patroon</Text>
+          <Text style={styles.sectionLabel}>Attendance Pattern</Text>
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>-</Text>
-              <Text style={styles.statLabel}>Totaal lessen</Text>
+              <Text style={styles.statLabel}>Total lessons</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>-</Text>
-              <Text style={styles.statLabel}>Aanwezig %</Text>
+              <Text style={styles.statLabel}>Attendance %</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>-</Text>
-              <Text style={styles.statLabel}>Te laat</Text>
+              <Text style={styles.statLabel}>Late</Text>
             </View>
           </View>
         </View>
@@ -464,7 +464,7 @@ function PlayerDetailView({
         <View style={styles.infoSection}>
           <View style={styles.notesSectionHeader}>
             <Text style={styles.sectionLabel}>Coach Notes</Text>
-            <Text style={styles.notesCount}>{notes.length} notities</Text>
+            <Text style={styles.notesCount}>{notes.length} notes</Text>
           </View>
 
           {showAddNote ? (
@@ -500,7 +500,7 @@ function PlayerDetailView({
               </View>
               <TextInput
                 style={styles.noteInput}
-                placeholder="Schrijf een notitie..."
+                placeholder="Write a note..."
                 placeholderTextColor={Colors.dark.tabIconDefault}
                 value={newNoteContent}
                 onChangeText={setNewNoteContent}
@@ -515,7 +515,7 @@ function PlayerDetailView({
                     setNewNoteContent("");
                   }}
                 >
-                  <Text style={styles.cancelButtonText}>Annuleren</Text>
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
                 </Pressable>
                 <Pressable
                   style={[styles.saveNoteButton, addNoteMutation.isPending && styles.saveNoteButtonDisabled]}
@@ -525,7 +525,7 @@ function PlayerDetailView({
                   {addNoteMutation.isPending ? (
                     <ActivityIndicator size="small" color="#FFF" />
                   ) : (
-                    <Text style={styles.saveNoteButtonText}>Opslaan</Text>
+                    <Text style={styles.saveNoteButtonText}>Save</Text>
                   )}
                 </Pressable>
               </View>
@@ -539,7 +539,7 @@ function PlayerDetailView({
               }}
             >
               <Ionicons name="add-circle-outline" size={20} color={Colors.dark.primary} />
-              <Text style={styles.addNoteText}>Notitie toevoegen</Text>
+              <Text style={styles.addNoteText}>Add note</Text>
             </Pressable>
           )}
 
@@ -548,7 +548,7 @@ function PlayerDetailView({
           ) : notes.length === 0 ? (
             <View style={styles.emptyNotesCard}>
               <Ionicons name="document-text-outline" size={32} color={Colors.dark.disabled} />
-              <Text style={styles.noNotesText}>Nog geen notities</Text>
+              <Text style={styles.noNotesText}>No notes yet</Text>
             </View>
           ) : (
             <View style={styles.notesList}>
