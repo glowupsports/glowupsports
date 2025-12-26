@@ -8,6 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -53,12 +54,37 @@ const NOTE_CATEGORIES = [
 
 export default function PlayersScreen() {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+  const { coach } = useCoach();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [filterLevel, setFilterLevel] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newPlayerName, setNewPlayerName] = useState("");
+  const [newPlayerEmail, setNewPlayerEmail] = useState("");
+  const [newPlayerPhone, setNewPlayerPhone] = useState("");
+  const [newPlayerBallLevel, setNewPlayerBallLevel] = useState<string>("green");
 
   const { data: players = [], isLoading } = useQuery<Player[]>({
     queryKey: ["/api/players"],
+  });
+
+  const createPlayerMutation = useMutation({
+    mutationFn: async (data: { name: string; email?: string; phone?: string; ballLevel?: string; coachId?: string }) => {
+      return apiRequest("POST", "/api/players", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/players"] });
+      setShowAddModal(false);
+      setNewPlayerName("");
+      setNewPlayerEmail("");
+      setNewPlayerPhone("");
+      setNewPlayerBallLevel("green");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to create player");
+    },
   });
 
   const filteredPlayers = useMemo(() => {
@@ -144,8 +170,19 @@ export default function PlayersScreen() {
       />
 
       <View style={styles.header}>
-        <Text style={styles.title}>Players</Text>
-        <Text style={styles.subtitle}>{players.length} players</Text>
+        <View>
+          <Text style={styles.title}>Players</Text>
+          <Text style={styles.subtitle}>{players.length} players</Text>
+        </View>
+        <Pressable
+          style={styles.addButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setShowAddModal(true);
+          }}
+        >
+          <Ionicons name="add" size={24} color={Colors.dark.backgroundDefault} />
+        </Pressable>
       </View>
 
       <View style={styles.searchContainer}>
@@ -258,6 +295,114 @@ export default function PlayersScreen() {
           <View style={{ height: insets.bottom + Spacing.xl }} />
         </ScrollView>
       )}
+
+      <Modal visible={showAddModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add Player</Text>
+              <Pressable onPress={() => setShowAddModal(false)}>
+                <Ionicons name="close" size={24} color={Colors.dark.tabIconDefault} />
+              </Pressable>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Name *</Text>
+              <TextInput
+                style={styles.formInput}
+                placeholder="Player name"
+                placeholderTextColor={Colors.dark.tabIconDefault}
+                value={newPlayerName}
+                onChangeText={setNewPlayerName}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Email</Text>
+              <TextInput
+                style={styles.formInput}
+                placeholder="Email address"
+                placeholderTextColor={Colors.dark.tabIconDefault}
+                value={newPlayerEmail}
+                onChangeText={setNewPlayerEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Phone</Text>
+              <TextInput
+                style={styles.formInput}
+                placeholder="Phone number"
+                placeholderTextColor={Colors.dark.tabIconDefault}
+                value={newPlayerPhone}
+                onChangeText={setNewPlayerPhone}
+                keyboardType="phone-pad"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Ball Level</Text>
+              <View style={styles.levelPicker}>
+                {ballLevels.map((level) => (
+                  <Pressable
+                    key={level}
+                    style={[
+                      styles.levelOption,
+                      newPlayerBallLevel === level && styles.levelOptionSelected,
+                    ]}
+                    onPress={() => setNewPlayerBallLevel(level)}
+                  >
+                    <View style={[styles.levelDot, { backgroundColor: getLevelColor(level) }]} />
+                    <Text
+                      style={[
+                        styles.levelOptionText,
+                        newPlayerBallLevel === level && styles.levelOptionTextSelected,
+                      ]}
+                    >
+                      {level.charAt(0).toUpperCase() + level.slice(1)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.addCancelButton}
+                onPress={() => setShowAddModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.addSaveButton,
+                  !newPlayerName.trim() && styles.addSaveButtonDisabled,
+                ]}
+                onPress={() => {
+                  if (newPlayerName.trim()) {
+                    createPlayerMutation.mutate({
+                      name: newPlayerName.trim(),
+                      email: newPlayerEmail.trim() || undefined,
+                      phone: newPlayerPhone.trim() || undefined,
+                      ballLevel: newPlayerBallLevel,
+                      coachId: coach?.id,
+                    });
+                  }
+                }}
+                disabled={!newPlayerName.trim() || createPlayerMutation.isPending}
+              >
+                {createPlayerMutation.isPending ? (
+                  <ActivityIndicator size="small" color={Colors.dark.backgroundDefault} />
+                ) : (
+                  <Text style={styles.addSaveButtonText}>Add Player</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -616,8 +761,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.md,
+  },
+  addButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.primary,
+    justifyContent: "center",
+    alignItems: "center",
   },
   title: {
     ...Typography.h1,
@@ -1057,5 +1213,98 @@ const styles = StyleSheet.create({
   noteFooterActions: {
     flexDirection: "row",
     gap: Spacing.md,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  modalContent: {
+    width: "100%",
+    maxWidth: 400,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  modalTitle: {
+    fontSize: Typography.h3.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  formGroup: {
+    marginBottom: Spacing.md,
+  },
+  formLabel: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+    marginBottom: Spacing.xs,
+  },
+  formInput: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+  },
+  levelPicker: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  levelOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    gap: Spacing.xs,
+  },
+  levelOptionSelected: {
+    backgroundColor: Colors.dark.primary + "30",
+  },
+  levelOptionText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+  },
+  levelOptionTextSelected: {
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginTop: Spacing.lg,
+  },
+  addCancelButton: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.sm,
+    alignItems: "center",
+  },
+  addSaveButton: {
+    flex: 1,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.sm,
+    alignItems: "center",
+  },
+  addSaveButtonDisabled: {
+    opacity: 0.5,
+  },
+  addSaveButtonText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.backgroundDefault,
+    fontWeight: "600",
   },
 });
