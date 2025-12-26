@@ -26,6 +26,8 @@ import {
   playerProgressFlags,
   domainAssessments,
   xpTransactions,
+  // Coach XP System
+  coachXpTransactions,
   type Coach,
   type InsertCoach,
   type Location,
@@ -71,6 +73,8 @@ import {
   type InsertDomainAssessment,
   type XpTransaction,
   type InsertXpTransaction,
+  type CoachXpTransaction,
+  type InsertCoachXpTransaction,
 } from "@shared/schema";
 
 export const storage = {
@@ -994,6 +998,30 @@ export const storage = {
       .select()
       .from(xpTransactions)
       .where(eq(xpTransactions.playerId, playerId));
+    
+    return transactions.reduce((sum, t) => sum + t.xpAmount, 0);
+  },
+
+  // ==================== COACH XP SYSTEM ====================
+  async getCoachXpTransactions(coachId: string, limit: number = 50): Promise<CoachXpTransaction[]> {
+    return db
+      .select()
+      .from(coachXpTransactions)
+      .where(eq(coachXpTransactions.coachId, coachId))
+      .orderBy(desc(coachXpTransactions.createdAt))
+      .limit(limit);
+  },
+
+  async addCoachXpTransaction(data: InsertCoachXpTransaction): Promise<CoachXpTransaction> {
+    const result = await db.insert(coachXpTransactions).values(data).returning();
+    return result[0];
+  },
+
+  async getCoachTotalXp(coachId: string): Promise<number> {
+    const transactions = await db
+      .select()
+      .from(coachXpTransactions)
+      .where(eq(coachXpTransactions.coachId, coachId));
     
     return transactions.reduce((sum, t) => sum + t.xpAmount, 0);
   },

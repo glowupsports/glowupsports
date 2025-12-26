@@ -1094,6 +1094,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== COACH XP SYSTEM ====================
+
+  // Get coach XP and level
+  app.get("/api/coach/:id/xp", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coach = await storage.getCoach(id);
+      if (!coach) {
+        return res.status(404).json({ error: "Coach not found" });
+      }
+      
+      const totalXp = coach.totalXp || 0;
+      const level = coach.level || 1;
+      
+      // Calculate XP thresholds using same logic as POST (level up loop)
+      // Each level requires: 500 + (level-1) * 100 XP
+      // Level 1->2: 500 XP, Level 2->3: 600 XP, Level 3->4: 700 XP, etc.
+      let accumulatedXp = 0;
+      for (let lvl = 1; lvl < level; lvl++) {
+        accumulatedXp += 500 + (lvl - 1) * 100;
+      }
+      const xpForCurrentLevel = accumulatedXp;
+      const requiredForLevel = 500 + (level - 1) * 100;
+      const currentLevelXp = Math.max(0, totalXp - xpForCurrentLevel);
+      const xpPercent = Math.min(100, Math.max(0, Math.round((currentLevelXp / requiredForLevel) * 100)));
+      
+      // Get recent transactions
+      const transactions = await storage.getCoachXpTransactions(id, 10);
+      
+      res.json({
+        level,
+        totalXp,
+        currentLevelXp,
+        requiredForLevel,
+        xpPercent,
+        transactions,
+      });
+    } catch (error) {
+      console.error("Error fetching coach XP:", error);
+      res.status(500).json({ error: "Failed to fetch coach XP" });
+    }
+  });
+
+  // Award coach XP (internal endpoint for session completion, feedback, etc.)
+  app.post("/api/coach/:id/xp", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { xpAmount, source, description, sessionId, metadata } = req.body;
+      
+      if (!xpAmount || !source) {
+        return res.status(400).json({ error: "xpAmount and source are required" });
+      }
+      
+      // Add XP transaction
+      await storage.addCoachXpTransaction({
+        coachId: id,
+        xpAmount,
+        source,
+        description,
+        sessionId,
+        metadata,
+      });
+      
+      // Update coach total XP and check for level up
+      const coach = await storage.getCoach(id);
+      if (coach) {
+        const newTotalXp = (coach.totalXp || 0) + xpAmount;
+        
+        // Calculate new level
+        let newLevel = 1;
+        let xpThreshold = 500;
+        let accumulatedXp = 0;
+        while (accumulatedXp + xpThreshold <= newTotalXp) {
+          accumulatedXp += xpThreshold;
+          newLevel++;
+          xpThreshold = 500 + (newLevel - 1) * 100;
+        }
+        
+        await storage.updateCoach(id, { totalXp: newTotalXp, level: newLevel });
+        
+        res.json({
+          success: true,
+          newTotalXp,
+          newLevel,
+          leveledUp: newLevel > (coach.level || 1),
+        });
+      } else {
+        res.status(404).json({ error: "Coach not found" });
+      }
+    } catch (error) {
+      console.error("Error awarding coach XP:", error);
+      res.status(500).json({ error: "Failed to award coach XP" });
+    }
+  });
+
   // ==================== PROGRESS ENGINE V2 API ====================
 
   // Get all skill domains

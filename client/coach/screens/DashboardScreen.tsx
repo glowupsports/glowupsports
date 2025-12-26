@@ -62,22 +62,66 @@ export default function DashboardScreen() {
     return upcoming[0] || null;
   }, [todaysSessions]);
 
-  const coachLoad = useMemo(() => {
+  const coachStats = useMemo(() => {
     const maxDailyMinutes = 360;
     const totalMinutes = todaysSessions.reduce((acc, s) => acc + s.duration, 0);
     const completedMinutes = todaysSessions
       .filter((s) => new Date(s.endTime) < new Date())
       .reduce((acc, s) => acc + s.duration, 0);
     const remainingMinutes = totalMinutes - completedMinutes;
-    const loadPercent = Math.min(100, Math.round((totalMinutes / maxDailyMinutes) * 100));
-    const progressPercent = totalMinutes > 0 ? Math.round((completedMinutes / totalMinutes) * 100) : 0;
     
-    let loadLevel: "light" | "moderate" | "high" | "intense" = "light";
-    if (totalMinutes >= 300) loadLevel = "intense";
-    else if (totalMinutes >= 240) loadLevel = "high";
-    else if (totalMinutes >= 120) loadLevel = "moderate";
+    const staminaPercent = Math.min(100, Math.round((totalMinutes / maxDailyMinutes) * 100));
+    const impactPercent = totalMinutes > 0 ? Math.round((completedMinutes / totalMinutes) * 100) : 0;
     
-    return { totalMinutes, completedMinutes, remainingMinutes, loadPercent, progressPercent, loadLevel };
+    let energyState: "rested" | "active" | "focused" | "intense" = "rested";
+    if (totalMinutes >= 300) energyState = "intense";
+    else if (totalMinutes >= 240) energyState = "focused";
+    else if (totalMinutes >= 120) energyState = "active";
+    
+    return { totalMinutes, completedMinutes, remainingMinutes, staminaPercent, impactPercent, energyState };
+  }, [todaysSessions]);
+
+  // Fetch coach XP from API
+  const { data: coachXpData } = useQuery<{
+    level: number;
+    totalXp: number;
+    currentLevelXp: number;
+    requiredForLevel: number;
+    xpPercent: number;
+  }>({
+    queryKey: ["/api/coach", coach?.id, "xp"],
+    enabled: !!coach?.id,
+  });
+  
+  const coachXP = useMemo(() => {
+    if (coachXpData) {
+      return {
+        level: coachXpData.level,
+        currentXP: coachXpData.currentLevelXp,
+        requiredXP: coachXpData.requiredForLevel,
+        xpPercent: coachXpData.xpPercent,
+      };
+    }
+    // Fallback for initial load - matches server loop-based calculation
+    const level = coach?.level || 1;
+    const totalXp = coach?.totalXp || 0;
+    
+    // Calculate XP thresholds using same logic as server
+    // Each level requires: 500 + (level-1) * 100 XP
+    let accumulatedXp = 0;
+    for (let lvl = 1; lvl < level; lvl++) {
+      accumulatedXp += 500 + (lvl - 1) * 100;
+    }
+    const requiredXP = 500 + (level - 1) * 100;
+    const currentXP = Math.max(0, totalXp - accumulatedXp);
+    const xpPercent = Math.min(100, Math.max(0, requiredXP > 0 ? Math.round((currentXP / requiredXP) * 100) : 0));
+    return { level, currentXP, requiredXP, xpPercent };
+  }, [coachXpData, coach?.level, coach?.totalXp]);
+
+  const pendingFeedbackCount = useMemo(() => {
+    return todaysSessions.filter(
+      (s) => new Date(s.endTime) < new Date() && s.status !== "completed"
+    ).length;
   }, [todaysSessions]);
 
   const currentSession = useMemo(() => {
@@ -93,28 +137,25 @@ export default function DashboardScreen() {
     const start = new Date(startTime);
     const now = new Date();
     const diff = start.getTime() - now.getTime();
-    if (diff <= 0) return "Nu";
+    if (diff <= 0) return "Now";
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    if (hours > 0) return `${hours}u ${minutes}m`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
     return `${minutes} min`;
   };
 
   const alerts: Alert[] = useMemo(() => {
     const result: Alert[] = [];
-    const sessionsNeedingFeedback = todaysSessions.filter(
-      (s) => new Date(s.endTime) < new Date() && s.status !== "completed"
-    );
-    if (sessionsNeedingFeedback.length > 0) {
+    if (pendingFeedbackCount > 0) {
       result.push({
         id: "feedback",
         type: "feedback",
-        message: `${sessionsNeedingFeedback.length} lessons awaiting feedback`,
+        message: `${pendingFeedbackCount} lessons awaiting feedback`,
         priority: "medium",
       });
     }
     return result;
-  }, [todaysSessions]);
+  }, [pendingFeedbackCount]);
 
   const handleNavigate = (screen: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -136,6 +177,22 @@ export default function DashboardScreen() {
     return "Good evening";
   };
 
+  const getFocusMessage = () => {
+    if (currentSession) {
+      return { primary: "In Session", secondary: `${formatTime(currentSession.startTime)} - ${formatTime(currentSession.endTime)}` };
+    }
+    if (nextSession) {
+      return { primary: getTimeUntil(nextSession.startTime), secondary: "until next session" };
+    }
+    if (todaysSessions.length === 0) {
+      if (pendingFeedbackCount > 0) {
+        return { primary: "XP Available", secondary: `Complete ${pendingFeedbackCount} feedback to earn XP` };
+      }
+      return { primary: "Rest Day", secondary: "Good day to review player progress" };
+    }
+    return { primary: "Day Complete", secondary: "All sessions finished" };
+  };
+
   if (!coach) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -151,6 +208,8 @@ export default function DashboardScreen() {
     );
   }
 
+  const focusMessage = getFocusMessage();
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <LinearGradient
@@ -163,11 +222,22 @@ export default function DashboardScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.xl }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Header with Coach Level + XP */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>{getGreeting()},</Text>
+          <View style={styles.headerLeft}>
+            <Text style={styles.greeting}>{getGreeting()}</Text>
             <Text style={styles.coachName}>{coach.name}</Text>
+            
+            {/* Coach Level + XP Bar */}
+            <View style={styles.xpContainer}>
+              <Text style={styles.levelBadge}>Lv {coachXP.level}</Text>
+              <View style={styles.xpBarContainer}>
+                <View style={[styles.xpBarFill, { width: `${coachXP.xpPercent}%` }]} />
+              </View>
+              <Text style={styles.xpText}>{coachXP.currentXP}/{coachXP.requiredXP}</Text>
+            </View>
           </View>
+          
           <View style={styles.headerActions}>
             <Pressable
               style={styles.headerButton}
@@ -179,21 +249,25 @@ export default function DashboardScreen() {
               style={styles.headerButton}
               onPress={() => handleNavigate("CoachProfile")}
             >
-              <View style={styles.avatarSmall}>
-                <Ionicons name="person" size={16} color={Colors.dark.primary} />
+              {/* Avatar with Glow Ring */}
+              <View style={styles.avatarGlowRing}>
+                <View style={styles.avatarInner}>
+                  <Ionicons name="person" size={18} color={Colors.dark.primary} />
+                </View>
               </View>
             </Pressable>
           </View>
         </View>
 
-        <View style={styles.todayCard}>
+        {/* FOCUS Card (formerly TODAY Card) */}
+        <View style={styles.focusCard}>
           <LinearGradient
-            colors={["rgba(46, 204, 64, 0.15)", "rgba(46, 204, 64, 0.05)"]}
-            style={styles.todayGradient}
+            colors={["rgba(46, 204, 64, 0.12)", "rgba(46, 204, 64, 0.03)"]}
+            style={styles.focusGradient}
           >
-            <View style={styles.todayHeader}>
-              <Text style={styles.todayLabel}>TODAY</Text>
-              <Text style={styles.todayDate}>
+            <View style={styles.focusHeader}>
+              <Text style={styles.focusLabel}>TODAY</Text>
+              <Text style={styles.focusDate}>
                 {today.toLocaleDateString("en-US", {
                   weekday: "long",
                   day: "numeric",
@@ -202,149 +276,149 @@ export default function DashboardScreen() {
               </Text>
             </View>
 
-            <View style={styles.todayStats}>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{todaysSessions.length}</Text>
-                <Text style={styles.statLabel}>Lessons</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>
-                  {todaysSessions.reduce((acc, s) => acc + s.duration, 0)}
-                </Text>
-                <Text style={styles.statLabel}>Minutes</Text>
-              </View>
+            {/* Main Focus State */}
+            <View style={styles.focusMain}>
+              {currentSession ? (
+                <View style={styles.liveIndicator}>
+                  <View style={styles.liveDot} />
+                  <Text style={styles.liveText}>IN PROGRESS</Text>
+                </View>
+              ) : null}
+              <Text style={styles.focusPrimary}>{focusMessage.primary}</Text>
+              <Text style={styles.focusSecondary}>{focusMessage.secondary}</Text>
             </View>
 
-            {currentSession ? (
-              <View style={styles.nextLessonContainer}>
-                <View style={styles.nextLessonBadge}>
-                  <View style={styles.liveDot} />
-                  <Text style={styles.nextLessonBadgeText}>IN PROGRESS</Text>
+            {/* Stats Row (only if sessions exist) */}
+            {todaysSessions.length > 0 ? (
+              <View style={styles.focusStats}>
+                <View style={styles.focusStatItem}>
+                  <Text style={styles.focusStatNumber}>{todaysSessions.length}</Text>
+                  <Text style={styles.focusStatLabel}>Sessions</Text>
                 </View>
-                <Text style={styles.nextLessonTime}>
-                  {formatTime(currentSession.startTime)} - {formatTime(currentSession.endTime)}
-                </Text>
+                <View style={styles.focusStatDivider} />
+                <View style={styles.focusStatItem}>
+                  <Text style={styles.focusStatNumber}>
+                    {todaysSessions.reduce((acc, s) => acc + s.duration, 0)}
+                  </Text>
+                  <Text style={styles.focusStatLabel}>Minutes</Text>
+                </View>
               </View>
-            ) : nextSession ? (
-              <View style={styles.nextLessonContainer}>
-                <Text style={styles.nextLessonLabel}>Next lesson in</Text>
-                <Text style={styles.nextLessonTime}>{getTimeUntil(nextSession.startTime)}</Text>
-              </View>
-            ) : todaysSessions.length === 0 ? (
-              <View style={styles.nextLessonContainer}>
-                <Text style={styles.noLessonsText}>No lessons today</Text>
-              </View>
-            ) : (
-              <View style={styles.nextLessonContainer}>
-                <Text style={styles.noLessonsText}>All lessons completed</Text>
-              </View>
-            )}
+            ) : null}
           </LinearGradient>
         </View>
 
-        <View style={styles.loadCard}>
-          <View style={styles.loadHeader}>
-            <View style={styles.loadTitleRow}>
-              <Ionicons name="battery-charging-outline" size={20} color={Colors.dark.primary} />
-              <Text style={styles.loadTitle}>Coach Energy</Text>
+        {/* Stamina & Impact Card */}
+        <View style={styles.energyCard}>
+          <View style={styles.energyHeader}>
+            <View style={styles.energyTitleRow}>
+              <Ionicons name="flash-outline" size={18} color={Colors.dark.primary} />
+              <Text style={styles.energyTitle}>Energy</Text>
             </View>
             <View
               style={[
-                styles.loadLevelBadge,
+                styles.energyStateBadge,
                 {
                   backgroundColor:
-                    coachLoad.loadLevel === "intense"
-                      ? Colors.dark.error + "20"
-                      : coachLoad.loadLevel === "high"
-                      ? Colors.dark.orange + "20"
-                      : coachLoad.loadLevel === "moderate"
-                      ? Colors.dark.gold + "20"
-                      : Colors.dark.primary + "20",
+                    coachStats.energyState === "intense"
+                      ? Colors.dark.error + "15"
+                      : coachStats.energyState === "focused"
+                      ? Colors.dark.orange + "15"
+                      : coachStats.energyState === "active"
+                      ? Colors.dark.gold + "15"
+                      : Colors.dark.primary + "15",
                 },
               ]}
             >
               <Text
                 style={[
-                  styles.loadLevelText,
+                  styles.energyStateText,
                   {
                     color:
-                      coachLoad.loadLevel === "intense"
+                      coachStats.energyState === "intense"
                         ? Colors.dark.error
-                        : coachLoad.loadLevel === "high"
+                        : coachStats.energyState === "focused"
                         ? Colors.dark.orange
-                        : coachLoad.loadLevel === "moderate"
+                        : coachStats.energyState === "active"
                         ? Colors.dark.gold
                         : Colors.dark.primary,
                   },
                 ]}
               >
-                {coachLoad.loadLevel.charAt(0).toUpperCase() + coachLoad.loadLevel.slice(1)}
+                {coachStats.energyState.charAt(0).toUpperCase() + coachStats.energyState.slice(1)}
               </Text>
             </View>
           </View>
 
-          <View style={styles.loadBarsContainer}>
-            <View style={styles.loadBarRow}>
-              <Text style={styles.loadBarLabel}>Load</Text>
-              <View style={styles.loadBarBackground}>
-                <View
-                  style={[
-                    styles.loadBarFill,
-                    {
-                      width: `${coachLoad.loadPercent}%`,
-                      backgroundColor:
-                        coachLoad.loadLevel === "intense"
-                          ? Colors.dark.error
-                          : coachLoad.loadLevel === "high"
-                          ? Colors.dark.orange
-                          : Colors.dark.primary,
-                    },
+          <View style={styles.energyBarsContainer}>
+            {/* Stamina Bar */}
+            <View style={styles.energyBarRow}>
+              <Text style={styles.energyBarLabel}>Stamina</Text>
+              <View style={styles.energyBarBackground}>
+                <LinearGradient
+                  colors={[
+                    coachStats.energyState === "intense"
+                      ? Colors.dark.error + "80"
+                      : coachStats.energyState === "focused"
+                      ? Colors.dark.orange + "80"
+                      : Colors.dark.primary + "80",
+                    coachStats.energyState === "intense"
+                      ? Colors.dark.error + "40"
+                      : coachStats.energyState === "focused"
+                      ? Colors.dark.orange + "40"
+                      : Colors.dark.primary + "40",
                   ]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[styles.energyBarFill, { width: `${coachStats.staminaPercent}%` }]}
                 />
               </View>
-              <Text style={styles.loadBarValue}>{Math.round(coachLoad.loadPercent)}%</Text>
+              <Text style={styles.energyBarValue}>{coachStats.staminaPercent}%</Text>
             </View>
 
-            <View style={styles.loadBarRow}>
-              <Text style={styles.loadBarLabel}>Progress</Text>
-              <View style={styles.loadBarBackground}>
-                <View
-                  style={[
-                    styles.loadBarFill,
-                    {
-                      width: `${coachLoad.progressPercent}%`,
-                      backgroundColor: Colors.dark.xpCyan,
-                    },
-                  ]}
+            {/* Impact Bar */}
+            <View style={styles.energyBarRow}>
+              <Text style={styles.energyBarLabel}>Impact</Text>
+              <View style={styles.energyBarBackground}>
+                <LinearGradient
+                  colors={[Colors.dark.xpCyan + "80", Colors.dark.xpCyan + "40"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[styles.energyBarFill, { width: `${coachStats.impactPercent}%` }]}
                 />
               </View>
-              <Text style={styles.loadBarValue}>{coachLoad.progressPercent}%</Text>
+              <Text style={styles.energyBarValue}>{coachStats.impactPercent}%</Text>
             </View>
           </View>
 
-          <Text style={styles.loadSubtext}>
-            {coachLoad.completedMinutes > 0
-              ? `${coachLoad.completedMinutes}m coached, ${coachLoad.totalMinutes - coachLoad.completedMinutes}m remaining`
-              : coachLoad.totalMinutes > 0
-              ? `${coachLoad.totalMinutes}m scheduled today`
-              : "No sessions scheduled"}
+          <Text style={styles.energySubtext}>
+            {coachStats.impactPercent === 100
+              ? "High impact sessions give bonus XP"
+              : coachStats.completedMinutes > 0
+              ? `${coachStats.completedMinutes}m coached, ${coachStats.remainingMinutes}m remaining`
+              : coachStats.totalMinutes > 0
+              ? `${coachStats.totalMinutes}m scheduled today`
+              : "Ready for action"}
           </Text>
         </View>
 
+        {/* Alerts */}
         {alerts.length > 0 ? (
           <View style={styles.alertsSection}>
             <Text style={styles.sectionTitle}>Alerts</Text>
             {alerts.map((alert) => (
-              <Pressable key={alert.id} style={styles.alertCard}>
+              <Pressable 
+                key={alert.id} 
+                style={styles.alertCard}
+                onPress={() => handleNavigate("Coaching")}
+              >
                 <View
                   style={[
                     styles.alertIcon,
                     {
                       backgroundColor:
                         alert.priority === "high"
-                          ? Colors.dark.error + "20"
-                          : Colors.dark.orange + "20",
+                          ? Colors.dark.error + "15"
+                          : Colors.dark.orange + "15",
                     },
                   ]}
                 >
@@ -361,45 +435,55 @@ export default function DashboardScreen() {
                   />
                 </View>
                 <Text style={styles.alertText}>{alert.message}</Text>
+                <Text style={styles.alertXP}>+{pendingFeedbackCount * 15} XP</Text>
                 <Ionicons name="chevron-forward" size={20} color={Colors.dark.tabIconDefault} />
               </Pressable>
             ))}
           </View>
         ) : null}
 
+        {/* Quick Actions */}
         <View style={styles.quickActions}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionGrid}>
-            <Pressable style={styles.actionCard} onPress={() => handleNavigate("Calendar")}>
-              <View style={[styles.actionIconContainer, { backgroundColor: Colors.dark.primary + "20" }]}>
-                <Ionicons name="calendar-outline" size={24} color={Colors.dark.primary} />
+            {/* Calendar - Active Glow */}
+            <Pressable 
+              style={[styles.actionCard, styles.actionCardActive]} 
+              onPress={() => handleNavigate("Calendar")}
+            >
+              <View style={[styles.actionIconContainer, styles.actionIconActive]}>
+                <Ionicons name="calendar" size={26} color={Colors.dark.primary} />
               </View>
               <Text style={styles.actionText}>Calendar</Text>
             </Pressable>
 
+            {/* Players - Dormant */}
             <Pressable style={styles.actionCard} onPress={() => handleNavigate("Players")}>
-              <View style={[styles.actionIconContainer, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
-                <Ionicons name="people-outline" size={24} color={Colors.dark.xpCyan} />
+              <View style={[styles.actionIconContainer, { backgroundColor: Colors.dark.xpCyan + "10" }]}>
+                <Ionicons name="people-outline" size={26} color={Colors.dark.xpCyan} />
               </View>
               <Text style={styles.actionText}>Players</Text>
             </Pressable>
 
+            {/* Feedback - Dormant */}
             <Pressable style={styles.actionCard} onPress={() => handleNavigate("Coaching")}>
-              <View style={[styles.actionIconContainer, { backgroundColor: Colors.dark.orange + "20" }]}>
-                <Ionicons name="clipboard-outline" size={24} color={Colors.dark.orange} />
+              <View style={[styles.actionIconContainer, { backgroundColor: Colors.dark.orange + "10" }]}>
+                <Ionicons name="clipboard-outline" size={26} color={Colors.dark.orange} />
               </View>
               <Text style={styles.actionText}>Feedback</Text>
             </Pressable>
 
-            <Pressable style={styles.actionCard} onPress={() => handleNavigate("History")}>
-              <View style={[styles.actionIconContainer, { backgroundColor: Colors.dark.gold + "20" }]}>
-                <Ionicons name="time-outline" size={24} color={Colors.dark.gold} />
+            {/* Coach Progress - New */}
+            <Pressable style={styles.actionCard} onPress={() => handleNavigate("CoachProfile")}>
+              <View style={[styles.actionIconContainer, { backgroundColor: Colors.dark.gold + "10" }]}>
+                <Ionicons name="trending-up-outline" size={26} color={Colors.dark.gold} />
               </View>
-              <Text style={styles.actionText}>History</Text>
+              <Text style={styles.actionText}>Progress</Text>
             </Pressable>
           </View>
         </View>
 
+        {/* Today's Timeline */}
         {todaysSessions.length > 0 ? (
           <View style={styles.sessionsSection}>
             <Text style={styles.sectionTitle}>Today's Timeline</Text>
@@ -414,9 +498,10 @@ export default function DashboardScreen() {
           </View>
         ) : null}
 
+        {/* Today's Lessons */}
         {todaysSessions.length > 0 ? (
           <View style={styles.sessionsSection}>
-            <Text style={styles.sectionTitle}>Today's Lessons</Text>
+            <Text style={styles.sectionTitle}>Sessions</Text>
             {todaysSessions.map((session) => {
               const isPast = new Date(session.endTime) < new Date();
               const isCurrent =
@@ -491,163 +576,125 @@ const styles = StyleSheet.create({
   content: {
     padding: Spacing.lg,
   },
+  
+  // Header
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: Spacing.xl,
   },
+  headerLeft: {
+    flex: 1,
+  },
   headerActions: {
     flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.sm,
   },
   headerButton: {
     padding: Spacing.xs,
   },
-  avatarSmall: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.dark.primary + "20",
-    alignItems: "center",
-    justifyContent: "center",
-  },
   greeting: {
-    fontSize: Typography.body.fontSize,
+    fontSize: Typography.small.fontSize,
     color: Colors.dark.tabIconDefault,
+    opacity: 0.8,
   },
   coachName: {
     ...Typography.h1,
     color: Colors.dark.text,
+    marginBottom: Spacing.xs,
   },
-  timelineCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-  },
-  loadCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    marginBottom: Spacing.xl,
-    gap: Spacing.sm,
-  },
-  loadHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  loadTitleRow: {
+  
+  // Coach XP
+  xpContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
-  },
-  loadTitle: {
-    ...Typography.h4,
-    color: Colors.dark.text,
-  },
-  loadLevelBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
-  },
-  loadLevelText: {
-    fontSize: Typography.small.fontSize,
-    fontWeight: "600",
-  },
-  loadBarsContainer: {
     gap: Spacing.sm,
     marginTop: Spacing.xs,
   },
-  loadBarRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  loadBarLabel: {
-    width: 50,
-    fontSize: Typography.small.fontSize,
-    color: Colors.dark.tabIconDefault,
-  },
-  loadBarBackground: {
-    flex: 1,
-    height: 8,
-    backgroundColor: Colors.dark.backgroundRoot,
-    borderRadius: 4,
-    overflow: "hidden",
-  },
-  loadBarFill: {
-    height: "100%",
-    borderRadius: 4,
-  },
-  loadBarValue: {
-    width: 40,
-    fontSize: Typography.small.fontSize,
-    color: Colors.dark.text,
-    textAlign: "right",
-  },
-  loadSubtext: {
-    fontSize: Typography.caption.fontSize,
-    color: Colors.dark.tabIconDefault,
-    marginTop: Spacing.xs,
-  },
-  todayCard: {
-    borderRadius: BorderRadius.lg,
-    overflow: "hidden",
-    marginBottom: Spacing.xl,
-    borderWidth: 1,
-    borderColor: "rgba(46, 204, 64, 0.2)",
-  },
-  todayGradient: {
-    padding: Spacing.lg,
-  },
-  todayHeader: {
-    marginBottom: Spacing.md,
-  },
-  todayLabel: {
+  levelBadge: {
     fontSize: Typography.caption.fontSize,
     fontWeight: "700",
     color: Colors.dark.primary,
-    letterSpacing: 1,
+    backgroundColor: Colors.dark.primary + "15",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
   },
-  todayDate: {
-    fontSize: Typography.h3.fontSize,
-    fontWeight: "600",
-    color: Colors.dark.text,
-    marginTop: 2,
-    textTransform: "capitalize",
-  },
-  todayStats: {
-    flexDirection: "row",
-    marginBottom: Spacing.md,
-  },
-  statItem: {
+  xpBarContainer: {
     flex: 1,
-    alignItems: "center",
+    maxWidth: 80,
+    height: 4,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: 2,
+    overflow: "hidden",
   },
-  statNumber: {
-    fontSize: 32,
-    fontWeight: "700",
-    color: Colors.dark.text,
+  xpBarFill: {
+    height: "100%",
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 2,
   },
-  statLabel: {
-    fontSize: Typography.small.fontSize,
+  xpText: {
+    fontSize: Typography.caption.fontSize,
     color: Colors.dark.tabIconDefault,
   },
-  statDivider: {
-    width: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    marginHorizontal: Spacing.lg,
+  
+  // Avatar with Glow Ring
+  avatarGlowRing: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.primary + "20",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: Colors.dark.primary + "40",
   },
-  nextLessonContainer: {
-    paddingTop: Spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.1)",
+  avatarInner: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  nextLessonBadge: {
+  
+  // Focus Card (formerly TODAY)
+  focusCard: {
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    marginBottom: Spacing.lg,
+  },
+  focusGradient: {
+    padding: Spacing.lg,
+  },
+  focusHeader: {
+    marginBottom: Spacing.md,
+  },
+  focusLabel: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+    letterSpacing: 1.5,
+    opacity: 0.9,
+  },
+  focusDate: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+    marginTop: 2,
+    opacity: 0.8,
+    textTransform: "capitalize",
+  },
+  focusMain: {
+    alignItems: "center",
+    paddingVertical: Spacing.lg,
+  },
+  liveIndicator: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
+    marginBottom: Spacing.sm,
   },
   liveDot: {
     width: 8,
@@ -655,33 +702,129 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: Colors.dark.primary,
   },
-  nextLessonBadgeText: {
+  liveText: {
     fontSize: Typography.caption.fontSize,
     fontWeight: "700",
     color: Colors.dark.primary,
     letterSpacing: 1,
   },
-  nextLessonLabel: {
+  focusPrimary: {
+    fontSize: 36,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textAlign: "center",
+  },
+  focusSecondary: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.tabIconDefault,
+    marginTop: Spacing.xs,
+    textAlign: "center",
+  },
+  focusStats: {
+    flexDirection: "row",
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.06)",
+    marginTop: Spacing.md,
+  },
+  focusStatItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  focusStatNumber: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  focusStatLabel: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+    opacity: 0.8,
+  },
+  focusStatDivider: {
+    width: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+  },
+  
+  // Energy Card
+  energyCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  energyHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  energyTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  energyTitle: {
+    ...Typography.h4,
+    color: Colors.dark.text,
+  },
+  energyStateBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+  },
+  energyStateText: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "600",
+  },
+  energyBarsContainer: {
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  energyBarRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  energyBarLabel: {
+    width: 55,
     fontSize: Typography.small.fontSize,
     color: Colors.dark.tabIconDefault,
   },
-  nextLessonTime: {
-    fontSize: Typography.h2.fontSize,
-    fontWeight: "600",
+  energyBarBackground: {
+    flex: 1,
+    height: 6,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  energyBarFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  energyBarValue: {
+    width: 35,
+    fontSize: Typography.small.fontSize,
     color: Colors.dark.text,
+    textAlign: "right",
+    opacity: 0.8,
   },
-  noLessonsText: {
-    fontSize: Typography.body.fontSize,
+  energySubtext: {
+    fontSize: Typography.caption.fontSize,
     color: Colors.dark.tabIconDefault,
-    textAlign: "center",
+    marginTop: Spacing.xs,
+    opacity: 0.7,
   },
+  
+  // Alerts
   alertsSection: {
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
   sectionTitle: {
     ...Typography.h4,
     color: Colors.dark.text,
     marginBottom: Spacing.md,
+    opacity: 0.9,
   },
   alertCard: {
     flexDirection: "row",
@@ -704,36 +847,58 @@ const styles = StyleSheet.create({
     fontSize: Typography.body.fontSize,
     color: Colors.dark.text,
   },
+  alertXP: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.primary,
+  },
+  
+  // Quick Actions
   quickActions: {
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
   actionGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: Spacing.md,
+    gap: Spacing.sm,
   },
   actionCard: {
-    width: "47%",
+    width: "48%",
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
+    padding: Spacing.md,
     alignItems: "center",
     gap: Spacing.sm,
   },
+  actionCardActive: {
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
+  },
   actionIconContainer: {
-    width: 48,
-    height: 48,
+    width: 52,
+    height: 52,
     borderRadius: BorderRadius.md,
     alignItems: "center",
     justifyContent: "center",
+  },
+  actionIconActive: {
+    backgroundColor: Colors.dark.primary + "15",
   },
   actionText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "500",
     color: Colors.dark.text,
+    opacity: 0.9,
   },
+  
+  // Sessions
   sessionsSection: {
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
+  },
+  timelineCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
   },
   sessionCard: {
     flexDirection: "row",
@@ -745,11 +910,11 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   sessionCardPast: {
-    opacity: 0.6,
+    opacity: 0.5,
   },
   sessionCardCurrent: {
     borderWidth: 1,
-    borderColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary + "50",
   },
   sessionTime: {
     alignItems: "center",
@@ -781,7 +946,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.tabIconDefault,
   },
   currentBadge: {
-    backgroundColor: Colors.dark.primary + "20",
+    backgroundColor: Colors.dark.primary + "15",
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
@@ -792,13 +957,13 @@ const styles = StyleSheet.create({
     color: Colors.dark.primary,
   },
   pastBadge: {
-    backgroundColor: Colors.dark.disabled + "20",
+    backgroundColor: Colors.dark.tabIconDefault + "15",
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
   },
   pastBadgeText: {
     fontSize: Typography.caption.fontSize,
-    color: Colors.dark.disabled,
+    color: Colors.dark.tabIconDefault,
   },
 });

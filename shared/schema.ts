@@ -33,6 +33,10 @@ export const coaches = pgTable("coaches", {
   phone: text("phone"),
   homeLocationId: varchar("home_location_id"),
   hourlyRate: numeric("hourly_rate"),
+  
+  level: integer("level").default(1),
+  totalXp: integer("total_xp").default(0),
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -494,3 +498,26 @@ export const xpTransactions = pgTable("xp_transactions", {
 export const insertXpTransactionSchema = createInsertSchema(xpTransactions).omit({ id: true, createdAt: true });
 export type InsertXpTransaction = z.infer<typeof insertXpTransactionSchema>;
 export type XpTransaction = typeof xpTransactions.$inferSelect;
+
+// ==================== COACH XP SYSTEM ====================
+
+// Coach XP Transactions - Track coach XP gains
+export const coachXpTransactions = pgTable("coach_xp_transactions", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  sessionId: varchar("session_id").references(() => sessions.id),
+  
+  xpAmount: integer("xp_amount").notNull(),
+  source: text("source").notNull(), // session_complete/feedback/player_growth/streak/consistency
+  
+  description: text("description"),
+  metadata: jsonb("metadata"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCoachXpTransactionSchema = createInsertSchema(coachXpTransactions).omit({ id: true, createdAt: true });
+export type InsertCoachXpTransaction = z.infer<typeof insertCoachXpTransactionSchema>;
+export type CoachXpTransaction = typeof coachXpTransactions.$inferSelect;
