@@ -66,6 +66,7 @@ function CoachTabs() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" size={size} color={color} />
           ),
+          tabBarStyle: { display: "none" },
         }}
       />
       <Tab.Screen
