@@ -160,6 +160,9 @@ interface SkillProgress {
   [skill: string]: SkillChipState;
 }
 
+type QuickSignal = "focused" | "smart_decisions" | "good_teammate" | "took_initiative" | "showed_respect" | "listened_well" | "fair_play";
+type SocialIssue = "disruptive" | "poor_attitude" | "disrespect";
+
 interface PlayerFeedbackState {
   playerId: string;
   playerName: string;
@@ -167,6 +170,16 @@ interface PlayerFeedbackState {
   effortLevel: EffortLevel;
   note: string;
   skillProgress: SkillProgress;
+  quickSignals: QuickSignal[];
+  socialIssue: SocialIssue | null;
+}
+
+interface DomainImpact {
+  technical: "up" | "stable" | "down";
+  mental: "up" | "stable" | "down";
+  physical: "up" | "stable" | "down";
+  social: "up" | "stable" | "down";
+  tactical: "up" | "stable" | "down";
 }
 
 function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
@@ -204,6 +217,8 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
           effortLevel: "normal" as EffortLevel,
           note: "",
           skillProgress: {},
+          quickSignals: [],
+          socialIssue: null,
         }))
       );
       // For private sessions, expand all players by default
@@ -241,10 +256,68 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
       progressTrend: "stable" as ProgressTrend,
       effortLevel: "normal" as EffortLevel,
       skillProgress: {},
+      quickSignals: [],
+      socialIssue: null,
     })));
     setIntensity("normal");
     setMood("neutral");
-    setShowSkillSelector(null); // Close any open skill selectors
+    setShowSkillSelector(null);
+  };
+
+  const toggleQuickSignal = (playerId: string, signal: QuickSignal) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPlayerFeedback(prev => prev.map(pf => {
+      if (pf.playerId !== playerId) return pf;
+      const hasSignal = pf.quickSignals.includes(signal);
+      return {
+        ...pf,
+        quickSignals: hasSignal 
+          ? pf.quickSignals.filter(s => s !== signal)
+          : [...pf.quickSignals, signal],
+      };
+    }));
+  };
+
+  const setSocialIssue = (playerId: string, issue: SocialIssue | null) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setPlayerFeedback(prev => prev.map(pf => {
+      if (pf.playerId !== playerId) return pf;
+      return { ...pf, socialIssue: pf.socialIssue === issue ? null : issue };
+    }));
+  };
+
+  const calculateDomainImpact = (pf: PlayerFeedbackState): DomainImpact => {
+    let technical: "up" | "stable" | "down" = "stable";
+    let mental: "up" | "stable" | "down" = "stable";
+    let physical: "up" | "stable" | "down" = "stable";
+    let social: "up" | "stable" | "down" = "stable";
+    let tactical: "up" | "stable" | "down" = "stable";
+
+    const technicalSkills = ["Forehand", "Backhand", "Serve", "Volley"];
+    const hasUpTechnical = technicalSkills.some(s => pf.skillProgress[s] === "up");
+    const hasDownTechnical = technicalSkills.some(s => pf.skillProgress[s] === "down");
+    if (hasUpTechnical) technical = "up";
+    else if (hasDownTechnical) technical = "down";
+    else if (pf.progressTrend === "up") technical = "up";
+    else if (pf.progressTrend === "down") technical = "down";
+
+    if (pf.skillProgress["Mental"] === "up" || mood === "good" || pf.quickSignals.includes("focused")) mental = "up";
+    else if (pf.skillProgress["Mental"] === "down" || mood === "low") mental = "down";
+    else if (pf.effortLevel === "high") mental = "up";
+
+    if (pf.skillProgress["Movement"] === "up" || pf.effortLevel === "high" || intensity === "intense") physical = "up";
+    else if (pf.skillProgress["Movement"] === "down" || pf.effortLevel === "low") physical = "down";
+
+    const socialSignals: QuickSignal[] = ["good_teammate", "took_initiative", "showed_respect", "listened_well", "fair_play"];
+    const hasSocialSignal = socialSignals.some(s => pf.quickSignals.includes(s));
+    if (hasSocialSignal) social = "up";
+    else if (pf.socialIssue) social = "down";
+    else if (sessionPlayers.length > 1 && pf.effortLevel !== "low") social = "stable";
+
+    if (pf.quickSignals.includes("smart_decisions") || focusTags.includes("Positioning") || focusTags.includes("Shot choice")) tactical = "up";
+    else if (pf.progressTrend === "up" && focusTags.length > 0) tactical = "up";
+
+    return { technical, mental, physical, social, tactical };
   };
 
   const cycleSkillState = (playerId: string, skill: string) => {
@@ -324,10 +397,10 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
           }
           // If switching between up/down, keep existing skill selections
           
-          return { ...pf, [field]: value, skillProgress: newSkillProgress };
+          return { ...pf, [field]: value, skillProgress: newSkillProgress } as PlayerFeedbackState;
         }
         
-        return { ...pf, [field]: value };
+        return { ...pf, [field]: value } as PlayerFeedbackState;
       })
     );
     
@@ -783,6 +856,141 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
                           ))}
                         </View>
                       </View>
+
+                      {/* Quick Signals Section */}
+                      <View style={styles.quickSignalsSection}>
+                        <Text style={styles.playerFeedbackLabel}>Quick Signals (optional)</Text>
+                        <View style={styles.quickSignalsGrid}>
+                          {([
+                            { id: "focused" as QuickSignal, icon: "eye-outline" as const, label: "Focused", domain: "mental" },
+                            { id: "smart_decisions" as QuickSignal, icon: "bulb-outline" as const, label: "Smart", domain: "tactical" },
+                            { id: "good_teammate" as QuickSignal, icon: "people-outline" as const, label: "Teammate", domain: "social" },
+                            { id: "took_initiative" as QuickSignal, icon: "hand-right-outline" as const, label: "Initiative", domain: "social" },
+                            { id: "showed_respect" as QuickSignal, icon: "heart-outline" as const, label: "Respect", domain: "social" },
+                            { id: "listened_well" as QuickSignal, icon: "ear-outline" as const, label: "Listened", domain: "social" },
+                            { id: "fair_play" as QuickSignal, icon: "shield-checkmark-outline" as const, label: "Fair Play", domain: "social" },
+                          ] as const).map((signal) => {
+                            const isActive = pf.quickSignals.includes(signal.id);
+                            return (
+                              <Pressable
+                                key={signal.id}
+                                style={[
+                                  styles.quickSignalChip,
+                                  isActive && styles.quickSignalChipActive,
+                                ]}
+                                onPress={() => toggleQuickSignal(pf.playerId, signal.id)}
+                              >
+                                <Ionicons 
+                                  name={signal.icon} 
+                                  size={14} 
+                                  color={isActive ? Colors.dark.primary : Colors.dark.tabIconDefault} 
+                                />
+                                <Text style={[
+                                  styles.quickSignalText,
+                                  isActive && styles.quickSignalTextActive,
+                                ]}>
+                                  {signal.label}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                        
+                        {/* Social Correction (hidden toggle) */}
+                        <Pressable
+                          style={styles.issueToggle}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            if (pf.socialIssue) {
+                              setSocialIssue(pf.playerId, null);
+                            } else {
+                              setSocialIssue(pf.playerId, "disruptive");
+                            }
+                          }}
+                        >
+                          <Ionicons 
+                            name={pf.socialIssue ? "warning" : "warning-outline"} 
+                            size={12} 
+                            color={pf.socialIssue ? Colors.dark.error : Colors.dark.tabIconDefault} 
+                          />
+                          <Text style={[
+                            styles.issueToggleText,
+                            pf.socialIssue && { color: Colors.dark.error },
+                          ]}>
+                            {pf.socialIssue ? "Issue observed" : "Issue observed?"}
+                          </Text>
+                        </Pressable>
+                        
+                        {pf.socialIssue ? (
+                          <View style={styles.issueOptions}>
+                            {([
+                              { id: "disruptive" as SocialIssue, label: "Disruptive" },
+                              { id: "poor_attitude" as SocialIssue, label: "Poor attitude" },
+                              { id: "disrespect" as SocialIssue, label: "Disrespect" },
+                            ] as const).map((issue) => (
+                              <Pressable
+                                key={issue.id}
+                                style={[
+                                  styles.issueChip,
+                                  pf.socialIssue === issue.id && styles.issueChipActive,
+                                ]}
+                                onPress={() => setSocialIssue(pf.playerId, issue.id)}
+                              >
+                                <Text style={[
+                                  styles.issueChipText,
+                                  pf.socialIssue === issue.id && styles.issueChipTextActive,
+                                ]}>
+                                  {issue.label}
+                                </Text>
+                              </Pressable>
+                            ))}
+                          </View>
+                        ) : null}
+                      </View>
+
+                      {/* Domain Preview Chips (read-only) */}
+                      {(() => {
+                        const impact = calculateDomainImpact(pf);
+                        const domains = [
+                          { key: "technical", label: "Tech", value: impact.technical },
+                          { key: "mental", label: "Mental", value: impact.mental },
+                          { key: "physical", label: "Physical", value: impact.physical },
+                          { key: "social", label: "Social", value: impact.social },
+                          { key: "tactical", label: "Tactical", value: impact.tactical },
+                        ];
+                        const hasAnyChange = domains.some(d => d.value !== "stable");
+                        if (!hasAnyChange) return null;
+                        return (
+                          <View style={styles.domainPreviewSection}>
+                            <Text style={styles.domainPreviewLabel}>Core Impact (auto)</Text>
+                            <View style={styles.domainPreviewGrid}>
+                              {domains.map((d) => (
+                                <View 
+                                  key={d.key} 
+                                  style={[
+                                    styles.domainPreviewChip,
+                                    d.value === "up" && styles.domainPreviewUp,
+                                    d.value === "down" && styles.domainPreviewDown,
+                                  ]}
+                                >
+                                  {d.value === "up" ? (
+                                    <Ionicons name="arrow-up" size={10} color={Colors.dark.primary} />
+                                  ) : d.value === "down" ? (
+                                    <Ionicons name="arrow-down" size={10} color={Colors.dark.error} />
+                                  ) : null}
+                                  <Text style={[
+                                    styles.domainPreviewText,
+                                    d.value === "up" && { color: Colors.dark.primary },
+                                    d.value === "down" && { color: Colors.dark.error },
+                                  ]}>
+                                    {d.label}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+                          </View>
+                        );
+                      })()}
 
                       <View style={styles.skillChipsSection}>
                         <Text style={styles.playerFeedbackLabel}>Skills (tap to toggle)</Text>
@@ -1791,6 +1999,108 @@ const styles = StyleSheet.create({
   },
   skillSelectorChipText: {
     fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+  },
+  quickSignalsSection: {
+    marginTop: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  quickSignalsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
+  },
+  quickSignalChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.disabled,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  quickSignalChipActive: {
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.primary + "15",
+  },
+  quickSignalText: {
+    fontSize: Typography.small.fontSize - 1,
+    color: Colors.dark.tabIconDefault,
+  },
+  quickSignalTextActive: {
+    color: Colors.dark.primary,
+  },
+  issueToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.xs,
+  },
+  issueToggleText: {
+    fontSize: Typography.small.fontSize - 1,
+    color: Colors.dark.tabIconDefault,
+  },
+  issueOptions: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
+  },
+  issueChip: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.disabled,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  issueChipActive: {
+    borderColor: Colors.dark.error,
+    backgroundColor: Colors.dark.error + "15",
+  },
+  issueChipText: {
+    fontSize: Typography.small.fontSize - 1,
+    color: Colors.dark.tabIconDefault,
+  },
+  issueChipTextActive: {
+    color: Colors.dark.error,
+  },
+  domainPreviewSection: {
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.disabled + "30",
+  },
+  domainPreviewLabel: {
+    fontSize: Typography.small.fontSize - 1,
+    color: Colors.dark.tabIconDefault,
+    marginBottom: Spacing.xs,
+  },
+  domainPreviewGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.xs,
+  },
+  domainPreviewChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  domainPreviewUp: {
+    backgroundColor: Colors.dark.primary + "15",
+  },
+  domainPreviewDown: {
+    backgroundColor: Colors.dark.error + "15",
+  },
+  domainPreviewText: {
+    fontSize: Typography.small.fontSize - 2,
     color: Colors.dark.tabIconDefault,
   },
   saveButton: {

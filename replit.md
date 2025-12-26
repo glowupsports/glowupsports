@@ -195,3 +195,17 @@ Advanced player development tracking system with 5 skill domains, anti-abuse rul
     - Long-press on ↑/↓ opens inline skill selector for optional refinement
     - Tapping "Applied to: ..." hint also opens refinement selector
     - If no focus selected, shows "General progress" indicator
+  - **Primary vs Secondary Progress Model**:
+    - Layer 1 (Primary): Coach gives explicit feedback (progress, effort, focus)
+    - Layer 2 (Secondary): System auto-derives impact on all 5 domains
+  - **Quick Signals (1-tap, optional)**:
+    - Mental signals: Focused
+    - Tactical signals: Smart decisions
+    - Social signals: Good teammate, Took initiative, Showed respect, Fair play
+  - **Social Correction (protected)**:
+    - Hidden behind "Issue observed?" toggle
+    - Options: Disruptive, Poor attitude, Disrespect
+    - Max 1 per player per session, small impact
+  - **Domain Preview Chips (read-only)**:
+    - Shows auto-calculated impact on 5 domains (Technical, Mental, Physical, Social, Tactical)
+    - Green = improving, Red = needs work, Gray = stable
