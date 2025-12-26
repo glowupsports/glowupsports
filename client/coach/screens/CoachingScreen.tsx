@@ -180,13 +180,15 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
   React.useEffect(() => {
     if (sessionPlayers.length > 0) {
       setPlayerFeedback(
-        sessionPlayers.map((sp) => ({
-          playerId: sp.playerId,
-          playerName: sp.player.name,
-          progressTrend: "stable" as ProgressTrend,
-          effortLevel: "normal" as EffortLevel,
-          note: "",
-        }))
+        sessionPlayers
+          .filter((sp) => sp.player && sp.player.name)
+          .map((sp) => ({
+            playerId: sp.playerId,
+            playerName: sp.player.name,
+            progressTrend: "stable" as ProgressTrend,
+            effortLevel: "normal" as EffortLevel,
+            note: "",
+          }))
       );
     }
   }, [sessionPlayers]);

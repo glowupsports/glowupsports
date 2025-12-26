@@ -501,12 +501,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get session players
+  // Get session players with player details (using efficient JOIN)
   app.get("/api/coach/sessions/:id/players", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const players = await storage.getSessionPlayers(id);
-      res.json(players);
+      const playersWithDetails = await storage.getSessionPlayersWithPlayerInfo(id);
+      res.json(playersWithDetails);
     } catch (error) {
       console.error("Error fetching players:", error);
       res.status(500).json({ error: "Failed to fetch players" });

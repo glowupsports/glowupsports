@@ -299,6 +299,26 @@ export const storage = {
     return db.select().from(sessionPlayers).where(eq(sessionPlayers.sessionId, sessionId));
   },
 
+  async getSessionPlayersWithPlayerInfo(sessionId: string): Promise<Array<SessionPlayer & { player: { id: string; name: string; ballLevel: string | null } | null }>> {
+    const result = await db
+      .select({
+        sessionPlayer: sessionPlayers,
+        player: {
+          id: players.id,
+          name: players.name,
+          ballLevel: players.ballLevel,
+        },
+      })
+      .from(sessionPlayers)
+      .leftJoin(players, eq(sessionPlayers.playerId, players.id))
+      .where(eq(sessionPlayers.sessionId, sessionId));
+    
+    return result.map(r => ({
+      ...r.sessionPlayer,
+      player: r.player,
+    }));
+  },
+
   async getPlayerLastSession(playerId: string): Promise<Session | null> {
     // Get all session IDs for this player
     const playerSessionEntries = await db
