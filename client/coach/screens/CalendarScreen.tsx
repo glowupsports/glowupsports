@@ -382,6 +382,7 @@ export default function CalendarScreen() {
     
     return {
       sessions: daySessions.length,
+      totalMinutes,
       totalHours,
       courts: uniqueCourts,
       energyLevel,
@@ -847,42 +848,85 @@ export default function CalendarScreen() {
           </View>
 
           {/* Month Grid */}
-          {monthDates.map((week, weekIdx) => (
-            <View key={weekIdx} style={styles.monthWeekRow}>
-              {week.map((date, dayIdx) => {
-                if (!date) {
-                  return <View key={dayIdx} style={styles.monthDayEmpty} />;
-                }
-                const daySessions = getSessionsForDate(date);
-                const isToday = date.toDateString() === new Date().toDateString();
-                const isSelected = date.toDateString() === selectedDate.toDateString();
-                return (
-                  <Pressable 
-                    key={dayIdx} 
-                    style={[styles.monthDay, isToday && styles.monthDayToday, isSelected && styles.monthDaySelected]}
-                    onPress={() => handleDateSelect(date)}
-                  >
-                    <Text style={[styles.monthDayNumber, isToday && styles.monthDayNumberToday]}>
-                      {date.getDate()}
-                    </Text>
-                    {daySessions.length > 0 && (
-                      <View style={styles.monthSessionDots}>
-                        {daySessions.slice(0, 3).map((session, sIdx) => (
-                          <View 
-                            key={sIdx} 
-                            style={[styles.monthSessionDot, { backgroundColor: getSessionTypeColor(session.sessionType) }]} 
-                          />
-                        ))}
+          {monthDates.map((week, weekIdx) => {
+            // Calculate week load for background tint using raw minutes for precision
+            const weekDates = week.filter(d => d !== null) as Date[];
+            const weekSessions = weekDates.flatMap(d => getSessionsForDate(d));
+            const getSessionDuration = (s: Session) => {
+              if (s.duration && s.duration > 0) return s.duration;
+              const start = new Date(s.startTime);
+              const end = new Date(s.endTime);
+              return Math.round((end.getTime() - start.getTime()) / (1000 * 60));
+            };
+            const weekTotalMinutes = weekSessions.reduce((acc, s) => acc + getSessionDuration(s), 0);
+            const weekAvgMinutesPerDay = weekDates.length > 0 ? weekTotalMinutes / weekDates.length : 0;
+            const weekIsHeavy = weekAvgMinutesPerDay >= 300; // 5 hours = 300 min
+            const weekIsBusy = weekAvgMinutesPerDay >= 180; // 3 hours = 180 min
+            
+            return (
+              <View 
+                key={weekIdx} 
+                style={[
+                  styles.monthWeekRow,
+                  weekIsHeavy && styles.monthWeekHeavy,
+                  !weekIsHeavy && weekIsBusy && styles.monthWeekBusy,
+                ]}
+              >
+                {week.map((date, dayIdx) => {
+                  if (!date) {
+                    return <View key={dayIdx} style={styles.monthDayEmpty} />;
+                  }
+                  const stats = getDayStats(date);
+                  const isToday = date.toDateString() === new Date().toDateString();
+                  const isSelected = date.toDateString() === selectedDate.toDateString();
+                  const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                  const loadColor = getEnergyColor(stats.energyLevel);
+                  // Use raw minutes for precise bar height: 480 min (8h) = full bar
+                  const loadHeight = Math.min(100, (stats.totalMinutes / 480) * 100);
+                  
+                  return (
+                    <Pressable 
+                      key={dayIdx} 
+                      style={[
+                        styles.monthDay, 
+                        isWeekend && styles.monthDayWeekend,
+                        isToday && styles.monthDayToday, 
+                        isSelected && styles.monthDaySelected
+                      ]}
+                      onPress={() => handleDateSelect(date)}
+                    >
+                      {/* Date number (small, top-left) */}
+                      <Text style={[
+                        styles.monthDayNumber, 
+                        isWeekend && styles.monthDayNumberWeekend,
+                        isToday && styles.monthDayNumberToday
+                      ]}>
+                        {date.getDate()}
+                      </Text>
+                      
+                      {/* Load bar (main visual element) */}
+                      <View style={styles.monthLoadContainer}>
+                        <View 
+                          style={[
+                            styles.monthLoadBar, 
+                            { 
+                              height: `${loadHeight}%`, 
+                              backgroundColor: stats.totalHours > 0 ? loadColor : Colors.dark.backgroundTertiary 
+                            }
+                          ]} 
+                        />
                       </View>
-                    )}
-                    {daySessions.length > 0 && (
-                      <Text style={styles.monthSessionCount}>{daySessions.length}</Text>
-                    )}
-                  </Pressable>
-                );
-              })}
-            </View>
-          ))}
+                      
+                      {/* Hours stat (bottom) */}
+                      {stats.totalHours > 0 && (
+                        <Text style={styles.monthHoursText}>{stats.totalHours}h</Text>
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            );
+          })}
         </ScrollView>
       )}
 
@@ -1296,51 +1340,69 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: Spacing.lg,
   },
+  monthWeekHeavy: {
+    backgroundColor: Colors.dark.error + "08",
+  },
+  monthWeekBusy: {
+    backgroundColor: Colors.dark.gold + "08",
+  },
   monthDay: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: 4,
     borderWidth: 1,
     borderColor: Colors.dark.backgroundTertiary,
-    minHeight: 70,
+    minHeight: 80,
+    justifyContent: "space-between",
   },
   monthDayEmpty: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundSecondary,
     borderWidth: 1,
     borderColor: Colors.dark.backgroundTertiary,
-    minHeight: 70,
+    minHeight: 80,
   },
   monthDayToday: {
     backgroundColor: Colors.dark.primary + "15",
+  },
+  monthDayWeekend: {
+    backgroundColor: Colors.dark.backgroundSecondary,
   },
   monthDaySelected: {
     borderColor: Colors.dark.primary,
     borderWidth: 2,
   },
   monthDayNumber: {
-    ...Typography.body,
+    ...Typography.caption,
     color: Colors.dark.text,
     fontWeight: "500",
+    alignSelf: "flex-start",
+  },
+  monthDayNumberWeekend: {
+    color: Colors.dark.disabled,
   },
   monthDayNumberToday: {
     color: Colors.dark.primary,
     fontWeight: "700",
   },
-  monthSessionDots: {
-    flexDirection: "row",
-    gap: 2,
-    marginTop: Spacing.xs,
+  monthLoadContainer: {
+    flex: 1,
+    width: 8,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: 4,
+    justifyContent: "flex-end",
+    overflow: "hidden",
+    marginVertical: 4,
   },
-  monthSessionDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+  monthLoadBar: {
+    width: "100%",
+    borderRadius: 4,
   },
-  monthSessionCount: {
+  monthHoursText: {
     ...Typography.caption,
-    color: Colors.dark.disabled,
-    marginTop: 2,
-    fontSize: 10,
+    fontSize: 9,
+    color: Colors.dark.tabIconDefault,
+    fontWeight: "600",
   },
 });
