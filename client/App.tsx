@@ -12,6 +12,8 @@ import { queryClient } from "@/lib/query-client";
 import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PlayerProvider } from "@/context/PlayerContext";
+import { AppModeProvider } from "@/context/AppModeContext";
+import { CoachProvider } from "@/coach/context/CoachContext";
 
 export default function App() {
   return (
@@ -20,13 +22,17 @@ export default function App() {
         <SafeAreaProvider>
           <GestureHandlerRootView style={styles.root}>
             <KeyboardProvider>
-              <PlayerProvider>
-                <View style={styles.root}>
-                  <NavigationContainer>
-                    <RootStackNavigator />
-                  </NavigationContainer>
-                </View>
-              </PlayerProvider>
+              <AppModeProvider>
+                <PlayerProvider>
+                  <CoachProvider>
+                    <View style={styles.root}>
+                      <NavigationContainer>
+                        <RootStackNavigator />
+                      </NavigationContainer>
+                    </View>
+                  </CoachProvider>
+                </PlayerProvider>
+              </AppModeProvider>
               <StatusBar style="light" />
             </KeyboardProvider>
           </GestureHandlerRootView>

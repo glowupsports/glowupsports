@@ -2,7 +2,7 @@
 
 ## Project Status
 **Start Date:** December 26, 2025  
-**Current Phase:** Initial Setup  
+**Current Phase:** Frontend Development  
 **Database:** Replit PostgreSQL (can migrate to Supabase later)
 
 ---
@@ -31,17 +31,17 @@
 ### Tables
 | Table | Status | Description |
 |-------|--------|-------------|
-| coaches | ⏳ Pending | Coach profiles |
-| locations | ⏳ Pending | Maple / Sidra |
-| courts | ⏳ Pending | Per location |
-| players | ⏳ Pending | Player profiles |
-| packages | ⏳ Pending | Credits system |
-| sessions | ⏳ Pending | Booked lessons |
-| session_players | ⏳ Pending | Players per session |
-| player_holidays | ⏳ Pending | Holiday periods |
-| session_feedback | ⏳ Pending | Coach feedback per session |
-| audit_logs | ⏳ Pending | Who/what/when tracking |
-| offline_queue | ⏳ Pending | V2: Offline actions queue |
+| coaches | ✅ Done | Coach profiles |
+| locations | ✅ Done | Maple / Sidra |
+| courts | ✅ Done | Per location |
+| players | ✅ Done | Player profiles |
+| packages | ✅ Done | Credits system |
+| sessions | ✅ Done | Booked lessons |
+| session_players | ✅ Done | Players per session |
+| player_holidays | ✅ Done | Holiday periods |
+| session_feedback | ✅ Done | Coach feedback per session |
+| audit_logs | ✅ Done | Who/what/when tracking |
+| offline_queue | ✅ Done | V2: Offline actions queue |
 
 ---
 
@@ -50,21 +50,21 @@
 ### Coach API
 | Endpoint | Method | Status | Description |
 |----------|--------|--------|-------------|
-| /api/coach/calendar | GET | ⏳ | Get calendar with sessions |
-| /api/coach/sessions | POST | ⏳ | Create session |
-| /api/coach/sessions/:id | PATCH | ⏳ | Update session |
-| /api/coach/sessions/:id/cancel | POST | ⏳ | Cancel session |
-| /api/coach/sessions/:id/extend | POST | ⏳ | Extend session |
-| /api/coach/sessions/:id/players | POST | ⏳ | Add players |
-| /api/coach/sessions/:id/players/:playerId | DELETE | ⏳ | Remove player |
-| /api/coach/sessions/:id/attendance | POST | ⏳ | Save attendance |
-| /api/coach/sessions/:id/feedback | POST | ⏳ | Save feedback |
-| /api/coach/offline/sync | POST | ⏳ | Sync offline queue |
+| /api/coach/calendar | GET | ✅ | Get calendar with sessions |
+| /api/coach/sessions | POST | ✅ | Create session |
+| /api/coach/sessions/:id | PATCH | ✅ | Update session |
+| /api/coach/sessions/:id/cancel | POST | ✅ | Cancel session |
+| /api/coach/sessions/:id/extend | POST | ✅ | Extend session |
+| /api/coach/sessions/:id/players | POST | ✅ | Add players |
+| /api/coach/sessions/:id/players/:playerId | DELETE | ✅ | Remove player |
+| /api/coach/sessions/:id/attendance | POST | ✅ | Save attendance |
+| /api/coach/sessions/:id/feedback | POST | ✅ | Save feedback |
+| /api/coach/offline/sync | POST | ✅ | Sync offline queue |
 
 ### Player API (Limited)
 | Endpoint | Method | Status | Description |
 |----------|--------|--------|-------------|
-| /api/player/holidays | POST | ⏳ | Set holiday period |
+| /api/player/holidays | POST | ✅ | Set holiday period |
 
 ---
 
