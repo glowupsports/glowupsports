@@ -26,7 +26,6 @@ import { apiRequest, getApiUrl } from "@/lib/query-client";
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const FOOTER_COLLAPSED = 60;
 const FOOTER_EXPANDED = Math.min(SCREEN_HEIGHT * 0.6, 450);
-const TAB_BAR_HEIGHT = 80;
 
 interface Message {
   id: string;
@@ -359,7 +358,7 @@ export function CoachChatFooter() {
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    bottom: TAB_BAR_HEIGHT,
+    bottom: 0,
     left: 0,
     right: 0,
     backgroundColor: Colors.dark.backgroundDefault,

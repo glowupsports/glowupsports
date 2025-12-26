@@ -39,23 +39,7 @@ function CoachTabs() {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
-        tabBarBackground: () => (
-          <View style={styles.tabBarBackground}>
-            {Platform.OS === "ios" ? (
-              <BlurView
-                intensity={80}
-                tint="dark"
-                style={StyleSheet.absoluteFill}
-              />
-            ) : (
-              <View style={[StyleSheet.absoluteFill, styles.androidTabBackground]} />
-            )}
-          </View>
-        ),
-        tabBarActiveTintColor: Colors.dark.primary,
-        tabBarInactiveTintColor: Colors.dark.tabIconDefault,
-        tabBarLabelStyle: styles.tabLabel,
+        tabBarStyle: { display: "none" },
       }}
     >
       <Tab.Screen
