@@ -494,47 +494,6 @@ export default function DashboardScreen() {
           </View>
         ) : null}
 
-        {/* Quick Actions */}
-        <View style={styles.quickActions}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.actionGrid}>
-            {/* Calendar - Active Glow */}
-            <Pressable 
-              style={[styles.actionCard, styles.actionCardActive]} 
-              onPress={() => handleNavigate("Calendar")}
-            >
-              <View style={[styles.actionIconContainer, styles.actionIconActive]}>
-                <Ionicons name="calendar" size={26} color={Colors.dark.primary} />
-              </View>
-              <Text style={styles.actionText}>Calendar</Text>
-            </Pressable>
-
-            {/* Players - Dormant */}
-            <Pressable style={styles.actionCard} onPress={() => handleNavigate("Players")}>
-              <View style={[styles.actionIconContainer, { backgroundColor: Colors.dark.xpCyan + "10" }]}>
-                <Ionicons name="people-outline" size={26} color={Colors.dark.xpCyan} />
-              </View>
-              <Text style={styles.actionText}>Players</Text>
-            </Pressable>
-
-            {/* Feedback - Dormant */}
-            <Pressable style={styles.actionCard} onPress={() => handleNavigate("Coaching")}>
-              <View style={[styles.actionIconContainer, { backgroundColor: Colors.dark.orange + "10" }]}>
-                <Ionicons name="clipboard-outline" size={26} color={Colors.dark.orange} />
-              </View>
-              <Text style={styles.actionText}>Feedback</Text>
-            </Pressable>
-
-            {/* Coach Progress - New */}
-            <Pressable style={styles.actionCard} onPress={() => handleNavigate("CoachProfile")}>
-              <View style={[styles.actionIconContainer, { backgroundColor: Colors.dark.gold + "10" }]}>
-                <Ionicons name="trending-up-outline" size={26} color={Colors.dark.gold} />
-              </View>
-              <Text style={styles.actionText}>Progress</Text>
-            </Pressable>
-          </View>
-        </View>
-
         {/* Today's Timeline */}
         {todaysSessions.length > 0 ? (
           <View style={styles.sessionsSection}>
