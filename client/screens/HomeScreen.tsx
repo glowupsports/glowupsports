@@ -41,7 +41,7 @@ export default function HomeScreen() {
     <ImageBackground
       source={tennisCourtBg}
       style={styles.fullScreenBackground}
-      resizeMode="cover"
+      resizeMode="contain"
       imageStyle={styles.backgroundImageStyle}
     >
       <View style={styles.container}>
@@ -128,8 +128,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundRoot,
   },
   backgroundImageStyle: {
-    width: "100%",
-    height: "100%",
+    bottom: 0,
   },
   container: {
     flex: 1,
