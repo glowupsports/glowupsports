@@ -944,6 +944,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         allPlayers.map(async (player) => {
           const summary = await storage.getProgressSummary(player.id);
           const notes = await storage.getPlayerNotes(player.id);
+          const totalXp = await storage.getPlayerTotalXp(player.id);
           const pinnedNotes = notes.filter(n => n.isPinned);
           const recentNote = notes[0];
           return {
@@ -952,6 +953,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             pinnedNotes,
             recentNote,
             totalNotes: notes.length,
+            totalXp,
           };
         })
       );

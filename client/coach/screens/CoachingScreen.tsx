@@ -31,6 +31,7 @@ interface PlayerWithProgress {
   ballLevel: string | null;
   progressSummary: ProgressSummary[];
   totalNotes: number;
+  totalXp: number;
   recentNote?: {
     content: string;
     category: string | null;
@@ -1615,6 +1616,12 @@ function ProgressTab({ insets }: { insets: { bottom: number } }) {
                     <Text style={styles.levelBadgeText}>{player.ballLevel}</Text>
                   </View>
                 ) : null}
+                {player.totalXp > 0 ? (
+                  <View style={styles.xpBadge}>
+                    <Ionicons name="star" size={12} color={Colors.dark.gold} />
+                    <Text style={styles.xpBadgeText}>{player.totalXp} XP</Text>
+                  </View>
+                ) : null}
                 {player.totalNotes > 0 ? (
                   <View style={styles.notesBadge}>
                     <Ionicons name="document-text-outline" size={12} color={Colors.dark.tabIconDefault} />
@@ -2694,6 +2701,20 @@ const styles = StyleSheet.create({
   notesBadgeText: {
     fontSize: Typography.caption.fontSize,
     color: Colors.dark.tabIconDefault,
+  },
+  xpBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(255, 193, 7, 0.15)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  xpBadgeText: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.gold,
   },
   skillGrid: {
     flexDirection: "row",
