@@ -643,9 +643,9 @@ const styles = StyleSheet.create({
   },
   academyName: {
     fontSize: Typography.small.fontSize,
-    color: Colors.dark.accent,
+    color: Colors.dark.tabIconDefault,
     marginBottom: Spacing.xs,
-    opacity: 0.9,
+    opacity: 0.7,
   },
   
   // Coach XP
