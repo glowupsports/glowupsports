@@ -184,6 +184,31 @@ interface DomainImpact {
   tactical: "up" | "stable" | "down";
 }
 
+type FeedbackPeriod = "today" | "yesterday" | "this_week" | "last_week" | "last_month";
+
+const FEEDBACK_PERIODS: { id: FeedbackPeriod; label: string }[] = [
+  { id: "today", label: "Today" },
+  { id: "yesterday", label: "Yesterday" },
+  { id: "this_week", label: "This Week" },
+  { id: "last_week", label: "Last Week" },
+  { id: "last_month", label: "Last Month" },
+];
+
+// XP rewards for providing feedback (to motivate coaches)
+// Values based on session complexity and player count
+const FEEDBACK_XP_REWARDS: Record<string, number> = {
+  private: 25,
+  semi_private: 35,
+  group: 50,
+  camp: 75,
+  team_training: 60,
+  clinic: 45,
+  match: 30,
+  assessment: 40,
+  // Default fallback for unknown types
+  default: 20,
+};
+
 function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
   const { calendarData, isLoading } = useCoach();
   const queryClient = useQueryClient();
@@ -198,6 +223,8 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
   const [showSkillSelector, setShowSkillSelector] = useState<string | null>(null); // playerId for skill selector
   // Per-player skill group expansion state: { playerId: Set<groupKey> }
   const [playerExpandedSkillGroups, setPlayerExpandedSkillGroups] = useState<Record<string, Set<string>>>({});
+  // Time period filter
+  const [feedbackPeriod, setFeedbackPeriod] = useState<FeedbackPeriod>("today");
 
   const { data: sessionPlayers = [] } = useQuery<SessionPlayer[]>({
     queryKey: [`/api/coach/sessions/${selectedSession?.id}/players`],
@@ -438,23 +465,90 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
     }
   };
 
-  const today = new Date();
-  const todaysSessions = useMemo(() => {
+  // Helper to get date range for each period
+  // Returns start (inclusive) and end (exclusive) dates for filtering
+  const getDateRangeForPeriod = (period: FeedbackPeriod): { start: Date; end: Date } => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    switch (period) {
+      case "today":
+        // From start of today to now (only show past sessions)
+        return { start: today, end: now };
+      case "yesterday": {
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        // From start of yesterday to start of today (full day)
+        return { start: yesterday, end: today };
+      }
+      case "this_week": {
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
+        return { start: weekStart, end: now };
+      }
+      case "last_week": {
+        const thisWeekStart = new Date(today);
+        thisWeekStart.setDate(today.getDate() - today.getDay());
+        const lastWeekStart = new Date(thisWeekStart);
+        lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+        const lastWeekEnd = new Date(thisWeekStart); // End of last week = start of this week
+        return { start: lastWeekStart, end: lastWeekEnd };
+      }
+      case "last_month": {
+        const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        const lastMonthStart = new Date(thisMonthStart);
+        lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
+        // End is start of current month (exclusive)
+        return { start: lastMonthStart, end: thisMonthStart };
+      }
+      default:
+        return { start: today, end: now };
+    }
+  };
+
+  const filteredSessions = useMemo(() => {
     if (!calendarData?.ownSessions) return [];
+    const { start, end } = getDateRangeForPeriod(feedbackPeriod);
+    const now = new Date();
+    
     return calendarData.ownSessions
       .filter((session) => {
         const sessionDate = new Date(session.startTime);
         const endTime = new Date(session.endTime);
         return (
-          sessionDate.getFullYear() === today.getFullYear() &&
-          sessionDate.getMonth() === today.getMonth() &&
-          sessionDate.getDate() === today.getDate() &&
+          sessionDate >= start &&
+          sessionDate < end &&
           session.status !== "cancelled" &&
-          endTime < new Date()
+          endTime < now
         );
       })
-      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-  }, [calendarData?.ownSessions, today]);
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()); // Chronological order
+  }, [calendarData?.ownSessions, feedbackPeriod]);
+
+  // Calculate pending feedback count and total XP
+  const pendingFeedbackStats = useMemo(() => {
+    const pendingSessions = filteredSessions.filter(s => s.status !== "completed");
+    const totalXp = pendingSessions.reduce((sum, session) => {
+      return sum + (FEEDBACK_XP_REWARDS[session.sessionType] || FEEDBACK_XP_REWARDS.default);
+    }, 0);
+    return { count: pendingSessions.length, totalXp };
+  }, [filteredSessions]);
+
+  // Get XP for a session type
+  const getSessionXp = (sessionType: string): number => {
+    return FEEDBACK_XP_REWARDS[sessionType] || FEEDBACK_XP_REWARDS.default;
+  };
+
+  const getPeriodLabel = (period: FeedbackPeriod): string => {
+    switch (period) {
+      case "today": return "Today's";
+      case "yesterday": return "Yesterday's";
+      case "this_week": return "This Week's";
+      case "last_week": return "Last Week's";
+      case "last_month": return "Last Month's";
+      default: return "";
+    }
+  };
 
   const availableTags = ["Movement", "Forehand", "Backhand", "Serve", "Volley", "Mental", "Footwork"];
 
@@ -1168,16 +1262,71 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
       contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.sectionTitle}>Today's Lessons</Text>
-      {todaysSessions.length === 0 ? (
+      {/* Time Period Filter Tabs */}
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        style={styles.periodFilterContainer}
+        contentContainerStyle={styles.periodFilterContent}
+      >
+        {FEEDBACK_PERIODS.map((period) => (
+          <Pressable
+            key={period.id}
+            style={[
+              styles.periodTab,
+              feedbackPeriod === period.id && styles.periodTabActive,
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setFeedbackPeriod(period.id);
+            }}
+          >
+            <Text
+              style={[
+                styles.periodTabText,
+                feedbackPeriod === period.id && styles.periodTabTextActive,
+              ]}
+            >
+              {period.label}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+
+      {/* XP Reward Banner - only show if pending feedback exists */}
+      {pendingFeedbackStats.count > 0 ? (
+        <View style={styles.xpRewardBanner}>
+          <View style={styles.xpRewardLeft}>
+            <Ionicons name="star" size={20} color={Colors.dark.gold} />
+            <View style={styles.xpRewardTextContainer}>
+              <Text style={styles.xpRewardTitle}>
+                {pendingFeedbackStats.count} session{pendingFeedbackStats.count > 1 ? "s" : ""} awaiting feedback
+              </Text>
+              <Text style={styles.xpRewardSubtitle}>
+                Complete all for +{pendingFeedbackStats.totalXp} XP
+              </Text>
+            </View>
+          </View>
+          <View style={styles.xpRewardBadge}>
+            <Text style={styles.xpRewardBadgeText}>+{pendingFeedbackStats.totalXp} XP</Text>
+          </View>
+        </View>
+      ) : null}
+
+      <Text style={styles.sectionTitle}>{getPeriodLabel(feedbackPeriod)} Lessons</Text>
+      {filteredSessions.length === 0 ? (
         <View style={styles.emptyCard}>
           <Ionicons name="checkmark-done-circle-outline" size={48} color={Colors.dark.primary} />
-          <Text style={styles.emptyText}>No completed lessons today</Text>
+          <Text style={styles.emptyText}>No completed lessons {feedbackPeriod === "today" ? "today" : "in this period"}</Text>
           <Text style={styles.emptySubtext}>Feedback will appear here after each lesson</Text>
         </View>
       ) : (
-        todaysSessions.map((session) => {
+        filteredSessions.map((session) => {
           const needsFeedback = session.status !== "completed";
+          const sessionXp = getSessionXp(session.sessionType);
+          // Format date for non-today periods
+          const sessionDate = new Date(session.startTime);
+          const showDate = feedbackPeriod !== "today" && feedbackPeriod !== "yesterday";
           return (
             <Pressable
               key={session.id}
@@ -1187,6 +1336,11 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
               <View style={styles.sessionTime}>
                 <Text style={styles.sessionTimeText}>{formatTime(session.startTime)}</Text>
                 <Text style={styles.sessionDuration}>{session.duration}m</Text>
+                {showDate ? (
+                  <Text style={styles.sessionDateText}>
+                    {sessionDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                  </Text>
+                ) : null}
               </View>
               <View style={styles.sessionInfo}>
                 <Text style={styles.sessionType}>
@@ -1199,8 +1353,14 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
                     : session.sessionType}
                 </Text>
                 {needsFeedback ? (
-                  <View style={styles.pendingBadge}>
-                    <Text style={styles.pendingText}>Needs feedback</Text>
+                  <View style={styles.feedbackRow}>
+                    <View style={styles.pendingBadge}>
+                      <Text style={styles.pendingText}>Needs feedback</Text>
+                    </View>
+                    <View style={styles.sessionXpBadge}>
+                      <Ionicons name="star" size={12} color={Colors.dark.gold} />
+                      <Text style={styles.sessionXpText}>+{sessionXp} XP</Text>
+                    </View>
                   </View>
                 ) : (
                   <View style={styles.doneBadge}>
@@ -2072,6 +2232,100 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  periodFilterContainer: {
+    marginBottom: Spacing.md,
+    marginHorizontal: -Spacing.lg,
+  },
+  periodFilterContent: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.xs,
+  },
+  periodTab: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  periodTabActive: {
+    backgroundColor: Colors.dark.primary + "20",
+    borderColor: Colors.dark.primary,
+  },
+  periodTabText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+    fontWeight: "500",
+  },
+  periodTabTextActive: {
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  xpRewardBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.dark.gold + "15",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "30",
+  },
+  xpRewardLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    flex: 1,
+  },
+  xpRewardTextContainer: {
+    flex: 1,
+  },
+  xpRewardTitle: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  xpRewardSubtitle: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.gold,
+    marginTop: 2,
+  },
+  xpRewardBadge: {
+    backgroundColor: Colors.dark.gold,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+  },
+  xpRewardBadgeText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
+  },
+  feedbackRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  sessionXpBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.gold + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  sessionXpText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.gold,
+    fontWeight: "600",
+  },
+  sessionDateText: {
+    fontSize: 10,
+    color: Colors.dark.tabIconDefault,
+    marginTop: 2,
   },
   sectionTitle: {
     ...Typography.h3,
