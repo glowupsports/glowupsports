@@ -86,10 +86,10 @@ export default function SessionDetailDrawer({
   const availablePlayers = allPlayers.filter(p => !existingPlayerIds.includes(p.id));
 
   const addPlayerMutation = useMutation({
-    mutationFn: async ({ playerId, startDate }: { playerId: string; startDate: Date }) => {
+    mutationFn: async ({ playerId }: { playerId: string }) => {
       return apiRequest("POST", `/api/coach/sessions/${session?.id}/players`, { 
         playerId,
-        startDate: startDate.toISOString(),
+        isGuest: false,
       });
     },
     onSuccess: () => {
@@ -108,7 +108,8 @@ export default function SessionDetailDrawer({
     mutationFn: async (records: { sessionId: string; playerId: string; status: string }[]) => {
       const promises = records.map(record => 
         apiRequest("POST", `/api/coach/sessions/${record.sessionId}/attendance`, {
-          attendance: [{ playerId: record.playerId, status: record.status }],
+          playerId: record.playerId,
+          status: record.status,
         })
       );
       return Promise.all(promises);
@@ -164,7 +165,7 @@ export default function SessionDetailDrawer({
           { 
             text: "Skip", 
             style: "cancel",
-            onPress: () => addPlayerMutation.mutate({ playerId: selectedPlayer.id, startDate }),
+            onPress: () => addPlayerMutation.mutate({ playerId: selectedPlayer.id }),
           },
           { 
             text: "Review Attendance",
@@ -195,11 +196,11 @@ export default function SessionDetailDrawer({
         ]
       );
     } else {
-      addPlayerMutation.mutate({ playerId: selectedPlayer.id, startDate });
+      addPlayerMutation.mutate({ playerId: selectedPlayer.id });
     }
   };
 
-  const handleSaveCatchUp = () => {
+  const handleSaveCatchUp = async () => {
     if (!selectedPlayer) return;
     
     const records = pastSessions.map(s => ({
@@ -208,7 +209,13 @@ export default function SessionDetailDrawer({
       status: catchUpAttendance.get(s.id) || "present",
     }));
     
-    addPlayerMutation.mutate({ playerId: selectedPlayer.id, startDate: getStartDate() });
+    addPlayerMutation.mutate({ playerId: selectedPlayer.id }, {
+      onSuccess: () => {
+        if (records.length > 0) {
+          saveCatchUpMutation.mutate(records);
+        }
+      },
+    });
   };
 
   const getCalendarDays = () => {
