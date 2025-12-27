@@ -145,6 +145,8 @@ interface DraggableSessionProps {
   onLongPress: () => void;
   onDragEnd: (deltaY: number, deltaX: number) => void;
   courtLaneWidth: number;
+  onDragUpdate?: (deltaY: number, deltaX: number, isDragging: boolean) => void;
+  hasConflict?: boolean;
 }
 
 function DraggableSessionBlock({
@@ -160,6 +162,8 @@ function DraggableSessionBlock({
   onLongPress,
   onDragEnd,
   courtLaneWidth,
+  onDragUpdate,
+  hasConflict,
 }: DraggableSessionProps) {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -169,6 +173,7 @@ function DraggableSessionBlock({
 
   const panGesture = Gesture.Pan()
     .activateAfterLongPress(300)
+    .enabled(!isPast)
     .onStart(() => {
       isDragging.value = true;
       scale.value = withSpring(1.05);
@@ -178,11 +183,20 @@ function DraggableSessionBlock({
     .onUpdate((event) => {
       translateX.value = event.translationX;
       translateY.value = event.translationY;
+      if (onDragUpdate) {
+        const snapY = Math.round(event.translationY / (hourHeight / 2)) * (hourHeight / 2);
+        const snapX = Math.round(event.translationX / courtLaneWidth) * courtLaneWidth;
+        runOnJS(onDragUpdate)(snapY, snapX, true);
+      }
     })
     .onEnd((event) => {
       isDragging.value = false;
       scale.value = withSpring(1);
       zIndex.value = 1;
+      
+      if (onDragUpdate) {
+        runOnJS(onDragUpdate)(0, 0, false);
+      }
       
       const snapY = Math.round(event.translationY / (hourHeight / 2)) * (hourHeight / 2);
       const snapX = Math.round(event.translationX / courtLaneWidth) * courtLaneWidth;
@@ -233,6 +247,8 @@ function DraggableSessionBlock({
             opacity: isPast ? 0.5 : 1,
           },
           isActive && dragStyles.sessionBlockActive,
+          hasConflict && dragStyles.sessionBlockConflict,
+          isPast && dragStyles.sessionBlockLocked,
           animatedStyle,
         ]}
       >
@@ -271,6 +287,7 @@ interface WeekDraggableSessionProps {
   onLongPress: () => void;
   onDragEnd: (deltaY: number, deltaX: number) => void;
   dayColumnWidth: number;
+  hasConflict?: boolean;
 }
 
 function WeekDraggableSessionBlock({
@@ -286,6 +303,7 @@ function WeekDraggableSessionBlock({
   onLongPress,
   onDragEnd,
   dayColumnWidth,
+  hasConflict,
 }: WeekDraggableSessionProps) {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -295,6 +313,7 @@ function WeekDraggableSessionBlock({
 
   const panGesture = Gesture.Pan()
     .activateAfterLongPress(300)
+    .enabled(!isPast)
     .onStart(() => {
       isDragging.value = true;
       scale.value = withSpring(1.1);
@@ -351,6 +370,8 @@ function WeekDraggableSessionBlock({
             opacity: isPast ? 0.5 : 1,
           },
           isActive && dragStyles.weekSessionBlockActive,
+          hasConflict && dragStyles.weekSessionBlockConflict,
+          isPast && dragStyles.weekSessionBlockLocked,
           animatedStyle,
         ]}
       >
@@ -392,6 +413,16 @@ const dragStyles = StyleSheet.create({
     borderWidth: 2,
     borderColor: Colors.dark.primary,
   },
+  sessionBlockConflict: {
+    borderWidth: 2,
+    borderColor: Colors.dark.error,
+    borderStyle: "dashed",
+  },
+  sessionBlockLocked: {
+    borderWidth: 1,
+    borderColor: Colors.dark.disabled,
+    borderStyle: "dotted",
+  },
   sessionGradient: {
     flex: 1,
     padding: Spacing.xs,
@@ -422,6 +453,15 @@ const dragStyles = StyleSheet.create({
   weekSessionBlockActive: {
     borderWidth: 1,
     borderColor: Colors.dark.primary,
+  },
+  weekSessionBlockConflict: {
+    borderWidth: 1,
+    borderColor: Colors.dark.error,
+  },
+  weekSessionBlockLocked: {
+    borderWidth: 1,
+    borderColor: Colors.dark.disabled,
+    borderStyle: "dotted",
   },
   weekSessionGradient: {
     flex: 1,
@@ -467,23 +507,39 @@ export default function CalendarScreen() {
   const [weekMode, setWeekMode] = useState<"overview" | "availability">("availability");
   const [monthMode, setMonthMode] = useState<"load" | "availability">("load");
   const [draggingSession, setDraggingSession] = useState<string | null>(null);
+  const [lastMove, setLastMove] = useState<{
+    sessionId: string;
+    originalStart: string;
+    originalEnd: string;
+    originalCourtId: string | null;
+  } | null>(null);
+  const [dragConflict, setDragConflict] = useState<string | null>(null);
   
   const hourHeight = timeGrid === 30 ? HOUR_HEIGHT_30 : HOUR_HEIGHT_60;
   const courts = calendarData?.courts || [];
   
   const updateSessionMutation = useMutation({
-    mutationFn: async ({ sessionId, startTime, endTime, courtId }: { 
+    mutationFn: async ({ sessionId, startTime, endTime, courtId, originalData }: { 
       sessionId: string; 
       startTime: string; 
       endTime: string;
       courtId?: string;
+      originalData?: { startTime: string; endTime: string; courtId: string | null };
     }) => {
       const response = await apiRequest("PATCH", `/api/sessions/${sessionId}`, { startTime, endTime, courtId, checkConflicts: true });
-      return response;
+      return { response, originalData, sessionId };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (data.originalData) {
+        setLastMove({
+          sessionId: data.sessionId,
+          originalStart: data.originalData.startTime,
+          originalEnd: data.originalData.endTime,
+          originalCourtId: data.originalData.courtId,
+        });
+      }
     },
     onError: (error: any) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -502,7 +558,20 @@ export default function CalendarScreen() {
       }
     },
   });
-  
+
+  const undoLastMove = useCallback(() => {
+    if (!lastMove) return;
+    
+    updateSessionMutation.mutate({
+      sessionId: lastMove.sessionId,
+      startTime: lastMove.originalStart,
+      endTime: lastMove.originalEnd,
+      courtId: lastMove.originalCourtId || undefined,
+    });
+    setLastMove(null);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, [lastMove, updateSessionMutation]);
+
   const handleSessionDragEnd = useCallback((
     session: Session, 
     deltaY: number, 
@@ -534,6 +603,11 @@ export default function CalendarScreen() {
       startTime: newStart.toISOString(),
       endTime: newEnd.toISOString(),
       courtId: newCourtId,
+      originalData: {
+        startTime: session.startTime,
+        endTime: session.endTime,
+        courtId: session.courtId,
+      },
     });
   }, [hourHeight, courts, updateSessionMutation]);
   
@@ -566,6 +640,11 @@ export default function CalendarScreen() {
       sessionId: session.id,
       startTime: newStart.toISOString(),
       endTime: newEnd.toISOString(),
+      originalData: {
+        startTime: session.startTime,
+        endTime: session.endTime,
+        courtId: session.courtId,
+      },
     });
   }, [hourHeight, updateSessionMutation]);
 
@@ -605,6 +684,51 @@ export default function CalendarScreen() {
   const hours = displayHours;
   const ownSessions = calendarData?.ownSessions || [];
   const blockedSessions = calendarData?.blockedSessions || [];
+
+  const checkDragConflict = useCallback((
+    session: Session,
+    deltaY: number,
+    deltaX: number,
+    currentCourtIndex: number,
+    isDragging: boolean
+  ) => {
+    if (!isDragging) {
+      setDragConflict(null);
+      return;
+    }
+    
+    const hoursChanged = deltaY / hourHeight;
+    const courtsChanged = Math.round(deltaX / COURT_LANE_WIDTH);
+    
+    const originalStart = new Date(session.startTime);
+    const originalEnd = new Date(session.endTime);
+    
+    const newStart = new Date(originalStart);
+    newStart.setMinutes(newStart.getMinutes() + Math.round(hoursChanged * 60));
+    
+    const newEnd = new Date(originalEnd);
+    newEnd.setMinutes(newEnd.getMinutes() + Math.round(hoursChanged * 60));
+    
+    const newCourtIndex = Math.max(0, Math.min(courts.length - 1, currentCourtIndex + courtsChanged));
+    const newCourtId = courts[newCourtIndex]?.id;
+    
+    const hasTimeConflict = ownSessions.some(s => {
+      if (s.id === session.id) return false;
+      
+      const sStart = new Date(s.startTime);
+      const sEnd = new Date(s.endTime);
+      
+      const timeOverlap = newStart < sEnd && newEnd > sStart;
+      
+      if (!timeOverlap) return false;
+      
+      if (newCourtId && s.courtId === newCourtId) return true;
+      
+      return true;
+    });
+    
+    setDragConflict(hasTimeConflict ? session.id : null);
+  }, [hourHeight, courts, ownSessions]);
 
   const formatTime = (hour: number) => {
     return `${hour.toString().padStart(2, "0")}:00`;
@@ -1010,6 +1134,18 @@ export default function CalendarScreen() {
           <Text style={styles.headerTitle}>Coach Calendar</Text>
           {viewMode === "day" && (
             <View style={styles.headerActions}>
+              {lastMove ? (
+                <Pressable
+                  style={[styles.toggleButton, styles.undoButton]}
+                  onPress={undoLastMove}
+                >
+                  <Ionicons
+                    name="arrow-undo-outline"
+                    size={18}
+                    color={Colors.dark.gold}
+                  />
+                </Pressable>
+              ) : null}
               <Pressable
                 style={[styles.toggleButton, focusMode && styles.toggleActive]}
                 onPress={() => setFocusMode(!focusMode)}
@@ -1198,6 +1334,8 @@ export default function CalendarScreen() {
                             onTap={() => handleSessionTap(session)}
                             onLongPress={() => handleSessionLongPress(session)}
                             onDragEnd={(deltaY, deltaX) => handleSessionDragEnd(session, deltaY, deltaX, courtIndex)}
+                            onDragUpdate={(deltaY, deltaX, isDragging) => checkDragConflict(session, deltaY, deltaX, courtIndex, isDragging)}
+                            hasConflict={dragConflict === session.id}
                           />
                         );
                       })}
@@ -1898,6 +2036,10 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.xs,
     backgroundColor: Colors.dark.backgroundSecondary,
     justifyContent: "center",
+  },
+  undoButton: {
+    borderWidth: 1,
+    borderColor: Colors.dark.gold,
     alignItems: "center",
   },
   toggleActive: {

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -23,6 +23,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { useWebSocket, type NewMessagePayload, type TypingPayload } from "@/lib/useWebSocket";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const FOOTER_COLLAPSED = 60;
@@ -94,9 +95,61 @@ export function CoachChatFooter() {
   const [showNewMessage, setShowNewMessage] = useState(false);
   const [showSquadSelector, setShowSquadSelector] = useState(false);
   const [showCoachSelector, setShowCoachSelector] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<Map<string, Set<string>>>(new Map());
   const flatListRef = useRef<FlatList>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const height = useSharedValue(FOOTER_COLLAPSED + insets.bottom);
+
+  const handleNewMessage = useCallback((payload: NewMessagePayload) => {
+    queryClient.invalidateQueries({ queryKey: ["/api/conversations", payload.conversationId, "messages"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/coaches", coach?.id, "conversations"] });
+    if (selectedConversation?.id === payload.conversationId) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [queryClient, coach?.id, selectedConversation?.id]);
+
+  const handleTyping = useCallback((payload: TypingPayload) => {
+    setTypingUsers(prev => {
+      const next = new Map(prev);
+      const conversationTypers = next.get(payload.conversationId) || new Set();
+      const userId = payload.coachId || payload.playerId;
+      if (userId && userId !== coach?.id) {
+        if (payload.isTyping) {
+          conversationTypers.add(userId);
+        } else {
+          conversationTypers.delete(userId);
+        }
+        next.set(payload.conversationId, conversationTypers);
+      }
+      return next;
+    });
+  }, [coach?.id]);
+
+  const { isConnected, sendTyping, sendReadReceipt } = useWebSocket({
+    onNewMessage: handleNewMessage,
+    onTyping: handleTyping,
+  });
+
+  const handleInputChange = useCallback((text: string) => {
+    setInputText(text);
+    if (selectedConversation && isConnected) {
+      sendTyping(selectedConversation.id, text.length > 0);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      typingTimeoutRef.current = setTimeout(() => {
+        sendTyping(selectedConversation.id, false);
+      }, 3000);
+    }
+  }, [selectedConversation, isConnected, sendTyping]);
+
+  const currentTypingUsers = selectedConversation 
+    ? typingUsers.get(selectedConversation.id) 
+    : undefined;
+  const isOtherTyping = currentTypingUsers && currentTypingUsers.size > 0;
   
   const toggleFullscreen = () => {
     if (isFullscreen) {
@@ -115,7 +168,7 @@ export function CoachChatFooter() {
   const { data: messages = [], isLoading: loadingMessages } = useQuery<Message[]>({
     queryKey: ["/api/conversations", selectedConversation?.id, "messages"],
     enabled: !!selectedConversation?.id,
-    refetchInterval: 5000,
+    refetchInterval: isConnected ? 30000 : 5000,
   });
 
   const { data: unreadData } = useQuery<{ unreadCount: number }>({
@@ -664,10 +717,26 @@ export function CoachChatFooter() {
                 />
               )}
 
+              {isOtherTyping ? (
+                <View style={styles.typingIndicator}>
+                  <View style={styles.typingDots}>
+                    <View style={styles.typingDot} />
+                    <View style={[styles.typingDot, { opacity: 0.7 }]} />
+                    <View style={[styles.typingDot, { opacity: 0.5 }]} />
+                  </View>
+                  <ThemedText style={styles.typingText}>typing...</ThemedText>
+                </View>
+              ) : null}
+
               <View style={styles.inputContainer}>
+                {isConnected ? (
+                  <View style={styles.connectionIndicator}>
+                    <View style={styles.connectionDot} />
+                  </View>
+                ) : null}
                 <TextInput
                   value={inputText}
-                  onChangeText={setInputText}
+                  onChangeText={handleInputChange}
                   placeholder={isSampleConversation ? "Demo chat - read only" : "Type a message..."}
                   placeholderTextColor={Colors.dark.disabled}
                   style={styles.input}
@@ -968,6 +1037,41 @@ const styles = StyleSheet.create({
   },
   reactionOption: {
     padding: 4,
+  },
+  typingIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    gap: Spacing.xs,
+  },
+  typingDots: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  typingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.dark.disabled,
+  },
+  typingText: {
+    fontSize: 12,
+    color: Colors.dark.disabled,
+    fontStyle: "italic",
+  },
+  connectionIndicator: {
+    width: 8,
+    height: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  connectionDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.dark.successNeon,
   },
   inputContainer: {
     flexDirection: "row",

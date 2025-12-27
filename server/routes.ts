@@ -2,6 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "node:http";
 import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
+import { setupWebSocket, broadcastNewMessage } from "./websocket";
 import { 
   hashPassword, 
   verifyPassword, 
@@ -3047,6 +3048,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Broadcast new message via WebSocket to all academy members
+      broadcastNewMessage(academyId, {
+        conversationId,
+        message: {
+          id: message.id,
+          content: sanitizedBody,
+          senderType: message.senderType as "coach" | "player" | "system",
+          senderId: message.senderCoachId || message.senderPlayerId || undefined,
+          createdAt: message.createdAt?.toISOString() || new Date().toISOString(),
+        },
+      });
+      
       res.status(201).json(message);
     } catch (error) {
       console.error("Error sending message:", error);
@@ -3143,5 +3156,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  
+  // Set up WebSocket server for real-time chat
+  setupWebSocket(httpServer);
+  console.log("WebSocket server initialized on /ws");
+  
   return httpServer;
 }
