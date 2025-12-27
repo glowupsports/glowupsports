@@ -638,6 +638,9 @@ export const conversationParticipants = pgTable("conversation_participants", {
     .default(sql`gen_random_uuid()`),
   conversationId: varchar("conversation_id").references(() => conversations.id).notNull(),
   
+  // Academy scoping for multi-tenant isolation
+  academyId: varchar("academy_id").references(() => academies.id),
+  
   // Participant can be coach, player, or parent (parent links to player)
   participantType: text("participant_type").notNull(), // coach, player, parent
   coachId: varchar("coach_id").references(() => coaches.id),
@@ -662,6 +665,9 @@ export const messages = pgTable("messages", {
     .primaryKey()
     .default(sql`gen_random_uuid()`),
   conversationId: varchar("conversation_id").references(() => conversations.id).notNull(),
+  
+  // Academy scoping for multi-tenant isolation
+  academyId: varchar("academy_id").references(() => academies.id),
   
   // Sender - null for system messages
   senderType: text("sender_type"), // coach, player, parent, system
@@ -692,6 +698,9 @@ export const messageReactions = pgTable("message_reactions", {
     .primaryKey()
     .default(sql`gen_random_uuid()`),
   messageId: varchar("message_id").references(() => messages.id).notNull(),
+  
+  // Academy scoping for multi-tenant isolation
+  academyId: varchar("academy_id").references(() => academies.id),
   
   // Reactor
   reactorType: text("reactor_type").notNull(), // coach, player, parent
