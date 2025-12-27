@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery } from "@tanstack/react-query";
+import { getApiUrl } from "@/lib/query-client";
 
 interface Coach {
   id: string;
@@ -89,19 +90,36 @@ export function CoachProvider({ children }: { children: ReactNode }) {
   const [insightsMode, setInsightsMode] = useState(false);
 
   useEffect(() => {
-    loadCoach();
-  }, []);
-
-  const loadCoach = async () => {
-    try {
-      const stored = await AsyncStorage.getItem(COACH_STORAGE_KEY);
-      if (stored) {
-        setCoachState(JSON.parse(stored));
+    let isMounted = true;
+    
+    const loadCoach = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(COACH_STORAGE_KEY);
+        if (stored && isMounted) {
+          setCoachState(JSON.parse(stored));
+        } else if (isMounted) {
+          const apiUrl = getApiUrl();
+          const response = await fetch(new URL("/api/coaches", apiUrl).toString());
+          if (response.ok && isMounted) {
+            const coaches = await response.json();
+            if (coaches && coaches.length > 0) {
+              const defaultCoach = coaches[0];
+              setCoachState(defaultCoach);
+              await AsyncStorage.setItem(COACH_STORAGE_KEY, JSON.stringify(defaultCoach));
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load coach:", error);
       }
-    } catch (error) {
-      console.error("Failed to load coach:", error);
-    }
-  };
+    };
+    
+    loadCoach();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const setCoach = async (newCoach: Coach | null) => {
     setCoachState(newCoach);
