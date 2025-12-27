@@ -41,6 +41,9 @@ import {
   conversationParticipants,
   messages,
   messageReactions,
+  // Court Preferences System
+  coachCourtPreferences,
+  coachCourtRules,
   // Academy types
   type Academy,
   type InsertAcademy,
@@ -105,6 +108,11 @@ import {
   type InsertMessage,
   type MessageReaction,
   type InsertMessageReaction,
+  // Court Preferences types
+  type CoachCourtPreference,
+  type InsertCoachCourtPreference,
+  type CoachCourtRules,
+  type InsertCoachCourtRules,
 } from "@shared/schema";
 
 export const storage = {
@@ -2383,5 +2391,85 @@ export const storage = {
         loadLevel,
       };
     });
+  },
+
+  // ==================== COACH COURT PREFERENCES ====================
+  async getCoachCourtPreferences(coachId: string): Promise<CoachCourtPreference[]> {
+    const result = await db
+      .select()
+      .from(coachCourtPreferences)
+      .where(eq(coachCourtPreferences.coachId, coachId))
+      .orderBy(asc(coachCourtPreferences.priority));
+    return result;
+  },
+
+  async getCoachCourtRules(coachId: string): Promise<CoachCourtRules | undefined> {
+    const result = await db
+      .select()
+      .from(coachCourtRules)
+      .where(eq(coachCourtRules.coachId, coachId));
+    return result[0];
+  },
+
+  async upsertCoachCourtPreferences(
+    coachId: string,
+    preferences: { courtId: string; priority: number }[]
+  ): Promise<void> {
+    await db.delete(coachCourtPreferences).where(eq(coachCourtPreferences.coachId, coachId));
+    
+    if (preferences.length > 0) {
+      await db.insert(coachCourtPreferences).values(
+        preferences.map(p => ({
+          coachId,
+          courtId: p.courtId,
+          priority: p.priority,
+        }))
+      );
+    }
+  },
+
+  async upsertCoachCourtRules(
+    coachId: string,
+    rules: {
+      preferredType?: string;
+      daylightOnly?: boolean;
+      maxSessionsPerCourtPerDay?: number;
+      maxTotalSessionsPerDay?: number;
+      fallbackBehavior?: string;
+    }
+  ): Promise<CoachCourtRules> {
+    const existing = await db
+      .select()
+      .from(coachCourtRules)
+      .where(eq(coachCourtRules.coachId, coachId));
+
+    if (existing.length > 0) {
+      const updated = await db
+        .update(coachCourtRules)
+        .set({
+          preferredType: rules.preferredType ?? existing[0].preferredType,
+          daylightOnly: rules.daylightOnly ?? existing[0].daylightOnly,
+          maxSessionsPerCourtPerDay: rules.maxSessionsPerCourtPerDay ?? existing[0].maxSessionsPerCourtPerDay,
+          maxTotalSessionsPerDay: rules.maxTotalSessionsPerDay ?? existing[0].maxTotalSessionsPerDay,
+          fallbackBehavior: rules.fallbackBehavior ?? existing[0].fallbackBehavior,
+          updatedAt: new Date(),
+        })
+        .where(eq(coachCourtRules.coachId, coachId))
+        .returning();
+      return updated[0];
+    } else {
+      const inserted = await db
+        .insert(coachCourtRules)
+        .values({
+          coachId,
+          preferredType: rules.preferredType ?? "no_preference",
+          daylightOnly: rules.daylightOnly ?? false,
+          maxSessionsPerCourtPerDay: rules.maxSessionsPerCourtPerDay ?? 8,
+          maxTotalSessionsPerDay: rules.maxTotalSessionsPerDay ?? 10,
+          fallbackBehavior: rules.fallbackBehavior ?? "suggest",
+        })
+        .returning();
+      return inserted[0];
+    }
   },
 };

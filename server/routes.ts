@@ -3118,6 +3118,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== COACH COURT PREFERENCES ====================
+
+  // Get court preferences for a coach
+  app.get("/api/coaches/:id/court-preferences", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user!.coachId;
+      
+      if (id !== coachId) {
+        return res.status(404).json({ error: "Preferences not found" });
+      }
+      
+      const courtPreferences = await storage.getCoachCourtPreferences(id);
+      const rules = await storage.getCoachCourtRules(id);
+      
+      res.json({
+        courtPreferences,
+        rules: rules || null,
+      });
+    } catch (error) {
+      console.error("Error fetching court preferences:", error);
+      res.status(500).json({ error: "Failed to fetch court preferences" });
+    }
+  });
+
+  // Update court preferences for a coach
+  app.put("/api/coaches/:id/court-preferences", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user!.coachId;
+      
+      if (id !== coachId) {
+        return res.status(404).json({ error: "Preferences not found" });
+      }
+      
+      const { courtPreferences, rules } = req.body;
+      
+      if (courtPreferences && Array.isArray(courtPreferences)) {
+        await storage.upsertCoachCourtPreferences(id, courtPreferences);
+      }
+      
+      if (rules) {
+        await storage.upsertCoachCourtRules(id, rules);
+      }
+      
+      const updatedPreferences = await storage.getCoachCourtPreferences(id);
+      const updatedRules = await storage.getCoachCourtRules(id);
+      
+      res.json({
+        courtPreferences: updatedPreferences,
+        rules: updatedRules || null,
+      });
+    } catch (error) {
+      console.error("Error updating court preferences:", error);
+      res.status(500).json({ error: "Failed to update court preferences" });
+    }
+  });
+
   // ==================== GLOW CHAT API ====================
   
   // Get all conversations for a coach
