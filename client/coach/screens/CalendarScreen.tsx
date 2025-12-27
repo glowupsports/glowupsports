@@ -888,151 +888,196 @@ export default function CalendarScreen() {
         </ScrollView>
       )}
 
-      {/* WEEK VIEW - AVAILABILITY MODE (Energy Bands) */}
+      {/* WEEK VIEW - SLOTS MODE (Playtomic-style Time Grid) */}
       {viewMode === "week" && weekMode === "availability" && (
-        <View style={styles.availabilityContainer}>
-          {/* Energy Bands - Fluid visualization */}
-          <View style={styles.energyBandsContainer}>
+        <>
+          {/* Sticky Week Header with Day Columns */}
+          <View style={styles.weekGridHeader}>
+            <View style={styles.weekTimeColumnHeader}>
+              <Text style={styles.weekTimeHeaderText}>Time</Text>
+            </View>
             {weekDates.map((date, dayIdx) => {
               const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
               const isToday = date.toDateString() === new Date().toDateString();
-              const isSelected = date.toDateString() === selectedDate.toDateString();
-              const daySessions = getSessionsForDate(date);
-              
-              // Calculate availability: total possible hours vs booked hours
-              const totalHours = 14; // 8:00 - 22:00
-              const totalSlots = totalHours * courts.length;
-              
-              let bookedSlots = 0;
-              for (let hour = 8; hour < 22; hour++) {
-                const slotStart = new Date(date);
-                slotStart.setHours(hour, 0, 0, 0);
-                const slotEnd = new Date(date);
-                slotEnd.setHours(hour + 1, 0, 0, 0);
-                
-                courts.forEach(court => {
-                  const isOccupied = daySessions.some(s => {
-                    const sStart = new Date(s.startTime);
-                    const sEnd = new Date(s.endTime);
-                    return s.courtId === court.id && sStart < slotEnd && sEnd > slotStart;
-                  });
-                  if (isOccupied) bookedSlots++;
-                });
-              }
-              
-              const availabilityPercent = Math.max(0, (totalSlots - bookedSlots) / totalSlots * 100);
-              const freeHours = Math.round(((totalSlots - bookedSlots) / courts.length));
-              
-              // Energy color based on availability
-              const energyColor = availabilityPercent > 60 
-                ? Colors.dark.primary 
-                : availabilityPercent > 30 
-                  ? Colors.dark.gold 
-                  : "#FF6B6B";
-              
-              // Find first free slot for this day
-              const findFirstFreeSlot = () => {
-                for (let hour = 8; hour < 22; hour++) {
-                  const slotStart = new Date(date);
-                  slotStart.setHours(hour, 0, 0, 0);
-                  const slotEnd = new Date(date);
-                  slotEnd.setHours(hour + 1, 0, 0, 0);
-                  
-                  for (const court of courts) {
-                    const isOccupied = daySessions.some(s => {
-                      const sStart = new Date(s.startTime);
-                      const sEnd = new Date(s.endTime);
-                      return s.courtId === court.id && sStart < slotEnd && sEnd > slotStart;
-                    });
-                    if (!isOccupied) {
-                      return { courtId: court.id, time: slotStart };
-                    }
-                  }
-                }
-                return null;
-              };
-              
               return (
-                <Pressable 
-                  key={dayIdx} 
-                  style={[
-                    styles.energyBandColumn,
-                    isToday && styles.energyBandToday,
-                    isSelected && styles.energyBandSelected,
-                  ]}
+                <Pressable
+                  key={dayIdx}
+                  style={[styles.weekDayHeader, isToday && styles.weekDayHeaderToday]}
                   onPress={() => {
-                    // First tap selects the date and switches to day view
                     setSelectedDate(date);
                     setViewMode("day");
                   }}
-                  onLongPress={() => {
-                    // Long press opens create drawer with first free slot
-                    setSelectedDate(date);
-                    const freeSlot = findFirstFreeSlot();
-                    if (freeSlot) {
-                      setSelectedSlot(freeSlot);
-                      setShowCreateDrawer(true);
-                    }
-                  }}
-                  delayLongPress={300}
                 >
-                  {/* Day Label */}
-                  <View style={styles.energyBandHeader}>
-                    <Text style={[styles.energyBandDayName, isToday && styles.energyBandDayNameToday]}>
-                      {dayNames[dayIdx]}
-                    </Text>
-                    <Text style={[styles.energyBandDate, isToday && styles.energyBandDateToday]}>
-                      {date.getDate()}
-                    </Text>
-                  </View>
-                  
-                  {/* Energy Bar - Gradient fill from bottom */}
-                  <View style={styles.energyBarContainer}>
-                    <LinearGradient
-                      colors={[
-                        energyColor + "00",
-                        energyColor + "15",
-                        energyColor + "40",
-                      ]}
-                      style={[
-                        styles.energyBarFill,
-                        { height: `${availabilityPercent}%` }
-                      ]}
-                    />
-                    
-                    {/* Subtle glow at top of energy */}
-                    {availabilityPercent > 10 && (
-                      <View 
-                        style={[
-                          styles.energyBarGlow,
-                          { 
-                            bottom: `${availabilityPercent - 5}%`,
-                            backgroundColor: energyColor,
-                            shadowColor: energyColor,
-                          }
-                        ]} 
-                      />
-                    )}
-                  </View>
-                  
-                  {/* Availability Label */}
-                  <View style={styles.energyBandFooter}>
-                    <Text style={[styles.energyBandHours, { color: energyColor }]}>
-                      {freeHours}h
-                    </Text>
-                  </View>
+                  <Text style={[styles.weekDayName, isToday && styles.weekDayNameToday]}>
+                    {dayNames[dayIdx]}
+                  </Text>
+                  <Text style={[styles.weekDayNumber, isToday && styles.weekDayNumberToday]}>
+                    {date.getDate()}
+                  </Text>
                 </Pressable>
               );
             })}
           </View>
-          
-          {/* Subtle time hint at bottom */}
-          <View style={styles.energyTimeHint}>
-            <Text style={styles.energyTimeHintText}>8:00</Text>
-            <View style={styles.energyTimeHintLine} />
-            <Text style={styles.energyTimeHintText}>22:00</Text>
-          </View>
-        </View>
+
+          {/* Scrollable Time Grid */}
+          <ScrollView style={styles.weekGridScroll} showsVerticalScrollIndicator={false}>
+            {(() => {
+              // Fixed hour range for week view (never affected by focusMode)
+              const weekHours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
+              
+              // Calculate week now position relative to START_HOUR
+              const getWeekNowPosition = () => {
+                const now = new Date();
+                const currentHours = now.getHours() + now.getMinutes() / 60;
+                if (currentHours < START_HOUR || currentHours > END_HOUR) return null;
+                return (currentHours - START_HOUR) * hourHeight;
+              };
+              const weekNowPosition = getWeekNowPosition();
+              
+              // Get blocked sessions for a specific date
+              const getBlockedSessionsForDate = (date: Date) => {
+                return blockedSessions.filter((s) => {
+                  const sessionDate = new Date(s.startTime);
+                  return sessionDate.toDateString() === date.toDateString();
+                });
+              };
+              
+              return (
+                <View style={styles.weekGridBody}>
+                  {/* Time Column */}
+                  <View style={styles.weekTimeColumn}>
+                    {weekHours.map((hour) => (
+                      <View key={hour} style={[styles.weekTimeSlot, { height: hourHeight }]}>
+                        <Text style={styles.weekTimeText}>{formatTime(hour)}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* Day Columns with Sessions */}
+                  <View style={styles.weekDayColumns}>
+                    {weekDates.map((date, dayIdx) => {
+                      const isDayToday = date.toDateString() === new Date().toDateString();
+                      const daySessions = getSessionsForDate(date);
+                      const dayBlockedSessions = getBlockedSessionsForDate(date);
+                      
+                      // Calculate session positions for this day
+                      const getWeekSessionPosition = (session: Session | BlockedSession) => {
+                        const startTime = new Date(session.startTime);
+                        const endTime = new Date(session.endTime);
+                        const startHour = startTime.getHours() + startTime.getMinutes() / 60;
+                        const endHour = endTime.getHours() + endTime.getMinutes() / 60;
+                        const top = (startHour - START_HOUR) * hourHeight;
+                        const height = (endHour - startHour) * hourHeight;
+                        return { top, height };
+                      };
+
+                      return (
+                        <View key={dayIdx} style={styles.weekDayColumn}>
+                          {/* Hour grid lines and clickable slots */}
+                          {weekHours.map((hour) => (
+                            <Pressable
+                              key={hour}
+                              style={[styles.weekHourSlot, { height: hourHeight }]}
+                              onPress={() => {
+                                const time = new Date(date);
+                                time.setHours(hour, 0, 0, 0);
+                                setSelectedDate(date);
+                                setSelectedSlot({ courtId: courts[0]?.id || "", time });
+                                setShowCreateDrawer(true);
+                              }}
+                            >
+                              <View style={styles.weekHourLine} />
+                              {timeGrid === 30 && <View style={[styles.weekHalfHourLine, { top: hourHeight / 2 }]} />}
+                            </Pressable>
+                          ))}
+
+                          {/* Render blocked sessions */}
+                          {dayBlockedSessions.map((session) => {
+                            const { top, height } = getWeekSessionPosition(session);
+                            return (
+                              <View
+                                key={session.id}
+                                style={[
+                                  styles.weekBlockedBlock,
+                                  {
+                                    top,
+                                    height: Math.max(height - 2, 20),
+                                  },
+                                ]}
+                              >
+                                <Text style={styles.weekBlockedText}>Blocked</Text>
+                              </View>
+                            );
+                          })}
+
+                          {/* Render sessions for this day */}
+                          {daySessions.map((session) => {
+                            const { top, height } = getWeekSessionPosition(session);
+                            const now = new Date();
+                            const sessionEnd = new Date(session.endTime);
+                            const sessionStart = new Date(session.startTime);
+                            const isPast = sessionEnd < now;
+                            const isActive = now >= sessionStart && now < sessionEnd;
+                            const gradientColors = getSessionTypeGradient(session.sessionType);
+                            const sessionLabel = session.sessionType === "private" ? "Private" :
+                                                session.sessionType === "semi_private" ? "Semi" :
+                                                session.sessionType === "group" ? "Group" : session.sessionType;
+                            
+                            return (
+                              <Pressable
+                                key={session.id}
+                                onPress={() => {
+                                  setSelectedDate(date);
+                                  handleAttendance(session);
+                                }}
+                                onLongPress={() => handleSessionLongPress(session)}
+                                delayLongPress={300}
+                                style={[
+                                  styles.weekSessionBlock,
+                                  {
+                                    top,
+                                    height: Math.max(height - 2, 20),
+                                    opacity: isPast ? 0.5 : 1,
+                                  },
+                                  isActive && styles.weekSessionBlockActive,
+                                ]}
+                              >
+                                <LinearGradient
+                                  colors={gradientColors}
+                                  start={{ x: 0, y: 0 }}
+                                  end={{ x: 1, y: 1 }}
+                                  style={styles.weekSessionGradient}
+                                >
+                                  <Text style={styles.weekSessionText} numberOfLines={1}>
+                                    {sessionLabel}
+                                  </Text>
+                                  {height > 40 && (
+                                    <Text style={styles.weekSessionTime} numberOfLines={1}>
+                                      {new Date(session.startTime).toLocaleTimeString("en-US", {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                        hour12: false,
+                                      })}
+                                    </Text>
+                                  )}
+                                </LinearGradient>
+                              </Pressable>
+                            );
+                          })}
+
+                          {/* Current time line for today */}
+                          {isDayToday && weekNowPosition !== null && (
+                            <View style={[styles.weekNowLine, { top: weekNowPosition }]} />
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                </View>
+              );
+            })()}
+          </ScrollView>
+        </>
       )}
 
       {/* MONTH VIEW */}
@@ -2034,7 +2079,163 @@ const styles = StyleSheet.create({
     color: Colors.dark.backgroundRoot,
     fontWeight: "600",
   },
-  // Availability mode styles - Energy Bands
+  // Week Grid Styles (Playtomic-style)
+  weekGridHeader: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  weekTimeColumnHeader: {
+    width: TIME_COLUMN_WIDTH,
+    paddingVertical: Spacing.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  weekTimeHeaderText: {
+    ...Typography.caption,
+    fontSize: 10,
+    color: Colors.dark.disabled,
+    fontWeight: "600",
+  },
+  weekDayHeader: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    borderLeftWidth: 1,
+    borderLeftColor: "rgba(255, 255, 255, 0.04)",
+  },
+  weekDayHeaderToday: {
+    backgroundColor: "rgba(46, 204, 64, 0.08)",
+  },
+  weekDayName: {
+    ...Typography.caption,
+    fontSize: 10,
+    color: Colors.dark.tabIconDefault,
+    fontWeight: "600",
+    letterSpacing: 0.5,
+  },
+  weekDayNameToday: {
+    color: Colors.dark.primary,
+  },
+  weekDayNumber: {
+    ...Typography.body,
+    fontSize: 16,
+    color: Colors.dark.text,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  weekDayNumberToday: {
+    color: Colors.dark.primary,
+  },
+  weekGridScroll: {
+    flex: 1,
+  },
+  weekGridBody: {
+    flexDirection: "row",
+  },
+  weekTimeColumn: {
+    width: TIME_COLUMN_WIDTH,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  weekTimeSlot: {
+    justifyContent: "flex-start",
+    paddingTop: 4,
+    alignItems: "center",
+  },
+  weekTimeText: {
+    ...Typography.caption,
+    fontSize: 10,
+    color: Colors.dark.disabled,
+    fontWeight: "500",
+  },
+  weekDayColumns: {
+    flexDirection: "row",
+    flex: 1,
+  },
+  weekDayColumn: {
+    flex: 1,
+    position: "relative",
+    borderLeftWidth: 1,
+    borderLeftColor: "rgba(255, 255, 255, 0.04)",
+  },
+  weekHourSlot: {
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.04)",
+  },
+  weekHourLine: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+  },
+  weekHalfHourLine: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.02)",
+  },
+  weekSessionBlock: {
+    position: "absolute",
+    left: 2,
+    right: 2,
+    borderRadius: BorderRadius.sm,
+    overflow: "hidden",
+  },
+  weekSessionBlockActive: {
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  weekSessionGradient: {
+    flex: 1,
+    padding: 4,
+    justifyContent: "center",
+  },
+  weekSessionText: {
+    ...Typography.caption,
+    fontSize: 9,
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+  weekSessionTime: {
+    ...Typography.caption,
+    fontSize: 8,
+    color: "rgba(255, 255, 255, 0.8)",
+    fontWeight: "500",
+    marginTop: 1,
+  },
+  weekNowLine: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: Colors.dark.error,
+    zIndex: 10,
+  },
+  weekBlockedBlock: {
+    position: "absolute",
+    left: 2,
+    right: 2,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: "rgba(100, 100, 100, 0.4)",
+    borderWidth: 1,
+    borderColor: "rgba(100, 100, 100, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  weekBlockedText: {
+    ...Typography.caption,
+    fontSize: 8,
+    color: Colors.dark.disabled,
+    fontWeight: "500",
+  },
+  // Availability mode styles - Energy Bands (legacy)
   availabilityContainer: {
     flex: 1,
     paddingHorizontal: Spacing.lg,
