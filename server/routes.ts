@@ -629,7 +629,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
       
-      const coach = allCoaches[0]; // Auto-load first coach for now
+      // Prefer Coach Alex (has session history), otherwise first coach
+      const coach = allCoaches.find(c => c.name === "Coach Alex") || allCoaches[0];
       let academy = null;
       
       if (coach.academyId) {
