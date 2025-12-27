@@ -373,6 +373,49 @@ export default function DashboardScreen() {
           </LinearGradient>
         </View>
 
+        {/* Quick Actions */}
+        <View style={styles.quickActions}>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <View style={styles.actionGrid}>
+            <Pressable
+              style={styles.actionCard}
+              onPress={() => handleNavigate("AcademySettings")}
+            >
+              <View style={[styles.actionIconContainer, styles.actionIconActive]}>
+                <Ionicons name="business-outline" size={24} color={Colors.dark.primary} />
+              </View>
+              <Text style={styles.actionText}>Academy</Text>
+            </Pressable>
+            <Pressable
+              style={styles.actionCard}
+              onPress={() => handleNavigate("Billing")}
+            >
+              <View style={[styles.actionIconContainer, styles.actionIconActive]}>
+                <Ionicons name="card-outline" size={24} color={Colors.dark.xpCyan} />
+              </View>
+              <Text style={styles.actionText}>Billing</Text>
+            </Pressable>
+            <Pressable
+              style={styles.actionCard}
+              onPress={() => handleNavigate("Templates")}
+            >
+              <View style={[styles.actionIconContainer, styles.actionIconActive]}>
+                <Ionicons name="layers-outline" size={24} color={Colors.dark.orange} />
+              </View>
+              <Text style={styles.actionText}>Templates</Text>
+            </Pressable>
+            <Pressable
+              style={styles.actionCard}
+              onPress={() => handleNavigate("ChatInbox")}
+            >
+              <View style={[styles.actionIconContainer, styles.actionIconActive]}>
+                <Ionicons name="chatbubbles-outline" size={24} color={Colors.dark.gold} />
+              </View>
+              <Text style={styles.actionText}>Messages</Text>
+            </Pressable>
+          </View>
+        </View>
+
         {/* Stamina & Impact Card */}
         <View style={styles.energyCard}>
           <View style={styles.energyHeader}>

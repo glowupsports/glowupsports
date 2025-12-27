@@ -16,6 +16,8 @@ import ChatInboxScreen from "@/coach/screens/ChatInboxScreen";
 import AvailabilityScreen from "@/coach/screens/AvailabilityScreen";
 import CourtPreferencesScreen from "@/coach/screens/CourtPreferencesScreen";
 import TemplatesScreen from "@/coach/screens/TemplatesScreen";
+import AcademySettingsScreen from "@/coach/screens/AcademySettingsScreen";
+import BillingScreen from "@/coach/screens/BillingScreen";
 import { Colors } from "@/constants/theme";
 
 export type CoachTabParamList = {
@@ -35,6 +37,8 @@ export type CoachStackParamList = {
   Availability: undefined;
   CourtPreferences: undefined;
   Templates: undefined;
+  AcademySettings: undefined;
+  Billing: undefined;
 };
 
 const Tab = createBottomTabNavigator<CoachTabParamList>();
@@ -171,6 +175,14 @@ export default function CoachNavigator() {
         options={{
           presentation: "modal",
         }}
+      />
+      <Stack.Screen 
+        name="AcademySettings" 
+        component={AcademySettingsScreen}
+      />
+      <Stack.Screen 
+        name="Billing" 
+        component={BillingScreen}
       />
     </Stack.Navigator>
   );
