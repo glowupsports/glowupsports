@@ -116,9 +116,9 @@ export function CoachProvider({ children }: { children: ReactNode }) {
           setFocusModeState(storedFocusMode === "true");
         }
         
-        // Always fetch fresh from /api/me (ignoring cache for now)
+        // Fetch from demo endpoint for development (TODO: switch to auth flow)
         const apiUrl = getApiUrl();
-        const response = await fetch(new URL("/api/me", apiUrl).toString());
+        const response = await fetch(new URL("/api/demo/me", apiUrl).toString());
         if (response.ok && isMounted) {
           const data = await response.json();
           if (data.coach) {

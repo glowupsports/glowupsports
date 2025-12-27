@@ -2,6 +2,10 @@ import { db } from "./db";
 import { eq, and, gte, lte, ne, or, inArray } from "drizzle-orm";
 import { desc, asc } from "drizzle-orm";
 import {
+  // Auth tables
+  users,
+  type User,
+  type InsertUser,
   // Multi-academy structure
   academies,
   // Core tables
@@ -100,6 +104,43 @@ import {
 } from "@shared/schema";
 
 export const storage = {
+  // ==================== USERS (AUTH) ====================
+  async getUserById(id: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.id, id));
+    return result[0];
+  },
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
+    return result[0];
+  },
+
+  async createUser(data: { 
+    email: string; 
+    password: string; 
+    role: string; 
+    academyId?: string | null; 
+    coachId?: string | null; 
+  }): Promise<User> {
+    const result = await db.insert(users).values({
+      email: data.email.toLowerCase(),
+      password: data.password,
+      role: data.role,
+      academyId: data.academyId || null,
+      coachId: data.coachId || null,
+    }).returning();
+    return result[0];
+  },
+
+  async updateUser(id: string, data: Partial<InsertUser>): Promise<User | undefined> {
+    const result = await db.update(users).set(data).where(eq(users.id, id)).returning();
+    return result[0];
+  },
+
+  async updateUserLastLogin(id: string): Promise<void> {
+    await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, id));
+  },
+
   // ==================== ACADEMIES ====================
   async getAcademy(id: string): Promise<Academy | undefined> {
     const result = await db.select().from(academies).where(eq(academies.id, id));

@@ -1,8 +1,149 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "node:http";
+import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
+import { 
+  hashPassword, 
+  verifyPassword, 
+  generateToken, 
+  authMiddleware, 
+  requireRole, 
+  requireAcademy,
+  type AuthenticatedRequest 
+} from "./auth";
+import { loginSchema, registerSchema } from "@shared/schema";
+import { fromZodError } from "zod-validation-error";
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: "Too many login attempts, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ==================== AUTH ENDPOINTS ====================
+  
+  app.post("/auth/register", authLimiter, async (req: Request, res: Response) => {
+    try {
+      const parsed = registerSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: fromZodError(parsed.error).message });
+      }
+
+      const { email, password, name, academyName, role } = parsed.data;
+
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({ error: "Email already registered" });
+      }
+
+      const hashedPassword = await hashPassword(password);
+
+      let academyId: string | null = null;
+      let coachId: string | null = null;
+
+      if (academyName) {
+        const slug = academyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+        const existingAcademy = await storage.getAcademyBySlug(slug);
+        if (existingAcademy) {
+          return res.status(409).json({ error: "Academy name already taken" });
+        }
+        
+        const academy = await storage.createAcademy({ name: academyName, slug, ownerId: null });
+        academyId = academy.id;
+        
+        const coach = await storage.createCoach({ 
+          name, 
+          email, 
+          academyId, 
+          role: "owner",
+          level: 1,
+          totalXp: 0,
+        });
+        coachId = coach.id;
+        
+        await storage.updateAcademy(academyId, { ownerId: coachId });
+      }
+
+      const user = await storage.createUser({
+        email,
+        password: hashedPassword,
+        role: academyName ? "owner" : role,
+        academyId,
+        coachId,
+      });
+
+      const token = generateToken({
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        academyId: user.academyId,
+        coachId: user.coachId,
+      });
+
+      res.status(201).json({ 
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          academyId: user.academyId,
+          coachId: user.coachId,
+        }
+      });
+    } catch (error) {
+      console.error("Registration error:", error);
+      res.status(500).json({ error: "Registration failed" });
+    }
+  });
+
+  app.post("/auth/login", authLimiter, async (req: Request, res: Response) => {
+    try {
+      const parsed = loginSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: fromZodError(parsed.error).message });
+      }
+
+      const { email, password } = parsed.data;
+
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      const validPassword = await verifyPassword(password, user.password);
+      if (!validPassword) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      await storage.updateUserLastLogin(user.id);
+
+      const token = generateToken({
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        academyId: user.academyId,
+        coachId: user.coachId,
+      });
+
+      res.json({ 
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          academyId: user.academyId,
+          coachId: user.coachId,
+        }
+      });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
   // ==================== COACH CALENDAR API ====================
 
   // Get calendar for a date range
@@ -703,9 +844,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== AUTH/ME ENDPOINTS ====================
 
-  // Get current coach with academy context
-  // For now, auto-loads first coach (will be replaced with auth later)
-  app.get("/api/me", async (req: Request, res: Response) => {
+  // Get current user with coach and academy context (authenticated)
+  app.get("/api/me", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      
+      let coach = null;
+      let academy = null;
+      
+      if (user.coachId) {
+        coach = await storage.getCoach(user.coachId);
+      }
+      
+      if (user.academyId) {
+        academy = await storage.getAcademy(user.academyId);
+      }
+      
+      res.json({
+        user: {
+          id: user.userId,
+          email: user.email,
+          role: user.role,
+          academyId: user.academyId,
+          coachId: user.coachId,
+        },
+        coach: coach ? {
+          id: coach.id,
+          name: coach.name,
+          email: coach.email,
+          phone: coach.phone,
+          role: coach.role,
+          level: coach.level,
+          totalXp: coach.totalXp,
+          academyId: coach.academyId,
+        } : null,
+        academy: academy ? {
+          id: academy.id,
+          name: academy.name,
+          slug: academy.slug,
+        } : null,
+      });
+    } catch (error) {
+      console.error("Error fetching current user:", error);
+      res.status(500).json({ error: "Failed to fetch current user" });
+    }
+  });
+
+  // DEMO MODE: Get demo coach without auth (for development only)
+  // TODO: Remove this endpoint before production
+  app.get("/api/demo/me", async (req: Request, res: Response) => {
     try {
       const allCoaches = await storage.getAllCoaches();
       if (allCoaches.length === 0) {
@@ -713,7 +900,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
       
-      // Prefer Coach Alex (has session history), otherwise first coach
       const coach = allCoaches.find(c => c.name === "Coach Alex") || allCoaches[0];
       let academy = null;
       
@@ -739,8 +925,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } : null,
       });
     } catch (error) {
-      console.error("Error fetching current coach:", error);
-      res.status(500).json({ error: "Failed to fetch current coach" });
+      console.error("Error fetching demo coach:", error);
+      res.status(500).json({ error: "Failed to fetch demo coach" });
     }
   });
 

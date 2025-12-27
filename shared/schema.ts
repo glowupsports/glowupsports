@@ -3,23 +3,46 @@ import { pgTable, text, varchar, timestamp, integer, numeric, boolean, date, jso
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// ==================== EXISTING TABLES ====================
+// ==================== AUTH TABLES ====================
 
 export const users = pgTable("users", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
+  email: text("email").notNull().unique(),
   password: text("password").notNull(),
+  role: text("role").notNull().default("coach"), // owner | coach | assistant
+  academyId: varchar("academy_id"), // references academies.id (set after registration)
+  coachId: varchar("coach_id"), // references coaches.id (links user to coach profile)
+  createdAt: timestamp("created_at").defaultNow(),
+  lastLoginAt: timestamp("last_login_at"),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
+  email: true,
   password: true,
+  role: true,
+  academyId: true,
+  coachId: true,
+});
+
+export const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+});
+
+export const registerSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  name: z.string().min(2),
+  academyName: z.string().min(2).optional(), // For new academy creation
+  role: z.enum(["owner", "coach", "assistant"]).default("coach"),
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type LoginInput = z.infer<typeof loginSchema>;
+export type RegisterInput = z.infer<typeof registerSchema>;
 
 // ==================== MULTI-ACADEMY STRUCTURE ====================
 
