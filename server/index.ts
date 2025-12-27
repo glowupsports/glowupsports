@@ -15,28 +15,6 @@ declare module "http" {
 
 function setupCors(app: express.Application) {
   app.use((req, res, next) => {
-    const origin = req.header("origin");
-    
-    // In development, allow all origins (localhost, tunnel, etc.)
-    if (process.env.NODE_ENV === "development" || !process.env.NODE_ENV) {
-      if (origin) {
-        res.header("Access-Control-Allow-Origin", origin);
-      } else {
-        res.header("Access-Control-Allow-Origin", "*");
-      }
-      res.header(
-        "Access-Control-Allow-Methods",
-        "GET, POST, PUT, DELETE, OPTIONS, PATCH",
-      );
-      res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-      
-      if (req.method === "OPTIONS") {
-        return res.sendStatus(200);
-      }
-      return next();
-    }
-
-    // Production: only allow specific origins
     const origins = new Set<string>();
 
     if (process.env.REPLIT_DEV_DOMAIN) {
@@ -49,13 +27,16 @@ function setupCors(app: express.Application) {
       });
     }
 
+    const origin = req.header("origin");
+
     if (origin && origins.has(origin)) {
       res.header("Access-Control-Allow-Origin", origin);
       res.header(
         "Access-Control-Allow-Methods",
-        "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+        "GET, POST, PUT, DELETE, OPTIONS",
       );
-      res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+      res.header("Access-Control-Allow-Headers", "Content-Type");
+      res.header("Access-Control-Allow-Credentials", "true");
     }
 
     if (req.method === "OPTIONS") {
