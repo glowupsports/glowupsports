@@ -18,6 +18,7 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { ObservationTrendChart } from "@/components/ObservationTrendChart";
 
 interface ProgressSummary {
   skillArea: string;
@@ -91,11 +92,26 @@ interface PlayerSkillState {
   assessmentStatus: string | null;
   isFrozen: boolean | null;
   domain: SkillDomain | null;
+  domainXp: number;
+  observationCount: number;
+  avgDelta: number;
+  lastObservation: string | null;
 }
 
 interface PlayerXpData {
   totalXp: number;
   transactions: { id: string; xpAmount: number; source: string; description: string | null; createdAt: string }[];
+}
+
+interface ObservationTrend {
+  domainId: string;
+  history: { date: string; delta: number; direction: string }[];
+  streakUp: number;
+  streakDown: number;
+  hasSpeedrunWarning: boolean;
+  improvementRate: number;
+  hasData: boolean;
+  domain?: SkillDomain | null;
 }
 
 export default function CoachingScreen() {
@@ -1410,6 +1426,11 @@ function ProgressTab({ insets }: { insets: { bottom: number } }) {
     enabled: !!selectedPlayer,
   });
 
+  const { data: observationTrends = [] } = useQuery<ObservationTrend[]>({
+    queryKey: [`/api/players/${selectedPlayer?.id}/observation-trends`],
+    enabled: !!selectedPlayer,
+  });
+
   const submitAssessmentMutation = useMutation({
     mutationFn: async (data: { playerId: string; domainId: string; status: AssessmentStatus }) => {
       return apiRequest("POST", `/api/players/${data.playerId}/assessments`, {
@@ -1606,6 +1627,23 @@ function ProgressTab({ insets }: { insets: { bottom: number } }) {
           </View>
         ) : null}
 
+        {/* Observation Trends */}
+        {observationTrends.length > 0 ? (
+          <>
+            <Text style={styles.sectionTitle}>Progress Trends</Text>
+            <View style={styles.trendsContainer}>
+              {observationTrends.map((trend) => (
+                <ObservationTrendChart
+                  key={trend.domainId}
+                  trend={trend}
+                  width={320}
+                  height={90}
+                />
+              ))}
+            </View>
+          </>
+        ) : null}
+
         {/* Skill Domains */}
         <Text style={styles.sectionTitle}>Skill Domains</Text>
         {statesLoading ? (
@@ -1671,6 +1709,26 @@ function ProgressTab({ insets }: { insets: { bottom: number } }) {
                     </View>
                   ) : (
                     <>
+                      {state.domainXp > 0 || state.observationCount > 0 ? (
+                        <View style={styles.domainXpRow}>
+                          <View style={styles.domainXpBadge}>
+                            <Ionicons name="star" size={10} color={Colors.dark.gold} />
+                            <Text style={styles.domainXpText}>{state.domainXp} XP</Text>
+                          </View>
+                          <Text style={styles.domainObsCount}>
+                            {state.observationCount} obs
+                          </Text>
+                          {state.avgDelta !== 0 ? (
+                            <Text style={[
+                              styles.domainAvgDelta,
+                              { color: state.avgDelta > 0 ? Colors.dark.primary : state.avgDelta < 0 ? Colors.dark.error : Colors.dark.tabIconDefault }
+                            ]}>
+                              {state.avgDelta > 0 ? "+" : ""}{state.avgDelta}/obs
+                            </Text>
+                          ) : null}
+                        </View>
+                      ) : null}
+
                       <View style={styles.domainMeta}>
                         <View style={styles.trendBadge}>
                           <Ionicons
@@ -3262,6 +3320,40 @@ const styles = StyleSheet.create({
   },
   momentumText: {
     fontSize: Typography.small.fontSize,
+  },
+  domainXpRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  domainXpBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: Colors.dark.gold + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+  },
+  domainXpText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.gold,
+  },
+  domainObsCount: {
+    fontSize: 10,
+    color: Colors.dark.tabIconDefault,
+  },
+  domainAvgDelta: {
+    fontSize: 10,
+    fontWeight: "500",
+  },
+  trendsContainer: {
+    gap: Spacing.sm,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
   },
   plansHeader: {
     flexDirection: "row",

@@ -2085,7 +2085,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get existing sessions for conflict detection
-      const existingSessions = coachId ? await storage.getCoachSessions(coachId, academyId || undefined) : [];
+      const existingSessions = coachId ? await storage.getAllSessionsByCoach(coachId, academyId || undefined) : [];
       
       for (let week = 0; week < weekCount; week++) {
         const sessionDate = new Date(start);
@@ -2380,6 +2380,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get coach observation patterns (anti-abuse stats)
+  app.get("/api/coach/:id/stats", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId!;
+      
+      const coach = await storage.getCoach(id, academyId);
+      if (!coach) {
+        return res.status(404).json({ error: "Coach not found" });
+      }
+      
+      const patterns = await storage.getCoachObservationPatterns(id, 30);
+      const storedStats = await storage.getCoachStats(id);
+      
+      res.json({
+        observationPatterns: {
+          upRate: Math.round(patterns.upRate * 100),
+          downRate: Math.round(patterns.downRate * 100),
+          highEffortRate: Math.round(patterns.highEffortRate * 100),
+          totalObservations: patterns.totalObservations,
+        },
+        flags: {
+          isPatternAbuse: patterns.isPatternAbuse,
+          isHighEffortSpammer: storedStats?.isHighEffortSpammer || false,
+          isUpSpammer: storedStats?.isUpSpammer || false,
+        },
+        severityFactor: storedStats?.severityFactor ? parseFloat(storedStats.severityFactor) : 1.0,
+        message: patterns.isPatternAbuse 
+          ? "Your observation patterns are unusual - consider varying your assessments"
+          : "Your observation patterns are healthy",
+      });
+    } catch (error) {
+      console.error("Error fetching coach stats:", error);
+      res.status(500).json({ error: "Failed to fetch coach stats" });
+    }
+  });
+
   // Award coach XP (internal endpoint for session completion, feedback, etc.)
   app.post("/api/coach/:id/xp", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -2534,13 +2571,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const states = await storage.getPlayerSkillStates(id, academyId || undefined);
       const domains = await storage.getAllSkillDomains();
+      const domainXpSummary = await storage.getPlayerDomainXpSummary(id);
       
-      // Merge domain info with state
+      // Merge domain info with state and XP data
       const statesWithDomains = states.map(state => {
         const domain = domains.find(d => d.id === state.domainId);
+        const xpData = domainXpSummary.find(x => x.domainId === state.domainId);
         return {
           ...state,
           domain: domain || null,
+          domainXp: xpData?.totalXp || 0,
+          observationCount: xpData?.observationCount || 0,
+          avgDelta: xpData?.avgDelta || 0,
+          lastObservation: xpData?.lastObservation || null,
         };
       });
       
@@ -2548,6 +2591,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching player skill states:", error);
       res.status(500).json({ error: "Failed to fetch skill states" });
+    }
+  });
+
+  // Get player observation trends for charts
+  app.get("/api/players/:id/observation-trends", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      const days = parseInt(req.query.days as string) || 30;
+      
+      const { valid } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const trends = await storage.getPlayerObservationTrends(id, days);
+      const domains = await storage.getAllSkillDomains();
+      
+      const trendsWithDomains = trends.map(t => {
+        const domain = domains.find(d => d.id === t.domainId);
+        return { ...t, domain };
+      });
+      
+      res.json(trendsWithDomains);
+    } catch (error) {
+      console.error("Error fetching observation trends:", error);
+      res.status(500).json({ error: "Failed to fetch observation trends" });
     }
   });
 
@@ -2561,6 +2631,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!playerId || !coachId || !observations || !Array.isArray(observations)) {
         return res.status(400).json({ error: "playerId and observations array required" });
+      }
+
+      // ==================== ANTI-ABUSE CHECKS ====================
+      const DAILY_XP_CAP = 50; // Max XP per player per day
+      const warnings: string[] = [];
+      
+      // Check daily XP cap
+      const dailyXpSoFar = await storage.getPlayerDailyXp(playerId);
+      const isNearDailyCap = dailyXpSoFar >= DAILY_XP_CAP * 0.8;
+      const isAtDailyCap = dailyXpSoFar >= DAILY_XP_CAP;
+      
+      if (isAtDailyCap) {
+        warnings.push("Daily XP cap reached - observations recorded but no XP awarded");
+      } else if (isNearDailyCap) {
+        warnings.push("Approaching daily XP cap");
+      }
+      
+      // Check coach patterns for abuse
+      const coachPatterns = await storage.getCoachObservationPatterns(coachId, 30);
+      let coachSeverityFactor = 1.0;
+      
+      if (coachPatterns.isPatternAbuse) {
+        coachSeverityFactor = 0.7; // 30% reduction for abusive patterns
+        warnings.push("Observation impact reduced due to unusual patterns - vary your assessments");
+      } else if (coachPatterns.upRate > 0.7) {
+        coachSeverityFactor = 0.9; // 10% reduction for generous coaches
+      }
+      
+      // Check coach-player relationship for frequent flyer detection
+      const relationship = await storage.checkCoachPlayerRelationship(coachId, playerId);
+      if (relationship.isFrequentFlyer) {
+        coachSeverityFactor *= 0.8; // Additional 20% reduction
+        warnings.push("High observation frequency with this player - impact reduced");
       }
 
       const results = [];
@@ -2627,8 +2730,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        // Calculate applied delta
-        let appliedDelta = Math.round(rawDelta * effortMultiplier * diminishingFactor);
+        // Calculate applied delta (including coach severity factor)
+        let appliedDelta = Math.round(rawDelta * effortMultiplier * diminishingFactor * coachSeverityFactor);
 
         // Confidence guard: prevent hard drops
         if (appliedDelta < 0 && currentState?.confidenceScore && currentState.confidenceScore < 30) {
@@ -2711,7 +2814,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Calculate total XP: Base 10 per session (once) + effort multiplier + skill improvement bonuses
       const baseSessionXp = Math.round(10 * sessionEffortMultiplier);
-      const totalXpGained = baseSessionXp + skillImprovementXp;
+      let totalXpGained = baseSessionXp + skillImprovementXp;
+      
+      // Apply daily XP cap
+      const remainingDailyXp = DAILY_XP_CAP - dailyXpSoFar;
+      const xpBeforeCap = totalXpGained;
+      
+      if (isAtDailyCap) {
+        totalXpGained = 0;
+      } else if (totalXpGained > remainingDailyXp) {
+        totalXpGained = Math.max(0, remainingDailyXp);
+        warnings.push(`XP reduced from ${xpBeforeCap} to ${totalXpGained} due to daily cap`);
+      }
 
       // Create XP transaction
       if (totalXpGained > 0) {
@@ -2723,10 +2837,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           description: `Session: ${baseSessionXp} base + ${skillImprovementXp} skill bonus`,
         });
       }
+      
+      // Update coach stats for pattern detection (async, don't block response)
+      storage.updateCoachStatsFromObservations(coachId).catch(err => 
+        console.error("Failed to update coach stats:", err)
+      );
 
       res.status(201).json({ 
         observations: results, 
         xpGained: totalXpGained,
+        xpBeforeCap,
+        dailyXpRemaining: Math.max(0, DAILY_XP_CAP - dailyXpSoFar - totalXpGained),
+        warnings: warnings.length > 0 ? warnings : undefined,
         message: `${results.length} observations recorded` 
       });
     } catch (error) {
@@ -2819,6 +2941,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error calculating level readiness:", error);
       res.status(500).json({ error: "Failed to calculate level readiness" });
+    }
+  });
+
+  // Promote/demote player level with coach override
+  app.post("/api/players/:id/level-change", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      const { newLevel, reason, isOverride } = req.body;
+      
+      if (!newLevel) {
+        return res.status(400).json({ error: "newLevel is required" });
+      }
+      
+      const { valid, player } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid || !player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const previousLevel = player.ballLevel || 'red1';
+      
+      // Check level readiness if not override
+      if (!isOverride) {
+        const readiness = await storage.calculatePlayerLevelReadiness(id, newLevel);
+        if (!readiness.isReady) {
+          return res.status(400).json({
+            error: "Player does not meet level requirements",
+            readiness,
+            message: "Use override to promote anyway",
+          });
+        }
+      }
+      
+      // Update player level
+      await storage.updatePlayer(id, { ballLevel: newLevel });
+      
+      // Create audit log with override details
+      await storage.createAuditLog({
+        entityType: "player_level",
+        entityId: id,
+        action: isOverride ? "override_level_change" : "level_change",
+        performedBy: coachId!,
+        metadata: JSON.stringify({
+          previousLevel,
+          newLevel,
+          reason: reason || null,
+          isOverride: isOverride || false,
+          timestamp: new Date().toISOString(),
+        }),
+      });
+      
+      // Create flag if override used without meeting requirements
+      if (isOverride) {
+        const readiness = await storage.calculatePlayerLevelReadiness(id, newLevel);
+        if (!readiness.isReady) {
+          await storage.createPlayerFlag({
+            playerId: id,
+            flagType: "speedrun_flag",
+            severity: "medium",
+            description: `Level changed to ${newLevel} via coach override without meeting all requirements`,
+            metadata: JSON.stringify({
+              previousLevel,
+              newLevel,
+              coachId,
+              reason,
+              unmetRequirements: readiness.requirements.filter(r => !r.met),
+            }),
+          });
+        }
+      }
+      
+      res.json({
+        success: true,
+        previousLevel,
+        newLevel,
+        isOverride: isOverride || false,
+        message: isOverride 
+          ? `Level changed to ${newLevel} via coach override`
+          : `Level changed to ${newLevel}`,
+      });
+    } catch (error) {
+      console.error("Error changing player level:", error);
+      res.status(500).json({ error: "Failed to change player level" });
+    }
+  });
+
+  // Get player override history
+  app.get("/api/players/:id/level-history", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      
+      const { valid } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const logs = await storage.getAuditLogs("player_level", id);
+      
+      res.json(logs.map(log => ({
+        id: log.id,
+        action: log.action,
+        performedBy: log.performedBy,
+        timestamp: log.timestamp,
+        details: log.metadata ? JSON.parse(log.metadata) : null,
+      })));
+    } catch (error) {
+      console.error("Error fetching level history:", error);
+      res.status(500).json({ error: "Failed to fetch level history" });
     }
   });
 
@@ -3409,6 +3641,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching unread count:", error);
       res.status(500).json({ error: "Failed to fetch unread count" });
+    }
+  });
+
+  // ==================== INSIGHTS & ANALYTICS ENDPOINTS ====================
+  
+  // Get attendance trends for academy
+  app.get("/api/insights/attendance", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const days = parseInt(req.query.days as string) || 30;
+      
+      const trends = await storage.getAttendanceTrends(academyId, days);
+      res.json(trends);
+    } catch (error) {
+      console.error("Error fetching attendance trends:", error);
+      res.status(500).json({ error: "Failed to fetch attendance trends" });
+    }
+  });
+  
+  // Get XP velocity for academy
+  app.get("/api/insights/xp-velocity", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const days = parseInt(req.query.days as string) || 30;
+      
+      const velocity = await storage.getXpVelocity(academyId, days);
+      res.json(velocity);
+    } catch (error) {
+      console.error("Error fetching XP velocity:", error);
+      res.status(500).json({ error: "Failed to fetch XP velocity" });
+    }
+  });
+  
+  // Get coach load stats for academy
+  app.get("/api/insights/coach-load", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const days = parseInt(req.query.days as string) || 7;
+      
+      const stats = await storage.getCoachLoadStats(academyId, days);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching coach load stats:", error);
+      res.status(500).json({ error: "Failed to fetch coach load stats" });
+    }
+  });
+  
+  // Get player observation trends
+  app.get("/api/players/:id/observation-trends", authMiddleware, requireAcademy, validatePlayerOwnership, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id: playerId } = req.params;
+      const days = parseInt(req.query.days as string) || 30;
+      
+      const trends = await storage.getPlayerObservationTrends(playerId, days);
+      
+      // Enrich with domain info
+      const domains = await storage.getSkillDomains();
+      const enrichedTrends = trends.map(t => ({
+        ...t,
+        domain: domains.find(d => d.id === t.domainId) || null,
+      }));
+      
+      res.json(enrichedTrends);
+    } catch (error) {
+      console.error("Error fetching observation trends:", error);
+      res.status(500).json({ error: "Failed to fetch observation trends" });
+    }
+  });
+  
+  // Get player domain XP summary
+  app.get("/api/players/:id/domain-xp", authMiddleware, requireAcademy, validatePlayerOwnership, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id: playerId } = req.params;
+      
+      const summary = await storage.getPlayerDomainXpSummary(playerId);
+      
+      // Enrich with domain info
+      const domains = await storage.getSkillDomains();
+      const enrichedSummary = summary.map(s => ({
+        ...s,
+        domain: domains.find(d => d.id === s.domainId) || null,
+      }));
+      
+      res.json(enrichedSummary);
+    } catch (error) {
+      console.error("Error fetching domain XP summary:", error);
+      res.status(500).json({ error: "Failed to fetch domain XP summary" });
     }
   });
 

@@ -756,6 +756,18 @@ export const storage = {
     return result[0];
   },
 
+  async getAuditLogs(entityType: string, entityId?: string): Promise<AuditLog[]> {
+    const conditions = [eq(auditLogs.entityType, entityType)];
+    if (entityId) {
+      conditions.push(eq(auditLogs.entityId, entityId));
+    }
+    return db
+      .select()
+      .from(auditLogs)
+      .where(and(...conditions))
+      .orderBy(desc(auditLogs.timestamp));
+  },
+
   // ==================== OFFLINE QUEUE ====================
   async addToOfflineQueue(data: InsertOfflineQueue): Promise<OfflineQueue> {
     const result = await db.insert(offlineQueue).values(data).returning();
@@ -1168,6 +1180,68 @@ export const storage = {
       .limit(limit);
   },
 
+  async getPlayerObservationTrends(playerId: string, days: number = 30): Promise<{
+    domainId: string;
+    history: { date: string; delta: number; direction: string }[];
+    streakUp: number;
+    streakDown: number;
+    hasSpeedrunWarning: boolean;
+    improvementRate: number;
+    hasData: boolean;
+  }[]> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    
+    const allDomains = await db.select().from(skillDomains);
+    const observations = await db
+      .select()
+      .from(sessionSkillObservations)
+      .where(and(
+        eq(sessionSkillObservations.playerId, playerId),
+        gte(sessionSkillObservations.createdAt, cutoffDate)
+      ))
+      .orderBy(asc(sessionSkillObservations.createdAt));
+    
+    const domainMap: Record<string, SessionSkillObservation[]> = {};
+    
+    // Initialize all domains with empty arrays
+    for (const domain of allDomains) {
+      domainMap[domain.id] = [];
+    }
+    
+    for (const obs of observations) {
+      if (!domainMap[obs.domainId]) domainMap[obs.domainId] = [];
+      domainMap[obs.domainId].push(obs);
+    }
+    
+    return Object.entries(domainMap).map(([domainId, obs]) => {
+      const history = obs.map(o => ({
+        date: o.createdAt?.toISOString().split('T')[0] || '',
+        delta: o.appliedDelta || 0,
+        direction: o.direction,
+      }));
+      
+      let streakUp = 0, streakDown = 0, currentStreak = 0, lastDirection = '';
+      const reversedObs = [...obs].reverse();
+      for (const o of reversedObs) {
+        if (o.direction === lastDirection || lastDirection === '') {
+          currentStreak++;
+          lastDirection = o.direction;
+        } else break;
+      }
+      if (lastDirection === 'up') streakUp = currentStreak;
+      if (lastDirection === 'down') streakDown = currentStreak;
+      
+      const upCount = obs.filter(o => o.direction === 'up').length;
+      const totalCount = obs.length;
+      const improvementRate = totalCount > 0 ? Math.round((upCount / totalCount) * 100) : 0;
+      const hasSpeedrunWarning = improvementRate > 90 && totalCount >= 5;
+      const hasData = obs.length > 0;
+      
+      return { domainId, history, streakUp, streakDown, hasSpeedrunWarning, improvementRate, hasData };
+    });
+  },
+
   async createSkillObservation(data: InsertSessionSkillObservation): Promise<SessionSkillObservation> {
     const result = await db.insert(sessionSkillObservations).values(data).returning();
     return result[0];
@@ -1220,6 +1294,41 @@ export const storage = {
     }
 
     return sessionsWithDowns;
+  },
+
+  async getPlayerDomainXpSummary(playerId: string): Promise<{ domainId: string; totalXp: number; observationCount: number; avgDelta: number; lastObservation: Date | null }[]> {
+    const allDomains = await db.select().from(skillDomains);
+    const observations = await db
+      .select()
+      .from(sessionSkillObservations)
+      .where(eq(sessionSkillObservations.playerId, playerId));
+    
+    const domainMap: Record<string, { totalXp: number; count: number; lastDate: Date | null }> = {};
+    
+    // Initialize all domains with zero values
+    for (const domain of allDomains) {
+      domainMap[domain.id] = { totalXp: 0, count: 0, lastDate: null };
+    }
+    
+    for (const obs of observations) {
+      if (!domainMap[obs.domainId]) {
+        domainMap[obs.domainId] = { totalXp: 0, count: 0, lastDate: null };
+      }
+      domainMap[obs.domainId].totalXp += obs.appliedDelta || 0;
+      domainMap[obs.domainId].count += 1;
+      const obsDate = obs.createdAt ? new Date(obs.createdAt) : null;
+      if (obsDate && (!domainMap[obs.domainId].lastDate || obsDate > domainMap[obs.domainId].lastDate!)) {
+        domainMap[obs.domainId].lastDate = obsDate;
+      }
+    }
+    
+    return Object.entries(domainMap).map(([domainId, data]) => ({
+      domainId,
+      totalXp: data.totalXp ?? 0,
+      observationCount: data.count ?? 0,
+      avgDelta: data.count > 0 ? Math.round((data.totalXp / data.count) * 10) / 10 : 0,
+      lastObservation: data.lastDate,
+    }));
   },
 
   // Level Requirements
@@ -1347,6 +1456,124 @@ export const storage = {
       .where(eq(xpTransactions.playerId, playerId));
     
     return transactions.reduce((sum, t) => sum + t.xpAmount, 0);
+  },
+
+  // ==================== ANTI-ABUSE RULES ====================
+  
+  // Get player XP gained today (for daily cap)
+  async getPlayerDailyXp(playerId: string): Promise<number> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const transactions = await db
+      .select()
+      .from(xpTransactions)
+      .where(and(
+        eq(xpTransactions.playerId, playerId),
+        gte(xpTransactions.createdAt, today)
+      ));
+    
+    return transactions.reduce((sum, t) => sum + t.xpAmount, 0);
+  },
+
+  // Get coach observation patterns for pattern detection
+  async getCoachObservationPatterns(coachId: string, sessionLimit: number = 30): Promise<{
+    upRate: number;
+    downRate: number;
+    highEffortRate: number;
+    totalObservations: number;
+    isPatternAbuse: boolean;
+  }> {
+    const observations = await db
+      .select()
+      .from(sessionSkillObservations)
+      .where(eq(sessionSkillObservations.coachId, coachId))
+      .orderBy(desc(sessionSkillObservations.createdAt))
+      .limit(sessionLimit * 5); // ~5 observations per session
+    
+    if (observations.length === 0) {
+      return { upRate: 0, downRate: 0, highEffortRate: 0, totalObservations: 0, isPatternAbuse: false };
+    }
+    
+    const upCount = observations.filter(o => o.direction === "up").length;
+    const downCount = observations.filter(o => o.direction === "down").length;
+    const highEffortCount = observations.filter(o => o.effortLevel === "high").length;
+    
+    const upRate = upCount / observations.length;
+    const downRate = downCount / observations.length;
+    const highEffortRate = highEffortCount / observations.length;
+    
+    // Pattern abuse detection: >80% ups with <5% downs = likely abuse
+    // OR >90% high effort ratings
+    const isPatternAbuse = (upRate > 0.8 && downRate < 0.05) || highEffortRate > 0.9;
+    
+    return {
+      upRate,
+      downRate,
+      highEffortRate,
+      totalObservations: observations.length,
+      isPatternAbuse,
+    };
+  },
+
+  // Update coach stats rollup for anti-abuse calibration
+  async updateCoachStatsFromObservations(coachId: string): Promise<CoachStatsRollup> {
+    const patterns = await this.getCoachObservationPatterns(coachId, 30);
+    
+    // Calculate severity factor: coaches who give too many ups get reduced impact
+    let severityFactor = 1.0;
+    if (patterns.upRate > 0.7) {
+      severityFactor = 0.9; // 10% reduction for generous coaches
+    }
+    if (patterns.upRate > 0.85) {
+      severityFactor = 0.8; // 20% reduction for very generous coaches
+    }
+    
+    return this.upsertCoachStats({
+      coachId,
+      highEffortRate30: String(patterns.highEffortRate),
+      upRate30: String(patterns.upRate),
+      downRate30: String(patterns.downRate),
+      avgUpPerSession: String(patterns.upRate * 5), // ~5 obs per session
+      severityFactor: String(severityFactor),
+      isHighEffortSpammer: patterns.highEffortRate > 0.85,
+      isUpSpammer: patterns.upRate > 0.8 && patterns.downRate < 0.05,
+    });
+  },
+
+  // Check if coach can observe a specific player (prevents self-boosting via family accounts)
+  async checkCoachPlayerRelationship(coachId: string, playerId: string): Promise<{
+    isSameAccount: boolean;
+    isFrequentFlyer: boolean;
+    observationCount30Days: number;
+  }> {
+    // Get coach's user ID
+    const coach = await db.select().from(coaches).where(eq(coaches.id, coachId));
+    if (!coach || coach.length === 0) {
+      return { isSameAccount: false, isFrequentFlyer: false, observationCount30Days: 0 };
+    }
+    
+    // Check how many times this coach has observed this player in last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const recentObservations = await db
+      .select()
+      .from(sessionSkillObservations)
+      .where(and(
+        eq(sessionSkillObservations.coachId, coachId),
+        eq(sessionSkillObservations.playerId, playerId),
+        gte(sessionSkillObservations.createdAt, thirtyDaysAgo)
+      ));
+    
+    // Frequent flyer: same coach giving >20 observations to same player in 30 days
+    const isFrequentFlyer = recentObservations.length > 20;
+    
+    return {
+      isSameAccount: false, // Would need user linking to implement fully
+      isFrequentFlyer,
+      observationCount30Days: recentObservations.length,
+    };
   },
 
   // ==================== COACH XP SYSTEM ====================
@@ -1996,5 +2223,165 @@ export const storage = {
       conditions.push(gte(sessions.startTime, fromDate));
     }
     await db.update(sessions).set({ status: 'cancelled' }).where(and(...conditions));
+  },
+
+  // ==================== INSIGHTS API ====================
+  
+  async getAttendanceTrends(academyId: string, days: number = 30): Promise<{
+    date: string;
+    attended: number;
+    absent: number;
+    rate: number;
+  }[]> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    
+    const attendanceRecords = await db
+      .select()
+      .from(sessionAttendance)
+      .innerJoin(sessions, eq(sessionAttendance.sessionId, sessions.id))
+      .where(and(
+        eq(sessions.academyId, academyId),
+        gte(sessions.startTime, cutoffDate),
+        lte(sessions.startTime, new Date())
+      ));
+    
+    const dailyStats: Record<string, { attended: number; absent: number }> = {};
+    
+    for (const record of attendanceRecords) {
+      const date = record.sessions.startTime.toISOString().split('T')[0];
+      if (!dailyStats[date]) dailyStats[date] = { attended: 0, absent: 0 };
+      if (record.session_attendance.attended) {
+        dailyStats[date].attended++;
+      } else {
+        dailyStats[date].absent++;
+      }
+    }
+    
+    return Object.entries(dailyStats)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, stats]) => ({
+        date,
+        attended: stats.attended,
+        absent: stats.absent,
+        rate: stats.attended + stats.absent > 0 
+          ? Math.round((stats.attended / (stats.attended + stats.absent)) * 100) 
+          : 0,
+      }));
+  },
+
+  async getXpVelocity(academyId: string, days: number = 30): Promise<{
+    date: string;
+    totalXp: number;
+    playerCount: number;
+    avgXpPerPlayer: number;
+  }[]> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    
+    const xpRecords = await db
+      .select()
+      .from(xpTransactions)
+      .innerJoin(players, eq(xpTransactions.playerId, players.id))
+      .where(and(
+        eq(players.academyId, academyId),
+        gte(xpTransactions.createdAt, cutoffDate)
+      ));
+    
+    const dailyStats: Record<string, { totalXp: number; playerIds: Set<string> }> = {};
+    
+    for (const record of xpRecords) {
+      const date = record.xp_transactions.createdAt?.toISOString().split('T')[0] || '';
+      if (!dailyStats[date]) dailyStats[date] = { totalXp: 0, playerIds: new Set() };
+      dailyStats[date].totalXp += record.xp_transactions.xpAmount;
+      dailyStats[date].playerIds.add(record.players.id);
+    }
+    
+    return Object.entries(dailyStats)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, stats]) => ({
+        date,
+        totalXp: stats.totalXp,
+        playerCount: stats.playerIds.size,
+        avgXpPerPlayer: stats.playerIds.size > 0 ? Math.round(stats.totalXp / stats.playerIds.size) : 0,
+      }));
+  },
+
+  async getCoachLoadStats(academyId: string, days: number = 7): Promise<{
+    coachId: string;
+    coachName: string;
+    sessionCount: number;
+    totalMinutes: number;
+    playerCount: number;
+    avgSessionsPerDay: number;
+    loadLevel: 'light' | 'moderate' | 'heavy';
+  }[]> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    
+    const coachSessions = await db
+      .select()
+      .from(sessions)
+      .innerJoin(coaches, eq(sessions.coachId, coaches.id))
+      .where(and(
+        eq(sessions.academyId, academyId),
+        gte(sessions.startTime, cutoffDate),
+        ne(sessions.status, 'cancelled')
+      ));
+    
+    const coachStats: Record<string, {
+      name: string;
+      sessions: number;
+      minutes: number;
+      playerIds: Set<string>;
+    }> = {};
+    
+    for (const record of coachSessions) {
+      const coachId = record.coaches.id;
+      if (!coachStats[coachId]) {
+        coachStats[coachId] = {
+          name: record.coaches.displayName || 'Unknown Coach',
+          sessions: 0,
+          minutes: 0,
+          playerIds: new Set(),
+        };
+      }
+      coachStats[coachId].sessions++;
+      coachStats[coachId].minutes += record.sessions.duration;
+    }
+    
+    // Get player counts per coach
+    const sessionPlayers = await db
+      .select()
+      .from(sessionPlayers as any)
+      .innerJoin(sessions, eq((sessionPlayers as any).sessionId, sessions.id))
+      .where(and(
+        eq(sessions.academyId, academyId),
+        gte(sessions.startTime, cutoffDate)
+      ));
+    
+    for (const sp of sessionPlayers) {
+      const session = coachSessions.find(cs => cs.sessions.id === (sp as any).sessions.id);
+      if (session && coachStats[session.coaches.id]) {
+        coachStats[session.coaches.id].playerIds.add((sp as any).session_players.playerId);
+      }
+    }
+    
+    return Object.entries(coachStats).map(([coachId, stats]) => {
+      const avgSessionsPerDay = Math.round((stats.sessions / days) * 10) / 10;
+      let loadLevel: 'light' | 'moderate' | 'heavy' = 'light';
+      if (stats.minutes > 300 * days) loadLevel = 'heavy';
+      else if (stats.minutes > 180 * days) loadLevel = 'moderate';
+      
+      return {
+        coachId,
+        coachName: stats.name,
+        sessionCount: stats.sessions,
+        totalMinutes: stats.minutes,
+        playerCount: stats.playerIds.size,
+        avgSessionsPerDay,
+        loadLevel,
+      };
+    });
   },
 };

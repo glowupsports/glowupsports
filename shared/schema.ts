@@ -288,6 +288,7 @@ export const auditLogs = pgTable("audit_logs", {
   entityId: varchar("entity_id"),
   action: text("action").notNull(), // create/update/delete/move
   performedBy: varchar("performed_by"),
+  metadata: text("metadata"), // JSON string with additional context
   timestamp: timestamp("timestamp").defaultNow(),
 });
 

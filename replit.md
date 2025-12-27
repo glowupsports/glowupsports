@@ -121,3 +121,36 @@ The application uses a dark-themed gaming aesthetic with neon green (#2ECC40) as
 ### Additional Improvements
 - **Recurring Sessions**: `skippedSessions` now returns `{sessionId, date, reason}` objects instead of week numbers for better tracking
 - **Edit Series**: Already filters `isModifiedFromSeries === true` sessions to preserve individual edits
+
+## Phase 2 Progression & Intelligence (In Progress)
+
+### 2.1-2.2 Anti-Abuse Rules Engine (Complete)
+- **Daily XP Cap**: 50 XP per player per day maximum
+- **Pattern Detection**: Flags coaches with >80% ups/<5% downs OR >90% high effort ratings
+- **Coach Severity Factor**: 0.7x-1.0x multiplier applied to XP based on abuse patterns
+- **Frequent Flyer Detection**: >20 observations per 30 days triggers 20% reduction
+- **Level Enforcement**: Coach override flow with `speedrun_flag` and `unmetRequirements` audit logging
+- **API Endpoint**: `GET /api/coaches/:id/observation-patterns` returns pattern analysis and severity factor
+
+### 2.3 Skill Domain Dashboard UI (Complete)
+- **Per-Domain XP Visualization**: Shows total XP, observation count, and average delta per domain
+- **All Domains Initialized**: Returns data for all 5 skill domains (Technical, Mental, Physical, Social, Tactical) even with zero observations
+- **NULL Safety**: Defensive defaults prevent runtime crashes from undefined values
+
+### 2.4 Observation Trend Charts (Complete)
+- **SVG Line Chart Component** (`client/components/ObservationTrendChart.tsx`): Cumulative XP visualization over time
+- **Streak Indicators**: Shows improvement/decline streaks with colored badges
+- **Speedrun Warnings**: Visual alerts for suspicious 90%+ improvement patterns
+- **No Data State**: Shows helpful "No observations yet" message for domains without data
+
+### 2.5 Insights API (Complete)
+- **Attendance Trends**: `GET /api/insights/attendance?days=30` - Daily attendance rates
+- **XP Velocity**: `GET /api/insights/xp-velocity?days=30` - Daily XP totals and averages
+- **Coach Load Stats**: `GET /api/insights/coach-load?days=7` - Sessions per coach with load indicators
+- **Observation Trends**: `GET /api/players/:id/observation-trends?days=30` - Per-domain trend data with hasData flag
+- **Domain XP Summary**: `GET /api/players/:id/domain-xp` - Aggregated XP stats per skill domain
+
+### Phase 2 Architecture Notes
+- **Severity Factor**: Always defaults to 1.0 throughout the system to prevent undefined coercion issues
+- **All Domains Pattern**: Both `getPlayerDomainXpSummary` and `getPlayerObservationTrends` initialize all domains from `skillDomains` table before processing observations
+- **hasData Flag**: Observation trends include `hasData: boolean` field for UI rendering decisions
