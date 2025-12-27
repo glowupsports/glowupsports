@@ -1611,6 +1611,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create a new conversation
+  app.post("/api/conversations", async (req: Request, res: Response) => {
+    try {
+      const { type, playerId, coachId, title } = req.body;
+      
+      if (!type || !coachId) {
+        return res.status(400).json({ error: "type and coachId required" });
+      }
+      
+      // For coach_player type, use the existing method
+      if (type === "coach_player" && playerId) {
+        const conversation = await storage.getOrCreateCoachPlayerConversation(coachId, playerId);
+        return res.json(conversation);
+      }
+      
+      // For other types, create a new conversation
+      const conversation = await storage.createConversation({
+        type,
+        playerId: playerId || null,
+        coachId,
+        title: title || null,
+      });
+      
+      res.status(201).json(conversation);
+    } catch (error) {
+      console.error("Error creating conversation:", error);
+      res.status(500).json({ error: "Failed to create conversation" });
+    }
+  });
+
+  // Get all squads (hardcoded for now)
+  app.get("/api/squads", async (_req: Request, res: Response) => {
+    try {
+      const squads = [
+        { id: "squad-red-1", name: "Red 1" },
+        { id: "squad-red-2", name: "Red 2" },
+        { id: "squad-orange-1", name: "Orange 1" },
+        { id: "squad-orange-2", name: "Orange 2" },
+        { id: "squad-yellow", name: "Yellow" },
+        { id: "squad-green", name: "Green" },
+      ];
+      res.json(squads);
+    } catch (error) {
+      console.error("Error fetching squads:", error);
+      res.status(500).json({ error: "Failed to fetch squads" });
+    }
+  });
+
   // Get messages for a conversation
   app.get("/api/conversations/:id/messages", async (req: Request, res: Response) => {
     try {
