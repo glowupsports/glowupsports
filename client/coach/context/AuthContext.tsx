@@ -59,7 +59,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await fetch(new URL("/api/me", apiUrl).toString(), {
         headers: { 
           Authorization: `Bearer ${token}`,
-          'Cache-Control': 'no-cache',
         },
       });
       
