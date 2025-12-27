@@ -85,6 +85,7 @@ export default function CreateSessionDrawer({
   const [notes, setNotes] = useState("");
   const [isChecking, setIsChecking] = useState(false);
   const [conflicts, setConflicts] = useState<string[]>([]);
+  const [showCalendar, setShowCalendar] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -232,6 +233,38 @@ export default function CreateSessionDrawer({
     setStartTime(newTime);
   };
 
+  const selectDate = (date: Date) => {
+    const newTime = new Date(startTime);
+    newTime.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+    setStartTime(newTime);
+    setShowCalendar(false);
+  };
+
+  const getCalendarDays = () => {
+    const year = startTime.getFullYear();
+    const month = startTime.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const days: (Date | null)[] = [];
+    
+    const startPadding = (firstDay.getDay() + 6) % 7;
+    for (let i = 0; i < startPadding; i++) {
+      days.push(null);
+    }
+    
+    for (let d = 1; d <= lastDay.getDate(); d++) {
+      days.push(new Date(year, month, d));
+    }
+    
+    return days;
+  };
+
+  const changeMonth = (delta: number) => {
+    const newTime = new Date(startTime);
+    newTime.setMonth(newTime.getMonth() + delta);
+    setStartTime(newTime);
+  };
+
   const togglePlayer = (player: Player) => {
     setSelectedPlayers((prev) => {
       const exists = prev.find((p) => p.id === player.id);
@@ -292,13 +325,17 @@ export default function CreateSessionDrawer({
               </Pressable>
               <View style={styles.timeDisplay}>
                 <Text style={styles.timeText}>{formatTime(startTime)}</Text>
-                <Text style={styles.dateText}>
-                  {startTime.toLocaleDateString("en-US", {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </Text>
+                <Pressable onPress={() => setShowCalendar(!showCalendar)}>
+                  <Text style={[styles.dateText, { color: Colors.dark.primary }]}>
+                    {startTime.toLocaleDateString("en-US", {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                    {" "}
+                    <Ionicons name="calendar-outline" size={12} color={Colors.dark.primary} />
+                  </Text>
+                </Pressable>
               </View>
               <Pressable
                 onPress={() => adjustTime(15)}
@@ -308,6 +345,55 @@ export default function CreateSessionDrawer({
               </Pressable>
             </View>
           </View>
+
+          {/* Calendar Picker */}
+          {showCalendar && (
+            <View style={styles.calendarContainer}>
+              <View style={styles.calendarHeader}>
+                <Pressable onPress={() => changeMonth(-1)} style={styles.calendarNavButton}>
+                  <Ionicons name="chevron-back" size={20} color={Colors.dark.text} />
+                </Pressable>
+                <Text style={styles.calendarMonthText}>
+                  {startTime.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                </Text>
+                <Pressable onPress={() => changeMonth(1)} style={styles.calendarNavButton}>
+                  <Ionicons name="chevron-forward" size={20} color={Colors.dark.text} />
+                </Pressable>
+              </View>
+              <View style={styles.calendarWeekHeaders}>
+                {["M", "T", "W", "T", "F", "S", "S"].map((day, i) => (
+                  <Text key={i} style={styles.calendarWeekDay}>{day}</Text>
+                ))}
+              </View>
+              <View style={styles.calendarGrid}>
+                {getCalendarDays().map((day, i) => {
+                  if (!day) {
+                    return <View key={i} style={styles.calendarDayEmpty} />;
+                  }
+                  const isSelected = day.toDateString() === startTime.toDateString();
+                  const isToday = day.toDateString() === new Date().toDateString();
+                  return (
+                    <Pressable
+                      key={i}
+                      onPress={() => selectDate(day)}
+                      style={[
+                        styles.calendarDay,
+                        isSelected && styles.calendarDaySelected,
+                        isToday && !isSelected && styles.calendarDayToday,
+                      ]}
+                    >
+                      <Text style={[
+                        styles.calendarDayText,
+                        isSelected && styles.calendarDayTextSelected,
+                      ]}>
+                        {day.getDate()}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          )}
 
           {/* Duration Selection */}
           <View style={styles.section}>
@@ -878,5 +964,65 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.disabled,
     marginBottom: Spacing.sm,
+  },
+  calendarContainer: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  calendarHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+  },
+  calendarNavButton: {
+    padding: Spacing.sm,
+  },
+  calendarMonthText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  calendarWeekHeaders: {
+    flexDirection: "row",
+    marginBottom: Spacing.sm,
+  },
+  calendarWeekDay: {
+    ...Typography.small,
+    color: Colors.dark.disabled,
+    width: "14.28%",
+    textAlign: "center",
+  },
+  calendarGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  calendarDay: {
+    width: "14.28%",
+    aspectRatio: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: BorderRadius.full,
+  },
+  calendarDayEmpty: {
+    width: "14.28%",
+    aspectRatio: 1,
+  },
+  calendarDaySelected: {
+    backgroundColor: Colors.dark.primary,
+  },
+  calendarDayToday: {
+    borderWidth: 1,
+    borderColor: Colors.dark.primary,
+  },
+  calendarDayText: {
+    ...Typography.small,
+    color: Colors.dark.text,
+  },
+  calendarDayTextSelected: {
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
   },
 });
