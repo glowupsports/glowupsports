@@ -303,6 +303,14 @@ export const storage = {
     return result[0];
   },
 
+  async deletePlayer(id: string, academyId: string): Promise<boolean> {
+    const result = await db
+      .delete(players)
+      .where(and(eq(players.id, id), eq(players.academyId, academyId)))
+      .returning();
+    return result.length > 0;
+  },
+
   // ==================== PACKAGES ====================
   async getPackage(id: string, academyId?: string): Promise<Package | undefined> {
     // If academyId provided, verify package belongs to a player in that academy

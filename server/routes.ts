@@ -1153,6 +1153,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get single player
+  app.get("/api/players/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      
+      const { valid, player } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid || !player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      res.json(player);
+    } catch (error) {
+      console.error("Error fetching player:", error);
+      res.status(500).json({ error: "Failed to fetch player" });
+    }
+  });
+
+  // Update player
+  app.patch("/api/players/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      
+      const { valid } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const updated = await storage.updatePlayer(id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating player:", error);
+      res.status(500).json({ error: "Failed to update player" });
+    }
+  });
+
+  // Delete player
+  app.delete("/api/players/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId!;
+      
+      const deleted = await storage.deletePlayer(id, academyId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      await storage.createAuditLog({
+        entityType: "player",
+        entityId: id,
+        action: "delete",
+        performedBy: coachId!,
+        metadata: JSON.stringify({ academyId, deletedAt: new Date().toISOString() }),
+      });
+      
+      res.json({ success: true, message: "Player deleted" });
+    } catch (error) {
+      console.error("Error deleting player:", error);
+      res.status(500).json({ error: "Failed to delete player" });
+    }
+  });
+
   // ===================== PACKAGES / CREDITS =====================
   app.get("/api/players/:playerId/packages", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {

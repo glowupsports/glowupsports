@@ -61,7 +61,16 @@ The application uses a dark-themed gaming aesthetic with neon green (#2ECC40) as
 - **Audit Logging**: Session create/update/cancel, package credit usage, coach XP awards all logged to auditLogs table
 - **Frontend**: Logout button with confirmation dialog on SettingsScreen
 
+### Integration Tests
+- **Tenant Isolation Tests** (`server/tests/tenant-isolation.test.ts`): Vitest tests verifying cross-academy access prevention for players, notes, packages, coach profiles, XP, notifications, and templates
+- Run tests with: `npx vitest run`
+
+### API Endpoints Added
+- **GET /api/players/:id**: Get single player (academy-scoped)
+- **PATCH /api/players/:id**: Update player (academy-scoped)
+- **DELETE /api/players/:id**: Delete player with audit logging (academy-scoped)
+
 ### Future Enhancements
-- Add automated tests for sanitization and academy-scoped queries
-- Extend audit logging when player deletion endpoints are added
+- Add supertest for in-memory integration tests
 - Consider full Zod validation for all POST/PATCH routes (currently using manual field checks)
+- Add cascade delete cleanup for player-related data
