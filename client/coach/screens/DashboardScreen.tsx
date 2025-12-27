@@ -18,6 +18,8 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import MiniTimeline from "@/coach/components/MiniTimeline";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { CoachStatusPanel } from "@/coach/components/CoachStatusPanel";
+import { BurnoutRiskCard } from "@/coach/components/BurnoutRiskCard";
+import { LoadForecastCard } from "@/coach/components/LoadForecastCard";
 
 interface Session {
   id: string;
@@ -465,6 +467,18 @@ export default function DashboardScreen() {
           </Text>
         </View>
 
+        {/* Burnout Risk & Load Forecast */}
+        <View style={styles.insightsSection}>
+          <Text style={styles.sectionTitle}>Insights</Text>
+          <BurnoutRiskCard />
+          <LoadForecastCard 
+            onDayPress={(date) => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              handleNavigate("Calendar");
+            }}
+          />
+        </View>
+
         {/* Alerts */}
         {alerts.length > 0 ? (
           <View style={styles.alertsSection}>
@@ -907,6 +921,9 @@ const styles = StyleSheet.create({
   },
   
   // Alerts
+  insightsSection: {
+    marginBottom: Spacing.lg,
+  },
   alertsSection: {
     marginBottom: Spacing.lg,
   },

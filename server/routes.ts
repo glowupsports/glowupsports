@@ -3803,6 +3803,285 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== COACH INSIGHTS - FORECASTING & BURNOUT ====================
+
+  // Get coach load forecast (next 14 days based on scheduled sessions + historical patterns)
+  app.get("/api/coaches/:id/load-forecast", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId!;
+      
+      if (id !== coachId) {
+        return res.status(404).json({ error: "Forecast not found" });
+      }
+      
+      const days = parseInt(req.query.days as string) || 14;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const forecast: Array<{
+        date: string;
+        scheduledMinutes: number;
+        scheduledSessions: number;
+        predictedLoad: "light" | "moderate" | "heavy" | "overload";
+        burnoutRisk: number;
+      }> = [];
+      
+      // Get sessions for forecast period
+      const endDate = new Date(today);
+      endDate.setDate(endDate.getDate() + days);
+      
+      const futureSessions = await storage.getSessionsByCoach(id, today, endDate, academyId);
+      
+      // Calculate daily load for each forecast day
+      for (let i = 0; i < days; i++) {
+        const forecastDate = new Date(today);
+        forecastDate.setDate(forecastDate.getDate() + i);
+        const dateStr = forecastDate.toISOString().split('T')[0];
+        
+        const daySessions = futureSessions.filter(s => {
+          const sessionDate = new Date(s.startTime).toISOString().split('T')[0];
+          return sessionDate === dateStr;
+        });
+        
+        const scheduledMinutes = daySessions.reduce((acc, s) => acc + (s.duration || 60), 0);
+        const scheduledSessions = daySessions.length;
+        
+        // Calculate back-to-back sessions
+        let backToBackCount = 0;
+        const sortedSessions = [...daySessions].sort((a, b) => 
+          new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+        );
+        for (let j = 1; j < sortedSessions.length; j++) {
+          const prevEnd = new Date(sortedSessions[j - 1].endTime).getTime();
+          const currStart = new Date(sortedSessions[j].startTime).getTime();
+          if (currStart - prevEnd <= 15 * 60 * 1000) backToBackCount++;
+        }
+        
+        // Load scoring: hours + back-to-back penalty
+        const totalHours = scheduledMinutes / 60;
+        const loadScore = totalHours + (backToBackCount * 0.5);
+        
+        let predictedLoad: "light" | "moderate" | "heavy" | "overload" = "light";
+        if (loadScore >= 8 || totalHours >= 9) predictedLoad = "overload";
+        else if (loadScore >= 6 || totalHours >= 7) predictedLoad = "heavy";
+        else if (loadScore >= 4 || totalHours >= 4) predictedLoad = "moderate";
+        
+        // Burnout risk: 0-100 scale
+        const burnoutRisk = Math.min(100, Math.round((loadScore / 10) * 100));
+        
+        forecast.push({
+          date: dateStr,
+          scheduledMinutes,
+          scheduledSessions,
+          predictedLoad,
+          burnoutRisk,
+        });
+      }
+      
+      res.json({ forecast });
+    } catch (error) {
+      console.error("Error fetching load forecast:", error);
+      res.status(500).json({ error: "Failed to fetch load forecast" });
+    }
+  });
+
+  // Get coach burnout risk assessment
+  app.get("/api/coaches/:id/burnout-risk", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId!;
+      
+      if (id !== coachId) {
+        return res.status(404).json({ error: "Assessment not found" });
+      }
+      
+      // Analyze last 14 days + next 7 days
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const pastStart = new Date(today);
+      pastStart.setDate(pastStart.getDate() - 14);
+      
+      const futureEnd = new Date(today);
+      futureEnd.setDate(futureEnd.getDate() + 7);
+      
+      const pastSessions = await storage.getSessionsByCoach(id, pastStart, today, academyId);
+      const futureSessions = await storage.getSessionsByCoach(id, today, futureEnd, academyId);
+      
+      // Calculate metrics
+      const pastMinutes = pastSessions.reduce((acc, s) => acc + (s.duration || 60), 0);
+      const futureMinutes = futureSessions.reduce((acc, s) => acc + (s.duration || 60), 0);
+      
+      const avgDailyPast = pastMinutes / 14;
+      const avgDailyFuture = futureMinutes / 7;
+      
+      // Count consecutive heavy days in past week
+      let consecutiveHeavyDays = 0;
+      let maxConsecutiveHeavy = 0;
+      for (let i = 0; i < 7; i++) {
+        const checkDate = new Date(today);
+        checkDate.setDate(checkDate.getDate() - i - 1);
+        const dateStr = checkDate.toISOString().split('T')[0];
+        
+        const dayMinutes = pastSessions
+          .filter(s => new Date(s.startTime).toISOString().split('T')[0] === dateStr)
+          .reduce((acc, s) => acc + (s.duration || 60), 0);
+        
+        if (dayMinutes >= 300) {
+          consecutiveHeavyDays++;
+          maxConsecutiveHeavy = Math.max(maxConsecutiveHeavy, consecutiveHeavyDays);
+        } else {
+          consecutiveHeavyDays = 0;
+        }
+      }
+      
+      // Calculate burnout risk score (0-100)
+      let riskScore = 0;
+      
+      // Factor 1: Average daily load (40 points max)
+      riskScore += Math.min(40, (avgDailyPast / 360) * 40);
+      
+      // Factor 2: Consecutive heavy days (30 points max)
+      riskScore += Math.min(30, maxConsecutiveHeavy * 10);
+      
+      // Factor 3: Upcoming load increase (20 points max)
+      if (avgDailyFuture > avgDailyPast * 1.2) {
+        riskScore += Math.min(20, ((avgDailyFuture / avgDailyPast) - 1) * 20);
+      }
+      
+      // Factor 4: No rest days in past week (10 points)
+      const restDays = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i - 1);
+        const dateStr = d.toISOString().split('T')[0];
+        return pastSessions.filter(s => 
+          new Date(s.startTime).toISOString().split('T')[0] === dateStr
+        ).length === 0;
+      }).filter(Boolean).length;
+      
+      if (restDays === 0) riskScore += 10;
+      else if (restDays === 1) riskScore += 5;
+      
+      const riskLevel: "low" | "moderate" | "high" | "critical" = 
+        riskScore >= 75 ? "critical" :
+        riskScore >= 50 ? "high" :
+        riskScore >= 25 ? "moderate" : "low";
+      
+      // Generate recommendations
+      const recommendations: string[] = [];
+      if (maxConsecutiveHeavy >= 3) {
+        recommendations.push("Consider scheduling lighter days after consecutive heavy coaching");
+      }
+      if (restDays === 0) {
+        recommendations.push("Schedule at least one rest day per week");
+      }
+      if (avgDailyFuture > avgDailyPast * 1.5) {
+        recommendations.push("Upcoming week is significantly heavier than recent average");
+      }
+      if (avgDailyPast >= 300) {
+        recommendations.push("Daily coaching average is high - monitor energy levels");
+      }
+      
+      res.json({
+        riskScore: Math.round(riskScore),
+        riskLevel,
+        metrics: {
+          avgDailyMinutesPast: Math.round(avgDailyPast),
+          avgDailyMinutesFuture: Math.round(avgDailyFuture),
+          consecutiveHeavyDays: maxConsecutiveHeavy,
+          restDaysLastWeek: restDays,
+          totalMinutesPast14Days: pastMinutes,
+          scheduledMinutesNext7Days: futureMinutes,
+        },
+        recommendations,
+      });
+    } catch (error) {
+      console.error("Error calculating burnout risk:", error);
+      res.status(500).json({ error: "Failed to calculate burnout risk" });
+    }
+  });
+
+  // Get calendar heatmap data for a month
+  app.get("/api/coaches/:id/calendar-heatmap", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId!;
+      
+      if (id !== coachId) {
+        return res.status(404).json({ error: "Heatmap not found" });
+      }
+      
+      const year = parseInt(req.query.year as string) || new Date().getFullYear();
+      const month = parseInt(req.query.month as string) || new Date().getMonth();
+      
+      // Get first and last day of month
+      const startDate = new Date(year, month, 1);
+      const endDate = new Date(year, month + 1, 0, 23, 59, 59);
+      
+      const sessions = await storage.getSessionsByCoach(id, startDate, endDate, academyId);
+      
+      // Group by date
+      const heatmapData: Record<string, {
+        date: string;
+        totalMinutes: number;
+        sessionCount: number;
+        intensity: number;
+        loadLevel: "none" | "light" | "moderate" | "heavy" | "overload";
+      }> = {};
+      
+      // Initialize all days of month
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        heatmapData[dateStr] = {
+          date: dateStr,
+          totalMinutes: 0,
+          sessionCount: 0,
+          intensity: 0,
+          loadLevel: "none",
+        };
+      }
+      
+      // Populate with session data
+      for (const session of sessions) {
+        const dateStr = new Date(session.startTime).toISOString().split('T')[0];
+        if (heatmapData[dateStr]) {
+          heatmapData[dateStr].totalMinutes += session.duration || 60;
+          heatmapData[dateStr].sessionCount += 1;
+        }
+      }
+      
+      // Calculate intensity and load level
+      for (const dateStr of Object.keys(heatmapData)) {
+        const day = heatmapData[dateStr];
+        const hours = day.totalMinutes / 60;
+        
+        // Intensity: 0-1 scale based on max 8 hours
+        day.intensity = Math.min(1, hours / 8);
+        
+        // Load level based on hours
+        if (hours === 0) day.loadLevel = "none";
+        else if (hours < 3) day.loadLevel = "light";
+        else if (hours < 5) day.loadLevel = "moderate";
+        else if (hours < 7) day.loadLevel = "heavy";
+        else day.loadLevel = "overload";
+      }
+      
+      res.json({
+        year,
+        month,
+        days: Object.values(heatmapData),
+      });
+    } catch (error) {
+      console.error("Error fetching calendar heatmap:", error);
+      res.status(500).json({ error: "Failed to fetch calendar heatmap" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat

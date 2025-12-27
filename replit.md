@@ -150,7 +150,21 @@ The application uses a dark-themed gaming aesthetic with neon green (#2ECC40) as
 - **Observation Trends**: `GET /api/players/:id/observation-trends?days=30` - Per-domain trend data with hasData flag
 - **Domain XP Summary**: `GET /api/players/:id/domain-xp` - Aggregated XP stats per skill domain
 
+### 2.6 Coach Insights - Forecasting & Burnout (Complete)
+- **Load Forecast API**: `GET /api/coaches/:id/load-forecast?days=14` - 14-day prediction with daily scheduled minutes, session counts, predicted load levels (light/moderate/heavy/overload), and burnout risk scores
+- **Burnout Risk API**: `GET /api/coaches/:id/burnout-risk` - Wellness assessment (0-100 score) based on 4 factors:
+  - Factor 1 (40pts): Average daily load over past 14 days
+  - Factor 2 (30pts): Consecutive heavy days (>=5 hours)
+  - Factor 3 (20pts): Upcoming load increase vs historical average
+  - Factor 4 (10pts): No rest days in past week
+- **Calendar Heatmap API**: `GET /api/coaches/:id/calendar-heatmap?year=2025&month=1` - Monthly intensity view with daily session counts and total minutes
+- **Frontend Components**:
+  - `BurnoutRiskCard`: Displays risk level (Low/Medium/High/Critical), daily averages, rest days, personalized recommendations
+  - `LoadForecastCard`: 14-day bar chart visualization with color-coded load levels, tappable days for calendar navigation
+- **Dashboard Integration**: New "Insights" section on DashboardScreen with both wellness cards
+
 ### Phase 2 Architecture Notes
 - **Severity Factor**: Always defaults to 1.0 throughout the system to prevent undefined coercion issues
 - **All Domains Pattern**: Both `getPlayerDomainXpSummary` and `getPlayerObservationTrends` initialize all domains from `skillDomains` table before processing observations
 - **hasData Flag**: Observation trends include `hasData: boolean` field for UI rendering decisions
+- **Storage Method**: Use `storage.getSessionsByCoach()` (not `getSessionsForCoach`) for coach session queries with date ranges
