@@ -806,6 +806,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const playerXp = PLAYER_XP_REWARDS[session.sessionType] || 15;
       
       const sessionPlayers = await storage.getSessionPlayers(id);
+      const creditResults: { playerId: string; success: boolean; reason?: string }[] = [];
+      
       for (const sp of sessionPlayers) {
         if (sp.playerId && sp.attendanceStatus === "present") {
           await storage.createXpTransaction({
@@ -822,12 +824,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const newTotalXp = (player.totalXp || 0) + playerXp;
             await storage.updatePlayer(sp.playerId, { totalXp: newTotalXp });
           }
+          
+          // Auto-deduct credit from player's active package
+          const creditResult = await storage.autoDeductPlayerCredit(sp.playerId, academyId || undefined);
+          creditResults.push({
+            playerId: sp.playerId,
+            success: creditResult.success,
+            reason: creditResult.reason,
+          });
         }
       }
 
       res.status(201).json({ 
         feedback, 
-        xpAwarded: { coach: coachXp, playerCount: sessionPlayers.filter(sp => sp.attendanceStatus === "present").length } 
+        xpAwarded: { coach: coachXp, playerCount: sessionPlayers.filter(sp => sp.attendanceStatus === "present").length },
+        creditsDeducted: creditResults,
       });
     } catch (error) {
       console.error("Error saving feedback:", error);

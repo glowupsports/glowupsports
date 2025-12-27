@@ -386,6 +386,29 @@ export const storage = {
     return result[0];
   },
 
+  async autoDeductPlayerCredit(playerId: string, academyId?: string): Promise<{ success: boolean; package?: Package; reason?: string }> {
+    const activePackages = await this.getActivePlayerPackages(playerId, academyId);
+    if (activePackages.length === 0) {
+      return { success: false, reason: "no_active_package" };
+    }
+    
+    // Sort by expiry date (soonest first) to use credits from expiring packages first
+    const sortedPackages = activePackages.sort((a, b) => {
+      if (!a.expiryDate && !b.expiryDate) return 0;
+      if (!a.expiryDate) return 1;
+      if (!b.expiryDate) return -1;
+      return a.expiryDate.localeCompare(b.expiryDate);
+    });
+    
+    const packageToUse = sortedPackages[0];
+    const updatedPackage = await this.usePackageCredit(packageToUse.id, academyId);
+    
+    if (updatedPackage) {
+      return { success: true, package: updatedPackage };
+    }
+    return { success: false, reason: "credit_deduction_failed" };
+  },
+
   // ==================== SESSIONS ====================
   async getSession(id: string, academyId?: string): Promise<Session | undefined> {
     const conditions = [eq(sessions.id, id)];
