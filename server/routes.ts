@@ -28,6 +28,7 @@ import {
 } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
+import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "./utils/sanitize";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -1269,6 +1270,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!pkg) {
         return res.status(400).json({ error: "No credits remaining or package not found" });
       }
+
+      const coachId = req.user!.coachId;
+      await storage.createAuditLog({
+        entityType: "package",
+        entityId: id,
+        action: "use_credit",
+        performedBy: coachId!,
+      });
+
       res.json(pkg);
     } catch (error) {
       console.error("Error using package credit:", error);
@@ -1427,10 +1437,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
 
+      const sanitizedContent = sanitizeNote(content);
+      if (!sanitizedContent) {
+        return res.status(400).json({ error: "Content is required after sanitization" });
+      }
+
       const note = await storage.createPlayerNote({
         playerId: id,
         coachId: coachId || null,
-        content: content.trim(),
+        content: sanitizedContent,
         category: category || "general",
         sessionId: sessionId || null,
         isPinned: false,
@@ -1843,15 +1858,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "name, sessionType, and duration are required" });
       }
 
+      const sanitizedName = sanitizeTemplateName(name);
+      const sanitizedNotes = notes ? sanitizeTemplateContent(notes) : null;
+
       const template = await storage.createSessionTemplate({
         coachId,
-        name,
+        name: sanitizedName,
         sessionType,
         duration,
         ballLevel,
         skillLevel,
         defaultPlayerIds,
-        notes,
+        notes: sanitizedNotes,
       });
       res.status(201).json(template);
     } catch (error) {
@@ -2081,6 +2099,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       await storage.updateCoach(id, { totalXp: newTotalXp, level: newLevel });
+
+      const performedBy = req.user!.coachId;
+      await storage.createAuditLog({
+        entityType: "coach_xp",
+        entityId: id,
+        action: `award_${xpAmount}_xp`,
+        performedBy: performedBy!,
+      });
       
       res.json({
         success: true,
@@ -2917,6 +2943,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!body || !senderType) {
         return res.status(400).json({ error: "body and senderType required" });
       }
+
+      const sanitizedBody = sanitizeMessage(body);
+      if (!sanitizedBody) {
+        return res.status(400).json({ error: "Message body is required after sanitization" });
+      }
       
       // Verify coach has access to this conversation within their academy
       const conversation = await storage.getConversation(conversationId, coachId ?? undefined, academyId);
@@ -2933,7 +2964,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         senderType,
         senderCoachId: senderCoachId || null,
         senderPlayerId: senderPlayerId || null,
-        body,
+        body: sanitizedBody,
         messageType: messageType || "text",
         replyToId: replyToId || null,
       }, coachId!, academyId);
