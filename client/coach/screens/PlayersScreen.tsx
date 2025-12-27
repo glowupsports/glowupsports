@@ -18,6 +18,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
+import PackagesCard from "@/coach/components/PackagesCard";
 
 interface Player {
   id: string;
@@ -645,6 +646,8 @@ function PlayerDetailView({
             </View>
           </View>
         ) : null}
+
+        <PackagesCard playerId={player.id} playerName={player.name} />
 
         {nextLessonNotes.length > 0 ? (
           <View style={styles.nextLessonSection}>

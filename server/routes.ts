@@ -881,6 +881,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===================== PACKAGES / CREDITS =====================
+  app.get("/api/players/:playerId/packages", async (req: Request, res: Response) => {
+    try {
+      const { playerId } = req.params;
+      const pkgs = await storage.getPlayerPackages(playerId);
+      res.json(pkgs);
+    } catch (error) {
+      console.error("Error fetching packages:", error);
+      res.status(500).json({ error: "Failed to fetch packages" });
+    }
+  });
+
+  app.get("/api/players/:playerId/packages/active", async (req: Request, res: Response) => {
+    try {
+      const { playerId } = req.params;
+      const pkgs = await storage.getActivePlayerPackages(playerId);
+      res.json(pkgs);
+    } catch (error) {
+      console.error("Error fetching active packages:", error);
+      res.status(500).json({ error: "Failed to fetch active packages" });
+    }
+  });
+
+  app.post("/api/packages", async (req: Request, res: Response) => {
+    try {
+      const { playerId, totalCredits, remainingCredits, expiryDate } = req.body;
+      if (!playerId || totalCredits === undefined) {
+        return res.status(400).json({ error: "playerId and totalCredits are required" });
+      }
+      const pkg = await storage.createPackage({
+        playerId,
+        totalCredits,
+        remainingCredits: remainingCredits ?? totalCredits,
+        expiryDate: expiryDate || null,
+      });
+      res.status(201).json(pkg);
+    } catch (error) {
+      console.error("Error creating package:", error);
+      res.status(500).json({ error: "Failed to create package" });
+    }
+  });
+
+  app.patch("/api/packages/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const pkg = await storage.updatePackage(id, req.body);
+      if (!pkg) {
+        return res.status(404).json({ error: "Package not found" });
+      }
+      res.json(pkg);
+    } catch (error) {
+      console.error("Error updating package:", error);
+      res.status(500).json({ error: "Failed to update package" });
+    }
+  });
+
+  app.delete("/api/packages/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      await storage.deletePackage(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting package:", error);
+      res.status(500).json({ error: "Failed to delete package" });
+    }
+  });
+
+  app.post("/api/packages/:id/use", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const pkg = await storage.usePackageCredit(id);
+      if (!pkg) {
+        return res.status(400).json({ error: "No credits remaining or package not found" });
+      }
+      res.json(pkg);
+    } catch (error) {
+      console.error("Error using package credit:", error);
+      res.status(500).json({ error: "Failed to use package credit" });
+    }
+  });
+
   // Get single session with players
   app.get("/api/coach/sessions/:id", async (req: Request, res: Response) => {
     try {

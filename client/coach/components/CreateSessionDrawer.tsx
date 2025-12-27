@@ -98,6 +98,16 @@ export default function CreateSessionDrawer({
     }
   }, [visible, initialCourtId, initialTime]);
 
+  interface SessionTemplate {
+    id: string;
+    name: string;
+    sessionType: string;
+    duration: number;
+    ballLevel: string | null;
+    skillLevel: number | null;
+    notes: string | null;
+  }
+
   const { data: courts = [] } = useQuery<{ id: string; name: string }[]>({
     queryKey: ["/api/courts"],
     enabled: visible,
@@ -107,6 +117,28 @@ export default function CreateSessionDrawer({
     queryKey: ["/api/players"],
     enabled: visible,
   });
+
+  const { data: templates = [] } = useQuery<SessionTemplate[]>({
+    queryKey: ["/api/coach/templates", coach?.id],
+    queryFn: async () => {
+      if (!coach?.id) return [];
+      const url = new URL("/api/coach/templates", getApiUrl());
+      url.searchParams.set("coachId", coach.id);
+      const res = await fetch(url.href);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: visible && !!coach?.id,
+  });
+
+  const applyTemplate = (template: SessionTemplate) => {
+    setSessionType(template.sessionType as SessionType);
+    setDuration(template.duration);
+    if (template.ballLevel) setBallLevel(template.ballLevel as BallLevel);
+    if (template.skillLevel) setSkillLevel(template.skillLevel as SkillLevel);
+    if (template.notes) setNotes(template.notes);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
 
   const createSessionMutation = useMutation({
     mutationFn: async (sessionData: any) => {
@@ -448,6 +480,25 @@ export default function CreateSessionDrawer({
               </View>
             </View>
           )}
+
+          {/* Quick Templates */}
+          {templates.length > 0 ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Quick Templates</Text>
+              <View style={styles.templateRow}>
+                {templates.slice(0, 3).map((template) => (
+                  <Pressable
+                    key={template.id}
+                    onPress={() => applyTemplate(template)}
+                    style={styles.templateChip}
+                  >
+                    <Ionicons name="flash" size={14} color={Colors.dark.xpCyan} />
+                    <Text style={styles.templateChipText}>{template.name}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ) : null}
 
           {/* Duration Selection */}
           <View style={styles.section}>
@@ -954,6 +1005,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: Spacing.sm,
+  },
+  templateRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  templateChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "40",
+    gap: Spacing.xs,
+  },
+  templateChipText: {
+    ...Typography.small,
+    color: Colors.dark.xpCyan,
   },
   optionChip: {
     paddingHorizontal: Spacing.md,

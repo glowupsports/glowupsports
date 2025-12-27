@@ -63,6 +63,8 @@ import {
   type InsertPlayerNote,
   type PlayerProgress,
   type InsertPlayerProgress,
+  type Package,
+  type InsertPackage,
   type SessionTemplate,
   type InsertSessionTemplate,
   type CoachNotification,
@@ -208,6 +210,56 @@ export const storage = {
 
   async updatePlayer(id: string, data: Partial<InsertPlayer>): Promise<Player | undefined> {
     const result = await db.update(players).set(data).where(eq(players.id, id)).returning();
+    return result[0];
+  },
+
+  // ==================== PACKAGES ====================
+  async getPackage(id: string): Promise<Package | undefined> {
+    const result = await db.select().from(packages).where(eq(packages.id, id));
+    return result[0];
+  },
+
+  async getPlayerPackages(playerId: string): Promise<Package[]> {
+    return db.select().from(packages).where(eq(packages.playerId, playerId));
+  },
+
+  async getActivePlayerPackages(playerId: string): Promise<Package[]> {
+    const today = new Date().toISOString().split("T")[0];
+    const result = await db
+      .select()
+      .from(packages)
+      .where(
+        and(
+          eq(packages.playerId, playerId),
+          gte(packages.remainingCredits, 1)
+        )
+      );
+    return result.filter(p => !p.expiryDate || p.expiryDate >= today);
+  },
+
+  async createPackage(data: InsertPackage): Promise<Package> {
+    const result = await db.insert(packages).values(data).returning();
+    return result[0];
+  },
+
+  async updatePackage(id: string, data: Partial<InsertPackage>): Promise<Package | undefined> {
+    const result = await db.update(packages).set(data).where(eq(packages.id, id)).returning();
+    return result[0];
+  },
+
+  async deletePackage(id: string): Promise<void> {
+    await db.delete(packages).where(eq(packages.id, id));
+  },
+
+  async usePackageCredit(packageId: string): Promise<Package | undefined> {
+    const pkg = await this.getPackage(packageId);
+    if (!pkg || pkg.remainingCredits <= 0) return undefined;
+    
+    const result = await db
+      .update(packages)
+      .set({ remainingCredits: pkg.remainingCredits - 1 })
+      .where(eq(packages.id, packageId))
+      .returning();
     return result[0];
   },
 
