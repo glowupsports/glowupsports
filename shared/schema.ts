@@ -176,6 +176,9 @@ export const sessions = pgTable("sessions", {
   isRecurring: boolean("is_recurring").default(false),
   recurringGroupId: varchar("recurring_group_id"),
   weekCount: integer("week_count"), // 1/5/10/15/20
+  isModifiedFromSeries: boolean("is_modified_from_series").default(false), // edited individually
+  isSkipped: boolean("is_skipped").default(false), // manually skipped
+  skipReason: text("skip_reason"), // holiday/weather/other
   
   travelTime: integer("travel_time").default(0), // minutes
   

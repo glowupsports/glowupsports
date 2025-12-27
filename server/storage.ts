@@ -1902,10 +1902,22 @@ export const storage = {
     weekCount: number,
     dayOfWeek: number,
     startTimeStr: string,
-    duration: number
-  ): Promise<Session[]> {
+    duration: number,
+    playerIds?: string[],
+    academyId?: string
+  ): Promise<{ sessions: Session[], skippedSessions: { sessionId: string, date: string, reason: string }[] }> {
     const createdSessions: Session[] = [];
+    const skippedSessions: { sessionId: string, date: string, reason: string }[] = [];
     const [hours, minutes] = startTimeStr.split(':').map(Number);
+    
+    // Get player holidays if players specified
+    const playerHolidaysMap: Map<string, PlayerHoliday[]> = new Map();
+    if (playerIds && playerIds.length > 0) {
+      for (const playerId of playerIds) {
+        const holidays = await this.getPlayerHolidays(playerId, academyId);
+        playerHolidaysMap.set(playerId, holidays);
+      }
+    }
     
     for (let week = 0; week < weekCount; week++) {
       const sessionDate = new Date(startDate);
@@ -1923,6 +1935,24 @@ export const storage = {
       const endTime = new Date(startTime);
       endTime.setMinutes(endTime.getMinutes() + duration);
       
+      // Check if any player is on holiday
+      let isHoliday = false;
+      if (playerIds && playerIds.length > 0) {
+        for (const playerId of playerIds) {
+          const holidays = playerHolidaysMap.get(playerId) || [];
+          for (const h of holidays) {
+            const hStart = new Date(h.startDate);
+            const hEnd = new Date(h.endDate);
+            hEnd.setHours(23, 59, 59);
+            if (startTime >= hStart && startTime <= hEnd) {
+              isHoliday = true;
+              break;
+            }
+          }
+          if (isHoliday) break;
+        }
+      }
+      
       const session = await db.insert(sessions).values({
         ...baseSession,
         startTime,
@@ -1931,12 +1961,22 @@ export const storage = {
         isRecurring: true,
         recurringGroupId: seriesId,
         weekCount,
+        isSkipped: isHoliday,
+        skipReason: isHoliday ? 'holiday' : null,
+        status: isHoliday ? 'cancelled' : 'scheduled',
       }).returning();
       
       createdSessions.push(session[0]);
+      if (isHoliday) {
+        skippedSessions.push({
+          sessionId: session[0].id,
+          date: startTime.toISOString(),
+          reason: 'holiday',
+        });
+      }
     }
     
-    return createdSessions;
+    return { sessions: createdSessions, skippedSessions };
   },
 
   async getSessionsByRecurringGroupId(recurringGroupId: string, academyId?: string): Promise<Session[]> {

@@ -1800,8 +1800,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         price: price || null,
       });
       
-      // Create all session instances
-      const sessionInstances = await storage.createRecurringSessionInstances(
+      // Create all session instances (with auto-skip for player holidays)
+      const { sessions: sessionInstances, skippedSessions } = await storage.createRecurringSessionInstances(
         series.id,
         {
           academyId,
@@ -1821,22 +1821,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         weekCount,
         dayOfWeek,
         startTime,
-        duration
+        duration,
+        playerIds && Array.isArray(playerIds) ? playerIds : undefined,
+        academyId || undefined
       );
       
-      // Add players to all sessions if playerIds provided
+      // Add players to all non-skipped sessions if playerIds provided
       if (playerIds && Array.isArray(playerIds) && playerIds.length > 0) {
         for (const session of sessionInstances) {
-          for (const playerId of playerIds) {
-            await storage.addPlayerToSession({
-              sessionId: session.id,
-              playerId,
-            });
+          if (!session.isSkipped) {
+            for (const playerId of playerIds) {
+              await storage.addPlayerToSession({
+                sessionId: session.id,
+                playerId,
+              });
+            }
           }
         }
       }
       
-      res.status(201).json({ series, sessions: sessionInstances });
+      res.status(201).json({ 
+        series, 
+        sessions: sessionInstances,
+        skippedSessions,
+        message: skippedSessions.length > 0 
+          ? `${skippedSessions.length} session(s) auto-skipped due to player holidays`
+          : undefined
+      });
     } catch (error) {
       console.error("Error creating recurring series:", error);
       res.status(500).json({ error: "Failed to create recurring series" });
@@ -1893,6 +1904,252 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting recurring series:", error);
       res.status(500).json({ error: "Failed to delete recurring series" });
+    }
+  });
+
+  // Skip a recurring session instance
+  app.post("/api/coach/sessions/:id/skip", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      const { reason } = req.body;
+      
+      const session = await storage.getSession(id);
+      if (!session || (academyId && session.academyId !== academyId)) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      const updated = await storage.updateSession(id, {
+        isSkipped: true,
+        skipReason: reason || "manual",
+        status: "cancelled",
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error skipping session:", error);
+      res.status(500).json({ error: "Failed to skip session" });
+    }
+  });
+
+  // Unskip a recurring session instance
+  app.post("/api/coach/sessions/:id/unskip", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      
+      const session = await storage.getSession(id);
+      if (!session || (academyId && session.academyId !== academyId)) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      const updated = await storage.updateSession(id, {
+        isSkipped: false,
+        skipReason: null,
+        status: "scheduled",
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error unskipping session:", error);
+      res.status(500).json({ error: "Failed to unskip session" });
+    }
+  });
+
+  // Edit single session (break from series)
+  app.patch("/api/coach/sessions/:id/edit-single", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      const { startTime, endTime, duration, courtId, locationId } = req.body;
+      
+      const session = await storage.getSession(id);
+      if (!session || (academyId && session.academyId !== academyId)) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      const updateData: Record<string, any> = { isModifiedFromSeries: true };
+      if (startTime) updateData.startTime = new Date(startTime);
+      if (endTime) updateData.endTime = new Date(endTime);
+      if (duration !== undefined) updateData.duration = duration;
+      if (courtId !== undefined) updateData.courtId = courtId;
+      if (locationId !== undefined) updateData.locationId = locationId;
+      
+      const updated = await storage.updateSession(id, updateData);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error editing single session:", error);
+      res.status(500).json({ error: "Failed to edit session" });
+    }
+  });
+
+  // Edit all future sessions in series
+  app.patch("/api/coach/sessions/:id/edit-series", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      const { duration, courtId, locationId, price } = req.body;
+      
+      const session = await storage.getSession(id);
+      if (!session || (academyId && session.academyId !== academyId)) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      if (!session.recurringGroupId) {
+        return res.status(400).json({ error: "Session is not part of a recurring series" });
+      }
+      
+      // Get all future sessions in the series (not modified individually)
+      const allSessions = await storage.getSessionsByRecurringGroupId(session.recurringGroupId, academyId || undefined);
+      const now = new Date();
+      const futureSessions = allSessions.filter(s => 
+        new Date(s.startTime) >= now && !s.isModifiedFromSeries
+      );
+      
+      const updateData: Record<string, any> = {};
+      if (duration !== undefined) updateData.duration = duration;
+      if (courtId !== undefined) updateData.courtId = courtId;
+      if (locationId !== undefined) updateData.locationId = locationId;
+      if (price !== undefined) updateData.price = price;
+      
+      // Update all future unmodified sessions
+      const updatedSessions = [];
+      for (const s of futureSessions) {
+        const updated = await storage.updateSession(s.id, updateData);
+        updatedSessions.push(updated);
+      }
+      
+      // Also update the series metadata
+      if (session.recurringGroupId) {
+        await storage.updateRecurringSeries(session.recurringGroupId, updateData, academyId || undefined);
+      }
+      
+      res.json({ updated: updatedSessions.length, sessions: updatedSessions });
+    } catch (error) {
+      console.error("Error editing series:", error);
+      res.status(500).json({ error: "Failed to edit series" });
+    }
+  });
+
+  // Get player holidays for a list of players
+  app.post("/api/coach/player-holidays/check", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { playerIds, startDate, endDate } = req.body;
+      const academyId = req.user!.academyId;
+      
+      if (!playerIds || !Array.isArray(playerIds) || !startDate || !endDate) {
+        return res.status(400).json({ error: "playerIds, startDate, and endDate are required" });
+      }
+      
+      const holidays: Record<string, any[]> = {};
+      for (const playerId of playerIds) {
+        const playerHolidays = await storage.getPlayerHolidays(playerId, academyId || undefined);
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        
+        holidays[playerId] = playerHolidays.filter(h => {
+          const hStart = new Date(h.startDate);
+          const hEnd = new Date(h.endDate);
+          return (hStart <= end && hEnd >= start);
+        });
+      }
+      
+      res.json(holidays);
+    } catch (error) {
+      console.error("Error checking holidays:", error);
+      res.status(500).json({ error: "Failed to check holidays" });
+    }
+  });
+
+  // Preview recurring sessions before creation
+  app.post("/api/coach/recurring-series/preview", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { startDate, weekCount, dayOfWeek, startTime, duration, playerIds, courtId } = req.body;
+      const academyId = req.user!.academyId;
+      const coachId = req.user!.coachId;
+      
+      if (!startDate || !weekCount || dayOfWeek === undefined || !startTime || !duration) {
+        return res.status(400).json({ error: "startDate, weekCount, dayOfWeek, startTime, and duration are required" });
+      }
+      
+      const [hours, minutes] = startTime.split(':').map(Number);
+      const start = new Date(startDate);
+      const previewSessions = [];
+      
+      // Get player holidays if players specified
+      const playerHolidaysMap: Record<string, any[]> = {};
+      if (playerIds && Array.isArray(playerIds)) {
+        for (const playerId of playerIds) {
+          playerHolidaysMap[playerId] = await storage.getPlayerHolidays(playerId, academyId || undefined);
+        }
+      }
+      
+      // Get existing sessions for conflict detection
+      const existingSessions = coachId ? await storage.getCoachSessions(coachId, academyId || undefined) : [];
+      
+      for (let week = 0; week < weekCount; week++) {
+        const sessionDate = new Date(start);
+        sessionDate.setDate(sessionDate.getDate() + (week * 7));
+        
+        // Adjust to correct day of week
+        const currentDay = sessionDate.getDay();
+        const daysToAdd = dayOfWeek - currentDay;
+        sessionDate.setDate(sessionDate.getDate() + daysToAdd);
+        
+        const sessionStart = new Date(sessionDate);
+        sessionStart.setHours(hours, minutes, 0, 0);
+        
+        const sessionEnd = new Date(sessionStart);
+        sessionEnd.setMinutes(sessionEnd.getMinutes() + duration);
+        
+        // Check for conflicts
+        const hasConflict = existingSessions.some(existing => {
+          if (courtId && existing.courtId !== courtId) return false;
+          const exStart = new Date(existing.startTime);
+          const exEnd = new Date(existing.endTime);
+          return (sessionStart < exEnd && sessionEnd > exStart);
+        });
+        
+        // Check for player holidays
+        let holidayConflict = false;
+        let affectedPlayers: string[] = [];
+        if (playerIds && Array.isArray(playerIds)) {
+          for (const playerId of playerIds) {
+            const holidays = playerHolidaysMap[playerId] || [];
+            for (const h of holidays) {
+              const hStart = new Date(h.startDate);
+              const hEnd = new Date(h.endDate);
+              hEnd.setHours(23, 59, 59);
+              if (sessionStart >= hStart && sessionStart <= hEnd) {
+                holidayConflict = true;
+                affectedPlayers.push(playerId);
+                break;
+              }
+            }
+          }
+        }
+        
+        previewSessions.push({
+          week: week + 1,
+          date: sessionStart.toISOString(),
+          endDate: sessionEnd.toISOString(),
+          dayOfWeek,
+          hasConflict,
+          holidayConflict,
+          affectedPlayers,
+          willBeSkipped: hasConflict || holidayConflict,
+        });
+      }
+      
+      res.json({
+        total: weekCount,
+        willCreate: previewSessions.filter(s => !s.willBeSkipped).length,
+        willSkip: previewSessions.filter(s => s.willBeSkipped).length,
+        sessions: previewSessions,
+      });
+    } catch (error) {
+      console.error("Error previewing recurring series:", error);
+      res.status(500).json({ error: "Failed to preview recurring series" });
     }
   });
 

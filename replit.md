@@ -103,5 +103,21 @@ The application uses a dark-themed gaming aesthetic with neon green (#2ECC40) as
   - Reduced polling: 30s when WebSocket connected, 5s fallback when disconnected
   - `broadcastNewMessage` called on new messages from server
 
-### 1.3 Offline Sync (Pending)
-- Queue processor with retry/backoff not yet implemented
+### 1.3 Offline Sync (Complete)
+- **Queue Processor** (`client/lib/offlineSync.ts`):
+  - Exponential backoff with jitter (max 30s delay, 5 retry attempts)
+  - Conflict detection via HTTP 409 status (checks `startsWith("409:")`)
+  - Actions: session, attendance, feedback, note
+  - Persists queue state to AsyncStorage
+- **Conflict Resolution**:
+  - `use_local`: Re-queue action as pending and retry
+  - `use_server`: Discard local change
+  - `discard`: Remove action from queue
+- **Sync Status Indicator** (`client/coach/components/SyncStatusIndicator.tsx`):
+  - Shows pending count, syncing state, last sync time
+  - Conflict count indicator with manual resolution UI
+- **Auto-Sync**: Background sync every 30 seconds via `useOfflineSync` hook
+
+### Additional Improvements
+- **Recurring Sessions**: `skippedSessions` now returns `{sessionId, date, reason}` objects instead of week numbers for better tracking
+- **Edit Series**: Already filters `isModifiedFromSeries === true` sessions to preserve individual edits
