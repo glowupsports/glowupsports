@@ -108,6 +108,8 @@ export const players = pgTable("players", {
   skillLevel: integer("skill_level"), // 1/2/3
   membershipType: text("membership_type"),
   medicalNotes: text("medical_notes"),
+  totalXp: integer("total_xp").default(0),
+  level: integer("level").default(1),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

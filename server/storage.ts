@@ -206,6 +206,11 @@ export const storage = {
     return result[0];
   },
 
+  async updatePlayer(id: string, data: Partial<InsertPlayer>): Promise<Player | undefined> {
+    const result = await db.update(players).set(data).where(eq(players.id, id)).returning();
+    return result[0];
+  },
+
   // ==================== SESSIONS ====================
   async getSession(id: string): Promise<Session | undefined> {
     const result = await db.select().from(sessions).where(eq(sessions.id, id));

@@ -534,21 +534,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Save feedback
+  // Save feedback and award XP
   app.post("/api/coach/sessions/:id/feedback", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const { intensity, mood, focusTags, coachNotes } = req.body;
 
+      // Get session details
+      const session = await storage.getSession(id);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      // Create feedback record
       const feedback = await storage.createSessionFeedback({
         sessionId: id,
         intensity,
         mood,
-        focusTags: JSON.stringify(focusTags),
+        focusTags: JSON.stringify(focusTags || []),
         coachNotes,
       });
 
-      res.status(201).json(feedback);
+      // Mark session as completed
+      await storage.updateSession(id, { status: "completed" });
+
+      // Award Coach XP based on session type
+      const COACH_XP_REWARDS: Record<string, number> = {
+        private: 25,
+        semi_private: 35,
+        group: 50,
+        camp: 75,
+        team_training: 60,
+        clinic: 45,
+        match: 30,
+        assessment: 40,
+      };
+      const coachXp = COACH_XP_REWARDS[session.sessionType] || 20;
+      
+      if (session.coachId) {
+        await storage.addCoachXpTransaction({
+          coachId: session.coachId,
+          xpAmount: coachXp,
+          source: "session_feedback",
+          description: `Completed ${session.sessionType} session with feedback`,
+          sessionId: id,
+        });
+        
+        // Update coach total XP
+        const coach = await storage.getCoach(session.coachId);
+        if (coach) {
+          const newTotalXp = (coach.totalXp || 0) + coachXp;
+          let newLevel = 1;
+          let xpThreshold = 500;
+          let accumulatedXp = 0;
+          while (accumulatedXp + xpThreshold <= newTotalXp) {
+            accumulatedXp += xpThreshold;
+            newLevel++;
+            xpThreshold = 500 + (newLevel - 1) * 100;
+          }
+          await storage.updateCoach(session.coachId, { totalXp: newTotalXp, level: newLevel });
+        }
+      }
+
+      // Award Player XP for each player in session
+      const PLAYER_XP_REWARDS: Record<string, number> = {
+        private: 30,
+        semi_private: 25,
+        group: 20,
+        camp: 35,
+        team_training: 25,
+        clinic: 20,
+        match: 40,
+        assessment: 15,
+      };
+      const playerXp = PLAYER_XP_REWARDS[session.sessionType] || 15;
+      
+      const sessionPlayers = await storage.getSessionPlayers(id);
+      for (const sp of sessionPlayers) {
+        if (sp.playerId && sp.attendanceStatus === "present") {
+          await storage.createXpTransaction({
+            playerId: sp.playerId,
+            xpAmount: playerXp,
+            source: "session_complete",
+            description: `Attended ${session.sessionType} session`,
+            sessionId: id,
+          });
+          
+          // Update player total XP
+          const player = await storage.getPlayer(sp.playerId);
+          if (player) {
+            const newTotalXp = (player.totalXp || 0) + playerXp;
+            await storage.updatePlayer(sp.playerId, { totalXp: newTotalXp });
+          }
+        }
+      }
+
+      res.status(201).json({ 
+        feedback, 
+        xpAwarded: { coach: coachXp, playerCount: sessionPlayers.filter(sp => sp.attendanceStatus === "present").length } 
+      });
     } catch (error) {
       console.error("Error saving feedback:", error);
       res.status(500).json({ error: "Failed to save feedback" });
@@ -834,28 +918,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating session:", error);
       res.status(500).json({ error: "Failed to update session" });
-    }
-  });
-
-  // Save session feedback
-  app.post("/api/coach/sessions/:id/feedback", async (req: Request, res: Response) => {
-    try {
-      const { id } = req.params;
-      const { intensity, focusTags, generalNote } = req.body;
-      
-      const session = await storage.getSession(id);
-      if (!session) {
-        return res.status(404).json({ error: "Session not found" });
-      }
-
-      const updatedSession = await storage.updateSession(id, {
-        status: "completed",
-      });
-
-      res.json({ success: true, session: updatedSession });
-    } catch (error) {
-      console.error("Error saving feedback:", error);
-      res.status(500).json({ error: "Failed to save feedback" });
     }
   });
 

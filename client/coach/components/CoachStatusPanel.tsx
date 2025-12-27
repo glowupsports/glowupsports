@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -17,7 +17,6 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
-  interpolate,
   runOnJS,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -37,6 +36,7 @@ interface CoachStatusPanelProps {
 export function CoachStatusPanel({ visible, onClose, onNavigate }: CoachStatusPanelProps) {
   const insets = useSafeAreaInsets();
   const { coach, focusMode, setFocusMode } = useCoach();
+  const [shouldRender, setShouldRender] = useState(visible);
   
   const slideAnim = useSharedValue(PANEL_WIDTH);
   const overlayOpacity = useSharedValue(0);
@@ -86,11 +86,14 @@ export function CoachStatusPanel({ visible, onClose, onNavigate }: CoachStatusPa
 
   useEffect(() => {
     if (visible) {
+      setShouldRender(true);
       slideAnim.value = withSpring(0, { damping: 20, stiffness: 200 });
       overlayOpacity.value = withTiming(1, { duration: 200 });
     } else {
       slideAnim.value = withSpring(PANEL_WIDTH, { damping: 20, stiffness: 200 });
-      overlayOpacity.value = withTiming(0, { duration: 200 });
+      overlayOpacity.value = withTiming(0, { duration: 200 }, () => {
+        runOnJS(setShouldRender)(false);
+      });
     }
   }, [visible]);
 
@@ -132,10 +135,10 @@ export function CoachStatusPanel({ visible, onClose, onNavigate }: CoachStatusPa
     return "Rookie Coach";
   };
 
-  if (!visible && slideAnim.value === PANEL_WIDTH) return null;
+  if (!shouldRender) return null;
 
   return (
-    <Modal transparent visible={visible} animationType="none" onRequestClose={handleClose}>
+    <Modal transparent visible={shouldRender} animationType="none" onRequestClose={handleClose}>
       <View style={styles.container}>
         <Animated.View style={[styles.overlay, overlayStyle]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
