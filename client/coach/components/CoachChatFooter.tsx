@@ -517,9 +517,8 @@ export function CoachChatFooter() {
     </View>
   );
 
-  const renderConversationList = () => (
+  const renderConversationListContent = () => (
     <>
-      {renderTabBar()}
       <FlatList
         data={displayConversations}
         keyExtractor={(item) => item.id}
@@ -588,6 +587,8 @@ export function CoachChatFooter() {
 
       {isExpanded ? (
         <View style={styles.expandedContent}>
+          {renderTabBar()}
+          
           {showNewMessage ? (
             renderNewMessageSelector()
           ) : showSquadSelector ? (
@@ -651,7 +652,7 @@ export function CoachChatFooter() {
               <ActivityIndicator color={Colors.dark.primary} />
             </View>
           ) : (
-            renderConversationList()
+            renderConversationListContent()
           )}
         </View>
       ) : null}
