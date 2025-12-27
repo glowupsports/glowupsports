@@ -1215,6 +1215,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get coach stats (sessions count, players count, streak)
+  app.get("/api/coach/:id/stats", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      
+      // Get all sessions for this coach
+      const allSessions = await storage.getAllSessionsByCoach(id);
+      const completedSessions = allSessions.filter(s => s.status === "completed");
+      
+      // Get unique player count from session players (parallel fetch for efficiency)
+      const playerIds = new Set<string>();
+      const sessionPlayerResults = await Promise.all(
+        allSessions.map(session => storage.getSessionPlayers(session.id))
+      );
+      sessionPlayerResults.flat().forEach(sp => {
+        if (sp.playerId) playerIds.add(sp.playerId);
+      });
+      
+      // Calculate streak (consecutive days with completed sessions)
+      let streak = 0;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const sortedSessions = completedSessions
+        .filter(s => new Date(s.startTime) <= today)
+        .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+      
+      if (sortedSessions.length > 0) {
+        let checkDate = new Date(today);
+        const sessionDates = new Set(sortedSessions.map(s => {
+          const d = new Date(s.startTime);
+          d.setHours(0, 0, 0, 0);
+          return d.getTime();
+        }));
+        
+        while (sessionDates.has(checkDate.getTime())) {
+          streak++;
+          checkDate.setDate(checkDate.getDate() - 1);
+        }
+      }
+      
+      res.json({
+        sessionsCount: completedSessions.length,
+        playersCount: playerIds.size,
+        streak,
+        totalSessionsScheduled: allSessions.length,
+      });
+    } catch (error) {
+      console.error("Error fetching coach stats:", error);
+      res.status(500).json({ error: "Failed to fetch coach stats" });
+    }
+  });
+
   // ==================== PROGRESS ENGINE V2 API ====================
 
   // Get all skill domains

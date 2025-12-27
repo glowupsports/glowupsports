@@ -52,6 +52,16 @@ export function CoachStatusPanel({ visible, onClose, onNavigate }: CoachStatusPa
     enabled: !!coach?.id,
   });
 
+  const { data: coachStats } = useQuery<{
+    sessionsCount: number;
+    playersCount: number;
+    streak: number;
+    totalSessionsScheduled: number;
+  }>({
+    queryKey: ["/api/coach", coach?.id, "stats"],
+    enabled: !!coach?.id,
+  });
+
   const coachXP = React.useMemo(() => {
     if (coachXpData) {
       return {
@@ -193,17 +203,17 @@ export function CoachStatusPanel({ visible, onClose, onNavigate }: CoachStatusPa
               <View style={styles.statsGrid}>
                 <View style={styles.statCard}>
                   <Ionicons name="calendar" size={20} color={Colors.dark.primary} />
-                  <Text style={styles.statValue}>--</Text>
+                  <Text style={styles.statValue}>{coachStats?.sessionsCount ?? "--"}</Text>
                   <Text style={styles.statLabel}>Sessions</Text>
                 </View>
                 <View style={styles.statCard}>
                   <Ionicons name="people" size={20} color={Colors.dark.xpCyan} />
-                  <Text style={styles.statValue}>--</Text>
+                  <Text style={styles.statValue}>{coachStats?.playersCount ?? "--"}</Text>
                   <Text style={styles.statLabel}>Players</Text>
                 </View>
                 <View style={styles.statCard}>
                   <Ionicons name="trending-up" size={20} color={Colors.dark.gold} />
-                  <Text style={styles.statValue}>--</Text>
+                  <Text style={styles.statValue}>{coachStats?.streak ?? 0}</Text>
                   <Text style={styles.statLabel}>Streak</Text>
                 </View>
               </View>

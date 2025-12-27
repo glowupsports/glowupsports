@@ -162,7 +162,13 @@ export default function DashboardScreen() {
 
   const handleNavigate = (screen: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    (navigation as any).navigate(screen);
+    const screenMap: Record<string, string> = {
+      Availability: "Settings",
+      CourtPreferences: "Settings",
+      EditProfile: "CoachProfile",
+    };
+    const targetScreen = screenMap[screen] || screen;
+    (navigation as any).navigate(targetScreen);
   };
 
   const formatTime = (date: string) => {

@@ -194,6 +194,13 @@ export const storage = {
       );
   },
 
+  async getAllSessionsByCoach(coachId: string): Promise<Session[]> {
+    return db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.coachId, coachId));
+  },
+
   async getSessionsByDateRange(startDate: Date, endDate: Date): Promise<Session[]> {
     return db
       .select()

@@ -80,23 +80,32 @@ interface CoachContextType {
 const CoachContext = createContext<CoachContextType | undefined>(undefined);
 
 const COACH_STORAGE_KEY = "@coach_data";
+const FOCUS_MODE_KEY = "@focus_mode";
 
 export function CoachProvider({ children }: { children: ReactNode }) {
   const [coach, setCoachState] = useState<Coach | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week" | "month">("day");
   const [timeGrid, setTimeGrid] = useState<30 | 60>(60);
-  const [focusMode, setFocusMode] = useState(false);
+  const [focusMode, setFocusModeState] = useState(false);
   const [insightsMode, setInsightsMode] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     
-    const loadCoach = async () => {
+    const loadData = async () => {
       try {
-        const stored = await AsyncStorage.getItem(COACH_STORAGE_KEY);
-        if (stored && isMounted) {
-          setCoachState(JSON.parse(stored));
+        const [storedCoach, storedFocusMode] = await Promise.all([
+          AsyncStorage.getItem(COACH_STORAGE_KEY),
+          AsyncStorage.getItem(FOCUS_MODE_KEY),
+        ]);
+        
+        if (storedFocusMode && isMounted) {
+          setFocusModeState(storedFocusMode === "true");
+        }
+        
+        if (storedCoach && isMounted) {
+          setCoachState(JSON.parse(storedCoach));
         } else if (isMounted) {
           const apiUrl = getApiUrl();
           const response = await fetch(new URL("/api/coaches", apiUrl).toString());
@@ -110,16 +119,21 @@ export function CoachProvider({ children }: { children: ReactNode }) {
           }
         }
       } catch (error) {
-        console.error("Failed to load coach:", error);
+        console.error("Failed to load data:", error);
       }
     };
     
-    loadCoach();
+    loadData();
     
     return () => {
       isMounted = false;
     };
   }, []);
+
+  const setFocusMode = async (mode: boolean) => {
+    setFocusModeState(mode);
+    await AsyncStorage.setItem(FOCUS_MODE_KEY, mode.toString());
+  };
 
   const setCoach = async (newCoach: Coach | null) => {
     setCoachState(newCoach);
