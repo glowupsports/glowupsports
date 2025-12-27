@@ -952,26 +952,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
     try {
-      const user = req.user!;
+      const tokenUser = req.user!;
+      
+      // Fetch fresh user data from database to get current coachId/academyId
+      const freshUser = await storage.getUserById(tokenUser.userId);
+      if (!freshUser) {
+        return res.status(401).json({ error: "User not found" });
+      }
       
       let coach = null;
       let academy = null;
       
-      if (user.coachId) {
-        coach = await storage.getCoach(user.coachId);
+      // Use fresh database values, not stale JWT claims
+      if (freshUser.coachId) {
+        coach = await storage.getCoach(freshUser.coachId);
       }
       
-      if (user.academyId) {
-        academy = await storage.getAcademy(user.academyId);
+      if (freshUser.academyId) {
+        academy = await storage.getAcademy(freshUser.academyId);
       }
       
       res.json({
         user: {
-          id: user.userId,
-          email: user.email,
-          role: user.role,
-          academyId: user.academyId,
-          coachId: user.coachId,
+          id: freshUser.id,
+          email: freshUser.email,
+          role: freshUser.role,
+          academyId: freshUser.academyId,
+          coachId: freshUser.coachId,
         },
         coach: coach ? {
           id: coach.id,
