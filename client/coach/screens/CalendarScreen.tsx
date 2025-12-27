@@ -32,6 +32,7 @@ import CreateSessionDrawer from "@/coach/components/CreateSessionDrawer";
 import NowPlayingCard from "@/coach/components/NowPlayingCard";
 import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
 import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
+import CoachLoadIndicator from "@/coach/components/CoachLoadIndicator";
 
 interface CoachData {
   id: string;
@@ -42,6 +43,8 @@ interface CoachData {
   hourlyRate: string | null;
   level: number | null;
   totalXp: number | null;
+  role: string | null;
+  academyId: string | null;
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -1088,6 +1091,15 @@ export default function CalendarScreen() {
           ))}
         </View>
       </View>
+
+      {/* Coach Load Indicator - only in day view */}
+      {viewMode === "day" && (
+        <CoachLoadIndicator
+          sessions={ownSessions}
+          selectedDate={selectedDate}
+          maxHoursPerDay={8}
+        />
+      )}
 
       {/* Now Playing Card - only in day view */}
       {viewMode === "day" && (

@@ -87,6 +87,8 @@ export default function CreateSessionDrawer({
   const [isChecking, setIsChecking] = useState(false);
   const [conflicts, setConflicts] = useState<string[]>([]);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [guestName, setGuestName] = useState("");
+  const [showGuestInput, setShowGuestInput] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -128,11 +130,43 @@ export default function CreateSessionDrawer({
     },
   });
 
+  const createGuestMutation = useMutation({
+    mutationFn: async (name: string): Promise<Player> => {
+      const response = await apiRequest("POST", "/api/players", {
+        name: `${name} (Guest)`,
+        coachId: coach?.id,
+        membershipType: "guest",
+      });
+      const player: Player = await response.json();
+      return player;
+    },
+    onSuccess: (newPlayer: Player) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/players"] });
+      setSelectedPlayers((prev) => {
+        if (prev.some((p) => p.id === newPlayer.id)) return prev;
+        return [...prev, newPlayer];
+      });
+      setGuestName("");
+      setShowGuestInput(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: Error) => {
+      Alert.alert("Error", error.message || "Failed to create guest player");
+    },
+  });
+
+  const handleAddGuest = () => {
+    if (!guestName.trim()) return;
+    createGuestMutation.mutate(guestName.trim());
+  };
+
   const resetForm = () => {
     setSessionType("private");
     setDuration(60);
     setSelectedCourtId(null);
     setSelectedPlayers([]);
+    setGuestName("");
+    setShowGuestInput(false);
     setIsRecurring(false);
     setWeekCount(10);
     setBallLevel(null);
@@ -523,7 +557,45 @@ export default function CreateSessionDrawer({
 
           {/* Player Selection */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Players</Text>
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>Players</Text>
+              <Pressable
+                onPress={() => setShowGuestInput(!showGuestInput)}
+                style={styles.addGuestButton}
+              >
+                <Ionicons name="person-add-outline" size={16} color={Colors.dark.xpCyan} />
+                <Text style={styles.addGuestText}>Add Guest</Text>
+              </Pressable>
+            </View>
+            
+            {showGuestInput && (
+              <View style={styles.guestInputRow}>
+                <TextInput
+                  style={styles.guestInput}
+                  placeholder="Guest name..."
+                  placeholderTextColor={Colors.dark.tabIconDefault}
+                  value={guestName}
+                  onChangeText={setGuestName}
+                  onSubmitEditing={handleAddGuest}
+                  returnKeyType="done"
+                />
+                <Pressable
+                  onPress={handleAddGuest}
+                  disabled={!guestName.trim() || createGuestMutation.isPending}
+                  style={[
+                    styles.guestAddBtn,
+                    (!guestName.trim() || createGuestMutation.isPending) && styles.guestAddBtnDisabled,
+                  ]}
+                >
+                  {createGuestMutation.isPending ? (
+                    <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                  ) : (
+                    <Ionicons name="add" size={20} color={Colors.dark.backgroundRoot} />
+                  )}
+                </Pressable>
+              </View>
+            )}
+            
             <View style={styles.playerList}>
               {players.map((player) => {
                 const isSelected = selectedPlayers.some((p) => p.id === player.id);
@@ -768,6 +840,51 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     textTransform: "uppercase",
     letterSpacing: 1,
+  },
+  sectionTitleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  addGuestButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.md,
+  },
+  addGuestText: {
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+  },
+  guestInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  guestInput: {
+    flex: 1,
+    height: 44,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    color: Colors.dark.text,
+    ...Typography.body,
+  },
+  guestAddBtn: {
+    width: 44,
+    height: 44,
+    backgroundColor: Colors.dark.xpCyan,
+    borderRadius: BorderRadius.md,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  guestAddBtnDisabled: {
+    opacity: 0.5,
   },
   timeSelector: {
     flexDirection: "row",
