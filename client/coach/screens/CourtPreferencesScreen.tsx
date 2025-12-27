@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -66,6 +66,66 @@ export default function CourtPreferencesScreen() {
     enabled: !!coach?.id,
   });
 
+  // Track if we've hydrated from API
+  const [hasHydratedCourts, setHasHydratedCourts] = useState(false);
+  const [hasHydratedPrefs, setHasHydratedPrefs] = useState(false);
+
+  // Hydrate courts from API data - only once
+  useEffect(() => {
+    if (courtsData && Array.isArray(courtsData) && courtsData.length > 0 && !hasHydratedCourts) {
+      const apiCourts = courtsData as any[];
+      // Initialize all courts as unselected by default - preferences will mark selected ones
+      const hydratedCourts = apiCourts.map((court: any, index: number) => ({
+        id: court.id,
+        name: court.name,
+        type: (court.type === "indoor" ? "indoor" : "outdoor") as "indoor" | "outdoor",
+        isSelected: false, // Start unselected, preferences will mark selected
+        priority: index + 1,
+      }));
+      setCourts(hydratedCourts);
+      setHasHydratedCourts(true);
+    }
+  }, [courtsData, hasHydratedCourts]);
+
+  // Hydrate preferences from API data - only after courts are hydrated
+  useEffect(() => {
+    if (preferencesData && hasHydratedCourts && !hasHydratedPrefs) {
+      const prefs = preferencesData as any;
+      if (prefs.courtPreferences && Array.isArray(prefs.courtPreferences)) {
+        setCourts((currentCourts) => {
+          const updatedCourts = currentCourts.map((court) => {
+            const pref = prefs.courtPreferences.find((p: any) => p.courtId === court.id);
+            if (pref) {
+              return {
+                ...court,
+                isSelected: true,
+                priority: typeof pref.priority === "number" ? pref.priority : court.priority,
+              };
+            }
+            return court; // Keep unselected if no preference found
+          });
+          // Sort by priority only if we have preferences
+          if (prefs.courtPreferences.length > 0) {
+            return updatedCourts.sort((a, b) => a.priority - b.priority);
+          }
+          return updatedCourts;
+        });
+      } else {
+        // No preferences saved yet - select all courts by default for new users
+        setCourts((currentCourts) => currentCourts.map((c) => ({ ...c, isSelected: true })));
+      }
+      if (prefs.rules) {
+        const rules = prefs.rules;
+        if (rules.preferredType) setPreferredType(rules.preferredType);
+        if (rules.daylightOnly !== undefined) setDaylightOnly(rules.daylightOnly);
+        if (rules.maxSessionsPerCourtPerDay) setMaxPerCourt(rules.maxSessionsPerCourtPerDay);
+        if (rules.maxTotalSessionsPerDay) setMaxTotal(rules.maxTotalSessionsPerDay);
+        if (rules.fallbackBehavior) setFallbackBehavior(rules.fallbackBehavior);
+      }
+      setHasHydratedPrefs(true);
+    }
+  }, [preferencesData, hasHydratedCourts, hasHydratedPrefs]);
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       await apiRequest("PUT", `/api/coaches/${coach?.id}/court-preferences`, {
@@ -128,6 +188,16 @@ export default function CourtPreferencesScreen() {
   }, []);
 
   const selectedCount = courts.filter((c) => c.isSelected).length;
+
+  // Show loading state while fetching data
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
+        <Feather name="grid" size={48} color={Colors.dark.primary} />
+        <Text style={styles.loadingText}>Loading court preferences...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -410,6 +480,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  loadingContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.lg,
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.tabIconDefault,
   },
   header: {
     flexDirection: "row",

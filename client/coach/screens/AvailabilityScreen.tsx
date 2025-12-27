@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -79,6 +79,52 @@ export default function AvailabilityScreen() {
     queryKey: ["/api/coaches", coach?.id, "availability-exceptions"],
     enabled: !!coach?.id,
   });
+
+  // Hydrate state from API data
+  useEffect(() => {
+    if (availabilityData && Array.isArray(availabilityData) && availabilityData.length > 0) {
+      const hydratedAvailability = WEEKDAYS.map((_, i) => {
+        const dayData = (availabilityData as any[]).find((d: any) => d.weekday === i);
+        if (dayData) {
+          // Respect the isAvailable flag from backend
+          const isAvailable = dayData.isAvailable === true;
+          // Handle both timeBlocks array format and single start/end format
+          let timeBlocks: TimeBlock[] = [];
+          if (dayData.timeBlocks && Array.isArray(dayData.timeBlocks) && dayData.timeBlocks.length > 0) {
+            timeBlocks = dayData.timeBlocks;
+          } else if (dayData.startTime && dayData.endTime && isAvailable) {
+            timeBlocks = [{ id: `loaded-${i}`, startTime: dayData.startTime, endTime: dayData.endTime }];
+          } else if (isAvailable) {
+            timeBlocks = [{ id: `default-${i}`, startTime: "09:00", endTime: "18:00" }];
+          }
+          return { weekday: i, isAvailable, timeBlocks };
+        }
+        return DEFAULT_AVAILABILITY[i];
+      });
+      setAvailability(hydratedAvailability);
+    }
+  }, [availabilityData]);
+
+  useEffect(() => {
+    if (settingsData) {
+      const settings = settingsData as any;
+      if (settings.minSessionLength) setMinSessionLength(settings.minSessionLength);
+      if (settings.bufferBetweenSessions !== undefined) setBufferTime(settings.bufferBetweenSessions);
+      if (settings.availabilityPaused !== undefined) setIsPaused(settings.availabilityPaused);
+    }
+  }, [settingsData]);
+
+  useEffect(() => {
+    if (exceptionsData && Array.isArray(exceptionsData)) {
+      const hydratedExceptions = (exceptionsData as any[]).map((exc: any) => ({
+        id: exc.id || `exc-${exc.startDate}`,
+        startDate: exc.startDate,
+        endDate: exc.endDate,
+        reason: exc.reason || "Personal",
+      }));
+      setExceptions(hydratedExceptions);
+    }
+  }, [exceptionsData]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -276,6 +322,16 @@ export default function AvailabilityScreen() {
     );
   };
 
+  // Show loading state while fetching data
+  if (isLoading && coach?.id) {
+    return (
+      <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
+        <Feather name="clock" size={48} color={Colors.dark.primary} />
+        <Text style={styles.loadingText}>Loading availability...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
@@ -447,6 +503,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  loadingContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.lg,
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.tabIconDefault,
   },
   header: {
     flexDirection: "row",
