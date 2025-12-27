@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
@@ -316,33 +317,52 @@ export default function CreateSessionDrawer({
           {/* Time Selection */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Time</Text>
-            <View style={styles.timeSelector}>
-              <Pressable
-                onPress={() => adjustTime(-15)}
-                style={styles.timeAdjust}
-              >
-                <Ionicons name="remove" size={20} color={Colors.dark.text} />
-              </Pressable>
-              <View style={styles.timeDisplay}>
-                <Text style={styles.timeText}>{formatTime(startTime)}</Text>
-                <Pressable onPress={() => setShowCalendar(!showCalendar)}>
-                  <Text style={[styles.dateText, { color: Colors.dark.primary }]}>
-                    {startTime.toLocaleDateString("en-US", {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                    {" "}
-                    <Ionicons name="calendar-outline" size={12} color={Colors.dark.primary} />
-                  </Text>
-                </Pressable>
-              </View>
-              <Pressable
-                onPress={() => adjustTime(15)}
-                style={styles.timeAdjust}
-              >
-                <Ionicons name="add" size={20} color={Colors.dark.text} />
-              </Pressable>
+            {/* Date Display */}
+            <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowCalendar(!showCalendar); }} style={styles.dateButton}>
+              <Ionicons name="calendar-outline" size={18} color={Colors.dark.primary} />
+              <Text style={styles.dateButtonText}>
+                {startTime.toLocaleDateString("en-US", {
+                  weekday: "long",
+                  month: "short",
+                  day: "numeric",
+                })}
+              </Text>
+              <Ionicons name="chevron-down" size={16} color={Colors.dark.tabIconDefault} />
+            </Pressable>
+            {/* Quick Time Slots - Fast selection */}
+            <View style={styles.timeSlotGrid}>
+              {[
+                "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
+                "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
+                "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
+                "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
+                "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
+              ].map((time) => {
+                const [hours, mins] = time.split(":").map(Number);
+                const isSelected = startTime.getHours() === hours && startTime.getMinutes() === mins;
+                return (
+                  <Pressable
+                    key={time}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      const newTime = new Date(startTime);
+                      newTime.setHours(hours, mins, 0, 0);
+                      setStartTime(newTime);
+                    }}
+                    style={[
+                      styles.timeSlot,
+                      isSelected && styles.timeSlotSelected,
+                    ]}
+                  >
+                    <Text style={[
+                      styles.timeSlotText,
+                      isSelected && styles.timeSlotTextSelected,
+                    ]}>
+                      {time}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
 
@@ -773,6 +793,45 @@ const styles = StyleSheet.create({
   dateText: {
     ...Typography.body,
     color: Colors.dark.disabled,
+  },
+  dateButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+  },
+  dateButtonText: {
+    ...Typography.body,
+    color: Colors.dark.primary,
+    flex: 1,
+  },
+  timeSlotGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.xs,
+  },
+  timeSlot: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    minWidth: 52,
+    alignItems: "center",
+  },
+  timeSlotSelected: {
+    backgroundColor: Colors.dark.primary,
+  },
+  timeSlotText: {
+    fontSize: 13,
+    color: Colors.dark.tabIconDefault,
+  },
+  timeSlotTextSelected: {
+    color: Colors.dark.text,
+    fontWeight: "600",
   },
   optionsRow: {
     flexDirection: "row",
