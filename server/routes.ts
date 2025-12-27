@@ -1329,7 +1329,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
       
-      const notes = await storage.getPlayerNotes(id);
+      const notes = await storage.getPlayerNotes(id, academyId);
       res.json(notes);
     } catch (error) {
       console.error("Error fetching player notes:", error);
@@ -1425,7 +1425,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
       
-      const progress = await storage.getPlayerProgress(id);
+      const progress = await storage.getPlayerProgress(id, academyId);
       res.json(progress);
     } catch (error) {
       console.error("Error fetching player progress:", error);
@@ -1444,7 +1444,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
       
-      const summary = await storage.getProgressSummary(id);
+      const summary = await storage.getProgressSummary(id, academyId);
       res.json(summary);
     } catch (error) {
       console.error("Error fetching progress summary:", error);
@@ -1491,9 +1491,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allPlayers = await storage.getAllPlayers();
       const playersWithProgress = await Promise.all(
         allPlayers.map(async (player) => {
-          const summary = await storage.getProgressSummary(player.id);
-          const notes = await storage.getPlayerNotes(player.id);
-          const totalXp = await storage.getPlayerTotalXp(player.id);
+          const summary = await storage.getProgressSummary(player.id, player.academyId || undefined);
+          const notes = await storage.getPlayerNotes(player.id, player.academyId || undefined);
+          const totalXp = await storage.getPlayerTotalXp(player.id, player.academyId || undefined);
           const pinnedNotes = notes.filter(n => n.isPinned);
           const recentNote = notes[0];
           return {
@@ -1862,7 +1862,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.seedSkillDomains();
       await storage.initializePlayerSkillStates(id);
       
-      const states = await storage.getPlayerSkillStates(id);
+      const states = await storage.getPlayerSkillStates(id, academyId);
       const domains = await storage.getAllSkillDomains();
       
       // Merge domain info with state
@@ -2156,8 +2156,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/players/:id/xp", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const totalXp = await storage.getPlayerTotalXp(id);
-      const transactions = await storage.getPlayerXpTransactions(id, 20);
+      const academyId = req.user!.academyId;
+      
+      const { valid } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const totalXp = await storage.getPlayerTotalXp(id, academyId);
+      const transactions = await storage.getPlayerXpTransactions(id, 20, academyId);
       res.json({ totalXp, transactions });
     } catch (error) {
       console.error("Error fetching player XP:", error);
@@ -2177,7 +2184,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
 
-      const skillStates = await storage.getPlayerSkillStates(id);
+      const skillStates = await storage.getPlayerSkillStates(id, academyId);
       
       for (const state of skillStates) {
         await storage.upsertPlayerSkillState({
@@ -2213,7 +2220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Enrich with participant info
       const enriched = await Promise.all(
         conversations.map(async (conv) => {
-          const participants = await storage.getConversationParticipants(conv.id);
+          const participants = await storage.getConversationParticipants(conv.id, coachId!);
           
           // Get player name for conversations with a player
           let playerName = null;
@@ -2418,19 +2425,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const conversation = await storage.getConversation(id, coachId ?? undefined);
       if (!conversation) {
         // Check if coach is a participant
-        const participants = await storage.getConversationParticipants(id);
+        const participants = await storage.getConversationParticipants(id, coachId!);
         const isParticipant = participants.some(p => p.coachId === coachId);
         if (!isParticipant) {
           return res.status(404).json({ error: "Conversation not found" });
         }
       }
       
-      const messages = await storage.getMessages(id, limit);
+      const messages = await storage.getMessages(id, limit, coachId!);
       
       // Enrich with reactions
       const enriched = await Promise.all(
         messages.map(async (msg) => {
-          const reactions = await storage.getMessageReactions(msg.id);
+          const reactions = await storage.getMessageReactions(msg.id, coachId!);
           return { ...msg, reactions };
         })
       );
@@ -2572,7 +2579,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verify coach has access to this conversation
       const conversation = await storage.getConversation(conversationId, coachId ?? undefined);
       if (!conversation) {
-        const participants = await storage.getConversationParticipants(conversationId);
+        const participants = await storage.getConversationParticipants(conversationId, coachId!);
         const isParticipant = participants.some(p => p.coachId === coachId);
         if (!isParticipant) {
           return res.status(404).json({ error: "Conversation not found" });
@@ -2587,7 +2594,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         body,
         messageType: messageType || "text",
         replyToId: replyToId || null,
-      });
+      }, coachId!);
+      
+      if (!message) {
+        return res.status(403).json({ error: "Access denied to conversation" });
+      }
       
       // Award XP for coach sending messages (engagement)
       if (senderType === "coach" && senderCoachId) {
@@ -2624,6 +2635,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/messages/:id/reactions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id: messageId } = req.params;
+      const coachId = req.user!.coachId;
       const { reactorType, reactorCoachId, reactorPlayerId, emoji } = req.body;
       
       if (!emoji || !reactorType) {
@@ -2636,7 +2648,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         reactorCoachId: reactorCoachId || null,
         reactorPlayerId: reactorPlayerId || null,
         emoji,
-      });
+      }, coachId!);
+      
+      if (!reaction) {
+        return res.status(403).json({ error: "Access denied to message" });
+      }
       
       res.status(201).json(reaction);
     } catch (error) {
@@ -2649,9 +2665,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/messages/:id/reactions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id: messageId } = req.params;
+      const coachId = req.user!.coachId;
       const { reactorType, reactorId, emoji } = req.body;
       
-      await storage.removeReaction(messageId, reactorType, reactorId, emoji);
+      const success = await storage.removeReaction(messageId, reactorType, reactorId, emoji, coachId!);
+      if (!success) {
+        return res.status(403).json({ error: "Access denied to message" });
+      }
       res.json({ success: true });
     } catch (error) {
       console.error("Error removing reaction:", error);

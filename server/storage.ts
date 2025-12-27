@@ -688,7 +688,14 @@ export const storage = {
   },
 
   // ==================== PLAYER HOLIDAYS ====================
-  async getPlayerHolidays(playerId: string): Promise<PlayerHoliday[]> {
+  async getPlayerHolidays(playerId: string, academyId?: string): Promise<PlayerHoliday[]> {
+    // Validate player belongs to academy if provided
+    if (academyId) {
+      const player = await db.select().from(players).where(
+        and(eq(players.id, playerId), eq(players.academyId, academyId))
+      );
+      if (player.length === 0) return [];
+    }
     return db.select().from(playerHolidays).where(eq(playerHolidays.playerId, playerId));
   },
 
@@ -732,7 +739,14 @@ export const storage = {
   },
 
   // ==================== PLAYER NOTES ====================
-  async getPlayerNotes(playerId: string): Promise<PlayerNote[]> {
+  async getPlayerNotes(playerId: string, academyId?: string): Promise<PlayerNote[]> {
+    // Validate player belongs to academy if provided
+    if (academyId) {
+      const player = await db.select().from(players).where(
+        and(eq(players.id, playerId), eq(players.academyId, academyId))
+      );
+      if (player.length === 0) return [];
+    }
     return db
       .select()
       .from(playerNotes)
@@ -764,7 +778,14 @@ export const storage = {
   },
 
   // ==================== PLAYER PROGRESS ====================
-  async getPlayerProgress(playerId: string): Promise<PlayerProgress[]> {
+  async getPlayerProgress(playerId: string, academyId?: string): Promise<PlayerProgress[]> {
+    // Validate player belongs to academy if provided
+    if (academyId) {
+      const player = await db.select().from(players).where(
+        and(eq(players.id, playerId), eq(players.academyId, academyId))
+      );
+      if (player.length === 0) return [];
+    }
     return db
       .select()
       .from(playerProgress)
@@ -777,7 +798,14 @@ export const storage = {
     return result[0];
   },
 
-  async getProgressSummary(playerId: string): Promise<{ skillArea: string; avgRating: number; trend: string; glowScore?: number; domainScores?: { domain: string; score: number; trend: string }[] }[]> {
+  async getProgressSummary(playerId: string, academyId?: string): Promise<{ skillArea: string; avgRating: number; trend: string; glowScore?: number; domainScores?: { domain: string; score: number; trend: string }[] }[]> {
+    // Validate player belongs to academy if provided
+    if (academyId) {
+      const player = await db.select().from(players).where(
+        and(eq(players.id, playerId), eq(players.academyId, academyId))
+      );
+      if (player.length === 0) return [];
+    }
     const progress = await db
       .select()
       .from(playerProgress)
@@ -1015,7 +1043,14 @@ export const storage = {
   },
 
   // Player Skill State
-  async getPlayerSkillStates(playerId: string): Promise<PlayerSkillState[]> {
+  async getPlayerSkillStates(playerId: string, academyId?: string): Promise<PlayerSkillState[]> {
+    // Validate player belongs to academy if provided
+    if (academyId) {
+      const player = await db.select().from(players).where(
+        and(eq(players.id, playerId), eq(players.academyId, academyId))
+      );
+      if (player.length === 0) return [];
+    }
     return db
       .select()
       .from(playerSkillState)
@@ -1242,7 +1277,14 @@ export const storage = {
   },
 
   // XP Transactions
-  async getPlayerXpTransactions(playerId: string, limit: number = 50): Promise<XpTransaction[]> {
+  async getPlayerXpTransactions(playerId: string, limit: number = 50, academyId?: string): Promise<XpTransaction[]> {
+    // Validate player belongs to academy if provided
+    if (academyId) {
+      const player = await db.select().from(players).where(
+        and(eq(players.id, playerId), eq(players.academyId, academyId))
+      );
+      if (player.length === 0) return [];
+    }
     return db
       .select()
       .from(xpTransactions)
@@ -1256,7 +1298,14 @@ export const storage = {
     return result[0];
   },
 
-  async getPlayerTotalXp(playerId: string): Promise<number> {
+  async getPlayerTotalXp(playerId: string, academyId?: string): Promise<number> {
+    // Validate player belongs to academy if provided
+    if (academyId) {
+      const player = await db.select().from(players).where(
+        and(eq(players.id, playerId), eq(players.academyId, academyId))
+      );
+      if (player.length === 0) return 0;
+    }
     const transactions = await db
       .select()
       .from(xpTransactions)
@@ -1459,7 +1508,23 @@ export const storage = {
   },
 
   // Participants
-  async getConversationParticipants(conversationId: string): Promise<ConversationParticipant[]> {
+  async getConversationParticipants(conversationId: string, coachId?: string): Promise<ConversationParticipant[]> {
+    // If coachId provided, verify they have access to this conversation
+    if (coachId) {
+      const conversation = await db.select().from(conversations).where(
+        and(eq(conversations.id, conversationId), eq(conversations.coachId, coachId))
+      );
+      // Also check if coach is a participant
+      if (conversation.length === 0) {
+        const participantCheck = await db.select().from(conversationParticipants).where(
+          and(
+            eq(conversationParticipants.conversationId, conversationId),
+            eq(conversationParticipants.coachId, coachId)
+          )
+        );
+        if (participantCheck.length === 0) return [];
+      }
+    }
     return db.select().from(conversationParticipants).where(eq(conversationParticipants.conversationId, conversationId));
   },
 
@@ -1491,7 +1556,22 @@ export const storage = {
   },
 
   // Messages
-  async getMessages(conversationId: string, limit: number = 50): Promise<Message[]> {
+  async getMessages(conversationId: string, limit: number = 50, coachId?: string): Promise<Message[]> {
+    // If coachId provided, verify they have access to this conversation
+    if (coachId) {
+      const conversation = await db.select().from(conversations).where(
+        and(eq(conversations.id, conversationId), eq(conversations.coachId, coachId))
+      );
+      if (conversation.length === 0) {
+        const participantCheck = await db.select().from(conversationParticipants).where(
+          and(
+            eq(conversationParticipants.conversationId, conversationId),
+            eq(conversationParticipants.coachId, coachId)
+          )
+        );
+        if (participantCheck.length === 0) return [];
+      }
+    }
     return db
       .select()
       .from(messages)
@@ -1505,7 +1585,23 @@ export const storage = {
       .limit(limit);
   },
 
-  async createMessage(data: InsertMessage): Promise<Message> {
+  async createMessage(data: InsertMessage, coachId?: string): Promise<Message | null> {
+    // If coachId provided, verify they have access to this conversation
+    if (coachId) {
+      const conversation = await db.select().from(conversations).where(
+        and(eq(conversations.id, data.conversationId), eq(conversations.coachId, coachId))
+      );
+      if (conversation.length === 0) {
+        const participantCheck = await db.select().from(conversationParticipants).where(
+          and(
+            eq(conversationParticipants.conversationId, data.conversationId),
+            eq(conversationParticipants.coachId, coachId)
+          )
+        );
+        if (participantCheck.length === 0) return null;
+      }
+    }
+    
     const result = await db.insert(messages).values(data).returning();
     
     // Update conversation last message
@@ -1522,16 +1618,71 @@ export const storage = {
   },
 
   // Reactions
-  async getMessageReactions(messageId: string): Promise<MessageReaction[]> {
+  async getMessageReactions(messageId: string, coachId?: string): Promise<MessageReaction[]> {
+    // If coachId provided, verify coach has access to the message's conversation
+    if (coachId) {
+      const msg = await db.select().from(messages).where(eq(messages.id, messageId));
+      if (msg.length === 0) return [];
+      const conversationId = msg[0].conversationId;
+      const conversation = await db.select().from(conversations).where(
+        and(eq(conversations.id, conversationId), eq(conversations.coachId, coachId))
+      );
+      if (conversation.length === 0) {
+        const participantCheck = await db.select().from(conversationParticipants).where(
+          and(
+            eq(conversationParticipants.conversationId, conversationId),
+            eq(conversationParticipants.coachId, coachId)
+          )
+        );
+        if (participantCheck.length === 0) return [];
+      }
+    }
     return db.select().from(messageReactions).where(eq(messageReactions.messageId, messageId));
   },
 
-  async addReaction(data: InsertMessageReaction): Promise<MessageReaction> {
+  async addReaction(data: InsertMessageReaction, coachId?: string): Promise<MessageReaction | null> {
+    // If coachId provided, verify coach has access to the message's conversation
+    if (coachId) {
+      const msg = await db.select().from(messages).where(eq(messages.id, data.messageId));
+      if (msg.length === 0) return null;
+      const conversationId = msg[0].conversationId;
+      const conversation = await db.select().from(conversations).where(
+        and(eq(conversations.id, conversationId), eq(conversations.coachId, coachId))
+      );
+      if (conversation.length === 0) {
+        const participantCheck = await db.select().from(conversationParticipants).where(
+          and(
+            eq(conversationParticipants.conversationId, conversationId),
+            eq(conversationParticipants.coachId, coachId)
+          )
+        );
+        if (participantCheck.length === 0) return null;
+      }
+    }
     const result = await db.insert(messageReactions).values(data).returning();
     return result[0];
   },
 
-  async removeReaction(messageId: string, reactorType: string, reactorId: string, emoji: string): Promise<void> {
+  async removeReaction(messageId: string, reactorType: string, reactorId: string, emoji: string, coachId?: string): Promise<boolean> {
+    // If coachId provided, verify coach has access to the message's conversation
+    if (coachId) {
+      const msg = await db.select().from(messages).where(eq(messages.id, messageId));
+      if (msg.length === 0) return false;
+      const conversationId = msg[0].conversationId;
+      const conversation = await db.select().from(conversations).where(
+        and(eq(conversations.id, conversationId), eq(conversations.coachId, coachId))
+      );
+      if (conversation.length === 0) {
+        const participantCheck = await db.select().from(conversationParticipants).where(
+          and(
+            eq(conversationParticipants.conversationId, conversationId),
+            eq(conversationParticipants.coachId, coachId)
+          )
+        );
+        if (participantCheck.length === 0) return false;
+      }
+    }
+    
     if (reactorType === "coach") {
       await db.delete(messageReactions).where(
         and(
@@ -1549,6 +1700,7 @@ export const storage = {
         )
       );
     }
+    return true;
   },
 
   // Unread count
