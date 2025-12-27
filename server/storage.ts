@@ -167,12 +167,19 @@ export const storage = {
   },
 
   // ==================== COACHES ====================
-  async getCoach(id: string): Promise<Coach | undefined> {
-    const result = await db.select().from(coaches).where(eq(coaches.id, id));
+  async getCoach(id: string, academyId?: string): Promise<Coach | undefined> {
+    const conditions = [eq(coaches.id, id)];
+    if (academyId) {
+      conditions.push(eq(coaches.academyId, academyId));
+    }
+    const result = await db.select().from(coaches).where(and(...conditions));
     return result[0];
   },
 
-  async getAllCoaches(): Promise<Coach[]> {
+  async getAllCoaches(academyId?: string): Promise<Coach[]> {
+    if (academyId) {
+      return db.select().from(coaches).where(eq(coaches.academyId, academyId));
+    }
     return db.select().from(coaches);
   },
 
@@ -225,17 +232,29 @@ export const storage = {
   },
 
   // ==================== PLAYERS ====================
-  async getPlayer(id: string): Promise<Player | undefined> {
-    const result = await db.select().from(players).where(eq(players.id, id));
+  async getPlayer(id: string, academyId?: string): Promise<Player | undefined> {
+    const conditions = [eq(players.id, id)];
+    if (academyId) {
+      conditions.push(eq(players.academyId, academyId));
+    }
+    const result = await db.select().from(players).where(and(...conditions));
     return result[0];
   },
 
-  async getAllPlayers(): Promise<Player[]> {
+  async getAllPlayers(academyId?: string): Promise<Player[]> {
+    if (academyId) {
+      return db.select().from(players).where(eq(players.academyId, academyId));
+    }
     return db.select().from(players);
   },
 
-  async searchPlayers(query: string): Promise<Player[]> {
-    const allPlayers = await db.select().from(players);
+  async searchPlayers(query: string, academyId?: string): Promise<Player[]> {
+    let allPlayers: Player[];
+    if (academyId) {
+      allPlayers = await db.select().from(players).where(eq(players.academyId, academyId));
+    } else {
+      allPlayers = await db.select().from(players);
+    }
     const lowerQuery = query.toLowerCase();
     return allPlayers.filter(
       (p) =>
@@ -305,54 +324,56 @@ export const storage = {
   },
 
   // ==================== SESSIONS ====================
-  async getSession(id: string): Promise<Session | undefined> {
-    const result = await db.select().from(sessions).where(eq(sessions.id, id));
+  async getSession(id: string, academyId?: string): Promise<Session | undefined> {
+    const conditions = [eq(sessions.id, id)];
+    if (academyId) {
+      conditions.push(eq(sessions.academyId, academyId));
+    }
+    const result = await db.select().from(sessions).where(and(...conditions));
     return result[0];
   },
 
-  async getSessionsByCoach(coachId: string, startDate: Date, endDate: Date): Promise<Session[]> {
-    return db
-      .select()
-      .from(sessions)
-      .where(
-        and(
-          eq(sessions.coachId, coachId),
-          gte(sessions.startTime, startDate),
-          lte(sessions.startTime, endDate)
-        )
-      );
+  async getSessionsByCoach(coachId: string, startDate: Date, endDate: Date, academyId?: string): Promise<Session[]> {
+    const conditions = [
+      eq(sessions.coachId, coachId),
+      gte(sessions.startTime, startDate),
+      lte(sessions.startTime, endDate)
+    ];
+    if (academyId) {
+      conditions.push(eq(sessions.academyId, academyId));
+    }
+    return db.select().from(sessions).where(and(...conditions));
   },
 
-  async getAllSessionsByCoach(coachId: string): Promise<Session[]> {
-    return db
-      .select()
-      .from(sessions)
-      .where(eq(sessions.coachId, coachId));
+  async getAllSessionsByCoach(coachId: string, academyId?: string): Promise<Session[]> {
+    const conditions = [eq(sessions.coachId, coachId)];
+    if (academyId) {
+      conditions.push(eq(sessions.academyId, academyId));
+    }
+    return db.select().from(sessions).where(and(...conditions));
   },
 
-  async getSessionsByDateRange(startDate: Date, endDate: Date): Promise<Session[]> {
-    return db
-      .select()
-      .from(sessions)
-      .where(
-        and(
-          gte(sessions.startTime, startDate),
-          lte(sessions.startTime, endDate)
-        )
-      );
+  async getSessionsByDateRange(startDate: Date, endDate: Date, academyId?: string): Promise<Session[]> {
+    const conditions = [
+      gte(sessions.startTime, startDate),
+      lte(sessions.startTime, endDate)
+    ];
+    if (academyId) {
+      conditions.push(eq(sessions.academyId, academyId));
+    }
+    return db.select().from(sessions).where(and(...conditions));
   },
 
-  async getBlockedSessions(coachId: string, startDate: Date, endDate: Date): Promise<Session[]> {
-    return db
-      .select()
-      .from(sessions)
-      .where(
-        and(
-          ne(sessions.coachId, coachId),
-          gte(sessions.startTime, startDate),
-          lte(sessions.startTime, endDate)
-        )
-      );
+  async getBlockedSessions(coachId: string, startDate: Date, endDate: Date, academyId?: string): Promise<Session[]> {
+    const conditions = [
+      ne(sessions.coachId, coachId),
+      gte(sessions.startTime, startDate),
+      lte(sessions.startTime, endDate)
+    ];
+    if (academyId) {
+      conditions.push(eq(sessions.academyId, academyId));
+    }
+    return db.select().from(sessions).where(and(...conditions));
   },
 
   async createSession(data: InsertSession): Promise<Session> {
