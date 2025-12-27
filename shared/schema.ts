@@ -622,3 +622,104 @@ export const messageReactions = pgTable("message_reactions", {
 export const insertMessageReactionSchema = createInsertSchema(messageReactions).omit({ id: true, createdAt: true });
 export type InsertMessageReaction = z.infer<typeof insertMessageReactionSchema>;
 export type MessageReaction = typeof messageReactions.$inferSelect;
+
+// ==================== AVAILABILITY & COURT PREFERENCES ====================
+
+// Coach Availability - Weekly time blocks
+export const coachAvailability = pgTable("coach_availability", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  
+  weekday: integer("weekday").notNull(), // 0=Sunday, 1=Monday, etc.
+  startTime: text("start_time").notNull(), // HH:MM format
+  endTime: text("end_time").notNull(), // HH:MM format
+  
+  isActive: boolean("is_active").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCoachAvailabilitySchema = createInsertSchema(coachAvailability).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCoachAvailability = z.infer<typeof insertCoachAvailabilitySchema>;
+export type CoachAvailability = typeof coachAvailability.$inferSelect;
+
+// Availability Exceptions - Overrides for specific dates
+export const availabilityExceptions = pgTable("availability_exceptions", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  
+  reason: text("reason"), // holiday/sick/tournament/personal
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAvailabilityExceptionSchema = createInsertSchema(availabilityExceptions).omit({ id: true, createdAt: true });
+export type InsertAvailabilityException = z.infer<typeof insertAvailabilityExceptionSchema>;
+export type AvailabilityException = typeof availabilityExceptions.$inferSelect;
+
+// Coach Court Preferences - Priority list of courts
+export const coachCourtPreferences = pgTable("coach_court_preferences", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  courtId: varchar("court_id").references(() => courts.id).notNull(),
+  
+  priority: integer("priority").default(0), // Lower = higher priority
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCoachCourtPreferenceSchema = createInsertSchema(coachCourtPreferences).omit({ id: true, createdAt: true });
+export type InsertCoachCourtPreference = z.infer<typeof insertCoachCourtPreferenceSchema>;
+export type CoachCourtPreference = typeof coachCourtPreferences.$inferSelect;
+
+// Coach Court Rules - Global court preferences
+export const coachCourtRules = pgTable("coach_court_rules", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull().unique(),
+  
+  preferredType: text("preferred_type").default("no_preference"), // indoor/outdoor/no_preference
+  daylightOnly: boolean("daylight_only").default(false),
+  maxSessionsPerCourtPerDay: integer("max_sessions_per_court_per_day").default(8),
+  maxTotalSessionsPerDay: integer("max_total_sessions_per_day").default(10),
+  
+  fallbackBehavior: text("fallback_behavior").default("suggest"), // suggest/block
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCoachCourtRulesSchema = createInsertSchema(coachCourtRules).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCoachCourtRules = z.infer<typeof insertCoachCourtRulesSchema>;
+export type CoachCourtRules = typeof coachCourtRules.$inferSelect;
+
+// Coach Settings - Minimum session length, buffer time, etc.
+export const coachSettings = pgTable("coach_settings", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull().unique(),
+  
+  minSessionLength: integer("min_session_length").default(30), // minutes: 30/45/60/90
+  bufferBetweenSessions: integer("buffer_between_sessions").default(0), // minutes: 0/10/15/30
+  
+  availabilityPaused: boolean("availability_paused").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCoachSettingsSchema = createInsertSchema(coachSettings).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCoachSettings = z.infer<typeof insertCoachSettingsSchema>;
+export type CoachSettings = typeof coachSettings.$inferSelect;
