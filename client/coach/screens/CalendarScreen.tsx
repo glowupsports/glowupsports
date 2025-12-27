@@ -8,6 +8,7 @@ import {
   Dimensions,
   ActivityIndicator,
   Alert,
+  Platform,
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import Animated, {
@@ -2210,9 +2211,21 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: "#FFFFFF",
     fontWeight: "700",
-    textShadowColor: "rgba(0, 0, 0, 0.3)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    ...Platform.select({
+      ios: {
+        textShadowColor: "rgba(0, 0, 0, 0.3)",
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 2,
+      },
+      android: {
+        textShadowColor: "rgba(0, 0, 0, 0.3)",
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 2,
+      },
+      web: {
+        textShadow: "0 1px 2px rgba(0, 0, 0, 0.3)",
+      },
+    }),
   },
   sessionTime: {
     ...Typography.caption,
