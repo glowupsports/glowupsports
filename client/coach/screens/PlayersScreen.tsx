@@ -44,6 +44,48 @@ interface PlayerNote {
   updatedAt: string | null;
 }
 
+interface PlayerXpData {
+  totalXp: number;
+  transactions: { id: string; xpAmount: number; source: string; description: string | null; createdAt: string }[];
+}
+
+// Level progression thresholds (XP required for each level)
+const LEVEL_THRESHOLDS = {
+  red: { xpRequired: 0, nextLevel: "orange", xpForNext: 500 },
+  orange: { xpRequired: 500, nextLevel: "green", xpForNext: 1500 },
+  green: { xpRequired: 1500, nextLevel: "yellow", xpForNext: 3500 },
+  yellow: { xpRequired: 3500, nextLevel: "glow", xpForNext: 7000 },
+  glow: { xpRequired: 7000, nextLevel: null, xpForNext: null },
+};
+
+type LevelReadiness = {
+  nextLevel: string;
+  progress: number;
+  xpRemaining: number;
+  xpInLevel: number;
+  xpNeeded: number;
+} | null;
+
+const getLevelReadiness = (currentLevel: string | null, totalXp: number): LevelReadiness => {
+  if (!currentLevel) return null;
+  const levelData = LEVEL_THRESHOLDS[currentLevel.toLowerCase() as keyof typeof LEVEL_THRESHOLDS];
+  // Return null for max level (Glow) or invalid level - no progress card needed
+  if (!levelData || !levelData.nextLevel || !levelData.xpForNext) return null;
+  
+  const xpInLevel = totalXp - levelData.xpRequired;
+  const xpNeeded = levelData.xpForNext - levelData.xpRequired;
+  const progress = Math.min(100, Math.max(0, (xpInLevel / xpNeeded) * 100));
+  const xpRemaining = Math.max(0, levelData.xpForNext - totalXp);
+  
+  return {
+    nextLevel: levelData.nextLevel,
+    progress,
+    xpRemaining,
+    xpInLevel,
+    xpNeeded,
+  };
+};
+
 const NOTE_CATEGORIES = [
   { value: "technique", label: "Technique", icon: "fitness-outline" as const },
   { value: "mental", label: "Mental", icon: "bulb-outline" as const },
@@ -426,6 +468,13 @@ function PlayerDetailView({
     queryKey: [`/api/players/${player.id}/notes`],
   });
 
+  const { data: xpData } = useQuery<PlayerXpData>({
+    queryKey: [`/api/players/${player.id}/xp`],
+  });
+
+  // Calculate level readiness (returns null for max level or invalid level)
+  const levelReadiness = getLevelReadiness(player.ballLevel, xpData?.totalXp || 0);
+
   const addNoteMutation = useMutation({
     mutationFn: async (data: { content: string; category: string }) => {
       return apiRequest("POST", `/api/players/${player.id}/notes`, {
@@ -543,6 +592,59 @@ function PlayerDetailView({
             </View>
           ) : null}
         </View>
+
+        {player.ballLevel && levelReadiness ? (
+          <View style={styles.levelReadinessCard}>
+            <View style={styles.levelReadinessHeader}>
+              <View style={styles.levelReadinessIcon}>
+                <Ionicons name="trending-up" size={18} color={Colors.dark.primary} />
+              </View>
+              <Text style={styles.levelReadinessTitle}>Level Readiness</Text>
+              {xpData ? (
+                <View style={styles.xpBadge}>
+                  <Ionicons name="flash" size={12} color={Colors.dark.xpCyan} />
+                  <Text style={styles.xpBadgeText}>{xpData.totalXp} XP</Text>
+                </View>
+              ) : null}
+            </View>
+            
+            <View style={styles.progressContainer}>
+              <View style={styles.levelLabels}>
+                <View style={styles.currentLevelLabel}>
+                  <View style={[styles.levelDotSmall, { backgroundColor: getLevelColor(player.ballLevel) }]} />
+                  <Text style={styles.levelLabelText}>
+                    {player.ballLevel.charAt(0).toUpperCase() + player.ballLevel.slice(1)}
+                  </Text>
+                </View>
+                <Ionicons name="arrow-forward" size={14} color={Colors.dark.tabIconDefault} />
+                <View style={styles.nextLevelLabel}>
+                  <View style={[styles.levelDotSmall, { backgroundColor: getLevelColor(levelReadiness.nextLevel) }]} />
+                  <Text style={styles.levelLabelText}>
+                    {levelReadiness.nextLevel.charAt(0).toUpperCase() + levelReadiness.nextLevel.slice(1)}
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.progressBarContainer}>
+                <View style={styles.progressBarBackground}>
+                  <LinearGradient
+                    colors={[getLevelColor(player.ballLevel), getLevelColor(levelReadiness.nextLevel)]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.progressBarFill, { width: `${levelReadiness.progress}%` }]}
+                  />
+                </View>
+                <Text style={styles.progressPercent}>{Math.round(levelReadiness.progress)}%</Text>
+              </View>
+              
+              <Text style={styles.xpRemainingText}>
+                {levelReadiness.xpRemaining > 0 
+                  ? `${levelReadiness.xpRemaining} XP to ${levelReadiness.nextLevel.charAt(0).toUpperCase() + levelReadiness.nextLevel.slice(1)} Ball`
+                  : "Ready for level up!"}
+              </Text>
+            </View>
+          </View>
+        ) : null}
 
         {nextLessonNotes.length > 0 ? (
           <View style={styles.nextLessonSection}>
@@ -1306,5 +1408,104 @@ const styles = StyleSheet.create({
     fontSize: Typography.body.fontSize,
     color: Colors.dark.backgroundDefault,
     fontWeight: "600",
+  },
+  levelReadinessCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.lg,
+  },
+  levelReadinessHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  levelReadinessIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.primary + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  levelReadinessTitle: {
+    flex: 1,
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  xpBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+  },
+  xpBadgeText: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan,
+  },
+  progressContainer: {
+    gap: Spacing.sm,
+  },
+  levelLabels: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.md,
+  },
+  currentLevelLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  nextLevelLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  levelDotSmall: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  levelLabelText: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "500",
+    color: Colors.dark.text,
+  },
+  progressBarContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  progressBarBackground: {
+    flex: 1,
+    height: 8,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.full,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    borderRadius: BorderRadius.full,
+  },
+  progressPercent: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    minWidth: 36,
+    textAlign: "right",
+  },
+  xpRemainingText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+    textAlign: "center",
+    marginTop: Spacing.xs,
   },
 });
