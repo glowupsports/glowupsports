@@ -203,8 +203,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
     if (currentChannel === "coaches" && conversationId) {
       try {
-        const url = new URL(`/api/conversations/${conversationId}/messages`, getApiUrl());
-        await apiRequest(url.toString(), "POST", {
+        await apiRequest("POST", `/api/conversations/${conversationId}/messages`, {
           senderType: "player",
           senderPlayerId: player.id,
           body: messageText,
@@ -253,8 +252,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const targetMessage = messages.find((m) => m.id === messageId);
     if (targetMessage?.channel === "coaches" && conversationId) {
       try {
-        const url = new URL(`/api/messages/${messageId}/reactions`, getApiUrl());
-        await apiRequest(url.toString(), "POST", {
+        await apiRequest("POST", `/api/messages/${messageId}/reactions`, {
           reactorType: "player",
           reactorPlayerId: player.id,
           emoji,

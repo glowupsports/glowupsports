@@ -475,8 +475,7 @@ export default function CalendarScreen() {
       endTime: string;
       courtId?: string;
     }) => {
-      const url = new URL(`/api/sessions/${sessionId}`, getApiUrl());
-      return apiRequest(url.toString(), "PATCH", { startTime, endTime, courtId });
+      return apiRequest("PATCH", `/api/sessions/${sessionId}`, { startTime, endTime, courtId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });

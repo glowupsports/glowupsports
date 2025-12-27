@@ -144,8 +144,7 @@ export function CoachChatFooter() {
   const createConversationMutation = useMutation({
     mutationFn: async ({ type, playerId, title }: { type: string; playerId?: string; title?: string }): Promise<Conversation> => {
       if (!coach) throw new Error("No coach");
-      const url = new URL("/api/conversations", getApiUrl());
-      const response = await apiRequest(url.toString(), "POST", {
+      const response = await apiRequest("POST", "/api/conversations", {
         type,
         playerId,
         coachId: coach.id,
@@ -165,8 +164,7 @@ export function CoachChatFooter() {
   const sendMessageMutation = useMutation({
     mutationFn: async (body: string) => {
       if (!selectedConversation || !coach) return;
-      const url = new URL(`/api/conversations/${selectedConversation.id}/messages`, getApiUrl());
-      return apiRequest(url.toString(), "POST", {
+      return apiRequest("POST", `/api/conversations/${selectedConversation.id}/messages`, {
         senderType: "coach",
         senderCoachId: coach.id,
         body,
@@ -183,8 +181,7 @@ export function CoachChatFooter() {
   const addReactionMutation = useMutation({
     mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
       if (!coach) return;
-      const url = new URL(`/api/messages/${messageId}/reactions`, getApiUrl());
-      return apiRequest(url.toString(), "POST", {
+      return apiRequest("POST", `/api/messages/${messageId}/reactions`, {
         reactorType: "coach",
         reactorCoachId: coach.id,
         emoji,

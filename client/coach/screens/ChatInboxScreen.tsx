@@ -71,8 +71,7 @@ export default function ChatInboxScreen() {
   const sendMessageMutation = useMutation({
     mutationFn: async (body: string) => {
       if (!selectedConversation || !coach) return;
-      const url = new URL(`/api/conversations/${selectedConversation.id}/messages`, getApiUrl());
-      return apiRequest(url.toString(), "POST", {
+      return apiRequest("POST", `/api/conversations/${selectedConversation.id}/messages`, {
         senderType: "coach",
         senderCoachId: coach.id,
         body,
@@ -88,8 +87,7 @@ export default function ChatInboxScreen() {
   const addReactionMutation = useMutation({
     mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
       if (!coach) return;
-      const url = new URL(`/api/messages/${messageId}/reactions`, getApiUrl());
-      return apiRequest(url.toString(), "POST", {
+      return apiRequest("POST", `/api/messages/${messageId}/reactions`, {
         reactorType: "coach",
         reactorCoachId: coach.id,
         emoji,
