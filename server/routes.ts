@@ -769,6 +769,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch session" });
     }
   });
+  
+  // Update session (for drag-and-drop reschedule)
+  app.patch("/api/sessions/:sessionId", async (req: Request, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+      const { startTime, endTime, courtId } = req.body;
+      
+      const session = await storage.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      const updateData: Record<string, any> = {};
+      if (startTime) updateData.startTime = startTime;
+      if (endTime) updateData.endTime = endTime;
+      if (courtId !== undefined) updateData.courtId = courtId;
+      
+      const updatedSession = await storage.updateSession(sessionId, updateData);
+      res.json(updatedSession);
+    } catch (error) {
+      console.error("Error updating session:", error);
+      res.status(500).json({ error: "Failed to update session" });
+    }
+  });
 
   // Save session feedback
   app.post("/api/coach/sessions/:id/feedback", async (req: Request, res: Response) => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -15,8 +15,13 @@ import Animated, {
   useAnimatedStyle,
   withRepeat,
   withTiming,
+  withSpring,
   Easing,
+  runOnJS,
 } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -123,8 +128,319 @@ interface Court {
   name: string;
 }
 
+interface DraggableSessionProps {
+  session: Session;
+  top: number;
+  height: number;
+  isPast: boolean;
+  isActive: boolean;
+  gradientColors: readonly [string, string, ...string[]];
+  sessionLabel: string;
+  hourHeight: number;
+  onTap: () => void;
+  onLongPress: () => void;
+  onDragEnd: (deltaY: number, deltaX: number) => void;
+  courtLaneWidth: number;
+}
+
+function DraggableSessionBlock({
+  session,
+  top,
+  height,
+  isPast,
+  isActive,
+  gradientColors,
+  sessionLabel,
+  hourHeight,
+  onTap,
+  onLongPress,
+  onDragEnd,
+  courtLaneWidth,
+}: DraggableSessionProps) {
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const scale = useSharedValue(1);
+  const zIndex = useSharedValue(1);
+  const isDragging = useSharedValue(false);
+
+  const panGesture = Gesture.Pan()
+    .activateAfterLongPress(300)
+    .onStart(() => {
+      isDragging.value = true;
+      scale.value = withSpring(1.05);
+      zIndex.value = 100;
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Medium);
+    })
+    .onUpdate((event) => {
+      translateX.value = event.translationX;
+      translateY.value = event.translationY;
+    })
+    .onEnd((event) => {
+      isDragging.value = false;
+      scale.value = withSpring(1);
+      zIndex.value = 1;
+      
+      const snapY = Math.round(event.translationY / (hourHeight / 2)) * (hourHeight / 2);
+      const snapX = Math.round(event.translationX / courtLaneWidth) * courtLaneWidth;
+      
+      if (Math.abs(snapY) >= hourHeight / 4 || Math.abs(snapX) >= courtLaneWidth / 2) {
+        runOnJS(onDragEnd)(snapY, snapX);
+      }
+      
+      translateX.value = withSpring(0);
+      translateY.value = withSpring(0);
+    });
+
+  const tapGesture = Gesture.Tap()
+    .onEnd(() => {
+      runOnJS(onTap)();
+    });
+
+  const longPressGesture = Gesture.LongPress()
+    .minDuration(300)
+    .onEnd(() => {
+      if (!isDragging.value) {
+        runOnJS(onLongPress)();
+      }
+    });
+
+  const composed = Gesture.Race(panGesture, Gesture.Exclusive(longPressGesture, tapGesture));
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+    zIndex: zIndex.value,
+    shadowOpacity: isDragging.value ? 0.3 : 0,
+    shadowRadius: isDragging.value ? 8 : 0,
+    elevation: isDragging.value ? 8 : 0,
+  }));
+
+  return (
+    <GestureDetector gesture={composed}>
+      <Animated.View
+        style={[
+          dragStyles.sessionBlock,
+          {
+            top,
+            height: height - 4,
+            opacity: isPast ? 0.5 : 1,
+          },
+          isActive && dragStyles.sessionBlockActive,
+          animatedStyle,
+        ]}
+      >
+        <LinearGradient
+          colors={gradientColors}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={dragStyles.sessionGradient}
+        >
+          <Text style={dragStyles.sessionText} numberOfLines={1}>
+            {sessionLabel}
+          </Text>
+          <Text style={dragStyles.sessionTime} numberOfLines={1}>
+            {new Date(session.startTime).toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            })}
+          </Text>
+        </LinearGradient>
+      </Animated.View>
+    </GestureDetector>
+  );
+}
+
+interface WeekDraggableSessionProps {
+  session: Session;
+  top: number;
+  height: number;
+  isPast: boolean;
+  isActive: boolean;
+  gradientColors: readonly [string, string, ...string[]];
+  sessionLabel: string;
+  hourHeight: number;
+  onTap: () => void;
+  onLongPress: () => void;
+  onDragEnd: (deltaY: number, deltaX: number) => void;
+  dayColumnWidth: number;
+}
+
+function WeekDraggableSessionBlock({
+  session,
+  top,
+  height,
+  isPast,
+  isActive,
+  gradientColors,
+  sessionLabel,
+  hourHeight,
+  onTap,
+  onLongPress,
+  onDragEnd,
+  dayColumnWidth,
+}: WeekDraggableSessionProps) {
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const scale = useSharedValue(1);
+  const zIndex = useSharedValue(1);
+  const isDragging = useSharedValue(false);
+
+  const panGesture = Gesture.Pan()
+    .activateAfterLongPress(300)
+    .onStart(() => {
+      isDragging.value = true;
+      scale.value = withSpring(1.1);
+      zIndex.value = 100;
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Medium);
+    })
+    .onUpdate((event) => {
+      translateX.value = event.translationX;
+      translateY.value = event.translationY;
+    })
+    .onEnd((event) => {
+      isDragging.value = false;
+      scale.value = withSpring(1);
+      zIndex.value = 1;
+      
+      const snapY = Math.round(event.translationY / (hourHeight / 2)) * (hourHeight / 2);
+      const snapX = Math.round(event.translationX / dayColumnWidth) * dayColumnWidth;
+      
+      if (Math.abs(snapY) >= hourHeight / 4 || Math.abs(snapX) >= dayColumnWidth / 2) {
+        runOnJS(onDragEnd)(snapY, snapX);
+      }
+      
+      translateX.value = withSpring(0);
+      translateY.value = withSpring(0);
+    });
+
+  const tapGesture = Gesture.Tap()
+    .onEnd(() => {
+      runOnJS(onTap)();
+    });
+
+  const composed = Gesture.Race(panGesture, tapGesture);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+    zIndex: zIndex.value,
+    shadowOpacity: isDragging.value ? 0.4 : 0,
+    shadowRadius: isDragging.value ? 10 : 0,
+    elevation: isDragging.value ? 10 : 0,
+  }));
+
+  return (
+    <GestureDetector gesture={composed}>
+      <Animated.View
+        style={[
+          dragStyles.weekSessionBlock,
+          {
+            top,
+            height: Math.max(height - 2, 20),
+            opacity: isPast ? 0.5 : 1,
+          },
+          isActive && dragStyles.weekSessionBlockActive,
+          animatedStyle,
+        ]}
+      >
+        <LinearGradient
+          colors={gradientColors}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={dragStyles.weekSessionGradient}
+        >
+          <Text style={dragStyles.weekSessionText} numberOfLines={1}>
+            {sessionLabel}
+          </Text>
+          {height > 40 && (
+            <Text style={dragStyles.weekSessionTime} numberOfLines={1}>
+              {new Date(session.startTime).toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              })}
+            </Text>
+          )}
+        </LinearGradient>
+      </Animated.View>
+    </GestureDetector>
+  );
+}
+
+const dragStyles = StyleSheet.create({
+  sessionBlock: {
+    position: "absolute",
+    left: 2,
+    right: 2,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  sessionBlockActive: {
+    borderWidth: 2,
+    borderColor: Colors.dark.primary,
+  },
+  sessionGradient: {
+    flex: 1,
+    padding: Spacing.xs,
+    justifyContent: "center",
+  },
+  sessionText: {
+    ...Typography.caption,
+    color: "rgba(255, 255, 255, 0.95)",
+    fontWeight: "700",
+    fontSize: 11,
+  },
+  sessionTime: {
+    ...Typography.caption,
+    fontSize: 9,
+    color: "rgba(255, 255, 255, 0.8)",
+    fontWeight: "500",
+    marginTop: 1,
+  },
+  weekSessionBlock: {
+    position: "absolute",
+    left: 1,
+    right: 1,
+    borderRadius: BorderRadius.sm,
+    overflow: "hidden",
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  weekSessionBlockActive: {
+    borderWidth: 1,
+    borderColor: Colors.dark.primary,
+  },
+  weekSessionGradient: {
+    flex: 1,
+    padding: 2,
+    justifyContent: "center",
+  },
+  weekSessionText: {
+    ...Typography.caption,
+    color: "rgba(255, 255, 255, 0.95)",
+    fontWeight: "700",
+    fontSize: 8,
+  },
+  weekSessionTime: {
+    ...Typography.caption,
+    fontSize: 7,
+    color: "rgba(255, 255, 255, 0.8)",
+    fontWeight: "500",
+  },
+});
+
 export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const {
     coach,
     setCoach,
@@ -145,6 +461,93 @@ export default function CalendarScreen() {
   const [selectedSessionForAttendance, setSelectedSessionForAttendance] = useState<Session | null>(null);
   const [weekMode, setWeekMode] = useState<"overview" | "availability">("overview");
   const [monthMode, setMonthMode] = useState<"load" | "availability">("load");
+  const [draggingSession, setDraggingSession] = useState<string | null>(null);
+  
+  const updateSessionMutation = useMutation({
+    mutationFn: async ({ sessionId, startTime, endTime, courtId }: { 
+      sessionId: string; 
+      startTime: string; 
+      endTime: string;
+      courtId?: string;
+    }) => {
+      const url = new URL(`/api/sessions/${sessionId}`, getApiUrl());
+      return apiRequest(url.toString(), "PATCH", { startTime, endTime, courtId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Error", "Failed to move session. Please try again.");
+    },
+  });
+  
+  const handleSessionDragEnd = useCallback((
+    session: Session, 
+    deltaY: number, 
+    deltaX: number,
+    currentCourtIndex: number
+  ) => {
+    const hoursChanged = deltaY / hourHeight;
+    const courtsChanged = Math.round(deltaX / COURT_LANE_WIDTH);
+    
+    const originalStart = new Date(session.startTime);
+    const originalEnd = new Date(session.endTime);
+    
+    const newStart = new Date(originalStart);
+    newStart.setMinutes(newStart.getMinutes() + Math.round(hoursChanged * 60));
+    
+    const newEnd = new Date(originalEnd);
+    newEnd.setMinutes(newEnd.getMinutes() + Math.round(hoursChanged * 60));
+    
+    const newCourtIndex = Math.max(0, Math.min(courts.length - 1, currentCourtIndex + courtsChanged));
+    const newCourtId = courts[newCourtIndex]?.id;
+    
+    if (newStart.getHours() < START_HOUR || newEnd.getHours() > END_HOUR + 1) {
+      Alert.alert("Invalid Time", "Session cannot be moved outside operating hours.");
+      return;
+    }
+    
+    updateSessionMutation.mutate({
+      sessionId: session.id,
+      startTime: newStart.toISOString(),
+      endTime: newEnd.toISOString(),
+      courtId: newCourtId,
+    });
+  }, [hourHeight, courts, updateSessionMutation]);
+  
+  const handleWeekSessionDragEnd = useCallback((
+    session: Session,
+    deltaY: number,
+    deltaX: number,
+    dayColumnWidth: number
+  ) => {
+    const minutesChanged = Math.round((deltaY / hourHeight) * 60);
+    const daysChanged = Math.round(deltaX / dayColumnWidth);
+    
+    const originalStart = new Date(session.startTime);
+    const originalEnd = new Date(session.endTime);
+    
+    const newStart = new Date(originalStart.getTime());
+    newStart.setDate(originalStart.getDate() + daysChanged);
+    newStart.setMinutes(originalStart.getMinutes() + minutesChanged);
+    
+    const newEnd = new Date(originalEnd.getTime());
+    newEnd.setDate(originalEnd.getDate() + daysChanged);
+    newEnd.setMinutes(originalEnd.getMinutes() + minutesChanged);
+    
+    if (newStart.getHours() < START_HOUR || newEnd.getHours() > END_HOUR + 1) {
+      Alert.alert("Invalid Time", "Session cannot be moved outside operating hours.");
+      return;
+    }
+    
+    updateSessionMutation.mutate({
+      sessionId: session.id,
+      startTime: newStart.toISOString(),
+      endTime: newEnd.toISOString(),
+    });
+  }, [hourHeight, updateSessionMutation]);
 
   // Fetch available coaches
   const { data: coaches = [], isLoading: coachesLoading } = useQuery<CoachData[]>({
@@ -733,7 +1136,7 @@ export default function CalendarScreen() {
                       </Pressable>
                     ))}
 
-                    {/* Render sessions for this court (or unassigned sessions in first court) */}
+                    {/* Render draggable sessions for this court (or unassigned sessions in first court) */}
                     {ownSessions
                       .filter((s) => s.courtId === court.id || (s.courtId === null && courtIndex === 0))
                       .map((session) => {
@@ -750,39 +1153,21 @@ export default function CalendarScreen() {
                                             session.sessionType;
                         const gradientColors = getSessionTypeGradient(session.sessionType);
                         return (
-                          <Pressable
+                          <DraggableSessionBlock
                             key={session.id}
-                            onPress={() => handleAttendance(session)}
+                            session={session}
+                            top={top}
+                            height={height}
+                            isPast={isPast}
+                            isActive={isActive}
+                            gradientColors={gradientColors}
+                            sessionLabel={sessionLabel}
+                            hourHeight={hourHeight}
+                            courtLaneWidth={COURT_LANE_WIDTH}
+                            onTap={() => handleAttendance(session)}
                             onLongPress={() => handleSessionLongPress(session)}
-                            delayLongPress={300}
-                            style={[
-                              styles.sessionBlock,
-                              {
-                                top,
-                                height: height - 4,
-                                opacity: isPast ? 0.5 : 1,
-                              },
-                              isActive && styles.sessionBlockActive,
-                            ]}
-                          >
-                            <LinearGradient
-                              colors={gradientColors}
-                              start={{ x: 0, y: 0 }}
-                              end={{ x: 1, y: 1 }}
-                              style={styles.sessionGradient}
-                            >
-                              <Text style={styles.sessionText} numberOfLines={1}>
-                                {sessionLabel}
-                              </Text>
-                              <Text style={styles.sessionTime} numberOfLines={1}>
-                                {new Date(session.startTime).toLocaleTimeString("en-US", {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                  hour12: false,
-                                })}
-                              </Text>
-                            </LinearGradient>
-                          </Pressable>
+                            onDragEnd={(deltaY, deltaX) => handleSessionDragEnd(session, deltaY, deltaX, courtIndex)}
+                          />
                         );
                       })}
 
@@ -1010,7 +1395,7 @@ export default function CalendarScreen() {
                             );
                           })}
 
-                          {/* Render sessions for this day */}
+                          {/* Render draggable sessions for this day */}
                           {daySessions.map((session) => {
                             const { top, height } = getWeekSessionPosition(session);
                             const now = new Date();
@@ -1022,46 +1407,27 @@ export default function CalendarScreen() {
                             const sessionLabel = session.sessionType === "private" ? "Private" :
                                                 session.sessionType === "semi_private" ? "Semi" :
                                                 session.sessionType === "group" ? "Group" : session.sessionType;
+                            const dayColumnWidth = (SCREEN_WIDTH - TIME_COLUMN_WIDTH - Spacing.lg * 2) / 7;
                             
                             return (
-                              <Pressable
+                              <WeekDraggableSessionBlock
                                 key={session.id}
-                                onPress={() => {
+                                session={session}
+                                top={top}
+                                height={height}
+                                isPast={isPast}
+                                isActive={isActive}
+                                gradientColors={gradientColors}
+                                sessionLabel={sessionLabel}
+                                hourHeight={hourHeight}
+                                dayColumnWidth={dayColumnWidth}
+                                onTap={() => {
                                   setSelectedDate(date);
                                   handleAttendance(session);
                                 }}
                                 onLongPress={() => handleSessionLongPress(session)}
-                                delayLongPress={300}
-                                style={[
-                                  styles.weekSessionBlock,
-                                  {
-                                    top,
-                                    height: Math.max(height - 2, 20),
-                                    opacity: isPast ? 0.5 : 1,
-                                  },
-                                  isActive && styles.weekSessionBlockActive,
-                                ]}
-                              >
-                                <LinearGradient
-                                  colors={gradientColors}
-                                  start={{ x: 0, y: 0 }}
-                                  end={{ x: 1, y: 1 }}
-                                  style={styles.weekSessionGradient}
-                                >
-                                  <Text style={styles.weekSessionText} numberOfLines={1}>
-                                    {sessionLabel}
-                                  </Text>
-                                  {height > 40 && (
-                                    <Text style={styles.weekSessionTime} numberOfLines={1}>
-                                      {new Date(session.startTime).toLocaleTimeString("en-US", {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                        hour12: false,
-                                      })}
-                                    </Text>
-                                  )}
-                                </LinearGradient>
-                              </Pressable>
+                                onDragEnd={(deltaY, deltaX) => handleWeekSessionDragEnd(session, deltaY, deltaX, dayColumnWidth)}
+                              />
                             );
                           })}
 
