@@ -8,6 +8,7 @@ import {
   Dimensions,
   Platform,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, {
@@ -194,8 +195,10 @@ export function CoachChatFooter() {
     height: height.value,
   }));
 
+  const isSampleConversation = selectedConversation?.id?.startsWith("sample-") || false;
+  
   const handleSend = async () => {
-    if (inputText.trim() && selectedConversation) {
+    if (inputText.trim() && selectedConversation && !isSampleConversation) {
       sendMessageMutation.mutate(inputText.trim());
       setInputText("");
       setTimeout(() => {
@@ -234,10 +237,38 @@ export function CoachChatFooter() {
 
   const handleTabChange = (tab: ChatTab) => {
     setCurrentTab(tab);
+    
+    // Reset all selector states when changing tabs
+    setShowNewMessage(false);
+    setShowSquadSelector(false);
+    setShowCoachSelector(false);
+    
     if (selectedConversation && !CHAT_TABS.find(t => t.id === tab)?.types.includes(selectedConversation.type)) {
       setSelectedConversation(null);
     }
+    
+    if (tab === "academy") {
+      const academyConv = conversations.find(c => c.type === "academy");
+      if (academyConv) {
+        setSelectedConversation(academyConv);
+      }
+    } else {
+      // Clear selection when switching to other tabs (unless staying within same type)
+      if (selectedConversation?.type === "academy") {
+        setSelectedConversation(null);
+      }
+    }
   };
+  
+  // Auto-select Academy conversation when data loads and Academy tab is active
+  useEffect(() => {
+    if (currentTab === "academy" && !selectedConversation && conversations.length > 0) {
+      const academyConv = conversations.find(c => c.type === "academy");
+      if (academyConv) {
+        setSelectedConversation(academyConv);
+      }
+    }
+  }, [currentTab, conversations, selectedConversation]);
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isOwn = item.senderType === "coach" && item.senderCoachId === coach?.id;
@@ -440,44 +471,47 @@ export function CoachChatFooter() {
   );
 
   const renderTabBar = () => (
-    <View style={styles.tabBar}>
-      {CHAT_TABS.map((tab) => (
-        <Pressable
-          key={tab.id}
-          onPress={() => handleTabChange(tab.id)}
-          style={[
-            styles.tab,
-            currentTab === tab.id && styles.tabActive,
-          ]}
-        >
-          <Ionicons
-            name={tab.icon}
-            size={16}
-            color={currentTab === tab.id ? Colors.dark.primary : Colors.dark.text}
-          />
-          <ThemedText
+    <View style={styles.tabBarContainer}>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.tabBar}
+      >
+        {CHAT_TABS.map((tab) => (
+          <Pressable
+            key={tab.id}
+            onPress={() => handleTabChange(tab.id)}
             style={[
-              styles.tabName,
-              currentTab === tab.id && styles.tabNameActive,
+              styles.tab,
+              currentTab === tab.id && styles.tabActive,
             ]}
           >
-            {tab.name}
-          </ThemedText>
-        </Pressable>
-      ))}
-      {currentTab === "players" ? (
-        <Pressable onPress={() => setShowNewMessage(true)} style={styles.addButton}>
-          <Ionicons name="add" size={18} color={Colors.dark.primary} />
-        </Pressable>
-      ) : null}
-      {currentTab === "coaches" ? (
-        <Pressable onPress={() => setShowCoachSelector(true)} style={styles.addButton}>
-          <Ionicons name="add" size={18} color={Colors.dark.primary} />
-        </Pressable>
-      ) : null}
-      {currentTab === "squad" ? (
-        <Pressable onPress={() => setShowSquadSelector(true)} style={styles.addButton}>
-          <Ionicons name="add" size={18} color={Colors.dark.primary} />
+            <Ionicons
+              name={tab.icon}
+              size={16}
+              color={currentTab === tab.id ? Colors.dark.primary : Colors.dark.text}
+            />
+            <ThemedText
+              style={[
+                styles.tabName,
+                currentTab === tab.id && styles.tabNameActive,
+              ]}
+            >
+              {tab.name}
+            </ThemedText>
+          </Pressable>
+        ))}
+      </ScrollView>
+      {currentTab === "players" || currentTab === "coaches" || currentTab === "squad" ? (
+        <Pressable 
+          onPress={() => {
+            if (currentTab === "players") setShowNewMessage(true);
+            else if (currentTab === "coaches") setShowCoachSelector(true);
+            else if (currentTab === "squad") setShowSquadSelector(true);
+          }} 
+          style={styles.addButton}
+        >
+          <Ionicons name="add" size={20} color={Colors.dark.backgroundRoot} />
         </Pressable>
       ) : null}
     </View>
@@ -591,18 +625,19 @@ export function CoachChatFooter() {
                 <TextInput
                   value={inputText}
                   onChangeText={setInputText}
-                  placeholder="Type a message..."
+                  placeholder={isSampleConversation ? "Demo chat - read only" : "Type a message..."}
                   placeholderTextColor={Colors.dark.disabled}
                   style={styles.input}
                   onSubmitEditing={handleSend}
                   returnKeyType="send"
+                  editable={!isSampleConversation}
                 />
                 <Pressable
                   onPress={handleSend}
-                  disabled={sendMessageMutation.isPending}
+                  disabled={sendMessageMutation.isPending || isSampleConversation}
                   style={({ pressed }) => [
                     styles.sendButton,
-                    { opacity: pressed || sendMessageMutation.isPending ? 0.7 : 1 },
+                    { opacity: pressed || sendMessageMutation.isPending || isSampleConversation ? 0.5 : 1 },
                   ]}
                 >
                   <Ionicons name="send-outline" size={20} color={Colors.dark.buttonText} />
@@ -684,13 +719,18 @@ const styles = StyleSheet.create({
   expandedContent: {
     flex: 1,
   },
+  tabBarContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundSecondary,
+    paddingBottom: Spacing.sm,
+  },
   tabBar: {
     flexDirection: "row",
     paddingHorizontal: Spacing.sm,
     gap: Spacing.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.backgroundSecondary,
-    paddingBottom: Spacing.sm,
+    flex: 1,
   },
   tab: {
     flexDirection: "row",
@@ -913,9 +953,13 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.xs,
   },
   addButton: {
-    marginLeft: "auto",
-    padding: Spacing.xs,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    marginRight: Spacing.sm,
+    padding: Spacing.sm,
+    backgroundColor: Colors.dark.primary,
     borderRadius: BorderRadius.full,
+    width: 32,
+    height: 32,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

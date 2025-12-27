@@ -1562,7 +1562,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
       
-      res.json(enriched);
+      // Add sample conversations for different types if they don't exist
+      const hasAcademy = enriched.some(c => c.type === "academy");
+      const hasAdmin = enriched.some(c => c.type === "admin");
+      const hasSquad = enriched.some(c => c.type === "squad");
+      const hasCoachCoach = enriched.some(c => c.type === "coach_coach");
+      
+      const sampleConversations: any[] = [];
+      
+      if (!hasAcademy) {
+        sampleConversations.push({
+          id: "sample-academy",
+          type: "academy",
+          title: "Academy Announcements",
+          playerId: null,
+          coachId: id,
+          lastMessageAt: new Date().toISOString(),
+          lastMessagePreview: "Welcome to the winter training program!",
+          isArchived: false,
+          participants: [],
+          playerName: null,
+        });
+      }
+      
+      if (!hasAdmin) {
+        sampleConversations.push({
+          id: "sample-admin",
+          type: "admin",
+          title: "Staff Chat",
+          playerId: null,
+          coachId: id,
+          lastMessageAt: new Date().toISOString(),
+          lastMessagePreview: "Court 3 maintenance scheduled for tomorrow",
+          isArchived: false,
+          participants: [],
+          playerName: null,
+        });
+      }
+      
+      if (!hasSquad) {
+        sampleConversations.push({
+          id: "sample-squad-1",
+          type: "squad",
+          title: "Red 2 Squad",
+          playerId: null,
+          coachId: id,
+          lastMessageAt: new Date().toISOString(),
+          lastMessagePreview: "Great practice today everyone!",
+          isArchived: false,
+          participants: [],
+          playerName: null,
+        });
+      }
+      
+      if (!hasCoachCoach) {
+        sampleConversations.push({
+          id: "sample-coach-maria",
+          type: "coach_coach",
+          title: "Coach Maria",
+          playerId: null,
+          coachId: id,
+          lastMessageAt: new Date().toISOString(),
+          lastMessagePreview: "Did you see the new training schedule?",
+          isArchived: false,
+          participants: [],
+          playerName: null,
+        });
+      }
+      
+      res.json([...enriched, ...sampleConversations]);
     } catch (error) {
       console.error("Error fetching conversations:", error);
       res.status(500).json({ error: "Failed to fetch conversations" });
@@ -1665,6 +1733,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const limit = parseInt(req.query.limit as string) || 50;
       
+      // Handle sample conversations with sample messages
+      if (id.startsWith("sample-")) {
+        const sampleMessages = getSampleMessages(id);
+        return res.json(sampleMessages);
+      }
+      
       const messages = await storage.getMessages(id, limit);
       
       // Enrich with reactions
@@ -1681,6 +1755,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch messages" });
     }
   });
+  
+  // Helper function for sample messages
+  function getSampleMessages(conversationId: string) {
+    const now = new Date();
+    const hour = 60 * 60 * 1000;
+    
+    if (conversationId === "sample-academy") {
+      return [
+        {
+          id: "msg-academy-1",
+          conversationId,
+          senderType: "system",
+          senderCoachId: null,
+          senderPlayerId: null,
+          body: "Sarah M. leveled up to Level 3! Great progress in Technical skills.",
+          messageType: "system",
+          createdAt: new Date(now.getTime() - 3 * hour).toISOString(),
+          reactions: [],
+        },
+        {
+          id: "msg-academy-2",
+          conversationId,
+          senderType: "coach",
+          senderCoachId: null,
+          senderPlayerId: null,
+          body: "Welcome to the winter training program! Looking forward to an amazing season.",
+          messageType: "text",
+          createdAt: new Date(now.getTime() - 2 * hour).toISOString(),
+          reactions: [],
+        },
+        {
+          id: "msg-academy-3",
+          conversationId,
+          senderType: "system",
+          senderCoachId: null,
+          senderPlayerId: null,
+          body: "Jake T. earned the 'Rally Master' badge for 50+ consecutive serves!",
+          messageType: "system",
+          createdAt: new Date(now.getTime() - 1 * hour).toISOString(),
+          reactions: [],
+        },
+        {
+          id: "msg-academy-4",
+          conversationId,
+          senderType: "system",
+          senderCoachId: null,
+          senderPlayerId: null,
+          body: "New weekly challenge: Complete 3 sessions this week for bonus XP!",
+          messageType: "system",
+          createdAt: new Date(now.getTime() - 30 * 60 * 1000).toISOString(),
+          reactions: [],
+        },
+      ];
+    }
+    
+    if (conversationId === "sample-admin") {
+      return [
+        {
+          id: "msg-admin-1",
+          conversationId,
+          senderType: "coach",
+          senderCoachId: null,
+          senderPlayerId: null,
+          body: "Court 3 maintenance scheduled for tomorrow morning.",
+          messageType: "text",
+          createdAt: new Date(now.getTime() - 2 * hour).toISOString(),
+          reactions: [],
+        },
+        {
+          id: "msg-admin-2",
+          conversationId,
+          senderType: "coach",
+          senderCoachId: null,
+          senderPlayerId: null,
+          body: "Updated holiday schedule posted on the board.",
+          messageType: "text",
+          createdAt: new Date(now.getTime() - hour).toISOString(),
+          reactions: [],
+        },
+      ];
+    }
+    
+    if (conversationId === "sample-squad-1") {
+      return [
+        {
+          id: "msg-squad-1",
+          conversationId,
+          senderType: "coach",
+          senderCoachId: null,
+          senderPlayerId: null,
+          body: "Great practice today everyone! See you Thursday.",
+          messageType: "text",
+          createdAt: new Date(now.getTime() - hour).toISOString(),
+          reactions: [],
+        },
+      ];
+    }
+    
+    if (conversationId === "sample-coach-maria") {
+      return [
+        {
+          id: "msg-coach-1",
+          conversationId,
+          senderType: "coach",
+          senderCoachId: null,
+          senderPlayerId: null,
+          body: "Did you see the new training schedule?",
+          messageType: "text",
+          createdAt: new Date(now.getTime() - hour).toISOString(),
+          reactions: [],
+        },
+      ];
+    }
+    
+    return [];
+  }
 
   // Send a message
   app.post("/api/conversations/:id/messages", async (req: Request, res: Response) => {
