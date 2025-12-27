@@ -116,23 +116,18 @@ export function CoachProvider({ children }: { children: ReactNode }) {
           setFocusModeState(storedFocusMode === "true");
         }
         
-        if (storedCoach && storedAcademy && isMounted) {
-          setCoachState(JSON.parse(storedCoach));
-          setAcademyState(JSON.parse(storedAcademy));
-        } else if (isMounted) {
-          // Fetch from /api/me endpoint (returns coach + academy context)
-          const apiUrl = getApiUrl();
-          const response = await fetch(new URL("/api/me", apiUrl).toString());
-          if (response.ok && isMounted) {
-            const data = await response.json();
-            if (data.coach) {
-              setCoachState(data.coach);
-              await AsyncStorage.setItem(COACH_STORAGE_KEY, JSON.stringify(data.coach));
-            }
-            if (data.academy) {
-              setAcademyState(data.academy);
-              await AsyncStorage.setItem(ACADEMY_STORAGE_KEY, JSON.stringify(data.academy));
-            }
+        // Always fetch fresh from /api/me (ignoring cache for now)
+        const apiUrl = getApiUrl();
+        const response = await fetch(new URL("/api/me", apiUrl).toString());
+        if (response.ok && isMounted) {
+          const data = await response.json();
+          if (data.coach) {
+            setCoachState(data.coach);
+            await AsyncStorage.setItem(COACH_STORAGE_KEY, JSON.stringify(data.coach));
+          }
+          if (data.academy) {
+            setAcademyState(data.academy);
+            await AsyncStorage.setItem(ACADEMY_STORAGE_KEY, JSON.stringify(data.academy));
           }
         }
       } catch (error) {
