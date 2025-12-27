@@ -189,12 +189,19 @@ export const storage = {
   },
 
   // ==================== LOCATIONS ====================
-  async getLocation(id: string): Promise<Location | undefined> {
-    const result = await db.select().from(locations).where(eq(locations.id, id));
+  async getLocation(id: string, academyId?: string): Promise<Location | undefined> {
+    const conditions = [eq(locations.id, id)];
+    if (academyId) {
+      conditions.push(eq(locations.academyId, academyId));
+    }
+    const result = await db.select().from(locations).where(and(...conditions));
     return result[0];
   },
 
-  async getAllLocations(): Promise<Location[]> {
+  async getAllLocations(academyId?: string): Promise<Location[]> {
+    if (academyId) {
+      return db.select().from(locations).where(eq(locations.academyId, academyId));
+    }
     return db.select().from(locations);
   },
 
@@ -204,16 +211,27 @@ export const storage = {
   },
 
   // ==================== COURTS ====================
-  async getCourt(id: string): Promise<Court | undefined> {
-    const result = await db.select().from(courts).where(eq(courts.id, id));
+  async getCourt(id: string, academyId?: string): Promise<Court | undefined> {
+    const conditions = [eq(courts.id, id)];
+    if (academyId) {
+      conditions.push(eq(courts.academyId, academyId));
+    }
+    const result = await db.select().from(courts).where(and(...conditions));
     return result[0];
   },
 
-  async getCourtsByLocation(locationId: string): Promise<Court[]> {
-    return db.select().from(courts).where(eq(courts.locationId, locationId));
+  async getCourtsByLocation(locationId: string, academyId?: string): Promise<Court[]> {
+    const conditions = [eq(courts.locationId, locationId)];
+    if (academyId) {
+      conditions.push(eq(courts.academyId, academyId));
+    }
+    return db.select().from(courts).where(and(...conditions));
   },
 
-  async getAllCourts(): Promise<Court[]> {
+  async getAllCourts(academyId?: string): Promise<Court[]> {
+    if (academyId) {
+      return db.select().from(courts).where(eq(courts.academyId, academyId));
+    }
     return db.select().from(courts);
   },
 
@@ -222,13 +240,21 @@ export const storage = {
     return result[0];
   },
 
-  async updateCourt(id: string, data: Partial<InsertCourt>): Promise<Court> {
-    const result = await db.update(courts).set(data).where(eq(courts.id, id)).returning();
+  async updateCourt(id: string, data: Partial<InsertCourt>, academyId?: string): Promise<Court | undefined> {
+    const conditions = [eq(courts.id, id)];
+    if (academyId) {
+      conditions.push(eq(courts.academyId, academyId));
+    }
+    const result = await db.update(courts).set(data).where(and(...conditions)).returning();
     return result[0];
   },
 
-  async deleteCourt(id: string): Promise<void> {
-    await db.delete(courts).where(eq(courts.id, id));
+  async deleteCourt(id: string, academyId?: string): Promise<void> {
+    const conditions = [eq(courts.id, id)];
+    if (academyId) {
+      conditions.push(eq(courts.academyId, academyId));
+    }
+    await db.delete(courts).where(and(...conditions));
   },
 
   // ==================== PLAYERS ====================
@@ -400,21 +426,22 @@ export const storage = {
   },
 
   // Conflict checking
-  async checkCoachConflict(coachId: string, startTime: Date, endTime: Date, excludeSessionId?: string): Promise<boolean> {
-    const conflicts = await db
-      .select()
-      .from(sessions)
-      .where(
-        and(
-          eq(sessions.coachId, coachId),
-          eq(sessions.status, "scheduled"),
-          or(
-            and(lte(sessions.startTime, startTime), gte(sessions.endTime, startTime)),
-            and(lte(sessions.startTime, endTime), gte(sessions.endTime, endTime)),
-            and(gte(sessions.startTime, startTime), lte(sessions.endTime, endTime))
-          )
-        )
-      );
+  async checkCoachConflict(coachId: string, startTime: Date, endTime: Date, excludeSessionId?: string, academyId?: string): Promise<boolean> {
+    const conditions = [
+      eq(sessions.coachId, coachId),
+      eq(sessions.status, "scheduled"),
+      or(
+        and(lte(sessions.startTime, startTime), gte(sessions.endTime, startTime)),
+        and(lte(sessions.startTime, endTime), gte(sessions.endTime, endTime)),
+        and(gte(sessions.startTime, startTime), lte(sessions.endTime, endTime))
+      )
+    ];
+    
+    if (academyId) {
+      conditions.push(eq(sessions.academyId, academyId));
+    }
+    
+    const conflicts = await db.select().from(sessions).where(and(...conditions));
     
     if (excludeSessionId) {
       return conflicts.filter(s => s.id !== excludeSessionId).length > 0;
@@ -422,21 +449,22 @@ export const storage = {
     return conflicts.length > 0;
   },
 
-  async checkCourtConflict(courtId: string, startTime: Date, endTime: Date, excludeSessionId?: string): Promise<boolean> {
-    const conflicts = await db
-      .select()
-      .from(sessions)
-      .where(
-        and(
-          eq(sessions.courtId, courtId),
-          eq(sessions.status, "scheduled"),
-          or(
-            and(lte(sessions.startTime, startTime), gte(sessions.endTime, startTime)),
-            and(lte(sessions.startTime, endTime), gte(sessions.endTime, endTime)),
-            and(gte(sessions.startTime, startTime), lte(sessions.endTime, endTime))
-          )
-        )
-      );
+  async checkCourtConflict(courtId: string, startTime: Date, endTime: Date, excludeSessionId?: string, academyId?: string): Promise<boolean> {
+    const conditions = [
+      eq(sessions.courtId, courtId),
+      eq(sessions.status, "scheduled"),
+      or(
+        and(lte(sessions.startTime, startTime), gte(sessions.endTime, startTime)),
+        and(lte(sessions.startTime, endTime), gte(sessions.endTime, endTime)),
+        and(gte(sessions.startTime, startTime), lte(sessions.endTime, endTime))
+      )
+    ];
+    
+    if (academyId) {
+      conditions.push(eq(sessions.academyId, academyId));
+    }
+    
+    const conflicts = await db.select().from(sessions).where(and(...conditions));
     
     if (excludeSessionId) {
       return conflicts.filter(s => s.id !== excludeSessionId).length > 0;
@@ -795,21 +823,38 @@ export const storage = {
       .orderBy(desc(coachNotifications.createdAt));
   },
 
+  async getCoachNotification(id: string, coachId?: string): Promise<CoachNotification | undefined> {
+    const conditions = [eq(coachNotifications.id, id)];
+    if (coachId) {
+      conditions.push(eq(coachNotifications.coachId, coachId));
+    }
+    const result = await db.select().from(coachNotifications).where(and(...conditions));
+    return result[0];
+  },
+
   async createNotification(data: InsertCoachNotification): Promise<CoachNotification> {
     const result = await db.insert(coachNotifications).values(data).returning();
     return result[0];
   },
 
-  async markNotificationRead(id: string): Promise<void> {
-    await db.update(coachNotifications).set({ isRead: true }).where(eq(coachNotifications.id, id));
+  async markNotificationRead(id: string, coachId?: string): Promise<void> {
+    const conditions = [eq(coachNotifications.id, id)];
+    if (coachId) {
+      conditions.push(eq(coachNotifications.coachId, coachId));
+    }
+    await db.update(coachNotifications).set({ isRead: true }).where(and(...conditions));
   },
 
   async markAllNotificationsRead(coachId: string): Promise<void> {
     await db.update(coachNotifications).set({ isRead: true }).where(eq(coachNotifications.coachId, coachId));
   },
 
-  async deleteNotification(id: string): Promise<void> {
-    await db.delete(coachNotifications).where(eq(coachNotifications.id, id));
+  async deleteNotification(id: string, coachId?: string): Promise<void> {
+    const conditions = [eq(coachNotifications.id, id)];
+    if (coachId) {
+      conditions.push(eq(coachNotifications.coachId, coachId));
+    }
+    await db.delete(coachNotifications).where(and(...conditions));
   },
 
   // ==================== AUTO-RENEW ALERTS ====================

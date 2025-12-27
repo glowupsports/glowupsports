@@ -9,6 +9,11 @@ import {
   authMiddleware, 
   requireRole, 
   requireAcademy,
+  validatePlayerOwnership,
+  validateCourtOwnership,
+  validateSessionOwnership,
+  validatePackageOwnership,
+  validateNotificationOwnership,
   type AuthenticatedRequest 
 } from "./auth";
 import { loginSchema, registerSchema } from "@shared/schema";
@@ -147,12 +152,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== COACH CALENDAR API ====================
 
   // Get calendar for a date range
-  app.get("/api/coach/calendar", async (req: Request, res: Response) => {
+  app.get("/api/coach/calendar", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { date, view = "day", coachId } = req.query;
+      const { date, view = "day" } = req.query;
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
       
       if (!date || !coachId) {
-        return res.status(400).json({ error: "date and coachId are required" });
+        return res.status(400).json({ error: "date is required" });
       }
 
       // Parse date string as UTC to avoid timezone issues
@@ -181,8 +188,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           endDate = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
       }
 
-      // Get own sessions (full data)
-      const ownSessions = await storage.getSessionsByCoach(coachId as string, startDate, endDate);
+      // Get own sessions (full data) - filtered by academy
+      const ownSessions = await storage.getSessionsByCoach(coachId as string, startDate, endDate, academyId ?? undefined);
       
       // Fetch players for each session using efficient join query
       const sessionsWithPlayers = await Promise.all(
@@ -195,8 +202,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
       
-      // Get blocked sessions (other coaches, no details)
-      const blockedSessions = await storage.getBlockedSessions(coachId as string, startDate, endDate);
+      // Get blocked sessions (other coaches, no details) - filtered by academy
+      const blockedSessions = await storage.getBlockedSessions(coachId as string, startDate, endDate, academyId ?? undefined);
       const blockedSessionsMinimal = blockedSessions.map(s => ({
         id: s.id,
         courtId: s.courtId,
@@ -205,9 +212,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         blocked: true,
       }));
 
-      // Get courts
-      const courts = await storage.getAllCourts();
-      const locations = await storage.getAllLocations();
+      // Get courts - filtered by academy
+      const courts = await storage.getAllCourts(academyId ?? undefined);
+      const locations = await storage.getAllLocations(academyId ?? undefined);
 
       res.json({
         ownSessions: sessionsWithPlayers,
@@ -223,9 +230,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Check for conflicts before booking
-  app.get("/api/coach/sessions/check-conflict", async (req: Request, res: Response) => {
+  app.get("/api/coach/sessions/check-conflict", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { courtId, coachId, startTime, endTime, playerIds, excludeSessionId } = req.query;
+      const { courtId, startTime, endTime, playerIds, excludeSessionId } = req.query;
+      const coachId = req.user!.coachId;
 
       if (!courtId || !coachId || !startTime || !endTime) {
         return res.status(400).json({ error: "Missing required parameters" });
@@ -351,10 +359,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create session
-  app.post("/api/coach/sessions", async (req: Request, res: Response) => {
+  app.post("/api/coach/sessions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
       const {
-        coachId,
         courtId,
         locationId,
         startTime,
@@ -413,6 +422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const session = await storage.createSession({
+          academyId,
           coachId,
           courtId,
           locationId,
@@ -478,10 +488,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update session
-  app.patch("/api/coach/sessions/:id", async (req: Request, res: Response) => {
+  app.patch("/api/coach/sessions/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const { coachId, ...updates } = req.body;
+      const coachId = req.user!.coachId;
+      const updates = req.body;
 
       const session = await storage.getSession(id);
       if (!session) {
@@ -499,7 +510,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const duration = updates.duration || session.duration;
         const end = new Date(start.getTime() + duration * 60000);
 
-        const coachConflict = await storage.checkCoachConflict(coachId, start, end, id);
+        const coachConflict = await storage.checkCoachConflict(coachId!, start, end, id);
         if (coachConflict) {
           return res.status(409).json({ error: "Coach conflict", level: 3 });
         }
@@ -519,7 +530,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         entityType: "session",
         entityId: id,
         action: "update",
-        performedBy: coachId,
+        performedBy: coachId!,
       });
 
       res.json(updated);
@@ -530,10 +541,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cancel session
-  app.post("/api/coach/sessions/:id/cancel", async (req: Request, res: Response) => {
+  app.post("/api/coach/sessions/:id/cancel", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const { coachId, reason } = req.body;
+      const coachId = req.user!.coachId;
+      const { reason } = req.body;
 
       const session = await storage.getSession(id);
       if (!session) {
@@ -550,7 +562,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         entityType: "session",
         entityId: id,
         action: "cancel",
-        performedBy: coachId,
+        performedBy: coachId!,
       });
 
       res.json(cancelled);
@@ -561,10 +573,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Extend session
-  app.post("/api/coach/sessions/:id/extend", async (req: Request, res: Response) => {
+  app.post("/api/coach/sessions/:id/extend", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const { coachId, minutes } = req.body;
+      const coachId = req.user!.coachId;
+      const { minutes } = req.body;
 
       if (!minutes || ![15, 30].includes(minutes)) {
         return res.status(400).json({ error: "Invalid extension minutes" });
@@ -582,7 +595,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const newEndTime = new Date(session.endTime.getTime() + minutes * 60000);
 
       // Check if extension causes conflict
-      const coachConflict = await storage.checkCoachConflict(coachId, session.endTime, newEndTime, id);
+      const coachConflict = await storage.checkCoachConflict(coachId!, session.endTime, newEndTime, id);
       if (coachConflict) {
         return res.status(409).json({ error: "Cannot extend - coach has another session" });
       }
@@ -605,13 +618,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Add players to session
-  app.post("/api/coach/sessions/:id/players", async (req: Request, res: Response) => {
+  app.post("/api/coach/sessions/:id/players", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const { playerId, isGuest } = req.body;
+      const academyId = req.user!.academyId;
 
-      const session = await storage.getSession(id);
-      if (!session) {
+      const { valid } = await validateSessionOwnership(id, academyId, storage);
+      if (!valid) {
         return res.status(404).json({ error: "Session not found" });
       }
 
@@ -629,9 +643,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Remove player from session
-  app.delete("/api/coach/sessions/:id/players/:playerId", async (req: Request, res: Response) => {
+  app.delete("/api/coach/sessions/:id/players/:playerId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id, playerId } = req.params;
+      const academyId = req.user!.academyId;
+
+      const { valid } = await validateSessionOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Session not found" });
+      }
 
       await storage.removePlayerFromSession(id, playerId);
 
@@ -643,9 +663,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get session players with player details (using efficient JOIN)
-  app.get("/api/coach/sessions/:id/players", async (req: Request, res: Response) => {
+  app.get("/api/coach/sessions/:id/players", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const academyId = req.user!.academyId;
+
+      const { valid } = await validateSessionOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
       const playersWithDetails = await storage.getSessionPlayersWithPlayerInfo(id);
       res.json(playersWithDetails);
     } catch (error) {
@@ -655,10 +682,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Save attendance (offline-safe)
-  app.post("/api/coach/sessions/:id/attendance", async (req: Request, res: Response) => {
+  app.post("/api/coach/sessions/:id/attendance", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const { playerId, status, lateMinutes, absenceReason } = req.body;
+      const academyId = req.user!.academyId;
+
+      const { valid } = await validateSessionOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Session not found" });
+      }
 
       const updated = await storage.updateAttendance(
         id,
@@ -676,14 +709,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Save feedback and award XP
-  app.post("/api/coach/sessions/:id/feedback", async (req: Request, res: Response) => {
+  app.post("/api/coach/sessions/:id/feedback", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const { intensity, mood, focusTags, coachNotes } = req.body;
+      const academyId = req.user!.academyId;
 
-      // Get session details
-      const session = await storage.getSession(id);
-      if (!session) {
+      // Get session details with ownership validation
+      const { valid, session } = await validateSessionOwnership(id, academyId, storage);
+      if (!valid || !session) {
         return res.status(404).json({ error: "Session not found" });
       }
 
@@ -781,9 +815,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Offline sync
-  app.post("/api/coach/offline/sync", async (req: Request, res: Response) => {
+  app.post("/api/coach/offline/sync", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { coachId, actions } = req.body;
+      const coachId = req.user!.coachId;
+      const { actions } = req.body;
 
       const results = [];
       for (const action of actions) {
@@ -825,7 +860,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== PLAYER API ====================
 
   // Set holiday
-  app.post("/api/player/holidays", async (req: Request, res: Response) => {
+  app.post("/api/player/holidays", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { playerId, startDate, endDate } = req.body;
 
@@ -933,9 +968,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== ADMIN/SETUP ENDPOINTS ====================
 
   // Get all coaches
-  app.get("/api/coaches", async (req: Request, res: Response) => {
+  app.get("/api/coaches", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const allCoaches = await storage.getAllCoaches();
+      const academyId = req.user!.academyId;
+      const allCoaches = await storage.getAllCoaches(academyId ?? undefined);
       res.json(allCoaches);
     } catch (error) {
       console.error("Error fetching coaches:", error);
@@ -944,9 +980,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create coach
-  app.post("/api/coaches", async (req: Request, res: Response) => {
+  app.post("/api/coaches", authMiddleware, requireRole("owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const coach = await storage.createCoach(req.body);
+      const academyId = req.user!.academyId;
+      const coach = await storage.createCoach({ ...req.body, academyId });
       res.status(201).json(coach);
     } catch (error) {
       console.error("Error creating coach:", error);
@@ -955,9 +992,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all locations
-  app.get("/api/locations", async (req: Request, res: Response) => {
+  app.get("/api/locations", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const allLocations = await storage.getAllLocations();
+      const academyId = req.user!.academyId;
+      const allLocations = await storage.getAllLocations(academyId ?? undefined);
       res.json(allLocations);
     } catch (error) {
       console.error("Error fetching locations:", error);
@@ -966,9 +1004,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create location
-  app.post("/api/locations", async (req: Request, res: Response) => {
+  app.post("/api/locations", authMiddleware, requireRole("owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const location = await storage.createLocation(req.body);
+      const academyId = req.user!.academyId;
+      const location = await storage.createLocation({ ...req.body, academyId });
       res.status(201).json(location);
     } catch (error) {
       console.error("Error creating location:", error);
@@ -977,14 +1016,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all courts
-  app.get("/api/courts", async (req: Request, res: Response) => {
+  app.get("/api/courts", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      const academyId = req.user!.academyId;
       const { locationId } = req.query;
       if (locationId) {
-        const locationCourts = await storage.getCourtsByLocation(locationId as string);
+        const locationCourts = await storage.getCourtsByLocation(locationId as string, academyId ?? undefined);
         return res.json(locationCourts);
       }
-      const allCourts = await storage.getAllCourts();
+      const allCourts = await storage.getAllCourts(academyId ?? undefined);
       res.json(allCourts);
     } catch (error) {
       console.error("Error fetching courts:", error);
@@ -993,9 +1033,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create court
-  app.post("/api/courts", async (req: Request, res: Response) => {
+  app.post("/api/courts", authMiddleware, requireRole("owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const court = await storage.createCourt(req.body);
+      const academyId = req.user!.academyId;
+      const court = await storage.createCourt({ ...req.body, academyId });
       res.status(201).json(court);
     } catch (error) {
       console.error("Error creating court:", error);
@@ -1004,10 +1045,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update court
-  app.patch("/api/courts/:id", async (req: Request, res: Response) => {
+  app.patch("/api/courts/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const court = await storage.updateCourt(id, req.body);
+      const academyId = req.user!.academyId;
+      
+      const { valid } = await validateCourtOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Court not found" });
+      }
+      
+      const court = await storage.updateCourt(id, req.body, academyId ?? undefined);
+      if (!court) {
+        return res.status(404).json({ error: "Court not found" });
+      }
       res.json(court);
     } catch (error) {
       console.error("Error updating court:", error);
@@ -1016,10 +1067,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete court
-  app.delete("/api/courts/:id", async (req: Request, res: Response) => {
+  app.delete("/api/courts/:id", authMiddleware, requireRole("owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      await storage.deleteCourt(id);
+      const academyId = req.user!.academyId;
+      
+      const { valid } = await validateCourtOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Court not found" });
+      }
+      
+      await storage.deleteCourt(id, academyId ?? undefined);
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting court:", error);
@@ -1028,14 +1086,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all players with last lesson date
-  app.get("/api/players", async (req: Request, res: Response) => {
+  app.get("/api/players", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      const academyId = req.user!.academyId;
       const { search } = req.query;
       let playerList;
       if (search) {
-        playerList = await storage.searchPlayers(search as string);
+        playerList = await storage.searchPlayers(search as string, academyId ?? undefined);
       } else {
-        playerList = await storage.getAllPlayers();
+        playerList = await storage.getAllPlayers(academyId ?? undefined);
       }
       
       // Enhance each player with their last lesson date
@@ -1057,9 +1116,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create player
-  app.post("/api/players", async (req: Request, res: Response) => {
+  app.post("/api/players", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const player = await storage.createPlayer(req.body);
+      const academyId = req.user!.academyId;
+      const player = await storage.createPlayer({ ...req.body, academyId });
       res.status(201).json(player);
     } catch (error) {
       console.error("Error creating player:", error);
@@ -1068,9 +1128,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===================== PACKAGES / CREDITS =====================
-  app.get("/api/players/:playerId/packages", async (req: Request, res: Response) => {
+  app.get("/api/players/:playerId/packages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { playerId } = req.params;
+      const academyId = req.user!.academyId;
+      
+      const { valid } = await validatePlayerOwnership(playerId, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
       const pkgs = await storage.getPlayerPackages(playerId);
       res.json(pkgs);
     } catch (error) {
@@ -1079,9 +1146,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/players/:playerId/packages/active", async (req: Request, res: Response) => {
+  app.get("/api/players/:playerId/packages/active", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { playerId } = req.params;
+      const academyId = req.user!.academyId;
+      
+      const { valid } = await validatePlayerOwnership(playerId, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
       const pkgs = await storage.getActivePlayerPackages(playerId);
       res.json(pkgs);
     } catch (error) {
@@ -1090,12 +1164,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/packages", async (req: Request, res: Response) => {
+  app.post("/api/packages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { playerId, totalCredits, remainingCredits, expiryDate } = req.body;
+      const academyId = req.user!.academyId;
+      
       if (!playerId || totalCredits === undefined) {
         return res.status(400).json({ error: "playerId and totalCredits are required" });
       }
+      
+      const { valid } = await validatePlayerOwnership(playerId, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
       const pkg = await storage.createPackage({
         playerId,
         totalCredits,
@@ -1109,9 +1191,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/packages/:id", async (req: Request, res: Response) => {
+  app.patch("/api/packages/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const academyId = req.user!.academyId;
+      
+      const { valid } = await validatePackageOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Package not found" });
+      }
+      
       const pkg = await storage.updatePackage(id, req.body);
       if (!pkg) {
         return res.status(404).json({ error: "Package not found" });
@@ -1123,9 +1212,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/packages/:id", async (req: Request, res: Response) => {
+  app.delete("/api/packages/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const academyId = req.user!.academyId;
+      
+      const { valid } = await validatePackageOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Package not found" });
+      }
+      
       await storage.deletePackage(id);
       res.json({ success: true });
     } catch (error) {
@@ -1134,9 +1230,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/packages/:id/use", async (req: Request, res: Response) => {
+  app.post("/api/packages/:id/use", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const academyId = req.user!.academyId;
+      
+      const { valid } = await validatePackageOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Package not found" });
+      }
+      
       const pkg = await storage.usePackageCredit(id);
       if (!pkg) {
         return res.status(400).json({ error: "No credits remaining or package not found" });
@@ -1149,13 +1252,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get single session with players
-  app.get("/api/coach/sessions/:id", async (req: Request, res: Response) => {
+  app.get("/api/coach/sessions/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const session = await storage.getSession(id);
-      if (!session) {
+      const academyId = req.user!.academyId;
+      
+      const { valid, session } = await validateSessionOwnership(id, academyId, storage);
+      if (!valid || !session) {
         return res.status(404).json({ error: "Session not found" });
       }
+      
       const players = await storage.getSessionPlayers(id);
       res.json({ ...session, players });
     } catch (error) {
@@ -1165,13 +1271,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Update session (for drag-and-drop reschedule)
-  app.patch("/api/sessions/:sessionId", async (req: Request, res: Response) => {
+  app.patch("/api/sessions/:sessionId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { sessionId } = req.params;
       const { startTime, endTime, courtId } = req.body;
+      const academyId = req.user!.academyId;
       
-      const session = await storage.getSession(sessionId);
-      if (!session) {
+      const { valid, session } = await validateSessionOwnership(sessionId, academyId, storage);
+      if (!valid || !session) {
         return res.status(404).json({ error: "Session not found" });
       }
       
@@ -1191,9 +1298,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== PLAYER NOTES (COACH MEMORY HUB) ====================
 
   // Get notes for a player
-  app.get("/api/players/:id/notes", async (req: Request, res: Response) => {
+  app.get("/api/players/:id/notes", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const academyId = req.user!.academyId;
+      
+      const { valid } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
       const notes = await storage.getPlayerNotes(id);
       res.json(notes);
     } catch (error) {
@@ -1203,10 +1317,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Add a note for a player
-  app.post("/api/players/:id/notes", async (req: Request, res: Response) => {
+  app.post("/api/players/:id/notes", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const { content, category, coachId, sessionId } = req.body;
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      const { content, category, sessionId } = req.body;
       
       if (!content || !content.trim()) {
         return res.status(400).json({ error: "Content is required" });
@@ -1214,6 +1330,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!id) {
         return res.status(400).json({ error: "Player ID is required" });
+      }
+
+      const { valid } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
       }
 
       const note = await storage.createPlayerNote({
@@ -1232,9 +1353,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a player note
-  app.delete("/api/players/:playerId/notes/:noteId", async (req: Request, res: Response) => {
+  app.delete("/api/players/:playerId/notes/:noteId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { noteId } = req.params;
+      const { playerId, noteId } = req.params;
+      const academyId = req.user!.academyId;
+      
+      const { valid } = await validatePlayerOwnership(playerId, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
       await storage.deletePlayerNote(noteId);
       res.json({ success: true });
     } catch (error) {
@@ -1244,10 +1372,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Toggle note pin
-  app.patch("/api/players/:playerId/notes/:noteId/pin", async (req: Request, res: Response) => {
+  app.patch("/api/players/:playerId/notes/:noteId/pin", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { noteId } = req.params;
+      const { playerId, noteId } = req.params;
       const { isPinned } = req.body;
+      const academyId = req.user!.academyId;
+      
+      const { valid } = await validatePlayerOwnership(playerId, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
       const note = await storage.toggleNotePin(noteId, isPinned);
       res.json(note);
     } catch (error) {
@@ -1259,9 +1394,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== PLAYER PROGRESS ====================
 
   // Get progress history for a player
-  app.get("/api/players/:id/progress", async (req: Request, res: Response) => {
+  app.get("/api/players/:id/progress", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const academyId = req.user!.academyId;
+      
+      const { valid } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
       const progress = await storage.getPlayerProgress(id);
       res.json(progress);
     } catch (error) {
@@ -1271,9 +1413,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get progress summary for a player (aggregated by skill area)
-  app.get("/api/players/:id/progress/summary", async (req: Request, res: Response) => {
+  app.get("/api/players/:id/progress/summary", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const academyId = req.user!.academyId;
+      
+      const { valid } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
       const summary = await storage.getProgressSummary(id);
       res.json(summary);
     } catch (error) {
@@ -1283,13 +1432,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Add progress entry for a player
-  app.post("/api/players/:id/progress", async (req: Request, res: Response) => {
+  app.post("/api/players/:id/progress", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const { skillArea, rating, trend, notes, coachId, sessionId } = req.body;
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      const { skillArea, rating, trend, notes, sessionId } = req.body;
       
       if (!skillArea) {
         return res.status(400).json({ error: "Skill area is required" });
+      }
+
+      const { valid } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
       }
 
       const progress = await storage.createPlayerProgress({
@@ -1309,7 +1465,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all players with their progress summary (for coaching dashboard)
-  app.get("/api/coach/players/progress", async (req: Request, res: Response) => {
+  app.get("/api/coach/players/progress", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const allPlayers = await storage.getAllPlayers();
       const playersWithProgress = await Promise.all(
@@ -1339,13 +1495,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== SESSION TEMPLATES API ====================
 
   // Get all session templates for a coach
-  app.get("/api/coach/templates", async (req: Request, res: Response) => {
+  app.get("/api/coach/templates", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { coachId } = req.query;
+      const coachId = req.user!.coachId;
       if (!coachId) {
         return res.status(400).json({ error: "coachId is required" });
       }
-      const templates = await storage.getSessionTemplates(coachId as string);
+      const templates = await storage.getSessionTemplates(coachId);
       res.json(templates);
     } catch (error) {
       console.error("Error fetching templates:", error);
@@ -1354,12 +1510,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create a session template
-  app.post("/api/coach/templates", async (req: Request, res: Response) => {
+  app.post("/api/coach/templates", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { coachId, name, sessionType, duration, ballLevel, skillLevel, defaultPlayerIds, notes } = req.body;
+      const coachId = req.user!.coachId;
+      const { name, sessionType, duration, ballLevel, skillLevel, defaultPlayerIds, notes } = req.body;
       
       if (!coachId || !name || !sessionType || !duration) {
-        return res.status(400).json({ error: "coachId, name, sessionType, and duration are required" });
+        return res.status(400).json({ error: "name, sessionType, and duration are required" });
       }
 
       const template = await storage.createSessionTemplate({
@@ -1380,7 +1537,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a session template
-  app.delete("/api/coach/templates/:id", async (req: Request, res: Response) => {
+  app.delete("/api/coach/templates/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       await storage.deleteSessionTemplate(id);
@@ -1394,13 +1551,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== NOTIFICATIONS API ====================
 
   // Get notifications for a coach
-  app.get("/api/coach/notifications", async (req: Request, res: Response) => {
+  app.get("/api/coach/notifications", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { coachId } = req.query;
+      const coachId = req.user!.coachId;
       if (!coachId) {
         return res.status(400).json({ error: "coachId is required" });
       }
-      const notifications = await storage.getCoachNotifications(coachId as string);
+      const notifications = await storage.getCoachNotifications(coachId);
       res.json(notifications);
     } catch (error) {
       console.error("Error fetching notifications:", error);
@@ -1409,10 +1566,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Mark notification as read
-  app.patch("/api/coach/notifications/:id/read", async (req: Request, res: Response) => {
+  app.patch("/api/coach/notifications/:id/read", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      await storage.markNotificationRead(id);
+      const coachId = req.user!.coachId;
+      
+      const { valid } = await validateNotificationOwnership(id, coachId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Notification not found" });
+      }
+      
+      await storage.markNotificationRead(id, coachId ?? undefined);
       res.json({ success: true });
     } catch (error) {
       console.error("Error marking notification read:", error);
@@ -1421,9 +1585,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Mark all notifications as read
-  app.post("/api/coach/notifications/mark-all-read", async (req: Request, res: Response) => {
+  app.post("/api/coach/notifications/mark-all-read", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { coachId } = req.body;
+      const coachId = req.user!.coachId;
       if (!coachId) {
         return res.status(400).json({ error: "coachId is required" });
       }
@@ -1436,10 +1600,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete notification
-  app.delete("/api/coach/notifications/:id", async (req: Request, res: Response) => {
+  app.delete("/api/coach/notifications/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      await storage.deleteNotification(id);
+      const coachId = req.user!.coachId;
+      
+      const { valid } = await validateNotificationOwnership(id, coachId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Notification not found" });
+      }
+      
+      await storage.deleteNotification(id, coachId ?? undefined);
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting notification:", error);
@@ -1448,13 +1619,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get auto-renew alerts (sessions near week 9/10)
-  app.get("/api/coach/auto-renew-alerts", async (req: Request, res: Response) => {
+  app.get("/api/coach/auto-renew-alerts", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { coachId } = req.query;
+      const coachId = req.user!.coachId;
       if (!coachId) {
         return res.status(400).json({ error: "coachId is required" });
       }
-      const alerts = await storage.getAutoRenewAlerts(coachId as string);
+      const alerts = await storage.getAutoRenewAlerts(coachId);
       res.json(alerts);
     } catch (error) {
       console.error("Error fetching auto-renew alerts:", error);
@@ -1465,7 +1636,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== COACH PROFILE API ====================
 
   // Get coach profile
-  app.get("/api/coach/profile/:id", async (req: Request, res: Response) => {
+  app.get("/api/coach/profile/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const coach = await storage.getCoach(id);
@@ -1480,7 +1651,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update coach profile
-  app.patch("/api/coach/profile/:id", async (req: Request, res: Response) => {
+  app.patch("/api/coach/profile/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const updates = req.body;
@@ -1495,7 +1666,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== COACH XP SYSTEM ====================
 
   // Get coach XP and level
-  app.get("/api/coach/:id/xp", async (req: Request, res: Response) => {
+  app.get("/api/coach/:id/xp", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const coach = await storage.getCoach(id);
@@ -1536,7 +1707,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Award coach XP (internal endpoint for session completion, feedback, etc.)
-  app.post("/api/coach/:id/xp", async (req: Request, res: Response) => {
+  app.post("/api/coach/:id/xp", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const { xpAmount, source, description, sessionId, metadata } = req.body;
@@ -1588,7 +1759,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get coach stats (sessions count, players count, streak)
-  app.get("/api/coach/:id/stats", async (req: Request, res: Response) => {
+  app.get("/api/coach/:id/stats", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       
@@ -1643,7 +1814,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== PROGRESS ENGINE V2 API ====================
 
   // Get all skill domains
-  app.get("/api/progress/domains", async (req: Request, res: Response) => {
+  app.get("/api/progress/domains", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       // Seed domains if not present
       await storage.seedSkillDomains();
@@ -1656,7 +1827,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get player skill states (current progress per domain)
-  app.get("/api/players/:id/skill-state", async (req: Request, res: Response) => {
+  app.get("/api/players/:id/skill-state", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       
@@ -1684,14 +1855,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Submit skill observations for a session
-  app.post("/api/coach/sessions/:sessionId/observations", async (req: Request, res: Response) => {
+  app.post("/api/coach/sessions/:sessionId/observations", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { sessionId } = req.params;
-      const { playerId, coachId, observations } = req.body;
+      const coachId = req.user!.coachId;
+      const { playerId, observations } = req.body;
       // observations: [{ domainId, direction: 'up'|'stable'|'down', effortLevel: 'high'|'normal'|'low', note? }]
 
       if (!playerId || !coachId || !observations || !Array.isArray(observations)) {
-        return res.status(400).json({ error: "playerId, coachId, and observations array required" });
+        return res.status(400).json({ error: "playerId and observations array required" });
       }
 
       const results = [];
@@ -1867,7 +2039,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get session observations
-  app.get("/api/coach/sessions/:sessionId/observations", async (req: Request, res: Response) => {
+  app.get("/api/coach/sessions/:sessionId/observations", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { sessionId } = req.params;
       const observations = await storage.getSessionSkillObservations(sessionId);
@@ -1879,13 +2051,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create assessment for a player
-  app.post("/api/players/:id/assessments", async (req: Request, res: Response) => {
+  app.post("/api/players/:id/assessments", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const { coachId, domainId, status, notes, isBaseline } = req.body;
+      const coachId = req.user!.coachId;
+      const { domainId, status, notes, isBaseline } = req.body;
 
       if (!coachId || !domainId || !status) {
-        return res.status(400).json({ error: "coachId, domainId, and status required" });
+        return res.status(400).json({ error: "domainId and status required" });
       }
 
       // Get previous status
@@ -1918,7 +2091,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get player assessments
-  app.get("/api/players/:id/assessments", async (req: Request, res: Response) => {
+  app.get("/api/players/:id/assessments", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const assessments = await storage.getPlayerAssessments(id);
@@ -1930,7 +2103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get level requirements
-  app.get("/api/progress/levels", async (req: Request, res: Response) => {
+  app.get("/api/progress/levels", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const requirements = await storage.getAllLevelRequirements();
       res.json(requirements);
@@ -1941,7 +2114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get level readiness for a player
-  app.get("/api/players/:id/level-readiness/:level", async (req: Request, res: Response) => {
+  app.get("/api/players/:id/level-readiness/:level", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id, level } = req.params;
       const readiness = await storage.calculatePlayerLevelReadiness(id, level);
@@ -1953,7 +2126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get player XP and transactions
-  app.get("/api/players/:id/xp", async (req: Request, res: Response) => {
+  app.get("/api/players/:id/xp", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const totalXp = await storage.getPlayerTotalXp(id);
@@ -1966,7 +2139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Freeze/unfreeze player progress
-  app.post("/api/players/:id/progress-freeze", async (req: Request, res: Response) => {
+  app.post("/api/players/:id/progress-freeze", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const { freeze, reason } = req.body;
@@ -1992,7 +2165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== GLOW CHAT API ====================
   
   // Get all conversations for a coach
-  app.get("/api/coaches/:id/conversations", async (req: Request, res: Response) => {
+  app.get("/api/coaches/:id/conversations", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const conversations = await storage.getConversationsForCoach(id);
@@ -2089,7 +2262,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all conversations for a player
-  app.get("/api/players/:id/conversations", async (req: Request, res: Response) => {
+  app.get("/api/players/:id/conversations", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const conversations = await storage.getConversationsForPlayer(id);
@@ -2114,15 +2287,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get or create a coach-player conversation
-  app.post("/api/conversations/coach-player", async (req: Request, res: Response) => {
+  app.post("/api/conversations/coach-player", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { coachId, playerId } = req.body;
+      const coachId = req.user!.coachId;
+      const { playerId } = req.body;
       
       if (!coachId || !playerId) {
-        return res.status(400).json({ error: "coachId and playerId required" });
+        return res.status(400).json({ error: "playerId required" });
       }
       
-      const conversation = await storage.getOrCreateCoachPlayerConversation(coachId, playerId);
+      const conversation = await storage.getOrCreateCoachPlayerConversation(coachId!, playerId);
       res.json(conversation);
     } catch (error) {
       console.error("Error creating conversation:", error);
@@ -2131,17 +2305,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create a new conversation
-  app.post("/api/conversations", async (req: Request, res: Response) => {
+  app.post("/api/conversations", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { type, playerId, coachId, title } = req.body;
+      const coachId = req.user!.coachId;
+      const { type, playerId, title } = req.body;
       
       if (!type || !coachId) {
-        return res.status(400).json({ error: "type and coachId required" });
+        return res.status(400).json({ error: "type required" });
       }
       
       // For coach_player type, use the existing method
       if (type === "coach_player" && playerId) {
-        const conversation = await storage.getOrCreateCoachPlayerConversation(coachId, playerId);
+        const conversation = await storage.getOrCreateCoachPlayerConversation(coachId!, playerId);
         return res.json(conversation);
       }
       
@@ -2161,7 +2336,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all squads (hardcoded for now)
-  app.get("/api/squads", async (_req: Request, res: Response) => {
+  app.get("/api/squads", authMiddleware, async (_req: AuthenticatedRequest, res: Response) => {
     try {
       const squads = [
         { id: "squad-red-1", name: "Red 1" },
@@ -2179,7 +2354,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get messages for a conversation
-  app.get("/api/conversations/:id/messages", async (req: Request, res: Response) => {
+  app.get("/api/conversations/:id/messages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const limit = parseInt(req.query.limit as string) || 50;
@@ -2324,7 +2499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Send a message
-  app.post("/api/conversations/:id/messages", async (req: Request, res: Response) => {
+  app.post("/api/conversations/:id/messages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id: conversationId } = req.params;
       const { senderType, senderCoachId, senderPlayerId, body, messageType, replyToId } = req.body;
@@ -2361,7 +2536,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Mark conversation as read
-  app.post("/api/conversations/:id/read", async (req: Request, res: Response) => {
+  app.post("/api/conversations/:id/read", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id: conversationId } = req.params;
       const { participantType, participantId } = req.body;
@@ -2375,7 +2550,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Add reaction to message
-  app.post("/api/messages/:id/reactions", async (req: Request, res: Response) => {
+  app.post("/api/messages/:id/reactions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id: messageId } = req.params;
       const { reactorType, reactorCoachId, reactorPlayerId, emoji } = req.body;
@@ -2400,7 +2575,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Remove reaction from message
-  app.delete("/api/messages/:id/reactions", async (req: Request, res: Response) => {
+  app.delete("/api/messages/:id/reactions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id: messageId } = req.params;
       const { reactorType, reactorId, emoji } = req.body;
@@ -2414,7 +2589,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get unread count for coach
-  app.get("/api/coaches/:id/unread-count", async (req: Request, res: Response) => {
+  app.get("/api/coaches/:id/unread-count", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const count = await storage.getUnreadCountForCoach(id);
@@ -2426,7 +2601,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get unread count for player
-  app.get("/api/players/:id/unread-count", async (req: Request, res: Response) => {
+  app.get("/api/players/:id/unread-count", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const count = await storage.getUnreadCountForPlayer(id);

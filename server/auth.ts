@@ -101,3 +101,75 @@ export function requireAcademy(req: AuthenticatedRequest, res: Response, next: N
 
   next();
 }
+
+export interface StorageInterface {
+  getPlayer(id: string, academyId?: string): Promise<any>;
+  getCourt(id: string, academyId?: string): Promise<any>;
+  getSession(id: string, academyId?: string): Promise<any>;
+  getPackage(id: string): Promise<any>;
+  getCoachNotification(id: string, coachId?: string): Promise<any>;
+}
+
+export async function validatePlayerOwnership(
+  playerId: string,
+  academyId: string | null,
+  storage: StorageInterface
+): Promise<{ valid: boolean; player?: any }> {
+  if (!academyId) {
+    return { valid: false };
+  }
+  const player = await storage.getPlayer(playerId, academyId);
+  return { valid: !!player, player };
+}
+
+export async function validateCourtOwnership(
+  courtId: string,
+  academyId: string | null,
+  storage: StorageInterface
+): Promise<{ valid: boolean; court?: any }> {
+  if (!academyId) {
+    return { valid: false };
+  }
+  const court = await storage.getCourt(courtId, academyId);
+  return { valid: !!court, court };
+}
+
+export async function validateSessionOwnership(
+  sessionId: string,
+  academyId: string | null,
+  storage: StorageInterface
+): Promise<{ valid: boolean; session?: any }> {
+  if (!academyId) {
+    return { valid: false };
+  }
+  const session = await storage.getSession(sessionId, academyId);
+  return { valid: !!session, session };
+}
+
+export async function validatePackageOwnership(
+  packageId: string,
+  academyId: string | null,
+  storage: StorageInterface
+): Promise<{ valid: boolean; pkg?: any }> {
+  if (!academyId) {
+    return { valid: false };
+  }
+  const pkg = await storage.getPackage(packageId);
+  if (!pkg) {
+    return { valid: false };
+  }
+  const player = await storage.getPlayer(pkg.playerId, academyId);
+  return { valid: !!player, pkg };
+}
+
+export async function validateNotificationOwnership(
+  notificationId: string,
+  coachId: string | null,
+  storage: StorageInterface
+): Promise<{ valid: boolean; notification?: any }> {
+  if (!coachId) {
+    return { valid: false };
+  }
+  const notification = await storage.getCoachNotification(notificationId, coachId);
+  return { valid: !!notification, notification };
+}
