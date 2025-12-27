@@ -43,91 +43,94 @@ export default function CourtPreferencesScreen() {
   const { coach } = useCoach();
   const queryClient = useQueryClient();
 
-  const [courts, setCourts] = useState<CourtPreference[]>([
-    { id: "court-a", name: "Court A", type: "indoor", isSelected: true, priority: 1 },
-    { id: "court-b", name: "Court B", type: "indoor", isSelected: true, priority: 2 },
-    { id: "court-c", name: "Court C", type: "outdoor", isSelected: false, priority: 3 },
-    { id: "court-d", name: "Court D", type: "outdoor", isSelected: true, priority: 4 },
-  ]);
+  const [courts, setCourts] = useState<CourtPreference[]>([]);
   const [preferredType, setPreferredType] = useState("no_preference");
   const [daylightOnly, setDaylightOnly] = useState(false);
   const [maxPerCourt, setMaxPerCourt] = useState(8);
   const [maxTotal, setMaxTotal] = useState(10);
   const [fallbackBehavior, setFallbackBehavior] = useState("suggest");
   const [hasChanges, setHasChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const { data: courtsData, isLoading } = useQuery({
     queryKey: ["/api/courts"],
     enabled: true,
   });
 
-  const { data: preferencesData } = useQuery({
+  const { data: preferencesData, isLoading: isLoadingPrefs, isFetching: isFetchingPrefs } = useQuery({
     queryKey: ["/api/coaches", coach?.id, "court-preferences"],
     enabled: !!coach?.id,
   });
 
-  // Track if we've hydrated from API
-  const [hasHydratedCourts, setHasHydratedCourts] = useState(false);
-  const [hasHydratedPrefs, setHasHydratedPrefs] = useState(false);
+  // Track if initial hydration has completed
+  const [isHydrated, setIsHydrated] = useState(false);
 
-  // Hydrate courts from API data - only once
+  // Hydrate courts and preferences together when BOTH are available
+  // Only hydrate once initially, then on refetch after save (when not editing)
   useEffect(() => {
-    if (courtsData && Array.isArray(courtsData) && courtsData.length > 0 && !hasHydratedCourts) {
-      const apiCourts = courtsData as any[];
-      // Initialize all courts as unselected by default - preferences will mark selected ones
-      const hydratedCourts = apiCourts.map((court: any, index: number) => ({
+    // Don't hydrate while saving or refetching after save
+    if (isSaving || isFetchingPrefs) return;
+    // Don't re-hydrate if already hydrated and user has changes
+    if (isHydrated && hasChanges) return;
+    // Need courts data to hydrate
+    if (!courtsData || !Array.isArray(courtsData) || courtsData.length === 0) return;
+    // Wait for preferences query to complete (even if null) before hydrating
+    // This prevents hydrating with defaults before server preferences arrive
+    if (coach?.id && preferencesData === undefined) return;
+    
+    const apiCourts = courtsData as any[];
+    const prefs = preferencesData as any;
+    
+    // Build courts with proper selection state from preferences
+    const hydratedCourts = apiCourts.map((court: any, index: number) => {
+      const baseCourt = {
         id: court.id,
         name: court.name,
         type: (court.type === "indoor" ? "indoor" : "outdoor") as "indoor" | "outdoor",
-        isSelected: false, // Start unselected, preferences will mark selected
         priority: index + 1,
-      }));
-      setCourts(hydratedCourts);
-      setHasHydratedCourts(true);
-    }
-  }, [courtsData, hasHydratedCourts]);
-
-  // Hydrate preferences from API data - only after courts are hydrated
-  useEffect(() => {
-    if (preferencesData && hasHydratedCourts && !hasHydratedPrefs) {
-      const prefs = preferencesData as any;
-      if (prefs.courtPreferences && Array.isArray(prefs.courtPreferences)) {
-        setCourts((currentCourts) => {
-          const updatedCourts = currentCourts.map((court) => {
-            const pref = prefs.courtPreferences.find((p: any) => p.courtId === court.id);
-            if (pref) {
-              return {
-                ...court,
-                isSelected: true,
-                priority: typeof pref.priority === "number" ? pref.priority : court.priority,
-              };
-            }
-            return court; // Keep unselected if no preference found
-          });
-          // Sort by priority only if we have preferences
-          if (prefs.courtPreferences.length > 0) {
-            return updatedCourts.sort((a, b) => a.priority - b.priority);
-          }
-          return updatedCourts;
-        });
-      } else {
-        // No preferences saved yet - select all courts by default for new users
-        setCourts((currentCourts) => currentCourts.map((c) => ({ ...c, isSelected: true })));
+        isSelected: true, // Default to selected for new users
+      };
+      
+      // If we have preferences data, apply it
+      if (prefs?.courtPreferences && Array.isArray(prefs.courtPreferences)) {
+        const pref = prefs.courtPreferences.find((p: any) => p.courtId === court.id);
+        if (pref) {
+          return {
+            ...baseCourt,
+            isSelected: true,
+            priority: typeof pref.priority === "number" ? pref.priority : baseCourt.priority,
+          };
+        } else {
+          // Court exists but not in preferences = deselected
+          return { ...baseCourt, isSelected: false };
+        }
       }
-      if (prefs.rules) {
-        const rules = prefs.rules;
-        if (rules.preferredType) setPreferredType(rules.preferredType);
-        if (rules.daylightOnly !== undefined) setDaylightOnly(rules.daylightOnly);
-        if (rules.maxSessionsPerCourtPerDay) setMaxPerCourt(rules.maxSessionsPerCourtPerDay);
-        if (rules.maxTotalSessionsPerDay) setMaxTotal(rules.maxTotalSessionsPerDay);
-        if (rules.fallbackBehavior) setFallbackBehavior(rules.fallbackBehavior);
-      }
-      setHasHydratedPrefs(true);
+      
+      return baseCourt;
+    });
+    
+    // Sort by priority if we have preferences
+    if (prefs?.courtPreferences?.length > 0) {
+      hydratedCourts.sort((a, b) => a.priority - b.priority);
     }
-  }, [preferencesData, hasHydratedCourts, hasHydratedPrefs]);
+    
+    setCourts(hydratedCourts);
+    setIsHydrated(true);
+    
+    // Hydrate rules if available
+    if (prefs?.rules) {
+      const rules = prefs.rules;
+      if (rules.preferredType) setPreferredType(rules.preferredType);
+      if (rules.daylightOnly !== undefined) setDaylightOnly(rules.daylightOnly);
+      if (rules.maxSessionsPerCourtPerDay) setMaxPerCourt(rules.maxSessionsPerCourtPerDay);
+      if (rules.maxTotalSessionsPerDay) setMaxTotal(rules.maxTotalSessionsPerDay);
+      if (rules.fallbackBehavior) setFallbackBehavior(rules.fallbackBehavior);
+    }
+  }, [courtsData, preferencesData, hasChanges, isSaving, isFetchingPrefs, isHydrated, coach?.id]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      setIsSaving(true);
       await apiRequest("PUT", `/api/coaches/${coach?.id}/court-preferences`, {
         courtPreferences: courts.filter((c) => c.isSelected).map((c, i) => ({
           courtId: c.id,
@@ -145,12 +148,15 @@ export default function CourtPreferencesScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/coaches", coach?.id] });
       setHasChanges(false);
+      // Delay resetting isSaving to allow refetch to complete
+      setTimeout(() => setIsSaving(false), 500);
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
       Alert.alert("Saved", "Your court preferences have been updated.");
     },
     onError: () => {
+      setIsSaving(false);
       Alert.alert("Error", "Failed to save preferences. Please try again.");
     },
   });
@@ -189,8 +195,9 @@ export default function CourtPreferencesScreen() {
 
   const selectedCount = courts.filter((c) => c.isSelected).length;
 
-  // Show loading state while fetching data
-  if (isLoading) {
+  // Show loading state until hydration is complete
+  // This ensures we wait for both courts AND preferences before showing UI
+  if (!isHydrated) {
     return (
       <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
         <Feather name="grid" size={48} color={Colors.dark.primary} />
