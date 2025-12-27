@@ -596,14 +596,16 @@ export function CoachChatFooter() {
             renderCoachSelector()
           ) : selectedConversation ? (
             <>
-              <View style={styles.conversationHeader}>
-                <Pressable onPress={() => setSelectedConversation(null)} style={styles.backButton}>
-                  <Ionicons name="chevron-back" size={20} color={Colors.dark.text} />
-                </Pressable>
-                <ThemedText style={styles.conversationTitle}>
-                  {selectedConversation.playerName || selectedConversation.title || "Chat"}
-                </ThemedText>
-              </View>
+              {currentTab !== "academy" ? (
+                <View style={styles.conversationHeader}>
+                  <Pressable onPress={() => setSelectedConversation(null)} style={styles.backButton}>
+                    <Ionicons name="chevron-back" size={20} color={Colors.dark.text} />
+                  </Pressable>
+                  <ThemedText style={styles.conversationTitle}>
+                    {selectedConversation.playerName || selectedConversation.title || "Chat"}
+                  </ThemedText>
+                </View>
+              ) : null}
 
               {loadingMessages ? (
                 <View style={styles.loadingContainer}>
