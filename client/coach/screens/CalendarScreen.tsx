@@ -31,6 +31,7 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import CreateSessionDrawer from "@/coach/components/CreateSessionDrawer";
 import NowPlayingCard from "@/coach/components/NowPlayingCard";
 import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
+import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
 
 interface CoachData {
   id: string;
@@ -459,6 +460,7 @@ export default function CalendarScreen() {
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{ courtId: string; time: Date } | null>(null);
   const [selectedSessionForAttendance, setSelectedSessionForAttendance] = useState<Session | null>(null);
+  const [selectedSessionForDetail, setSelectedSessionForDetail] = useState<Session | null>(null);
   const [weekMode, setWeekMode] = useState<"overview" | "availability">("availability");
   const [monthMode, setMonthMode] = useState<"load" | "availability">("load");
   const [draggingSession, setDraggingSession] = useState<string | null>(null);
@@ -817,7 +819,12 @@ export default function CalendarScreen() {
     setViewMode("day");
   };
 
+  const handleSessionTap = (session: Session) => {
+    setSelectedSessionForDetail(session);
+  };
+  
   const handleAttendance = (session: Session) => {
+    setSelectedSessionForDetail(null);
     setSelectedSessionForAttendance(session);
   };
 
@@ -1164,7 +1171,7 @@ export default function CalendarScreen() {
                             sessionLabel={sessionLabel}
                             hourHeight={hourHeight}
                             courtLaneWidth={COURT_LANE_WIDTH}
-                            onTap={() => handleAttendance(session)}
+                            onTap={() => handleSessionTap(session)}
                             onLongPress={() => handleSessionLongPress(session)}
                             onDragEnd={(deltaY, deltaX) => handleSessionDragEnd(session, deltaY, deltaX, courtIndex)}
                           />
@@ -1423,7 +1430,7 @@ export default function CalendarScreen() {
                                 dayColumnWidth={dayColumnWidth}
                                 onTap={() => {
                                   setSelectedDate(date);
-                                  handleAttendance(session);
+                                  handleSessionTap(session);
                                 }}
                                 onLongPress={() => handleSessionLongPress(session)}
                                 onDragEnd={(deltaY, deltaX) => handleWeekSessionDragEnd(session, deltaY, deltaX, dayColumnWidth)}
@@ -1792,6 +1799,19 @@ export default function CalendarScreen() {
         }}
         initialCourtId={selectedSlot?.courtId}
         initialTime={selectedSlot?.time}
+      />
+
+      {/* Session Detail Drawer */}
+      <SessionDetailDrawer
+        visible={!!selectedSessionForDetail}
+        session={selectedSessionForDetail}
+        courts={courts}
+        onClose={() => setSelectedSessionForDetail(null)}
+        onAttendance={() => {
+          if (selectedSessionForDetail) {
+            handleAttendance(selectedSessionForDetail);
+          }
+        }}
       />
 
       {/* Attendance Drawer */}
