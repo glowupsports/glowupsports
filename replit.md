@@ -44,21 +44,24 @@ The application uses a dark-themed gaming aesthetic with neon green (#2ECC40) as
 - **Mobile**: iOS and Android (native).
 - **Web**: Single-page application via Expo web build.
 
-## Phase 0 Security Hardening (In Progress)
-**Status**: Significant progress, chat isolation still needs full completion.
+## Phase 0 Security Hardening (Complete)
+**Status**: All security hardening tasks completed. Ready for production deployment testing.
 
-### Completed
-- **Authentication Infrastructure**: Login/register/logout/refresh endpoints, AuthContext, LoginScreen with validation
+### Completed Security Features
+- **Authentication Infrastructure**: Login/register/logout/refresh endpoints, AuthContext, LoginScreen with Zod validation
 - **Role-Based Access Control**: authMiddleware and requireAcademy middleware on 50+ routes
 - **Multi-Tenant Isolation**:
   - requireAcademy middleware rejects requests from users without academyId (403)
-  - Session endpoints (update/cancel/extend) now pass academyId to storage
-  - Coach endpoints (profile/XP/stats) now verify coach belongs to academy
-  - Conversations table now has academyId column for academy scoping
-  - Conversation storage functions (getConversation, getConversationsForCoach, getConversationsForPlayer, getOrCreateCoachPlayerConversation) now accept academyId parameter
-- **Frontend**: Logout button added to SettingsScreen with confirmation dialog
+  - Session/coach/player endpoints verify academy membership
+  - Chat tables (conversations, messages, conversationParticipants, messageReactions) all have academyId columns
+  - All chat storage functions filter by academyId to prevent cross-academy data access
+- **Input Sanitization**: server/utils/sanitize.ts provides HTML escaping for player notes, chat messages, and templates
+- **Security Headers**: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy
+- **Request Size Limits**: 1MB limit on JSON and URL-encoded payloads
+- **Audit Logging**: Session create/update/cancel, package credit usage, coach XP awards all logged to auditLogs table
+- **Frontend**: Logout button with confirmation dialog on SettingsScreen
 
-### Remaining Work
-- Add academyId to messages and conversationParticipants tables for complete chat isolation
-- Make academyId required (non-optional) in storage functions for academy-scoped models
-- Ensure all chat mutations (reactions, participant updates) verify academy membership
+### Future Enhancements
+- Add automated tests for sanitization and academy-scoped queries
+- Extend audit logging when player deletion endpoints are added
+- Consider full Zod validation for all POST/PATCH routes (currently using manual field checks)
