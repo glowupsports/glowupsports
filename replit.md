@@ -74,3 +74,34 @@ The application uses a dark-themed gaming aesthetic with neon green (#2ECC40) as
 - Add supertest for in-memory integration tests
 - Consider full Zod validation for all POST/PATCH routes (currently using manual field checks)
 - Add cascade delete cleanup for player-related data
+
+## Phase 1 Core Features (In Progress)
+
+### 1.1 Calendar Upgrade (Complete)
+- **Visual Conflict Preview**: Red dashed border when dragged session overlaps with another
+- **Undo Last Move**: Gold undo button appears after drag/drop, stores original session state
+- **Lock Past Sessions**: Sessions in the past cannot be dragged (gesture disabled via `.enabled(!isPast)`)
+- **Snap-to-Grid**: Sessions snap to 15-minute intervals during drag
+
+### 1.2 Recurring Sessions (Complete)
+- **Database Schema**: `recurringSeries` table with pattern fields, `sessions` table has `isRecurring`, `recurringGroupId`, `weekCount`
+- **API Endpoints**: Full CRUD for recurring series, skip conflict logic on creation
+- **UI**: CreateSessionDrawer with weekCount selector (1-12 weeks)
+
+### 1.4 Real-Time Chat (Complete)
+- **WebSocket Server** (`server/websocket.ts`):
+  - JWT authentication with database verification (user + coach academy membership)
+  - Academy-based rooms for multi-tenant isolation
+  - Heartbeat ping/pong every 30 seconds
+  - Message types: typing, read_receipt, new_message, online_status
+- **Frontend Hook** (`client/lib/useWebSocket.ts`):
+  - Auto-reconnect with exponential backoff
+  - Heartbeat handling for connection keep-alive
+- **CoachChatFooter Integration**:
+  - Typing indicators (filters out current user)
+  - Connection status indicator (green dot when connected)
+  - Reduced polling: 30s when WebSocket connected, 5s fallback when disconnected
+  - `broadcastNewMessage` called on new messages from server
+
+### 1.3 Offline Sync (Pending)
+- Queue processor with retry/backoff not yet implemented
