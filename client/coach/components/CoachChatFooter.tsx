@@ -27,6 +27,7 @@ import { apiRequest, getApiUrl } from "@/lib/query-client";
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const FOOTER_COLLAPSED = 60;
 const FOOTER_EXPANDED = Math.min(SCREEN_HEIGHT * 0.6, 450);
+const FOOTER_FULLSCREEN = SCREEN_HEIGHT;
 
 interface Message {
   id: string;
@@ -85,6 +86,7 @@ export function CoachChatFooter() {
   const queryClient = useQueryClient();
   const { coach } = useCoach();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [inputText, setInputText] = useState("");
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [showReactions, setShowReactions] = useState<string | null>(null);
@@ -95,6 +97,15 @@ export function CoachChatFooter() {
   const flatListRef = useRef<FlatList>(null);
 
   const height = useSharedValue(FOOTER_COLLAPSED + insets.bottom);
+  
+  const toggleFullscreen = () => {
+    if (isFullscreen) {
+      setIsFullscreen(false);
+    } else {
+      setIsExpanded(true);
+      setIsFullscreen(true);
+    }
+  };
 
   const { data: conversations = [], isLoading: loadingConversations } = useQuery<Conversation[]>({
     queryKey: ["/api/coaches", coach?.id, "conversations"],
@@ -185,11 +196,13 @@ export function CoachChatFooter() {
   });
 
   useEffect(() => {
-    height.value = withSpring(
-      isExpanded ? FOOTER_EXPANDED + insets.bottom : FOOTER_COLLAPSED + insets.bottom,
-      { damping: 20, stiffness: 200 }
-    );
-  }, [isExpanded, insets.bottom]);
+    const targetHeight = isFullscreen 
+      ? FOOTER_FULLSCREEN 
+      : isExpanded 
+        ? FOOTER_EXPANDED + insets.bottom 
+        : FOOTER_COLLAPSED + insets.bottom;
+    height.value = withSpring(targetHeight, { damping: 20, stiffness: 200 });
+  }, [isExpanded, isFullscreen, insets.bottom]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     height: height.value,
@@ -554,36 +567,66 @@ export function CoachChatFooter() {
 
   return (
     <Animated.View style={[styles.container, { paddingBottom: insets.bottom }, animatedStyle]}>
-      <Pressable
-        onPress={() => setIsExpanded(!isExpanded)}
-        style={styles.header}
-      >
-        <View style={styles.headerLeft}>
-          <View style={styles.chatIconContainer}>
-            <Ionicons name="chatbubble-outline" size={20} color={Colors.dark.primary} />
-            {unreadCount > 0 ? (
-              <View style={styles.unreadBadge}>
-                <ThemedText style={styles.unreadText}>{unreadCount}</ThemedText>
-              </View>
-            ) : null}
-          </View>
-          {latestConversation && !isExpanded ? (
-            <ThemedText numberOfLines={1} style={styles.previewText}>
-              <ThemedText style={styles.previewSender}>
-                {latestConversation.playerName || "Chat"}:{" "}
+      <View style={styles.header}>
+        <Pressable
+          onPress={() => {
+            if (isFullscreen) {
+              setIsFullscreen(false);
+            } else {
+              setIsExpanded(!isExpanded);
+            }
+          }}
+          style={styles.headerTouchable}
+        >
+          <View style={styles.headerLeft}>
+            <View style={styles.chatIconContainer}>
+              <Ionicons name="chatbubble-outline" size={20} color={Colors.dark.primary} />
+              {unreadCount > 0 ? (
+                <View style={styles.unreadBadge}>
+                  <ThemedText style={styles.unreadText}>{unreadCount}</ThemedText>
+                </View>
+              ) : null}
+            </View>
+            {latestConversation && !isExpanded ? (
+              <ThemedText numberOfLines={1} style={styles.previewText}>
+                <ThemedText style={styles.previewSender}>
+                  {latestConversation.playerName || "Chat"}:{" "}
+                </ThemedText>
+                {latestConversation.lastMessagePreview || "No messages"}
               </ThemedText>
-              {latestConversation.lastMessagePreview || "No messages"}
-            </ThemedText>
-          ) : (
-            <ThemedText style={styles.headerTitle}>Glow Chat</ThemedText>
-          )}
+            ) : (
+              <ThemedText style={styles.headerTitle}>Glow Chat</ThemedText>
+            )}
+          </View>
+        </Pressable>
+        <View style={styles.headerButtons}>
+          {isExpanded ? (
+            <Pressable onPress={toggleFullscreen} style={styles.fullscreenButton}>
+              <Ionicons
+                name={isFullscreen ? "contract-outline" : "expand-outline"}
+                size={20}
+                color={Colors.dark.text}
+              />
+            </Pressable>
+          ) : null}
+          <Pressable
+            onPress={() => {
+              if (isFullscreen) {
+                setIsFullscreen(false);
+              } else {
+                setIsExpanded(!isExpanded);
+              }
+            }}
+            style={styles.chevronButton}
+          >
+            <Ionicons
+              name={isExpanded || isFullscreen ? "chevron-down-outline" : "chevron-up-outline"}
+              size={20}
+              color={Colors.dark.text}
+            />
+          </Pressable>
         </View>
-        <Ionicons
-          name={isExpanded ? "chevron-down-outline" : "chevron-up-outline"}
-          size={20}
-          color={Colors.dark.text}
-        />
-      </Pressable>
+      </View>
 
       {isExpanded ? (
         <View style={styles.expandedContent}>
@@ -677,6 +720,22 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: Spacing.lg,
     height: FOOTER_COLLAPSED,
+  },
+  headerTouchable: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  headerButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  fullscreenButton: {
+    padding: Spacing.xs,
+  },
+  chevronButton: {
+    padding: Spacing.xs,
   },
   headerLeft: {
     flexDirection: "row",
