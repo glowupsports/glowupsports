@@ -57,19 +57,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const apiUrl = getApiUrl();
       const response = await fetch(new URL("/api/me", apiUrl).toString(), {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Cache-Control': 'no-cache',
+        },
       });
       
       if (response.ok) {
-        const data = await response.json();
+        const text = await response.text();
+        if (!text) {
+          console.error("[AuthContext] Empty response from /api/me");
+          return false;
+        }
+        const data = JSON.parse(text);
+        console.log("[AuthContext] Received user data:", { hasUser: !!data.user, hasCoach: !!data.coach, hasAcademy: !!data.academy });
         setUser(data.user);
         setCoach(data.coach);
         setAcademy(data.academy);
         return true;
       }
+      console.log("[AuthContext] /api/me returned status:", response.status);
       return false;
     } catch (error) {
-      console.error("Failed to fetch user data:", error);
+      console.error("[AuthContext] Failed to fetch user data:", error);
       return false;
     }
   }, []);
@@ -78,22 +88,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
     
     const initAuth = async () => {
+      console.log("[AuthContext] Starting auth init...");
       try {
         const authState = await loadAuthState();
+        console.log("[AuthContext] Loaded auth state:", { hasToken: !!authState.token, hasUser: !!authState.user });
         
         if (authState.token && authState.user && isMounted) {
           setAuthToken(authState.token);
+          console.log("[AuthContext] Fetching user data...");
           const success = await fetchUserData(authState.token);
+          console.log("[AuthContext] Fetch user data result:", success);
           if (success && isMounted) {
             setIsAuthenticated(true);
+            console.log("[AuthContext] User authenticated successfully");
           } else {
+            console.log("[AuthContext] Clearing auth state due to failed fetch");
             await clearAuthState();
           }
+        } else {
+          console.log("[AuthContext] No stored auth state, showing login");
         }
       } catch (error) {
-        console.error("Auth init error:", error);
+        console.error("[AuthContext] Auth init error:", error);
       } finally {
         if (isMounted) {
+          console.log("[AuthContext] Setting isLoading to false");
           setIsLoading(false);
         }
       }

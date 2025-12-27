@@ -948,6 +948,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get current user with coach and academy context (authenticated)
   app.get("/api/me", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     try {
       const user = req.user!;
       
