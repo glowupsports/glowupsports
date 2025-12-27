@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import * as fs from "fs";
 import * as path from "path";
+import { createProxyMiddleware } from "http-proxy-middleware";
 
 const app = express();
 app.set('trust proxy', 1);
@@ -167,6 +168,36 @@ function serveLandingPage({
   res.status(200).send(html);
 }
 
+function setupExpoDevProxy(app: express.Application) {
+  if (process.env.NODE_ENV !== 'development') {
+    return;
+  }
+
+  log("Setting up Expo dev server proxy on port 5000 -> 8081");
+
+  const expoProxy = createProxyMiddleware({
+    target: 'http://localhost:8081',
+    changeOrigin: true,
+    ws: true,
+    logger: console,
+    on: {
+      error: (err, req, res) => {
+        log(`Expo proxy error: ${err.message}`);
+      }
+    }
+  });
+
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
+    if (req.path === '/manifest' && req.header('expo-platform')) {
+      return next();
+    }
+    return expoProxy(req, res, next);
+  });
+}
+
 function configureExpoAndLanding(app: express.Application) {
   const templatePath = path.resolve(
     process.cwd(),
@@ -234,6 +265,7 @@ function setupErrorHandler(app: express.Application) {
   setupBodyParsing(app);
   setupRequestLogging(app);
 
+  setupExpoDevProxy(app);
   configureExpoAndLanding(app);
 
   const server = await registerRoutes(app);
