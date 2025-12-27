@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import MiniTimeline from "@/coach/components/MiniTimeline";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
+import { CoachStatusPanel } from "@/coach/components/CoachStatusPanel";
 
 interface Session {
   id: string;
@@ -40,6 +41,7 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { coach, calendarData, isLoading } = useCoach();
+  const [showStatusPanel, setShowStatusPanel] = useState(false);
 
   const today = new Date();
   const todaysSessions = useMemo(() => {
@@ -248,7 +250,10 @@ export default function DashboardScreen() {
             </Pressable>
             <Pressable
               style={styles.headerButton}
-              onPress={() => handleNavigate("CoachProfile")}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowStatusPanel(true);
+              }}
             >
               {/* Avatar with Glow Ring */}
               <View style={styles.avatarGlowRing}>
@@ -565,6 +570,17 @@ export default function DashboardScreen() {
       </ScrollView>
 
       <CoachChatFooter />
+
+      <CoachStatusPanel
+        visible={showStatusPanel}
+        onClose={() => setShowStatusPanel(false)}
+        onNavigate={(screen) => {
+          if (screen === "Logout") {
+            return;
+          }
+          handleNavigate(screen);
+        }}
+      />
     </View>
   );
 }
