@@ -820,3 +820,313 @@ export const coachSettings = pgTable("coach_settings", {
 export const insertCoachSettingsSchema = createInsertSchema(coachSettings).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertCoachSettings = z.infer<typeof insertCoachSettingsSchema>;
 export type CoachSettings = typeof coachSettings.$inferSelect;
+
+// ==================== PHASE 3: ACADEMY MANAGEMENT ====================
+
+// Academy Settings - Extended settings for academies
+export const academySettings = pgTable("academy_settings", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull().unique(),
+  
+  address: text("address"),
+  city: text("city"),
+  country: text("country"),
+  timezone: text("timezone").default("Asia/Dubai"),
+  currency: text("currency").default("AED"),
+  
+  logoUrl: text("logo_url"),
+  primaryColor: varchar("primary_color", { length: 7 }).default("#2ECC40"),
+  
+  defaultSessionDuration: integer("default_session_duration").default(60),
+  workingHoursStart: integer("working_hours_start").default(6), // 6 AM
+  workingHoursEnd: integer("working_hours_end").default(22), // 10 PM
+  
+  billingEnabled: boolean("billing_enabled").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAcademySettingsSchema = createInsertSchema(academySettings).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertAcademySettings = z.infer<typeof insertAcademySettingsSchema>;
+export type AcademySettings = typeof academySettings.$inferSelect;
+
+// Academy Invites - For inviting coaches to join
+export const academyInvites = pgTable("academy_invites", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  
+  email: text("email").notNull(),
+  role: text("role").default("coach"), // coach | assistant
+  inviteCode: varchar("invite_code", { length: 32 }).notNull().unique(),
+  
+  status: text("status").default("pending"), // pending | accepted | expired | revoked
+  invitedBy: varchar("invited_by").references(() => coaches.id),
+  acceptedBy: varchar("accepted_by").references(() => coaches.id),
+  
+  expiresAt: timestamp("expires_at").notNull(),
+  acceptedAt: timestamp("accepted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAcademyInviteSchema = createInsertSchema(academyInvites).omit({ id: true, createdAt: true });
+export type InsertAcademyInvite = z.infer<typeof insertAcademyInviteSchema>;
+export type AcademyInvite = typeof academyInvites.$inferSelect;
+
+// Coach Academy Memberships - For multi-academy support
+export const coachAcademyMemberships = pgTable("coach_academy_memberships", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  
+  role: text("role").default("coach"), // owner | coach | assistant
+  isActive: boolean("is_active").default(true),
+  isPrimary: boolean("is_primary").default(false), // default academy for this coach
+  
+  joinedAt: timestamp("joined_at").defaultNow(),
+  leftAt: timestamp("left_at"),
+});
+
+export const insertCoachAcademyMembershipSchema = createInsertSchema(coachAcademyMemberships).omit({ id: true, joinedAt: true });
+export type InsertCoachAcademyMembership = z.infer<typeof insertCoachAcademyMembershipSchema>;
+export type CoachAcademyMembership = typeof coachAcademyMemberships.$inferSelect;
+
+// ==================== PHASE 3: PUSH NOTIFICATIONS ====================
+
+// Push Device Tokens - Store Expo push tokens
+export const pushDeviceTokens = pgTable("push_device_tokens", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  coachId: varchar("coach_id").references(() => coaches.id),
+  
+  token: text("token").notNull(),
+  platform: text("platform").notNull(), // ios | android | web
+  deviceName: text("device_name"),
+  
+  isActive: boolean("is_active").default(true),
+  lastUsedAt: timestamp("last_used_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPushDeviceTokenSchema = createInsertSchema(pushDeviceTokens).omit({ id: true, createdAt: true, lastUsedAt: true });
+export type InsertPushDeviceToken = z.infer<typeof insertPushDeviceTokenSchema>;
+export type PushDeviceToken = typeof pushDeviceTokens.$inferSelect;
+
+// Notification Preferences - User notification settings
+export const notificationPreferences = pgTable("notification_preferences", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull().unique(),
+  
+  sessionReminders: boolean("session_reminders").default(true),
+  feedbackRequests: boolean("feedback_requests").default(true),
+  packageExpiry: boolean("package_expiry").default(true),
+  loadWarnings: boolean("load_warnings").default(true),
+  chatMessages: boolean("chat_messages").default(true),
+  
+  reminderMinutesBefore: integer("reminder_minutes_before").default(30),
+  quietHoursStart: integer("quiet_hours_start"), // e.g., 22 for 10 PM
+  quietHoursEnd: integer("quiet_hours_end"), // e.g., 7 for 7 AM
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertNotificationPreferenceSchema = createInsertSchema(notificationPreferences).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertNotificationPreference = z.infer<typeof insertNotificationPreferenceSchema>;
+export type NotificationPreference = typeof notificationPreferences.$inferSelect;
+
+// Scheduled Notifications - For reminders and alerts
+export const scheduledNotifications = pgTable("scheduled_notifications", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  
+  type: text("type").notNull(), // session_reminder | feedback_request | package_expiry | load_warning
+  scheduledFor: timestamp("scheduled_for").notNull(),
+  
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  data: jsonb("data"), // Additional payload data
+  
+  status: text("status").default("pending"), // pending | sent | failed | cancelled
+  sentAt: timestamp("sent_at"),
+  error: text("error"),
+  
+  relatedEntityType: text("related_entity_type"), // session | package | player
+  relatedEntityId: varchar("related_entity_id"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertScheduledNotificationSchema = createInsertSchema(scheduledNotifications).omit({ id: true, createdAt: true });
+export type InsertScheduledNotification = z.infer<typeof insertScheduledNotificationSchema>;
+export type ScheduledNotification = typeof scheduledNotifications.$inferSelect;
+
+// ==================== PHASE 3: BILLING & PAYMENTS ====================
+
+// Billing Accounts - Stripe customer per academy
+export const billingAccounts = pgTable("billing_accounts", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull().unique(),
+  
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeAccountId: text("stripe_account_id"), // For Stripe Connect
+  
+  billingEmail: text("billing_email"),
+  billingName: text("billing_name"),
+  
+  status: text("status").default("active"), // active | suspended | cancelled
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBillingAccountSchema = createInsertSchema(billingAccounts).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertBillingAccount = z.infer<typeof insertBillingAccountSchema>;
+export type BillingAccount = typeof billingAccounts.$inferSelect;
+
+// Subscription Plans - Academy subscription tiers
+export const subscriptionPlans = pgTable("subscription_plans", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  
+  name: text("name").notNull(), // Starter | Pro | Enterprise
+  stripePriceId: text("stripe_price_id"),
+  
+  monthlyPrice: numeric("monthly_price").notNull(),
+  yearlyPrice: numeric("yearly_price"),
+  currency: text("currency").default("USD"),
+  
+  maxCoaches: integer("max_coaches").default(1),
+  maxPlayers: integer("max_players").default(50),
+  maxLocations: integer("max_locations").default(1),
+  
+  features: jsonb("features"), // Array of feature flags
+  
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSubscriptionPlanSchema = createInsertSchema(subscriptionPlans).omit({ id: true, createdAt: true });
+export type InsertSubscriptionPlan = z.infer<typeof insertSubscriptionPlanSchema>;
+export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+
+// Subscriptions - Active academy subscriptions
+export const subscriptions = pgTable("subscriptions", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  planId: varchar("plan_id").references(() => subscriptionPlans.id).notNull(),
+  
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  
+  status: text("status").default("active"), // active | past_due | cancelled | trialing
+  billingPeriod: text("billing_period").default("monthly"), // monthly | yearly
+  
+  currentPeriodStart: timestamp("current_period_start"),
+  currentPeriodEnd: timestamp("current_period_end"),
+  trialEndsAt: timestamp("trial_ends_at"),
+  cancelledAt: timestamp("cancelled_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
+export type Subscription = typeof subscriptions.$inferSelect;
+
+// Invoices - Generated invoices for packages
+export const invoices = pgTable("invoices", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id),
+  packageId: varchar("package_id").references(() => packages.id),
+  
+  invoiceNumber: text("invoice_number").notNull(),
+  stripeInvoiceId: text("stripe_invoice_id"),
+  
+  amount: numeric("amount").notNull(),
+  currency: text("currency").default("AED"),
+  
+  status: text("status").default("draft"), // draft | pending | paid | void | uncollectible
+  dueDate: date("due_date"),
+  paidAt: timestamp("paid_at"),
+  
+  lineItems: jsonb("line_items"), // Array of line items
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, createdAt: true });
+export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+export type Invoice = typeof invoices.$inferSelect;
+
+// Payments - Payment records
+export const payments = pgTable("payments", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  invoiceId: varchar("invoice_id").references(() => invoices.id),
+  
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  stripeChargeId: text("stripe_charge_id"),
+  
+  amount: numeric("amount").notNull(),
+  currency: text("currency").default("AED"),
+  
+  status: text("status").default("pending"), // pending | succeeded | failed | refunded
+  paymentMethod: text("payment_method"), // card | cash | bank_transfer
+  
+  metadata: jsonb("metadata"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true, createdAt: true });
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+export type Payment = typeof payments.$inferSelect;
+
+// Refunds - Refund records
+export const refunds = pgTable("refunds", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  paymentId: varchar("payment_id").references(() => payments.id).notNull(),
+  
+  stripeRefundId: text("stripe_refund_id"),
+  
+  amount: numeric("amount").notNull(),
+  reason: text("reason"), // duplicate | fraudulent | requested_by_customer | other
+  notes: text("notes"),
+  
+  status: text("status").default("pending"), // pending | succeeded | failed
+  processedBy: varchar("processed_by").references(() => coaches.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertRefundSchema = createInsertSchema(refunds).omit({ id: true, createdAt: true });
+export type InsertRefund = z.infer<typeof insertRefundSchema>;
+export type Refund = typeof refunds.$inferSelect;

@@ -1,7 +1,7 @@
 # Glow Up Tennis / Coach App
 
 ## Overview
-This project features two applications: a professional **Coach App** for tennis management (active development) and a **Glow Up Tennis** gamified learning app for players (paused). The Coach App provides comprehensive tools for session scheduling, player management, progress tracking, and feedback. The aesthetic is a dark theme with neon green (#2ECC40) and cyan (#00D4FF) accents, inspired by gaming.
+This project comprises two applications: a professional **Coach App** for tennis management (actively developed) and a **Glow Up Tennis** gamified learning app for players (paused). The Coach App offers extensive tools for scheduling sessions, managing players, tracking progress, and providing feedback, all within a dark-themed interface accented with neon green and cyan, inspired by gaming aesthetics. The project aims to provide a comprehensive digital solution for tennis coaches and potentially gamified learning for players.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -9,162 +9,39 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### UI/UX Decisions
-The application uses a dark-themed gaming aesthetic with neon green (#2ECC40) as the primary color and cyan accents (#00D4FF). UI elements are card-based, and the navigation features a drawer-based layout with a custom header for persistent player stats and a collapsible chat footer.
+The application features a dark-themed gaming aesthetic with neon green (#2ECC40) as the primary color and cyan accents (#00D4FF). The UI utilizes card-based layouts, a drawer-based navigation system, a custom header for persistent player stats, and a collapsible chat footer.
 
 ### Technical Implementations
-- **Frontend**: React Native with Expo SDK 54, utilizing React Navigation for a multi-screen experience. State management is handled with React Context, and `AsyncStorage` is used for local data persistence. Animations are powered by `React Native Reanimated`.
-- **Backend**: Express.js with TypeScript, providing RESTful API endpoints. Data is currently stored in-memory, with a `Drizzle ORM` schema defined for future PostgreSQL integration. CORS is dynamically handled for Replit deployments.
-- **Data Storage**: `AsyncStorage` for client-side persistence; `Drizzle ORM` with PostgreSQL schema (`users`, `coaches`, `players`, `sessions`, `sessionFeedback`, `playerNotes`, `playerProgress` and others) for server-side.
-- **Build System**: Concurrent Expo and Express servers for development, static Expo web build served by Express for production. `Drizzle Kit` manages PostgreSQL schema migrations.
+- **Frontend**: Developed with React Native and Expo SDK 54, using React Navigation for multi-screen flows. State management is handled via React Context, and `AsyncStorage` is used for local data persistence. Animations are implemented with `React Native Reanimated`.
+- **Backend**: Built with Express.js and TypeScript, exposing RESTful API endpoints. Data is currently in-memory but designed with a `Drizzle ORM` schema for future PostgreSQL integration. CORS is dynamically configured for Replit deployments.
+- **Data Storage**: `AsyncStorage` for client-side data; `Drizzle ORM` with a PostgreSQL schema for server-side data, including tables for users, coaches, players, sessions, feedback, and progress tracking.
+- **Build System**: Concurrent Expo and Express servers for development, with a static Expo web build served by Express for production. `Drizzle Kit` manages PostgreSQL schema migrations.
 
 ### Feature Specifications
-- **Coach App**:
-    - **Player Management**: Detailed player profiles including skill levels, medical notes, and progress tracking.
-    - **Session Management**: Calendar views (Day/Week/Month), session scheduling, attendance tracking, and recurring session capabilities with conflict detection.
-    - **Feedback & Progress**: Comprehensive feedback system with mood selectors and skill observations. An advanced "Progress Engine V2" tracks player development across five skill domains (Technical, Mental, Physical, Social, Tactical) with anti-abuse rules, XP gamification, and level progression.
-    - **Notifications**: In-app notification center for alerts (e.g., auto-renew, feedback, holidays).
-    - **Dashboard**: Provides quick actions, alerts, and an overview of today's schedule.
-    - **Coach HQ Dashboard**: Includes a Coach Level + XP system, a dynamic FOCUS Card, and an Energy Card with Stamina/Impact gradient bars.
-    - **Progress Engine V2**: Features 8 new database tables for granular skill tracking, including `skill_domains`, `player_skill_state`, `session_skill_observations`, and `xp_transactions`. Implements anti-abuse rules (Diminishing Returns, Down-Guard, Cooldown, Confidence Guard) and an XP engine with base session XP, effort multipliers, and skill improvement bonuses.
-    - **API Endpoints**: A comprehensive set of RESTful APIs for managing coaches, players, sessions, feedback, progress, and notifications.
+- **Coach App Core Features**:
+    - **Player Management**: Comprehensive profiles, skill levels, medical notes, and progress tracking.
+    - **Session Management**: Calendar views, scheduling, attendance, recurring sessions with conflict detection, and an undo last move feature.
+    - **Feedback & Progress**: Detailed feedback system, mood selectors, skill observations, and a "Progress Engine V2" for tracking player development across five skill domains (Technical, Mental, Physical, Social, Tactical) with gamification (XP, levels) and anti-abuse rules.
+    - **Notifications**: In-app alerts for various events.
+    - **Dashboard**: Quick actions, alerts, schedule overview, Coach Level + XP system, FOCUS Card, and Energy Card.
+    - **Offline Sync**: Queue processor with exponential backoff for offline data synchronization and conflict resolution.
+    - **Real-time Chat**: WebSocket server for secure, multi-tenant, real-time communication with typing indicators and connection status.
+    - **Security**: Comprehensive authentication (login/register/logout/refresh), role-based access control, multi-tenant isolation, input sanitization, security headers, request size limits, and audit logging.
+    - **Progression & Intelligence**: Anti-abuse rules engine (XP caps, pattern detection, severity factors), skill domain dashboard UI, observation trend charts, and an Insights API for attendance, XP velocity, coach load, and burnout risk forecasting.
+    - **Business Readiness**: Database schema, storage functions, and API routes for academy management, push notifications, and billing/payments.
 
 ## External Dependencies
 
 ### Core Services
 - **Database**: PostgreSQL (via Drizzle ORM)
-- **Deployment**: Replit environment variables for domain configuration.
+- **Deployment**: Replit (utilizes environment variables)
 
 ### Key Libraries
-- **Server State**: TanStack Query
-- **Expo**: Haptics, Linear Gradient, Blur, Image, Splash Screen.
-- **UI Components**: `expo-glass-effect`.
-- **Keyboard Handling**: `react-native-keyboard-controller`.
+- **Server State Management**: TanStack Query
+- **Expo Modules**: Haptics, Linear Gradient, Blur, Image, Splash Screen
+- **UI Components**: `expo-glass-effect`
+- **Keyboard Management**: `react-native-keyboard-controller`
 
 ### Platform Support
-- **Mobile**: iOS and Android (native).
-- **Web**: Single-page application via Expo web build.
-
-## Phase 0 Security Hardening (Complete)
-**Status**: All security hardening tasks completed. Ready for production deployment testing.
-
-### Completed Security Features
-- **Authentication Infrastructure**: Login/register/logout/refresh endpoints, AuthContext, LoginScreen with Zod validation
-- **Role-Based Access Control**: authMiddleware and requireAcademy middleware on 50+ routes
-- **Multi-Tenant Isolation**:
-  - requireAcademy middleware rejects requests from users without academyId (403)
-  - Session/coach/player endpoints verify academy membership
-  - Chat tables (conversations, messages, conversationParticipants, messageReactions) all have academyId columns
-  - All chat storage functions filter by academyId to prevent cross-academy data access
-- **Input Sanitization**: server/utils/sanitize.ts provides HTML escaping for player notes, chat messages, and templates
-- **Security Headers**: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy
-- **Request Size Limits**: 1MB limit on JSON and URL-encoded payloads
-- **Audit Logging**: Session create/update/cancel, package credit usage, coach XP awards all logged to auditLogs table
-- **Frontend**: Logout button with confirmation dialog on SettingsScreen
-
-### Integration Tests
-- **Tenant Isolation Tests** (`server/tests/tenant-isolation.test.ts`): Vitest tests verifying cross-academy access prevention for players, notes, packages, coach profiles, XP, notifications, and templates
-- Run tests with: `npx vitest run`
-
-### API Endpoints Added
-- **GET /api/players/:id**: Get single player (academy-scoped)
-- **PATCH /api/players/:id**: Update player (academy-scoped)
-- **DELETE /api/players/:id**: Delete player with audit logging (academy-scoped)
-
-### Future Enhancements
-- Add supertest for in-memory integration tests
-- Consider full Zod validation for all POST/PATCH routes (currently using manual field checks)
-- Add cascade delete cleanup for player-related data
-
-## Phase 1 Core Features (In Progress)
-
-### 1.1 Calendar Upgrade (Complete)
-- **Visual Conflict Preview**: Red dashed border when dragged session overlaps with another
-- **Undo Last Move**: Gold undo button appears after drag/drop, stores original session state
-- **Lock Past Sessions**: Sessions in the past cannot be dragged (gesture disabled via `.enabled(!isPast)`)
-- **Snap-to-Grid**: Sessions snap to 15-minute intervals during drag
-
-### 1.2 Recurring Sessions (Complete)
-- **Database Schema**: `recurringSeries` table with pattern fields, `sessions` table has `isRecurring`, `recurringGroupId`, `weekCount`
-- **API Endpoints**: Full CRUD for recurring series, skip conflict logic on creation
-- **UI**: CreateSessionDrawer with weekCount selector (1-12 weeks)
-
-### 1.4 Real-Time Chat (Complete)
-- **WebSocket Server** (`server/websocket.ts`):
-  - JWT authentication with database verification (user + coach academy membership)
-  - Academy-based rooms for multi-tenant isolation
-  - Heartbeat ping/pong every 30 seconds
-  - Message types: typing, read_receipt, new_message, online_status
-- **Frontend Hook** (`client/lib/useWebSocket.ts`):
-  - Auto-reconnect with exponential backoff
-  - Heartbeat handling for connection keep-alive
-- **CoachChatFooter Integration**:
-  - Typing indicators (filters out current user)
-  - Connection status indicator (green dot when connected)
-  - Reduced polling: 30s when WebSocket connected, 5s fallback when disconnected
-  - `broadcastNewMessage` called on new messages from server
-
-### 1.3 Offline Sync (Complete)
-- **Queue Processor** (`client/lib/offlineSync.ts`):
-  - Exponential backoff with jitter (max 30s delay, 5 retry attempts)
-  - Conflict detection via HTTP 409 status (checks `startsWith("409:")`)
-  - Actions: session, attendance, feedback, note
-  - Persists queue state to AsyncStorage
-- **Conflict Resolution**:
-  - `use_local`: Re-queue action as pending and retry
-  - `use_server`: Discard local change
-  - `discard`: Remove action from queue
-- **Sync Status Indicator** (`client/coach/components/SyncStatusIndicator.tsx`):
-  - Shows pending count, syncing state, last sync time
-  - Conflict count indicator with manual resolution UI
-- **Auto-Sync**: Background sync every 30 seconds via `useOfflineSync` hook
-
-### Additional Improvements
-- **Recurring Sessions**: `skippedSessions` now returns `{sessionId, date, reason}` objects instead of week numbers for better tracking
-- **Edit Series**: Already filters `isModifiedFromSeries === true` sessions to preserve individual edits
-
-## Phase 2 Progression & Intelligence (In Progress)
-
-### 2.1-2.2 Anti-Abuse Rules Engine (Complete)
-- **Daily XP Cap**: 50 XP per player per day maximum
-- **Pattern Detection**: Flags coaches with >80% ups/<5% downs OR >90% high effort ratings
-- **Coach Severity Factor**: 0.7x-1.0x multiplier applied to XP based on abuse patterns
-- **Frequent Flyer Detection**: >20 observations per 30 days triggers 20% reduction
-- **Level Enforcement**: Coach override flow with `speedrun_flag` and `unmetRequirements` audit logging
-- **API Endpoint**: `GET /api/coaches/:id/observation-patterns` returns pattern analysis and severity factor
-
-### 2.3 Skill Domain Dashboard UI (Complete)
-- **Per-Domain XP Visualization**: Shows total XP, observation count, and average delta per domain
-- **All Domains Initialized**: Returns data for all 5 skill domains (Technical, Mental, Physical, Social, Tactical) even with zero observations
-- **NULL Safety**: Defensive defaults prevent runtime crashes from undefined values
-
-### 2.4 Observation Trend Charts (Complete)
-- **SVG Line Chart Component** (`client/components/ObservationTrendChart.tsx`): Cumulative XP visualization over time
-- **Streak Indicators**: Shows improvement/decline streaks with colored badges
-- **Speedrun Warnings**: Visual alerts for suspicious 90%+ improvement patterns
-- **No Data State**: Shows helpful "No observations yet" message for domains without data
-
-### 2.5 Insights API (Complete)
-- **Attendance Trends**: `GET /api/insights/attendance?days=30` - Daily attendance rates
-- **XP Velocity**: `GET /api/insights/xp-velocity?days=30` - Daily XP totals and averages
-- **Coach Load Stats**: `GET /api/insights/coach-load?days=7` - Sessions per coach with load indicators
-- **Observation Trends**: `GET /api/players/:id/observation-trends?days=30` - Per-domain trend data with hasData flag
-- **Domain XP Summary**: `GET /api/players/:id/domain-xp` - Aggregated XP stats per skill domain
-
-### 2.6 Coach Insights - Forecasting & Burnout (Complete)
-- **Load Forecast API**: `GET /api/coaches/:id/load-forecast?days=14` - 14-day prediction with daily scheduled minutes, session counts, predicted load levels (light/moderate/heavy/overload), and burnout risk scores
-- **Burnout Risk API**: `GET /api/coaches/:id/burnout-risk` - Wellness assessment (0-100 score) based on 4 factors:
-  - Factor 1 (40pts): Average daily load over past 14 days
-  - Factor 2 (30pts): Consecutive heavy days (>=5 hours)
-  - Factor 3 (20pts): Upcoming load increase vs historical average
-  - Factor 4 (10pts): No rest days in past week
-- **Calendar Heatmap API**: `GET /api/coaches/:id/calendar-heatmap?year=2025&month=1` - Monthly intensity view with daily session counts and total minutes
-- **Frontend Components**:
-  - `BurnoutRiskCard`: Displays risk level (Low/Medium/High/Critical), daily averages, rest days, personalized recommendations
-  - `LoadForecastCard`: 14-day bar chart visualization with color-coded load levels, tappable days for calendar navigation
-- **Dashboard Integration**: New "Insights" section on DashboardScreen with both wellness cards
-
-### Phase 2 Architecture Notes
-- **Severity Factor**: Always defaults to 1.0 throughout the system to prevent undefined coercion issues
-- **All Domains Pattern**: Both `getPlayerDomainXpSummary` and `getPlayerObservationTrends` initialize all domains from `skillDomains` table before processing observations
-- **hasData Flag**: Observation trends include `hasData: boolean` field for UI rendering decisions
-- **Storage Method**: Use `storage.getSessionsByCoach()` (not `getSessionsForCoach`) for coach session queries with date ranges
+- **Mobile**: iOS and Android (native applications)
+- **Web**: Single-page application via Expo web build

@@ -44,6 +44,21 @@ import {
   // Court Preferences System
   coachCourtPreferences,
   coachCourtRules,
+  // Phase 3: Academy Management
+  academySettings,
+  academyInvites,
+  coachAcademyMemberships,
+  // Phase 3: Push Notifications
+  pushDeviceTokens,
+  notificationPreferences,
+  scheduledNotifications,
+  // Phase 3: Billing & Payments
+  billingAccounts,
+  subscriptionPlans,
+  subscriptions,
+  invoices,
+  payments,
+  refunds,
   // Academy types
   type Academy,
   type InsertAcademy,
@@ -113,6 +128,31 @@ import {
   type InsertCoachCourtPreference,
   type CoachCourtRules,
   type InsertCoachCourtRules,
+  // Phase 3 types
+  type AcademySettings,
+  type InsertAcademySettings,
+  type AcademyInvite,
+  type InsertAcademyInvite,
+  type CoachAcademyMembership,
+  type InsertCoachAcademyMembership,
+  type PushDeviceToken,
+  type InsertPushDeviceToken,
+  type NotificationPreference,
+  type InsertNotificationPreference,
+  type ScheduledNotification,
+  type InsertScheduledNotification,
+  type BillingAccount,
+  type InsertBillingAccount,
+  type SubscriptionPlan,
+  type InsertSubscriptionPlan,
+  type Subscription,
+  type InsertSubscription,
+  type Invoice,
+  type InsertInvoice,
+  type Payment,
+  type InsertPayment,
+  type Refund,
+  type InsertRefund,
 } from "@shared/schema";
 
 export const storage = {
@@ -2246,8 +2286,8 @@ export const storage = {
     
     const attendanceRecords = await db
       .select()
-      .from(sessionAttendance)
-      .innerJoin(sessions, eq(sessionAttendance.sessionId, sessions.id))
+      .from(sessionPlayers)
+      .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
       .where(and(
         eq(sessions.academyId, academyId),
         gte(sessions.startTime, cutoffDate),
@@ -2259,7 +2299,7 @@ export const storage = {
     for (const record of attendanceRecords) {
       const date = record.sessions.startTime.toISOString().split('T')[0];
       if (!dailyStats[date]) dailyStats[date] = { attended: 0, absent: 0 };
-      if (record.session_attendance.attended) {
+      if (record.session_players.attendanceStatus === 'present') {
         dailyStats[date].attended++;
       } else {
         dailyStats[date].absent++;
@@ -2348,7 +2388,7 @@ export const storage = {
       const coachId = record.coaches.id;
       if (!coachStats[coachId]) {
         coachStats[coachId] = {
-          name: record.coaches.displayName || 'Unknown Coach',
+          name: record.coaches.name || 'Unknown Coach',
           sessions: 0,
           minutes: 0,
           playerIds: new Set(),
@@ -2359,19 +2399,19 @@ export const storage = {
     }
     
     // Get player counts per coach
-    const sessionPlayers = await db
+    const sessionPlayerRecords = await db
       .select()
-      .from(sessionPlayers as any)
-      .innerJoin(sessions, eq((sessionPlayers as any).sessionId, sessions.id))
+      .from(sessionPlayers)
+      .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
       .where(and(
         eq(sessions.academyId, academyId),
         gte(sessions.startTime, cutoffDate)
       ));
     
-    for (const sp of sessionPlayers) {
-      const session = coachSessions.find(cs => cs.sessions.id === (sp as any).sessions.id);
-      if (session && coachStats[session.coaches.id]) {
-        coachStats[session.coaches.id].playerIds.add((sp as any).session_players.playerId);
+    for (const sp of sessionPlayerRecords) {
+      const session = coachSessions.find(cs => cs.sessions.id === sp.sessions.id);
+      if (session && coachStats[session.coaches.id] && sp.session_players.playerId) {
+        coachStats[session.coaches.id].playerIds.add(sp.session_players.playerId);
       }
     }
     
@@ -2471,5 +2511,283 @@ export const storage = {
         .returning();
       return inserted[0];
     }
+  },
+
+  // ==================== PHASE 3: ACADEMY SETTINGS ====================
+  
+  async getAcademySettings(academyId: string): Promise<AcademySettings | undefined> {
+    const result = await db.select().from(academySettings).where(eq(academySettings.academyId, academyId));
+    return result[0];
+  },
+
+  async createAcademySettings(data: InsertAcademySettings): Promise<AcademySettings> {
+    const result = await db.insert(academySettings).values(data).returning();
+    return result[0];
+  },
+
+  async updateAcademySettings(academyId: string, data: Partial<InsertAcademySettings>): Promise<AcademySettings | undefined> {
+    const result = await db.update(academySettings)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(academySettings.academyId, academyId))
+      .returning();
+    return result[0];
+  },
+
+  async upsertAcademySettings(academyId: string, data: Partial<InsertAcademySettings>): Promise<AcademySettings> {
+    const existing = await this.getAcademySettings(academyId);
+    if (existing) {
+      return (await this.updateAcademySettings(academyId, data))!;
+    }
+    return this.createAcademySettings({ ...data, academyId });
+  },
+
+  // ==================== PHASE 3: ACADEMY INVITES ====================
+
+  async createAcademyInvite(data: InsertAcademyInvite): Promise<AcademyInvite> {
+    const result = await db.insert(academyInvites).values(data).returning();
+    return result[0];
+  },
+
+  async getAcademyInvite(id: string): Promise<AcademyInvite | undefined> {
+    const result = await db.select().from(academyInvites).where(eq(academyInvites.id, id));
+    return result[0];
+  },
+
+  async getAcademyInviteByCode(code: string): Promise<AcademyInvite | undefined> {
+    const result = await db.select().from(academyInvites).where(eq(academyInvites.inviteCode, code));
+    return result[0];
+  },
+
+  async getAcademyInvites(academyId: string): Promise<AcademyInvite[]> {
+    return db.select().from(academyInvites)
+      .where(eq(academyInvites.academyId, academyId))
+      .orderBy(desc(academyInvites.createdAt));
+  },
+
+  async updateAcademyInvite(id: string, data: Partial<AcademyInvite>): Promise<AcademyInvite | undefined> {
+    const result = await db.update(academyInvites).set(data).where(eq(academyInvites.id, id)).returning();
+    return result[0];
+  },
+
+  async deleteAcademyInvite(id: string): Promise<void> {
+    await db.delete(academyInvites).where(eq(academyInvites.id, id));
+  },
+
+  // ==================== PHASE 3: COACH MEMBERSHIPS ====================
+
+  async createCoachMembership(data: InsertCoachAcademyMembership): Promise<CoachAcademyMembership> {
+    const result = await db.insert(coachAcademyMemberships).values(data).returning();
+    return result[0];
+  },
+
+  async getCoachMemberships(coachId: string): Promise<CoachAcademyMembership[]> {
+    return db.select().from(coachAcademyMemberships)
+      .where(and(
+        eq(coachAcademyMemberships.coachId, coachId),
+        eq(coachAcademyMemberships.isActive, true)
+      ));
+  },
+
+  async getAcademyMembers(academyId: string): Promise<CoachAcademyMembership[]> {
+    return db.select().from(coachAcademyMemberships)
+      .where(and(
+        eq(coachAcademyMemberships.academyId, academyId),
+        eq(coachAcademyMemberships.isActive, true)
+      ));
+  },
+
+  async updateCoachMembership(id: string, data: Partial<CoachAcademyMembership>): Promise<CoachAcademyMembership | undefined> {
+    const result = await db.update(coachAcademyMemberships).set(data).where(eq(coachAcademyMemberships.id, id)).returning();
+    return result[0];
+  },
+
+  async setPrimaryAcademy(coachId: string, academyId: string): Promise<void> {
+    // First unset all as non-primary
+    await db.update(coachAcademyMemberships)
+      .set({ isPrimary: false })
+      .where(eq(coachAcademyMemberships.coachId, coachId));
+    // Set the new primary
+    await db.update(coachAcademyMemberships)
+      .set({ isPrimary: true })
+      .where(and(
+        eq(coachAcademyMemberships.coachId, coachId),
+        eq(coachAcademyMemberships.academyId, academyId)
+      ));
+  },
+
+  // ==================== PHASE 3: PUSH NOTIFICATIONS ====================
+
+  async registerPushToken(data: InsertPushDeviceToken): Promise<PushDeviceToken> {
+    // Check if token already exists, update if so
+    const existing = await db.select().from(pushDeviceTokens).where(eq(pushDeviceTokens.token, data.token));
+    if (existing.length > 0) {
+      const updated = await db.update(pushDeviceTokens)
+        .set({ isActive: true, lastUsedAt: new Date(), coachId: data.coachId })
+        .where(eq(pushDeviceTokens.token, data.token))
+        .returning();
+      return updated[0];
+    }
+    const result = await db.insert(pushDeviceTokens).values(data).returning();
+    return result[0];
+  },
+
+  async getCoachPushTokens(coachId: string): Promise<PushDeviceToken[]> {
+    return db.select().from(pushDeviceTokens)
+      .where(and(
+        eq(pushDeviceTokens.coachId, coachId),
+        eq(pushDeviceTokens.isActive, true)
+      ));
+  },
+
+  async deactivatePushToken(token: string): Promise<void> {
+    await db.update(pushDeviceTokens)
+      .set({ isActive: false })
+      .where(eq(pushDeviceTokens.token, token));
+  },
+
+  async getNotificationPreferences(coachId: string): Promise<NotificationPreference | undefined> {
+    const result = await db.select().from(notificationPreferences).where(eq(notificationPreferences.coachId, coachId));
+    return result[0];
+  },
+
+  async upsertNotificationPreferences(coachId: string, data: Partial<InsertNotificationPreference>): Promise<NotificationPreference> {
+    const existing = await this.getNotificationPreferences(coachId);
+    if (existing) {
+      const result = await db.update(notificationPreferences)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(notificationPreferences.coachId, coachId))
+        .returning();
+      return result[0];
+    }
+    const result = await db.insert(notificationPreferences).values({ ...data, coachId }).returning();
+    return result[0];
+  },
+
+  async createScheduledNotification(data: InsertScheduledNotification): Promise<ScheduledNotification> {
+    const result = await db.insert(scheduledNotifications).values(data).returning();
+    return result[0];
+  },
+
+  async getPendingNotifications(before: Date): Promise<ScheduledNotification[]> {
+    return db.select().from(scheduledNotifications)
+      .where(and(
+        eq(scheduledNotifications.status, 'pending'),
+        lte(scheduledNotifications.scheduledFor, before)
+      ))
+      .orderBy(asc(scheduledNotifications.scheduledFor));
+  },
+
+  async markNotificationSent(id: string, error?: string): Promise<void> {
+    await db.update(scheduledNotifications)
+      .set({
+        status: error ? 'failed' : 'sent',
+        sentAt: error ? null : new Date(),
+        error: error || null,
+      })
+      .where(eq(scheduledNotifications.id, id));
+  },
+
+  // ==================== PHASE 3: BILLING ====================
+
+  async getBillingAccount(academyId: string): Promise<BillingAccount | undefined> {
+    const result = await db.select().from(billingAccounts).where(eq(billingAccounts.academyId, academyId));
+    return result[0];
+  },
+
+  async createBillingAccount(data: InsertBillingAccount): Promise<BillingAccount> {
+    const result = await db.insert(billingAccounts).values(data).returning();
+    return result[0];
+  },
+
+  async updateBillingAccount(academyId: string, data: Partial<InsertBillingAccount>): Promise<BillingAccount | undefined> {
+    const result = await db.update(billingAccounts)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(billingAccounts.academyId, academyId))
+      .returning();
+    return result[0];
+  },
+
+  async getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    return db.select().from(subscriptionPlans)
+      .where(eq(subscriptionPlans.isActive, true))
+      .orderBy(asc(subscriptionPlans.sortOrder));
+  },
+
+  async getSubscription(academyId: string): Promise<Subscription | undefined> {
+    const result = await db.select().from(subscriptions)
+      .where(and(
+        eq(subscriptions.academyId, academyId),
+        eq(subscriptions.status, 'active')
+      ));
+    return result[0];
+  },
+
+  async createSubscription(data: InsertSubscription): Promise<Subscription> {
+    const result = await db.insert(subscriptions).values(data).returning();
+    return result[0];
+  },
+
+  async updateSubscription(id: string, data: Partial<InsertSubscription>): Promise<Subscription | undefined> {
+    const result = await db.update(subscriptions)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(subscriptions.id, id))
+      .returning();
+    return result[0];
+  },
+
+  async createInvoice(data: InsertInvoice): Promise<Invoice> {
+    const result = await db.insert(invoices).values(data).returning();
+    return result[0];
+  },
+
+  async getInvoices(academyId: string): Promise<Invoice[]> {
+    return db.select().from(invoices)
+      .where(eq(invoices.academyId, academyId))
+      .orderBy(desc(invoices.createdAt));
+  },
+
+  async getInvoice(id: string): Promise<Invoice | undefined> {
+    const result = await db.select().from(invoices).where(eq(invoices.id, id));
+    return result[0];
+  },
+
+  async updateInvoice(id: string, data: Partial<InsertInvoice>): Promise<Invoice | undefined> {
+    const result = await db.update(invoices).set(data).where(eq(invoices.id, id)).returning();
+    return result[0];
+  },
+
+  async createPayment(data: InsertPayment): Promise<Payment> {
+    const result = await db.insert(payments).values(data).returning();
+    return result[0];
+  },
+
+  async getPayments(academyId: string): Promise<Payment[]> {
+    return db.select().from(payments)
+      .where(eq(payments.academyId, academyId))
+      .orderBy(desc(payments.createdAt));
+  },
+
+  async updatePayment(id: string, data: Partial<InsertPayment>): Promise<Payment | undefined> {
+    const result = await db.update(payments).set(data).where(eq(payments.id, id)).returning();
+    return result[0];
+  },
+
+  async createRefund(data: InsertRefund): Promise<Refund> {
+    const result = await db.insert(refunds).values(data).returning();
+    return result[0];
+  },
+
+  async getRefunds(paymentId: string): Promise<Refund[]> {
+    return db.select().from(refunds).where(eq(refunds.paymentId, paymentId));
+  },
+
+  async generateInvoiceNumber(academyId: string): Promise<string> {
+    const year = new Date().getFullYear();
+    const count = await db.select().from(invoices)
+      .where(and(
+        eq(invoices.academyId, academyId),
+        gte(invoices.createdAt, new Date(`${year}-01-01`))
+      ));
+    return `INV-${year}-${String(count.length + 1).padStart(4, '0')}`;
   },
 };

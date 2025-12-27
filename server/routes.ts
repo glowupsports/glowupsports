@@ -4082,6 +4082,578 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== PHASE 3: ACADEMY SETTINGS ====================
+
+  app.get("/api/academy/settings", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      let settings = await storage.getAcademySettings(academyId);
+      if (!settings) {
+        settings = await storage.createAcademySettings({ academyId });
+      }
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching academy settings:", error);
+      res.status(500).json({ error: "Failed to fetch academy settings" });
+    }
+  });
+
+  app.patch("/api/academy/settings", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const settings = await storage.upsertAcademySettings(academyId, req.body);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error updating academy settings:", error);
+      res.status(500).json({ error: "Failed to update academy settings" });
+    }
+  });
+
+  // ==================== PHASE 3: ACADEMY INVITES ====================
+
+  app.get("/api/academy/invites", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const invites = await storage.getAcademyInvites(academyId);
+      res.json(invites);
+    } catch (error) {
+      console.error("Error fetching invites:", error);
+      res.status(500).json({ error: "Failed to fetch invites" });
+    }
+  });
+
+  app.post("/api/academy/invites", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const coachId = req.user!.coachId!;
+      const { email, role = "coach" } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+
+      // Generate invite code
+      const inviteCode = Math.random().toString(36).substring(2, 10).toUpperCase() + 
+                         Math.random().toString(36).substring(2, 10).toUpperCase();
+      
+      // Set expiry to 7 days
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      const invite = await storage.createAcademyInvite({
+        academyId,
+        email,
+        role,
+        inviteCode,
+        expiresAt,
+        invitedBy: coachId,
+      });
+
+      res.status(201).json(invite);
+    } catch (error) {
+      console.error("Error creating invite:", error);
+      res.status(500).json({ error: "Failed to create invite" });
+    }
+  });
+
+  app.post("/api/academy/invites/:code/accept", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { code } = req.params;
+      const userId = req.user!.userId;
+      const userEmail = req.user!.email;
+      
+      const invite = await storage.getAcademyInviteByCode(code);
+      if (!invite) {
+        return res.status(404).json({ error: "Invite not found" });
+      }
+      
+      // Verify email matches if invite has email specified
+      if (invite.email && invite.email.toLowerCase() !== userEmail?.toLowerCase()) {
+        return res.status(403).json({ error: "This invite was sent to a different email address" });
+      }
+      
+      if (invite.status !== "pending") {
+        return res.status(400).json({ error: "Invite is no longer valid" });
+      }
+      
+      if (new Date() > invite.expiresAt) {
+        await storage.updateAcademyInvite(invite.id, { status: "expired" });
+        return res.status(400).json({ error: "Invite has expired" });
+      }
+
+      // Mark invite as accepted FIRST to prevent race conditions
+      const updatedInvite = await storage.updateAcademyInvite(invite.id, {
+        status: "accepted",
+        acceptedAt: new Date(),
+      });
+      
+      if (!updatedInvite || updatedInvite.status !== "accepted") {
+        return res.status(400).json({ error: "Invite already used" });
+      }
+
+      // Create coach profile if not exists
+      let coachId = req.user!.coachId;
+      if (!coachId) {
+        const user = await storage.getUserById(userId);
+        const coach = await storage.createCoach({
+          name: user?.email?.split('@')[0] || 'New Coach',
+          email: user?.email,
+          academyId: invite.academyId,
+          role: invite.role || 'coach',
+        });
+        coachId = coach.id;
+        await storage.updateUser(userId, { coachId: coach.id, academyId: invite.academyId });
+      }
+
+      // Check if membership already exists
+      const existingMemberships = await storage.getCoachMemberships(coachId);
+      const alreadyMember = existingMemberships.some(m => m.academyId === invite.academyId);
+      
+      if (!alreadyMember) {
+        // Create membership
+        await storage.createCoachMembership({
+          coachId,
+          academyId: invite.academyId,
+          role: invite.role || 'coach',
+          isPrimary: existingMemberships.length === 0,
+        });
+      }
+
+      // Update invite with acceptedBy
+      await storage.updateAcademyInvite(invite.id, { acceptedBy: coachId });
+
+      res.json({ success: true, academyId: invite.academyId });
+    } catch (error) {
+      console.error("Error accepting invite:", error);
+      res.status(500).json({ error: "Failed to accept invite" });
+    }
+  });
+
+  app.delete("/api/academy/invites/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const { id } = req.params;
+      
+      // Verify invite belongs to this academy
+      const invite = await storage.getAcademyInvite(id);
+      if (!invite || invite.academyId !== academyId) {
+        return res.status(404).json({ error: "Invite not found" });
+      }
+      
+      await storage.deleteAcademyInvite(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting invite:", error);
+      res.status(500).json({ error: "Failed to delete invite" });
+    }
+  });
+
+  // ==================== PHASE 3: ACADEMY MEMBERS ====================
+
+  app.get("/api/academy/members", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const memberships = await storage.getAcademyMembers(academyId);
+      
+      // Get coach details for each membership
+      const members = await Promise.all(
+        memberships.map(async (m) => {
+          const coach = await storage.getCoach(m.coachId);
+          return {
+            ...m,
+            coach: coach ? { id: coach.id, name: coach.name, email: coach.email, role: coach.role } : null,
+          };
+        })
+      );
+      
+      res.json(members);
+    } catch (error) {
+      console.error("Error fetching members:", error);
+      res.status(500).json({ error: "Failed to fetch members" });
+    }
+  });
+
+  app.patch("/api/academy/members/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const { id } = req.params;
+      const { role, isActive } = req.body;
+      
+      // Verify membership belongs to this academy
+      const members = await storage.getAcademyMembers(academyId);
+      const targetMember = members.find(m => m.id === id);
+      if (!targetMember) {
+        return res.status(404).json({ error: "Member not found" });
+      }
+      
+      const membership = await storage.updateCoachMembership(id, { role, isActive });
+      res.json(membership);
+    } catch (error) {
+      console.error("Error updating member:", error);
+      res.status(500).json({ error: "Failed to update member" });
+    }
+  });
+
+  // ==================== PHASE 3: COACH ACADEMIES (SWITCHER) ====================
+
+  app.get("/api/coach/academies", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      if (!coachId) {
+        return res.json([]);
+      }
+      
+      const memberships = await storage.getCoachMemberships(coachId);
+      
+      // Get academy details for each
+      const academiesData = await Promise.all(
+        memberships.map(async (m) => {
+          const academy = await storage.getAcademy(m.academyId);
+          return {
+            ...m,
+            academy: academy ? { id: academy.id, name: academy.name, slug: academy.slug } : null,
+          };
+        })
+      );
+      
+      res.json(academiesData);
+    } catch (error) {
+      console.error("Error fetching coach academies:", error);
+      res.status(500).json({ error: "Failed to fetch academies" });
+    }
+  });
+
+  app.post("/api/coach/switch-academy", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      const userId = req.user!.userId;
+      const { academyId } = req.body;
+
+      if (!coachId) {
+        return res.status(400).json({ error: "No coach profile found" });
+      }
+
+      // Verify membership
+      const memberships = await storage.getCoachMemberships(coachId);
+      const membership = memberships.find(m => m.academyId === academyId);
+      
+      if (!membership) {
+        return res.status(403).json({ error: "Not a member of this academy" });
+      }
+
+      // Update user's current academy and coach's academy
+      await storage.updateUser(userId, { academyId });
+      await storage.updateCoach(coachId, { academyId });
+      await storage.setPrimaryAcademy(coachId, academyId);
+
+      res.json({ success: true, academyId });
+    } catch (error) {
+      console.error("Error switching academy:", error);
+      res.status(500).json({ error: "Failed to switch academy" });
+    }
+  });
+
+  // ==================== PHASE 3: PUSH NOTIFICATIONS ====================
+
+  app.post("/api/push/register", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.userId;
+      const coachId = req.user!.coachId;
+      const { token, platform, deviceName } = req.body;
+
+      if (!token || !platform) {
+        return res.status(400).json({ error: "Token and platform are required" });
+      }
+
+      const deviceToken = await storage.registerPushToken({
+        userId,
+        coachId,
+        token,
+        platform,
+        deviceName,
+      });
+
+      res.json(deviceToken);
+    } catch (error) {
+      console.error("Error registering push token:", error);
+      res.status(500).json({ error: "Failed to register push token" });
+    }
+  });
+
+  app.delete("/api/push/unregister", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { token } = req.body;
+      if (token) {
+        await storage.deactivatePushToken(token);
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error unregistering push token:", error);
+      res.status(500).json({ error: "Failed to unregister push token" });
+    }
+  });
+
+  app.get("/api/push/preferences", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      if (!coachId) {
+        return res.json(null);
+      }
+      
+      const prefs = await storage.getNotificationPreferences(coachId);
+      res.json(prefs || {
+        sessionReminders: true,
+        feedbackRequests: true,
+        packageExpiry: true,
+        loadWarnings: true,
+        chatMessages: true,
+        reminderMinutesBefore: 30,
+      });
+    } catch (error) {
+      console.error("Error fetching notification preferences:", error);
+      res.status(500).json({ error: "Failed to fetch preferences" });
+    }
+  });
+
+  app.patch("/api/push/preferences", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      if (!coachId) {
+        return res.status(400).json({ error: "No coach profile found" });
+      }
+      
+      const prefs = await storage.upsertNotificationPreferences(coachId, req.body);
+      res.json(prefs);
+    } catch (error) {
+      console.error("Error updating notification preferences:", error);
+      res.status(500).json({ error: "Failed to update preferences" });
+    }
+  });
+
+  // ==================== PHASE 3: BILLING ====================
+
+  app.get("/api/billing/account", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      let account = await storage.getBillingAccount(academyId);
+      if (!account) {
+        account = await storage.createBillingAccount({ academyId });
+      }
+      res.json(account);
+    } catch (error) {
+      console.error("Error fetching billing account:", error);
+      res.status(500).json({ error: "Failed to fetch billing account" });
+    }
+  });
+
+  app.patch("/api/billing/account", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const account = await storage.updateBillingAccount(academyId, req.body);
+      res.json(account);
+    } catch (error) {
+      console.error("Error updating billing account:", error);
+      res.status(500).json({ error: "Failed to update billing account" });
+    }
+  });
+
+  app.get("/api/billing/plans", async (req: Request, res: Response) => {
+    try {
+      const plans = await storage.getSubscriptionPlans();
+      res.json(plans);
+    } catch (error) {
+      console.error("Error fetching plans:", error);
+      res.status(500).json({ error: "Failed to fetch plans" });
+    }
+  });
+
+  app.get("/api/billing/subscription", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const subscription = await storage.getSubscription(academyId);
+      res.json(subscription || null);
+    } catch (error) {
+      console.error("Error fetching subscription:", error);
+      res.status(500).json({ error: "Failed to fetch subscription" });
+    }
+  });
+
+  app.get("/api/billing/invoices", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const invoicesList = await storage.getInvoices(academyId);
+      res.json(invoicesList);
+    } catch (error) {
+      console.error("Error fetching invoices:", error);
+      res.status(500).json({ error: "Failed to fetch invoices" });
+    }
+  });
+
+  app.post("/api/billing/invoices", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const { playerId, packageId, amount, currency, dueDate, lineItems, notes } = req.body;
+      
+      // Validate required fields
+      if (typeof amount !== 'number' || amount <= 0) {
+        return res.status(400).json({ error: "Amount must be a positive number" });
+      }
+      
+      // Validate player belongs to academy if provided
+      if (playerId) {
+        const player = await storage.getPlayer(playerId);
+        if (!player || player.academyId !== academyId) {
+          return res.status(400).json({ error: "Player not found in this academy" });
+        }
+      }
+      
+      // Validate package belongs to academy if provided
+      if (packageId) {
+        const pkg = await storage.getPackage(packageId);
+        if (!pkg || pkg.academyId !== academyId) {
+          return res.status(400).json({ error: "Package not found in this academy" });
+        }
+      }
+      
+      const invoiceNumber = await storage.generateInvoiceNumber(academyId);
+      
+      const invoice = await storage.createInvoice({
+        academyId,
+        playerId,
+        packageId,
+        invoiceNumber,
+        amount,
+        currency: currency || 'AED',
+        dueDate,
+        lineItems,
+        notes,
+      });
+      
+      res.status(201).json(invoice);
+    } catch (error) {
+      console.error("Error creating invoice:", error);
+      res.status(500).json({ error: "Failed to create invoice" });
+    }
+  });
+
+  app.patch("/api/billing/invoices/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const { id } = req.params;
+      
+      // Verify invoice belongs to academy
+      const existing = await storage.getInvoice(id);
+      if (!existing || existing.academyId !== academyId) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+      
+      // Don't allow changing academyId
+      const { academyId: _, ...updates } = req.body;
+      
+      const invoice = await storage.updateInvoice(id, updates);
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error updating invoice:", error);
+      res.status(500).json({ error: "Failed to update invoice" });
+    }
+  });
+
+  app.post("/api/billing/payments", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const { invoiceId, amount, currency, paymentMethod } = req.body;
+      
+      // Validate amount
+      if (typeof amount !== 'number' || amount <= 0) {
+        return res.status(400).json({ error: "Amount must be a positive number" });
+      }
+      
+      // Validate invoice belongs to academy if provided
+      if (invoiceId) {
+        const invoice = await storage.getInvoice(invoiceId);
+        if (!invoice || invoice.academyId !== academyId) {
+          return res.status(400).json({ error: "Invoice not found in this academy" });
+        }
+      }
+      
+      const payment = await storage.createPayment({
+        academyId,
+        invoiceId,
+        amount,
+        currency: currency || 'AED',
+        paymentMethod: paymentMethod || 'cash',
+        status: 'succeeded',
+      });
+
+      // Update invoice status if invoice was provided
+      if (invoiceId) {
+        await storage.updateInvoice(invoiceId, { status: 'paid', paidAt: new Date() });
+      }
+      
+      res.status(201).json(payment);
+    } catch (error) {
+      console.error("Error creating payment:", error);
+      res.status(500).json({ error: "Failed to create payment" });
+    }
+  });
+
+  app.get("/api/billing/payments", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const paymentsList = await storage.getPayments(academyId);
+      res.json(paymentsList);
+    } catch (error) {
+      console.error("Error fetching payments:", error);
+      res.status(500).json({ error: "Failed to fetch payments" });
+    }
+  });
+
+  app.post("/api/billing/refunds", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const coachId = req.user!.coachId;
+      const { paymentId, amount, reason, notes } = req.body;
+      
+      // Validate required fields
+      if (!paymentId) {
+        return res.status(400).json({ error: "Payment ID is required" });
+      }
+      
+      if (typeof amount !== 'number' || amount <= 0) {
+        return res.status(400).json({ error: "Amount must be a positive number" });
+      }
+      
+      // Validate payment belongs to academy
+      const payments = await storage.getPayments(academyId);
+      const payment = payments.find(p => p.id === paymentId);
+      if (!payment) {
+        return res.status(400).json({ error: "Payment not found in this academy" });
+      }
+      
+      // Validate refund amount doesn't exceed payment
+      if (amount > payment.amount) {
+        return res.status(400).json({ error: "Refund amount cannot exceed payment amount" });
+      }
+      
+      const refund = await storage.createRefund({
+        paymentId,
+        amount,
+        reason,
+        notes,
+        processedBy: coachId,
+        status: 'succeeded',
+      });
+
+      // Update payment status
+      await storage.updatePayment(paymentId, { status: 'refunded' });
+      
+      res.status(201).json(refund);
+    } catch (error) {
+      console.error("Error creating refund:", error);
+      res.status(500).json({ error: "Failed to create refund" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat
