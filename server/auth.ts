@@ -18,6 +18,10 @@ export interface AuthenticatedRequest extends Request {
   user?: JWTPayload;
 }
 
+export interface UserStorageInterface {
+  getUserById(id: string): Promise<{ id: string; email: string; role: string; academyId: string | null; coachId: string | null } | null>;
+}
+
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, SALT_ROUNDS);
 }
@@ -54,6 +58,52 @@ export function authMiddleware(req: AuthenticatedRequest, res: Response, next: N
     return;
   }
 
+  req.user = payload;
+  next();
+}
+
+let freshUserStorage: UserStorageInterface | null = null;
+
+export function setFreshUserStorage(storage: UserStorageInterface): void {
+  freshUserStorage = storage;
+}
+
+export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const token = authHeader.substring(7);
+  const payload = verifyToken(token);
+
+  if (!payload) {
+    res.status(401).json({ error: "Invalid or expired token" });
+    return;
+  }
+
+  // Fetch fresh user data from database to get current academyId/coachId
+  if (freshUserStorage) {
+    try {
+      const freshUser = await freshUserStorage.getUserById(payload.userId);
+      if (freshUser) {
+        req.user = {
+          userId: freshUser.id,
+          email: freshUser.email,
+          role: freshUser.role,
+          academyId: freshUser.academyId,
+          coachId: freshUser.coachId,
+        };
+        return next();
+      }
+    } catch (error) {
+      console.error("Error fetching fresh user data:", error);
+    }
+  }
+
+  // Fallback to JWT payload if fresh data fetch fails
   req.user = payload;
   next();
 }
@@ -100,6 +150,31 @@ export function requireAcademy(req: AuthenticatedRequest, res: Response, next: N
   }
 
   next();
+}
+
+export function createFreshUserMiddleware(storage: UserStorageInterface) {
+  return async function freshUserMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    if (!req.user) {
+      return next();
+    }
+
+    try {
+      const freshUser = await storage.getUserById(req.user.userId);
+      if (freshUser) {
+        req.user = {
+          userId: freshUser.id,
+          email: freshUser.email,
+          role: freshUser.role,
+          academyId: freshUser.academyId,
+          coachId: freshUser.coachId,
+        };
+      }
+    } catch (error) {
+      console.error("Error fetching fresh user data:", error);
+    }
+
+    next();
+  };
 }
 
 export interface StorageInterface {

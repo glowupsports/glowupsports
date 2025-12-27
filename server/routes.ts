@@ -7,9 +7,10 @@ import {
   hashPassword, 
   verifyPassword, 
   generateToken, 
-  authMiddleware, 
+  authMiddlewareWithFreshData as authMiddleware,
   requireRole, 
   requireAcademy,
+  setFreshUserStorage,
   validatePlayerOwnership,
   validateCourtOwnership,
   validateSessionOwnership,
@@ -40,6 +41,9 @@ const authLimiter = rateLimit({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Initialize storage for fresh user data fetching in auth middleware
+  setFreshUserStorage(storage);
+
   // ==================== AUTH ENDPOINTS ====================
   
   app.post("/auth/register", authLimiter, async (req: Request, res: Response) => {
