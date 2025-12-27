@@ -194,7 +194,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch players for each session using efficient join query
       const sessionsWithPlayers = await Promise.all(
         ownSessions.map(async (session) => {
-          const players = await storage.getSessionPlayersWithDetails(session.id);
+          const players = await storage.getSessionPlayersWithDetails(session.id, academyId ?? undefined);
           return {
             ...session,
             players,
@@ -243,12 +243,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const end = new Date(endTime as string);
       const conflicts: string[] = [];
 
+      const academyId = req.user?.academyId ?? undefined;
+
       // Check coach conflict
       const coachConflict = await storage.checkCoachConflict(
         coachId as string, 
         start, 
         end, 
-        excludeSessionId as string | undefined
+        excludeSessionId as string | undefined,
+        academyId
       );
       if (coachConflict) {
         conflicts.push("Coach is already booked for this time");
@@ -259,7 +262,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         courtId as string, 
         start, 
         end,
-        excludeSessionId as string | undefined
+        excludeSessionId as string | undefined,
+        academyId
       );
       if (courtConflict) {
         conflicts.push("Court is already booked for this time");
@@ -273,7 +277,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             playerId as string, 
             start, 
             end,
-            excludeSessionId as string | undefined
+            excludeSessionId as string | undefined,
+            academyId
           );
           if (playerConflict) {
             conflicts.push(`Player is already booked for this time`);
@@ -384,7 +389,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const end = new Date(start.getTime() + duration * 60000);
 
       // Check conflicts
-      const coachConflict = await storage.checkCoachConflict(coachId, start, end);
+      const coachConflict = await storage.checkCoachConflict(coachId, start, end, undefined, academyId ?? undefined);
       if (coachConflict) {
         return res.status(409).json({ 
           error: "Coach conflict", 
@@ -393,7 +398,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const courtConflict = await storage.checkCourtConflict(courtId, start, end);
+      const courtConflict = await storage.checkCourtConflict(courtId, start, end, undefined, academyId ?? undefined);
       if (courtConflict) {
         return res.status(409).json({ 
           error: "Court conflict", 
@@ -413,8 +418,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const weekEnd = new Date(weekStart.getTime() + duration * 60000);
 
         // Check conflicts for each week
-        const weekCoachConflict = await storage.checkCoachConflict(coachId, weekStart, weekEnd);
-        const weekCourtConflict = await storage.checkCourtConflict(courtId, weekStart, weekEnd);
+        const weekCoachConflict = await storage.checkCoachConflict(coachId, weekStart, weekEnd, undefined, academyId ?? undefined);
+        const weekCourtConflict = await storage.checkCourtConflict(courtId, weekStart, weekEnd, undefined, academyId ?? undefined);
         
         if (weekCoachConflict || weekCourtConflict) {
           skippedWeeks.push(week + 1);
@@ -509,14 +514,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const start = updates.startTime ? new Date(updates.startTime) : session.startTime;
         const duration = updates.duration || session.duration;
         const end = new Date(start.getTime() + duration * 60000);
+        const academyId = req.user?.academyId ?? undefined;
 
-        const coachConflict = await storage.checkCoachConflict(coachId!, start, end, id);
+        const coachConflict = await storage.checkCoachConflict(coachId!, start, end, id, academyId);
         if (coachConflict) {
           return res.status(409).json({ error: "Coach conflict", level: 3 });
         }
 
         const courtId = updates.courtId || session.courtId;
-        const courtConflict = await storage.checkCourtConflict(courtId!, start, end, id);
+        const courtConflict = await storage.checkCourtConflict(courtId!, start, end, id, academyId);
         if (courtConflict) {
           return res.status(409).json({ error: "Court conflict", level: 3 });
         }
@@ -593,14 +599,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const newEndTime = new Date(session.endTime.getTime() + minutes * 60000);
+      const academyId = req.user?.academyId ?? undefined;
 
       // Check if extension causes conflict
-      const coachConflict = await storage.checkCoachConflict(coachId!, session.endTime, newEndTime, id);
+      const coachConflict = await storage.checkCoachConflict(coachId!, session.endTime, newEndTime, id, academyId);
       if (coachConflict) {
         return res.status(409).json({ error: "Cannot extend - coach has another session" });
       }
 
-      const courtConflict = await storage.checkCourtConflict(session.courtId!, session.endTime, newEndTime, id);
+      const courtConflict = await storage.checkCourtConflict(session.courtId!, session.endTime, newEndTime, id, academyId);
       if (courtConflict) {
         return res.status(409).json({ error: "Cannot extend - court is booked" });
       }
@@ -624,9 +631,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { playerId, isGuest } = req.body;
       const academyId = req.user!.academyId;
 
-      const { valid } = await validateSessionOwnership(id, academyId, storage);
-      if (!valid) {
+      const { valid: sessionValid } = await validateSessionOwnership(id, academyId, storage);
+      if (!sessionValid) {
         return res.status(404).json({ error: "Session not found" });
+      }
+
+      // Validate player belongs to same academy (unless guest)
+      if (playerId && !isGuest) {
+        const { valid: playerValid } = await validatePlayerOwnership(playerId, academyId, storage);
+        if (!playerValid) {
+          return res.status(404).json({ error: "Player not found" });
+        }
       }
 
       const sessionPlayer = await storage.addPlayerToSession({
@@ -648,9 +663,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id, playerId } = req.params;
       const academyId = req.user!.academyId;
 
-      const { valid } = await validateSessionOwnership(id, academyId, storage);
-      if (!valid) {
+      const { valid: sessionValid } = await validateSessionOwnership(id, academyId, storage);
+      if (!sessionValid) {
         return res.status(404).json({ error: "Session not found" });
+      }
+
+      // Validate player belongs to same academy
+      const { valid: playerValid } = await validatePlayerOwnership(playerId, academyId, storage);
+      if (!playerValid) {
+        return res.status(404).json({ error: "Player not found" });
       }
 
       await storage.removePlayerFromSession(id, playerId);
@@ -1201,7 +1222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Package not found" });
       }
       
-      const pkg = await storage.updatePackage(id, req.body);
+      const pkg = await storage.updatePackage(id, req.body, academyId ?? undefined);
       if (!pkg) {
         return res.status(404).json({ error: "Package not found" });
       }
@@ -1222,7 +1243,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Package not found" });
       }
       
-      await storage.deletePackage(id);
+      await storage.deletePackage(id, academyId ?? undefined);
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting package:", error);
@@ -1240,7 +1261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Package not found" });
       }
       
-      const pkg = await storage.usePackageCredit(id);
+      const pkg = await storage.usePackageCredit(id, academyId ?? undefined);
       if (!pkg) {
         return res.status(400).json({ error: "No credits remaining or package not found" });
       }
@@ -1830,6 +1851,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/players/:id/skill-state", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const academyId = req.user!.academyId;
+      
+      const { valid } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
       
       // Initialize skill states if not present
       await storage.seedSkillDomains();
@@ -2142,7 +2169,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/players/:id/progress-freeze", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const academyId = req.user!.academyId;
       const { freeze, reason } = req.body;
+
+      const { valid } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
 
       const skillStates = await storage.getPlayerSkillStates(id);
       
@@ -2168,6 +2201,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/coaches/:id/conversations", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const coachId = req.user!.coachId;
+      
+      // Verify the authenticated coach is requesting their own conversations
+      if (id !== coachId) {
+        return res.status(404).json({ error: "Conversations not found" });
+      }
+      
       const conversations = await storage.getConversationsForCoach(id);
       
       // Enrich with participant info
@@ -2265,6 +2305,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/players/:id/conversations", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const academyId = req.user!.academyId;
+      
+      // Verify player belongs to this academy
+      const { valid } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Conversations not found" });
+      }
+      
       const conversations = await storage.getConversationsForPlayer(id);
       
       // Enrich with coach name
@@ -2357,12 +2405,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/conversations/:id/messages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const coachId = req.user!.coachId;
       const limit = parseInt(req.query.limit as string) || 50;
       
       // Handle sample conversations with sample messages
       if (id.startsWith("sample-")) {
         const sampleMessages = getSampleMessages(id);
         return res.json(sampleMessages);
+      }
+      
+      // Verify coach has access to this conversation
+      const conversation = await storage.getConversation(id, coachId ?? undefined);
+      if (!conversation) {
+        // Check if coach is a participant
+        const participants = await storage.getConversationParticipants(id);
+        const isParticipant = participants.some(p => p.coachId === coachId);
+        if (!isParticipant) {
+          return res.status(404).json({ error: "Conversation not found" });
+        }
       }
       
       const messages = await storage.getMessages(id, limit);
@@ -2502,10 +2562,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/conversations/:id/messages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id: conversationId } = req.params;
+      const coachId = req.user!.coachId;
       const { senderType, senderCoachId, senderPlayerId, body, messageType, replyToId } = req.body;
       
       if (!body || !senderType) {
         return res.status(400).json({ error: "body and senderType required" });
+      }
+      
+      // Verify coach has access to this conversation
+      const conversation = await storage.getConversation(conversationId, coachId ?? undefined);
+      if (!conversation) {
+        const participants = await storage.getConversationParticipants(conversationId);
+        const isParticipant = participants.some(p => p.coachId === coachId);
+        if (!isParticipant) {
+          return res.status(404).json({ error: "Conversation not found" });
+        }
       }
       
       const message = await storage.createMessage({

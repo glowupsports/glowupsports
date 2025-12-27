@@ -106,7 +106,7 @@ export interface StorageInterface {
   getPlayer(id: string, academyId?: string): Promise<any>;
   getCourt(id: string, academyId?: string): Promise<any>;
   getSession(id: string, academyId?: string): Promise<any>;
-  getPackage(id: string): Promise<any>;
+  getPackage(id: string, academyId?: string): Promise<any>;
   getCoachNotification(id: string, coachId?: string): Promise<any>;
 }
 
@@ -154,12 +154,9 @@ export async function validatePackageOwnership(
   if (!academyId) {
     return { valid: false };
   }
-  const pkg = await storage.getPackage(packageId);
-  if (!pkg) {
-    return { valid: false };
-  }
-  const player = await storage.getPlayer(pkg.playerId, academyId);
-  return { valid: !!player, pkg };
+  // Use getPackage with academyId for defense-in-depth
+  const pkg = await storage.getPackage(packageId, academyId);
+  return { valid: !!pkg, pkg };
 }
 
 export async function validateNotificationOwnership(
@@ -173,3 +170,4 @@ export async function validateNotificationOwnership(
   const notification = await storage.getCoachNotification(notificationId, coachId);
   return { valid: !!notification, notification };
 }
+

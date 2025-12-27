@@ -300,16 +300,39 @@ export const storage = {
   },
 
   // ==================== PACKAGES ====================
-  async getPackage(id: string): Promise<Package | undefined> {
+  async getPackage(id: string, academyId?: string): Promise<Package | undefined> {
+    // If academyId provided, verify package belongs to a player in that academy
     const result = await db.select().from(packages).where(eq(packages.id, id));
-    return result[0];
+    const pkg = result[0];
+    if (!pkg || !academyId) return pkg;
+    
+    // Verify the player belongs to this academy
+    const player = await db.select().from(players).where(
+      and(eq(players.id, pkg.playerId!), eq(players.academyId, academyId))
+    );
+    return player.length > 0 ? pkg : undefined;
   },
 
-  async getPlayerPackages(playerId: string): Promise<Package[]> {
+  async getPlayerPackages(playerId: string, academyId?: string): Promise<Package[]> {
+    // Validate player belongs to academy if provided
+    if (academyId) {
+      const player = await db.select().from(players).where(
+        and(eq(players.id, playerId), eq(players.academyId, academyId))
+      );
+      if (player.length === 0) return [];
+    }
     return db.select().from(packages).where(eq(packages.playerId, playerId));
   },
 
-  async getActivePlayerPackages(playerId: string): Promise<Package[]> {
+  async getActivePlayerPackages(playerId: string, academyId?: string): Promise<Package[]> {
+    // Validate player belongs to academy if provided
+    if (academyId) {
+      const player = await db.select().from(players).where(
+        and(eq(players.id, playerId), eq(players.academyId, academyId))
+      );
+      if (player.length === 0) return [];
+    }
+    
     const today = new Date().toISOString().split("T")[0];
     const result = await db
       .select()
@@ -328,17 +351,27 @@ export const storage = {
     return result[0];
   },
 
-  async updatePackage(id: string, data: Partial<InsertPackage>): Promise<Package | undefined> {
+  async updatePackage(id: string, data: Partial<InsertPackage>, academyId?: string): Promise<Package | undefined> {
+    // Verify ownership before update if academyId provided
+    if (academyId) {
+      const pkg = await this.getPackage(id, academyId);
+      if (!pkg) return undefined;
+    }
     const result = await db.update(packages).set(data).where(eq(packages.id, id)).returning();
     return result[0];
   },
 
-  async deletePackage(id: string): Promise<void> {
+  async deletePackage(id: string, academyId?: string): Promise<void> {
+    // Verify ownership before delete if academyId provided
+    if (academyId) {
+      const pkg = await this.getPackage(id, academyId);
+      if (!pkg) return;
+    }
     await db.delete(packages).where(eq(packages.id, id));
   },
 
-  async usePackageCredit(packageId: string): Promise<Package | undefined> {
-    const pkg = await this.getPackage(packageId);
+  async usePackageCredit(packageId: string, academyId?: string): Promise<Package | undefined> {
+    const pkg = await this.getPackage(packageId, academyId);
     if (!pkg || pkg.remainingCredits <= 0) return undefined;
     
     const result = await db
@@ -472,7 +505,7 @@ export const storage = {
     return conflicts.length > 0;
   },
 
-  async checkPlayerConflict(playerId: string, startTime: Date, endTime: Date, excludeSessionId?: string): Promise<boolean> {
+  async checkPlayerConflict(playerId: string, startTime: Date, endTime: Date, excludeSessionId?: string, academyId?: string): Promise<boolean> {
     // First get all sessions the player is in
     const playerSessions = await db
       .select({ sessionId: sessionPlayers.sessionId })
@@ -485,20 +518,24 @@ export const storage = {
     if (sessionIds.length === 0) return false;
     
     // Check if any of those sessions overlap with the proposed time
+    const baseConditions = [
+      inArray(sessions.id, sessionIds),
+      eq(sessions.status, "scheduled"),
+      or(
+        and(lte(sessions.startTime, startTime), gte(sessions.endTime, startTime)),
+        and(lte(sessions.startTime, endTime), gte(sessions.endTime, endTime)),
+        and(gte(sessions.startTime, startTime), lte(sessions.endTime, endTime))
+      )
+    ];
+    
+    if (academyId) {
+      baseConditions.push(eq(sessions.academyId, academyId));
+    }
+    
     const conflicts = await db
       .select()
       .from(sessions)
-      .where(
-        and(
-          inArray(sessions.id, sessionIds),
-          eq(sessions.status, "scheduled"),
-          or(
-            and(lte(sessions.startTime, startTime), gte(sessions.endTime, startTime)),
-            and(lte(sessions.startTime, endTime), gte(sessions.endTime, endTime)),
-            and(gte(sessions.startTime, startTime), lte(sessions.endTime, endTime))
-          )
-        )
-      );
+      .where(and(...baseConditions));
     
     if (excludeSessionId) {
       return conflicts.filter(s => s.id !== excludeSessionId).length > 0;
@@ -531,7 +568,7 @@ export const storage = {
     }));
   },
 
-  async getPlayerLastSession(playerId: string): Promise<Session | null> {
+  async getPlayerLastSession(playerId: string, academyId?: string): Promise<Session | null> {
     // Get all session IDs for this player
     const playerSessionEntries = await db
       .select({ sessionId: sessionPlayers.sessionId })
@@ -545,17 +582,22 @@ export const storage = {
     if (sessionIds.length === 0) return null;
     
     // Find the most recent session
+    const conditions = [inArray(sessions.id, sessionIds)];
+    if (academyId) {
+      conditions.push(eq(sessions.academyId, academyId));
+    }
+    
     const result = await db
       .select()
       .from(sessions)
-      .where(inArray(sessions.id, sessionIds))
+      .where(and(...conditions))
       .orderBy(desc(sessions.startTime))
       .limit(1);
     
     return result[0] || null;
   },
 
-  async getSessionPlayersWithDetails(sessionId: string): Promise<Array<{
+  async getSessionPlayersWithDetails(sessionId: string, academyId?: string): Promise<Array<{
     id: string;
     name: string;
     level: string | null;
@@ -565,6 +607,11 @@ export const storage = {
     lateMinutes: number | null;
     absentReason: string | null;
   }>> {
+    const conditions = [eq(sessionPlayers.sessionId, sessionId)];
+    if (academyId) {
+      conditions.push(eq(players.academyId, academyId));
+    }
+    
     const result = await db
       .select({
         id: players.id,
@@ -577,7 +624,7 @@ export const storage = {
       })
       .from(sessionPlayers)
       .innerJoin(players, eq(sessionPlayers.playerId, players.id))
-      .where(eq(sessionPlayers.sessionId, sessionId));
+      .where(and(...conditions));
     
     return result.map(p => ({
       ...p,
@@ -1305,8 +1352,12 @@ export const storage = {
   // ==================== GLOW CHAT SYSTEM ====================
   
   // Conversations
-  async getConversation(id: string): Promise<Conversation | undefined> {
-    const result = await db.select().from(conversations).where(eq(conversations.id, id));
+  async getConversation(id: string, coachId?: string): Promise<Conversation | undefined> {
+    const conditions = [eq(conversations.id, id)];
+    if (coachId) {
+      conditions.push(eq(conversations.coachId, coachId));
+    }
+    const result = await db.select().from(conversations).where(and(...conditions));
     return result[0];
   },
 
@@ -1367,8 +1418,12 @@ export const storage = {
     return result[0];
   },
 
-  async updateConversation(id: string, data: Partial<InsertConversation>): Promise<Conversation | undefined> {
-    const result = await db.update(conversations).set(data).where(eq(conversations.id, id)).returning();
+  async updateConversation(id: string, data: Partial<InsertConversation>, coachId?: string): Promise<Conversation | undefined> {
+    const conditions = [eq(conversations.id, id)];
+    if (coachId) {
+      conditions.push(eq(conversations.coachId, coachId));
+    }
+    const result = await db.update(conversations).set(data).where(and(...conditions)).returning();
     return result[0];
   },
 
