@@ -24,6 +24,7 @@ import {
   playerProgress,
   sessionTemplates,
   coachNotifications,
+  recurringSeries,
   // Progress Engine V2
   skillDomains,
   playerSkillState,
@@ -92,6 +93,9 @@ import {
   type InsertXpTransaction,
   type CoachXpTransaction,
   type InsertCoachXpTransaction,
+  // Recurring Series types
+  type RecurringSeries,
+  type InsertRecurringSeries,
   // Glow Chat types
   type Conversation,
   type InsertConversation,
@@ -1766,5 +1770,108 @@ export const storage = {
     }
     
     return unreadCount;
+  },
+
+  // ==================== RECURRING SERIES ====================
+  async getRecurringSeries(id: string, academyId?: string): Promise<RecurringSeries | undefined> {
+    const conditions = [eq(recurringSeries.id, id)];
+    if (academyId) {
+      conditions.push(eq(recurringSeries.academyId, academyId));
+    }
+    const result = await db.select().from(recurringSeries).where(and(...conditions));
+    return result[0];
+  },
+
+  async getRecurringSeriesForCoach(coachId: string, academyId?: string): Promise<RecurringSeries[]> {
+    const conditions = [eq(recurringSeries.coachId, coachId), eq(recurringSeries.isActive, true)];
+    if (academyId) {
+      conditions.push(eq(recurringSeries.academyId, academyId));
+    }
+    return db.select().from(recurringSeries).where(and(...conditions));
+  },
+
+  async createRecurringSeries(data: InsertRecurringSeries): Promise<RecurringSeries> {
+    const result = await db.insert(recurringSeries).values(data).returning();
+    return result[0];
+  },
+
+  async updateRecurringSeries(id: string, data: Partial<InsertRecurringSeries>, academyId?: string): Promise<RecurringSeries | undefined> {
+    const conditions = [eq(recurringSeries.id, id)];
+    if (academyId) {
+      conditions.push(eq(recurringSeries.academyId, academyId));
+    }
+    const result = await db.update(recurringSeries).set(data).where(and(...conditions)).returning();
+    return result[0];
+  },
+
+  async deleteRecurringSeries(id: string, academyId?: string): Promise<void> {
+    const conditions = [eq(recurringSeries.id, id)];
+    if (academyId) {
+      conditions.push(eq(recurringSeries.academyId, academyId));
+    }
+    await db.update(recurringSeries).set({ isActive: false }).where(and(...conditions));
+  },
+
+  async createRecurringSessionInstances(
+    seriesId: string,
+    baseSession: Omit<InsertSession, 'startTime' | 'endTime'>,
+    startDate: Date,
+    weekCount: number,
+    dayOfWeek: number,
+    startTimeStr: string,
+    duration: number
+  ): Promise<Session[]> {
+    const createdSessions: Session[] = [];
+    const [hours, minutes] = startTimeStr.split(':').map(Number);
+    
+    for (let week = 0; week < weekCount; week++) {
+      const sessionDate = new Date(startDate);
+      sessionDate.setDate(sessionDate.getDate() + (week * 7));
+      
+      // Adjust to correct day of week
+      const currentDay = sessionDate.getDay();
+      const daysToAdd = dayOfWeek - currentDay;
+      sessionDate.setDate(sessionDate.getDate() + daysToAdd);
+      
+      // Set time
+      const startTime = new Date(sessionDate);
+      startTime.setHours(hours, minutes, 0, 0);
+      
+      const endTime = new Date(startTime);
+      endTime.setMinutes(endTime.getMinutes() + duration);
+      
+      const session = await db.insert(sessions).values({
+        ...baseSession,
+        startTime,
+        endTime,
+        duration,
+        isRecurring: true,
+        recurringGroupId: seriesId,
+        weekCount,
+      }).returning();
+      
+      createdSessions.push(session[0]);
+    }
+    
+    return createdSessions;
+  },
+
+  async getSessionsByRecurringGroupId(recurringGroupId: string, academyId?: string): Promise<Session[]> {
+    const conditions = [eq(sessions.recurringGroupId, recurringGroupId)];
+    if (academyId) {
+      conditions.push(eq(sessions.academyId, academyId));
+    }
+    return db.select().from(sessions).where(and(...conditions)).orderBy(asc(sessions.startTime));
+  },
+
+  async deleteRecurringSessionInstances(recurringGroupId: string, fromDate?: Date, academyId?: string): Promise<void> {
+    const conditions = [eq(sessions.recurringGroupId, recurringGroupId)];
+    if (academyId) {
+      conditions.push(eq(sessions.academyId, academyId));
+    }
+    if (fromDate) {
+      conditions.push(gte(sessions.startTime, fromDate));
+    }
+    await db.update(sessions).set({ status: 'cancelled' }).where(and(...conditions));
   },
 };

@@ -478,15 +478,28 @@ export default function CalendarScreen() {
       endTime: string;
       courtId?: string;
     }) => {
-      return apiRequest("PATCH", `/api/sessions/${sessionId}`, { startTime, endTime, courtId });
+      const response = await apiRequest("PATCH", `/api/sessions/${sessionId}`, { startTime, endTime, courtId, checkConflicts: true });
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
-    onError: () => {
+    onError: (error: any) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Error", "Failed to move session. Please try again.");
+      const errorData = error?.response?.data || error?.data || {};
+      const conflictType = errorData.conflictType;
+      const playerName = errorData.playerName;
+      
+      if (conflictType === 'coach') {
+        Alert.alert("Scheduling Conflict", "You already have another session at this time.");
+      } else if (conflictType === 'court') {
+        Alert.alert("Court Unavailable", "This court is already booked at the selected time.");
+      } else if (conflictType === 'player' && playerName) {
+        Alert.alert("Player Conflict", `${playerName} has another session at this time.`);
+      } else {
+        Alert.alert("Error", "Failed to move session. Please try again.");
+      }
     },
   });
   

@@ -191,6 +191,38 @@ export const insertSessionSchema = createInsertSchema(sessions).omit({ id: true,
 export type InsertSession = z.infer<typeof insertSessionSchema>;
 export type Session = typeof sessions.$inferSelect;
 
+// Recurring Session Series
+export const recurringSeries = pgTable("recurring_series", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id),
+  coachId: varchar("coach_id").references(() => coaches.id),
+  courtId: varchar("court_id").references(() => courts.id),
+  locationId: varchar("location_id").references(() => locations.id),
+  
+  dayOfWeek: integer("day_of_week").notNull(), // 0=Sunday, 1=Monday, etc.
+  startTime: text("start_time").notNull(), // "HH:MM" format
+  duration: integer("duration").notNull(), // minutes
+  
+  sessionType: text("session_type").notNull(),
+  ballLevel: text("ball_level"),
+  skillLevel: integer("skill_level"),
+  
+  weekCount: integer("week_count").notNull(), // total weeks in series
+  seriesStartDate: date("series_start_date").notNull(),
+  seriesEndDate: date("series_end_date"),
+  
+  price: numeric("price"),
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertRecurringSeriesSchema = createInsertSchema(recurringSeries).omit({ id: true, createdAt: true });
+export type InsertRecurringSeries = z.infer<typeof insertRecurringSeriesSchema>;
+export type RecurringSeries = typeof recurringSeries.$inferSelect;
+
 // Session Players
 export const sessionPlayers = pgTable("session_players", {
   id: varchar("id")

@@ -1295,7 +1295,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/sessions/:sessionId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { sessionId } = req.params;
-      const { startTime, endTime, courtId } = req.body;
+      const { startTime, endTime, courtId, checkConflicts } = req.body;
       const academyId = req.user!.academyId;
       
       const { valid, session } = await validateSessionOwnership(sessionId, academyId, storage);
@@ -1303,10 +1303,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Session not found" });
       }
       
+      // Determine new times
+      const newStartTime = startTime ? new Date(startTime) : session.startTime;
+      const newEndTime = endTime ? new Date(endTime) : session.endTime;
+      const newCourtId = courtId !== undefined ? courtId : session.courtId;
+      
+      // Check for conflicts if requested
+      if (checkConflicts !== false) {
+        // Check coach conflict (exclude current session)
+        if (session.coachId) {
+          const coachConflict = await storage.checkCoachConflict(
+            session.coachId, 
+            newStartTime, 
+            newEndTime, 
+            sessionId,
+            academyId || undefined
+          );
+          if (coachConflict) {
+            return res.status(409).json({ 
+              error: "Coach has a conflicting session at this time",
+              conflictType: "coach",
+              conflictingSession: coachConflict
+            });
+          }
+        }
+        
+        // Check court conflict (exclude current session)
+        if (newCourtId) {
+          const courtConflict = await storage.checkCourtConflict(
+            newCourtId, 
+            newStartTime, 
+            newEndTime, 
+            sessionId,
+            academyId || undefined
+          );
+          if (courtConflict) {
+            return res.status(409).json({ 
+              error: "Court is already booked at this time",
+              conflictType: "court",
+              conflictingSession: courtConflict
+            });
+          }
+        }
+        
+        // Check player conflicts
+        const playersInSession = await storage.getSessionPlayersWithDetails(sessionId, academyId || undefined);
+        for (const player of playersInSession) {
+          const playerConflict = await storage.checkPlayerConflict(
+            player.id, 
+            newStartTime, 
+            newEndTime, 
+            sessionId,
+            academyId || undefined
+          );
+          if (playerConflict) {
+            return res.status(409).json({ 
+              error: `Player ${player.name} has a conflicting session at this time`,
+              conflictType: "player",
+              playerId: player.id,
+              playerName: player.name,
+              conflictingSession: playerConflict
+            });
+          }
+        }
+      }
+      
       const updateData: Record<string, any> = {};
-      if (startTime) updateData.startTime = startTime;
-      if (endTime) updateData.endTime = endTime;
-      if (courtId !== undefined) updateData.courtId = courtId;
+      if (startTime) updateData.startTime = newStartTime;
+      if (endTime) updateData.endTime = newEndTime;
+      if (courtId !== undefined) updateData.courtId = newCourtId;
       
       const updatedSession = await storage.updateSession(sessionId, updateData);
       res.json(updatedSession);
@@ -1329,7 +1394,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
       
-      const notes = await storage.getPlayerNotes(id, academyId);
+      const notes = await storage.getPlayerNotes(id, academyId || undefined);
       res.json(notes);
     } catch (error) {
       console.error("Error fetching player notes:", error);
@@ -1425,7 +1490,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
       
-      const progress = await storage.getPlayerProgress(id, academyId);
+      const progress = await storage.getPlayerProgress(id, academyId || undefined);
       res.json(progress);
     } catch (error) {
       console.error("Error fetching player progress:", error);
@@ -1444,7 +1509,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
       
-      const summary = await storage.getProgressSummary(id, academyId);
+      const summary = await storage.getProgressSummary(id, academyId || undefined);
       res.json(summary);
     } catch (error) {
       console.error("Error fetching progress summary:", error);
@@ -1510,6 +1575,240 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching players with progress:", error);
       res.status(500).json({ error: "Failed to fetch players with progress" });
+    }
+  });
+
+  // ==================== RECURRING SESSIONS API ====================
+
+  // Get all recurring series for a coach
+  app.get("/api/coach/recurring-series", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      
+      if (!coachId) {
+        return res.status(400).json({ error: "coachId is required" });
+      }
+      
+      const series = await storage.getRecurringSeriesForCoach(coachId, academyId || undefined);
+      res.json(series);
+    } catch (error) {
+      console.error("Error fetching recurring series:", error);
+      res.status(500).json({ error: "Failed to fetch recurring series" });
+    }
+  });
+
+  // Get a single recurring series
+  app.get("/api/coach/recurring-series/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      
+      const series = await storage.getRecurringSeries(id, academyId || undefined);
+      if (!series) {
+        return res.status(404).json({ error: "Recurring series not found" });
+      }
+      
+      // Get all sessions in this series
+      const sessionInstances = await storage.getSessionsByRecurringGroupId(id, academyId || undefined);
+      
+      res.json({ ...series, sessions: sessionInstances });
+    } catch (error) {
+      console.error("Error fetching recurring series:", error);
+      res.status(500).json({ error: "Failed to fetch recurring series" });
+    }
+  });
+
+  // Create a recurring series with session instances
+  app.post("/api/coach/recurring-series", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      const {
+        courtId,
+        locationId,
+        dayOfWeek,
+        startTime,
+        duration,
+        sessionType,
+        ballLevel,
+        skillLevel,
+        weekCount,
+        seriesStartDate,
+        price,
+        playerIds,
+      } = req.body;
+      
+      if (!coachId || dayOfWeek === undefined || !startTime || !duration || !sessionType || !weekCount || !seriesStartDate) {
+        return res.status(400).json({ error: "dayOfWeek, startTime, duration, sessionType, weekCount, and seriesStartDate are required" });
+      }
+      
+      // Validate players belong to academy
+      if (playerIds && Array.isArray(playerIds) && playerIds.length > 0 && academyId) {
+        for (const playerId of playerIds) {
+          const { valid } = await validatePlayerOwnership(playerId, academyId, storage);
+          if (!valid) {
+            return res.status(400).json({ error: `Player ${playerId} not found or not authorized` });
+          }
+        }
+      }
+      
+      // Check for conflicts for all weeks
+      const startDate = new Date(seriesStartDate);
+      const [hours, minutes] = startTime.split(':').map(Number);
+      
+      for (let week = 0; week < weekCount; week++) {
+        const sessionDate = new Date(startDate);
+        sessionDate.setDate(sessionDate.getDate() + (week * 7));
+        
+        const currentDay = sessionDate.getDay();
+        const daysToAdd = dayOfWeek - currentDay;
+        sessionDate.setDate(sessionDate.getDate() + daysToAdd);
+        
+        const sessionStartTime = new Date(sessionDate);
+        sessionStartTime.setHours(hours, minutes, 0, 0);
+        
+        const sessionEndTime = new Date(sessionStartTime);
+        sessionEndTime.setMinutes(sessionEndTime.getMinutes() + duration);
+        
+        // Check coach conflict (pass undefined for excludeSessionId, academyId for tenant isolation)
+        const coachConflict = await storage.checkCoachConflict(coachId, sessionStartTime, sessionEndTime, undefined, academyId || undefined);
+        if (coachConflict) {
+          return res.status(409).json({ 
+            error: `Coach has a conflicting session on week ${week + 1}`,
+            conflictWeek: week + 1,
+            conflictDate: sessionDate.toISOString()
+          });
+        }
+        
+        // Check court conflict if courtId provided
+        if (courtId) {
+          const courtConflict = await storage.checkCourtConflict(courtId, sessionStartTime, sessionEndTime, undefined, academyId || undefined);
+          if (courtConflict) {
+            return res.status(409).json({ 
+              error: `Court has a conflicting booking on week ${week + 1}`,
+              conflictWeek: week + 1,
+              conflictDate: sessionDate.toISOString()
+            });
+          }
+        }
+      }
+      
+      // Calculate end date
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + ((weekCount - 1) * 7));
+      
+      // Create the recurring series
+      const series = await storage.createRecurringSeries({
+        academyId,
+        coachId,
+        courtId: courtId || null,
+        locationId: locationId || null,
+        dayOfWeek,
+        startTime,
+        duration,
+        sessionType,
+        ballLevel: ballLevel || null,
+        skillLevel: skillLevel || null,
+        weekCount,
+        seriesStartDate,
+        seriesEndDate: endDate.toISOString().split('T')[0],
+        price: price || null,
+      });
+      
+      // Create all session instances
+      const sessionInstances = await storage.createRecurringSessionInstances(
+        series.id,
+        {
+          academyId,
+          coachId,
+          courtId: courtId || null,
+          locationId: locationId || null,
+          sessionType,
+          ballLevel: ballLevel || null,
+          skillLevel: skillLevel || null,
+          travelTime: 0,
+          paymentStatus: 'unpaid',
+          price: price || null,
+          status: 'scheduled',
+          duration,
+        },
+        startDate,
+        weekCount,
+        dayOfWeek,
+        startTime,
+        duration
+      );
+      
+      // Add players to all sessions if playerIds provided
+      if (playerIds && Array.isArray(playerIds) && playerIds.length > 0) {
+        for (const session of sessionInstances) {
+          for (const playerId of playerIds) {
+            await storage.addPlayerToSession({
+              sessionId: session.id,
+              playerId,
+            });
+          }
+        }
+      }
+      
+      res.status(201).json({ series, sessions: sessionInstances });
+    } catch (error) {
+      console.error("Error creating recurring series:", error);
+      res.status(500).json({ error: "Failed to create recurring series" });
+    }
+  });
+
+  // Update a recurring series (future instances only)
+  app.patch("/api/coach/recurring-series/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      const { courtId, locationId, price, isActive } = req.body;
+      
+      const series = await storage.getRecurringSeries(id, academyId || undefined);
+      if (!series) {
+        return res.status(404).json({ error: "Recurring series not found" });
+      }
+      
+      const updateData: Record<string, any> = {};
+      if (courtId !== undefined) updateData.courtId = courtId;
+      if (locationId !== undefined) updateData.locationId = locationId;
+      if (price !== undefined) updateData.price = price;
+      if (isActive !== undefined) updateData.isActive = isActive;
+      
+      const updatedSeries = await storage.updateRecurringSeries(id, updateData, academyId || undefined);
+      res.json(updatedSeries);
+    } catch (error) {
+      console.error("Error updating recurring series:", error);
+      res.status(500).json({ error: "Failed to update recurring series" });
+    }
+  });
+
+  // Delete a recurring series (cancels future sessions)
+  app.delete("/api/coach/recurring-series/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      const { cancelFutureSessions } = req.query;
+      
+      const series = await storage.getRecurringSeries(id, academyId || undefined);
+      if (!series) {
+        return res.status(404).json({ error: "Recurring series not found" });
+      }
+      
+      // Mark series as inactive
+      await storage.deleteRecurringSeries(id, academyId || undefined);
+      
+      // Cancel future sessions if requested
+      if (cancelFutureSessions === 'true') {
+        await storage.deleteRecurringSessionInstances(id, new Date(), academyId || undefined);
+      }
+      
+      res.json({ success: true, message: "Recurring series deleted" });
+    } catch (error) {
+      console.error("Error deleting recurring series:", error);
+      res.status(500).json({ error: "Failed to delete recurring series" });
     }
   });
 
@@ -1862,7 +2161,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.seedSkillDomains();
       await storage.initializePlayerSkillStates(id);
       
-      const states = await storage.getPlayerSkillStates(id, academyId);
+      const states = await storage.getPlayerSkillStates(id, academyId || undefined);
       const domains = await storage.getAllSkillDomains();
       
       // Merge domain info with state
@@ -2163,8 +2462,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
       
-      const totalXp = await storage.getPlayerTotalXp(id, academyId);
-      const transactions = await storage.getPlayerXpTransactions(id, 20, academyId);
+      const totalXp = await storage.getPlayerTotalXp(id, academyId || undefined);
+      const transactions = await storage.getPlayerXpTransactions(id, 20, academyId || undefined);
       res.json({ totalXp, transactions });
     } catch (error) {
       console.error("Error fetching player XP:", error);
@@ -2184,7 +2483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
 
-      const skillStates = await storage.getPlayerSkillStates(id, academyId);
+      const skillStates = await storage.getPlayerSkillStates(id, academyId || undefined);
       
       for (const state of skillStates) {
         await storage.upsertPlayerSkillState({
