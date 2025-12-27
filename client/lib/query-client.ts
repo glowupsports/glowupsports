@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { getAuthToken } from "./auth";
 
 /**
  * Gets the base URL for the Express API server (e.g., "http://localhost:3000")
@@ -23,6 +24,14 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+function getAuthHeaders(): Record<string, string> {
+  const token = getAuthToken();
+  if (token) {
+    return { Authorization: `Bearer ${token}` };
+  }
+  return {};
+}
+
 export async function apiRequest(
   method: string,
   route: string,
@@ -31,9 +40,17 @@ export async function apiRequest(
   const baseUrl = getApiUrl();
   const url = new URL(route, baseUrl);
 
+  const headers: Record<string, string> = {
+    ...getAuthHeaders(),
+  };
+  
+  if (data) {
+    headers["Content-Type"] = "application/json";
+  }
+
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
@@ -52,6 +69,7 @@ export const getQueryFn: <T>(options: {
     const url = new URL(queryKey.join("/") as string, baseUrl);
 
     const res = await fetch(url, {
+      headers: getAuthHeaders(),
       credentials: "include",
     });
 

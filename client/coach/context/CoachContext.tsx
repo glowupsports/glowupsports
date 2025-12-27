@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery } from "@tanstack/react-query";
-import { getApiUrl } from "@/lib/query-client";
+import { useAuth } from "@/coach/context/AuthContext";
 
 interface Coach {
   id: string;
@@ -88,58 +88,48 @@ interface CoachContextType {
 
 const CoachContext = createContext<CoachContextType | undefined>(undefined);
 
-const COACH_STORAGE_KEY = "@coach_data";
-const ACADEMY_STORAGE_KEY = "@academy_data";
 const FOCUS_MODE_KEY = "@focus_mode";
 
 export function CoachProvider({ children }: { children: ReactNode }) {
-  const [coach, setCoachState] = useState<Coach | null>(null);
-  const [academy, setAcademyState] = useState<Academy | null>(null);
+  const { coach: authCoach, academy: authAcademy } = useAuth();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week" | "month">("day");
   const [timeGrid, setTimeGrid] = useState<30 | 60>(60);
   const [focusMode, setFocusModeState] = useState(false);
   const [insightsMode, setInsightsMode] = useState(false);
 
+  const coach: Coach | null = authCoach ? {
+    id: authCoach.id,
+    name: authCoach.name,
+    email: authCoach.email,
+    phone: authCoach.phone,
+    role: authCoach.role,
+    homeLocationId: null,
+    hourlyRate: null,
+    level: authCoach.level,
+    totalXp: authCoach.totalXp,
+    academyId: authCoach.academyId,
+  } : null;
+
+  const academy: Academy | null = authAcademy ? {
+    id: authAcademy.id,
+    name: authAcademy.name,
+    slug: authAcademy.slug,
+  } : null;
+
   useEffect(() => {
-    let isMounted = true;
-    
-    const loadData = async () => {
+    const loadFocusMode = async () => {
       try {
-        const [storedCoach, storedAcademy, storedFocusMode] = await Promise.all([
-          AsyncStorage.getItem(COACH_STORAGE_KEY),
-          AsyncStorage.getItem(ACADEMY_STORAGE_KEY),
-          AsyncStorage.getItem(FOCUS_MODE_KEY),
-        ]);
-        
-        if (storedFocusMode && isMounted) {
+        const storedFocusMode = await AsyncStorage.getItem(FOCUS_MODE_KEY);
+        if (storedFocusMode) {
           setFocusModeState(storedFocusMode === "true");
         }
-        
-        // Fetch from demo endpoint for development (TODO: switch to auth flow)
-        const apiUrl = getApiUrl();
-        const response = await fetch(new URL("/api/demo/me", apiUrl).toString());
-        if (response.ok && isMounted) {
-          const data = await response.json();
-          if (data.coach) {
-            setCoachState(data.coach);
-            await AsyncStorage.setItem(COACH_STORAGE_KEY, JSON.stringify(data.coach));
-          }
-          if (data.academy) {
-            setAcademyState(data.academy);
-            await AsyncStorage.setItem(ACADEMY_STORAGE_KEY, JSON.stringify(data.academy));
-          }
-        }
       } catch (error) {
-        console.error("Failed to load data:", error);
+        console.error("Failed to load focus mode:", error);
       }
     };
     
-    loadData();
-    
-    return () => {
-      isMounted = false;
-    };
+    loadFocusMode();
   }, []);
 
   const setFocusMode = async (mode: boolean) => {
@@ -147,13 +137,8 @@ export function CoachProvider({ children }: { children: ReactNode }) {
     await AsyncStorage.setItem(FOCUS_MODE_KEY, mode.toString());
   };
 
-  const setCoach = async (newCoach: Coach | null) => {
-    setCoachState(newCoach);
-    if (newCoach) {
-      await AsyncStorage.setItem(COACH_STORAGE_KEY, JSON.stringify(newCoach));
-    } else {
-      await AsyncStorage.removeItem(COACH_STORAGE_KEY);
-    }
+  const setCoach = async (_newCoach: Coach | null) => {
+    // Coach is now managed by AuthContext, this is a no-op for backwards compatibility
   };
 
   const dateStr = selectedDate.toISOString().split("T")[0];

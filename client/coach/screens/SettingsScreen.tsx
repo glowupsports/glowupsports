@@ -18,6 +18,7 @@ import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useAppMode } from "@/context/AppModeContext";
+import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
@@ -71,6 +72,7 @@ export default function SettingsScreen() {
   const queryClient = useQueryClient();
   const { coach, focusMode, setFocusMode } = useCoach();
   const { setMode } = useAppMode();
+  const { logout } = useAuth();
   const [settings, setSettings] = useState<CoachSettings>(defaultSettings);
   const [hasChanges, setHasChanges] = useState(false);
   const [showCourtModal, setShowCourtModal] = useState(false);
@@ -509,6 +511,32 @@ export default function SettingsScreen() {
             <Text style={styles.infoValue}>2024.12.26</Text>
           </View>
         </View>
+
+        <View style={styles.section}>
+          <Pressable
+            style={styles.logoutButton}
+            onPress={() => {
+              Alert.alert(
+                "Sign Out",
+                "Are you sure you want to sign out?",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Sign Out",
+                    style: "destructive",
+                    onPress: () => {
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      logout();
+                    },
+                  },
+                ]
+              );
+            }}
+          >
+            <Ionicons name="log-out-outline" size={24} color={Colors.dark.error} />
+            <Text style={styles.logoutText}>Sign Out</Text>
+          </Pressable>
+        </View>
       </ScrollView>
 
       <Modal
@@ -919,5 +947,21 @@ const styles = StyleSheet.create({
   colorOptionSelected: {
     borderWidth: 2,
     borderColor: Colors.dark.text,
+  },
+  logoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.error + "40",
+  },
+  logoutText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.error,
   },
 });

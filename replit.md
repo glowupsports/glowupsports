@@ -43,3 +43,22 @@ The application uses a dark-themed gaming aesthetic with neon green (#2ECC40) as
 ### Platform Support
 - **Mobile**: iOS and Android (native).
 - **Web**: Single-page application via Expo web build.
+
+## Phase 0 Security Hardening (In Progress)
+**Status**: Significant progress, chat isolation still needs full completion.
+
+### Completed
+- **Authentication Infrastructure**: Login/register/logout/refresh endpoints, AuthContext, LoginScreen with validation
+- **Role-Based Access Control**: authMiddleware and requireAcademy middleware on 50+ routes
+- **Multi-Tenant Isolation**:
+  - requireAcademy middleware rejects requests from users without academyId (403)
+  - Session endpoints (update/cancel/extend) now pass academyId to storage
+  - Coach endpoints (profile/XP/stats) now verify coach belongs to academy
+  - Conversations table now has academyId column for academy scoping
+  - Conversation storage functions (getConversation, getConversationsForCoach, getConversationsForPlayer, getOrCreateCoachPlayerConversation) now accept academyId parameter
+- **Frontend**: Logout button added to SettingsScreen with confirmation dialog
+
+### Remaining Work
+- Add academyId to messages and conversationParticipants tables for complete chat isolation
+- Make academyId required (non-optional) in storage functions for academy-scoped models
+- Ensure all chat mutations (reactions, participant updates) verify academy membership

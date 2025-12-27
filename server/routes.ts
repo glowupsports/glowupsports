@@ -149,10 +149,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/auth/logout", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    res.json({ success: true, message: "Logged out successfully" });
+  });
+
+  app.post("/auth/refresh", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      const token = generateToken({
+        userId: user.userId,
+        email: user.email,
+        role: user.role,
+        academyId: user.academyId,
+        coachId: user.coachId,
+      });
+      res.json({ token });
+    } catch (error) {
+      console.error("Token refresh error:", error);
+      res.status(500).json({ error: "Token refresh failed" });
+    }
+  });
+
   // ==================== COACH CALENDAR API ====================
 
   // Get calendar for a date range
-  app.get("/api/coach/calendar", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/coach/calendar", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { date, view = "day" } = req.query;
       const coachId = req.user!.coachId;
@@ -230,7 +251,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Check for conflicts before booking
-  app.get("/api/coach/sessions/check-conflict", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/coach/sessions/check-conflict", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { courtId, startTime, endTime, playerIds, excludeSessionId } = req.query;
       const coachId = req.user!.coachId;
@@ -364,7 +385,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create session
-  app.post("/api/coach/sessions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/coach/sessions", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
       const academyId = req.user!.academyId;
@@ -493,13 +514,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update session
-  app.patch("/api/coach/sessions/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.patch("/api/coach/sessions/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const coachId = req.user!.coachId;
       const updates = req.body;
 
-      const session = await storage.getSession(id);
+      const academyId = req.user!.academyId!;
+      const session = await storage.getSession(id, academyId);
       if (!session) {
         return res.status(404).json({ error: "Session not found" });
       }
@@ -547,13 +569,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cancel session
-  app.post("/api/coach/sessions/:id/cancel", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/coach/sessions/:id/cancel", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const coachId = req.user!.coachId;
       const { reason } = req.body;
 
-      const session = await storage.getSession(id);
+      const academyId = req.user!.academyId!;
+      const session = await storage.getSession(id, academyId);
       if (!session) {
         return res.status(404).json({ error: "Session not found" });
       }
@@ -579,7 +602,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Extend session
-  app.post("/api/coach/sessions/:id/extend", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/coach/sessions/:id/extend", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const coachId = req.user!.coachId;
@@ -589,7 +612,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid extension minutes" });
       }
 
-      const session = await storage.getSession(id);
+      const academyId = req.user!.academyId!;
+      const session = await storage.getSession(id, academyId);
       if (!session) {
         return res.status(404).json({ error: "Session not found" });
       }
@@ -599,7 +623,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const newEndTime = new Date(session.endTime.getTime() + minutes * 60000);
-      const academyId = req.user?.academyId ?? undefined;
 
       // Check if extension causes conflict
       const coachConflict = await storage.checkCoachConflict(coachId!, session.endTime, newEndTime, id, academyId);
@@ -625,7 +648,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Add players to session
-  app.post("/api/coach/sessions/:id/players", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/coach/sessions/:id/players", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const { playerId, isGuest } = req.body;
@@ -658,7 +681,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Remove player from session
-  app.delete("/api/coach/sessions/:id/players/:playerId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.delete("/api/coach/sessions/:id/players/:playerId", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id, playerId } = req.params;
       const academyId = req.user!.academyId;
@@ -684,7 +707,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get session players with player details (using efficient JOIN)
-  app.get("/api/coach/sessions/:id/players", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/coach/sessions/:id/players", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
@@ -703,7 +726,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Save attendance (offline-safe)
-  app.post("/api/coach/sessions/:id/attendance", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/coach/sessions/:id/attendance", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const { playerId, status, lateMinutes, absenceReason } = req.body;
@@ -730,7 +753,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Save feedback and award XP
-  app.post("/api/coach/sessions/:id/feedback", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/coach/sessions/:id/feedback", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const { intensity, mood, focusTags, coachNotes } = req.body;
@@ -847,7 +870,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Offline sync
-  app.post("/api/coach/offline/sync", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/coach/offline/sync", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
       const { actions } = req.body;
@@ -892,7 +915,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== PLAYER API ====================
 
   // Set holiday
-  app.post("/api/player/holidays", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/player/holidays", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { playerId, startDate, endDate } = req.body;
 
@@ -957,50 +980,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // DEMO MODE: Get demo coach without auth (for development only)
-  // TODO: Remove this endpoint before production
-  app.get("/api/demo/me", async (req: Request, res: Response) => {
-    try {
-      const allCoaches = await storage.getAllCoaches();
-      if (allCoaches.length === 0) {
-        res.status(404).json({ error: "No coach found" });
-        return;
-      }
-      
-      const coach = allCoaches.find(c => c.name === "Coach Alex") || allCoaches[0];
-      let academy = null;
-      
-      if (coach.academyId) {
-        academy = await storage.getAcademy(coach.academyId);
-      }
-      
-      res.json({
-        coach: {
-          id: coach.id,
-          name: coach.name,
-          email: coach.email,
-          phone: coach.phone,
-          role: coach.role,
-          level: coach.level,
-          totalXp: coach.totalXp,
-          academyId: coach.academyId,
-        },
-        academy: academy ? {
-          id: academy.id,
-          name: academy.name,
-          slug: academy.slug,
-        } : null,
-      });
-    } catch (error) {
-      console.error("Error fetching demo coach:", error);
-      res.status(500).json({ error: "Failed to fetch demo coach" });
-    }
-  });
-
   // ==================== ADMIN/SETUP ENDPOINTS ====================
 
   // Get all coaches
-  app.get("/api/coaches", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/coaches", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId;
       const allCoaches = await storage.getAllCoaches(academyId ?? undefined);
@@ -1024,7 +1007,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all locations
-  app.get("/api/locations", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/locations", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId;
       const allLocations = await storage.getAllLocations(academyId ?? undefined);
@@ -1048,7 +1031,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all courts
-  app.get("/api/courts", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/courts", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId;
       const { locationId } = req.query;
@@ -1077,7 +1060,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update court
-  app.patch("/api/courts/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.patch("/api/courts/:id", authMiddleware, requireRole("owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
@@ -1118,7 +1101,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all players with last lesson date
-  app.get("/api/players", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/players", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId;
       const { search } = req.query;
@@ -1148,7 +1131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create player
-  app.post("/api/players", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/players", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId;
       const player = await storage.createPlayer({ ...req.body, academyId });
@@ -1160,7 +1143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===================== PACKAGES / CREDITS =====================
-  app.get("/api/players/:playerId/packages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/players/:playerId/packages", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { playerId } = req.params;
       const academyId = req.user!.academyId;
@@ -1178,7 +1161,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/players/:playerId/packages/active", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/players/:playerId/packages/active", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { playerId } = req.params;
       const academyId = req.user!.academyId;
@@ -1196,7 +1179,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/packages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/packages", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { playerId, totalCredits, remainingCredits, expiryDate } = req.body;
       const academyId = req.user!.academyId;
@@ -1223,7 +1206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/packages/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.patch("/api/packages/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
@@ -1244,7 +1227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/packages/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.delete("/api/packages/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
@@ -1262,7 +1245,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/packages/:id/use", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/packages/:id/use", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
@@ -1284,7 +1267,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get single session with players
-  app.get("/api/coach/sessions/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/coach/sessions/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
@@ -1303,7 +1286,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Update session (for drag-and-drop reschedule)
-  app.patch("/api/sessions/:sessionId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.patch("/api/sessions/:sessionId", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { sessionId } = req.params;
       const { startTime, endTime, courtId, checkConflicts } = req.body;
@@ -1395,7 +1378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== PLAYER NOTES (COACH MEMORY HUB) ====================
 
   // Get notes for a player
-  app.get("/api/players/:id/notes", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/players/:id/notes", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
@@ -1414,7 +1397,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Add a note for a player
-  app.post("/api/players/:id/notes", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/players/:id/notes", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const coachId = req.user!.coachId;
@@ -1450,7 +1433,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a player note
-  app.delete("/api/players/:playerId/notes/:noteId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.delete("/api/players/:playerId/notes/:noteId", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { playerId, noteId } = req.params;
       const academyId = req.user!.academyId;
@@ -1469,7 +1452,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Toggle note pin
-  app.patch("/api/players/:playerId/notes/:noteId/pin", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.patch("/api/players/:playerId/notes/:noteId/pin", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { playerId, noteId } = req.params;
       const { isPinned } = req.body;
@@ -1491,7 +1474,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== PLAYER PROGRESS ====================
 
   // Get progress history for a player
-  app.get("/api/players/:id/progress", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/players/:id/progress", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
@@ -1510,7 +1493,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get progress summary for a player (aggregated by skill area)
-  app.get("/api/players/:id/progress/summary", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/players/:id/progress/summary", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
@@ -1529,7 +1512,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Add progress entry for a player
-  app.post("/api/players/:id/progress", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/players/:id/progress", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const coachId = req.user!.coachId;
@@ -1562,7 +1545,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all players with their progress summary (for coaching dashboard)
-  app.get("/api/coach/players/progress", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/coach/players/progress", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const allPlayers = await storage.getAllPlayers();
       const playersWithProgress = await Promise.all(
@@ -1592,7 +1575,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== RECURRING SESSIONS API ====================
 
   // Get all recurring series for a coach
-  app.get("/api/coach/recurring-series", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/coach/recurring-series", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
       const academyId = req.user!.academyId;
@@ -1610,7 +1593,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get a single recurring series
-  app.get("/api/coach/recurring-series/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/coach/recurring-series/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
@@ -1631,7 +1614,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create a recurring series with session instances
-  app.post("/api/coach/recurring-series", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/coach/recurring-series", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
       const academyId = req.user!.academyId;
@@ -1771,7 +1754,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update a recurring series (future instances only)
-  app.patch("/api/coach/recurring-series/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.patch("/api/coach/recurring-series/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
@@ -1797,7 +1780,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a recurring series (cancels future sessions)
-  app.delete("/api/coach/recurring-series/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.delete("/api/coach/recurring-series/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
@@ -1826,7 +1809,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== SESSION TEMPLATES API ====================
 
   // Get all session templates for a coach
-  app.get("/api/coach/templates", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/coach/templates", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
       if (!coachId) {
@@ -1841,7 +1824,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create a session template
-  app.post("/api/coach/templates", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/coach/templates", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
       const { name, sessionType, duration, ballLevel, skillLevel, defaultPlayerIds, notes } = req.body;
@@ -1868,7 +1851,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a session template
-  app.delete("/api/coach/templates/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.delete("/api/coach/templates/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       await storage.deleteSessionTemplate(id);
@@ -1882,7 +1865,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== NOTIFICATIONS API ====================
 
   // Get notifications for a coach
-  app.get("/api/coach/notifications", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/coach/notifications", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
       if (!coachId) {
@@ -1897,7 +1880,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Mark notification as read
-  app.patch("/api/coach/notifications/:id/read", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.patch("/api/coach/notifications/:id/read", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const coachId = req.user!.coachId;
@@ -1916,7 +1899,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Mark all notifications as read
-  app.post("/api/coach/notifications/mark-all-read", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/coach/notifications/mark-all-read", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
       if (!coachId) {
@@ -1931,7 +1914,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete notification
-  app.delete("/api/coach/notifications/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.delete("/api/coach/notifications/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const coachId = req.user!.coachId;
@@ -1950,7 +1933,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get auto-renew alerts (sessions near week 9/10)
-  app.get("/api/coach/auto-renew-alerts", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/coach/auto-renew-alerts", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
       if (!coachId) {
@@ -1967,10 +1950,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== COACH PROFILE API ====================
 
   // Get coach profile
-  app.get("/api/coach/profile/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/coach/profile/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const coach = await storage.getCoach(id);
+      const academyId = req.user!.academyId!;
+      const coach = await storage.getCoach(id, academyId);
       if (!coach) {
         return res.status(404).json({ error: "Coach not found" });
       }
@@ -1982,10 +1966,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update coach profile
-  app.patch("/api/coach/profile/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.patch("/api/coach/profile/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const academyId = req.user!.academyId!;
       const updates = req.body;
+      
+      // Verify coach belongs to academy first
+      const coach = await storage.getCoach(id, academyId);
+      if (!coach) {
+        return res.status(404).json({ error: "Coach not found" });
+      }
+      
       const updated = await storage.updateCoach(id, updates);
       res.json(updated);
     } catch (error) {
@@ -1997,10 +1989,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== COACH XP SYSTEM ====================
 
   // Get coach XP and level
-  app.get("/api/coach/:id/xp", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/coach/:id/xp", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const coach = await storage.getCoach(id);
+      const academyId = req.user!.academyId!;
+      const coach = await storage.getCoach(id, academyId);
       if (!coach) {
         return res.status(404).json({ error: "Coach not found" });
       }
@@ -2038,13 +2031,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Award coach XP (internal endpoint for session completion, feedback, etc.)
-  app.post("/api/coach/:id/xp", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/coach/:id/xp", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const academyId = req.user!.academyId!;
       const { xpAmount, source, description, sessionId, metadata } = req.body;
       
       if (!xpAmount || !source) {
         return res.status(400).json({ error: "xpAmount and source are required" });
+      }
+      
+      // Verify coach belongs to academy first
+      const coach = await storage.getCoach(id, academyId);
+      if (!coach) {
+        return res.status(404).json({ error: "Coach not found" });
       }
       
       // Add XP transaction
@@ -2058,31 +2058,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Update coach total XP and check for level up
-      const coach = await storage.getCoach(id);
-      if (coach) {
-        const newTotalXp = (coach.totalXp || 0) + xpAmount;
-        
-        // Calculate new level
-        let newLevel = 1;
-        let xpThreshold = 500;
-        let accumulatedXp = 0;
-        while (accumulatedXp + xpThreshold <= newTotalXp) {
-          accumulatedXp += xpThreshold;
-          newLevel++;
-          xpThreshold = 500 + (newLevel - 1) * 100;
-        }
-        
-        await storage.updateCoach(id, { totalXp: newTotalXp, level: newLevel });
-        
-        res.json({
-          success: true,
-          newTotalXp,
-          newLevel,
-          leveledUp: newLevel > (coach.level || 1),
-        });
-      } else {
-        res.status(404).json({ error: "Coach not found" });
+      const newTotalXp = (coach.totalXp || 0) + xpAmount;
+      
+      // Calculate new level
+      let newLevel = 1;
+      let xpThreshold = 500;
+      let accumulatedXp = 0;
+      while (accumulatedXp + xpThreshold <= newTotalXp) {
+        accumulatedXp += xpThreshold;
+        newLevel++;
+        xpThreshold = 500 + (newLevel - 1) * 100;
       }
+      
+      await storage.updateCoach(id, { totalXp: newTotalXp, level: newLevel });
+      
+      res.json({
+        success: true,
+        newTotalXp,
+        newLevel,
+        leveledUp: newLevel > (coach.level || 1),
+      });
     } catch (error) {
       console.error("Error awarding coach XP:", error);
       res.status(500).json({ error: "Failed to award coach XP" });
@@ -2090,12 +2085,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get coach stats (sessions count, players count, streak)
-  app.get("/api/coach/:id/stats", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/coach/:id/stats", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const academyId = req.user!.academyId!;
+      
+      // Verify coach belongs to academy first
+      const coach = await storage.getCoach(id, academyId);
+      if (!coach) {
+        return res.status(404).json({ error: "Coach not found" });
+      }
       
       // Get all sessions for this coach
-      const allSessions = await storage.getAllSessionsByCoach(id);
+      const allSessions = await storage.getAllSessionsByCoach(id, academyId);
       const completedSessions = allSessions.filter(s => s.status === "completed");
       
       // Get unique player count from session players (parallel fetch for efficiency)
@@ -2145,7 +2147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== PROGRESS ENGINE V2 API ====================
 
   // Get all skill domains
-  app.get("/api/progress/domains", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/progress/domains", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       // Seed domains if not present
       await storage.seedSkillDomains();
@@ -2158,7 +2160,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get player skill states (current progress per domain)
-  app.get("/api/players/:id/skill-state", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/players/:id/skill-state", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
@@ -2192,7 +2194,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Submit skill observations for a session
-  app.post("/api/coach/sessions/:sessionId/observations", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/coach/sessions/:sessionId/observations", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { sessionId } = req.params;
       const coachId = req.user!.coachId;
@@ -2376,7 +2378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get session observations
-  app.get("/api/coach/sessions/:sessionId/observations", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/coach/sessions/:sessionId/observations", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { sessionId } = req.params;
       const observations = await storage.getSessionSkillObservations(sessionId);
@@ -2388,7 +2390,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create assessment for a player
-  app.post("/api/players/:id/assessments", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/players/:id/assessments", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const coachId = req.user!.coachId;
@@ -2428,7 +2430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get player assessments
-  app.get("/api/players/:id/assessments", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/players/:id/assessments", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const assessments = await storage.getPlayerAssessments(id);
@@ -2440,7 +2442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get level requirements
-  app.get("/api/progress/levels", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/progress/levels", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const requirements = await storage.getAllLevelRequirements();
       res.json(requirements);
@@ -2451,7 +2453,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get level readiness for a player
-  app.get("/api/players/:id/level-readiness/:level", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/players/:id/level-readiness/:level", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id, level } = req.params;
       const readiness = await storage.calculatePlayerLevelReadiness(id, level);
@@ -2463,7 +2465,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get player XP and transactions
-  app.get("/api/players/:id/xp", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/players/:id/xp", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
@@ -2483,7 +2485,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Freeze/unfreeze player progress
-  app.post("/api/players/:id/progress-freeze", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/players/:id/progress-freeze", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
@@ -2515,17 +2517,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== GLOW CHAT API ====================
   
   // Get all conversations for a coach
-  app.get("/api/coaches/:id/conversations", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/coaches/:id/conversations", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId!;
       
       // Verify the authenticated coach is requesting their own conversations
       if (id !== coachId) {
         return res.status(404).json({ error: "Conversations not found" });
       }
       
-      const conversations = await storage.getConversationsForCoach(id);
+      const conversations = await storage.getConversationsForCoach(id, academyId);
       
       // Enrich with participant info
       const enriched = await Promise.all(
@@ -2535,7 +2538,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Get player name for conversations with a player
           let playerName = null;
           if (conv.playerId) {
-            const player = await storage.getPlayer(conv.playerId);
+            const player = await storage.getPlayer(conv.playerId, academyId);
             playerName = player?.name;
           }
           
@@ -2619,7 +2622,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all conversations for a player
-  app.get("/api/players/:id/conversations", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/players/:id/conversations", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
@@ -2630,14 +2633,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Conversations not found" });
       }
       
-      const conversations = await storage.getConversationsForPlayer(id);
+      const conversations = await storage.getConversationsForPlayer(id, academyId);
       
       // Enrich with coach name
       const enriched = await Promise.all(
         conversations.map(async (conv) => {
           let coachName = null;
           if (conv.coachId) {
-            const coach = await storage.getCoach(conv.coachId);
+            const coach = await storage.getCoach(conv.coachId, academyId);
             coachName = coach?.name;
           }
           return { ...conv, coachName };
@@ -2652,16 +2655,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get or create a coach-player conversation
-  app.post("/api/conversations/coach-player", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/conversations/coach-player", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId!;
       const { playerId } = req.body;
       
       if (!coachId || !playerId) {
         return res.status(400).json({ error: "playerId required" });
       }
       
-      const conversation = await storage.getOrCreateCoachPlayerConversation(coachId!, playerId);
+      // Verify player belongs to the academy
+      const player = await storage.getPlayer(playerId, academyId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const conversation = await storage.getOrCreateCoachPlayerConversation(coachId!, playerId, academyId);
       res.json(conversation);
     } catch (error) {
       console.error("Error creating conversation:", error);
@@ -2670,18 +2680,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create a new conversation
-  app.post("/api/conversations", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/conversations", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId!;
       const { type, playerId, title } = req.body;
       
       if (!type || !coachId) {
         return res.status(400).json({ error: "type required" });
       }
       
+      // Verify player belongs to academy if provided
+      if (playerId) {
+        const player = await storage.getPlayer(playerId, academyId);
+        if (!player) {
+          return res.status(404).json({ error: "Player not found" });
+        }
+      }
+      
       // For coach_player type, use the existing method
       if (type === "coach_player" && playerId) {
-        const conversation = await storage.getOrCreateCoachPlayerConversation(coachId!, playerId);
+        const conversation = await storage.getOrCreateCoachPlayerConversation(coachId!, playerId, academyId);
         return res.json(conversation);
       }
       
@@ -2691,6 +2710,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         playerId: playerId || null,
         coachId,
         title: title || null,
+        academyId,
       });
       
       res.status(201).json(conversation);
@@ -2719,10 +2739,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get messages for a conversation
-  app.get("/api/conversations/:id/messages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/conversations/:id/messages", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId!;
       const limit = parseInt(req.query.limit as string) || 50;
       
       // Handle sample conversations with sample messages
@@ -2731,8 +2752,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(sampleMessages);
       }
       
-      // Verify coach has access to this conversation
-      const conversation = await storage.getConversation(id, coachId ?? undefined);
+      // Verify coach has access to this conversation within their academy
+      const conversation = await storage.getConversation(id, coachId ?? undefined, academyId);
       if (!conversation) {
         // Check if coach is a participant
         const participants = await storage.getConversationParticipants(id, coachId!);
@@ -2876,18 +2897,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Send a message
-  app.post("/api/conversations/:id/messages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/conversations/:id/messages", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id: conversationId } = req.params;
       const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId!;
       const { senderType, senderCoachId, senderPlayerId, body, messageType, replyToId } = req.body;
       
       if (!body || !senderType) {
         return res.status(400).json({ error: "body and senderType required" });
       }
       
-      // Verify coach has access to this conversation
-      const conversation = await storage.getConversation(conversationId, coachId ?? undefined);
+      // Verify coach has access to this conversation within their academy
+      const conversation = await storage.getConversation(conversationId, coachId ?? undefined, academyId);
       if (!conversation) {
         const participants = await storage.getConversationParticipants(conversationId, coachId!);
         const isParticipant = participants.some(p => p.coachId === coachId);
@@ -2928,7 +2950,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Mark conversation as read
-  app.post("/api/conversations/:id/read", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/conversations/:id/read", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id: conversationId } = req.params;
       const { participantType, participantId } = req.body;
@@ -2942,7 +2964,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Add reaction to message
-  app.post("/api/messages/:id/reactions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/messages/:id/reactions", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id: messageId } = req.params;
       const coachId = req.user!.coachId;
@@ -2972,7 +2994,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Remove reaction from message
-  app.delete("/api/messages/:id/reactions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.delete("/api/messages/:id/reactions", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id: messageId } = req.params;
       const coachId = req.user!.coachId;
@@ -2990,7 +3012,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get unread count for coach
-  app.get("/api/coaches/:id/unread-count", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/coaches/:id/unread-count", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const count = await storage.getUnreadCountForCoach(id);
@@ -3002,7 +3024,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get unread count for player
-  app.get("/api/players/:id/unread-count", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/players/:id/unread-count", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const count = await storage.getUnreadCountForPlayer(id);

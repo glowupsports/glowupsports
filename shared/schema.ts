@@ -613,6 +613,9 @@ export const conversations = pgTable("conversations", {
   type: text("type").notNull(), // coach_player, coach_parent, coach_coach, group
   title: text("title"), // For group chats
   
+  // Academy scoping for multi-tenant isolation
+  academyId: varchar("academy_id").references(() => academies.id),
+  
   // Context for coach_player chats
   playerId: varchar("player_id").references(() => players.id),
   coachId: varchar("coach_id").references(() => coaches.id),

@@ -1428,16 +1428,19 @@ export const storage = {
   // ==================== GLOW CHAT SYSTEM ====================
   
   // Conversations
-  async getConversation(id: string, coachId?: string): Promise<Conversation | undefined> {
+  async getConversation(id: string, coachId?: string, academyId?: string): Promise<Conversation | undefined> {
     const conditions = [eq(conversations.id, id)];
     if (coachId) {
       conditions.push(eq(conversations.coachId, coachId));
+    }
+    if (academyId) {
+      conditions.push(eq(conversations.academyId, academyId));
     }
     const result = await db.select().from(conversations).where(and(...conditions));
     return result[0];
   },
 
-  async getConversationsForCoach(coachId: string): Promise<Conversation[]> {
+  async getConversationsForCoach(coachId: string, academyId?: string): Promise<Conversation[]> {
     const participantConversations = await db
       .select({ conversationId: conversationParticipants.conversationId })
       .from(conversationParticipants)
@@ -1451,19 +1454,22 @@ export const storage = {
     const conversationIds = participantConversations.map(p => p.conversationId);
     if (conversationIds.length === 0) return [];
     
+    const conditions = [
+      inArray(conversations.id, conversationIds),
+      eq(conversations.isArchived, false)
+    ];
+    if (academyId) {
+      conditions.push(eq(conversations.academyId, academyId));
+    }
+    
     return db
       .select()
       .from(conversations)
-      .where(
-        and(
-          inArray(conversations.id, conversationIds),
-          eq(conversations.isArchived, false)
-        )
-      )
+      .where(and(...conditions))
       .orderBy(desc(conversations.lastMessageAt));
   },
 
-  async getConversationsForPlayer(playerId: string): Promise<Conversation[]> {
+  async getConversationsForPlayer(playerId: string, academyId?: string): Promise<Conversation[]> {
     const participantConversations = await db
       .select({ conversationId: conversationParticipants.conversationId })
       .from(conversationParticipants)
@@ -1477,15 +1483,18 @@ export const storage = {
     const conversationIds = participantConversations.map(p => p.conversationId);
     if (conversationIds.length === 0) return [];
     
+    const conditions = [
+      inArray(conversations.id, conversationIds),
+      eq(conversations.isArchived, false)
+    ];
+    if (academyId) {
+      conditions.push(eq(conversations.academyId, academyId));
+    }
+    
     return db
       .select()
       .from(conversations)
-      .where(
-        and(
-          inArray(conversations.id, conversationIds),
-          eq(conversations.isArchived, false)
-        )
-      )
+      .where(and(...conditions))
       .orderBy(desc(conversations.lastMessageAt));
   },
 
@@ -1503,26 +1512,30 @@ export const storage = {
     return result[0];
   },
 
-  async getOrCreateCoachPlayerConversation(coachId: string, playerId: string): Promise<Conversation> {
+  async getOrCreateCoachPlayerConversation(coachId: string, playerId: string, academyId?: string): Promise<Conversation> {
     // Check if conversation already exists
+    const conditions = [
+      eq(conversations.type, "coach_player"),
+      eq(conversations.coachId, coachId),
+      eq(conversations.playerId, playerId)
+    ];
+    if (academyId) {
+      conditions.push(eq(conversations.academyId, academyId));
+    }
+    
     const existing = await db
       .select()
       .from(conversations)
-      .where(
-        and(
-          eq(conversations.type, "coach_player"),
-          eq(conversations.coachId, coachId),
-          eq(conversations.playerId, playerId)
-        )
-      );
+      .where(and(...conditions));
     
     if (existing.length > 0) return existing[0];
     
-    // Create new conversation
+    // Create new conversation with academyId
     const conv = await db.insert(conversations).values({
       type: "coach_player",
       coachId,
       playerId,
+      academyId: academyId || null,
     }).returning();
     
     // Add participants
