@@ -2625,7 +2625,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/players/:id/conversations", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const academyId = req.user!.academyId;
+      const academyId = req.user!.academyId!;
       
       // Verify player belongs to this academy
       const { valid } = await validatePlayerOwnership(id, academyId, storage);
@@ -2756,19 +2756,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const conversation = await storage.getConversation(id, coachId ?? undefined, academyId);
       if (!conversation) {
         // Check if coach is a participant
-        const participants = await storage.getConversationParticipants(id, coachId!);
+        const participants = await storage.getConversationParticipants(id, coachId!, academyId);
         const isParticipant = participants.some(p => p.coachId === coachId);
         if (!isParticipant) {
           return res.status(404).json({ error: "Conversation not found" });
         }
       }
       
-      const messages = await storage.getMessages(id, limit, coachId!);
+      const messages = await storage.getMessages(id, limit, coachId!, academyId);
       
       // Enrich with reactions
       const enriched = await Promise.all(
         messages.map(async (msg) => {
-          const reactions = await storage.getMessageReactions(msg.id, coachId!);
+          const reactions = await storage.getMessageReactions(msg.id, coachId!, academyId);
           return { ...msg, reactions };
         })
       );
@@ -2911,7 +2911,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verify coach has access to this conversation within their academy
       const conversation = await storage.getConversation(conversationId, coachId ?? undefined, academyId);
       if (!conversation) {
-        const participants = await storage.getConversationParticipants(conversationId, coachId!);
+        const participants = await storage.getConversationParticipants(conversationId, coachId!, academyId);
         const isParticipant = participants.some(p => p.coachId === coachId);
         if (!isParticipant) {
           return res.status(404).json({ error: "Conversation not found" });
@@ -2926,7 +2926,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         body,
         messageType: messageType || "text",
         replyToId: replyToId || null,
-      }, coachId!);
+      }, coachId!, academyId);
       
       if (!message) {
         return res.status(403).json({ error: "Access denied to conversation" });
@@ -2968,6 +2968,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id: messageId } = req.params;
       const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId!;
       const { reactorType, reactorCoachId, reactorPlayerId, emoji } = req.body;
       
       if (!emoji || !reactorType) {
@@ -2980,7 +2981,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         reactorCoachId: reactorCoachId || null,
         reactorPlayerId: reactorPlayerId || null,
         emoji,
-      }, coachId!);
+      }, coachId!, academyId);
       
       if (!reaction) {
         return res.status(403).json({ error: "Access denied to message" });
@@ -2998,9 +2999,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id: messageId } = req.params;
       const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId!;
       const { reactorType, reactorId, emoji } = req.body;
       
-      const success = await storage.removeReaction(messageId, reactorType, reactorId, emoji, coachId!);
+      const success = await storage.removeReaction(messageId, reactorType, reactorId, emoji, coachId!, academyId);
       if (!success) {
         return res.status(403).json({ error: "Access denied to message" });
       }

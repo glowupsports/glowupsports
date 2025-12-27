@@ -1538,34 +1538,41 @@ export const storage = {
       academyId: academyId || null,
     }).returning();
     
-    // Add participants
+    // Add participants with academyId for multi-tenant isolation
     await db.insert(conversationParticipants).values([
-      { conversationId: conv[0].id, participantType: "coach", coachId, role: "owner", canPost: true },
-      { conversationId: conv[0].id, participantType: "player", playerId, role: "member", canPost: true },
+      { conversationId: conv[0].id, participantType: "coach", coachId, role: "owner", canPost: true, academyId: academyId || null },
+      { conversationId: conv[0].id, participantType: "player", playerId, role: "member", canPost: true, academyId: academyId || null },
     ]);
     
     return conv[0];
   },
 
   // Participants
-  async getConversationParticipants(conversationId: string, coachId?: string): Promise<ConversationParticipant[]> {
+  async getConversationParticipants(conversationId: string, coachId?: string, academyId?: string): Promise<ConversationParticipant[]> {
     // If coachId provided, verify they have access to this conversation
     if (coachId) {
-      const conversation = await db.select().from(conversations).where(
-        and(eq(conversations.id, conversationId), eq(conversations.coachId, coachId))
-      );
+      const convConditions = [eq(conversations.id, conversationId), eq(conversations.coachId, coachId)];
+      if (academyId) convConditions.push(eq(conversations.academyId, academyId));
+      
+      const conversation = await db.select().from(conversations).where(and(...convConditions));
       // Also check if coach is a participant
       if (conversation.length === 0) {
-        const participantCheck = await db.select().from(conversationParticipants).where(
-          and(
-            eq(conversationParticipants.conversationId, conversationId),
-            eq(conversationParticipants.coachId, coachId)
-          )
-        );
+        const partConditions = [
+          eq(conversationParticipants.conversationId, conversationId),
+          eq(conversationParticipants.coachId, coachId)
+        ];
+        if (academyId) partConditions.push(eq(conversationParticipants.academyId, academyId));
+        
+        const participantCheck = await db.select().from(conversationParticipants).where(and(...partConditions));
         if (participantCheck.length === 0) return [];
       }
     }
-    return db.select().from(conversationParticipants).where(eq(conversationParticipants.conversationId, conversationId));
+    
+    // Filter by academyId if provided
+    const conditions = [eq(conversationParticipants.conversationId, conversationId)];
+    if (academyId) conditions.push(eq(conversationParticipants.academyId, academyId));
+    
+    return db.select().from(conversationParticipants).where(and(...conditions));
   },
 
   async addConversationParticipant(data: InsertConversationParticipant): Promise<ConversationParticipant> {
@@ -1596,53 +1603,62 @@ export const storage = {
   },
 
   // Messages
-  async getMessages(conversationId: string, limit: number = 50, coachId?: string): Promise<Message[]> {
+  async getMessages(conversationId: string, limit: number = 50, coachId?: string, academyId?: string): Promise<Message[]> {
     // If coachId provided, verify they have access to this conversation
     if (coachId) {
-      const conversation = await db.select().from(conversations).where(
-        and(eq(conversations.id, conversationId), eq(conversations.coachId, coachId))
-      );
+      const convConditions = [eq(conversations.id, conversationId), eq(conversations.coachId, coachId)];
+      if (academyId) convConditions.push(eq(conversations.academyId, academyId));
+      
+      const conversation = await db.select().from(conversations).where(and(...convConditions));
       if (conversation.length === 0) {
-        const participantCheck = await db.select().from(conversationParticipants).where(
-          and(
-            eq(conversationParticipants.conversationId, conversationId),
-            eq(conversationParticipants.coachId, coachId)
-          )
-        );
+        const partConditions = [
+          eq(conversationParticipants.conversationId, conversationId),
+          eq(conversationParticipants.coachId, coachId)
+        ];
+        if (academyId) partConditions.push(eq(conversationParticipants.academyId, academyId));
+        
+        const participantCheck = await db.select().from(conversationParticipants).where(and(...partConditions));
         if (participantCheck.length === 0) return [];
       }
     }
+    
+    // Add academyId filter if provided
+    const msgConditions = [
+      eq(messages.conversationId, conversationId),
+      eq(messages.isDeleted, false)
+    ];
+    if (academyId) msgConditions.push(eq(messages.academyId, academyId));
+    
     return db
       .select()
       .from(messages)
-      .where(
-        and(
-          eq(messages.conversationId, conversationId),
-          eq(messages.isDeleted, false)
-        )
-      )
+      .where(and(...msgConditions))
       .orderBy(desc(messages.createdAt))
       .limit(limit);
   },
 
-  async createMessage(data: InsertMessage, coachId?: string): Promise<Message | null> {
+  async createMessage(data: InsertMessage, coachId?: string, academyId?: string): Promise<Message | null> {
     // If coachId provided, verify they have access to this conversation
     if (coachId) {
-      const conversation = await db.select().from(conversations).where(
-        and(eq(conversations.id, data.conversationId), eq(conversations.coachId, coachId))
-      );
+      const convConditions = [eq(conversations.id, data.conversationId), eq(conversations.coachId, coachId)];
+      if (academyId) convConditions.push(eq(conversations.academyId, academyId));
+      
+      const conversation = await db.select().from(conversations).where(and(...convConditions));
       if (conversation.length === 0) {
-        const participantCheck = await db.select().from(conversationParticipants).where(
-          and(
-            eq(conversationParticipants.conversationId, data.conversationId),
-            eq(conversationParticipants.coachId, coachId)
-          )
-        );
+        const partConditions = [
+          eq(conversationParticipants.conversationId, data.conversationId),
+          eq(conversationParticipants.coachId, coachId)
+        ];
+        if (academyId) partConditions.push(eq(conversationParticipants.academyId, academyId));
+        
+        const participantCheck = await db.select().from(conversationParticipants).where(and(...partConditions));
         if (participantCheck.length === 0) return null;
       }
     }
     
-    const result = await db.insert(messages).values(data).returning();
+    // Include academyId in message data
+    const messageData = academyId ? { ...data, academyId } : data;
+    const result = await db.insert(messages).values(messageData).returning();
     
     // Update conversation last message
     await db.update(conversations).set({
@@ -1658,86 +1674,109 @@ export const storage = {
   },
 
   // Reactions
-  async getMessageReactions(messageId: string, coachId?: string): Promise<MessageReaction[]> {
+  async getMessageReactions(messageId: string, coachId?: string, academyId?: string): Promise<MessageReaction[]> {
     // If coachId provided, verify coach has access to the message's conversation
     if (coachId) {
-      const msg = await db.select().from(messages).where(eq(messages.id, messageId));
+      const msgConditions = [eq(messages.id, messageId)];
+      if (academyId) msgConditions.push(eq(messages.academyId, academyId));
+      
+      const msg = await db.select().from(messages).where(and(...msgConditions));
       if (msg.length === 0) return [];
       const conversationId = msg[0].conversationId;
-      const conversation = await db.select().from(conversations).where(
-        and(eq(conversations.id, conversationId), eq(conversations.coachId, coachId))
-      );
+      
+      const convConditions = [eq(conversations.id, conversationId), eq(conversations.coachId, coachId)];
+      if (academyId) convConditions.push(eq(conversations.academyId, academyId));
+      
+      const conversation = await db.select().from(conversations).where(and(...convConditions));
       if (conversation.length === 0) {
-        const participantCheck = await db.select().from(conversationParticipants).where(
-          and(
-            eq(conversationParticipants.conversationId, conversationId),
-            eq(conversationParticipants.coachId, coachId)
-          )
-        );
+        const partConditions = [
+          eq(conversationParticipants.conversationId, conversationId),
+          eq(conversationParticipants.coachId, coachId)
+        ];
+        if (academyId) partConditions.push(eq(conversationParticipants.academyId, academyId));
+        
+        const participantCheck = await db.select().from(conversationParticipants).where(and(...partConditions));
         if (participantCheck.length === 0) return [];
       }
     }
-    return db.select().from(messageReactions).where(eq(messageReactions.messageId, messageId));
+    
+    const reactionConditions = [eq(messageReactions.messageId, messageId)];
+    if (academyId) reactionConditions.push(eq(messageReactions.academyId, academyId));
+    
+    return db.select().from(messageReactions).where(and(...reactionConditions));
   },
 
-  async addReaction(data: InsertMessageReaction, coachId?: string): Promise<MessageReaction | null> {
+  async addReaction(data: InsertMessageReaction, coachId?: string, academyId?: string): Promise<MessageReaction | null> {
     // If coachId provided, verify coach has access to the message's conversation
     if (coachId) {
-      const msg = await db.select().from(messages).where(eq(messages.id, data.messageId));
+      const msgConditions = [eq(messages.id, data.messageId)];
+      if (academyId) msgConditions.push(eq(messages.academyId, academyId));
+      
+      const msg = await db.select().from(messages).where(and(...msgConditions));
       if (msg.length === 0) return null;
       const conversationId = msg[0].conversationId;
-      const conversation = await db.select().from(conversations).where(
-        and(eq(conversations.id, conversationId), eq(conversations.coachId, coachId))
-      );
+      
+      const convConditions = [eq(conversations.id, conversationId), eq(conversations.coachId, coachId)];
+      if (academyId) convConditions.push(eq(conversations.academyId, academyId));
+      
+      const conversation = await db.select().from(conversations).where(and(...convConditions));
       if (conversation.length === 0) {
-        const participantCheck = await db.select().from(conversationParticipants).where(
-          and(
-            eq(conversationParticipants.conversationId, conversationId),
-            eq(conversationParticipants.coachId, coachId)
-          )
-        );
+        const partConditions = [
+          eq(conversationParticipants.conversationId, conversationId),
+          eq(conversationParticipants.coachId, coachId)
+        ];
+        if (academyId) partConditions.push(eq(conversationParticipants.academyId, academyId));
+        
+        const participantCheck = await db.select().from(conversationParticipants).where(and(...partConditions));
         if (participantCheck.length === 0) return null;
       }
     }
-    const result = await db.insert(messageReactions).values(data).returning();
+    
+    // Include academyId in reaction data
+    const reactionData = academyId ? { ...data, academyId } : data;
+    const result = await db.insert(messageReactions).values(reactionData).returning();
     return result[0];
   },
 
-  async removeReaction(messageId: string, reactorType: string, reactorId: string, emoji: string, coachId?: string): Promise<boolean> {
+  async removeReaction(messageId: string, reactorType: string, reactorId: string, emoji: string, coachId?: string, academyId?: string): Promise<boolean> {
     // If coachId provided, verify coach has access to the message's conversation
     if (coachId) {
-      const msg = await db.select().from(messages).where(eq(messages.id, messageId));
+      const msgConditions = [eq(messages.id, messageId)];
+      if (academyId) msgConditions.push(eq(messages.academyId, academyId));
+      
+      const msg = await db.select().from(messages).where(and(...msgConditions));
       if (msg.length === 0) return false;
       const conversationId = msg[0].conversationId;
-      const conversation = await db.select().from(conversations).where(
-        and(eq(conversations.id, conversationId), eq(conversations.coachId, coachId))
-      );
+      
+      const convConditions = [eq(conversations.id, conversationId), eq(conversations.coachId, coachId)];
+      if (academyId) convConditions.push(eq(conversations.academyId, academyId));
+      
+      const conversation = await db.select().from(conversations).where(and(...convConditions));
       if (conversation.length === 0) {
-        const participantCheck = await db.select().from(conversationParticipants).where(
-          and(
-            eq(conversationParticipants.conversationId, conversationId),
-            eq(conversationParticipants.coachId, coachId)
-          )
-        );
+        const partConditions = [
+          eq(conversationParticipants.conversationId, conversationId),
+          eq(conversationParticipants.coachId, coachId)
+        ];
+        if (academyId) partConditions.push(eq(conversationParticipants.academyId, academyId));
+        
+        const participantCheck = await db.select().from(conversationParticipants).where(and(...partConditions));
         if (participantCheck.length === 0) return false;
       }
     }
     
+    const baseConditions = [
+      eq(messageReactions.messageId, messageId),
+      eq(messageReactions.emoji, emoji)
+    ];
+    if (academyId) baseConditions.push(eq(messageReactions.academyId, academyId));
+    
     if (reactorType === "coach") {
       await db.delete(messageReactions).where(
-        and(
-          eq(messageReactions.messageId, messageId),
-          eq(messageReactions.reactorCoachId, reactorId),
-          eq(messageReactions.emoji, emoji)
-        )
+        and(...baseConditions, eq(messageReactions.reactorCoachId, reactorId))
       );
     } else {
       await db.delete(messageReactions).where(
-        and(
-          eq(messageReactions.messageId, messageId),
-          eq(messageReactions.reactorPlayerId, reactorId),
-          eq(messageReactions.emoji, emoji)
-        )
+        and(...baseConditions, eq(messageReactions.reactorPlayerId, reactorId))
       );
     }
     return true;
