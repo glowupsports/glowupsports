@@ -16,8 +16,18 @@ import {
   validateNotificationOwnership,
   type AuthenticatedRequest 
 } from "./auth";
-import { loginSchema, registerSchema } from "@shared/schema";
+import { 
+  loginSchema, 
+  registerSchema,
+  insertSessionSchema,
+  insertPlayerSchema,
+  insertPackageSchema,
+  insertPlayerNoteSchema,
+  insertMessageSchema,
+  insertMessageReactionSchema,
+} from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
+import { z } from "zod";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
