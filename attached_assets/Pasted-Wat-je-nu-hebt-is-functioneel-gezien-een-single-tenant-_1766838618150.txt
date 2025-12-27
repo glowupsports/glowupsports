@@ -1,0 +1,223 @@
+Wat je nu hebt is functioneel gezien een single-tenant coach app
+en je wilt naar een echte SaaS-structuur, zónder alles kapot te maken.
+
+Het goede nieuws:
+👉 je bent dichterbij dan je denkt
+👉 je database & API-structuur zijn al verrassend geschikt
+
+Ik leg dit rustig, logisch en zonder buzzwords uit.
+
+Van “1 coach app” → echte SaaS (multi-academy, multi-coach)
+
+Denk in 3 lagen:
+
+Academy (organisatie)
+ ├─ Coaches
+ │   ├─ Sessions
+ │   ├─ Players
+ │   └─ Calendar
+ └─ Settings / Branding
+
+
+Je mist nu vooral laag 0: Academy.
+
+1️⃣ Het kernprobleem (wat er NU gebeurt)
+
+Op dit moment:
+
+Coach wordt “hardcoded” of automatisch geladen
+
+Data hangt aan coachId
+
+Er is geen bovenliggende context
+
+Dus:
+
+Iedereen ziet “Coach Alex”
+
+Iedereen deelt dezelfde spelers / sessies
+
+Geen scheiding tussen academies
+
+➡️ Dat is waarom het aanvoelt als “1 trainer only”
+
+2️⃣ De minimale SaaS-oplossing (zonder refactor hel)
+
+We voegen 1 nieuwe kern-entiteit toe:
+
+🏫 Academy (of Club)
+Academy {
+  id
+  name
+  slug        // glow-up-tennis, alex-academy, etc
+  ownerId
+  createdAt
+}
+
+
+En we koppelen ALLES hieraan.
+
+3️⃣ Wat koppelen we aan Academy?
+Coaches
+Coach {
+  id
+  academyId
+  name
+  role        // owner | coach
+}
+
+Players
+Player {
+  id
+  academyId
+  coachId
+}
+
+Sessions
+Session {
+  id
+  academyId
+  coachId
+  courtId
+}
+
+Courts
+Court {
+  id
+  academyId
+}
+
+
+💡 Belangrijk:
+
+Alles blijft zoals het is, maar krijgt academyId erbij.
+
+Geen grote herschrijving nodig.
+
+4️⃣ Hoe een vriend zijn “eigen academy” krijgt (concreet)
+Scenario: vriend wil jouw app gebruiken
+Stap 1 – Academy aanmaken (handmatig, MVP)
+
+In admin / backend:
+
+POST /academies
+{
+  name: "Alex Tennis Academy"
+}
+
+
+➡️ academyId = abc123
+
+Stap 2 – Coach koppelen
+POST /coaches
+{
+  name: "Alex",
+  academyId: abc123,
+  role: "owner"
+}
+
+Stap 3 – App start met academy context
+
+Bij app load:
+
+GET /me
+→ returns:
+{
+  coachId,
+  academyId,
+  academyName
+}
+
+
+👉 Vanaf dat moment:
+
+alle API-calls automatisch gefilterd op academyId
+
+geen data-lek tussen academies
+
+100% gescheiden omgevingen
+
+5️⃣ UI: hoe voelt dit in de app?
+Bovenin (subtiel)
+Coach Alex
+Alex Tennis Academy
+
+Settings → Academy
+
+Academy name
+
+(later: logo, colors)
+
+⚠️ Nog geen whitelabel nodig
+Je gebruikt gewoon:
+
+Glow Up Sports branding
+
+maar met academy naam zichtbaar
+
+6️⃣ Auth (later, maar belangrijk)
+
+Voor nu kun je nog:
+
+coach “auto-loaden”
+
+academy vastzetten
+
+Maar later:
+
+User {
+  id
+  email
+  password
+}
+
+User ↔ Coach ↔ Academy
+
+
+➡️ Klaar voor:
+
+meerdere coaches per academy
+
+ouders
+
+spelers
+
+subscriptions
+
+7️⃣ Waarom dit SaaS-proof is
+
+✔ Meerdere academies
+✔ Meerdere coaches per academy
+✔ Data volledig gescheiden
+✔ Klaar voor billing per academy
+✔ Klaar voor whitelabel LATER
+
+En:
+❗ je hoeft NIET opnieuw te beginnen
+❗ je hoeft GEEN features weg te gooien
+
+8️⃣ Wat ik zou doen (stap voor stap)
+
+Stap 1 (nu, klein):
+
+academy table
+
+academyId toevoegen aan:
+
+coach
+
+player
+
+session
+
+court
+
+Stap 2:
+
+/me endpoint geeft academy context
+
+frontend gebruikt academyId overal
+
+Stap 3:
+
+simpele “Create Academy” flow (alleen owner)

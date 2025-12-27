@@ -2,6 +2,9 @@ import { db } from "./db";
 import { eq, and, gte, lte, ne, or, inArray } from "drizzle-orm";
 import { desc, asc } from "drizzle-orm";
 import {
+  // Multi-academy structure
+  academies,
+  // Core tables
   coaches,
   locations,
   courts,
@@ -33,6 +36,9 @@ import {
   conversationParticipants,
   messages,
   messageReactions,
+  // Academy types
+  type Academy,
+  type InsertAcademy,
   type Coach,
   type InsertCoach,
   type Location,
@@ -92,6 +98,31 @@ import {
 } from "@shared/schema";
 
 export const storage = {
+  // ==================== ACADEMIES ====================
+  async getAcademy(id: string): Promise<Academy | undefined> {
+    const result = await db.select().from(academies).where(eq(academies.id, id));
+    return result[0];
+  },
+
+  async getAcademyBySlug(slug: string): Promise<Academy | undefined> {
+    const result = await db.select().from(academies).where(eq(academies.slug, slug));
+    return result[0];
+  },
+
+  async getAllAcademies(): Promise<Academy[]> {
+    return db.select().from(academies);
+  },
+
+  async createAcademy(data: InsertAcademy): Promise<Academy> {
+    const result = await db.insert(academies).values(data).returning();
+    return result[0];
+  },
+
+  async updateAcademy(id: string, data: Partial<InsertAcademy>): Promise<Academy | undefined> {
+    const result = await db.update(academies).set(data).where(eq(academies.id, id)).returning();
+    return result[0];
+  },
+
   // ==================== COACHES ====================
   async getCoach(id: string): Promise<Coach | undefined> {
     const result = await db.select().from(coaches).where(eq(coaches.id, id));

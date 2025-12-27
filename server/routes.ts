@@ -617,6 +617,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== AUTH/ME ENDPOINTS ====================
+
+  // Get current coach with academy context
+  // For now, auto-loads first coach (will be replaced with auth later)
+  app.get("/api/me", async (req: Request, res: Response) => {
+    try {
+      const allCoaches = await storage.getAllCoaches();
+      if (allCoaches.length === 0) {
+        res.status(404).json({ error: "No coach found" });
+        return;
+      }
+      
+      const coach = allCoaches[0]; // Auto-load first coach for now
+      let academy = null;
+      
+      if (coach.academyId) {
+        academy = await storage.getAcademy(coach.academyId);
+      }
+      
+      res.json({
+        coach: {
+          id: coach.id,
+          name: coach.name,
+          email: coach.email,
+          phone: coach.phone,
+          role: coach.role,
+          level: coach.level,
+          totalXp: coach.totalXp,
+          academyId: coach.academyId,
+        },
+        academy: academy ? {
+          id: academy.id,
+          name: academy.name,
+          slug: academy.slug,
+        } : null,
+      });
+    } catch (error) {
+      console.error("Error fetching current coach:", error);
+      res.status(500).json({ error: "Failed to fetch current coach" });
+    }
+  });
+
   // ==================== ADMIN/SETUP ENDPOINTS ====================
 
   // Get all coaches

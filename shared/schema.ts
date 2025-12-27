@@ -21,6 +21,23 @@ export const insertUserSchema = createInsertSchema(users).pick({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
+// ==================== MULTI-ACADEMY STRUCTURE ====================
+
+// Academies (top-level tenant)
+export const academies = pgTable("academies", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(), // e.g., "alex-tennis-academy"
+  ownerId: varchar("owner_id"), // references coaches.id (set after coach creation)
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAcademySchema = createInsertSchema(academies).omit({ id: true, createdAt: true });
+export type InsertAcademy = z.infer<typeof insertAcademySchema>;
+export type Academy = typeof academies.$inferSelect;
+
 // ==================== COACH APP TABLES ====================
 
 // Coaches
@@ -28,9 +45,11 @@ export const coaches = pgTable("coaches", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id),
   name: text("name").notNull(),
   email: text("email"),
   phone: text("phone"),
+  role: text("role").default("coach"), // owner | coach | assistant
   homeLocationId: varchar("home_location_id"),
   hourlyRate: numeric("hourly_rate"),
   
@@ -49,6 +68,7 @@ export const locations = pgTable("locations", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id),
   name: text("name").notNull(),
   timezone: text("timezone").default("Asia/Dubai"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -63,6 +83,7 @@ export const courts = pgTable("courts", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id),
   locationId: varchar("location_id").references(() => locations.id),
   name: text("name").notNull(),
   color: varchar("color", { length: 7 }).default("#2ECC40"),
@@ -79,6 +100,8 @@ export const players = pgTable("players", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id),
+  coachId: varchar("coach_id").references(() => coaches.id), // primary coach
   name: text("name").notNull(),
   phone: text("phone"),
   ballLevel: text("ball_level"), // red/orange/green/yellow/glow
@@ -112,6 +135,7 @@ export const sessions = pgTable("sessions", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id),
   coachId: varchar("coach_id").references(() => coaches.id),
   courtId: varchar("court_id").references(() => courts.id),
   locationId: varchar("location_id").references(() => locations.id),

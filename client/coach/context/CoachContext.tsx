@@ -8,10 +8,18 @@ interface Coach {
   name: string;
   email: string | null;
   phone: string | null;
+  role: string | null;
   homeLocationId: string | null;
   hourlyRate: string | null;
   level: number | null;
   totalXp: number | null;
+  academyId: string | null;
+}
+
+interface Academy {
+  id: string;
+  name: string;
+  slug: string;
 }
 
 interface Location {
@@ -61,6 +69,7 @@ interface CalendarData {
 
 interface CoachContextType {
   coach: Coach | null;
+  academy: Academy | null;
   setCoach: (coach: Coach | null) => void;
   selectedDate: Date;
   setSelectedDate: (date: Date) => void;
@@ -80,10 +89,12 @@ interface CoachContextType {
 const CoachContext = createContext<CoachContextType | undefined>(undefined);
 
 const COACH_STORAGE_KEY = "@coach_data";
+const ACADEMY_STORAGE_KEY = "@academy_data";
 const FOCUS_MODE_KEY = "@focus_mode";
 
 export function CoachProvider({ children }: { children: ReactNode }) {
   const [coach, setCoachState] = useState<Coach | null>(null);
+  const [academy, setAcademyState] = useState<Academy | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week" | "month">("day");
   const [timeGrid, setTimeGrid] = useState<30 | 60>(60);
@@ -95,8 +106,9 @@ export function CoachProvider({ children }: { children: ReactNode }) {
     
     const loadData = async () => {
       try {
-        const [storedCoach, storedFocusMode] = await Promise.all([
+        const [storedCoach, storedAcademy, storedFocusMode] = await Promise.all([
           AsyncStorage.getItem(COACH_STORAGE_KEY),
+          AsyncStorage.getItem(ACADEMY_STORAGE_KEY),
           AsyncStorage.getItem(FOCUS_MODE_KEY),
         ]);
         
@@ -104,17 +116,22 @@ export function CoachProvider({ children }: { children: ReactNode }) {
           setFocusModeState(storedFocusMode === "true");
         }
         
-        if (storedCoach && isMounted) {
+        if (storedCoach && storedAcademy && isMounted) {
           setCoachState(JSON.parse(storedCoach));
+          setAcademyState(JSON.parse(storedAcademy));
         } else if (isMounted) {
+          // Fetch from /api/me endpoint (returns coach + academy context)
           const apiUrl = getApiUrl();
-          const response = await fetch(new URL("/api/coaches", apiUrl).toString());
+          const response = await fetch(new URL("/api/me", apiUrl).toString());
           if (response.ok && isMounted) {
-            const coaches = await response.json();
-            if (coaches && coaches.length > 0) {
-              const defaultCoach = coaches[0];
-              setCoachState(defaultCoach);
-              await AsyncStorage.setItem(COACH_STORAGE_KEY, JSON.stringify(defaultCoach));
+            const data = await response.json();
+            if (data.coach) {
+              setCoachState(data.coach);
+              await AsyncStorage.setItem(COACH_STORAGE_KEY, JSON.stringify(data.coach));
+            }
+            if (data.academy) {
+              setAcademyState(data.academy);
+              await AsyncStorage.setItem(ACADEMY_STORAGE_KEY, JSON.stringify(data.academy));
             }
           }
         }
@@ -158,6 +175,7 @@ export function CoachProvider({ children }: { children: ReactNode }) {
     <CoachContext.Provider
       value={{
         coach,
+        academy,
         setCoach,
         selectedDate,
         setSelectedDate,
