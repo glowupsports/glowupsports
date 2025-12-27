@@ -459,9 +459,12 @@ export default function CalendarScreen() {
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{ courtId: string; time: Date } | null>(null);
   const [selectedSessionForAttendance, setSelectedSessionForAttendance] = useState<Session | null>(null);
-  const [weekMode, setWeekMode] = useState<"overview" | "availability">("overview");
+  const [weekMode, setWeekMode] = useState<"overview" | "availability">("availability");
   const [monthMode, setMonthMode] = useState<"load" | "availability">("load");
   const [draggingSession, setDraggingSession] = useState<string | null>(null);
+  
+  const hourHeight = timeGrid === 30 ? HOUR_HEIGHT_30 : HOUR_HEIGHT_60;
+  const courts = calendarData?.courts || [];
   
   const updateSessionMutation = useMutation({
     mutationFn: async ({ sessionId, startTime, endTime, courtId }: { 
@@ -561,8 +564,6 @@ export default function CalendarScreen() {
     }
   }, [coach, coaches, setCoach]);
 
-  const hourHeight = timeGrid === 30 ? HOUR_HEIGHT_30 : HOUR_HEIGHT_60;
-  
   const isToday = useMemo(() => {
     const today = new Date();
     return (
@@ -585,7 +586,6 @@ export default function CalendarScreen() {
   
   const focusBaseHour = focusMode && isToday ? displayHours[0] : START_HOUR;
   const hours = displayHours;
-  const courts = calendarData?.courts || [];
   const ownSessions = calendarData?.ownSessions || [];
   const blockedSessions = calendarData?.blockedSessions || [];
 
