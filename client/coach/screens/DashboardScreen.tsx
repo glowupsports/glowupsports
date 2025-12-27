@@ -40,7 +40,7 @@ interface Alert {
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { coach, calendarData, isLoading } = useCoach();
+  const { coach, academy, calendarData, isLoading } = useCoach();
   const [showStatusPanel, setShowStatusPanel] = useState(false);
 
   const today = new Date();
@@ -234,6 +234,9 @@ export default function DashboardScreen() {
           <View style={styles.headerLeft}>
             <Text style={styles.greeting}>{getGreeting()}</Text>
             <Text style={styles.coachName}>{coach.name}</Text>
+            {academy ? (
+              <Text style={styles.academyName}>{academy.name}</Text>
+            ) : null}
             
             {/* Coach Level + XP Bar */}
             <View style={styles.xpContainer}>
@@ -636,7 +639,13 @@ const styles = StyleSheet.create({
   coachName: {
     ...Typography.h1,
     color: Colors.dark.text,
+    marginBottom: 2,
+  },
+  academyName: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.accent,
     marginBottom: Spacing.xs,
+    opacity: 0.9,
   },
   
   // Coach XP
