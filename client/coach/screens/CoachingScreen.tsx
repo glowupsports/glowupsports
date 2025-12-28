@@ -241,6 +241,8 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
   const [playerExpandedSkillGroups, setPlayerExpandedSkillGroups] = useState<Record<string, Set<string>>>({});
   // Time period filter
   const [feedbackPeriod, setFeedbackPeriod] = useState<FeedbackPeriod>("today");
+  // Status filter
+  const [statusFilter, setStatusFilter] = useState<"all" | "complete" | "open" | "pending">("all");
 
   const { data: sessionPlayers = [] } = useQuery<SessionPlayer[]>({
     queryKey: [`/api/coach/sessions/${selectedSession?.id}/players`],
@@ -540,6 +542,31 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
       })
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()); // Chronological order
   }, [calendarData?.ownSessions, feedbackPeriod]);
+
+  // Apply status filter
+  const statusFilteredSessions = useMemo(() => {
+    if (statusFilter === "all") return filteredSessions;
+    return filteredSessions.filter((session) => {
+      const isComplete = session.status === "completed";
+      switch (statusFilter) {
+        case "complete":
+          return isComplete;
+        case "open":
+          return !isComplete;
+        case "pending":
+          return !isComplete;
+        default:
+          return true;
+      }
+    });
+  }, [filteredSessions, statusFilter]);
+
+  // Get counts for each status
+  const statusCounts = useMemo(() => {
+    const complete = filteredSessions.filter(s => s.status === "completed").length;
+    const open = filteredSessions.filter(s => s.status !== "completed").length;
+    return { complete, open, pending: open, all: filteredSessions.length };
+  }, [filteredSessions]);
 
   // Calculate pending feedback count and total XP
   const pendingFeedbackStats = useMemo(() => {
@@ -1309,6 +1336,63 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
         ))}
       </ScrollView>
 
+      {/* Status Filter Chips */}
+      <View style={styles.statusFilterRow}>
+        {([
+          { id: "all" as const, label: "All", count: statusCounts.all, icon: null },
+          { id: "complete" as const, label: "Complete", count: statusCounts.complete, icon: "checkmark-circle" as const },
+          { id: "open" as const, label: "Open", count: statusCounts.open, icon: "alert-circle" as const },
+          { id: "pending" as const, label: "Pending", count: statusCounts.pending, icon: "time" as const },
+        ]).map((status) => (
+          <Pressable
+            key={status.id}
+            style={[
+              styles.statusChip,
+              statusFilter === status.id && styles.statusChipActive,
+              status.id === "complete" && statusFilter === status.id && styles.statusChipComplete,
+              status.id === "open" && statusFilter === status.id && styles.statusChipOpen,
+              status.id === "pending" && statusFilter === status.id && styles.statusChipPending,
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setStatusFilter(status.id);
+            }}
+          >
+            {status.icon ? (
+              <Ionicons 
+                name={status.icon} 
+                size={14} 
+                color={
+                  statusFilter === status.id 
+                    ? status.id === "complete" ? Colors.dark.primary 
+                      : status.id === "open" ? "#F39C12"
+                      : Colors.dark.xpCyan
+                    : Colors.dark.tabIconDefault
+                }
+              />
+            ) : null}
+            <Text style={[
+              styles.statusChipText,
+              statusFilter === status.id && styles.statusChipTextActive,
+              status.id === "complete" && statusFilter === status.id && { color: Colors.dark.primary },
+              status.id === "open" && statusFilter === status.id && { color: "#F39C12" },
+              status.id === "pending" && statusFilter === status.id && { color: Colors.dark.xpCyan },
+            ]}>
+              {status.label}
+            </Text>
+            <View style={[
+              styles.statusCountBadge,
+              statusFilter === status.id && styles.statusCountBadgeActive,
+            ]}>
+              <Text style={[
+                styles.statusCountText,
+                statusFilter === status.id && styles.statusCountTextActive,
+              ]}>{status.count}</Text>
+            </View>
+          </Pressable>
+        ))}
+      </View>
+
       {/* XP Reward Banner - only show if pending feedback exists */}
       {pendingFeedbackStats.count > 0 ? (
         <View style={styles.xpRewardBanner}>
@@ -1330,14 +1414,24 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
       ) : null}
 
       <Text style={styles.sectionTitle}>{getPeriodLabel(feedbackPeriod)} Lessons</Text>
-      {filteredSessions.length === 0 ? (
+      {statusFilteredSessions.length === 0 ? (
         <View style={styles.emptyCard}>
           <Ionicons name="checkmark-done-circle-outline" size={48} color={Colors.dark.primary} />
-          <Text style={styles.emptyText}>No completed lessons {feedbackPeriod === "today" ? "today" : "in this period"}</Text>
-          <Text style={styles.emptySubtext}>Feedback will appear here after each lesson</Text>
+          <Text style={styles.emptyText}>
+            {filteredSessions.length === 0 
+              ? `No completed lessons ${feedbackPeriod === "today" ? "today" : "in this period"}`
+              : `No ${statusFilter === "complete" ? "completed" : statusFilter} lessons`
+            }
+          </Text>
+          <Text style={styles.emptySubtext}>
+            {filteredSessions.length === 0 
+              ? "Feedback will appear here after each lesson"
+              : "Try selecting a different filter"
+            }
+          </Text>
         </View>
       ) : (
-        filteredSessions.map((session) => {
+        statusFilteredSessions.map((session) => {
           const needsFeedback = session.status !== "completed";
           const sessionXp = getSessionXp(session.sessionType);
           // Format date for non-today periods
@@ -2319,6 +2413,66 @@ const styles = StyleSheet.create({
   periodTabTextActive: {
     color: Colors.dark.primary,
     fontWeight: "600",
+  },
+  statusFilterRow: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+    marginBottom: Spacing.md,
+    flexWrap: "wrap",
+  },
+  statusChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  statusChipActive: {
+    borderColor: Colors.dark.tabIconDefault,
+  },
+  statusChipComplete: {
+    backgroundColor: Colors.dark.primary + "15",
+    borderColor: Colors.dark.primary,
+  },
+  statusChipOpen: {
+    backgroundColor: "#F39C12" + "15",
+    borderColor: "#F39C12",
+  },
+  statusChipPending: {
+    backgroundColor: Colors.dark.xpCyan + "15",
+    borderColor: Colors.dark.xpCyan,
+  },
+  statusChipText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+    fontWeight: "500",
+  },
+  statusChipTextActive: {
+    fontWeight: "600",
+  },
+  statusCountBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: Colors.dark.backgroundRoot,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  statusCountBadgeActive: {
+    backgroundColor: "rgba(255,255,255,0.2)",
+  },
+  statusCountText: {
+    fontSize: 10,
+    color: Colors.dark.tabIconDefault,
+    fontWeight: "600",
+  },
+  statusCountTextActive: {
+    color: Colors.dark.text,
   },
   xpRewardBanner: {
     flexDirection: "row",
@@ -3453,21 +3607,17 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   modalOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.8)",
-    justifyContent: "center",
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.85)",
   },
   modalScrollContainer: {
     flex: 1,
   },
   modalScrollContent: {
     flexGrow: 1,
-    justifyContent: "center",
-    padding: Spacing.lg,
+    paddingTop: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing["2xl"],
   },
   modalContent: {
     backgroundColor: Colors.dark.backgroundSecondary,
