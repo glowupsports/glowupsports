@@ -113,27 +113,29 @@ export default function PlayerHomeScreen() {
   const { user } = useAuth();
   
   const isPlayer = user?.role === "player";
+  const isOwner = user?.role === "owner" || user?.role === "academy_owner" || user?.role === "platform_owner";
+  const canAccessPlayerMode = isPlayer || isOwner;
   
   const { data, isLoading, error } = useQuery<DashboardData>({
     queryKey: ["/api/player/me/dashboard"],
-    enabled: isPlayer,
+    enabled: canAccessPlayerMode,
   });
   
   const { data: peersData } = useQuery<PeersData>({
     queryKey: ["/api/player/me/peers"],
-    enabled: isPlayer,
+    enabled: canAccessPlayerMode,
   });
 
   const handlePeerPress = (peer: Peer) => {
     navigation.navigate("PeerJourney", { peerId: peer.id, peerName: peer.name });
   };
 
-  if (!isPlayer) {
+  if (!canAccessPlayerMode) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <Ionicons name="tennisball" size={48} color={Colors.dark.xpCyan} />
         <Text style={styles.errorText}>Player Mode</Text>
-        <Text style={styles.errorSubtext}>Sign in with a player account to view your dashboard</Text>
+        <Text style={styles.errorSubtext}>Sign in with a player or owner account to view this dashboard</Text>
         <ModeSwitcher />
       </View>
     );
@@ -186,9 +188,15 @@ export default function PlayerHomeScreen() {
         </View>
 
         <View style={styles.header}>
+          {isOwner && (
+            <View style={styles.ownerBadge}>
+              <Ionicons name="eye" size={14} color={Colors.dark.gold} />
+              <Text style={styles.ownerBadgeText}>Owner Preview</Text>
+            </View>
+          )}
           <View style={styles.headerTop}>
             <View>
-              <Text style={styles.greeting}>Welcome back,</Text>
+              <Text style={styles.greeting}>{isOwner ? "Academy Overview" : "Welcome back,"}</Text>
               <Text style={styles.playerName}>{player.name}</Text>
             </View>
             <View style={styles.avatarContainer}>
@@ -665,5 +673,21 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.textMuted,
     fontSize: 10,
+  },
+  ownerBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    alignSelf: "flex-start",
+    marginBottom: Spacing.sm,
+  },
+  ownerBadgeText: {
+    ...Typography.caption,
+    color: Colors.dark.gold,
+    fontWeight: "600",
   },
 });

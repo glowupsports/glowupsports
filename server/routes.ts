@@ -5342,8 +5342,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(401).json({ error: "Authentication required" });
       return;
     }
-    // Allow academy_owners, platform_owners and admins to view player mode (will show demo data)
-    if (req.user.role === "platform_owner" || req.user.role === "academy_owner" || req.user.role === "admin") {
+    // Allow owners, platform_owners, academy_owners and admins to view player mode (will show demo data)
+    if (req.user.role === "platform_owner" || req.user.role === "academy_owner" || req.user.role === "owner" || req.user.role === "admin") {
       next();
       return;
     }
