@@ -368,6 +368,7 @@ export default function PlayerJourneyScreen() {
         />
       ) : (
         <FlatList
+          key="badges-grid-2"
           data={domainBadges}
           keyExtractor={(item) => item.id}
           numColumns={2}
