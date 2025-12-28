@@ -16,6 +16,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { useCoach } from "@/coach/context/CoachContext";
+import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -39,6 +40,7 @@ export default function CoachProfileScreen() {
   const navigation = useNavigation();
   const queryClient = useQueryClient();
   const { coach } = useCoach();
+  const { refreshAuth } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<Partial<CoachProfile>>({});
 
@@ -50,10 +52,11 @@ export default function CoachProfileScreen() {
   const updateMutation = useMutation({
     mutationFn: async (data: { coachId: string; updates: Partial<CoachProfile> }) =>
       apiRequest("PATCH", `/api/coach/profile/${data.coachId}`, data.updates),
-    onSuccess: () => {
+    onSuccess: async () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/coach/profile"] });
       queryClient.invalidateQueries({ queryKey: ["/api/coaches"] });
+      await refreshAuth();
       setIsEditing(false);
       Alert.alert("Saved", "Profile updated successfully");
     },
