@@ -3582,22 +3582,21 @@ const styles = StyleSheet.create({
   modalOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.85)",
-    justifyContent: "flex-end",
+    paddingTop: 80,
   },
   modalScrollContainer: {
-    flex: 1,
-    marginTop: 100,
-  },
-  modalScrollContent: {
-    flexGrow: 1,
-  },
-  modalContent: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundSecondary,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
+  },
+  modalScrollContent: {
+    flexGrow: 1,
     padding: Spacing.lg,
-    paddingBottom: 100,
+    paddingBottom: 120,
+  },
+  modalContent: {
+    flex: 1,
   },
   modalHeader: {
     flexDirection: "row",
