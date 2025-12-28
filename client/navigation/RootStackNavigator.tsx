@@ -83,7 +83,7 @@ export default function RootStackNavigator() {
   };
 
   return (
-    <Stack.Navigator screenOptions={screenOptions}>
+    <Stack.Navigator key={isAuthenticated ? mode : "login"} screenOptions={screenOptions}>
       {getNavigator()}
     </Stack.Navigator>
   );

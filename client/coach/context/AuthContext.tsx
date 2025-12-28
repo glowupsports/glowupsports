@@ -79,8 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userRole = data.user?.role || "player";
         const availableModes = getModesForRole(userRole);
         const defaultMode = getDefaultModeForRole(userRole);
-        setAvailableModes(availableModes);
-        setMode(defaultMode);
+        setAvailableModes(availableModes, defaultMode);
         
         return true;
       }
@@ -90,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("[AuthContext] Failed to fetch user data:", error);
       return false;
     }
-  }, [setMode, setAvailableModes]);
+  }, [setAvailableModes]);
 
   useEffect(() => {
     let isMounted = true;

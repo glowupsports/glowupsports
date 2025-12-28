@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export type AppMode = "player" | "coach" | "admin" | "owner";
@@ -7,7 +7,7 @@ interface AppModeContextType {
   mode: AppMode;
   setMode: (mode: AppMode) => void;
   availableModes: AppMode[];
-  setAvailableModes: (modes: AppMode[]) => void;
+  setAvailableModes: (modes: AppMode[], defaultMode?: AppMode) => void;
 }
 
 const AppModeContext = createContext<AppModeContextType | undefined>(undefined);
@@ -17,6 +17,7 @@ const APP_MODE_KEY = "@app_mode";
 export function AppModeProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<AppMode>("coach");
   const [availableModes, setAvailableModesState] = useState<AppMode[]>(["coach"]);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     loadMode();
@@ -28,19 +29,30 @@ export function AppModeProvider({ children }: { children: ReactNode }) {
       if (stored === "player" || stored === "coach" || stored === "admin" || stored === "owner") {
         setModeState(stored);
       }
+      setIsInitialized(true);
     } catch (error) {
       console.error("Failed to load app mode:", error);
+      setIsInitialized(true);
     }
   };
 
-  const setMode = async (newMode: AppMode) => {
+  const setMode = useCallback(async (newMode: AppMode) => {
     setModeState(newMode);
     await AsyncStorage.setItem(APP_MODE_KEY, newMode);
-  };
+  }, []);
 
-  const setAvailableModes = (modes: AppMode[]) => {
+  const setAvailableModes = useCallback((modes: AppMode[], defaultMode?: AppMode) => {
     setAvailableModesState(modes);
-  };
+    
+    setModeState((currentMode) => {
+      if (modes.includes(currentMode)) {
+        return currentMode;
+      }
+      const newMode = defaultMode || modes[0] || "player";
+      AsyncStorage.setItem(APP_MODE_KEY, newMode);
+      return newMode;
+    });
+  }, []);
 
   return (
     <AppModeContext.Provider value={{ mode, setMode, availableModes, setAvailableModes }}>
