@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
 import { LinearGradient } from "expo-linear-gradient";
+import ModeSwitcher from "@/components/ModeSwitcher";
 
 interface DashboardData {
   player: {
@@ -163,6 +164,10 @@ export default function PlayerHomeScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.modeSwitcherContainer}>
+          <ModeSwitcher />
+        </View>
+
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <View>
@@ -319,6 +324,10 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  modeSwitcherContainer: {
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.md,
   },
   header: {
     padding: Spacing.xl,

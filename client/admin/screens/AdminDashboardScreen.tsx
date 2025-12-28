@@ -14,8 +14,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
-import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
+import ModeSwitcher from "@/components/ModeSwitcher";
 
 interface StatCardProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -68,7 +68,6 @@ function QuickAction({ icon, label, color = Colors.dark.primary, onPress }: Quic
 export default function AdminDashboardScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { mode, setMode, availableModes } = useAppMode();
   const { user } = useAuth();
 
   const stats = useMemo(() => ({
@@ -77,40 +76,6 @@ export default function AdminDashboardScreen() {
     activeSessions: 3,
     monthlyRevenue: 4250,
   }), []);
-
-  const renderModeSwitcher = () => (
-    <View style={styles.modeSwitcher}>
-      {availableModes.map((m) => (
-        <Pressable
-          key={m}
-          style={[
-            styles.modeButton,
-            mode === m && styles.modeButtonActive,
-          ]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            setMode(m);
-          }}
-        >
-          <Ionicons
-            name={
-              m === "owner" ? "shield" :
-              m === "admin" ? "settings" :
-              m === "coach" ? "tennisball" : "person"
-            }
-            size={16}
-            color={mode === m ? Colors.dark.backgroundRoot : Colors.dark.text}
-          />
-          <Text style={[
-            styles.modeButtonText,
-            mode === m && styles.modeButtonTextActive,
-          ]}>
-            {m.charAt(0).toUpperCase() + m.slice(1)}
-          </Text>
-        </Pressable>
-      ))}
-    </View>
-  );
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -141,7 +106,7 @@ export default function AdminDashboardScreen() {
             </Pressable>
           </View>
 
-          {renderModeSwitcher()}
+          <ModeSwitcher />
         </View>
 
         <View style={styles.statsGrid}>
@@ -285,34 +250,6 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     fontSize: 10,
     fontWeight: "700",
-  },
-  modeSwitcher: {
-    flexDirection: "row",
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.xs,
-    gap: Spacing.xs,
-  },
-  modeButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.sm,
-    gap: Spacing.xs,
-  },
-  modeButtonActive: {
-    backgroundColor: Colors.dark.orange,
-  },
-  modeButtonText: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
-  },
-  modeButtonTextActive: {
-    color: Colors.dark.backgroundRoot,
-    fontWeight: "600",
   },
   statsGrid: {
     flexDirection: "row",
