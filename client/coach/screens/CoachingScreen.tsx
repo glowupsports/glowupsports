@@ -3620,6 +3620,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing["2xl"],
   },
   modalContent: {
+    flex: 1,
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.xl,
     padding: Spacing.lg,
