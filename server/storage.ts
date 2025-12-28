@@ -1182,11 +1182,11 @@ export const storage = {
     if (existingDomains.length > 0) return; // Already seeded
 
     const domains = [
-      { name: "technical", displayName: "Technical", description: "Strokes, technique, consistency", icon: "tennisball-outline", sortOrder: 1 },
-      { name: "mental", displayName: "Mental", description: "Focus, resilience, confidence", icon: "brain-outline", sortOrder: 2 },
-      { name: "physical", displayName: "Physical", description: "Fitness, speed, endurance", icon: "fitness-outline", sortOrder: 3 },
-      { name: "social", displayName: "Social", description: "Teamwork, sportsmanship, communication", icon: "people-outline", sortOrder: 4 },
-      { name: "tactical", displayName: "Tactical", description: "Strategy, decision-making, game IQ", icon: "bulb-outline", sortOrder: 5 },
+      { name: "technical", displayName: "Technical", description: "Strokes, technique, consistency", icon: "tennisball-outline", color: "#2ECC40", sortOrder: 1 },
+      { name: "mental", displayName: "Mental", description: "Focus, resilience, confidence", icon: "brain-outline", color: "#00D4FF", sortOrder: 2 },
+      { name: "physical", displayName: "Physical", description: "Fitness, speed, endurance", icon: "fitness-outline", color: "#FFD700", sortOrder: 3 },
+      { name: "social", displayName: "Social", description: "Teamwork, sportsmanship, communication", icon: "people-outline", color: "#FF6B6B", sortOrder: 4 },
+      { name: "tactical", displayName: "Tactical", description: "Strategy, decision-making, game IQ", icon: "bulb-outline", color: "#9B59B6", sortOrder: 5 },
     ];
 
     for (const domain of domains) {
@@ -2858,5 +2858,225 @@ export const storage = {
       console.error("Database health check failed:", error);
       return false;
     }
+  },
+
+  // ==================== PLAYER APP SPECIFIC HELPERS ====================
+
+  async getPlayerSessionsWithDetails(
+    playerId: string,
+    startDate: Date,
+    endDate: Date
+  ): Promise<{
+    id: string;
+    startTime: Date;
+    endTime: Date;
+    sessionType: string | null;
+    status: string | null;
+    courtId: string | null;
+    attended: string | null;
+  }[]> {
+    const result = await db
+      .select({
+        id: sessions.id,
+        startTime: sessions.startTime,
+        endTime: sessions.endTime,
+        sessionType: sessions.sessionType,
+        status: sessions.status,
+        courtId: sessions.courtId,
+        attended: sessionPlayers.attendanceStatus,
+      })
+      .from(sessionPlayers)
+      .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+      .where(and(
+        eq(sessionPlayers.playerId, playerId),
+        gte(sessions.startTime, startDate),
+        lte(sessions.endTime, endDate)
+      ))
+      .orderBy(sessions.startTime);
+    return result;
+  },
+
+  async getPlayerFeedbackNotes(playerId: string, limit: number = 10): Promise<{
+    id: string;
+    content: string;
+    category: string;
+    createdAt: Date | null;
+    coachId: string | null;
+  }[]> {
+    const result = await db
+      .select({
+        id: playerNotes.id,
+        content: playerNotes.content,
+        category: playerNotes.category,
+        createdAt: playerNotes.createdAt,
+        coachId: playerNotes.coachId,
+      })
+      .from(playerNotes)
+      .where(eq(playerNotes.playerId, playerId))
+      .orderBy(desc(playerNotes.createdAt))
+      .limit(limit);
+    return result;
+  },
+
+  async getPlayerXpTotal(playerId: string): Promise<{ totalXp: number; level: number }> {
+    const player = await db.select().from(players).where(eq(players.id, playerId));
+    if (!player[0]) return { totalXp: 0, level: 1 };
+    return {
+      totalXp: player[0].totalXp || 0,
+      level: player[0].level || 1,
+    };
+  },
+
+  async getPlayerXpHistory(playerId: string, limit: number = 20): Promise<{
+    id: string;
+    amount: number;
+    reason: string | null;
+    createdAt: Date | null;
+  }[]> {
+    const result = await db
+      .select({
+        id: xpTransactions.id,
+        amount: xpTransactions.amount,
+        reason: xpTransactions.reason,
+        createdAt: xpTransactions.createdAt,
+      })
+      .from(xpTransactions)
+      .where(eq(xpTransactions.playerId, playerId))
+      .orderBy(desc(xpTransactions.createdAt))
+      .limit(limit);
+    return result;
+  },
+
+  async getPlayerMilestones(playerId: string): Promise<{
+    id: string;
+    type: string;
+    title: string;
+    date: Date | null;
+  }[]> {
+    const milestones: { id: string; type: string; title: string; date: Date | null }[] = [];
+    
+    // Get skill observations that represent major improvements
+    const observations = await db
+      .select({
+        id: sessionSkillObservations.id,
+        direction: sessionSkillObservations.direction,
+        domainId: sessionSkillObservations.domainId,
+        createdAt: sessionSkillObservations.createdAt,
+      })
+      .from(sessionSkillObservations)
+      .where(and(
+        eq(sessionSkillObservations.playerId, playerId),
+        eq(sessionSkillObservations.direction, "up")
+      ))
+      .orderBy(desc(sessionSkillObservations.createdAt))
+      .limit(20);
+    
+    for (const obs of observations) {
+      milestones.push({
+        id: obs.id,
+        type: "skill_improvement",
+        title: `Skill improved`,
+        date: obs.createdAt,
+      });
+    }
+    
+    // Get XP milestones (large XP gains)
+    const xpMilestones = await db
+      .select({
+        id: xpTransactions.id,
+        amount: xpTransactions.amount,
+        reason: xpTransactions.reason,
+        createdAt: xpTransactions.createdAt,
+      })
+      .from(xpTransactions)
+      .where(and(
+        eq(xpTransactions.playerId, playerId),
+        gte(xpTransactions.amount, 50)
+      ))
+      .orderBy(desc(xpTransactions.createdAt))
+      .limit(10);
+    
+    for (const xp of xpMilestones) {
+      milestones.push({
+        id: xp.id,
+        type: "xp_gain",
+        title: xp.reason || `Earned ${xp.amount} XP`,
+        date: xp.createdAt,
+      });
+    }
+    
+    // Sort by date
+    milestones.sort((a, b) => {
+      if (!a.date || !b.date) return 0;
+      return b.date.getTime() - a.date.getTime();
+    });
+    
+    return milestones.slice(0, 20);
+  },
+
+  async listSkillDomains(): Promise<SkillDomain[]> {
+    return db.select().from(skillDomains);
+  },
+
+  async getPlayerDomainInsights(playerId: string, domainId: string): Promise<{
+    recentHighlights: string[];
+    focusAreas: string[];
+    lastObservation: { direction: string; note: string | null; date: Date | null } | null;
+    avgDelta: number;
+    observationCount: number;
+  }> {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const observations = await db
+      .select()
+      .from(sessionSkillObservations)
+      .where(and(
+        eq(sessionSkillObservations.playerId, playerId),
+        eq(sessionSkillObservations.domainId, domainId),
+        gte(sessionSkillObservations.createdAt, thirtyDaysAgo)
+      ))
+      .orderBy(desc(sessionSkillObservations.createdAt))
+      .limit(20);
+    
+    if (observations.length === 0) {
+      return {
+        recentHighlights: [],
+        focusAreas: [],
+        lastObservation: null,
+        avgDelta: 0,
+        observationCount: 0,
+      };
+    }
+    
+    const recentHighlights: string[] = [];
+    const focusAreas: string[] = [];
+    
+    for (const obs of observations) {
+      if (obs.direction === "up" && obs.note && obs.effortLevel === "high") {
+        if (!recentHighlights.includes(obs.note) && recentHighlights.length < 3) {
+          recentHighlights.push(obs.note);
+        }
+      }
+      if (obs.direction === "down" && obs.note) {
+        if (!focusAreas.includes(obs.note) && focusAreas.length < 3) {
+          focusAreas.push(obs.note);
+        }
+      }
+    }
+    
+    const totalDelta = observations.reduce((sum, o) => sum + (o.appliedDelta || 0), 0);
+    
+    return {
+      recentHighlights,
+      focusAreas,
+      lastObservation: {
+        direction: observations[0].direction,
+        note: observations[0].note,
+        date: observations[0].createdAt,
+      },
+      avgDelta: observations.length > 0 ? Math.round((totalDelta / observations.length) * 10) / 10 : 0,
+      observationCount: observations.length,
+    };
   },
 };

@@ -138,6 +138,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role: user.role,
         academyId: user.academyId,
         coachId: user.coachId,
+        playerId: user.playerId,
       });
 
       res.status(201).json({ 
@@ -148,6 +149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           role: user.role,
           academyId: user.academyId,
           coachId: user.coachId,
+          playerId: user.playerId,
         }
       });
     } catch (error) {
@@ -183,6 +185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role: user.role,
         academyId: user.academyId,
         coachId: user.coachId,
+        playerId: user.playerId,
       });
 
       res.json({ 
@@ -193,6 +196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           role: user.role,
           academyId: user.academyId,
           coachId: user.coachId,
+          playerId: user.playerId,
         }
       });
     } catch (error) {
@@ -214,6 +218,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role: user.role,
         academyId: user.academyId,
         coachId: user.coachId,
+        playerId: user.playerId,
       });
       res.json({ token });
     } catch (error) {
@@ -4750,6 +4755,358 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating refund:", error);
       res.status(500).json({ error: "Failed to create refund" });
+    }
+  });
+
+  // ==================== PLAYER APP API ENDPOINTS ====================
+  
+  // Middleware to require player role and linked playerId
+  function requirePlayer(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+    if (!req.user) {
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
+    if (req.user.role !== "player" || !req.user.playerId) {
+      res.status(403).json({ error: "Player account required" });
+      return;
+    }
+    next();
+  }
+  
+  // Get player dashboard data
+  app.get("/api/player/me/dashboard", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId!;
+      
+      // Get player data
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Get coach data
+      let coach = null;
+      if (player.coachId) {
+        coach = await storage.getCoach(player.coachId);
+      }
+      
+      // Get academy data
+      let academy = null;
+      if (player.academyId) {
+        academy = await storage.getAcademy(player.academyId);
+      }
+      
+      // Get next upcoming session using player-specific query
+      const now = new Date();
+      const future = new Date();
+      future.setDate(future.getDate() + 30);
+      
+      let nextSession = null;
+      const upcomingSessions = await storage.getPlayerSessionsWithDetails(playerId, now, future);
+      if (upcomingSessions.length > 0) {
+        const session = upcomingSessions[0];
+        const court = session.courtId ? await storage.getCourt(session.courtId) : null;
+        nextSession = {
+          id: session.id,
+          date: session.startTime,
+          type: session.sessionType,
+          courtName: court?.name,
+        };
+      }
+      
+      // Get last feedback from coach notes
+      let lastFeedback = null;
+      const feedbackList = await storage.getPlayerFeedbackNotes(playerId, 1);
+      if (feedbackList.length > 0) {
+        lastFeedback = {
+          message: feedbackList[0].content,
+          date: feedbackList[0].createdAt,
+        };
+      }
+      
+      // Calculate streak (sessions attended in the past 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const pastSessions = await storage.getPlayerSessionsWithDetails(playerId, thirtyDaysAgo, now);
+      const attendedSessions = pastSessions.filter(s => s.attended === "present");
+      const streak = attendedSessions.length;
+      
+      // Get XP and level data
+      const xpData = await storage.getPlayerXpTotal(playerId);
+      const totalXp = xpData.totalXp || player.totalXp || 0;
+      const level = xpData.level || player.level || 1;
+      const glowScore = Math.min(100, Math.round((totalXp / (level * 500)) * 100));
+      
+      res.json({
+        id: player.id,
+        name: player.name,
+        level,
+        xp: totalXp,
+        glowScore,
+        ballLevel: player.ballLevel,
+        coach: coach ? {
+          id: coach.id,
+          name: coach.name,
+          email: coach.email,
+        } : null,
+        academy: academy ? {
+          id: academy.id,
+          name: academy.name,
+        } : null,
+        nextSession,
+        lastFeedback,
+        streak,
+      });
+    } catch (error) {
+      console.error("Error fetching player dashboard:", error);
+      res.status(500).json({ error: "Failed to fetch player dashboard" });
+    }
+  });
+  
+  // Get player sessions
+  app.get("/api/player/me/sessions", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId!;
+      
+      // Get sessions for the past 90 days and next 30 days
+      const past = new Date();
+      past.setDate(past.getDate() - 90);
+      const future = new Date();
+      future.setDate(future.getDate() + 30);
+      
+      const sessions = await storage.getPlayerSessionsWithDetails(playerId, past, future);
+      
+      // Enrich with court names
+      const playerSessions = await Promise.all(
+        sessions.map(async (session) => {
+          const court = session.courtId ? await storage.getCourt(session.courtId) : null;
+          return {
+            id: session.id,
+            startTime: session.startTime,
+            endTime: session.endTime,
+            sessionType: session.sessionType,
+            courtName: court?.name,
+            attended: session.attended === "present",
+            status: session.status,
+          };
+        })
+      );
+      
+      res.json(playerSessions);
+    } catch (error) {
+      console.error("Error fetching player sessions:", error);
+      res.status(500).json({ error: "Failed to fetch player sessions" });
+    }
+  });
+  
+  // Get player progress data (skill domains, XP, level)
+  app.get("/api/player/me/progress", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId!;
+      
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Get skill domains metadata
+      const domains = await storage.listSkillDomains();
+      
+      // Get player skill states for all domains
+      const skillStates = await storage.getPlayerSkillStates(playerId);
+      
+      // Get domain XP summary from observations
+      const domainXpSummary = await storage.getPlayerDomainXpSummary(playerId);
+      
+      // Get XP data
+      const xpData = await storage.getPlayerXpTotal(playerId);
+      const totalXp = xpData.totalXp || player.totalXp || 0;
+      const level = xpData.level || player.level || 1;
+      
+      // Build skill radar data with domain insights
+      const skillRadarPromises = domains.map(async (domain) => {
+        const skillState = skillStates.find(s => s.domainId === domain.id);
+        const xpInfo = domainXpSummary.find(x => x.domainId === domain.id);
+        const insights = await storage.getPlayerDomainInsights(playerId, domain.id);
+        
+        return {
+          domain: domain.displayName || domain.name,
+          domainId: domain.id,
+          color: domain.color || "#888888",
+          icon: domain.icon || "star",
+          progress: skillState?.progressValue || 0,
+          trend: skillState?.trend || "stable",
+          momentum: skillState?.momentum || "building",
+          xp: xpInfo?.totalXp || 0,
+          observationCount: xpInfo?.observationCount || 0,
+          assessmentStatus: skillState?.assessmentStatus || "not_yet",
+          insights: {
+            recentHighlights: insights.recentHighlights,
+            focusAreas: insights.focusAreas,
+            lastObservation: insights.lastObservation,
+            avgDelta: insights.avgDelta,
+          },
+        };
+      });
+      
+      const skillRadar = await Promise.all(skillRadarPromises);
+      
+      // Calculate Glow Score based on average progress across all domains
+      const avgProgress = skillRadar.length > 0 
+        ? skillRadar.reduce((sum, s) => sum + s.progress, 0) / skillRadar.length 
+        : 0;
+      const glowScore = Math.min(100, Math.round(avgProgress));
+      
+      // Aggregate overall strengths and focus areas from all domains
+      const allHighlights = skillRadar.flatMap(s => s.insights.recentHighlights).slice(0, 5);
+      const allFocusAreas = skillRadar.flatMap(s => s.insights.focusAreas).slice(0, 5);
+      
+      res.json({
+        level,
+        xp: totalXp,
+        xpForNextLevel: (level + 1) * 500,
+        glowScore,
+        ballLevel: player.ballLevel,
+        skillRadar,
+        overallInsights: {
+          strengths: allHighlights,
+          focusAreas: allFocusAreas,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching player progress:", error);
+      res.status(500).json({ error: "Failed to fetch player progress" });
+    }
+  });
+  
+  // Get player journey (milestones, badges, achievements)
+  app.get("/api/player/me/journey", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId!;
+      
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Get milestones (skill improvements and XP gains)
+      const milestones = await storage.getPlayerMilestones(playerId);
+      
+      // Get XP transaction history for additional context
+      const xpHistory = await storage.getPlayerXpHistory(playerId, 10);
+      
+      // Transform milestones for frontend
+      const formattedMilestones = milestones.map(m => ({
+        id: m.id,
+        type: m.type,
+        title: m.title,
+        description: m.type === "skill_improvement" ? "Great progress on skills" : "XP achievement",
+        date: m.date?.toISOString() || new Date().toISOString(),
+        icon: m.type === "skill_improvement" ? "trending-up" : "award",
+        color: m.type === "skill_improvement" ? "#2ECC40" : "#FFD700",
+      }));
+      
+      // Add XP history items as timeline entries
+      const xpMilestones = xpHistory.map(xp => ({
+        id: `xp-${xp.id}`,
+        type: "xp_earned",
+        title: `+${xp.amount} XP`,
+        description: xp.reason || "Experience earned",
+        date: xp.createdAt?.toISOString() || new Date().toISOString(),
+        icon: "star",
+        color: "#00D4FF",
+      }));
+      
+      // Combine and sort all milestones
+      const allMilestones = [...formattedMilestones, ...xpMilestones]
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 30);
+      
+      res.json({
+        milestones: allMilestones,
+        badges: [],
+        badgesAvailable: false,
+        badgeMessage: "Badges coming soon! Keep training to unlock achievements.",
+        totalMilestones: allMilestones.length,
+        totalBadges: 0,
+        xpHistory: xpHistory.map(xp => ({
+          id: xp.id,
+          amount: xp.amount,
+          reason: xp.reason,
+          date: xp.createdAt,
+        })),
+      });
+    } catch (error) {
+      console.error("Error fetching player journey:", error);
+      res.status(500).json({ error: "Failed to fetch player journey" });
+    }
+  });
+  
+  // Get player profile data
+  app.get("/api/player/me/profile", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId!;
+      
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Get coach data
+      let coach = null;
+      if (player.coachId) {
+        coach = await storage.getCoach(player.coachId);
+      }
+      
+      // Get academy data
+      let academy = null;
+      if (player.academyId) {
+        academy = await storage.getAcademy(player.academyId);
+      }
+      
+      // Get XP and stats
+      const xpData = await storage.getPlayerXpTotal(playerId);
+      const totalXp = xpData.totalXp || player.totalXp || 0;
+      const level = xpData.level || player.level || 1;
+      
+      // Get session attendance stats using player sessions helper
+      const ninety = new Date();
+      ninety.setDate(ninety.getDate() - 90);
+      const now = new Date();
+      
+      const playerSessions = await storage.getPlayerSessionsWithDetails(playerId, ninety, now);
+      const totalSessions = playerSessions.length;
+      const sessionsAttended = playerSessions.filter(s => s.attended === "present").length;
+      
+      res.json({
+        id: player.id,
+        name: player.name,
+        email: player.email,
+        level,
+        xp: totalXp,
+        ballLevel: player.ballLevel,
+        membershipType: player.membershipType,
+        coach: coach ? {
+          id: coach.id,
+          name: coach.name,
+          email: coach.email,
+          phone: coach.phone,
+        } : null,
+        academy: academy ? {
+          id: academy.id,
+          name: academy.name,
+        } : null,
+        stats: {
+          sessionsAttended,
+          totalSessions,
+          attendanceRate: totalSessions > 0 ? Math.round((sessionsAttended / totalSessions) * 100) : 0,
+          badgesEarned: 0,
+        },
+        createdAt: player.createdAt,
+      });
+    } catch (error) {
+      console.error("Error fetching player profile:", error);
+      res.status(500).json({ error: "Failed to fetch player profile" });
     }
   });
 

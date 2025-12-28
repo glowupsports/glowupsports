@@ -11,9 +11,10 @@ export const users = pgTable("users", {
     .default(sql`gen_random_uuid()`),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
-  role: text("role").notNull().default("coach"), // owner | coach | assistant
+  role: text("role").notNull().default("coach"), // owner | coach | assistant | player
   academyId: varchar("academy_id"), // references academies.id (set after registration)
   coachId: varchar("coach_id"), // references coaches.id (links user to coach profile)
+  playerId: varchar("player_id"), // references players.id (links user to player profile)
   createdAt: timestamp("created_at").defaultNow(),
   lastLoginAt: timestamp("last_login_at"),
 });
@@ -24,6 +25,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   role: true,
   academyId: true,
   coachId: true,
+  playerId: true,
 });
 
 export const loginSchema = z.object({
@@ -36,7 +38,7 @@ export const registerSchema = z.object({
   password: z.string().min(8),
   name: z.string().min(2),
   academyName: z.string().min(2).optional(), // For new academy creation
-  role: z.enum(["owner", "coach", "assistant"]).default("coach"),
+  role: z.enum(["owner", "coach", "assistant", "player"]).default("coach"),
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -422,6 +424,7 @@ export const skillDomains = pgTable("skill_domains", {
   displayName: text("display_name").notNull(),
   description: text("description"),
   icon: text("icon"), // icon name for UI
+  color: text("color"), // theme color for domain (hex)
   sortOrder: integer("sort_order").default(0),
 });
 

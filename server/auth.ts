@@ -12,6 +12,7 @@ export interface JWTPayload {
   role: string;
   academyId: string | null;
   coachId: string | null;
+  playerId: string | null;
 }
 
 export interface AuthenticatedRequest extends Request {
@@ -19,7 +20,7 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export interface UserStorageInterface {
-  getUserById(id: string): Promise<{ id: string; email: string; role: string; academyId: string | null; coachId: string | null } | null>;
+  getUserById(id: string): Promise<{ id: string; email: string; role: string; academyId: string | null; coachId: string | null; playerId: string | null } | null>;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -84,7 +85,7 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
     return;
   }
 
-  // Fetch fresh user data from database to get current academyId/coachId
+  // Fetch fresh user data from database to get current academyId/coachId/playerId
   if (freshUserStorage) {
     try {
       const freshUser = await freshUserStorage.getUserById(payload.userId);
@@ -95,6 +96,7 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
           role: freshUser.role,
           academyId: freshUser.academyId,
           coachId: freshUser.coachId,
+          playerId: freshUser.playerId,
         };
         return next();
       }
