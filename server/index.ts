@@ -30,12 +30,17 @@ function setupCors(app: express.Application) {
     const origins = new Set<string>();
 
     if (process.env.REPLIT_DEV_DOMAIN) {
-      origins.add(`https://${process.env.REPLIT_DEV_DOMAIN}`);
+      const devDomain = process.env.REPLIT_DEV_DOMAIN;
+      origins.add(`https://${devDomain}`);
+      origins.add(`https://${devDomain}:5000`);
+      origins.add(`https://${devDomain}:8081`);
     }
 
     if (process.env.REPLIT_DOMAINS) {
       process.env.REPLIT_DOMAINS.split(",").forEach((d) => {
-        origins.add(`https://${d.trim()}`);
+        const domain = d.trim();
+        origins.add(`https://${domain}`);
+        origins.add(`https://${domain}:5000`);
       });
     }
 
