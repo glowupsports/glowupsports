@@ -237,7 +237,7 @@ function configureExpoAndLanding(app: express.Application) {
   log("Serving static Expo files with dynamic manifest routing");
 
   app.use((req: Request, res: Response, next: NextFunction) => {
-    if (req.path.startsWith("/api")) {
+    if (req.path.startsWith("/api") || req.path.startsWith("/auth")) {
       return next();
     }
 
