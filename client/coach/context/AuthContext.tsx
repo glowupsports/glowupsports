@@ -90,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userRole = data.user?.role || "player";
         const availableModes = getModesForRole(userRole);
         const defaultMode = getDefaultModeForRole(userRole);
+        console.log("[AuthContext] Setting modes for role:", userRole, "modes:", availableModes, "default:", defaultMode);
         setAvailableModesRef.current(availableModes, defaultMode);
         
         return true;

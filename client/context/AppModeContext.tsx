@@ -73,6 +73,7 @@ export function getModesForRole(role: string): AppMode[] {
   switch (role) {
     case "platform_owner":
       return ["platform", "academy_owner", "admin", "coach", "player"];
+    case "owner":
     case "academy_owner":
       return ["academy_owner", "admin", "coach", "player"];
     case "admin":
@@ -90,6 +91,7 @@ export function getDefaultModeForRole(role: string): AppMode {
   switch (role) {
     case "platform_owner":
       return "platform";
+    case "owner":
     case "academy_owner":
       return "academy_owner";
     case "admin":
