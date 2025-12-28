@@ -114,6 +114,11 @@ export default function SessionDetailDrawer({
   const [guestBallLevel, setGuestBallLevel] = useState<string>("");
   const [conversionErrors, setConversionErrors] = useState<{email?: string; age?: string}>({});
   const [playerSearch, setPlayerSearch] = useState("");
+  
+  // Remove player state
+  const [showRemovePlayer, setShowRemovePlayer] = useState<Player | null>(null);
+  const [removeReason, setRemoveReason] = useState("");
+  const [removeFromDate, setRemoveFromDate] = useState<"today" | "next_session">("today");
 
   const { data: allPlayersData } = useQuery<AvailablePlayer[]>({
     queryKey: ["/api/players"],
@@ -274,6 +279,30 @@ export default function SessionDetailDrawer({
     },
     onError: (error: Error) => {
       Alert.alert("Error", error.message || "Failed to end session");
+    },
+  });
+
+  // Remove player from session mutation
+  const removePlayerMutation = useMutation({
+    mutationFn: async ({ playerId, reason, fromDate }: { playerId: string; reason: string; fromDate: string }) => {
+      if (!session) throw new Error("No session selected");
+      const currentPlayers = session.players || [];
+      const updatedPlayerIds = currentPlayers.filter(p => p.id !== playerId).map(p => p.id);
+      return apiRequest("PATCH", `/api/coach/sessions/${session.id}`, {
+        playerIds: updatedPlayerIds,
+        removalNote: { playerId, reason, fromDate },
+      });
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      setShowRemovePlayer(null);
+      setRemoveReason("");
+      setRemoveFromDate("today");
+      Alert.alert("Success", "Player removed from session");
+    },
+    onError: (error: Error) => {
+      Alert.alert("Error", error.message || "Failed to remove player");
     },
   });
 
@@ -466,38 +495,53 @@ export default function SessionDetailDrawer({
               const isGuest = player.name.includes("(Guest)");
               const isPastSession = new Date(session.endTime) < new Date();
               return (
-                <Pressable 
+                <View 
                   key={player.id} 
                   style={[styles.playerRow, isGuest && styles.playerRowGuest]}
-                  onPress={() => {
-                    if (isGuest && isPastSession) {
-                      setShowGuestConvert({ id: player.id, name: player.name });
-                      setGuestPhone("");
-                      setGuestBallLevel("");
-                    }
-                  }}
-                  disabled={!isGuest || !isPastSession}
                 >
-                  <View style={[
-                    styles.playerAvatar, 
-                    isGuest && styles.playerAvatarGuest,
-                    !isGuest && { backgroundColor: getPlayerLevelColor(player.ballLevel || player.level) }
-                  ]}>
-                    <Text style={styles.playerAvatarText}>{player.name.charAt(0)}</Text>
-                  </View>
-                  <View style={styles.playerNameContainer}>
-                    <Text style={styles.playerName}>{player.name}</Text>
-                    {isGuest && isPastSession ? (
-                      <Text style={styles.convertHint}>Tap to convert</Text>
+                  <Pressable
+                    style={styles.playerRowContent}
+                    onPress={() => {
+                      if (isGuest && isPastSession) {
+                        setShowGuestConvert({ id: player.id, name: player.name });
+                        setGuestPhone("");
+                        setGuestBallLevel("");
+                      }
+                    }}
+                    disabled={!isGuest || !isPastSession}
+                  >
+                    <View style={[
+                      styles.playerAvatar, 
+                      isGuest && styles.playerAvatarGuest,
+                      !isGuest && { backgroundColor: getPlayerLevelColor(player.ballLevel || player.level) }
+                    ]}>
+                      <Text style={styles.playerAvatarText}>{player.name.charAt(0)}</Text>
+                    </View>
+                    <View style={styles.playerNameContainer}>
+                      <Text style={styles.playerName}>{player.name}</Text>
+                      {isGuest && isPastSession ? (
+                        <Text style={styles.convertHint}>Tap to convert</Text>
+                      ) : null}
+                    </View>
+                    {player.status ? (
+                      <View style={[styles.statusDot, { backgroundColor: getStatusColor(player.status) }]} />
                     ) : null}
-                  </View>
-                  {player.status ? (
-                    <View style={[styles.statusDot, { backgroundColor: getStatusColor(player.status) }]} />
-                  ) : null}
-                  {isGuest && isPastSession ? (
-                    <Ionicons name="chevron-forward" size={16} color={Colors.dark.xpCyan} />
-                  ) : null}
-                </Pressable>
+                    {isGuest && isPastSession ? (
+                      <Ionicons name="chevron-forward" size={16} color={Colors.dark.xpCyan} />
+                    ) : null}
+                  </Pressable>
+                  <Pressable
+                    style={styles.playerRemoveButton}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setShowRemovePlayer(player);
+                      setRemoveReason("");
+                      setRemoveFromDate("today");
+                    }}
+                  >
+                    <Ionicons name="close-circle" size={20} color={Colors.dark.error} />
+                  </Pressable>
+                </View>
               );
             })}
           </View>
@@ -505,6 +549,86 @@ export default function SessionDetailDrawer({
           <Text style={styles.noPlayersText}>No players assigned yet</Text>
         )}
       </View>
+
+      {/* Remove Player Confirmation */}
+      {showRemovePlayer ? (
+        <View style={styles.removePlayerSection}>
+          <View style={styles.removePlayerHeader}>
+            <Text style={styles.removePlayerTitle}>Remove Player</Text>
+            <Pressable onPress={() => setShowRemovePlayer(null)}>
+              <Ionicons name="close" size={20} color={Colors.dark.tabIconDefault} />
+            </Pressable>
+          </View>
+          <Text style={styles.removePlayerName}>{showRemovePlayer.name}</Text>
+          
+          <Text style={styles.removePlayerLabel}>Reason for removal</Text>
+          <TextInput
+            style={styles.removePlayerInput}
+            placeholder="e.g., Moved to different group, Schedule conflict..."
+            placeholderTextColor={Colors.dark.tabIconDefault}
+            value={removeReason}
+            onChangeText={setRemoveReason}
+            multiline
+            numberOfLines={3}
+          />
+          
+          <Text style={styles.removePlayerLabel}>Effective from</Text>
+          <View style={styles.removeDateOptions}>
+            <Pressable
+              style={[
+                styles.removeDateOption,
+                removeFromDate === "today" && styles.removeDateOptionActive,
+              ]}
+              onPress={() => setRemoveFromDate("today")}
+            >
+              <Text style={[
+                styles.removeDateOptionText,
+                removeFromDate === "today" && styles.removeDateOptionTextActive,
+              ]}>Today</Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.removeDateOption,
+                removeFromDate === "next_session" && styles.removeDateOptionActive,
+              ]}
+              onPress={() => setRemoveFromDate("next_session")}
+            >
+              <Text style={[
+                styles.removeDateOptionText,
+                removeFromDate === "next_session" && styles.removeDateOptionTextActive,
+              ]}>Next Session</Text>
+            </Pressable>
+          </View>
+          
+          <Pressable
+            style={[
+              styles.removePlayerConfirmButton,
+              removePlayerMutation.isPending && styles.removePlayerConfirmButtonDisabled,
+            ]}
+            onPress={() => {
+              if (!removeReason.trim()) {
+                Alert.alert("Required", "Please provide a reason for removal");
+                return;
+              }
+              const effectiveDate = removeFromDate === "today" 
+                ? new Date().toISOString() 
+                : session?.startTime || new Date().toISOString();
+              removePlayerMutation.mutate({
+                playerId: showRemovePlayer.id,
+                reason: removeReason.trim(),
+                fromDate: effectiveDate,
+              });
+            }}
+            disabled={removePlayerMutation.isPending}
+          >
+            {removePlayerMutation.isPending ? (
+              <ActivityIndicator size="small" color={Colors.dark.text} />
+            ) : (
+              <Text style={styles.removePlayerConfirmText}>Remove from Session</Text>
+            )}
+          </Pressable>
+        </View>
+      ) : null}
 
       {/* Guest Conversion Form */}
       {showGuestConvert ? (
@@ -1148,6 +1272,97 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.xpCyan,
     fontSize: 10,
+  },
+  playerRowContent: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  playerRemoveButton: {
+    padding: Spacing.xs,
+    marginLeft: Spacing.sm,
+  },
+  removePlayerSection: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.error + "30",
+  },
+  removePlayerHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  removePlayerTitle: {
+    ...Typography.body,
+    color: Colors.dark.error,
+    fontWeight: "600",
+  },
+  removePlayerName: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    marginBottom: Spacing.md,
+  },
+  removePlayerLabel: {
+    ...Typography.small,
+    color: Colors.dark.tabIconDefault,
+    marginBottom: Spacing.sm,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  removePlayerInput: {
+    minHeight: 80,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    color: Colors.dark.text,
+    marginBottom: Spacing.md,
+    ...Typography.body,
+    textAlignVertical: "top",
+  },
+  removeDateOptions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  removeDateOption: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  removeDateOptionActive: {
+    borderColor: Colors.dark.error,
+    backgroundColor: Colors.dark.error + "15",
+  },
+  removeDateOptionText: {
+    ...Typography.body,
+    color: Colors.dark.tabIconDefault,
+  },
+  removeDateOptionTextActive: {
+    color: Colors.dark.error,
+    fontWeight: "600",
+  },
+  removePlayerConfirmButton: {
+    backgroundColor: Colors.dark.error,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+  },
+  removePlayerConfirmButtonDisabled: {
+    opacity: 0.6,
+  },
+  removePlayerConfirmText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
   },
   guestConvertSection: {
     backgroundColor: Colors.dark.backgroundTertiary,
