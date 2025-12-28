@@ -77,9 +77,9 @@ interface SkillDomain {
 }
 
 function SkillRadar({ domains }: { domains: SkillDomain[] }) {
-  const size = 200;
+  const size = 260;
   const center = size / 2;
-  const radius = 80;
+  const radius = 100;
   const levels = 5;
 
   const getPoint = (index: number, value: number) => {
@@ -284,14 +284,12 @@ function LevelReadinessSection({
           </View>
         ) : null}
         
-        {isReady ? (
-          <View style={styles.approvalNote}>
-            <Ionicons name="person-circle" size={18} color={Colors.dark.xpCyan} />
-            <Text style={styles.approvalText}>
-              Coach approval required to level up
-            </Text>
-          </View>
-        ) : null}
+        <View style={styles.approvalNote}>
+          <Ionicons name="shield-checkmark" size={20} color={isReady ? Colors.dark.primary : Colors.dark.orange} />
+          <Text style={[styles.approvalText, { color: isReady ? Colors.dark.primary : Colors.dark.orange }]}>
+            {isReady ? "Ready! Ask your coach for approval" : "Coach approval required for level up"}
+          </Text>
+        </View>
       </View>
     </View>
   );

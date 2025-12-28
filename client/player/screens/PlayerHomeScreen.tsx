@@ -225,14 +225,23 @@ export default function PlayerHomeScreen() {
         ) : null}
 
         {lastFeedback ? (
-          <View style={styles.feedbackCard}>
+          <Pressable 
+            style={styles.feedbackCard}
+            onPress={() => navigation.navigate("Progress")}
+          >
             <View style={styles.feedbackHeader}>
-              <Ionicons name="chatbubble" size={18} color={Colors.dark.xpCyan} />
+              <Ionicons name="chatbubble" size={20} color={Colors.dark.xpCyan} />
               <Text style={styles.feedbackTitle}>Coach Feedback</Text>
             </View>
             <Text style={styles.feedbackMessage}>"{lastFeedback.message}"</Text>
-            <Text style={styles.feedbackCoach}>- {lastFeedback.coachName}</Text>
-          </View>
+            <View style={styles.feedbackFooter}>
+              <Text style={styles.feedbackCoach}>- {lastFeedback.coachName}</Text>
+              <View style={styles.viewProgressCta}>
+                <Text style={styles.viewProgressText}>View Progress</Text>
+                <Ionicons name="arrow-forward" size={14} color={Colors.dark.primary} />
+              </View>
+            </View>
+          </Pressable>
         ) : null}
 
         <View style={styles.statsGrid}>
@@ -405,14 +414,14 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   xpBarTrack: {
-    height: 8,
+    height: 4,
     backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: 4,
+    borderRadius: 2,
     overflow: "hidden",
   },
   xpBarFill: {
     height: "100%",
-    borderRadius: 4,
+    borderRadius: 2,
   },
   xpLabels: {
     flexDirection: "row",
@@ -468,34 +477,53 @@ const styles = StyleSheet.create({
     color: Colors.dark.xpCyan,
   },
   feedbackCard: {
-    ...CardStyles.elevated,
+    ...CardStyles.glowCard,
     marginHorizontal: Spacing.xl,
     marginBottom: Spacing.lg,
     padding: Spacing.lg,
+    borderColor: "rgba(0, 212, 255, 0.3)",
   },
   feedbackHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
   },
   feedbackTitle: {
-    ...Typography.caption,
-    color: Colors.dark.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+    ...Typography.h4,
+    color: Colors.dark.xpCyan,
+    flex: 1,
   },
   feedbackMessage: {
-    ...Typography.body,
+    ...Typography.h4,
     color: Colors.dark.text,
     fontStyle: "italic",
-    lineHeight: 22,
-    marginBottom: Spacing.sm,
+    lineHeight: 26,
+    marginBottom: Spacing.md,
   },
   feedbackCoach: {
-    ...Typography.small,
+    ...Typography.body,
     color: Colors.dark.xpCyan,
-    textAlign: "right",
+    fontWeight: "600",
+  },
+  feedbackFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  viewProgressCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: "rgba(46, 204, 64, 0.15)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+  },
+  viewProgressText: {
+    ...Typography.caption,
+    color: Colors.dark.primary,
+    fontWeight: "600",
   },
   statsGrid: {
     flexDirection: "row",

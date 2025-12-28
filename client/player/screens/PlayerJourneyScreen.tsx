@@ -338,10 +338,10 @@ export default function PlayerJourneyScreen() {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Ionicons name="rocket-outline" size={48} color={Colors.dark.textMuted} />
-              <Text style={styles.emptyText}>Your journey is just beginning</Text>
+              <Ionicons name="tennisball-outline" size={64} color={Colors.dark.xpCyan} />
+              <Text style={styles.emptyText}>Your story starts today</Text>
               <Text style={styles.emptySubtext}>
-                Complete training sessions to earn milestones
+                Every training session writes a new chapter in your tennis journey
               </Text>
             </View>
           }

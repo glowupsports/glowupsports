@@ -152,27 +152,16 @@ export default function PlayerProfileScreen() {
         </View>
 
         <View style={styles.statsCard}>
-          <Text style={styles.sectionTitle}>Your Stats</Text>
-          <View style={styles.statsGrid}>
-            <StatItem 
-              label="Sessions" 
-              value={stats.sessionsAttended} 
-              icon="tennisball" 
-            />
-            <StatItem 
-              label="Attendance" 
-              value={`${Math.round(stats.attendanceRate)}%`} 
-              icon="checkmark-circle" 
-            />
+          <View style={styles.statsGridCompact}>
             <StatItem 
               label="Streak" 
               value={`${player.streak} days`} 
               icon="flame" 
             />
             <StatItem 
-              label="Level" 
-              value={player.level} 
-              icon="star" 
+              label="Sessions" 
+              value={stats.sessionsAttended} 
+              icon="tennisball" 
             />
           </View>
         </View>
@@ -201,12 +190,20 @@ export default function PlayerProfileScreen() {
         ) : null}
 
         {academy ? (
-          <View style={styles.academyCard}>
-            <View style={styles.academyHeader}>
-              <Ionicons name="school" size={20} color={Colors.dark.primary} />
-              <Text style={styles.academyName}>{academy.name}</Text>
-            </View>
-            <Text style={styles.memberSince}>Member since {memberSince}</Text>
+          <View style={styles.academyCardPrimary}>
+            <LinearGradient
+              colors={["rgba(46, 204, 64, 0.1)", "rgba(0, 212, 255, 0.05)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.academyGradient}
+            >
+              <View style={styles.academyIcon}>
+                <Ionicons name="tennisball" size={28} color={Colors.dark.primary} />
+              </View>
+              <Text style={styles.memberOfLabel}>Member of</Text>
+              <Text style={styles.academyNameLarge}>{academy.name}</Text>
+              <Text style={styles.memberSinceSmall}>Since {memberSince}</Text>
+            </LinearGradient>
           </View>
         ) : null}
 
@@ -478,6 +475,49 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.textMuted,
     marginLeft: 28,
+  },
+  statsGridCompact: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: Spacing.xl,
+  },
+  academyCardPrimary: {
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(46, 204, 64, 0.2)",
+  },
+  academyGradient: {
+    padding: Spacing.xl,
+    alignItems: "center",
+  },
+  academyIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "rgba(46, 204, 64, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  memberOfLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  academyNameLarge: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  memberSinceSmall: {
+    ...Typography.small,
+    color: Colors.dark.xpCyan,
   },
   settingsSection: {
     marginHorizontal: Spacing.xl,
