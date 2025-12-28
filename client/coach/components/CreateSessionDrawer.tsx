@@ -93,11 +93,6 @@ export default function CreateSessionDrawer({
   const [showGuestInput, setShowGuestInput] = useState(false);
   const [playerSearch, setPlayerSearch] = useState("");
 
-  // Filter players based on search
-  const filteredPlayers = players.filter(p => 
-    p.name.toLowerCase().includes(playerSearch.toLowerCase())
-  );
-
   // Get ball level color
   const getBallLevelColor = (level: string | null | undefined): string => {
     switch (level) {
@@ -151,6 +146,11 @@ export default function CreateSessionDrawer({
     enabled: visible,
   });
   const players = Array.isArray(playersData) ? playersData : [];
+
+  // Filter players based on search
+  const filteredPlayers = players.filter(p => 
+    p.name.toLowerCase().includes(playerSearch.toLowerCase())
+  );
 
   const { data: templates = [] } = useQuery<SessionTemplate[]>({
     queryKey: ["/api/coach/templates", coach?.id],
