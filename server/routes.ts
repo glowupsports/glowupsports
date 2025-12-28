@@ -40,9 +40,44 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Pagination helper
+function parsePagination(query: { limit?: string; offset?: string; page?: string }) {
+  const limit = Math.min(parseInt(query.limit as string) || 50, 100); // Max 100 items
+  const page = parseInt(query.page as string) || 1;
+  const offset = query.offset ? parseInt(query.offset as string) : (page - 1) * limit;
+  return { limit, offset };
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize storage for fresh user data fetching in auth middleware
   setFreshUserStorage(storage);
+
+  // ==================== HEALTH CHECK ====================
+  
+  app.get("/api/health", async (_req: Request, res: Response) => {
+    try {
+      // Check database connectivity
+      const dbHealthy = await storage.checkDatabaseHealth();
+      
+      const health = {
+        status: dbHealthy ? "healthy" : "degraded",
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        database: dbHealthy ? "connected" : "disconnected",
+        version: process.env.npm_package_version || "1.0.0",
+      };
+      
+      res.status(dbHealthy ? 200 : 503).json(health);
+    } catch (error) {
+      res.status(503).json({
+        status: "unhealthy",
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        database: "error",
+        error: "Health check failed",
+      });
+    }
+  });
 
   // ==================== AUTH ENDPOINTS ====================
   
@@ -1126,16 +1161,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all players with last lesson date
+  // Get all players with last lesson date (supports optional pagination)
   app.get("/api/players", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId;
-      const { search } = req.query;
+      const { search, paginated } = req.query;
+      const usePagination = paginated === 'true';
+      
       let playerList;
-      if (search) {
-        playerList = await storage.searchPlayers(search as string, academyId ?? undefined);
+      let total = 0;
+      
+      if (usePagination) {
+        const { limit, offset } = parsePagination(req.query as any);
+        if (search) {
+          const result = await storage.searchPlayersPaginated(search as string, limit, offset, academyId ?? undefined);
+          playerList = result.players;
+          total = result.total;
+        } else {
+          const result = await storage.getAllPlayersPaginated(limit, offset, academyId ?? undefined);
+          playerList = result.players;
+          total = result.total;
+        }
       } else {
-        playerList = await storage.getAllPlayers(academyId ?? undefined);
+        // Backward compatible: return all players as array
+        if (search) {
+          playerList = await storage.searchPlayers(search as string, academyId ?? undefined);
+        } else {
+          playerList = await storage.getAllPlayers(academyId ?? undefined);
+        }
       }
       
       // Enhance each player with their last lesson date
@@ -1149,7 +1202,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
       
-      res.json(playersWithLessonDates);
+      if (usePagination) {
+        const { limit, offset } = parsePagination(req.query as any);
+        res.json({
+          data: playersWithLessonDates,
+          pagination: { total, limit, offset, hasMore: offset + playerList.length < total }
+        });
+      } else {
+        res.json(playersWithLessonDates);
+      }
     } catch (error) {
       console.error("Error fetching players:", error);
       res.status(500).json({ error: "Failed to fetch players" });
@@ -2228,15 +2289,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== NOTIFICATIONS API ====================
 
-  // Get notifications for a coach
+  // Get notifications for a coach (supports optional pagination)
   app.get("/api/coach/notifications", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
       if (!coachId) {
         return res.status(400).json({ error: "coachId is required" });
       }
-      const notifications = await storage.getCoachNotifications(coachId);
-      res.json(notifications);
+      const { paginated } = req.query;
+      const usePagination = paginated === 'true';
+      
+      if (usePagination) {
+        const { limit, offset } = parsePagination(req.query as any);
+        const result = await storage.getCoachNotificationsPaginated(coachId, limit, offset);
+        res.json({
+          data: result.notifications,
+          pagination: { total: result.total, limit, offset, hasMore: offset + result.notifications.length < result.total }
+        });
+      } else {
+        const notifications = await storage.getCoachNotifications(coachId);
+        res.json(notifications);
+      }
     } catch (error) {
       console.error("Error fetching notifications:", error);
       res.status(500).json({ error: "Failed to fetch notifications" });
@@ -2561,6 +2634,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Seed domains if not present
       await storage.seedSkillDomains();
       const domains = await storage.getAllSkillDomains();
+      // Cache for 1 hour - domains rarely change
+      res.set('Cache-Control', 'private, max-age=3600');
       res.json(domains);
     } catch (error) {
       console.error("Error fetching skill domains:", error);
@@ -2939,6 +3014,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/progress/levels", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const requirements = await storage.getAllLevelRequirements();
+      // Cache for 1 hour - level requirements rarely change
+      res.set('Cache-Control', 'private, max-age=3600');
       res.json(requirements);
     } catch (error) {
       console.error("Error fetching level requirements:", error);

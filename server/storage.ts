@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, and, gte, lte, ne, or, inArray } from "drizzle-orm";
+import { eq, and, gte, lte, ne, or, inArray, ilike, sql, count } from "drizzle-orm";
 import { desc, asc } from "drizzle-orm";
 import {
   // Auth tables
@@ -339,6 +339,50 @@ export const storage = {
         p.name.toLowerCase().includes(lowerQuery) ||
         (p.phone && p.phone.includes(query))
     );
+  },
+
+  async getAllPlayersPaginated(limit: number, offset: number, academyId?: string): Promise<{ players: Player[]; total: number }> {
+    // Build where clause: academy filter if provided
+    const whereClause = academyId ? eq(players.academyId, academyId) : undefined;
+    
+    const baseQuery = db.select().from(players);
+    const countQuery = db.select({ count: count() }).from(players);
+    
+    const [playerList, countResult] = await Promise.all([
+      whereClause 
+        ? baseQuery.where(whereClause).orderBy(asc(players.name)).limit(limit).offset(offset)
+        : baseQuery.orderBy(asc(players.name)).limit(limit).offset(offset),
+      whereClause
+        ? countQuery.where(whereClause)
+        : countQuery
+    ]);
+    
+    return { players: playerList, total: countResult[0]?.count || 0 };
+  },
+
+  async searchPlayersPaginated(query: string, limit: number, offset: number, academyId?: string): Promise<{ players: Player[]; total: number }> {
+    const lowerQuery = `%${query.toLowerCase()}%`;
+    const searchCondition = or(
+      ilike(players.name, lowerQuery),
+      ilike(players.phone, lowerQuery)
+    );
+    
+    // Build where clause: search + optional academy filter
+    const whereClause = academyId 
+      ? and(searchCondition, eq(players.academyId, academyId))
+      : searchCondition;
+    
+    const [playerList, countResult] = await Promise.all([
+      db.select().from(players)
+        .where(whereClause!)
+        .orderBy(asc(players.name))
+        .limit(limit)
+        .offset(offset),
+      db.select({ count: count() }).from(players)
+        .where(whereClause!)
+    ]);
+    
+    return { players: playerList, total: countResult[0]?.count || 0 };
   },
 
   async createPlayer(data: InsertPlayer): Promise<Player> {
@@ -991,6 +1035,19 @@ export const storage = {
       .from(coachNotifications)
       .where(eq(coachNotifications.coachId, coachId))
       .orderBy(desc(coachNotifications.createdAt));
+  },
+
+  async getCoachNotificationsPaginated(coachId: string, limit: number, offset: number): Promise<{ notifications: CoachNotification[]; total: number }> {
+    const [notifications, countResult] = await Promise.all([
+      db.select().from(coachNotifications)
+        .where(eq(coachNotifications.coachId, coachId))
+        .orderBy(desc(coachNotifications.createdAt))
+        .limit(limit)
+        .offset(offset),
+      db.select({ count: count() }).from(coachNotifications)
+        .where(eq(coachNotifications.coachId, coachId))
+    ]);
+    return { notifications, total: countResult[0]?.count || 0 };
   },
 
   async getCoachNotification(id: string, coachId?: string): Promise<CoachNotification | undefined> {
@@ -2789,5 +2846,17 @@ export const storage = {
         gte(invoices.createdAt, new Date(`${year}-01-01`))
       ));
     return `INV-${year}-${String(count.length + 1).padStart(4, '0')}`;
+  },
+
+  // ==================== HEALTH CHECK ====================
+  
+  async checkDatabaseHealth(): Promise<boolean> {
+    try {
+      await db.select().from(users).limit(1);
+      return true;
+    } catch (error) {
+      console.error("Database health check failed:", error);
+      return false;
+    }
   },
 };

@@ -72,11 +72,20 @@ function setupBodyParsing(app: express.Application) {
   app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 }
 
+function generateRequestId(): string {
+  return `req_${Date.now().toString(36)}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
 function setupRequestLogging(app: express.Application) {
   app.use((req, res, next) => {
+    const requestId = generateRequestId();
     const start = Date.now();
     const path = req.path;
     let capturedJsonResponse: Record<string, unknown> | undefined = undefined;
+
+    // Add request ID to response headers for tracing
+    res.setHeader("X-Request-Id", requestId);
+    (req as any).requestId = requestId;
 
     const originalResJson = res.json;
     res.json = function (bodyJson, ...args) {
@@ -89,13 +98,25 @@ function setupRequestLogging(app: express.Application) {
 
       const duration = Date.now() - start;
 
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      // Structured log format
+      const logEntry = {
+        timestamp: new Date().toISOString(),
+        requestId,
+        method: req.method,
+        path,
+        status: res.statusCode,
+        duration,
+        userAgent: req.get("user-agent")?.slice(0, 50),
+      };
+
+      // Compact single-line format for console
+      let logLine = `[${requestId}] ${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
+      if (logLine.length > 100) {
+        logLine = logLine.slice(0, 99) + "…";
       }
 
       log(logLine);
