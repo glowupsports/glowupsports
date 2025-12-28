@@ -5663,6 +5663,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           glowScore,
           ballLevel: player.ballLevel,
           streak,
+          onboardingCompleted: player.onboardingCompleted ?? false,
         },
         coach: coach ? {
           id: coach.id,
@@ -6106,6 +6107,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Save player onboarding data
+  app.post("/api/player/me/onboarding", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) {
+        return res.status(403).json({ error: "Player account required" });
+      }
+
+      const { motivationType, age, dominantHand, experienceLevel, enjoymentTags, focusGoals, selfConfidenceFlags } = req.body;
+
+      const updatedPlayer = await storage.updatePlayer(playerId, {
+        onboardingCompleted: true,
+        motivationType,
+        age,
+        dominantHand,
+        experienceLevel,
+        enjoymentTags,
+        focusGoals,
+        selfConfidenceFlags,
+      });
+
+      res.json({ success: true, player: updatedPlayer });
+    } catch (error) {
+      console.error("Error saving onboarding:", error);
+      res.status(500).json({ error: "Failed to save onboarding data" });
+    }
+  });
+
   // Get player recognition (badges, achievements, validations)
   app.get("/api/player/me/recognition", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     // Return demo recognition for owners/coaches

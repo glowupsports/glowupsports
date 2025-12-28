@@ -239,6 +239,17 @@ export const players = pgTable("players", {
   medicalNotes: text("medical_notes"),
   totalXp: integer("total_xp").default(0),
   level: integer("level").default(1),
+  glowScore: integer("glow_score").default(0),
+  streak: integer("streak").default(0),
+  
+  onboardingCompleted: boolean("onboarding_completed").default(false),
+  motivationType: text("motivation_type"), // fun/improve/compete/unsure
+  experienceLevel: text("experience_level"), // new/6-12months/1-3years/3+years
+  dominantHand: text("dominant_hand"), // left/right
+  enjoymentTags: jsonb("enjoyment_tags").$type<string[]>(), // max 3 selections
+  focusGoals: jsonb("focus_goals").$type<string[]>(), // multi-select
+  selfConfidenceFlags: jsonb("self_confidence_flags").$type<string[]>(), // optional self-check
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 

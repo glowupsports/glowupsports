@@ -31,6 +31,13 @@ interface Player {
   medicalNotes: string | null;
   lastLessonDate: string | null;
   createdAt: string;
+  onboardingCompleted?: boolean;
+  motivationType?: string | null;
+  experienceLevel?: string | null;
+  dominantHand?: string | null;
+  enjoymentTags?: string[] | null;
+  focusGoals?: string[] | null;
+  selfConfidenceFlags?: string[] | null;
 }
 
 interface PlayerNote {
@@ -618,6 +625,103 @@ function PlayerDetailView({
         ) : null}
 
         <PackagesCard playerId={player.id} playerName={player.name} />
+
+        {player.onboardingCompleted ? (
+          <View style={styles.onboardingCard}>
+            <View style={styles.onboardingHeader}>
+              <Ionicons name="person-circle-outline" size={20} color={Colors.dark.xpCyan} />
+              <Text style={styles.onboardingTitle}>Player Profile (Self-Reported)</Text>
+            </View>
+            
+            <View style={styles.onboardingGrid}>
+              {player.motivationType ? (
+                <View style={styles.onboardingItem}>
+                  <Text style={styles.onboardingLabel}>Motivation</Text>
+                  <Text style={styles.onboardingValue}>
+                    {player.motivationType === "fun" ? "Plays for fun" :
+                     player.motivationType === "improve" ? "Wants to improve" :
+                     player.motivationType === "compete" ? "Wants to compete" : "Not sure yet"}
+                  </Text>
+                </View>
+              ) : null}
+              
+              {player.experienceLevel ? (
+                <View style={styles.onboardingItem}>
+                  <Text style={styles.onboardingLabel}>Experience</Text>
+                  <Text style={styles.onboardingValue}>
+                    {player.experienceLevel === "new" ? "New to tennis" :
+                     player.experienceLevel === "6-12months" ? "6-12 months" :
+                     player.experienceLevel === "1-3years" ? "1-3 years" : "3+ years"}
+                  </Text>
+                </View>
+              ) : null}
+              
+              {player.dominantHand ? (
+                <View style={styles.onboardingItem}>
+                  <Text style={styles.onboardingLabel}>Dominant Hand</Text>
+                  <Text style={styles.onboardingValue}>
+                    {player.dominantHand === "left" ? "Left-handed" : "Right-handed"}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+
+            {player.enjoymentTags && player.enjoymentTags.length > 0 ? (
+              <View style={styles.onboardingTagSection}>
+                <Text style={styles.onboardingLabel}>Enjoys</Text>
+                <View style={styles.onboardingTags}>
+                  {player.enjoymentTags.map((tag) => (
+                    <View key={tag} style={styles.onboardingTag}>
+                      <Text style={styles.onboardingTagText}>
+                        {tag === "rallies" ? "Hitting rallies" :
+                         tag === "winning" ? "Winning points" :
+                         tag === "technique" ? "Learning technique" :
+                         tag === "social" ? "Playing with others" :
+                         tag === "active" ? "Being active" : "Competing"}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : null}
+            
+            {player.focusGoals && player.focusGoals.length > 0 ? (
+              <View style={styles.onboardingTagSection}>
+                <Text style={styles.onboardingLabel}>Wants to work on</Text>
+                <View style={styles.onboardingTags}>
+                  {player.focusGoals.map((goal) => (
+                    <View key={goal} style={[styles.onboardingTag, styles.onboardingTagGoal]}>
+                      <Text style={[styles.onboardingTagText, styles.onboardingTagGoalText]}>
+                        {goal === "technique" ? "Technique" :
+                         goal === "confidence" ? "Confidence" :
+                         goal === "fitness" ? "Fitness" :
+                         goal === "focus" ? "Focus" :
+                         goal === "strategy" ? "Playing smarter" : "Social/Teamwork"}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : null}
+
+            {player.selfConfidenceFlags && player.selfConfidenceFlags.length > 0 ? (
+              <View style={styles.onboardingTagSection}>
+                <Text style={styles.onboardingLabel}>Self-assessment</Text>
+                <View style={styles.onboardingTags}>
+                  {player.selfConfidenceFlags.map((flag) => (
+                    <View key={flag} style={[styles.onboardingTag, styles.onboardingTagNeutral]}>
+                      <Text style={styles.onboardingTagText}>
+                        {flag === "confident" ? "Feels confident" :
+                         flag === "basics" ? "Knows basics" :
+                         flag === "nervous" ? "Gets nervous in matches" : "Still learning fundamentals"}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
 
         {nextLessonNotes.length > 0 ? (
           <View style={styles.nextLessonSection}>
@@ -1480,5 +1584,72 @@ const styles = StyleSheet.create({
     color: Colors.dark.tabIconDefault,
     textAlign: "center",
     marginTop: Spacing.xs,
+  },
+  onboardingCard: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.dark.xpCyan,
+  },
+  onboardingHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  onboardingTitle: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  onboardingGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  onboardingItem: {
+    minWidth: 100,
+  },
+  onboardingLabel: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+    marginBottom: Spacing.xs,
+  },
+  onboardingValue: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  onboardingTagSection: {
+    marginTop: Spacing.sm,
+  },
+  onboardingTags: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
+  },
+  onboardingTag: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    borderRadius: BorderRadius.md,
+  },
+  onboardingTagGoal: {
+    backgroundColor: Colors.dark.primary + "20",
+  },
+  onboardingTagNeutral: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+  },
+  onboardingTagText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.xpCyan,
+  },
+  onboardingTagGoalText: {
+    color: Colors.dark.primary,
   },
 });

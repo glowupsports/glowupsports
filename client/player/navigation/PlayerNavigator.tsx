@@ -1,9 +1,10 @@
-import React from "react";
-import { StyleSheet, View, Platform } from "react-native";
+import React, { useState } from "react";
+import { StyleSheet, View, Platform, ActivityIndicator } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import PlayerHomeScreen from "@/player/screens/PlayerHomeScreen";
 import PlayerJourneyScreen from "@/player/screens/PlayerJourneyScreen";
 import PlayerTrainingScreen from "@/player/screens/PlayerTrainingScreen";
@@ -16,7 +17,9 @@ import PlayerSettingsScreen from "@/player/screens/PlayerSettingsScreen";
 import PeerJourneyScreen from "@/player/screens/PeerJourneyScreen";
 import GroupChallengesScreen from "@/player/screens/GroupChallengesScreen";
 import AcademyBrowserScreen from "@/player/screens/AcademyBrowserScreen";
+import PlayerOnboardingScreen from "@/player/screens/PlayerOnboardingScreen";
 import { Colors } from "@/constants/theme";
+import { useAuth } from "@/coach/context/AuthContext";
 
 export type PlayerTabParamList = {
   Home: undefined;
@@ -118,7 +121,7 @@ function PlayerTabs() {
   );
 }
 
-export default function PlayerNavigator() {
+function PlayerStackNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="PlayerTabs" component={PlayerTabs} />
@@ -175,7 +178,54 @@ export default function PlayerNavigator() {
   );
 }
 
+interface PlayerDashboard {
+  player: {
+    id: string;
+    name: string;
+    onboardingCompleted?: boolean;
+  };
+}
+
+export default function PlayerNavigator() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
+
+  const { data: dashboard, isLoading } = useQuery<PlayerDashboard>({
+    queryKey: ["/api/player/me/dashboard"],
+    enabled: !!user?.playerId,
+  });
+
+  const handleOnboardingComplete = () => {
+    setOnboardingComplete(true);
+    queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+      </View>
+    );
+  }
+
+  const playerOnboardingCompleted = dashboard?.player?.onboardingCompleted ?? false;
+  const showOnboarding = user?.playerId && !playerOnboardingCompleted && onboardingComplete !== true;
+
+  if (showOnboarding) {
+    return <PlayerOnboardingScreen onComplete={handleOnboardingComplete} />;
+  }
+
+  return <PlayerStackNavigator />;
+}
+
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
   tabBar: {
     position: "absolute",
     borderTopWidth: 0,
