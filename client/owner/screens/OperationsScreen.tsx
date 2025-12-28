@@ -93,7 +93,7 @@ export default function OperationsScreen() {
   const insets = useSafeAreaInsets();
   const [viewType, setViewType] = useState<ViewType>("day");
 
-  const { data: operationsData, isLoading } = useQuery<OperationsData>({
+  const { data: operationsData, isLoading, isError, refetch } = useQuery<OperationsData>({
     queryKey: ["/api/owner/operations"],
   });
 
@@ -114,6 +114,18 @@ export default function OperationsScreen() {
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={Colors.dark.gold} />
         <Text style={styles.loadingText}>Loading operations...</Text>
+      </View>
+    );
+  }
+
+  if (isError) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <Ionicons name="alert-circle" size={48} color={Colors.dark.error} />
+        <Text style={styles.errorText}>Failed to load operations data</Text>
+        <Pressable style={styles.retryButton} onPress={() => refetch()}>
+          <Text style={styles.retryButtonText}>Try Again</Text>
+        </Pressable>
       </View>
     );
   }
@@ -194,6 +206,23 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.textMuted,
     marginTop: Spacing.md,
+  },
+  errorText: {
+    ...Typography.h3,
+    color: Colors.dark.error,
+    marginTop: Spacing.md,
+  },
+  retryButton: {
+    marginTop: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.dark.gold,
+    borderRadius: BorderRadius.md,
+  },
+  retryButtonText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
   },
   header: {
     padding: Spacing.lg,

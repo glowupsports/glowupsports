@@ -123,7 +123,7 @@ function SummaryStat({ icon, label, value, color }: SummaryStatProps) {
 export default function FinanceScreen() {
   const insets = useSafeAreaInsets();
 
-  const { data: financeData, isLoading } = useQuery<FinanceData>({
+  const { data: financeData, isLoading, isError, refetch } = useQuery<FinanceData>({
     queryKey: ["/api/owner/finance"],
   });
 
@@ -144,6 +144,18 @@ export default function FinanceScreen() {
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={Colors.dark.gold} />
         <Text style={styles.loadingText}>Loading finance data...</Text>
+      </View>
+    );
+  }
+
+  if (isError) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <Ionicons name="alert-circle" size={48} color={Colors.dark.error} />
+        <Text style={styles.errorText}>Failed to load finance data</Text>
+        <Pressable style={styles.retryButton} onPress={() => refetch()}>
+          <Text style={styles.retryButtonText}>Try Again</Text>
+        </Pressable>
       </View>
     );
   }
@@ -243,6 +255,23 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.textMuted,
     marginTop: Spacing.md,
+  },
+  errorText: {
+    ...Typography.h3,
+    color: Colors.dark.error,
+    marginTop: Spacing.md,
+  },
+  retryButton: {
+    marginTop: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.dark.gold,
+    borderRadius: BorderRadius.md,
+  },
+  retryButtonText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
   },
   scrollView: {
     flex: 1,
