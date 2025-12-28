@@ -7,6 +7,8 @@ import {
   Modal,
   ScrollView,
   Alert,
+  TextInput,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -76,6 +78,8 @@ export default function SessionDetailDrawer({
   const [showCatchUp, setShowCatchUp] = useState(false);
   const [pastSessions, setPastSessions] = useState<Session[]>([]);
   const [catchUpAttendance, setCatchUpAttendance] = useState<Map<string, "present" | "absent" | "holiday">>(new Map());
+  const [showGuestInput, setShowGuestInput] = useState(false);
+  const [guestName, setGuestName] = useState("");
 
   const { data: allPlayersData } = useQuery<AvailablePlayer[]>({
     queryKey: ["/api/players"],
@@ -128,6 +132,35 @@ export default function SessionDetailDrawer({
       Alert.alert("Error", error.message || "Failed to save attendance");
     },
   });
+
+  const addGuestMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const createRes = await apiRequest("POST", "/api/players", {
+        name: `${name} (Guest)`,
+        membershipType: "guest",
+      });
+      const guest = await createRes.json();
+      await apiRequest("POST", `/api/coach/sessions/${session?.id}/players`, {
+        playerId: guest.id,
+        isGuest: true,
+      });
+      return guest;
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      setGuestName("");
+      setShowGuestInput(false);
+    },
+    onError: (error: Error) => {
+      Alert.alert("Error", error.message || "Failed to add guest");
+    },
+  });
+
+  const handleAddGuest = () => {
+    if (!guestName.trim()) return;
+    addGuestMutation.mutate(guestName.trim());
+  };
 
   if (!visible || !session) return null;
 
@@ -280,15 +313,58 @@ export default function SessionDetailDrawer({
         )}
       </View>
 
+      {showGuestInput && (
+        <View style={styles.guestInputRow}>
+          <TextInput
+            style={styles.guestInput}
+            placeholder="Guest name..."
+            placeholderTextColor={Colors.dark.tabIconDefault}
+            value={guestName}
+            onChangeText={setGuestName}
+            onSubmitEditing={handleAddGuest}
+            returnKeyType="done"
+            autoFocus
+          />
+          <Pressable
+            onPress={handleAddGuest}
+            disabled={!guestName.trim() || addGuestMutation.isPending}
+            style={[
+              styles.guestAddBtn,
+              (!guestName.trim() || addGuestMutation.isPending) && styles.guestAddBtnDisabled,
+            ]}
+          >
+            {addGuestMutation.isPending ? (
+              <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+            ) : (
+              <Ionicons name="add" size={20} color={Colors.dark.backgroundRoot} />
+            )}
+          </Pressable>
+          <Pressable
+            onPress={() => { setShowGuestInput(false); setGuestName(""); }}
+            style={styles.guestCancelBtn}
+          >
+            <Ionicons name="close" size={20} color={Colors.dark.tabIconDefault} />
+          </Pressable>
+        </View>
+      )}
+
       <View style={styles.actionsSection}>
         <Pressable style={styles.actionButton} onPress={() => setShowAddPlayer(true)}>
           <Ionicons name="person-add-outline" size={20} color={Colors.dark.primary} />
           <Text style={styles.actionButtonText}>Add Player</Text>
         </Pressable>
+
+        <Pressable 
+          style={styles.actionButton} 
+          onPress={() => setShowGuestInput(true)}
+        >
+          <Ionicons name="person-add-outline" size={20} color={Colors.dark.xpCyan} />
+          <Text style={[styles.actionButtonText, { color: Colors.dark.xpCyan }]}>Add Guest</Text>
+        </Pressable>
         
         <Pressable style={styles.actionButton} onPress={onAttendance}>
-          <Ionicons name="checkmark-circle-outline" size={20} color={Colors.dark.xpCyan} />
-          <Text style={[styles.actionButtonText, { color: Colors.dark.xpCyan }]}>Attendance</Text>
+          <Ionicons name="checkmark-circle-outline" size={20} color={Colors.dark.orange} />
+          <Text style={[styles.actionButtonText, { color: Colors.dark.orange }]}>Attendance</Text>
         </Pressable>
         
         {onFeedback && (
@@ -687,6 +763,40 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.disabled,
     fontStyle: "italic",
+  },
+  guestInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  guestInput: {
+    flex: 1,
+    height: 44,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    color: Colors.dark.text,
+    ...Typography.body,
+  },
+  guestAddBtn: {
+    width: 44,
+    height: 44,
+    backgroundColor: Colors.dark.xpCyan,
+    borderRadius: BorderRadius.md,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  guestAddBtnDisabled: {
+    opacity: 0.5,
+  },
+  guestCancelBtn: {
+    width: 44,
+    height: 44,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.md,
+    justifyContent: "center",
+    alignItems: "center",
   },
   actionsSection: {
     gap: Spacing.md,
