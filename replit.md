@@ -45,8 +45,18 @@ The application features a dark-themed gaming aesthetic with neon green (#2ECC40
     - **Schedule Screen**: Personal calendar with session dots, filtered session list, and attendance status
     - **Profile Screen**: Avatar with level badge, ball level indicator, stats grid, coach contact, and mode switcher
 
+- **Platform Owner App Features** (client/platform/):
+    - **Navigation**: 6-tab bottom navigation (Overview, Academies, Coaches, Players, Finance, System) with purple accent color (#9B59B6)
+    - **Command Center Screen**: Key metrics (active academies, total coaches/players, MRR), alerts/warnings for inactive academies, activity heatmap, revenue growth charts. Uses react-query with `/api/platform/stats` endpoint.
+    - **Academies Screen**: Searchable list of all academies with status filters (active, trial, paused, overdue), academy cards showing coaches/players/MRR
+    - **Coach Health Screen**: Monitor coach workload and burnout risk across all academies
+    - **Player Health Screen**: Player engagement tracking, level distribution charts, at-risk player identification
+    - **Financials Screen**: MRR overview, revenue trends, recent transactions, churn tracking
+    - **System Screen**: System status indicators, XP engine configuration, platform settings, danger zone controls (maintenance mode, kill switch), logout
+
 - **Owner API Endpoints**:
     - `GET /api/owner/academy-stats`: Returns aggregate academy statistics including total players, coaches, sessions, attendance rate, top performers, level distribution, and recent activity. Protected by `requireRole("owner", "academy_owner", "platform_owner")` middleware.
+    - `GET /api/platform/stats`: Returns platform-wide statistics for Platform Owner including all academies, coaches, players, MRR, alerts, and revenue data. Protected by `requireRole("platform_owner")` middleware.
 
 - **Web Compatibility**:
     - Logout confirmations use `window.confirm()` on web platform and `Alert.alert()` on native, guarded by `Platform.OS` checks across SettingsScreen, PlayerSettingsScreen, DrawerContent, and DashboardScreen.

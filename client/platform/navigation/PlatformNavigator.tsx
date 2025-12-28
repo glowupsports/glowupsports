@@ -4,13 +4,20 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
-import PlatformDashboardScreen from "@/platform/screens/PlatformDashboardScreen";
+import CommandCenterScreen from "@/platform/screens/CommandCenterScreen";
+import AcademiesScreen from "@/platform/screens/AcademiesScreen";
+import CoachHealthScreen from "@/platform/screens/CoachHealthScreen";
+import PlayerHealthScreen from "@/platform/screens/PlayerHealthScreen";
+import FinancialsScreen from "@/platform/screens/FinancialsScreen";
+import SystemScreen from "@/platform/screens/SystemScreen";
 import { Colors } from "@/constants/theme";
 
 export type PlatformTabParamList = {
-  PlatformDashboard: undefined;
+  CommandCenter: undefined;
   Academies: undefined;
-  Billing: undefined;
+  CoachHealth: undefined;
+  PlayerHealth: undefined;
+  Financials: undefined;
   System: undefined;
 };
 
@@ -48,42 +55,62 @@ function PlatformTabs() {
       }}
     >
       <Tab.Screen
-        name="PlatformDashboard"
-        component={PlatformDashboardScreen}
+        name="CommandCenter"
+        component={CommandCenterScreen}
         options={{
-          tabBarLabel: "Dashboard",
+          tabBarLabel: "Overview",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="globe" size={size} color={color} />
+            <Ionicons name="grid" size={size - 2} color={color} />
           ),
         }}
       />
       <Tab.Screen
         name="Academies"
-        component={PlatformDashboardScreen}
+        component={AcademiesScreen}
         options={{
           tabBarLabel: "Academies",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="business" size={size} color={color} />
+            <Ionicons name="business" size={size - 2} color={color} />
           ),
         }}
       />
       <Tab.Screen
-        name="Billing"
-        component={PlatformDashboardScreen}
+        name="CoachHealth"
+        component={CoachHealthScreen}
         options={{
-          tabBarLabel: "Billing",
+          tabBarLabel: "Coaches",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="card" size={size} color={color} />
+            <Ionicons name="fitness" size={size - 2} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="PlayerHealth"
+        component={PlayerHealthScreen}
+        options={{
+          tabBarLabel: "Players",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="people" size={size - 2} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Financials"
+        component={FinancialsScreen}
+        options={{
+          tabBarLabel: "Finance",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="card" size={size - 2} color={color} />
           ),
         }}
       />
       <Tab.Screen
         name="System"
-        component={PlatformDashboardScreen}
+        component={SystemScreen}
         options={{
           tabBarLabel: "System",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="cog" size={size} color={color} />
+            <Ionicons name="cog" size={size - 2} color={color} />
           ),
         }}
       />
@@ -105,8 +132,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 0,
     elevation: 0,
     backgroundColor: "transparent",
-    height: 85,
-    paddingTop: 8,
+    height: 70,
+    paddingTop: 6,
   },
   tabBarBackground: {
     ...StyleSheet.absoluteFillObject,
@@ -116,7 +143,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(18, 18, 18, 0.95)",
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: "500",
   },
 });
