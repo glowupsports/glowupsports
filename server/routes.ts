@@ -5327,6 +5327,196 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get player training history for training tab
+  app.get("/api/player/training-history", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId!;
+      
+      const sessions = await storage.getPlayerSessionsWithDetails(
+        playerId,
+        new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
+        new Date()
+      );
+      
+      const trainingHistory = sessions
+        .filter(s => s.attended === "present")
+        .map(s => {
+          return {
+            id: s.id,
+            date: s.startTime,
+            type: s.sessionType || "training",
+            duration: 60,
+            coachName: "Coach",
+            attended: true,
+            xpEarned: 50,
+            domains: [],
+            feedback: undefined,
+          };
+        })
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      res.json(trainingHistory);
+    } catch (error) {
+      console.error("Error fetching training history:", error);
+      res.status(500).json({ error: "Failed to fetch training history" });
+    }
+  });
+  
+  // Get single training session detail
+  app.get("/api/player/training/:sessionId", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId!;
+      const { sessionId } = req.params;
+      
+      const sessions = await storage.getPlayerSessionsWithDetails(
+        playerId,
+        new Date(0),
+        new Date()
+      );
+      
+      const sessionData = sessions.find(s => s.id === sessionId);
+      if (!sessionData) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      const domains = await storage.listSkillDomains();
+      
+      res.json({
+        id: sessionData.id,
+        date: sessionData.startTime,
+        type: sessionData.sessionType || "training",
+        duration: 60,
+        coachName: "Coach",
+        xpEarned: 50,
+        feedback: { focus: 3, effort: 3 },
+        domainImpacts: [],
+        focusArea: null,
+      });
+    } catch (error) {
+      console.error("Error fetching training detail:", error);
+      res.status(500).json({ error: "Failed to fetch training detail" });
+    }
+  });
+  
+  // Get skill details for a specific domain
+  app.get("/api/player/skills/:domain", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId!;
+      const { domain: domainId } = req.params;
+      
+      const domains = await storage.listSkillDomains();
+      const targetDomain = domains.find(d => d.id === domainId);
+      if (!targetDomain) {
+        return res.status(404).json({ error: "Domain not found" });
+      }
+      
+      const skillStates = await storage.getPlayerSkillStates(playerId);
+      const domainState = skillStates.find(s => s.domainId === domainId);
+      
+      const allTrends = await storage.getPlayerObservationTrends(playerId, 30);
+      const domainTrend = allTrends.find(t => t.domainId === domainId);
+      const historyItems = domainTrend?.history || [];
+      
+      const skills = [
+        {
+          id: `${domainId}_1`,
+          name: `${targetDomain.displayName} Fundamentals`,
+          progress: domainState?.progressValue || 50,
+          status: domainState?.momentum === "improving" ? "improving" : "stable",
+          recentImpact: historyItems.slice(0, 3).map(h => ({
+            session: "Training Session",
+            change: h.delta || 0,
+            date: h.date || "Recent",
+          })),
+          suggestions: ["Complete more sessions in this domain", "Focus on consistent practice"],
+        },
+        {
+          id: `${domainId}_2`,
+          name: `Advanced ${targetDomain.displayName}`,
+          progress: Math.max(0, (domainState?.progressValue || 40) - 15),
+          status: "stable",
+          recentImpact: [],
+          suggestions: ["Build on fundamentals first"],
+        },
+      ];
+      
+      res.json({
+        domain: domainId,
+        overallProgress: domainState?.progressValue || 50,
+        skills,
+      });
+    } catch (error) {
+      console.error("Error fetching skill details:", error);
+      res.status(500).json({ error: "Failed to fetch skill details" });
+    }
+  });
+  
+  // Get peer journey snapshot
+  app.get("/api/player/peers/:peerId/journey", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId!;
+      const { peerId } = req.params;
+      
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const peer = await storage.getPlayer(peerId);
+      if (!peer || peer.academyId !== player.academyId) {
+        return res.status(404).json({ error: "Peer not found" });
+      }
+      
+      const peerSkillStates = await storage.getPlayerSkillStates(peerId);
+      const mySkillStates = await storage.getPlayerSkillStates(playerId);
+      const domains = await storage.listSkillDomains();
+      
+      const domainComparison = domains.map(d => {
+        const peerState = peerSkillStates.find(s => s.domainId === d.id);
+        const myState = mySkillStates.find(s => s.domainId === d.id);
+        const peerProgress = peerState?.progressValue || 0;
+        const myProgress = myState?.progressValue || 0;
+        
+        let status: "ahead" | "same" | "behind" = "same";
+        if (myProgress > peerProgress + 10) status = "ahead";
+        else if (myProgress < peerProgress - 10) status = "behind";
+        
+        return { domain: d.id, status };
+      });
+      
+      res.json({
+        id: peer.id,
+        name: peer.name,
+        level: peer.level || 1,
+        ballLevel: peer.ballLevel || "orange",
+        recentAchievements: [
+          { id: "1", type: "level_up", title: `Reached Level ${peer.level || 1}`, date: "Recently" },
+        ],
+        domains: domainComparison,
+      });
+    } catch (error) {
+      console.error("Error fetching peer journey:", error);
+      res.status(500).json({ error: "Failed to fetch peer journey" });
+    }
+  });
+  
+  // Get group challenges (V2 placeholder)
+  app.get("/api/player/challenges", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId!;
+      const player = await storage.getPlayer(playerId);
+      
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching challenges:", error);
+      res.status(500).json({ error: "Failed to fetch challenges" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat

@@ -1,6 +1,7 @@
 import React from "react";
-import { View, Text, StyleSheet, FlatList, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
@@ -13,6 +14,7 @@ interface TrainingSession {
   coachName: string;
   attended: boolean;
   xpEarned: number;
+  domains?: { domain: string; xp: number }[];
   feedback?: {
     focus: number;
     effort: number;
@@ -20,7 +22,21 @@ interface TrainingSession {
   };
 }
 
-function SessionCard({ session }: { session: TrainingSession }) {
+interface FocusArea {
+  name: string;
+  setBy: string;
+  setDate: string;
+}
+
+const DOMAIN_CONFIG: Record<string, { icon: string; color: string; label: string }> = {
+  technical: { icon: "construct", color: Colors.dark.primary, label: "TEC" },
+  mental: { icon: "brain", color: "#9B59B6", label: "MEN" },
+  physical: { icon: "fitness", color: Colors.dark.orange, label: "PHY" },
+  tactical: { icon: "compass", color: Colors.dark.gold, label: "TAC" },
+  social: { icon: "people", color: Colors.dark.xpCyan, label: "SOC" },
+};
+
+function SessionCard({ session, onPress }: { session: TrainingSession; onPress: () => void }) {
   const date = new Date(session.date);
   const dateStr = date.toLocaleDateString("en-US", { 
     weekday: "short", 
@@ -47,7 +63,7 @@ function SessionCard({ session }: { session: TrainingSession }) {
   };
 
   return (
-    <View style={styles.sessionCard}>
+    <Pressable style={styles.sessionCard} onPress={onPress}>
       <View style={styles.sessionHeader}>
         <View style={styles.sessionDateContainer}>
           <View style={[styles.typeIcon, { backgroundColor: `${getTypeColor()}20` }]}>
@@ -67,6 +83,20 @@ function SessionCard({ session }: { session: TrainingSession }) {
           <Text style={styles.xpText}>+{session.xpEarned} XP</Text>
         </View>
       </View>
+
+      {session.domains && session.domains.length > 0 ? (
+        <View style={styles.domainsRow}>
+          {session.domains.map((d, idx) => {
+            const config = DOMAIN_CONFIG[d.domain] || DOMAIN_CONFIG.technical;
+            return (
+              <View key={idx} style={[styles.domainBadge, { backgroundColor: `${config.color}15` }]}>
+                <Ionicons name={config.icon as any} size={12} color={config.color} />
+                <Text style={[styles.domainBadgeText, { color: config.color }]}>+{d.xp}</Text>
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
 
       {session.feedback ? (
         <View style={styles.feedbackSection}>
@@ -110,18 +140,38 @@ function SessionCard({ session }: { session: TrainingSession }) {
         <Ionicons name="person-circle-outline" size={16} color={Colors.dark.textMuted} />
         <Text style={styles.coachName}>{session.coachName}</Text>
         <Text style={styles.duration}>{session.duration} min</Text>
+        <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
       </View>
+    </Pressable>
+  );
+}
+
+function ActiveFocusBlock({ focus }: { focus: FocusArea }) {
+  return (
+    <View style={styles.focusCard}>
+      <View style={styles.focusHeader}>
+        <Ionicons name="flag" size={18} color={Colors.dark.primary} />
+        <Text style={styles.focusLabel}>CURRENT FOCUS</Text>
+      </View>
+      <Text style={styles.focusValue}>{focus.name}</Text>
+      <Text style={styles.focusSetBy}>Set by {focus.setBy}</Text>
     </View>
   );
 }
 
 export default function PlayerTrainingScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
 
   const { data: sessions, isLoading } = useQuery<TrainingSession[]>({
     queryKey: ["/api/player/training-history"],
-    enabled: false,
   });
+
+  const activeFocus: FocusArea | null = {
+    name: "Court Positioning",
+    setBy: "Coach Mike",
+    setDate: "2 days ago",
+  };
 
   const mockSessions: TrainingSession[] = [
     {
@@ -131,7 +181,12 @@ export default function PlayerTrainingScreen() {
       duration: 60,
       coachName: "Coach Mike",
       attended: true,
-      xpEarned: 45,
+      xpEarned: 80,
+      domains: [
+        { domain: "technical", xp: 40 },
+        { domain: "physical", xp: 30 },
+        { domain: "mental", xp: 10 },
+      ],
       feedback: {
         focus: 4,
         effort: 5,
@@ -145,7 +200,11 @@ export default function PlayerTrainingScreen() {
       duration: 90,
       coachName: "Coach Mike",
       attended: true,
-      xpEarned: 35,
+      xpEarned: 55,
+      domains: [
+        { domain: "tactical", xp: 35 },
+        { domain: "social", xp: 20 },
+      ],
       feedback: {
         focus: 3,
         effort: 4,
@@ -158,7 +217,11 @@ export default function PlayerTrainingScreen() {
       duration: 45,
       coachName: "Coach Sarah",
       attended: true,
-      xpEarned: 30,
+      xpEarned: 45,
+      domains: [
+        { domain: "physical", xp: 35 },
+        { domain: "mental", xp: 10 },
+      ],
       feedback: {
         focus: 5,
         effort: 5,
@@ -172,7 +235,10 @@ export default function PlayerTrainingScreen() {
       duration: 60,
       coachName: "Coach Mike",
       attended: true,
-      xpEarned: 40,
+      xpEarned: 50,
+      domains: [
+        { domain: "technical", xp: 50 },
+      ],
       feedback: {
         focus: 4,
         effort: 4,
@@ -181,6 +247,10 @@ export default function PlayerTrainingScreen() {
   ];
 
   const data = sessions || mockSessions;
+
+  const handleSessionPress = (sessionId: string) => {
+    navigation.navigate("TrainingDetail", { sessionId });
+  };
 
   if (isLoading) {
     return (
@@ -194,18 +264,26 @@ export default function PlayerTrainingScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Text style={styles.title}>Training History</Text>
-        <Text style={styles.subtitle}>Sessions validated by your coach</Text>
+        <Text style={styles.subtitle}>Your progress is based on coach sessions</Text>
       </View>
 
       <FlatList
         data={data}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <SessionCard session={item} />}
+        renderItem={({ item }) => (
+          <SessionCard 
+            session={item} 
+            onPress={() => handleSessionPress(item.id)} 
+          />
+        )}
         contentContainerStyle={[
           styles.listContent,
           { paddingBottom: insets.bottom + 100 },
         ]}
         showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          activeFocus ? <ActiveFocusBlock focus={activeFocus} /> : null
+        }
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="fitness-outline" size={48} color={Colors.dark.textMuted} />
@@ -340,6 +418,52 @@ const styles = StyleSheet.create({
   duration: {
     ...Typography.caption,
     color: Colors.dark.textMuted,
+    marginRight: Spacing.xs,
+  },
+  domainsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  domainBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  domainBadgeText: {
+    ...Typography.caption,
+    fontWeight: "600",
+  },
+  focusCard: {
+    ...CardStyles.elevated,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.dark.primary,
+  },
+  focusHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  focusLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    letterSpacing: 0.5,
+  },
+  focusValue: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  focusSetBy: {
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+    marginTop: 4,
   },
   emptyState: {
     alignItems: "center",

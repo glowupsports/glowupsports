@@ -10,6 +10,11 @@ import PlayerTrainingScreen from "@/player/screens/PlayerTrainingScreen";
 import PlayerProgressScreen from "@/player/screens/PlayerProgressScreen";
 import PlayerScheduleScreen from "@/player/screens/PlayerScheduleScreen";
 import PlayerProfileScreen from "@/player/screens/PlayerProfileScreen";
+import TrainingDetailScreen from "@/player/screens/TrainingDetailScreen";
+import SkillDetailScreen from "@/player/screens/SkillDetailScreen";
+import PlayerSettingsScreen from "@/player/screens/PlayerSettingsScreen";
+import PeerJourneyScreen from "@/player/screens/PeerJourneyScreen";
+import GroupChallengesScreen from "@/player/screens/GroupChallengesScreen";
 import { Colors } from "@/constants/theme";
 
 export type PlayerTabParamList = {
@@ -23,6 +28,11 @@ export type PlayerTabParamList = {
 export type PlayerStackParamList = {
   PlayerTabs: undefined;
   Training: undefined;
+  TrainingDetail: { sessionId: string };
+  SkillDetail: { domain: string };
+  Settings: undefined;
+  PeerJourney: { peerId: string; peerName: string };
+  GroupChallenges: undefined;
 };
 
 const Tab = createBottomTabNavigator<PlayerTabParamList>();
@@ -115,6 +125,41 @@ export default function PlayerNavigator() {
         component={PlayerTrainingScreen}
         options={{
           presentation: "modal",
+        }}
+      />
+      <Stack.Screen 
+        name="TrainingDetail" 
+        component={TrainingDetailScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="SkillDetail" 
+        component={SkillDetailScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="Settings" 
+        component={PlayerSettingsScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="PeerJourney" 
+        component={PeerJourneyScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="GroupChallenges" 
+        component={GroupChallengesScreen}
+        options={{
+          presentation: "card",
         }}
       />
     </Stack.Navigator>

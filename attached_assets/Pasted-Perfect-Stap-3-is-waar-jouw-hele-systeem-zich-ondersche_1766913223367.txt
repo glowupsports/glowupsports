@@ -1,0 +1,188 @@
+Perfect. Stap 3 is waar jouw hele systeem zich onderscheidt van 99% van sport-apps.
+Hier maken we Training ≠ Content, maar Training = Coach-gedreven voortgang.
+
+✅ STAP 3 — Training Tab (Player App)
+“Ik train niet… mijn coach traint mij”
+1️⃣ Wat is de Training Tab écht?
+
+❌ Geen Netflix-achtige lijst
+❌ Geen zelfgekozen oefeningen
+❌ Geen losse XP-knoppen
+
+👉 De Training Tab is een reflectie van coach-sessies
+👉 Alles wat hier verschijnt, komt voort uit echte training
+
+Rule #1:
+
+Een player kan niets “trainen” zonder coach-context.
+
+2️⃣ Nieuwe mentale shift (belangrijk)
+
+We hernoemen conceptueel:
+
+❌ Lessons
+
+❌ Drills
+
+❌ Exercises
+
+➡️ Training Blocks
+
+Een Training Block =
+
+Een door de coach aangemaakte of afgeronde trainingsmoment
+
+3️⃣ Structuur van de Training Tab
+🔹 A. Header (rustig, informatief)
+Training
+Your progress is based on coach sessions
+
+
+Geen stats hier. Geen XP.
+
+🔹 B. Active Focus Block (optioneel, maar krachtig)
+
+Als de coach een focus area heeft ingesteld:
+
+Current Focus
+Court Positioning
+Set by Coach Maria
+
+
+Waarom dit belangrijk is:
+
+Speler weet waarom feedback komt
+
+Speler weet waarop hij wordt beoordeeld
+
+🔹 C. Recent Training Blocks (chronologisch)
+
+Dit is de kern.
+
+Elke kaart = één afgeronde coach session
+
+Training Block Card bevat:
+
+Session naam / type
+
+Coach naam
+
+Datum
+
+Domains geraakt (icons)
+
+XP verdiend (samengevat)
+
+“View Details” CTA
+
+Forehand + Movement
+Coach Maria • Today
+
+Domains:
+⚙ Technical  +40
+🏃 Physical   +30
+🧠 Mental     +10
+
++80 XP
+
+
+👉 Geen play buttons
+👉 Geen start-knoppen
+👉 Alleen resultaten
+
+🔹 D. Tap → Training Detail Screen
+
+Hier gebeurt de diepgang (maar alleen op tap).
+
+Training Detail bevat:
+
+1. Coach Feedback (verplicht zichtbaar)
+
+Coach Feedback
+“Good positioning, but recovery was slow.
+Focus on split-step timing.”
+
+
+2. Skill Impact (Progress Engine V2)
+
+Affected Skills
+Forehand Consistency   +3%
+Court Awareness        +2%
+
+
+3. XP Breakdown
+
+XP Breakdown
+Technical: +40
+Physical:  +30
+Mental:    +10
+
+
+👉 Dit verbindt coach → systeem → player vertrouwen
+
+4️⃣ Wat hier expliciet NIET hoort
+
+❌ Zelf starten van trainingen
+❌ Video’s zonder coach context
+❌ Dagelijkse quests
+❌ Social acties
+
+Die komen elders.
+
+5️⃣ Hoe dit perfect aansluit op jouw backend
+
+Je hebt dit grotendeels AL:
+
+sessions
+
+session_feedback
+
+progress_engine_v2
+
+xp_transactions
+
+Je mist alleen:
+
+GET /player/training
+GET /player/training/{sessionId}
+
+
+Die endpoints:
+
+lezen bestaande data
+
+doen geen logica
+
+geen mutaties
+
+6️⃣ Waarom jouw huidige “Lessons” fout voelt (en dat is logisch)
+
+Wat je nu voelt:
+
+“Dit lijkt nep / gamey / los”
+
+Waarom:
+
+Player kan dingen starten zonder echte training
+
+Coach is niet dominant in flow
+
+Training ≠ real life
+
+Met Stap 3:
+
+Alles is earned
+
+Alles is coach-first
+
+Alles voelt echt
+
+7️⃣ Definition of Done — Stap 3
+
+Je bent klaar als:
+
+✅ Player ziet ALLEEN coach-gedreven trainingen
+✅ Elke training heeft feedback
+✅ Skills + XP logisch verklaard
+✅ Geen losse “play” acties
+✅ Player voelt: “ik word begeleid”

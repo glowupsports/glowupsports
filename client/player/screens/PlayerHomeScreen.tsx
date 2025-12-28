@@ -1,6 +1,7 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
@@ -92,20 +93,21 @@ function StatCard({ label, value, icon, color }: { label: string; value: string 
   );
 }
 
-function PeerCard({ peer }: { peer: Peer }) {
+function PeerCard({ peer, onPress }: { peer: Peer; onPress: () => void }) {
   return (
-    <View style={styles.peerCard}>
+    <Pressable style={styles.peerCard} onPress={onPress}>
       <View style={styles.peerAvatar}>
         <Text style={styles.peerAvatarText}>{peer.avatar}</Text>
       </View>
       <Text style={styles.peerName} numberOfLines={1}>{peer.name.split(" ")[0]}</Text>
       <Text style={styles.peerLevel}>Lv.{peer.level}</Text>
-    </View>
+    </Pressable>
   );
 }
 
 export default function PlayerHomeScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   
   const { data, isLoading, error } = useQuery<DashboardData>({
     queryKey: ["/api/player/me/dashboard"],
@@ -114,6 +116,10 @@ export default function PlayerHomeScreen() {
   const { data: peersData } = useQuery<PeersData>({
     queryKey: ["/api/player/me/peers"],
   });
+
+  const handlePeerPress = (peer: Peer) => {
+    navigation.navigate("PeerJourney", { peerId: peer.id, peerName: peer.name });
+  };
 
   if (isLoading) {
     return (
@@ -254,7 +260,11 @@ export default function PlayerHomeScreen() {
               contentContainerStyle={styles.peersScroll}
             >
               {peersData.sameLevelPeers.slice(0, 8).map(peer => (
-                <PeerCard key={peer.id} peer={peer} />
+                <PeerCard 
+                  key={peer.id} 
+                  peer={peer} 
+                  onPress={() => handlePeerPress(peer)}
+                />
               ))}
             </ScrollView>
           </View>

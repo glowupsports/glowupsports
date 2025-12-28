@@ -1,6 +1,7 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
@@ -65,6 +66,7 @@ interface ProgressData {
 }
 
 interface SkillDomain {
+  id: string;
   name: string;
   value: number;
   maxValue: number;
@@ -295,7 +297,7 @@ function LevelReadinessSection({
   );
 }
 
-function SkillBar({ domain }: { domain: SkillDomain }) {
+function SkillBar({ domain, onPress }: { domain: SkillDomain; onPress: () => void }) {
   const progress = domain.value / domain.maxValue;
   
   const getTrendIcon = () => {
@@ -311,7 +313,7 @@ function SkillBar({ domain }: { domain: SkillDomain }) {
   };
   
   return (
-    <View style={styles.skillCard}>
+    <Pressable style={styles.skillCard} onPress={onPress}>
       <View style={styles.skillHeader}>
         <View style={[styles.skillIcon, { backgroundColor: `${domain.color}20` }]}>
           <Ionicons name={domain.icon as any} size={18} color={domain.color} />
@@ -339,12 +341,21 @@ function SkillBar({ domain }: { domain: SkillDomain }) {
           ]} 
         />
       </View>
-    </View>
+      <View style={styles.tapHint}>
+        <Text style={styles.tapHintText}>Tap for details</Text>
+        <Ionicons name="chevron-forward" size={12} color={Colors.dark.textMuted} />
+      </View>
+    </Pressable>
   );
 }
 
 export default function PlayerProgressScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
+
+  const handleDomainPress = (domainId: string) => {
+    navigation.navigate("SkillDetail", { domain: domainId });
+  };
 
   const { data, isLoading, error } = useQuery<ProgressData>({
     queryKey: ["/api/player/me/progress"],
@@ -370,6 +381,7 @@ export default function PlayerProgressScreen() {
   }
 
   const domains: SkillDomain[] = data.skillRadar.map(skill => ({
+    id: skill.domainId,
     name: skill.domain,
     value: skill.progress,
     maxValue: 100,
@@ -448,7 +460,11 @@ export default function PlayerProgressScreen() {
           <Text style={styles.sectionTitle}>Skill Breakdown</Text>
           <View style={styles.skillsList}>
             {domains.map((domain) => (
-              <SkillBar key={domain.name} domain={domain} />
+              <SkillBar 
+                key={domain.name} 
+                domain={domain} 
+                onPress={() => handleDomainPress(domain.id)}
+              />
             ))}
           </View>
         </View>
@@ -816,5 +832,17 @@ const styles = StyleSheet.create({
   approvalText: {
     ...Typography.small,
     color: Colors.dark.xpCyan,
+  },
+  tapHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    marginTop: Spacing.sm,
+    gap: 4,
+  },
+  tapHintText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontSize: 10,
   },
 });
