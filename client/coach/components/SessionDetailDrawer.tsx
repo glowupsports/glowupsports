@@ -519,6 +519,25 @@ export default function SessionDetailDrawer({
                     </View>
                     <View style={styles.playerNameContainer}>
                       <Text style={styles.playerName}>{player.name}</Text>
+                      {!isGuest && (player.ballLevel || player.level) ? (
+                        <View style={styles.playerMetaRow}>
+                          {player.ballLevel ? (
+                            <View style={styles.playerLevelBadge}>
+                              <View style={[styles.levelDotSmall, { backgroundColor: getPlayerLevelColor(player.ballLevel) }]} />
+                              <Text style={[styles.playerLevelText, { color: getPlayerLevelColor(player.ballLevel) }]}>
+                                {player.ballLevel.charAt(0).toUpperCase() + player.ballLevel.slice(1)}
+                              </Text>
+                            </View>
+                          ) : null}
+                          {player.level ? (
+                            <Text style={styles.playerSkillText}>
+                              {player.level === "1" || player.level === "beginner" ? "Beginner" : 
+                               player.level === "2" || player.level === "intermediate" ? "Intermediate" : 
+                               player.level === "3" || player.level === "advanced" ? "Advanced" : ""}
+                            </Text>
+                          ) : null}
+                        </View>
+                      ) : null}
                       {isGuest && isPastSession ? (
                         <Text style={styles.convertHint}>Tap to convert</Text>
                       ) : null}
@@ -1267,6 +1286,32 @@ const styles = StyleSheet.create({
   },
   playerNameContainer: {
     flex: 1,
+  },
+  playerMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: 2,
+  },
+  playerLevelBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  levelDotSmall: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  playerLevelText: {
+    ...Typography.small,
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  playerSkillText: {
+    ...Typography.small,
+    fontSize: 11,
+    color: Colors.dark.tabIconDefault,
   },
   convertHint: {
     ...Typography.small,

@@ -24,6 +24,8 @@ interface Player {
   id: string;
   name: string;
   email: string;
+  ballLevel?: string | null;
+  level?: string | null;
 }
 
 interface CreateSessionDrawerProps {
@@ -89,6 +91,37 @@ export default function CreateSessionDrawer({
   const [showCalendar, setShowCalendar] = useState(false);
   const [guestName, setGuestName] = useState("");
   const [showGuestInput, setShowGuestInput] = useState(false);
+  const [playerSearch, setPlayerSearch] = useState("");
+
+  // Filter players based on search
+  const filteredPlayers = players.filter(p => 
+    p.name.toLowerCase().includes(playerSearch.toLowerCase())
+  );
+
+  // Get ball level color
+  const getBallLevelColor = (level: string | null | undefined): string => {
+    switch (level) {
+      case "red": return "#FF4444";
+      case "orange": return "#FF851B";
+      case "green": return "#2ECC40";
+      case "yellow": return "#FFDC00";
+      case "glow": return "#00D4FF";
+      default: return Colors.dark.disabled;
+    }
+  };
+
+  // Get skill level label
+  const getSkillLevelLabel = (level: string | null | undefined): string => {
+    switch (level) {
+      case "1": return "Beg";
+      case "2": return "Int";
+      case "3": return "Adv";
+      case "beginner": return "Beg";
+      case "intermediate": return "Int";
+      case "advanced": return "Adv";
+      default: return "";
+    }
+  };
 
   useEffect(() => {
     if (visible) {
@@ -648,9 +681,30 @@ export default function CreateSessionDrawer({
               </View>
             )}
             
+            {/* Player Search */}
+            <View style={styles.playerSearchContainer}>
+              <Ionicons name="search" size={16} color={Colors.dark.tabIconDefault} />
+              <TextInput
+                style={styles.playerSearchInput}
+                placeholder="Search players..."
+                placeholderTextColor={Colors.dark.tabIconDefault}
+                value={playerSearch}
+                onChangeText={setPlayerSearch}
+              />
+              {playerSearch.length > 0 && (
+                <Pressable onPress={() => setPlayerSearch("")}>
+                  <Ionicons name="close-circle" size={16} color={Colors.dark.tabIconDefault} />
+                </Pressable>
+              )}
+            </View>
+            
             <View style={styles.playerList}>
-              {players.map((player) => {
+              {filteredPlayers.map((player) => {
                 const isSelected = selectedPlayers.some((p) => p.id === player.id);
+                const isGuest = player.name.includes("(Guest)");
+                const ballColor = getBallLevelColor(player.ballLevel);
+                const skillLabel = getSkillLevelLabel(player.level);
+                
                 return (
                   <Pressable
                     key={player.id}
@@ -665,10 +719,37 @@ export default function CreateSessionDrawer({
                       size={20}
                       color={isSelected ? Colors.dark.primary : Colors.dark.disabled}
                     />
-                    <Text style={styles.playerName}>{player.name}</Text>
+                    {/* Player Avatar with Ball Level Color */}
+                    <View style={[
+                      styles.playerAvatar,
+                      isGuest ? styles.playerAvatarGuest : { backgroundColor: ballColor }
+                    ]}>
+                      <Text style={styles.playerAvatarText}>{player.name.charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <View style={styles.playerInfo}>
+                      <Text style={styles.playerName}>{player.name}</Text>
+                      {(player.ballLevel || skillLabel) && !isGuest ? (
+                        <View style={styles.playerMeta}>
+                          {player.ballLevel ? (
+                            <View style={styles.playerLevelBadge}>
+                              <View style={[styles.levelDot, { backgroundColor: ballColor }]} />
+                              <Text style={[styles.levelText, { color: ballColor }]}>
+                                {player.ballLevel.charAt(0).toUpperCase() + player.ballLevel.slice(1)}
+                              </Text>
+                            </View>
+                          ) : null}
+                          {skillLabel ? (
+                            <Text style={styles.skillText}>{skillLabel}</Text>
+                          ) : null}
+                        </View>
+                      ) : null}
+                    </View>
                   </Pressable>
                 );
               })}
+              {filteredPlayers.length === 0 && playerSearch.length > 0 && (
+                <Text style={styles.noPlayersText}>No players match "{playerSearch}"</Text>
+              )}
               {players.length === 0 && (
                 <Text style={styles.noPlayersText}>No players available</Text>
               )}
@@ -1147,6 +1228,66 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.disabled,
     fontStyle: "italic",
+  },
+  playerSearchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  playerSearchInput: {
+    flex: 1,
+    ...Typography.body,
+    color: Colors.dark.text,
+    padding: 0,
+  },
+  playerAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  playerAvatarGuest: {
+    backgroundColor: Colors.dark.xpCyan,
+  },
+  playerAvatarText: {
+    ...Typography.small,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  playerInfo: {
+    flex: 1,
+  },
+  playerMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: 2,
+  },
+  playerLevelBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  levelDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  levelText: {
+    ...Typography.small,
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  skillText: {
+    ...Typography.small,
+    fontSize: 11,
+    color: Colors.dark.tabIconDefault,
   },
   recurringWeeks: {
     flexDirection: "row",
