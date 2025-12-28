@@ -1527,7 +1527,7 @@ export default function CalendarScreen() {
                       };
 
                       return (
-                        <View key={dayIdx} style={styles.weekDayColumn}>
+                        <View key={dayIdx} style={[styles.weekDayColumn, isDayToday && styles.weekDayColumnToday]}>
                           {/* Hour grid lines and clickable slots */}
                           {weekHours.map((hour) => (
                             <Pressable
@@ -1811,8 +1811,14 @@ export default function CalendarScreen() {
                     </View>
                     {stats.sessions > 0 && (
                       <View style={styles.dayContextRow}>
-                        <Text style={styles.dayContextMeta}>Peak: {peakTime}</Text>
-                        <Text style={styles.dayContextDot}>·</Text>
+                        <View style={styles.peakPill}>
+                          <Ionicons 
+                            name={peakTime === "Morning" ? "sunny-outline" : peakTime === "Afternoon" ? "partly-sunny-outline" : "moon-outline"} 
+                            size={10} 
+                            color={Colors.dark.xpCyan} 
+                          />
+                          <Text style={styles.peakPillText}>{peakTime}</Text>
+                        </View>
                         <Text style={[
                           styles.dayContextMeta,
                           stats.totalMinutes >= 360 && { color: "#FF6B6B" },
@@ -2724,6 +2730,9 @@ const styles = StyleSheet.create({
     borderLeftWidth: 1,
     borderLeftColor: "rgba(255, 255, 255, 0.04)",
   },
+  weekDayColumnToday: {
+    backgroundColor: Colors.dark.xpCyan + "08",
+  },
   weekHourSlot: {
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.04)",
@@ -2959,6 +2968,21 @@ const styles = StyleSheet.create({
   dayContextMeta: {
     ...Typography.caption,
     color: Colors.dark.tabIconDefault,
+  },
+  peakPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    borderRadius: BorderRadius.xs,
+  },
+  peakPillText: {
+    ...Typography.caption,
+    fontSize: 10,
+    color: Colors.dark.xpCyan,
+    fontWeight: "500",
   },
   dayContextLoadBar: {
     height: 4,

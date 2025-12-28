@@ -17,6 +17,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -84,6 +85,7 @@ interface Squad {
 
 export function CoachChatFooter() {
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const queryClient = useQueryClient();
   const { coach } = useCoach();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -617,7 +619,7 @@ export function CoachChatFooter() {
   );
 
   return (
-    <Animated.View style={[styles.container, { paddingBottom: insets.bottom }, animatedStyle]}>
+    <Animated.View style={[styles.container, { bottom: tabBarHeight - insets.bottom }, animatedStyle]}>
       <View style={styles.header}>
         <Pressable
           onPress={() => {

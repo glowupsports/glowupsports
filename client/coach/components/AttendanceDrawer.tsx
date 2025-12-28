@@ -69,6 +69,8 @@ interface AttendanceDrawerProps {
 }
 
 const OFFLINE_QUEUE_KEY = "coach_offline_attendance_queue";
+const LAST_LATE_MINUTES_KEY = "coach_last_late_minutes";
+const DEFAULT_LATE_MINUTES: LateMinutes = 10;
 
 export default function AttendanceDrawer({
   visible,
@@ -85,6 +87,7 @@ export default function AttendanceDrawer({
   const [showAddPlayers, setShowAddPlayers] = useState(false);
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [lastUsedLateMinutes, setLastUsedLateMinutes] = useState<LateMinutes>(DEFAULT_LATE_MINUTES);
 
   const { data: allPlayersData } = useQuery<AvailablePlayer[]>({
     queryKey: ["/api/players"],
@@ -117,6 +120,21 @@ export default function AttendanceDrawer({
       Alert.alert("Error", error.message || "Failed to add players");
     },
   });
+
+  useEffect(() => {
+    const loadLastUsedLateMinutes = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(LAST_LATE_MINUTES_KEY);
+        if (stored) {
+          const parsed = parseInt(stored, 10) as LateMinutes;
+          if ([5, 10, 15, 20, 30, 999].includes(parsed)) {
+            setLastUsedLateMinutes(parsed);
+          }
+        }
+      } catch {}
+    };
+    loadLastUsedLateMinutes();
+  }, []);
 
   useEffect(() => {
     if (session?.players) {
@@ -186,7 +204,11 @@ export default function AttendanceDrawer({
     setAttendance((prev) => {
       const updated = new Map(prev);
       const existing = updated.get(playerId) || { playerId, status: "present" };
-      updated.set(playerId, { ...existing, status });
+      const newRecord = { ...existing, status };
+      if (status === "late" && !existing.lateMinutes) {
+        newRecord.lateMinutes = lastUsedLateMinutes;
+      }
+      updated.set(playerId, newRecord);
       return updated;
     });
     if (status === "late" || status === "absent") {
@@ -196,7 +218,7 @@ export default function AttendanceDrawer({
     }
   };
 
-  const setLateMinutes = (playerId: string, minutes: LateMinutes) => {
+  const setLateMinutes = async (playerId: string, minutes: LateMinutes) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setAttendance((prev) => {
       const updated = new Map(prev);
@@ -204,6 +226,10 @@ export default function AttendanceDrawer({
       updated.set(playerId, { ...existing, lateMinutes: minutes });
       return updated;
     });
+    setLastUsedLateMinutes(minutes);
+    try {
+      await AsyncStorage.setItem(LAST_LATE_MINUTES_KEY, String(minutes));
+    } catch {}
   };
 
   const setAbsentReason = (playerId: string, reason: AbsentReason) => {
@@ -264,12 +290,12 @@ export default function AttendanceDrawer({
     { value: 999, label: ">30 min" },
   ];
 
-  const absentReasons: { value: AbsentReason; label: string }[] = [
+  const absentReasons: { value: AbsentReason; label: string; priority?: boolean }[] = [
+    { value: "no_show", label: "No Show", priority: true },
     { value: "illness", label: "Illness" },
     { value: "injury", label: "Injury" },
     { value: "personal", label: "Personal" },
     { value: "weather", label: "Weather" },
-    { value: "no_show", label: "No Show" },
     { value: "other", label: "Other" },
   ];
 
@@ -490,8 +516,31 @@ export default function AttendanceDrawer({
                   {status === "absent" && isExpanded ? (
                     <View style={styles.optionsRow}>
                       <Text style={styles.optionsLabel}>Reason</Text>
+                      {/* Priority: No Show - shown separately */}
+                      <Pressable
+                        style={[
+                          styles.noShowChip,
+                          record?.absentReason === "no_show" && styles.noShowChipActive,
+                        ]}
+                        onPress={() => setAbsentReason(player.id, "no_show")}
+                      >
+                        <Ionicons 
+                          name="alert-circle" 
+                          size={16} 
+                          color={record?.absentReason === "no_show" ? Colors.dark.backgroundRoot : Colors.dark.error} 
+                        />
+                        <Text
+                          style={[
+                            styles.noShowChipText,
+                            record?.absentReason === "no_show" && styles.noShowChipTextActive,
+                          ]}
+                        >
+                          No Show
+                        </Text>
+                      </Pressable>
+                      {/* Other reasons */}
                       <View style={styles.optionChips}>
-                        {absentReasons.map((opt) => (
+                        {absentReasons.filter(opt => !opt.priority).map((opt) => (
                           <Pressable
                             key={opt.value}
                             style={[
@@ -511,6 +560,14 @@ export default function AttendanceDrawer({
                           </Pressable>
                         ))}
                       </View>
+                    </View>
+                  ) : null}
+
+                  {/* Holiday Info */}
+                  {status === "holiday" ? (
+                    <View style={styles.holidayInfo}>
+                      <Ionicons name="information-circle-outline" size={14} color={Colors.dark.xpCyan} />
+                      <Text style={styles.holidayInfoText}>No charge · Package frozen</Text>
                     </View>
                   ) : null}
                 </View>
@@ -706,6 +763,44 @@ const styles = StyleSheet.create({
   optionChipTextActive: {
     color: Colors.dark.text,
     fontWeight: "500",
+  },
+  noShowChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.error + "15",
+    borderWidth: 1,
+    borderColor: Colors.dark.error + "40",
+    marginBottom: Spacing.xs,
+  },
+  noShowChipActive: {
+    backgroundColor: Colors.dark.error,
+    borderColor: Colors.dark.error,
+  },
+  noShowChipText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.error,
+    fontWeight: "600",
+  },
+  noShowChipTextActive: {
+    color: Colors.dark.backgroundRoot,
+  },
+  holidayInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    backgroundColor: Colors.dark.xpCyan + "10",
+    borderRadius: BorderRadius.sm,
+  },
+  holidayInfoText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.xpCyan,
   },
   offlineIndicator: {
     flexDirection: "row",
