@@ -46,6 +46,11 @@ export default function DashboardScreen() {
   const { coach, academy, calendarData, isLoading } = useCoach();
   const [showStatusPanel, setShowStatusPanel] = useState(false);
   const [sessionsCollapsed, setSessionsCollapsed] = useState(true);
+  const [focusCollapsed, setFocusCollapsed] = useState(false);
+  const [energyCollapsed, setEnergyCollapsed] = useState(false);
+  const [insightsCollapsed, setInsightsCollapsed] = useState(false);
+  const [timelineCollapsed, setTimelineCollapsed] = useState(false);
+  const [alertsCollapsed, setAlertsCollapsed] = useState(false);
 
   const today = new Date();
   const todaysSessions = useMemo(() => {
@@ -369,62 +374,85 @@ export default function DashboardScreen() {
             colors={["rgba(46, 204, 64, 0.12)", "rgba(46, 204, 64, 0.03)"]}
             style={styles.focusGradient}
           >
-            <View style={styles.focusHeader}>
-              <Text style={styles.focusLabel}>TODAY</Text>
-              <Text style={styles.focusDate}>
-                {today.toLocaleDateString("en-US", {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                })}
-              </Text>
-            </View>
-
-            {/* Main Focus State */}
-            <View style={styles.focusMain}>
-              {currentSession ? (
-                <View style={styles.liveIndicator}>
-                  <View style={styles.liveDot} />
-                  <Text style={styles.liveText}>IN PROGRESS</Text>
-                </View>
-              ) : null}
-              <Text style={styles.focusPrimary}>{focusMessage.primary}</Text>
-              <Text style={styles.focusSecondary}>{focusMessage.secondary}</Text>
-            </View>
-
-            {/* Stats Row (only if sessions exist) */}
-            {todaysSessions.length > 0 ? (
-              <View style={styles.focusStats}>
-                <View style={styles.focusStatItem}>
-                  <Text style={styles.focusStatNumber}>{todaysSessions.length}</Text>
-                  <Text style={styles.focusStatLabel}>Sessions</Text>
-                </View>
-                <View style={styles.focusStatDivider} />
-                <View style={styles.focusStatItem}>
-                  <Text style={styles.focusStatNumber}>
-                    {todaysSessions.reduce((acc, s) => acc + s.duration, 0)}
-                  </Text>
-                  <Text style={styles.focusStatLabel}>Minutes</Text>
-                </View>
+            <Pressable 
+              style={styles.focusHeader}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setFocusCollapsed(!focusCollapsed);
+              }}
+            >
+              <View>
+                <Text style={styles.focusLabel}>TODAY</Text>
+                <Text style={styles.focusDate}>
+                  {today.toLocaleDateString("en-US", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                  })}
+                </Text>
               </View>
-            ) : (
-              <Pressable
-                style={styles.focusCta}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  handleNavigate("Players");
-                }}
-              >
-                <Ionicons name="trending-up-outline" size={16} color={Colors.dark.primary} />
-                <Text style={styles.focusCtaText}>Review player progress</Text>
-              </Pressable>
+              <Ionicons 
+                name={focusCollapsed ? "chevron-down" : "chevron-up"} 
+                size={18} 
+                color={Colors.dark.tabIconDefault} 
+              />
+            </Pressable>
+
+            {focusCollapsed ? null : (
+              <>
+                {/* Main Focus State */}
+                <View style={styles.focusMain}>
+                  {currentSession ? (
+                    <View style={styles.liveIndicator}>
+                      <View style={styles.liveDot} />
+                      <Text style={styles.liveText}>IN PROGRESS</Text>
+                    </View>
+                  ) : null}
+                  <Text style={styles.focusPrimary}>{focusMessage.primary}</Text>
+                  <Text style={styles.focusSecondary}>{focusMessage.secondary}</Text>
+                </View>
+
+                {/* Stats Row (only if sessions exist) */}
+                {todaysSessions.length > 0 ? (
+                  <View style={styles.focusStats}>
+                    <View style={styles.focusStatItem}>
+                      <Text style={styles.focusStatNumber}>{todaysSessions.length}</Text>
+                      <Text style={styles.focusStatLabel}>Sessions</Text>
+                    </View>
+                    <View style={styles.focusStatDivider} />
+                    <View style={styles.focusStatItem}>
+                      <Text style={styles.focusStatNumber}>
+                        {todaysSessions.reduce((acc, s) => acc + s.duration, 0)}
+                      </Text>
+                      <Text style={styles.focusStatLabel}>Minutes</Text>
+                    </View>
+                  </View>
+                ) : (
+                  <Pressable
+                    style={styles.focusCta}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      handleNavigate("Players");
+                    }}
+                  >
+                    <Ionicons name="trending-up-outline" size={16} color={Colors.dark.primary} />
+                    <Text style={styles.focusCtaText}>Review player progress</Text>
+                  </Pressable>
+                )}
+              </>
             )}
           </LinearGradient>
         </View>
 
         {/* Stamina & Impact Card */}
         <View style={styles.energyCard}>
-          <View style={styles.energyHeader}>
+          <Pressable 
+            style={styles.energyHeader}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setEnergyCollapsed(!energyCollapsed);
+            }}
+          >
             <View style={styles.energyTitleRow}>
               <Ionicons name="flash-outline" size={18} color={Colors.dark.primary} />
               <Text style={styles.energyTitle}>Energy</Text>
@@ -468,8 +496,15 @@ export default function DashboardScreen() {
                   : coachStats.energyState.charAt(0).toUpperCase() + coachStats.energyState.slice(1)}
               </Text>
             </View>
-          </View>
+            <Ionicons 
+              name={energyCollapsed ? "chevron-down" : "chevron-up"} 
+              size={18} 
+              color={Colors.dark.tabIconDefault} 
+            />
+          </Pressable>
 
+          {energyCollapsed ? null : (
+          <>
           <View style={styles.energyBarsContainer}>
             {/* Stamina Bar */}
             <View style={styles.energyBarRow}>
@@ -529,25 +564,60 @@ export default function DashboardScreen() {
               ? `Impact updates after sessions · ${coachStats.totalMinutes}m scheduled`
               : "Ready for action"}
           </Text>
+          </>
+          )}
         </View>
 
         {/* Burnout Risk & Load Forecast */}
         <View style={styles.insightsSection}>
-          <Text style={styles.sectionTitle}>Insights</Text>
-          <BurnoutRiskCard />
-          <LoadForecastCard 
-            onDayPress={(date) => {
+          <Pressable 
+            style={styles.collapsibleHeader}
+            onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              handleNavigate("Calendar");
+              setInsightsCollapsed(!insightsCollapsed);
             }}
-          />
+          >
+            <Text style={styles.sectionTitle}>Insights</Text>
+            <Ionicons 
+              name={insightsCollapsed ? "chevron-down" : "chevron-up"} 
+              size={18} 
+              color={Colors.dark.tabIconDefault} 
+            />
+          </Pressable>
+          {insightsCollapsed ? null : (
+            <>
+              <BurnoutRiskCard />
+              <LoadForecastCard 
+                onDayPress={(date) => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  handleNavigate("Calendar");
+                }}
+              />
+            </>
+          )}
         </View>
 
         {/* Alerts */}
         {alerts.length > 0 ? (
           <View style={styles.alertsSection}>
-            <Text style={styles.sectionTitle}>Alerts</Text>
-            {alerts.map((alert) => (
+            <Pressable 
+              style={styles.collapsibleHeader}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setAlertsCollapsed(!alertsCollapsed);
+              }}
+            >
+              <Text style={styles.sectionTitle}>Alerts</Text>
+              <View style={styles.collapsibleToggle}>
+                <Text style={styles.collapsibleCount}>{alerts.length}</Text>
+                <Ionicons 
+                  name={alertsCollapsed ? "chevron-down" : "chevron-up"} 
+                  size={18} 
+                  color={Colors.dark.tabIconDefault} 
+                />
+              </View>
+            </Pressable>
+            {alertsCollapsed ? null : alerts.map((alert) => (
               <Pressable 
                 key={alert.id} 
                 style={styles.alertCard}
@@ -587,15 +657,30 @@ export default function DashboardScreen() {
         {/* Today's Timeline */}
         {todaysSessions.length > 0 ? (
           <View style={styles.sessionsSection}>
-            <Text style={styles.sectionTitle}>Today's Timeline</Text>
-            <View style={styles.timelineCard}>
-              <MiniTimeline
-                sessions={todaysSessions.map(s => ({
-                  ...s,
-                  players: (s as any).players || [],
-                }))}
+            <Pressable 
+              style={styles.collapsibleHeader}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setTimelineCollapsed(!timelineCollapsed);
+              }}
+            >
+              <Text style={styles.sectionTitle}>Today's Timeline</Text>
+              <Ionicons 
+                name={timelineCollapsed ? "chevron-down" : "chevron-up"} 
+                size={18} 
+                color={Colors.dark.tabIconDefault} 
               />
-            </View>
+            </Pressable>
+            {timelineCollapsed ? null : (
+              <View style={styles.timelineCard}>
+                <MiniTimeline
+                  sessions={todaysSessions.map(s => ({
+                    ...s,
+                    players: (s as any).players || [],
+                  }))}
+                />
+              </View>
+            )}
           </View>
         ) : null}
 
@@ -870,6 +955,9 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   focusHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: Spacing.md,
   },
   focusLabel: {
