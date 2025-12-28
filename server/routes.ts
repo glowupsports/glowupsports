@@ -5669,6 +5669,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: coach.id,
           name: coach.name,
           avatar: null,
+          yearsExperience: coach.yearsExperience,
+          philosophyTags: coach.philosophyTags || [],
+          publicQuote: coach.bioStatus === "approved" ? coach.publicQuote : null,
+          bioApproved: coach.bioStatus === "approved",
         } : null,
         academy: academy ? {
           id: academy.id,
@@ -6181,6 +6185,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching coach profile:", error);
       res.status(500).json({ error: "Failed to fetch coach profile" });
+    }
+  });
+
+  // Get pending coach bios for review (Platform Owner only)
+  app.get("/api/platform/pending-bios", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const allCoaches = await storage.getAllCoaches();
+      const pendingBios = allCoaches.filter((coach: any) => coach.bioStatus === "pending_approval");
+      
+      // Enrich with academy names
+      const enrichedBios = await Promise.all(
+        pendingBios.map(async (coach: any) => {
+          let academyName = null;
+          if (coach.academyId) {
+            const academy = await storage.getAcademy(coach.academyId);
+            academyName = academy?.name;
+          }
+          return {
+            id: coach.id,
+            name: coach.name,
+            email: coach.email,
+            academy: academyName,
+            yearsExperience: coach.yearsExperience,
+            backgroundTags: coach.backgroundTags || [],
+            philosophyTags: coach.philosophyTags || [],
+            publicQuote: coach.publicQuote,
+            submittedAt: coach.onboardingCompletedAt,
+          };
+        })
+      );
+      
+      res.json({ pendingBios: enrichedBios });
+    } catch (error) {
+      console.error("Error fetching pending bios:", error);
+      res.status(500).json({ error: "Failed to fetch pending bios" });
+    }
+  });
+
+  // Approve or reject coach bio (Platform Owner only)
+  app.post("/api/platform/review-bio/:coachId", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { coachId } = req.params;
+      const { action, rejectionReason } = req.body;
+
+      if (!["approve", "reject"].includes(action)) {
+        return res.status(400).json({ error: "Invalid action. Use 'approve' or 'reject'" });
+      }
+
+      const coach = await storage.getCoach(coachId);
+      if (!coach) {
+        return res.status(404).json({ error: "Coach not found" });
+      }
+
+      const updatedCoach = await storage.updateCoach(coachId, {
+        bioStatus: action === "approve" ? "approved" : "rejected",
+        bioReviewedAt: new Date(),
+        bioReviewedBy: req.user!.id,
+        bioRejectionReason: action === "reject" ? rejectionReason : null,
+      });
+
+      res.json({ success: true, coach: updatedCoach });
+    } catch (error) {
+      console.error("Error reviewing bio:", error);
+      res.status(500).json({ error: "Failed to review bio" });
     }
   });
 

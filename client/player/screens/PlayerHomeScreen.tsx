@@ -23,6 +23,10 @@ interface DashboardData {
     id: string;
     name: string;
     avatar?: string | null;
+    yearsExperience?: number;
+    philosophyTags?: string[];
+    publicQuote?: string | null;
+    bioApproved?: boolean;
   } | null;
   academy: {
     id: string;
@@ -537,14 +541,36 @@ export default function PlayerHomeScreen() {
               <Text style={styles.academyName}>{academy.name}</Text>
             </View>
             {coach ? (
-              <View style={styles.coachInfo}>
-                <View style={styles.coachAvatar}>
-                  <Text style={styles.coachAvatarText}>{coach.name.charAt(0)}</Text>
+              <View style={styles.coachSection}>
+                <View style={styles.coachInfo}>
+                  <View style={styles.coachAvatar}>
+                    <Text style={styles.coachAvatarText}>{coach.name.charAt(0)}</Text>
+                  </View>
+                  <View style={styles.coachDetails}>
+                    <Text style={styles.coachLabel}>Your Coach</Text>
+                    <Text style={styles.coachName}>{coach.name}</Text>
+                    {coach.yearsExperience ? (
+                      <Text style={styles.coachExperience}>
+                        {coach.yearsExperience} experience
+                      </Text>
+                    ) : null}
+                  </View>
                 </View>
-                <View>
-                  <Text style={styles.coachLabel}>Your Coach</Text>
-                  <Text style={styles.coachName}>{coach.name}</Text>
-                </View>
+                {coach.philosophyTags && coach.philosophyTags.length > 0 ? (
+                  <View style={styles.coachPhilosophy}>
+                    {coach.philosophyTags.slice(0, 3).map((tag, i) => (
+                      <View key={i} style={styles.philosophyTag}>
+                        <Text style={styles.philosophyTagText}>{tag}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+                {coach.publicQuote && coach.bioApproved ? (
+                  <View style={styles.coachQuote}>
+                    <Ionicons name="chatbubble-ellipses" size={14} color={Colors.dark.textMuted} />
+                    <Text style={styles.coachQuoteText}>"{coach.publicQuote}"</Text>
+                  </View>
+                ) : null}
               </View>
             ) : null}
           </View>
@@ -832,6 +858,49 @@ const styles = StyleSheet.create({
   coachName: {
     ...Typography.body,
     color: Colors.dark.text,
+  },
+  coachSection: {
+    marginTop: Spacing.sm,
+  },
+  coachDetails: {
+    flex: 1,
+  },
+  coachExperience: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  coachPhilosophy: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: Spacing.sm,
+  },
+  philosophyTag: {
+    backgroundColor: "rgba(46, 204, 64, 0.1)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+  },
+  philosophyTagText: {
+    ...Typography.small,
+    fontSize: 11,
+    color: Colors.dark.primary,
+  },
+  coachQuote: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+    backgroundColor: Colors.dark.backgroundRoot,
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  coachQuoteText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontStyle: "italic",
+    flex: 1,
   },
   peersSection: {
     marginHorizontal: Spacing.xl,

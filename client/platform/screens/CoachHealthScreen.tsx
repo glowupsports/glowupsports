@@ -1,11 +1,120 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 
 const PLATFORM_COLOR = "#9B59B6";
+
+interface PendingBio {
+  id: string;
+  name: string;
+  email: string;
+  academy?: string;
+  yearsExperience?: number;
+  backgroundTags: string[];
+  philosophyTags: string[];
+  publicQuote?: string;
+  submittedAt?: string;
+}
+
+interface PendingBioRowProps {
+  bio: PendingBio;
+  onApprove: (id: string) => void;
+  onReject: (id: string) => void;
+  isLoading: boolean;
+}
+
+function PendingBioRow({ bio, onApprove, onReject, isLoading }: PendingBioRowProps) {
+  const experienceLabel = bio.yearsExperience 
+    ? bio.yearsExperience.toString()
+    : "Not specified";
+
+  return (
+    <View style={styles.bioRow}>
+      <View style={styles.bioHeader}>
+        <View style={styles.bioAvatar}>
+          <Ionicons name="person" size={20} color={PLATFORM_COLOR} />
+        </View>
+        <View style={styles.bioInfo}>
+          <Text style={styles.bioName}>{bio.name}</Text>
+          <Text style={styles.bioAcademy}>{bio.academy || "No academy"}</Text>
+        </View>
+        <View style={styles.pendingBadge}>
+          <Text style={styles.pendingBadgeText}>Pending</Text>
+        </View>
+      </View>
+      
+      <View style={styles.bioDetails}>
+        <View style={styles.bioDetailRow}>
+          <Text style={styles.bioLabel}>Experience:</Text>
+          <Text style={styles.bioValue}>{experienceLabel}</Text>
+        </View>
+        
+        {bio.backgroundTags.length > 0 ? (
+          <View style={styles.bioDetailRow}>
+            <Text style={styles.bioLabel}>Background:</Text>
+            <View style={styles.tagsRow}>
+              {bio.backgroundTags.slice(0, 3).map((tag, i) => (
+                <View key={i} style={styles.tag}>
+                  <Text style={styles.tagText}>{tag}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+        
+        {bio.philosophyTags.length > 0 ? (
+          <View style={styles.bioDetailRow}>
+            <Text style={styles.bioLabel}>Philosophy:</Text>
+            <View style={styles.tagsRow}>
+              {bio.philosophyTags.slice(0, 2).map((tag, i) => (
+                <View key={i} style={styles.tag}>
+                  <Text style={styles.tagText}>{tag}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+        
+        {bio.publicQuote ? (
+          <View style={styles.quoteBox}>
+            <Ionicons name="chatbubble-ellipses" size={14} color={Colors.dark.textMuted} />
+            <Text style={styles.quoteText}>"{bio.publicQuote}"</Text>
+          </View>
+        ) : null}
+      </View>
+      
+      <View style={styles.bioActions}>
+        <Pressable 
+          style={[styles.actionButton, styles.rejectButton]}
+          onPress={() => onReject(bio.id)}
+          disabled={isLoading}
+        >
+          <Ionicons name="close" size={16} color={Colors.dark.error} />
+          <Text style={[styles.actionButtonText, { color: Colors.dark.error }]}>Reject</Text>
+        </Pressable>
+        <Pressable 
+          style={[styles.actionButton, styles.approveButton]}
+          onPress={() => onApprove(bio.id)}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator size="small" color={Colors.dark.primary} />
+          ) : (
+            <>
+              <Ionicons name="checkmark" size={16} color={Colors.dark.primary} />
+              <Text style={[styles.actionButtonText, { color: Colors.dark.primary }]}>Approve</Text>
+            </>
+          )}
+        </Pressable>
+      </View>
+    </View>
+  );
+}
 
 interface CoachRowProps {
   name: string;
@@ -63,6 +172,45 @@ function CoachRow({ name, academy, sessions, players, xpAwarded, burnoutRisk, la
 
 export default function CoachHealthScreen() {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+
+  const { data: pendingBiosData, isLoading: loadingPendingBios } = useQuery<{ pendingBios: PendingBio[] }>({
+    queryKey: ["/api/platform/pending-bios"],
+  });
+
+  const reviewMutation = useMutation({
+    mutationFn: async ({ coachId, action, rejectionReason }: { coachId: string; action: "approve" | "reject"; rejectionReason?: string }) => {
+      return apiRequest("POST", `/api/platform/review-bio/${coachId}`, { action, rejectionReason });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/platform/pending-bios"] });
+    },
+  });
+
+  const handleApprove = (coachId: string) => {
+    reviewMutation.mutate({ coachId, action: "approve" });
+  };
+
+  const handleReject = (coachId: string) => {
+    const showRejectDialog = () => {
+      if (Platform.OS === "web") {
+        const reason = window.prompt("Enter rejection reason (optional):");
+        reviewMutation.mutate({ coachId, action: "reject", rejectionReason: reason || undefined });
+      } else {
+        Alert.alert(
+          "Reject Bio",
+          "Are you sure you want to reject this coach bio?",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Reject", style: "destructive", onPress: () => {
+              reviewMutation.mutate({ coachId, action: "reject" });
+            }},
+          ]
+        );
+      }
+    };
+    showRejectDialog();
+  };
 
   const healthStats = {
     totalCoaches: 47,
@@ -81,6 +229,7 @@ export default function CoachHealthScreen() {
   ];
 
   const atRiskCoaches = coaches.filter(c => c.burnoutRisk === "high" || c.burnoutRisk === "medium");
+  const pendingBios = pendingBiosData?.pendingBios || [];
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -96,8 +245,35 @@ export default function CoachHealthScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.title}>Coach Health</Text>
-          <Text style={styles.subtitle}>Monitor coach workload and burnout risk</Text>
+          <Text style={styles.subtitle}>Monitor coach workload and bio approvals</Text>
         </View>
+
+        {pendingBios.length > 0 ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="document-text" size={20} color={PLATFORM_COLOR} />
+              <Text style={styles.sectionTitle}>Pending Bio Reviews</Text>
+              <View style={styles.countBadge}>
+                <Text style={styles.countBadgeText}>{pendingBios.length}</Text>
+              </View>
+            </View>
+            <View style={[styles.coachesCard, CardStyles.elevated]}>
+              {pendingBios.map((bio) => (
+                <PendingBioRow 
+                  key={bio.id} 
+                  bio={bio} 
+                  onApprove={handleApprove}
+                  onReject={handleReject}
+                  isLoading={reviewMutation.isPending}
+                />
+              ))}
+            </View>
+          </View>
+        ) : loadingPendingBios ? (
+          <View style={styles.loadingSection}>
+            <ActivityIndicator size="small" color={PLATFORM_COLOR} />
+          </View>
+        ) : null}
 
         <View style={styles.statsGrid}>
           <View style={[styles.statCard, CardStyles.elevated]}>
@@ -189,6 +365,10 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.textMuted,
   },
+  loadingSection: {
+    padding: Spacing.xl,
+    alignItems: "center",
+  },
   statsGrid: {
     flexDirection: "row",
     gap: Spacing.md,
@@ -245,6 +425,18 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...Typography.h3,
     color: Colors.dark.text,
+  },
+  countBadge: {
+    backgroundColor: PLATFORM_COLOR,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  countBadgeText: {
+    ...Typography.small,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    fontSize: 11,
   },
   coachesCard: {
     backgroundColor: Colors.dark.backgroundSecondary,
@@ -310,5 +502,121 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     textAlign: "right",
     fontSize: 10,
+  },
+  bioRow: {
+    padding: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundRoot,
+  },
+  bioHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  bioAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(155, 89, 182, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: Spacing.md,
+  },
+  bioInfo: {
+    flex: 1,
+  },
+  bioName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  bioAcademy: {
+    ...Typography.small,
+    color: PLATFORM_COLOR,
+  },
+  pendingBadge: {
+    backgroundColor: "rgba(255, 215, 0, 0.2)",
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: BorderRadius.full,
+  },
+  pendingBadgeText: {
+    ...Typography.small,
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.gold,
+  },
+  bioDetails: {
+    marginBottom: Spacing.md,
+  },
+  bioDetailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.xs,
+  },
+  bioLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    width: 80,
+  },
+  bioValue: {
+    ...Typography.small,
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  tagsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+    flex: 1,
+  },
+  tag: {
+    backgroundColor: "rgba(155, 89, 182, 0.15)",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  tagText: {
+    ...Typography.small,
+    fontSize: 10,
+    color: PLATFORM_COLOR,
+  },
+  quoteBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundRoot,
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    marginTop: Spacing.sm,
+  },
+  quoteText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontStyle: "italic",
+    flex: 1,
+  },
+  bioActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: Spacing.md,
+  },
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: BorderRadius.sm,
+  },
+  rejectButton: {
+    backgroundColor: "rgba(255, 68, 68, 0.1)",
+  },
+  approveButton: {
+    backgroundColor: "rgba(46, 204, 64, 0.1)",
+  },
+  actionButtonText: {
+    ...Typography.small,
+    fontWeight: "600",
   },
 });
