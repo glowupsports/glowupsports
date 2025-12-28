@@ -20,6 +20,7 @@ import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { CoachStatusPanel } from "@/coach/components/CoachStatusPanel";
 import { BurnoutRiskCard } from "@/coach/components/BurnoutRiskCard";
 import { LoadForecastCard } from "@/coach/components/LoadForecastCard";
+import { AcademySwitcher } from "@/coach/components/AcademySwitcher";
 
 interface Session {
   id: string;
@@ -236,9 +237,7 @@ export default function DashboardScreen() {
           <View style={styles.headerLeft}>
             <Text style={styles.greeting}>{getGreeting()}</Text>
             <Text style={styles.coachName}>{coach.name}</Text>
-            {academy ? (
-              <Text style={styles.academyName}>{academy.name}</Text>
-            ) : null}
+            <AcademySwitcher />
             
             {/* Coach Level + XP Bar */}
             <View style={styles.xpContainer}>
