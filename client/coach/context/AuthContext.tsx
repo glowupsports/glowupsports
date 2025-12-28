@@ -7,7 +7,7 @@ import {
   setAuthToken,
   AuthUser 
 } from "@/lib/auth";
-import { useAppMode } from "@/context/AppModeContext";
+import { useAppMode, getModesForRole, getDefaultModeForRole } from "@/context/AppModeContext";
 
 interface Coach {
   id: string;
@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [coach, setCoach] = useState<Coach | null>(null);
   const [academy, setAcademy] = useState<Academy | null>(null);
-  const { setMode } = useAppMode();
+  const { setMode, setAvailableModes } = useAppMode();
 
   const fetchUserData = useCallback(async (token: string) => {
     try {
@@ -76,11 +76,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setCoach(data.coach);
         setAcademy(data.academy);
         
-        if (data.user?.role === "coach" || data.user?.role === "owner" || data.coach) {
-          setMode("coach");
-        } else if (data.user?.role === "player") {
-          setMode("player");
-        }
+        const userRole = data.user?.role || "player";
+        const availableModes = getModesForRole(userRole);
+        const defaultMode = getDefaultModeForRole(userRole);
+        setAvailableModes(availableModes);
+        setMode(defaultMode);
         
         return true;
       }
@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("[AuthContext] Failed to fetch user data:", error);
       return false;
     }
-  }, [setMode]);
+  }, [setMode, setAvailableModes]);
 
   useEffect(() => {
     let isMounted = true;
