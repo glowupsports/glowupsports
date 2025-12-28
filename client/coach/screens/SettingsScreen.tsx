@@ -9,6 +9,7 @@ import {
   Alert,
   TextInput,
   Modal,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -517,22 +518,30 @@ export default function SettingsScreen() {
             style={styles.logoutButton}
             onPress={() => {
               console.log("[SettingsScreen] Logout button pressed");
-              Alert.alert(
-                "Sign Out",
-                "Are you sure you want to sign out?",
-                [
-                  { text: "Cancel", style: "cancel" },
-                  {
-                    text: "Sign Out",
-                    style: "destructive",
-                    onPress: () => {
-                      console.log("[SettingsScreen] Confirmed logout");
-                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                      logout();
+              if (Platform.OS === "web") {
+                const confirmed = window.confirm("Are you sure you want to sign out?");
+                if (confirmed) {
+                  console.log("[SettingsScreen] Confirmed logout");
+                  logout();
+                }
+              } else {
+                Alert.alert(
+                  "Sign Out",
+                  "Are you sure you want to sign out?",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Sign Out",
+                      style: "destructive",
+                      onPress: () => {
+                        console.log("[SettingsScreen] Confirmed logout");
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        logout();
+                      },
                     },
-                  },
-                ]
-              );
+                  ]
+                );
+              }
             }}
           >
             <Ionicons name="log-out-outline" size={24} color={Colors.dark.error} />

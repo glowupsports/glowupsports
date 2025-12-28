@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -156,21 +156,28 @@ export default function PlayerSettingsScreen() {
         <Pressable 
           style={styles.logoutButton}
           onPress={() => {
-            Alert.alert(
-              "Sign Out",
-              "Are you sure you want to sign out?",
-              [
-                { text: "Cancel", style: "cancel" },
-                {
-                  text: "Sign Out",
-                  style: "destructive",
-                  onPress: () => {
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    logout();
+            if (Platform.OS === "web") {
+              const confirmed = window.confirm("Are you sure you want to sign out?");
+              if (confirmed) {
+                logout();
+              }
+            } else {
+              Alert.alert(
+                "Sign Out",
+                "Are you sure you want to sign out?",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Sign Out",
+                    style: "destructive",
+                    onPress: () => {
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      logout();
+                    },
                   },
-                },
-              ]
-            );
+                ]
+              );
+            }
           }}
         >
           <Ionicons name="log-out-outline" size={20} color={Colors.dark.error} />

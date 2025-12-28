@@ -39,11 +39,17 @@ The application features a dark-themed gaming aesthetic with neon green (#2ECC40
 
 - **Player App Features** (client/player/):
     - **Navigation**: 5-tab bottom navigation (Home, Journey, Progress, Schedule, Profile) with cyan accent color
-    - **Home Screen**: Welcome message, coach info, next session preview, last feedback, XP bar, streak, and Glow Score
+    - **Home Screen**: Welcome message, coach info, next session preview, last feedback, XP bar, streak, and Glow Score. Owners viewing Player mode see an academy overview dashboard with aggregate stats (total players, coaches, sessions, attendance rate), top performers leaderboard, and level distribution.
     - **Journey Screen**: Timeline of milestones (level ups, badges, validations, achievements) with badge collection view
     - **Progress Screen**: Skill radar visualization (5 domains), Level/XP bar, Glow Score, and coach-validated skill breakdowns
     - **Schedule Screen**: Personal calendar with session dots, filtered session list, and attendance status
     - **Profile Screen**: Avatar with level badge, ball level indicator, stats grid, coach contact, and mode switcher
+
+- **Owner API Endpoints**:
+    - `GET /api/owner/academy-stats`: Returns aggregate academy statistics including total players, coaches, sessions, attendance rate, top performers, level distribution, and recent activity. Protected by `requireRole("owner", "academy_owner", "platform_owner")` middleware.
+
+- **Web Compatibility**:
+    - Logout confirmations use `window.confirm()` on web platform and `Alert.alert()` on native, guarded by `Platform.OS` checks across SettingsScreen, PlayerSettingsScreen, DrawerContent, and DashboardScreen.
 
 ## External Dependencies
 

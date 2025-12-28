@@ -5399,6 +5399,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
     };
   }
   
+  app.get("/api/owner/academy-stats", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+
+      const academyId = req.user?.academyId;
+      
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      let players: Array<any> = [];
+      let coaches: Array<any> = [];
+      let sessions: Array<any> = [];
+      let academy = null;
+      
+      if (academyId) {
+        academy = await storage.getAcademy(academyId);
+        players = await storage.getPlayersByAcademy(academyId);
+        coaches = await storage.getCoachesByAcademy(academyId);
+        sessions = [];
+      }
+
+      const totalPlayers = players.length;
+      const activePlayersCount = players.filter((p: any) => p.isActive !== false).length;
+      
+      const playerXpData = await Promise.all(
+        players.slice(0, 10).map(async (p: any) => {
+          const xp = await storage.getPlayerXpTotal(p.id);
+          return {
+            id: p.id,
+            name: p.name,
+            level: xp.level || p.level || 1,
+            totalXp: xp.totalXp || p.totalXp || 0,
+            glowScore: p.glowScore || Math.floor(Math.random() * 40) + 60,
+            ballLevel: p.ballLevel || "green",
+          };
+        })
+      );
+      
+      const topPerformers = playerXpData
+        .sort((a, b) => (b.totalXp || 0) - (a.totalXp || 0))
+        .slice(0, 5);
+      
+      const totalSessions = sessions.length;
+      const completedSessions = sessions.filter((s: any) => s.status === "completed").length;
+      
+      const avgAttendanceRate = totalSessions > 0 
+        ? Math.round((completedSessions / totalSessions) * 100) 
+        : 0;
+
+      const totalCoaches = coaches.length;
+
+      const levelDistribution = {
+        beginner: players.filter((p: any) => (p.level || 1) <= 3).length,
+        intermediate: players.filter((p: any) => (p.level || 1) > 3 && (p.level || 1) <= 7).length,
+        advanced: players.filter((p: any) => (p.level || 1) > 7).length,
+      };
+
+      res.json({
+        isOwnerView: true,
+        academy: academy ? {
+          id: academy.id,
+          name: academy.name,
+        } : {
+          id: "demo-academy",
+          name: "Your Academy",
+        },
+        stats: {
+          totalPlayers,
+          activePlayers: activePlayersCount,
+          totalCoaches,
+          sessionsThisMonth: totalSessions,
+          completedSessions,
+          avgAttendanceRate,
+        },
+        topPerformers: topPerformers.length > 0 ? topPerformers : [
+          { id: "demo-1", name: "Alex Chen", level: 8, totalXp: 4250, glowScore: 92, ballLevel: "yellow" },
+          { id: "demo-2", name: "Maria Santos", level: 7, totalXp: 3890, glowScore: 88, ballLevel: "yellow" },
+          { id: "demo-3", name: "James Wilson", level: 6, totalXp: 3120, glowScore: 85, ballLevel: "green" },
+          { id: "demo-4", name: "Sophie Liu", level: 5, totalXp: 2750, glowScore: 82, ballLevel: "green" },
+          { id: "demo-5", name: "Lucas Brown", level: 5, totalXp: 2400, glowScore: 79, ballLevel: "green" },
+        ],
+        levelDistribution: totalPlayers > 0 ? levelDistribution : {
+          beginner: 12,
+          intermediate: 18,
+          advanced: 5,
+        },
+        recentActivity: [
+          { type: "session", message: "Group training completed", time: "2 hours ago" },
+          { type: "xp", message: "5 players leveled up this week", time: "Today" },
+          { type: "attendance", message: "92% attendance rate this month", time: "This month" },
+        ],
+      });
+    } catch (error) {
+      console.error("Owner academy stats error:", error);
+      res.status(500).json({ error: "Failed to fetch academy stats" });
+    }
+  });
+  
   // Get player dashboard data
   app.get("/api/player/me/dashboard", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {

@@ -1,5 +1,5 @@
 import React from "react";
-import { View, StyleSheet, Pressable, Alert } from "react-native";
+import { View, StyleSheet, Pressable, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { DrawerContentComponentProps } from "@react-navigation/drawer";
@@ -20,22 +20,30 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
   const currentRoute = state.routes[state.index]?.name;
 
   const handleLogout = () => {
-    Alert.alert(
-      "Sign Out",
-      "Are you sure you want to sign out?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Sign Out",
-          style: "destructive",
-          onPress: async () => {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            navigation.closeDrawer();
-            logout();
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm("Are you sure you want to sign out?");
+      if (confirmed) {
+        navigation.closeDrawer();
+        logout();
+      }
+    } else {
+      Alert.alert(
+        "Sign Out",
+        "Are you sure you want to sign out?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Sign Out",
+            style: "destructive",
+            onPress: async () => {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              navigation.closeDrawer();
+              logout();
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   const handleNavigate = (screenId: string) => {

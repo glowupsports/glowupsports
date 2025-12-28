@@ -64,6 +64,40 @@ interface PeersData {
   totalAtLevel: number;
 }
 
+interface OwnerAcademyStats {
+  isOwnerView: boolean;
+  academy: {
+    id: string;
+    name: string;
+  };
+  stats: {
+    totalPlayers: number;
+    activePlayers: number;
+    totalCoaches: number;
+    sessionsThisMonth: number;
+    completedSessions: number;
+    avgAttendanceRate: number;
+  };
+  topPerformers: Array<{
+    id: string;
+    name: string;
+    level: number;
+    totalXp: number;
+    glowScore: number;
+    ballLevel: string;
+  }>;
+  levelDistribution: {
+    beginner: number;
+    intermediate: number;
+    advanced: number;
+  };
+  recentActivity: Array<{
+    type: string;
+    message: string;
+    time: string;
+  }>;
+}
+
 function XPBar({ current, max, level }: { current: number; max: number; level: number }) {
   const progress = Math.min(current / max, 1);
   
@@ -107,6 +141,41 @@ function PeerCard({ peer, onPress }: { peer: Peer; onPress: () => void }) {
   );
 }
 
+function OwnerStatCard({ label, value, icon, color }: { label: string; value: string | number; icon: string; color: string }) {
+  return (
+    <View style={ownerStyles.statCard}>
+      <View style={[ownerStyles.statIcon, { backgroundColor: `${color}20` }]}>
+        <Ionicons name={icon as any} size={20} color={color} />
+      </View>
+      <Text style={[ownerStyles.statValue, { color }]}>{value}</Text>
+      <Text style={ownerStyles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function TopPerformerCard({ performer, rank }: { performer: OwnerAcademyStats["topPerformers"][0]; rank: number }) {
+  const rankColor = rank === 1 ? Colors.dark.gold : rank === 2 ? "#C0C0C0" : rank === 3 ? "#CD7F32" : Colors.dark.textMuted;
+  
+  return (
+    <View style={ownerStyles.performerCard}>
+      <View style={ownerStyles.performerRank}>
+        <Text style={[ownerStyles.rankNumber, { color: rankColor }]}>{rank}</Text>
+      </View>
+      <View style={ownerStyles.performerAvatar}>
+        <Text style={ownerStyles.performerAvatarText}>{performer.name.charAt(0)}</Text>
+      </View>
+      <View style={ownerStyles.performerInfo}>
+        <Text style={ownerStyles.performerName} numberOfLines={1}>{performer.name}</Text>
+        <Text style={ownerStyles.performerLevel}>Lv.{performer.level} - {performer.totalXp.toLocaleString()} XP</Text>
+      </View>
+      <View style={ownerStyles.performerGlow}>
+        <Ionicons name="flash" size={12} color={Colors.dark.xpCyan} />
+        <Text style={ownerStyles.performerGlowText}>{performer.glowScore}</Text>
+      </View>
+    </View>
+  );
+}
+
 export default function PlayerHomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -118,12 +187,17 @@ export default function PlayerHomeScreen() {
   
   const { data, isLoading, error } = useQuery<DashboardData>({
     queryKey: ["/api/player/me/dashboard"],
-    enabled: canAccessPlayerMode,
+    enabled: canAccessPlayerMode && !isOwner,
+  });
+  
+  const { data: ownerStats, isLoading: ownerLoading, error: ownerError } = useQuery<OwnerAcademyStats>({
+    queryKey: ["/api/owner/academy-stats"],
+    enabled: isOwner,
   });
   
   const { data: peersData } = useQuery<PeersData>({
     queryKey: ["/api/player/me/peers"],
-    enabled: canAccessPlayerMode,
+    enabled: canAccessPlayerMode && !isOwner,
   });
 
   const handlePeerPress = (peer: Peer) => {
@@ -137,6 +211,160 @@ export default function PlayerHomeScreen() {
         <Text style={styles.errorText}>Player Mode</Text>
         <Text style={styles.errorSubtext}>Sign in with a player or owner account to view this dashboard</Text>
         <ModeSwitcher />
+      </View>
+    );
+  }
+
+  if (isOwner && ownerLoading) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={Colors.dark.gold} />
+        <Text style={styles.loadingText}>Loading academy overview...</Text>
+      </View>
+    );
+  }
+
+  if (isOwner && ownerError) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <View style={styles.modeSwitcherContainer}>
+          <ModeSwitcher />
+        </View>
+        <Ionicons name="alert-circle" size={48} color={Colors.dark.error} />
+        <Text style={styles.errorText}>Unable to load academy stats</Text>
+        <Text style={styles.errorSubtext}>Please try again later</Text>
+      </View>
+    );
+  }
+
+  if (isOwner && ownerStats) {
+    const { stats, topPerformers, levelDistribution, recentActivity, academy } = ownerStats;
+    const totalDistribution = levelDistribution.beginner + levelDistribution.intermediate + levelDistribution.advanced;
+    
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.modeSwitcherContainer}>
+          <ModeSwitcher />
+        </View>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={ownerStyles.header}>
+            <View style={ownerStyles.ownerBadge}>
+              <Ionicons name="business" size={14} color={Colors.dark.gold} />
+              <Text style={ownerStyles.ownerBadgeText}>Academy Overview</Text>
+            </View>
+            <View style={ownerStyles.headerTop}>
+              <View>
+                <Text style={ownerStyles.greeting}>Welcome, Owner</Text>
+                <Text style={ownerStyles.academyName}>{academy.name}</Text>
+              </View>
+              <View style={ownerStyles.avatarContainer}>
+                <LinearGradient
+                  colors={[Colors.dark.gold, Colors.dark.orange]}
+                  style={ownerStyles.avatarGradient}
+                >
+                  <View style={ownerStyles.avatarInner}>
+                    <Ionicons name="school" size={24} color={Colors.dark.gold} />
+                  </View>
+                </LinearGradient>
+              </View>
+            </View>
+          </View>
+
+          <View style={ownerStyles.statsGrid}>
+            <OwnerStatCard 
+              label="Players" 
+              value={stats.totalPlayers} 
+              icon="people" 
+              color={Colors.dark.xpCyan} 
+            />
+            <OwnerStatCard 
+              label="Coaches" 
+              value={stats.totalCoaches} 
+              icon="person" 
+              color={Colors.dark.primary} 
+            />
+            <OwnerStatCard 
+              label="Sessions" 
+              value={stats.sessionsThisMonth} 
+              icon="calendar" 
+              color={Colors.dark.orange} 
+            />
+            <OwnerStatCard 
+              label="Attendance" 
+              value={`${stats.avgAttendanceRate}%`} 
+              icon="checkmark-circle" 
+              color={Colors.dark.successNeon} 
+            />
+          </View>
+
+          <View style={ownerStyles.section}>
+            <View style={ownerStyles.sectionHeader}>
+              <Ionicons name="trophy" size={18} color={Colors.dark.gold} />
+              <Text style={ownerStyles.sectionTitle}>Top Performers</Text>
+            </View>
+            <View style={ownerStyles.performersCard}>
+              {topPerformers.map((performer, index) => (
+                <TopPerformerCard key={performer.id} performer={performer} rank={index + 1} />
+              ))}
+            </View>
+          </View>
+
+          <View style={ownerStyles.section}>
+            <View style={ownerStyles.sectionHeader}>
+              <Ionicons name="bar-chart" size={18} color={Colors.dark.xpCyan} />
+              <Text style={ownerStyles.sectionTitle}>Level Distribution</Text>
+            </View>
+            <View style={ownerStyles.distributionCard}>
+              <View style={ownerStyles.distributionRow}>
+                <Text style={ownerStyles.distributionLabel}>Beginner (Lv.1-3)</Text>
+                <View style={ownerStyles.distributionBar}>
+                  <View style={[ownerStyles.distributionFill, { width: `${(levelDistribution.beginner / totalDistribution) * 100}%`, backgroundColor: Colors.dark.primary }]} />
+                </View>
+                <Text style={ownerStyles.distributionValue}>{levelDistribution.beginner}</Text>
+              </View>
+              <View style={ownerStyles.distributionRow}>
+                <Text style={ownerStyles.distributionLabel}>Intermediate (Lv.4-7)</Text>
+                <View style={ownerStyles.distributionBar}>
+                  <View style={[ownerStyles.distributionFill, { width: `${(levelDistribution.intermediate / totalDistribution) * 100}%`, backgroundColor: Colors.dark.xpCyan }]} />
+                </View>
+                <Text style={ownerStyles.distributionValue}>{levelDistribution.intermediate}</Text>
+              </View>
+              <View style={ownerStyles.distributionRow}>
+                <Text style={ownerStyles.distributionLabel}>Advanced (Lv.8+)</Text>
+                <View style={ownerStyles.distributionBar}>
+                  <View style={[ownerStyles.distributionFill, { width: `${(levelDistribution.advanced / totalDistribution) * 100}%`, backgroundColor: Colors.dark.gold }]} />
+                </View>
+                <Text style={ownerStyles.distributionValue}>{levelDistribution.advanced}</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={ownerStyles.section}>
+            <View style={ownerStyles.sectionHeader}>
+              <Ionicons name="time" size={18} color={Colors.dark.textMuted} />
+              <Text style={ownerStyles.sectionTitle}>Recent Activity</Text>
+            </View>
+            <View style={ownerStyles.activityCard}>
+              {recentActivity.map((activity, index) => (
+                <View key={index} style={ownerStyles.activityRow}>
+                  <Ionicons 
+                    name={activity.type === "session" ? "calendar" : activity.type === "xp" ? "trending-up" : "checkmark-circle"} 
+                    size={16} 
+                    color={Colors.dark.xpCyan} 
+                  />
+                  <View style={ownerStyles.activityInfo}>
+                    <Text style={ownerStyles.activityMessage}>{activity.message}</Text>
+                    <Text style={ownerStyles.activityTime}>{activity.time}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        </ScrollView>
       </View>
     );
   }
@@ -187,15 +415,9 @@ export default function PlayerHomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          {isOwner && (
-            <View style={styles.ownerBadge}>
-              <Ionicons name="eye" size={14} color={Colors.dark.gold} />
-              <Text style={styles.ownerBadgeText}>Owner Preview</Text>
-            </View>
-          )}
           <View style={styles.headerTop}>
             <View>
-              <Text style={styles.greeting}>{isOwner ? "Academy Overview" : "Welcome back,"}</Text>
+              <Text style={styles.greeting}>Welcome back,</Text>
               <Text style={styles.playerName}>{player.name}</Text>
             </View>
             <View style={styles.avatarContainer}>
@@ -689,5 +911,220 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.gold,
     fontWeight: "600",
+  },
+});
+
+const ownerStyles = StyleSheet.create({
+  header: {
+    padding: Spacing.xl,
+    paddingBottom: Spacing.lg,
+  },
+  ownerBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: "rgba(255, 215, 0, 0.2)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    alignSelf: "flex-start",
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 215, 0, 0.3)",
+  },
+  ownerBadgeText: {
+    ...Typography.caption,
+    color: Colors.dark.gold,
+    fontWeight: "700",
+  },
+  headerTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  greeting: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.xs,
+  },
+  academyName: {
+    ...Typography.h2,
+    color: Colors.dark.gold,
+  },
+  avatarContainer: {
+    width: 56,
+    height: 56,
+  },
+  avatarGradient: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    padding: 2,
+  },
+  avatarInner: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: 26,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    gap: Spacing.md,
+  },
+  statCard: {
+    width: "47%",
+    ...CardStyles.elevated,
+    padding: Spacing.lg,
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  statIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.xs,
+  },
+  statValue: {
+    ...Typography.h2,
+    fontWeight: "700",
+  },
+  statLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  section: {
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  sectionTitle: {
+    ...Typography.h4,
+    color: Colors.dark.text,
+  },
+  performersCard: {
+    ...CardStyles.elevated,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  performerCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+  },
+  performerRank: {
+    width: 24,
+    alignItems: "center",
+  },
+  rankNumber: {
+    ...Typography.h4,
+    fontWeight: "700",
+  },
+  performerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.primary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  performerAvatarText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  performerInfo: {
+    flex: 1,
+  },
+  performerName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  performerLevel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  performerGlow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(0, 212, 255, 0.15)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  performerGlowText: {
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+  },
+  distributionCard: {
+    ...CardStyles.elevated,
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  distributionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  distributionLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    width: 130,
+  },
+  distributionBar: {
+    flex: 1,
+    height: 8,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  distributionFill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  distributionValue: {
+    ...Typography.caption,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    width: 24,
+    textAlign: "right",
+  },
+  activityCard: {
+    ...CardStyles.elevated,
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  activityRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.md,
+  },
+  activityInfo: {
+    flex: 1,
+  },
+  activityMessage: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  activityTime: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
   },
 });
