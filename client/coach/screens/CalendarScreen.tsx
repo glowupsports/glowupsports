@@ -527,9 +527,18 @@ export default function CalendarScreen() {
     originalCourtId: string | null;
   } | null>(null);
   const [dragConflict, setDragConflict] = useState<string | null>(null);
+  const [selectedCourtFilter, setSelectedCourtFilter] = useState<string | null>(null); // null = all courts
   
   const hourHeight = timeGrid === 30 ? HOUR_HEIGHT_30 : HOUR_HEIGHT_60;
-  const courts = calendarData?.courts || [];
+  const allCourts = calendarData?.courts || [];
+  const courts = selectedCourtFilter 
+    ? allCourts.filter(c => c.id === selectedCourtFilter) 
+    : allCourts;
+  
+  // Calculate dynamic lane width based on number of visible courts
+  const dynamicLaneWidth = courts.length === 1 
+    ? SCREEN_WIDTH - TIME_COLUMN_WIDTH - Spacing.lg * 2 
+    : COURT_LANE_WIDTH;
 
   // Handle deep linking from Dashboard quick actions
   useEffect(() => {
@@ -1295,11 +1304,59 @@ export default function CalendarScreen() {
       {/* DAY VIEW */}
       {viewMode === "day" && (
         <>
+          {/* Court Filter */}
+          {allCourts.length > 1 && (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.courtFilterContainer}
+              contentContainerStyle={styles.courtFilterContent}
+            >
+              <Pressable
+                style={[
+                  styles.courtFilterChip,
+                  !selectedCourtFilter && styles.courtFilterChipActive,
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedCourtFilter(null);
+                }}
+              >
+                <Text style={[
+                  styles.courtFilterText,
+                  !selectedCourtFilter && styles.courtFilterTextActive,
+                ]}>All Courts</Text>
+              </Pressable>
+              {allCourts.map((court) => (
+                <Pressable
+                  key={court.id}
+                  style={[
+                    styles.courtFilterChip,
+                    selectedCourtFilter === court.id && styles.courtFilterChipActive,
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelectedCourtFilter(court.id);
+                  }}
+                >
+                  <Text style={[
+                    styles.courtFilterText,
+                    selectedCourtFilter === court.id && styles.courtFilterTextActive,
+                  ]}>{court.name}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          )}
+
           {/* Court Headers */}
           <View style={styles.courtHeaders}>
             <View style={styles.timeColumnHeader} />
-            {courts.map((court) => (
-              <View key={court.id} style={styles.courtHeader}>
+            {courts.map((court, index) => (
+              <View key={court.id} style={[
+                styles.courtHeader,
+                { width: dynamicLaneWidth },
+                index > 0 && styles.courtHeaderWithDivider,
+              ]}>
                 <Text style={styles.courtHeaderText}>{court.name}</Text>
               </View>
             ))}
@@ -1320,7 +1377,11 @@ export default function CalendarScreen() {
               {/* Court Lanes */}
               <View style={styles.courtLanesContainer}>
                 {courts.map((court, courtIndex) => (
-                  <View key={court.id} style={styles.courtLane}>
+                  <View key={court.id} style={[
+                    styles.courtLane,
+                    { width: dynamicLaneWidth },
+                    courtIndex > 0 && styles.courtLaneWithDivider,
+                  ]}>
                     {/* Hour grid lines and clickable slots */}
                     {hours.map((hour) => (
                       <Pressable
@@ -2162,9 +2223,43 @@ const styles = StyleSheet.create({
   timeColumnHeader: {
     width: TIME_COLUMN_WIDTH,
   },
+  courtFilterContainer: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  courtFilterContent: {
+    gap: Spacing.sm,
+  },
+  courtFilterChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  courtFilterChipActive: {
+    backgroundColor: Colors.dark.primary + "20",
+    borderColor: Colors.dark.primary,
+  },
+  courtFilterText: {
+    ...Typography.small,
+    color: Colors.dark.textSecondary,
+    fontWeight: "500",
+  },
+  courtFilterTextActive: {
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
   courtHeader: {
     width: COURT_LANE_WIDTH,
     alignItems: "center",
+  },
+  courtHeaderWithDivider: {
+    borderLeftWidth: 2,
+    borderLeftColor: Colors.dark.border,
   },
   courtHeaderText: {
     ...Typography.small,
@@ -2199,8 +2294,10 @@ const styles = StyleSheet.create({
   courtLane: {
     width: COURT_LANE_WIDTH,
     position: "relative",
-    borderLeftWidth: 1,
-    borderLeftColor: "rgba(255, 255, 255, 0.06)",
+  },
+  courtLaneWithDivider: {
+    borderLeftWidth: 2,
+    borderLeftColor: Colors.dark.border,
   },
   hourSlot: {
     height: HOUR_HEIGHT_60,
