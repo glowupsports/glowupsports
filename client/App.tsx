@@ -23,8 +23,8 @@ export default function App() {
         <SafeAreaProvider>
           <GestureHandlerRootView style={styles.root}>
             <KeyboardProvider>
-              <AuthProvider>
-                <AppModeProvider>
+              <AppModeProvider>
+                <AuthProvider>
                   <PlayerProvider>
                     <CoachProvider>
                       <View style={styles.root}>
@@ -34,8 +34,8 @@ export default function App() {
                       </View>
                     </CoachProvider>
                   </PlayerProvider>
-                </AppModeProvider>
-              </AuthProvider>
+                </AuthProvider>
+              </AppModeProvider>
               <StatusBar style="light" />
             </KeyboardProvider>
           </GestureHandlerRootView>
