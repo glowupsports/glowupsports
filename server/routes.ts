@@ -5352,8 +5352,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       next();
       return;
     }
-    // Regular players must have a playerId
-    if (req.user.role === "player" && req.user.playerId) {
+    // Allow players through - they'll get demo/onboarding data if no playerId linked
+    if (req.user.role === "player") {
       next();
       return;
     }
