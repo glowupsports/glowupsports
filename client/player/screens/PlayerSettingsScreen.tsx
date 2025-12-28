@@ -1,9 +1,11 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Switch } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Haptics from "expo-haptics";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
+import { useAuth } from "@/coach/context/AuthContext";
 
 interface SettingItem {
   id: string;
@@ -17,6 +19,7 @@ interface SettingItem {
 export default function PlayerSettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const { logout } = useAuth();
 
   const [notifications, setNotifications] = React.useState(true);
   const [sessionReminders, setSessionReminders] = React.useState(true);
@@ -150,7 +153,26 @@ export default function PlayerSettingsScreen() {
           </View>
         </View>
 
-        <Pressable style={styles.logoutButton}>
+        <Pressable 
+          style={styles.logoutButton}
+          onPress={() => {
+            Alert.alert(
+              "Sign Out",
+              "Are you sure you want to sign out?",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Sign Out",
+                  style: "destructive",
+                  onPress: () => {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    logout();
+                  },
+                },
+              ]
+            );
+          }}
+        >
           <Ionicons name="log-out-outline" size={20} color={Colors.dark.error} />
           <Text style={styles.logoutText}>Sign Out</Text>
         </Pressable>

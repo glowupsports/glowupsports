@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   ActivityIndicator,
+  Alert as RNAlert,
 } from "react-native";
 import Animated, {
   useSharedValue,
@@ -21,6 +22,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { useCoach } from "@/coach/context/CoachContext";
+import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import MiniTimeline from "@/coach/components/MiniTimeline";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
@@ -52,6 +54,7 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { coach, academy, calendarData, isLoading } = useCoach();
+  const { logout } = useAuth();
   const [showStatusPanel, setShowStatusPanel] = useState(false);
   const [sessionsCollapsed, setSessionsCollapsed] = useState(true);
   const [focusCollapsed, setFocusCollapsed] = useState(false);
@@ -935,6 +938,21 @@ export default function DashboardScreen() {
         onClose={() => setShowStatusPanel(false)}
         onNavigate={(screen) => {
           if (screen === "Logout") {
+            RNAlert.alert(
+              "Sign Out",
+              "Are you sure you want to sign out?",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Sign Out",
+                  style: "destructive",
+                  onPress: () => {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    logout();
+                  },
+                },
+              ]
+            );
             return;
           }
           handleNavigate(screen);

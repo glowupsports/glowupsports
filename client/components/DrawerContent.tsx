@@ -3,31 +3,35 @@ import { View, StyleSheet, Pressable, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { DrawerContentComponentProps } from "@react-navigation/drawer";
+import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { usePlayer } from "@/context/PlayerContext";
+import { useAuth } from "@/coach/context/AuthContext";
 import { DRAWER_ITEMS } from "@/constants/playerData";
 
 export function DrawerContent({ navigation, state }: DrawerContentComponentProps) {
   const insets = useSafeAreaInsets();
-  const { player, resetData } = usePlayer();
+  const { player } = usePlayer();
+  const { logout } = useAuth();
 
   const currentRoute = state.routes[state.index]?.name;
 
   const handleLogout = () => {
     Alert.alert(
-      "Logout",
-      "Are you sure you want to logout? Your progress is saved locally.",
+      "Sign Out",
+      "Are you sure you want to sign out?",
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Logout",
+          text: "Sign Out",
           style: "destructive",
           onPress: async () => {
-            await resetData();
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             navigation.closeDrawer();
+            logout();
           },
         },
       ]
