@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -7,6 +7,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAppMode } from "@/context/AppModeContext";
+import { useAuth } from "@/coach/context/AuthContext";
 
 interface ProfileData {
   player: {
@@ -73,10 +74,36 @@ function getBallLevelColor(ballLevel: string): string {
 export default function PlayerProfileScreen() {
   const insets = useSafeAreaInsets();
   const { setMode } = useAppMode();
+  const { logout } = useAuth();
 
   const { data, isLoading, error } = useQuery<ProfileData>({
     queryKey: ["/api/player/me/profile"],
   });
+
+  const handleLogout = () => {
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm("Are you sure you want to sign out?");
+      if (confirmed) {
+        logout();
+      }
+    } else {
+      Alert.alert(
+        "Sign Out",
+        "Are you sure you want to sign out?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Sign Out",
+            style: "destructive",
+            onPress: () => {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              logout();
+            },
+          },
+        ]
+      );
+    }
+  };
 
   if (isLoading) {
     return (
@@ -245,6 +272,11 @@ export default function PlayerProfileScreen() {
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.primary} />
           </Pressable>
         </View>
+
+        <Pressable style={styles.logoutButton} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={24} color={Colors.dark.error} />
+          <Text style={styles.logoutText}>Sign Out</Text>
+        </Pressable>
       </ScrollView>
     </View>
   );
@@ -544,5 +576,23 @@ const styles = StyleSheet.create({
     flex: 1,
     ...Typography.body,
     color: Colors.dark.text,
+  },
+  logoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginHorizontal: Spacing.xl,
+    marginTop: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.error + "40",
+  },
+  logoutText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.error,
   },
 });

@@ -1,8 +1,10 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Switch } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { useAuth } from "@/coach/context/AuthContext";
 
 interface SettingRowProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -68,8 +70,34 @@ function Section({ title, children }: SectionProps) {
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const { logout } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
   const [xpVisible, setXpVisible] = React.useState(true);
+
+  const handleLogout = () => {
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm("Are you sure you want to sign out?");
+      if (confirmed) {
+        logout();
+      }
+    } else {
+      Alert.alert(
+        "Sign Out",
+        "Are you sure you want to sign out?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Sign Out",
+            style: "destructive",
+            onPress: () => {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              logout();
+            },
+          },
+        ]
+      );
+    }
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -148,6 +176,11 @@ export default function SettingsScreen() {
             danger
           />
         </Section>
+
+        <Pressable style={styles.logoutButton} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={24} color={Colors.dark.error} />
+          <Text style={styles.logoutText}>Sign Out</Text>
+        </Pressable>
       </ScrollView>
     </View>
   );
@@ -226,5 +259,22 @@ const styles = StyleSheet.create({
   settingValue: {
     ...Typography.body,
     color: Colors.dark.textMuted,
+  },
+  logoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginTop: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.error + "40",
+  },
+  logoutText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.error,
   },
 });
