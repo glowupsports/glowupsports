@@ -45,6 +45,7 @@ export default function DashboardScreen() {
   const navigation = useNavigation();
   const { coach, academy, calendarData, isLoading } = useCoach();
   const [showStatusPanel, setShowStatusPanel] = useState(false);
+  const [sessionsCollapsed, setSessionsCollapsed] = useState(true);
 
   const today = new Date();
   const todaysSessions = useMemo(() => {
@@ -187,12 +188,35 @@ export default function DashboardScreen() {
     return "Good evening";
   };
 
+  const getSessionTypeLabel = (type: string) => {
+    switch (type) {
+      case "private": return "Private";
+      case "semi_private": return "Semi-Private";
+      case "group": return "Group";
+      case "physical": return "Physical";
+      default: return type;
+    }
+  };
+
+  const getSessionContext = (session: Session) => {
+    const type = getSessionTypeLabel(session.sessionType);
+    const court = calendarData?.courts?.find(c => c.id === session.courtId);
+    const courtName = court?.name || "";
+    const timeStr = `${formatTime(session.startTime)} - ${formatTime(session.endTime)}`;
+    const parts = [type];
+    if (courtName) parts.push(courtName);
+    const context = parts.join(" · ");
+    return context || timeStr;
+  };
+
   const getFocusMessage = () => {
     if (currentSession) {
-      return { primary: "In Session", secondary: `${formatTime(currentSession.startTime)} - ${formatTime(currentSession.endTime)}` };
+      const context = getSessionContext(currentSession);
+      return { primary: "In Session", secondary: context || `${formatTime(currentSession.startTime)} - ${formatTime(currentSession.endTime)}` };
     }
     if (nextSession) {
-      return { primary: getTimeUntil(nextSession.startTime), secondary: "until next session" };
+      const context = getSessionContext(nextSession);
+      return { primary: `Next session in ${getTimeUntil(nextSession.startTime)}`, secondary: context };
     }
     if (todaysSessions.length === 0) {
       if (pendingFeedbackCount > 0) {
@@ -473,14 +497,24 @@ export default function DashboardScreen() {
             <View style={styles.energyBarRow}>
               <Text style={styles.energyBarLabel}>Impact</Text>
               <View style={styles.energyBarBackground}>
-                <LinearGradient
-                  colors={[Colors.dark.xpCyan + "80", Colors.dark.xpCyan + "40"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={[styles.energyBarFill, { width: todaysSessions.length === 0 ? "100%" : `${coachStats.impactPercent}%` }]}
-                />
+                {todaysSessions.length > 0 && coachStats.completedMinutes === 0 ? (
+                  <View style={[styles.energyBarFill, { width: "100%", backgroundColor: Colors.dark.disabled + "30" }]} />
+                ) : (
+                  <LinearGradient
+                    colors={[Colors.dark.xpCyan + "80", Colors.dark.xpCyan + "40"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.energyBarFill, { width: todaysSessions.length === 0 ? "100%" : `${coachStats.impactPercent}%` }]}
+                  />
+                )}
               </View>
-              <Text style={styles.energyBarValue}>{todaysSessions.length === 0 ? "100" : coachStats.impactPercent}%</Text>
+              <Text style={styles.energyBarValue}>
+                {todaysSessions.length === 0 
+                  ? "100%" 
+                  : coachStats.completedMinutes === 0 
+                    ? "Pending" 
+                    : `${coachStats.impactPercent}%`}
+              </Text>
             </View>
           </View>
 
@@ -492,7 +526,7 @@ export default function DashboardScreen() {
               : coachStats.completedMinutes > 0
               ? `${coachStats.completedMinutes}m coached, ${coachStats.remainingMinutes}m remaining`
               : coachStats.totalMinutes > 0
-              ? `${coachStats.totalMinutes}m scheduled today`
+              ? `Impact updates after sessions · ${coachStats.totalMinutes}m scheduled`
               : "Ready for action"}
           </Text>
         </View>
@@ -565,11 +599,27 @@ export default function DashboardScreen() {
           </View>
         ) : null}
 
-        {/* Today's Lessons */}
+        {/* Today's Lessons - Collapsible */}
         {todaysSessions.length > 0 ? (
           <View style={styles.sessionsSection}>
-            <Text style={styles.sectionTitle}>Sessions</Text>
-            {todaysSessions.map((session) => {
+            <Pressable 
+              style={styles.collapsibleHeader}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setSessionsCollapsed(!sessionsCollapsed);
+              }}
+            >
+              <Text style={styles.sectionTitle}>Sessions</Text>
+              <View style={styles.collapsibleToggle}>
+                <Text style={styles.collapsibleCount}>{todaysSessions.length}</Text>
+                <Ionicons 
+                  name={sessionsCollapsed ? "chevron-down" : "chevron-up"} 
+                  size={18} 
+                  color={Colors.dark.tabIconDefault} 
+                />
+              </View>
+            </Pressable>
+            {sessionsCollapsed ? null : todaysSessions.map((session) => {
               const isPast = new Date(session.endTime) < new Date();
               const isCurrent =
                 new Date(session.startTime) <= new Date() && new Date(session.endTime) > new Date();
@@ -993,6 +1043,26 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     marginBottom: Spacing.md,
     opacity: 0.9,
+  },
+  collapsibleHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  collapsibleToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  collapsibleCount: {
+    ...Typography.small,
+    color: Colors.dark.tabIconDefault,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 10,
+    overflow: "hidden",
   },
   alertCard: {
     flexDirection: "row",

@@ -80,6 +80,9 @@ export default function SessionDetailDrawer({
   const [catchUpAttendance, setCatchUpAttendance] = useState<Map<string, "present" | "absent" | "holiday">>(new Map());
   const [showGuestInput, setShowGuestInput] = useState(false);
   const [guestName, setGuestName] = useState("");
+  const [showGuestConvert, setShowGuestConvert] = useState<{id: string; name: string} | null>(null);
+  const [guestPhone, setGuestPhone] = useState("");
+  const [guestBallLevel, setGuestBallLevel] = useState<string>("");
 
   const { data: allPlayersData } = useQuery<AvailablePlayer[]>({
     queryKey: ["/api/players"],
@@ -156,6 +159,7 @@ export default function SessionDetailDrawer({
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/players"] });
       setGuestName("");
       setShowGuestInput(false);
     },
@@ -163,6 +167,39 @@ export default function SessionDetailDrawer({
       Alert.alert("Error", error.message || "Failed to add guest");
     },
   });
+
+  const convertGuestMutation = useMutation({
+    mutationFn: async ({ playerId, phone, ballLevel }: { playerId: string; phone: string; ballLevel: string }) => {
+      const cleanName = showGuestConvert?.name.replace(" (Guest)", "") || "";
+      return apiRequest("PATCH", `/api/players/${playerId}`, {
+        name: cleanName,
+        phone: phone || undefined,
+        ballLevel: ballLevel || undefined,
+        membershipType: "regular",
+      });
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/players"] });
+      setShowGuestConvert(null);
+      setGuestPhone("");
+      setGuestBallLevel("");
+      Alert.alert("Success", "Guest converted to player");
+    },
+    onError: (error: Error) => {
+      Alert.alert("Error", error.message || "Failed to convert guest");
+    },
+  });
+
+  const handleConvertGuest = () => {
+    if (!showGuestConvert) return;
+    convertGuestMutation.mutate({
+      playerId: showGuestConvert.id,
+      phone: guestPhone.trim(),
+      ballLevel: guestBallLevel,
+    });
+  };
 
   const handleAddGuest = () => {
     if (!guestName.trim()) return;
@@ -303,22 +340,100 @@ export default function SessionDetailDrawer({
         <Text style={styles.sectionTitle}>Players ({session.players?.length || 0})</Text>
         {session.players && session.players.length > 0 ? (
           <View style={styles.playersList}>
-            {session.players.map(player => (
-              <View key={player.id} style={styles.playerRow}>
-                <View style={styles.playerAvatar}>
-                  <Text style={styles.playerAvatarText}>{player.name.charAt(0)}</Text>
-                </View>
-                <Text style={styles.playerName}>{player.name}</Text>
-                {player.status && (
-                  <View style={[styles.statusDot, { backgroundColor: getStatusColor(player.status) }]} />
-                )}
-              </View>
-            ))}
+            {session.players.map(player => {
+              const isGuest = player.name.includes("(Guest)");
+              const isPastSession = new Date(session.endTime) < new Date();
+              return (
+                <Pressable 
+                  key={player.id} 
+                  style={[styles.playerRow, isGuest && styles.playerRowGuest]}
+                  onPress={() => {
+                    if (isGuest && isPastSession) {
+                      setShowGuestConvert({ id: player.id, name: player.name });
+                      setGuestPhone("");
+                      setGuestBallLevel("");
+                    }
+                  }}
+                  disabled={!isGuest || !isPastSession}
+                >
+                  <View style={[styles.playerAvatar, isGuest && styles.playerAvatarGuest]}>
+                    <Text style={styles.playerAvatarText}>{player.name.charAt(0)}</Text>
+                  </View>
+                  <View style={styles.playerNameContainer}>
+                    <Text style={styles.playerName}>{player.name}</Text>
+                    {isGuest && isPastSession ? (
+                      <Text style={styles.convertHint}>Tap to convert</Text>
+                    ) : null}
+                  </View>
+                  {player.status ? (
+                    <View style={[styles.statusDot, { backgroundColor: getStatusColor(player.status) }]} />
+                  ) : null}
+                  {isGuest && isPastSession ? (
+                    <Ionicons name="chevron-forward" size={16} color={Colors.dark.xpCyan} />
+                  ) : null}
+                </Pressable>
+              );
+            })}
           </View>
         ) : (
           <Text style={styles.noPlayersText}>No players assigned yet</Text>
         )}
       </View>
+
+      {/* Guest Conversion Form */}
+      {showGuestConvert ? (
+        <View style={styles.guestConvertSection}>
+          <View style={styles.guestConvertHeader}>
+            <Text style={styles.guestConvertTitle}>Convert Guest to Player</Text>
+            <Pressable onPress={() => setShowGuestConvert(null)}>
+              <Ionicons name="close" size={20} color={Colors.dark.tabIconDefault} />
+            </Pressable>
+          </View>
+          <Text style={styles.guestConvertName}>{showGuestConvert.name.replace(" (Guest)", "")}</Text>
+          
+          <TextInput
+            style={styles.guestConvertInput}
+            placeholder="Phone number (optional)"
+            placeholderTextColor={Colors.dark.tabIconDefault}
+            value={guestPhone}
+            onChangeText={setGuestPhone}
+            keyboardType="phone-pad"
+          />
+          
+          <Text style={styles.guestConvertLabel}>Ball Level</Text>
+          <View style={styles.ballLevelRow}>
+            {["red", "orange", "green", "yellow"].map(level => (
+              <Pressable
+                key={level}
+                style={[
+                  styles.ballLevelOption,
+                  guestBallLevel === level && styles.ballLevelSelected,
+                ]}
+                onPress={() => setGuestBallLevel(level)}
+              >
+                <Text style={[
+                  styles.ballLevelText,
+                  guestBallLevel === level && styles.ballLevelTextSelected,
+                ]}>
+                  {level.charAt(0).toUpperCase() + level.slice(1)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          
+          <Pressable
+            style={[styles.convertBtn, convertGuestMutation.isPending && styles.convertBtnDisabled]}
+            onPress={handleConvertGuest}
+            disabled={convertGuestMutation.isPending}
+          >
+            {convertGuestMutation.isPending ? (
+              <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+            ) : (
+              <Text style={styles.convertBtnText}>Convert to Player</Text>
+            )}
+          </Pressable>
+        </View>
+      ) : null}
 
       {showGuestInput && (
         <View style={styles.guestInputRow}>
@@ -770,6 +885,100 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.disabled,
     fontStyle: "italic",
+  },
+  playerRowGuest: {
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+    borderStyle: "dashed",
+  },
+  playerAvatarGuest: {
+    backgroundColor: Colors.dark.xpCyan,
+  },
+  playerNameContainer: {
+    flex: 1,
+  },
+  convertHint: {
+    ...Typography.small,
+    color: Colors.dark.xpCyan,
+    fontSize: 10,
+  },
+  guestConvertSection: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  guestConvertHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  guestConvertTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  guestConvertName: {
+    ...Typography.h3,
+    color: Colors.dark.xpCyan,
+    marginBottom: Spacing.md,
+  },
+  guestConvertInput: {
+    height: 44,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    color: Colors.dark.text,
+    marginBottom: Spacing.md,
+    ...Typography.body,
+  },
+  guestConvertLabel: {
+    ...Typography.small,
+    color: Colors.dark.tabIconDefault,
+    marginBottom: Spacing.sm,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  ballLevelRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  ballLevelOption: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  ballLevelSelected: {
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.primary + "15",
+  },
+  ballLevelText: {
+    ...Typography.small,
+    color: Colors.dark.tabIconDefault,
+  },
+  ballLevelTextSelected: {
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  convertBtn: {
+    backgroundColor: Colors.dark.xpCyan,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+  },
+  convertBtnDisabled: {
+    opacity: 0.5,
+  },
+  convertBtnText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
   },
   guestInputRow: {
     flexDirection: "row",

@@ -75,6 +75,10 @@ export function LoadForecastCard({ onDayPress }: Props) {
   };
 
   const maxMinutes = Math.max(...data.forecast.map(d => d.scheduledMinutes), 480);
+  
+  const firstRiskDayIndex = data.forecast.findIndex(
+    d => d.predictedLoad === "heavy" || d.predictedLoad === "overload"
+  );
 
   return (
     <View style={styles.container}>
@@ -99,16 +103,27 @@ export function LoadForecastCard({ onDayPress }: Props) {
           const loadColor = getLoadColor(day.predictedLoad);
           const isToday = idx === 0;
           const isWeekend = [0, 6].includes(new Date(day.date).getDay());
+          const isFirstRiskDay = idx === firstRiskDayIndex && firstRiskDayIndex >= 0;
+          const isHeavyOrOverload = day.predictedLoad === "heavy" || day.predictedLoad === "overload";
 
           return (
             <Pressable
               key={day.date}
-              style={[styles.dayColumn, isToday && styles.dayColumnToday]}
+              style={[
+                styles.dayColumn, 
+                isToday && styles.dayColumnToday,
+                isFirstRiskDay && styles.dayColumnRisk,
+              ]}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 onDayPress?.(day.date);
               }}
             >
+              {isFirstRiskDay ? (
+                <View style={styles.riskBadge}>
+                  <Ionicons name="warning" size={10} color={Colors.dark.error} />
+                </View>
+              ) : null}
               <View style={styles.barContainer}>
                 <View
                   style={[
@@ -116,11 +131,18 @@ export function LoadForecastCard({ onDayPress }: Props) {
                     {
                       height: barHeight,
                       backgroundColor: day.scheduledMinutes > 0 ? loadColor : Colors.dark.backgroundTertiary,
+                      opacity: isHeavyOrOverload ? 1 : 0.7,
+                    },
+                    isHeavyOrOverload && {
+                      shadowColor: loadColor,
+                      shadowOffset: { width: 0, height: 0 },
+                      shadowOpacity: 0.5,
+                      shadowRadius: 4,
                     },
                   ]}
                 />
               </View>
-              <Text style={[styles.hoursText, { color: loadColor }]}>
+              <Text style={[styles.hoursText, { color: loadColor, fontWeight: isHeavyOrOverload ? "700" : "500" }]}>
                 {formatHours(day.scheduledMinutes)}
               </Text>
               <Text style={[styles.dayName, isWeekend && styles.weekendText]}>
@@ -208,9 +230,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: Spacing.xs,
     borderRadius: 8,
+    position: "relative",
   },
   dayColumnToday: {
     backgroundColor: Colors.dark.primary + "15",
+  },
+  dayColumnRisk: {
+    backgroundColor: Colors.dark.error + "15",
+    borderWidth: 1,
+    borderColor: Colors.dark.error + "30",
+  },
+  riskBadge: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: Colors.dark.error + "20",
+    justifyContent: "center",
+    alignItems: "center",
   },
   barContainer: {
     height: 64,
