@@ -5504,6 +5504,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get approved owner profile for current player's academy
+  app.get("/api/player/academy-owner", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.userId;
+      const player = await storage.getPlayerByUserId(userId);
+      
+      if (!player || !player.academyId) {
+        return res.json({ profile: null });
+      }
+
+      const profile = await storage.getAcademyOwnerProfile(player.academyId);
+      const academy = await storage.getAcademy(player.academyId);
+      
+      if (!profile || !profile.approved) {
+        return res.json({ profile: null });
+      }
+
+      // Only return player-facing fields with normalized data
+      const visionTags = (profile.visionTags || []).filter(Boolean).slice(0, 3);
+      const publicMessage = profile.publicMessage ? profile.publicMessage.slice(0, 200) : undefined;
+
+      res.json({
+        profile: {
+          ownerName: profile.ownerName,
+          academyName: academy?.name || "Academy",
+          role: profile.role,
+          visionTags,
+          publicMessage,
+          approved: true,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching academy owner for player:", error);
+      res.status(500).json({ error: "Failed to fetch academy owner" });
+    }
+  });
+
   // Get approved owner profile for player view (public info only)
   app.get("/api/player/academy-owner/:academyId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {

@@ -8,6 +8,18 @@ import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constan
 import { LinearGradient } from "expo-linear-gradient";
 import ModeSwitcher from "@/components/ModeSwitcher";
 import { useAuth } from "@/coach/context/AuthContext";
+import { OwnerCard } from "@/player/components/OwnerCard";
+
+interface OwnerProfileData {
+  profile: {
+    ownerName: string;
+    academyName: string;
+    role: string;
+    visionTags: string[];
+    publicMessage?: string;
+    approved: boolean;
+  } | null;
+}
 
 interface DashboardData {
   player: {
@@ -201,6 +213,11 @@ export default function PlayerHomeScreen() {
   
   const { data: peersData } = useQuery<PeersData>({
     queryKey: ["/api/player/me/peers"],
+    enabled: canAccessPlayerMode && !isOwner,
+  });
+
+  const { data: ownerProfileData } = useQuery<OwnerProfileData>({
+    queryKey: ["/api/player/academy-owner"],
     enabled: canAccessPlayerMode && !isOwner,
   });
 
@@ -573,6 +590,19 @@ export default function PlayerHomeScreen() {
                 ) : null}
               </View>
             ) : null}
+            
+            {ownerProfileData?.profile && ownerProfileData.profile.approved ? (
+              <View style={styles.ownerCardSection}>
+                <OwnerCard
+                  ownerName={ownerProfileData.profile.ownerName}
+                  academyName={ownerProfileData.profile.academyName}
+                  role={ownerProfileData.profile.role}
+                  visionTags={ownerProfileData.profile.visionTags}
+                  publicMessage={ownerProfileData.profile.publicMessage}
+                  compact
+                />
+              </View>
+            ) : null}
           </View>
         ) : null}
       </ScrollView>
@@ -901,6 +931,12 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     fontStyle: "italic",
     flex: 1,
+  },
+  ownerCardSection: {
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
   },
   peersSection: {
     marginHorizontal: Spacing.xl,
