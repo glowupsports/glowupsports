@@ -5507,8 +5507,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get approved owner profile for current player's academy
   app.get("/api/player/academy-owner", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user!.userId;
-      const player = await storage.getPlayerByUserId(userId);
+      const playerId = req.user!.playerId;
+      
+      if (!playerId) {
+        return res.json({ profile: null });
+      }
+
+      const player = await storage.getPlayer(playerId);
       
       if (!player || !player.academyId) {
         return res.json({ profile: null });
