@@ -10,10 +10,13 @@ import {
   academies,
   academyApplications,
   invites,
+  joinRequests,
   type AcademyApplication,
   type InsertAcademyApplication,
   type Invite,
   type InsertInvite,
+  type JoinRequest,
+  type InsertJoinRequest,
   // Core tables
   coaches,
   locations,
@@ -199,6 +202,11 @@ export const storage = {
     await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, id));
   },
 
+  async getUserByPlayerId(playerId: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.playerId, playerId));
+    return result[0];
+  },
+
   // ==================== ACADEMIES ====================
   async getAcademy(id: string): Promise<Academy | undefined> {
     const result = await db.select().from(academies).where(eq(academies.id, id));
@@ -293,6 +301,45 @@ export const storage = {
     return result[0];
   },
 
+  // ==================== JOIN REQUESTS ====================
+  async getJoinRequest(id: string): Promise<JoinRequest | undefined> {
+    const result = await db.select().from(joinRequests).where(eq(joinRequests.id, id));
+    return result[0];
+  },
+
+  async getJoinRequestByPlayerAndAcademy(playerId: string, academyId: string): Promise<JoinRequest | undefined> {
+    const result = await db.select().from(joinRequests)
+      .where(and(eq(joinRequests.playerId, playerId), eq(joinRequests.academyId, academyId)));
+    return result[0];
+  },
+
+  async getJoinRequestsByPlayer(playerId: string): Promise<JoinRequest[]> {
+    return db.select().from(joinRequests)
+      .where(eq(joinRequests.playerId, playerId))
+      .orderBy(desc(joinRequests.createdAt));
+  },
+
+  async getJoinRequestsByAcademy(academyId: string, status?: string): Promise<JoinRequest[]> {
+    if (status) {
+      return db.select().from(joinRequests)
+        .where(and(eq(joinRequests.academyId, academyId), eq(joinRequests.status, status)))
+        .orderBy(desc(joinRequests.createdAt));
+    }
+    return db.select().from(joinRequests)
+      .where(eq(joinRequests.academyId, academyId))
+      .orderBy(desc(joinRequests.createdAt));
+  },
+
+  async createJoinRequest(data: InsertJoinRequest): Promise<JoinRequest> {
+    const result = await db.insert(joinRequests).values(data).returning();
+    return result[0];
+  },
+
+  async updateJoinRequest(id: string, data: Partial<JoinRequest>): Promise<JoinRequest | undefined> {
+    const result = await db.update(joinRequests).set(data).where(eq(joinRequests.id, id)).returning();
+    return result[0];
+  },
+
   // ==================== COACHES ====================
   async getCoach(id: string, academyId?: string): Promise<Coach | undefined> {
     const conditions = [eq(coaches.id, id)];
@@ -308,6 +355,10 @@ export const storage = {
       return db.select().from(coaches).where(eq(coaches.academyId, academyId));
     }
     return db.select().from(coaches);
+  },
+
+  async getCoachesByAcademy(academyId: string): Promise<Coach[]> {
+    return db.select().from(coaches).where(eq(coaches.academyId, academyId));
   },
 
   async createCoach(data: InsertCoach): Promise<Coach> {
@@ -399,6 +450,10 @@ export const storage = {
       return db.select().from(players).where(eq(players.academyId, academyId));
     }
     return db.select().from(players);
+  },
+
+  async getPlayersByAcademy(academyId: string): Promise<Player[]> {
+    return db.select().from(players).where(eq(players.academyId, academyId));
   },
 
   async searchPlayers(query: string, academyId?: string): Promise<Player[]> {

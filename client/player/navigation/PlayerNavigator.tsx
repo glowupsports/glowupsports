@@ -15,6 +15,7 @@ import SkillDetailScreen from "@/player/screens/SkillDetailScreen";
 import PlayerSettingsScreen from "@/player/screens/PlayerSettingsScreen";
 import PeerJourneyScreen from "@/player/screens/PeerJourneyScreen";
 import GroupChallengesScreen from "@/player/screens/GroupChallengesScreen";
+import AcademyBrowserScreen from "@/player/screens/AcademyBrowserScreen";
 import { Colors } from "@/constants/theme";
 
 export type PlayerTabParamList = {
@@ -33,6 +34,7 @@ export type PlayerStackParamList = {
   Settings: undefined;
   PeerJourney: { peerId: string; peerName: string };
   GroupChallenges: undefined;
+  AcademyBrowser: undefined;
 };
 
 const Tab = createBottomTabNavigator<PlayerTabParamList>();
@@ -160,6 +162,13 @@ export default function PlayerNavigator() {
         component={GroupChallengesScreen}
         options={{
           presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="AcademyBrowser" 
+        component={AcademyBrowserScreen}
+        options={{
+          presentation: "modal",
         }}
       />
     </Stack.Navigator>

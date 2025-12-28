@@ -139,6 +139,30 @@ export const insertInviteSchema = createInsertSchema(invites).omit({ id: true, c
 export type InsertInvite = z.infer<typeof insertInviteSchema>;
 export type Invite = typeof invites.$inferSelect;
 
+// Player Join Requests (for players to request joining an academy)
+export const joinRequests = pgTable("join_requests", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  status: text("status").default("pending").notNull(), // pending | approved | rejected
+  message: text("message"), // optional message from player
+  reviewedBy: varchar("reviewed_by"), // coach/owner who reviewed
+  reviewedAt: timestamp("reviewed_at"),
+  rejectionReason: text("rejection_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertJoinRequestSchema = createInsertSchema(joinRequests).omit({ id: true, createdAt: true, reviewedBy: true, reviewedAt: true });
+export const joinRequestInputSchema = z.object({
+  academyId: z.string().min(1, "Academy is required"),
+  message: z.string().optional(),
+});
+export type InsertJoinRequest = z.infer<typeof insertJoinRequestSchema>;
+export type JoinRequest = typeof joinRequests.$inferSelect;
+export type JoinRequestInput = z.infer<typeof joinRequestInputSchema>;
+
 // ==================== COACH APP TABLES ====================
 
 // Coaches

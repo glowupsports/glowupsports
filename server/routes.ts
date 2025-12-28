@@ -454,6 +454,232 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Verify invite token (public endpoint for registration)
+  app.get("/api/invites/verify/:token", async (req: Request, res: Response) => {
+    try {
+      const { token } = req.params;
+      const invite = await storage.getInviteByToken(token);
+
+      if (!invite) {
+        return res.status(404).json({ valid: false, message: "Invite not found" });
+      }
+
+      if (invite.usedAt) {
+        return res.status(400).json({ valid: false, message: "Invite has already been used" });
+      }
+
+      if (new Date(invite.expiresAt) < new Date()) {
+        return res.status(400).json({ valid: false, message: "Invite has expired" });
+      }
+
+      const academy = await storage.getAcademy(invite.academyId);
+
+      res.json({
+        valid: true,
+        role: invite.role,
+        academyName: academy?.name || "Unknown Academy",
+        invitedEmail: invite.invitedEmail,
+        expiresAt: invite.expiresAt,
+      });
+    } catch (error) {
+      console.error("Verify invite error:", error);
+      res.status(500).json({ valid: false, message: "Failed to verify invite" });
+    }
+  });
+
+  // ==================== ACADEMY BROWSING (Public/Player) ====================
+
+  // Browse available academies (for players to find and join)
+  app.get("/api/academies/browse", async (req: Request, res: Response) => {
+    try {
+      const academies = await storage.getAllAcademies();
+      
+      // Return public info only
+      const publicAcademies = await Promise.all(
+        academies.map(async (academy) => {
+          const coaches = await storage.getCoachesByAcademy(academy.id);
+          const players = await storage.getPlayersByAcademy(academy.id);
+          return {
+            id: academy.id,
+            name: academy.name,
+            slug: academy.slug,
+            coachCount: coaches.length,
+            playerCount: players.length,
+          };
+        })
+      );
+
+      res.json({ academies: publicAcademies });
+    } catch (error) {
+      console.error("Browse academies error:", error);
+      res.status(500).json({ error: "Failed to browse academies" });
+    }
+  });
+
+  // ==================== PLAYER JOIN REQUESTS ====================
+
+  // Submit join request (player)
+  app.post("/api/join-requests", authMiddleware, requireRole("player"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { academyId, message } = req.body;
+      const playerId = req.user!.playerId;
+
+      if (!playerId) {
+        return res.status(400).json({ error: "Player profile not found" });
+      }
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID is required" });
+      }
+
+      // Check if academy exists
+      const academy = await storage.getAcademy(academyId);
+      if (!academy) {
+        return res.status(404).json({ error: "Academy not found" });
+      }
+
+      // Check for existing pending request
+      const existingRequest = await storage.getJoinRequestByPlayerAndAcademy(playerId, academyId);
+      if (existingRequest) {
+        if (existingRequest.status === "pending") {
+          return res.status(400).json({ error: "You already have a pending request to this academy" });
+        }
+        if (existingRequest.status === "approved") {
+          return res.status(400).json({ error: "You are already a member of this academy" });
+        }
+      }
+
+      const joinRequest = await storage.createJoinRequest({
+        playerId,
+        academyId,
+        message: message || null,
+        status: "pending",
+      });
+
+      res.status(201).json({
+        request: joinRequest,
+        message: "Join request submitted successfully",
+      });
+    } catch (error) {
+      console.error("Submit join request error:", error);
+      res.status(500).json({ error: "Failed to submit join request" });
+    }
+  });
+
+  // Get player's own join requests
+  app.get("/api/join-requests/my", authMiddleware, requireRole("player"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) {
+        return res.status(400).json({ error: "Player profile not found" });
+      }
+
+      const requests = await storage.getJoinRequestsByPlayer(playerId);
+      res.json({ requests });
+    } catch (error) {
+      console.error("Get player join requests error:", error);
+      res.status(500).json({ error: "Failed to get join requests" });
+    }
+  });
+
+  // Get join requests for academy (owner/coach)
+  app.get("/api/join-requests", authMiddleware, requireRole("academy_owner", "coach"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID is required" });
+      }
+
+      const { status } = req.query;
+      const requests = await storage.getJoinRequestsByAcademy(academyId, status as string | undefined);
+      res.json({ requests });
+    } catch (error) {
+      console.error("Get join requests error:", error);
+      res.status(500).json({ error: "Failed to get join requests" });
+    }
+  });
+
+  // Approve join request (owner/coach)
+  app.post("/api/join-requests/:id/approve", authMiddleware, requireRole("academy_owner", "coach"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const reviewedBy = req.user!.coachId;
+      const academyId = req.user!.academyId;
+
+      const joinRequest = await storage.getJoinRequest(id);
+      if (!joinRequest) {
+        return res.status(404).json({ error: "Join request not found" });
+      }
+
+      if (joinRequest.academyId !== academyId) {
+        return res.status(403).json({ error: "Not authorized to approve this request" });
+      }
+
+      if (joinRequest.status !== "pending") {
+        return res.status(400).json({ error: "Request has already been processed" });
+      }
+
+      // Update join request status
+      await storage.updateJoinRequest(id, {
+        status: "approved",
+        reviewedBy,
+        reviewedAt: new Date(),
+      });
+
+      // Update player's academy
+      await storage.updatePlayer(joinRequest.playerId, { academyId });
+
+      // Update user's academy
+      const player = await storage.getPlayer(joinRequest.playerId);
+      if (player) {
+        const user = await storage.getUserByPlayerId(joinRequest.playerId);
+        if (user) {
+          await storage.updateUser(user.id, { academyId });
+        }
+      }
+
+      res.json({ message: "Join request approved", requestId: id });
+    } catch (error) {
+      console.error("Approve join request error:", error);
+      res.status(500).json({ error: "Failed to approve join request" });
+    }
+  });
+
+  // Reject join request (owner/coach)
+  app.post("/api/join-requests/:id/reject", authMiddleware, requireRole("academy_owner", "coach"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+      const reviewedBy = req.user!.coachId;
+      const academyId = req.user!.academyId;
+
+      const joinRequest = await storage.getJoinRequest(id);
+      if (!joinRequest) {
+        return res.status(404).json({ error: "Join request not found" });
+      }
+
+      if (joinRequest.academyId !== academyId) {
+        return res.status(403).json({ error: "Not authorized to reject this request" });
+      }
+
+      if (joinRequest.status !== "pending") {
+        return res.status(400).json({ error: "Request has already been processed" });
+      }
+
+      await storage.updateJoinRequest(id, {
+        status: "rejected",
+        reviewedBy,
+        reviewedAt: new Date(),
+        rejectionReason: reason || null,
+      });
+
+      res.json({ message: "Join request rejected", requestId: id });
+    } catch (error) {
+      console.error("Reject join request error:", error);
+      res.status(500).json({ error: "Failed to reject join request" });
+    }
+  });
+
   // ==================== ACADEMY APPLICATIONS (Platform Owner Only) ====================
 
   // List all academy applications

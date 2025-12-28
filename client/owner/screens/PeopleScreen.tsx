@@ -1,9 +1,12 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
 
 type TabType = "coaches" | "players";
 
@@ -52,11 +55,17 @@ function PersonCard({ name, role, status, stats }: PersonCardProps) {
 
 export default function PeopleScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NativeStackNavigationProp<OwnerStackParamList>>();
   const [activeTab, setActiveTab] = useState<TabType>("coaches");
 
   const handleTabChange = (tab: TabType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveTab(tab);
+  };
+
+  const handleInviteCoach = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("InviteManagement");
   };
 
   const mockCoaches = [
@@ -111,7 +120,10 @@ export default function PeopleScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.actionsRow}>
-          <Pressable style={styles.addButton}>
+          <Pressable 
+            style={styles.addButton}
+            onPress={activeTab === "coaches" ? handleInviteCoach : undefined}
+          >
             <Ionicons name="add" size={20} color={Colors.dark.gold} />
             <Text style={styles.addButtonText}>
               {activeTab === "coaches" ? "Invite Coach" : "Add Player"}

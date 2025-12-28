@@ -11,6 +11,7 @@ import OperationsScreen from "@/owner/screens/OperationsScreen";
 import PerformanceScreen from "@/owner/screens/PerformanceScreen";
 import FinanceScreen from "@/owner/screens/FinanceScreen";
 import SettingsScreen from "@/owner/screens/SettingsScreen";
+import InviteManagementScreen from "@/owner/screens/InviteManagementScreen";
 import { Colors } from "@/constants/theme";
 
 export type OwnerTabParamList = {
@@ -25,6 +26,7 @@ export type OwnerTabParamList = {
 
 export type OwnerStackParamList = {
   OwnerTabs: undefined;
+  InviteManagement: undefined;
 };
 
 const Tab = createBottomTabNavigator<OwnerTabParamList>();
@@ -132,6 +134,7 @@ export default function OwnerNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="OwnerTabs" component={OwnerTabs} />
+      <Stack.Screen name="InviteManagement" component={InviteManagementScreen} />
     </Stack.Navigator>
   );
 }
