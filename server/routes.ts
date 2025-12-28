@@ -5398,6 +5398,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ],
     };
   }
+
+  // ==================== OWNER PROFILE ENDPOINTS ====================
+
+  // Get owner profile for the current academy
+  app.get("/api/owner/profile", authMiddleware, requireRole("owner", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.json({ profile: null });
+      }
+      
+      const profile = await storage.getAcademyOwnerProfile(academyId);
+      res.json({ profile: profile || null });
+    } catch (error) {
+      console.error("Error fetching owner profile:", error);
+      res.status(500).json({ error: "Failed to fetch owner profile" });
+    }
+  });
+
+  // Save/update owner profile
+  app.post("/api/owner/profile", authMiddleware, requireRole("owner", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "No academy associated with this account" });
+      }
+
+      const { ownerName, role, yearsInSports, backgroundTags, visionTags, academyFocus, internalNote, publicMessage } = req.body;
+
+      if (!ownerName?.trim()) {
+        return res.status(400).json({ error: "Owner name is required" });
+      }
+      if (!visionTags || visionTags.length === 0) {
+        return res.status(400).json({ error: "At least one vision tag is required" });
+      }
+
+      const profile = await storage.upsertAcademyOwnerProfile(academyId, {
+        ownerName: ownerName.trim(),
+        role: role || "owner",
+        yearsInSports: yearsInSports || null,
+        backgroundTags: backgroundTags || [],
+        visionTags: visionTags.slice(0, 3),
+        academyFocus: academyFocus || null,
+        internalNote: internalNote || "",
+        publicMessage: publicMessage || "",
+        approved: false, // Reset approval when profile is updated
+      });
+
+      res.json({ profile, message: "Profile saved and submitted for review" });
+    } catch (error) {
+      console.error("Error saving owner profile:", error);
+      res.status(500).json({ error: "Failed to save owner profile" });
+    }
+  });
+
+  // Get pending owner profiles for Platform Owner review
+  app.get("/api/platform/pending-owner-profiles", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const pendingProfiles = await storage.getAllPendingOwnerProfiles();
+      
+      // Enrich with academy names
+      const enrichedProfiles = await Promise.all(
+        pendingProfiles.map(async (profile: any) => {
+          const academy = await storage.getAcademy(profile.academyId);
+          return {
+            ...profile,
+            academyName: academy?.name || "Unknown Academy",
+          };
+        })
+      );
+
+      res.json({ pendingProfiles: enrichedProfiles });
+    } catch (error) {
+      console.error("Error fetching pending owner profiles:", error);
+      res.status(500).json({ error: "Failed to fetch pending owner profiles" });
+    }
+  });
+
+  // Approve or reject owner profile
+  app.post("/api/platform/review-owner-profile/:academyId", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { academyId } = req.params;
+      const { action } = req.body;
+      const reviewedBy = req.user!.userId;
+
+      if (action === "approve") {
+        const profile = await storage.approveOwnerProfile(academyId, reviewedBy);
+        if (!profile) {
+          return res.status(404).json({ error: "Owner profile not found" });
+        }
+        res.json({ profile, message: "Owner profile approved" });
+      } else if (action === "reject") {
+        const profile = await storage.rejectOwnerProfile(academyId);
+        if (!profile) {
+          return res.status(404).json({ error: "Owner profile not found" });
+        }
+        res.json({ profile, message: "Owner profile rejected" });
+      } else {
+        return res.status(400).json({ error: "Invalid action. Use 'approve' or 'reject'" });
+      }
+    } catch (error) {
+      console.error("Error reviewing owner profile:", error);
+      res.status(500).json({ error: "Failed to review owner profile" });
+    }
+  });
+
+  // Get approved owner profile for player view (public info only)
+  app.get("/api/player/academy-owner/:academyId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { academyId } = req.params;
+      const profile = await storage.getAcademyOwnerProfile(academyId);
+      
+      if (!profile || !profile.approved) {
+        return res.json({ owner: null });
+      }
+
+      // Return only public information
+      res.json({
+        owner: {
+          name: profile.ownerName,
+          role: profile.role,
+          visionTags: profile.visionTags,
+          publicMessage: profile.publicMessage,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching academy owner for player:", error);
+      res.status(500).json({ error: "Failed to fetch academy owner" });
+    }
+  });
   
   app.get("/api/owner/academy-stats", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
