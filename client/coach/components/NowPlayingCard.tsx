@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { View, Text, StyleSheet, Pressable, Animated } from "react-native";
+import { View, Text, StyleSheet, Pressable, Animated as RNAnimated, LayoutAnimation, Platform, UIManager } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 interface Player {
   id: string;
@@ -42,7 +46,8 @@ export default function NowPlayingCard({
   onEnd,
 }: NowPlayingCardProps) {
   const [now, setNow] = useState(new Date());
-  const pulseAnim = useState(new Animated.Value(1))[0];
+  const [isExpanded, setIsExpanded] = useState(false);
+  const pulseAnim = useState(new RNAnimated.Value(1))[0];
 
   const isToday = useMemo(() => {
     const today = new Date();
@@ -61,14 +66,14 @@ export default function NowPlayingCard({
 
   useEffect(() => {
     if (!isToday) return;
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
+    const pulse = RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(pulseAnim, {
           toValue: 0.7,
           duration: 1000,
           useNativeDriver: true,
         }),
-        Animated.timing(pulseAnim, {
+        RNAnimated.timing(pulseAnim, {
           toValue: 1,
           duration: 1000,
           useNativeDriver: true,
@@ -179,14 +184,65 @@ export default function NowPlayingCard({
   };
 
   const remaining = isActive ? getTimeRemaining(activeSession!.endTime) : null;
+  const players = activeSession?.players || [];
+  const maxCollapsedPlayers = 2;
+  const hasMorePlayers = players.length > maxCollapsedPlayers;
 
   const handleAction = (action: () => void) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     action();
   };
 
+  const toggleExpand = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsExpanded(!isExpanded);
+  };
+
+  const renderPlayerList = () => {
+    if (!players.length) return null;
+
+    if (isExpanded) {
+      return (
+        <View style={styles.expandedPlayersSection}>
+          <View style={styles.expandedPlayersHeader}>
+            <Ionicons name="people" size={14} color={Colors.dark.xpCyan} />
+            <Text style={styles.expandedPlayersTitle}>Players ({players.length})</Text>
+          </View>
+          <View style={styles.playersList}>
+            {players.map((player, index) => (
+              <View key={player.id} style={styles.playerItem}>
+                <View style={styles.playerAvatar}>
+                  <Text style={styles.playerInitial}>{player.name.charAt(0).toUpperCase()}</Text>
+                </View>
+                <Text style={styles.playerName}>{player.name}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      );
+    }
+
+    const displayedPlayers = players.slice(0, maxCollapsedPlayers);
+    const remainingCount = players.length - maxCollapsedPlayers;
+
+    return (
+      <View style={styles.detailItem}>
+        <Ionicons name="people-outline" size={12} color={Colors.dark.tabIconDefault} />
+        <Text style={styles.detailText} numberOfLines={1}>
+          {displayedPlayers.map((p) => p.name).join(", ")}
+        </Text>
+        {hasMorePlayers ? (
+          <View style={styles.morePlayersBadge}>
+            <Text style={styles.morePlayersText}>+{remainingCount}</Text>
+          </View>
+        ) : null}
+      </View>
+    );
+  };
+
   return (
-    <View style={styles.container}>
+    <Pressable onPress={toggleExpand} style={styles.container}>
       <LinearGradient
         colors={
           isActive
@@ -197,7 +253,7 @@ export default function NowPlayingCard({
       >
         <View style={styles.header}>
           <View style={styles.statusContainer}>
-            <Animated.View
+            <RNAnimated.View
               style={[
                 styles.statusDot,
                 {
@@ -206,19 +262,28 @@ export default function NowPlayingCard({
                 },
               ]}
             />
-            <Text style={styles.statusText}>{isActive ? "NOW PLAYING" : "UP NEXT"}</Text>
+            <Text style={[styles.statusText, !isActive && { color: "#00D4FF" }]}>
+              {isActive ? "NOW PLAYING" : "UP NEXT"}
+            </Text>
           </View>
-          {isActive && remaining ? (
-            <View style={styles.countdown}>
-              <Text style={styles.countdownNumber}>
-                {String(remaining.minutes).padStart(2, "0")}:
-                {String(remaining.seconds).padStart(2, "0")}
-              </Text>
-              <Text style={styles.countdownLabel}>remaining</Text>
-            </View>
-          ) : (
-            <Text style={styles.timeUntil}>{getTimeUntil(activeSession!.startTime)}</Text>
-          )}
+          <View style={styles.headerRight}>
+            {isActive && remaining ? (
+              <View style={styles.countdown}>
+                <Text style={styles.countdownNumber}>
+                  {String(remaining.minutes).padStart(2, "0")}:
+                  {String(remaining.seconds).padStart(2, "0")}
+                </Text>
+                <Text style={styles.countdownLabel}>remaining</Text>
+              </View>
+            ) : (
+              <Text style={styles.timeUntil}>{getTimeUntil(activeSession!.startTime)}</Text>
+            )}
+            <Ionicons 
+              name={isExpanded ? "chevron-up" : "chevron-down"} 
+              size={16} 
+              color={Colors.dark.tabIconDefault} 
+            />
+          </View>
         </View>
 
         <View style={styles.sessionInfo}>
@@ -252,18 +317,13 @@ export default function NowPlayingCard({
               <Ionicons name="time-outline" size={12} color={Colors.dark.tabIconDefault} />
               <Text style={styles.detailText}>{activeSession!.duration} min</Text>
             </View>
-            {activeSession!.players && activeSession!.players.length > 0 ? (
-              <View style={styles.detailItem}>
-                <Ionicons name="people-outline" size={12} color={Colors.dark.tabIconDefault} />
-                <Text style={styles.detailText} numberOfLines={1}>
-                  {activeSession!.players.map((p) => p.name).join(", ")}
-                </Text>
-              </View>
-            ) : null}
+            {!isExpanded && renderPlayerList()}
           </View>
         </View>
 
-        {isActive ? (
+        {isExpanded && renderPlayerList()}
+
+        {isExpanded && isActive ? (
           <View style={styles.actions}>
             <Pressable
               style={[styles.actionButton, styles.primaryAction]}
@@ -287,9 +347,13 @@ export default function NowPlayingCard({
               <Text style={[styles.actionTextSecondary, { color: "#FF6B35" }]}>End</Text>
             </Pressable>
           </View>
+        ) : isActive ? (
+          <View style={styles.collapsedActions}>
+            <Text style={styles.tapHint}>Tap to expand</Text>
+          </View>
         ) : null}
       </LinearGradient>
-    </View>
+    </Pressable>
   );
 }
 
@@ -311,6 +375,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: Spacing.xs,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
   },
   statusContainer: {
     flexDirection: "row",
@@ -372,16 +441,78 @@ const styles = StyleSheet.create({
   },
   detailsRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: Spacing.lg,
   },
   detailItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
+    maxWidth: "100%",
   },
   detailText: {
     fontSize: Typography.small.fontSize,
     color: Colors.dark.tabIconDefault,
+    flexShrink: 1,
+  },
+  morePlayersBadge: {
+    backgroundColor: Colors.dark.xpCyan + "25",
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+    marginLeft: 4,
+  },
+  morePlayersText: {
+    fontSize: 10,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+  },
+  expandedPlayersSection: {
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.08)",
+  },
+  expandedPlayersHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  expandedPlayersTitle: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+  },
+  playersList: {
+    gap: Spacing.xs,
+  },
+  playerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    borderRadius: BorderRadius.sm,
+  },
+  playerAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playerInitial: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan,
+  },
+  playerName: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+    fontWeight: "500",
   },
   actions: {
     flexDirection: "row",
@@ -390,6 +521,15 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     borderTopWidth: 1,
     borderTopColor: "rgba(255, 255, 255, 0.1)",
+  },
+  collapsedActions: {
+    marginTop: Spacing.xs,
+    alignItems: "center",
+  },
+  tapHint: {
+    fontSize: 10,
+    color: Colors.dark.disabled,
+    fontStyle: "italic",
   },
   actionButton: {
     flex: 1,
