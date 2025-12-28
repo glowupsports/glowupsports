@@ -689,7 +689,7 @@ export default function DashboardScreen() {
         </View>
 
         {/* Burnout Risk & Load Forecast */}
-        <View style={styles.insightsSection}>
+        <View style={styles.collapsibleCard}>
           <Pressable 
             style={styles.collapsibleHeader}
             onPress={() => {
@@ -697,7 +697,10 @@ export default function DashboardScreen() {
               setInsightsCollapsed(!insightsCollapsed);
             }}
           >
-            <Text style={styles.sectionTitle}>Insights</Text>
+            <View style={styles.collapsibleTitleRow}>
+              <Ionicons name="analytics-outline" size={18} color={Colors.dark.xpCyan} />
+              <Text style={styles.collapsibleTitle}>Insights</Text>
+            </View>
             <Ionicons 
               name={insightsCollapsed ? "chevron-down" : "chevron-up"} 
               size={18} 
@@ -725,7 +728,7 @@ export default function DashboardScreen() {
 
         {/* Alerts */}
         {alerts.length > 0 ? (
-          <View style={styles.alertsSection}>
+          <View style={styles.collapsibleCard}>
             <Pressable 
               style={styles.collapsibleHeader}
               onPress={() => {
@@ -733,9 +736,14 @@ export default function DashboardScreen() {
                 setAlertsCollapsed(!alertsCollapsed);
               }}
             >
-              <Text style={styles.sectionTitle}>Alerts</Text>
+              <View style={styles.collapsibleTitleRow}>
+                <Ionicons name="notifications-outline" size={18} color={Colors.dark.orange} />
+                <Text style={styles.collapsibleTitle}>Alerts</Text>
+              </View>
               <View style={styles.collapsibleToggle}>
-                <Text style={styles.collapsibleCount}>{alerts.length}</Text>
+                <View style={styles.collapsibleBadge}>
+                  <Text style={styles.collapsibleBadgeText}>{alerts.length}</Text>
+                </View>
                 <Ionicons 
                   name={alertsCollapsed ? "chevron-down" : "chevron-up"} 
                   size={18} 
@@ -782,7 +790,7 @@ export default function DashboardScreen() {
 
         {/* Today's Timeline */}
         {todaysSessions.length > 0 ? (
-          <View style={styles.sessionsSection}>
+          <View style={styles.collapsibleCard}>
             <Pressable 
               style={styles.collapsibleHeader}
               onPress={() => {
@@ -790,7 +798,10 @@ export default function DashboardScreen() {
                 setTimelineCollapsed(!timelineCollapsed);
               }}
             >
-              <Text style={styles.sectionTitle}>Today's Timeline</Text>
+              <View style={styles.collapsibleTitleRow}>
+                <Ionicons name="time-outline" size={18} color={Colors.dark.primary} />
+                <Text style={styles.collapsibleTitle}>Today's Timeline</Text>
+              </View>
               <Ionicons 
                 name={timelineCollapsed ? "chevron-down" : "chevron-up"} 
                 size={18} 
@@ -827,7 +838,7 @@ export default function DashboardScreen() {
 
         {/* Today's Lessons - Collapsible */}
         {todaysSessions.length > 0 ? (
-          <View style={styles.sessionsSection}>
+          <View style={styles.collapsibleCard}>
             <Pressable 
               style={styles.collapsibleHeader}
               onPress={() => {
@@ -835,9 +846,14 @@ export default function DashboardScreen() {
                 setSessionsCollapsed(!sessionsCollapsed);
               }}
             >
-              <Text style={styles.sectionTitle}>Sessions</Text>
+              <View style={styles.collapsibleTitleRow}>
+                <Ionicons name="tennisball-outline" size={18} color={Colors.dark.gold} />
+                <Text style={styles.collapsibleTitle}>Sessions</Text>
+              </View>
               <View style={styles.collapsibleToggle}>
-                <Text style={styles.collapsibleCount}>{todaysSessions.length}</Text>
+                <View style={styles.collapsibleBadge}>
+                  <Text style={styles.collapsibleBadgeText}>{todaysSessions.length}</Text>
+                </View>
                 <Ionicons 
                   name={sessionsCollapsed ? "chevron-down" : "chevron-up"} 
                   size={18} 
@@ -1340,7 +1356,58 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   
-  // Alerts
+  // Collapsible Cards
+  collapsibleCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+  },
+  collapsibleHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  collapsibleTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  collapsibleTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  collapsibleToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  collapsibleBadge: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 24,
+    alignItems: "center",
+  },
+  collapsibleBadgeText: {
+    ...Typography.caption,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  collapsedPreview: {
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.04)",
+    marginTop: Spacing.sm,
+  },
+  collapsedPreviewText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
   insightsSection: {
     marginBottom: Spacing.lg,
   },
@@ -1353,45 +1420,18 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     opacity: 0.9,
   },
-  collapsibleHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: Spacing.sm,
-  },
-  collapsibleToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-  },
-  collapsibleCount: {
-    ...Typography.small,
-    color: Colors.dark.tabIconDefault,
-    backgroundColor: Colors.dark.backgroundTertiary,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  collapsedPreview: {
-    paddingTop: Spacing.sm,
-  },
-  collapsedPreviewText: {
-    ...Typography.small,
-    color: Colors.dark.textSecondary,
-    overflow: "hidden",
-  },
   alertCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Colors.dark.backgroundTertiary,
     borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    marginBottom: Spacing.sm,
-    gap: Spacing.md,
+    padding: Spacing.sm,
+    marginTop: Spacing.sm,
+    gap: Spacing.sm,
   },
   alertIcon: {
-    width: 40,
-    height: 40,
+    width: 32,
+    height: 32,
     borderRadius: BorderRadius.sm,
     alignItems: "center",
     justifyContent: "center",
@@ -1450,18 +1490,19 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   timelineCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
+    marginTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.04)",
+    paddingTop: Spacing.sm,
   },
   sessionCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Colors.dark.backgroundTertiary,
     borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    marginBottom: Spacing.sm,
-    gap: Spacing.md,
+    padding: Spacing.sm,
+    marginTop: Spacing.sm,
+    gap: Spacing.sm,
   },
   sessionCardPast: {
     opacity: 0.5,
