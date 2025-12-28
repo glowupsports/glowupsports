@@ -23,6 +23,7 @@ import {
   registerSchema,
   insertSessionSchema,
   insertPlayerSchema,
+  updatePlayerSchema,
   insertPackageSchema,
   insertPlayerNoteSchema,
   insertMessageSchema,
@@ -1258,7 +1259,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
       
-      const updated = await storage.updatePlayer(id, req.body);
+      // Validate and transform the update data
+      const parseResult = updatePlayerSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: fromZodError(parseResult.error).message 
+        });
+      }
+      
+      const updated = await storage.updatePlayer(id, parseResult.data);
       res.json(updated);
     } catch (error) {
       console.error("Error updating player:", error);

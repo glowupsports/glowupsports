@@ -139,7 +139,22 @@ export const players = pgTable("players", {
 });
 
 export const insertPlayerSchema = createInsertSchema(players).omit({ id: true, createdAt: true });
+export const updatePlayerSchema = z.object({
+  name: z.string().min(1).optional(),
+  email: z.string().email("Invalid email format").optional().nullable().or(z.literal("")),
+  phone: z.string().optional().nullable(),
+  age: z.number().int().min(0, "Age must be positive").max(120, "Age must be realistic").optional().nullable(),
+  ballLevel: z.enum(["red", "orange", "green", "yellow", "glow"]).optional().nullable(),
+  skillLevel: z.number().int().min(1).max(3).optional().nullable(),
+  membershipType: z.string().optional().nullable(),
+  medicalNotes: z.string().optional().nullable(),
+  coachId: z.string().optional().nullable(),
+}).transform((data) => ({
+  ...data,
+  email: data.email === "" ? null : data.email,
+}));
 export type InsertPlayer = z.infer<typeof insertPlayerSchema>;
+export type UpdatePlayer = z.infer<typeof updatePlayerSchema>;
 export type Player = typeof players.$inferSelect;
 
 // Packages (Credits)

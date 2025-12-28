@@ -85,6 +85,7 @@ export default function SessionDetailDrawer({
   const [guestEmail, setGuestEmail] = useState("");
   const [guestAge, setGuestAge] = useState("");
   const [guestBallLevel, setGuestBallLevel] = useState<string>("");
+  const [conversionErrors, setConversionErrors] = useState<{email?: string; age?: string}>({});
 
   const { data: allPlayersData } = useQuery<AvailablePlayer[]>({
     queryKey: ["/api/players"],
@@ -171,14 +172,14 @@ export default function SessionDetailDrawer({
   });
 
   const convertGuestMutation = useMutation({
-    mutationFn: async ({ playerId, phone, email, age, ballLevel }: { playerId: string; phone: string; email: string; age: number | null; ballLevel: string }) => {
+    mutationFn: async ({ playerId, phone, email, age, ballLevel }: { playerId: string; phone: string | null; email: string | null; age: number | null; ballLevel: string | null }) => {
       const cleanName = showGuestConvert?.name.replace(" (Guest)", "") || "";
       return apiRequest("PATCH", `/api/players/${playerId}`, {
         name: cleanName,
-        phone: phone || undefined,
-        email: email || undefined,
-        age: age || undefined,
-        ballLevel: ballLevel || undefined,
+        phone,
+        email,
+        age,
+        ballLevel,
         membershipType: "regular",
       });
     },
@@ -191,6 +192,7 @@ export default function SessionDetailDrawer({
       setGuestEmail("");
       setGuestAge("");
       setGuestBallLevel("");
+      setConversionErrors({});
       Alert.alert("Success", "Guest converted to player");
     },
     onError: (error: Error) => {
@@ -198,15 +200,49 @@ export default function SessionDetailDrawer({
     },
   });
 
+  const validateConversionFields = (): boolean => {
+    const errors: {email?: string; age?: string} = {};
+    
+    // Validate email format if provided
+    const emailTrimmed = guestEmail.trim();
+    if (emailTrimmed) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailTrimmed)) {
+        errors.email = "Invalid email format";
+      }
+    }
+    
+    // Validate age if provided
+    const ageTrimmed = guestAge.trim();
+    if (ageTrimmed) {
+      const ageNum = parseInt(ageTrimmed, 10);
+      if (isNaN(ageNum)) {
+        errors.age = "Age must be a number";
+      } else if (ageNum < 0) {
+        errors.age = "Age must be positive";
+      } else if (ageNum > 120) {
+        errors.age = "Age must be realistic";
+      }
+    }
+    
+    setConversionErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+  
   const handleConvertGuest = () => {
     if (!showGuestConvert) return;
-    const ageNum = guestAge.trim() ? parseInt(guestAge.trim(), 10) : null;
+    if (!validateConversionFields()) return;
+    
+    const ageTrimmed = guestAge.trim();
+    const ageNum = ageTrimmed ? parseInt(ageTrimmed, 10) : null;
+    const emailTrimmed = guestEmail.trim();
+    
     convertGuestMutation.mutate({
       playerId: showGuestConvert.id,
-      phone: guestPhone.trim(),
-      email: guestEmail.trim(),
-      age: ageNum && !isNaN(ageNum) ? ageNum : null,
-      ballLevel: guestBallLevel,
+      phone: guestPhone.trim() || null,
+      email: emailTrimmed || null,
+      age: ageNum !== null && !isNaN(ageNum) ? ageNum : null,
+      ballLevel: guestBallLevel || null,
     });
   };
 
@@ -394,7 +430,7 @@ export default function SessionDetailDrawer({
         <View style={styles.guestConvertSection}>
           <View style={styles.guestConvertHeader}>
             <Text style={styles.guestConvertTitle}>Convert Guest to Player</Text>
-            <Pressable onPress={() => setShowGuestConvert(null)}>
+            <Pressable onPress={() => { setShowGuestConvert(null); setConversionErrors({}); }}>
               <Ionicons name="close" size={20} color={Colors.dark.tabIconDefault} />
             </Pressable>
           </View>
@@ -410,23 +446,25 @@ export default function SessionDetailDrawer({
           />
           
           <TextInput
-            style={styles.guestConvertInput}
+            style={[styles.guestConvertInput, conversionErrors.email && styles.guestConvertInputError]}
             placeholder="Email (optional)"
             placeholderTextColor={Colors.dark.tabIconDefault}
             value={guestEmail}
-            onChangeText={setGuestEmail}
+            onChangeText={(text) => { setGuestEmail(text); if (conversionErrors.email) setConversionErrors(prev => ({ ...prev, email: undefined })); }}
             keyboardType="email-address"
             autoCapitalize="none"
           />
+          {conversionErrors.email ? <Text style={styles.conversionErrorText}>{conversionErrors.email}</Text> : null}
           
           <TextInput
-            style={styles.guestConvertInput}
+            style={[styles.guestConvertInput, conversionErrors.age && styles.guestConvertInputError]}
             placeholder="Age (optional)"
             placeholderTextColor={Colors.dark.tabIconDefault}
             value={guestAge}
-            onChangeText={setGuestAge}
+            onChangeText={(text) => { setGuestAge(text); if (conversionErrors.age) setConversionErrors(prev => ({ ...prev, age: undefined })); }}
             keyboardType="number-pad"
           />
+          {conversionErrors.age ? <Text style={styles.conversionErrorText}>{conversionErrors.age}</Text> : null}
           
           <Text style={styles.guestConvertLabel}>Ball Level</Text>
           <View style={styles.ballLevelRow}>
@@ -958,8 +996,19 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     color: Colors.dark.text,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
     ...Typography.body,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  guestConvertInputError: {
+    borderColor: Colors.dark.error,
+    marginBottom: Spacing.xs,
+  },
+  conversionErrorText: {
+    ...Typography.small,
+    color: Colors.dark.error,
+    marginBottom: Spacing.sm,
   },
   guestConvertLabel: {
     ...Typography.small,
