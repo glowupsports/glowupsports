@@ -21,6 +21,12 @@ export const Colors = {
     error: "#FF4444",
     disabled: "#666666",
     headerBorder: "rgba(46, 204, 64, 0.3)",
+    // Player ball level colors
+    ballRed: "#FF4444",
+    ballOrange: "#FF851B",
+    ballGreen: "#2ECC40",
+    ballYellow: "#FFD700",
+    ballGlow: "#E040FB", // Purple/Magenta for adults
   },
   dark: {
     text: "#ECEDEE",
@@ -42,8 +48,32 @@ export const Colors = {
     error: "#FF4444",
     disabled: "#666666",
     headerBorder: "rgba(46, 204, 64, 0.3)",
+    // Player ball level colors
+    ballRed: "#FF4444",
+    ballOrange: "#FF851B",
+    ballGreen: "#2ECC40",
+    ballYellow: "#FFD700",
+    ballGlow: "#E040FB", // Purple/Magenta for adults
   },
 };
+
+// Get avatar color based on player ball level
+export function getPlayerLevelColor(ballLevel?: string | null): string {
+  switch (ballLevel?.toLowerCase()) {
+    case "red":
+      return Colors.dark.ballRed;
+    case "orange":
+      return Colors.dark.ballOrange;
+    case "green":
+      return Colors.dark.ballGreen;
+    case "yellow":
+      return Colors.dark.ballYellow;
+    case "glow":
+      return Colors.dark.ballGlow;
+    default:
+      return Colors.dark.primary; // Default green
+  }
+}
 
 export const Spacing = {
   xs: 4,
