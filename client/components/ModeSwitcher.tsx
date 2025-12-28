@@ -10,7 +10,8 @@ interface ModeSwitcherProps {
 }
 
 const modeConfig: Record<AppMode, { icon: keyof typeof Ionicons.glyphMap; label: string; color: string }> = {
-  owner: { icon: "shield", label: "Owner", color: Colors.dark.gold },
+  platform: { icon: "globe", label: "Platform", color: "#9B59B6" },
+  academy_owner: { icon: "business", label: "Academy", color: Colors.dark.gold },
   admin: { icon: "settings", label: "Admin", color: Colors.dark.orange },
   coach: { icon: "tennisball", label: "Coach", color: Colors.dark.primary },
   player: { icon: "person", label: "Player", color: Colors.dark.xpCyan },

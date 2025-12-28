@@ -5,6 +5,7 @@ import CoachNavigator from "@/coach/navigation/CoachNavigator";
 import PlayerNavigator from "@/player/navigation/PlayerNavigator";
 import AdminNavigator from "@/admin/navigation/AdminNavigator";
 import OwnerNavigator from "@/owner/navigation/OwnerNavigator";
+import PlatformNavigator from "@/platform/navigation/PlatformNavigator";
 import LoginScreen from "@/coach/screens/LoginScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAppMode } from "@/context/AppModeContext";
@@ -15,7 +16,8 @@ export type RootStackParamList = {
   Player: undefined;
   Coach: undefined;
   Admin: undefined;
-  Owner: undefined;
+  AcademyOwner: undefined;
+  Platform: undefined;
   Login: undefined;
 };
 
@@ -46,10 +48,18 @@ export default function RootStackNavigator() {
     }
 
     switch (mode) {
-      case "owner":
+      case "platform":
         return (
           <Stack.Screen
-            name="Owner"
+            name="Platform"
+            component={PlatformNavigator}
+            options={{ headerShown: false }}
+          />
+        );
+      case "academy_owner":
+        return (
+          <Stack.Screen
+            name="AcademyOwner"
             component={OwnerNavigator}
             options={{ headerShown: false }}
           />

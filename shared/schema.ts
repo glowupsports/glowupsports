@@ -11,7 +11,7 @@ export const users = pgTable("users", {
     .default(sql`gen_random_uuid()`),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
-  role: text("role").notNull().default("coach"), // owner | coach | assistant | player
+  role: text("role").notNull().default("coach"), // platform_owner | academy_owner | coach | assistant | player
   academyId: varchar("academy_id"), // references academies.id (set after registration)
   coachId: varchar("coach_id"), // references coaches.id (links user to coach profile)
   playerId: varchar("player_id"), // references players.id (links user to player profile)
@@ -38,7 +38,7 @@ export const registerSchema = z.object({
   password: z.string().min(8),
   name: z.string().min(2),
   academyName: z.string().min(2).optional(), // For new academy creation
-  role: z.enum(["owner", "coach", "assistant", "player"]).default("coach"),
+  role: z.enum(["platform_owner", "academy_owner", "coach", "assistant", "player"]).default("coach"),
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -76,7 +76,7 @@ export const coaches = pgTable("coaches", {
   phone: text("phone"),
   specialty: text("specialty"),
   bio: text("bio"),
-  role: text("role").default("coach"), // owner | coach | assistant
+  role: text("role").default("coach"), // platform_owner | academy_owner | coach | assistant
   homeLocationId: varchar("home_location_id"),
   hourlyRate: numeric("hourly_rate"),
   
@@ -907,7 +907,7 @@ export const coachAcademyMemberships = pgTable("coach_academy_memberships", {
   coachId: varchar("coach_id").references(() => coaches.id).notNull(),
   academyId: varchar("academy_id").references(() => academies.id).notNull(),
   
-  role: text("role").default("coach"), // owner | coach | assistant
+  role: text("role").default("coach"), // platform_owner | academy_owner | coach | assistant
   isActive: boolean("is_active").default(true),
   isPrimary: boolean("is_primary").default(false), // default academy for this coach
   

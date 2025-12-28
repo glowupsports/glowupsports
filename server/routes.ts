@@ -115,7 +115,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name, 
           email, 
           academyId, 
-          role: "owner",
+          role: "academy_owner",
           level: 1,
           totalXp: 0,
         });
@@ -127,7 +127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.createUser({
         email,
         password: hashedPassword,
-        role: academyName ? "owner" : role,
+        role: academyName ? "academy_owner" : role,
         academyId,
         coachId,
       });
@@ -1062,7 +1062,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create coach
-  app.post("/api/coaches", authMiddleware, requireRole("owner"), async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/coaches", authMiddleware, requireRole("academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId;
       const coach = await storage.createCoach({ ...req.body, academyId });
@@ -1086,7 +1086,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create location
-  app.post("/api/locations", authMiddleware, requireRole("owner"), async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/locations", authMiddleware, requireRole("academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId;
       const location = await storage.createLocation({ ...req.body, academyId });
@@ -1115,7 +1115,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create court
-  app.post("/api/courts", authMiddleware, requireRole("owner"), async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/courts", authMiddleware, requireRole("academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId;
       const court = await storage.createCourt({ ...req.body, academyId });
@@ -1127,7 +1127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update court
-  app.patch("/api/courts/:id", authMiddleware, requireRole("owner"), async (req: AuthenticatedRequest, res: Response) => {
+  app.patch("/api/courts/:id", authMiddleware, requireRole("academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
@@ -1149,7 +1149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete court
-  app.delete("/api/courts/:id", authMiddleware, requireRole("owner"), async (req: AuthenticatedRequest, res: Response) => {
+  app.delete("/api/courts/:id", authMiddleware, requireRole("academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
@@ -4766,8 +4766,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(401).json({ error: "Authentication required" });
       return;
     }
-    // Allow owners and admins to view player mode (will show demo data)
-    if (req.user.role === "owner" || req.user.role === "admin") {
+    // Allow academy_owners, platform_owners and admins to view player mode (will show demo data)
+    if (req.user.role === "platform_owner" || req.user.role === "academy_owner" || req.user.role === "admin") {
       next();
       return;
     }

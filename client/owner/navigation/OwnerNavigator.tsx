@@ -5,13 +5,22 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
 import OwnerDashboardScreen from "@/owner/screens/OwnerDashboardScreen";
+import AcademyScreen from "@/owner/screens/AcademyScreen";
+import PeopleScreen from "@/owner/screens/PeopleScreen";
+import OperationsScreen from "@/owner/screens/OperationsScreen";
+import PerformanceScreen from "@/owner/screens/PerformanceScreen";
+import FinanceScreen from "@/owner/screens/FinanceScreen";
+import SettingsScreen from "@/owner/screens/SettingsScreen";
 import { Colors } from "@/constants/theme";
 
 export type OwnerTabParamList = {
   OwnerDashboard: undefined;
-  Academies: undefined;
-  Billing: undefined;
-  System: undefined;
+  Academy: undefined;
+  People: undefined;
+  Operations: undefined;
+  Performance: undefined;
+  Finance: undefined;
+  Settings: undefined;
 };
 
 export type OwnerStackParamList = {
@@ -49,39 +58,69 @@ function OwnerTabs() {
         name="OwnerDashboard"
         component={OwnerDashboardScreen}
         options={{
-          tabBarLabel: "Dashboard",
+          tabBarLabel: "Home",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="shield" size={size} color={color} />
+            <Ionicons name="home" size={size - 2} color={color} />
           ),
         }}
       />
       <Tab.Screen
-        name="Academies"
-        component={OwnerDashboardScreen}
+        name="Academy"
+        component={AcademyScreen}
         options={{
-          tabBarLabel: "Academies",
+          tabBarLabel: "Academy",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="business-outline" size={size} color={color} />
+            <Ionicons name="business" size={size - 2} color={color} />
           ),
         }}
       />
       <Tab.Screen
-        name="Billing"
-        component={OwnerDashboardScreen}
+        name="People"
+        component={PeopleScreen}
         options={{
-          tabBarLabel: "Billing",
+          tabBarLabel: "People",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="card-outline" size={size} color={color} />
+            <Ionicons name="people" size={size - 2} color={color} />
           ),
         }}
       />
       <Tab.Screen
-        name="System"
-        component={OwnerDashboardScreen}
+        name="Operations"
+        component={OperationsScreen}
         options={{
-          tabBarLabel: "System",
+          tabBarLabel: "Ops",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="cog-outline" size={size} color={color} />
+            <Ionicons name="calendar" size={size - 2} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Performance"
+        component={PerformanceScreen}
+        options={{
+          tabBarLabel: "Stats",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="analytics" size={size - 2} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Finance"
+        component={FinanceScreen}
+        options={{
+          tabBarLabel: "Finance",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="card" size={size - 2} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          tabBarLabel: "Settings",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="cog" size={size - 2} color={color} />
           ),
         }}
       />
@@ -103,8 +142,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 0,
     elevation: 0,
     backgroundColor: "transparent",
-    height: 85,
-    paddingTop: 8,
+    height: 70,
+    paddingTop: 6,
   },
   tabBarBackground: {
     ...StyleSheet.absoluteFillObject,
@@ -114,7 +153,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(18, 18, 18, 0.95)",
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: "500",
   },
 });

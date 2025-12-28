@@ -1,7 +1,14 @@
-# Glow Up Tennis / Coach App
+# Glow Up Sports - Multi-Academy Tennis SaaS Platform
 
 ## Overview
-This project comprises two applications: a professional **Coach App** for tennis management and a **Player App** that mirrors coach actions, showing players their progress, sessions, and achievements. The Coach App offers extensive tools for scheduling sessions, managing players, tracking progress, and providing feedback, all within a dark-themed interface accented with neon green and cyan, inspired by gaming aesthetics. The project aims to provide a comprehensive digital solution for tennis coaches and potentially gamified learning for players.
+This project is a comprehensive multi-academy SaaS Tennis Coach platform with an integrated Player App. The system supports 4 distinct roles with separate app experiences:
+
+1. **Platform Owner** (Glow Up Sports - super admin) - Purple theme (#9B59B6), access to ALL 5 modes
+2. **Academy Owner** (paying clients) - Gold theme (#FFD700), manages their academy
+3. **Coach** - Green theme (#2ECC40), manages sessions and players
+4. **Player** - Cyan theme (#00D4FF), views progress and sessions
+
+Each role has dedicated UI colors, navigation structures, and app modes. The platform distinguishes between TWO separate Owner apps - Platform Owner (internal) and Academy Owner (client-facing).
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
