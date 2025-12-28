@@ -177,10 +177,11 @@ export function CoachChatFooter() {
     refetchInterval: 30000,
   });
 
-  const { data: players = [] } = useQuery<Player[]>({
+  const { data: playersData } = useQuery<Player[]>({
     queryKey: ["/api/players"],
     enabled: !!coach?.id && showNewMessage,
   });
+  const players = Array.isArray(playersData) ? playersData : [];
 
   const { data: allCoaches = [] } = useQuery<{ id: string; name: string }[]>({
     queryKey: ["/api/coaches"],

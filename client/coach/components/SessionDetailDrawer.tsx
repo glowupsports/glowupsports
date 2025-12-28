@@ -77,10 +77,11 @@ export default function SessionDetailDrawer({
   const [pastSessions, setPastSessions] = useState<Session[]>([]);
   const [catchUpAttendance, setCatchUpAttendance] = useState<Map<string, "present" | "absent" | "holiday">>(new Map());
 
-  const { data: allPlayers = [] } = useQuery<AvailablePlayer[]>({
+  const { data: allPlayersData } = useQuery<AvailablePlayer[]>({
     queryKey: ["/api/players"],
     enabled: visible && showAddPlayer,
   });
+  const allPlayers = Array.isArray(allPlayersData) ? allPlayersData : [];
 
   const existingPlayerIds = session?.players?.map(p => p.id) || [];
   const availablePlayers = allPlayers.filter(p => !existingPlayerIds.includes(p.id));

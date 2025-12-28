@@ -85,9 +85,10 @@ export default function BillingScreen() {
     queryKey: ["/api/billing/payments"],
   });
 
-  const { data: players = [] } = useQuery<Player[]>({
+  const { data: playersData } = useQuery<Player[]>({
     queryKey: ["/api/players"],
   });
+  const players = Array.isArray(playersData) ? playersData : [];
 
   const createInvoiceMutation = useMutation({
     mutationFn: async (data: { amount: number; notes?: string; playerId?: string }) => {

@@ -113,10 +113,11 @@ export default function CreateSessionDrawer({
     enabled: visible,
   });
 
-  const { data: players = [] } = useQuery<Player[]>({
+  const { data: playersData } = useQuery<Player[]>({
     queryKey: ["/api/players"],
     enabled: visible,
   });
+  const players = Array.isArray(playersData) ? playersData : [];
 
   const { data: templates = [] } = useQuery<SessionTemplate[]>({
     queryKey: ["/api/coach/templates", coach?.id],

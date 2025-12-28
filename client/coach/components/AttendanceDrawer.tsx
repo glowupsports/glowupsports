@@ -86,10 +86,11 @@ export default function AttendanceDrawer({
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data: allPlayers = [] } = useQuery<AvailablePlayer[]>({
+  const { data: allPlayersData } = useQuery<AvailablePlayer[]>({
     queryKey: ["/api/players"],
     enabled: visible && showAddPlayers,
   });
+  const allPlayers = Array.isArray(allPlayersData) ? allPlayersData : [];
 
   const existingPlayerIds = session?.players?.map(p => p.id) || [];
   const filteredPlayers = allPlayers.filter(p => 
