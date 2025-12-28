@@ -21,11 +21,121 @@ interface PendingBio {
   submittedAt?: string;
 }
 
+interface PendingOwnerProfile {
+  academyId: string;
+  academyName: string;
+  ownerName: string;
+  role: string;
+  yearsInSports?: string;
+  backgroundTags: string[];
+  visionTags: string[];
+  publicMessage?: string;
+  createdAt?: string;
+}
+
 interface PendingBioRowProps {
   bio: PendingBio;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
   isLoading: boolean;
+}
+
+interface PendingOwnerProfileRowProps {
+  profile: PendingOwnerProfile;
+  onApprove: (academyId: string) => void;
+  onReject: (academyId: string) => void;
+  isLoading: boolean;
+}
+
+function PendingOwnerProfileRow({ profile, onApprove, onReject, isLoading }: PendingOwnerProfileRowProps) {
+  const roleLabels: Record<string, string> = {
+    owner: "Owner",
+    director: "Director",
+    founder: "Founder",
+  };
+
+  const visionLabels: Record<string, string> = {
+    player_development: "Player Development",
+    long_term_growth: "Long-term Growth",
+    fun_confidence: "Fun & Confidence",
+    performance_pathway: "Performance Pathway",
+    community: "Community",
+  };
+
+  return (
+    <View style={styles.bioRow}>
+      <View style={styles.bioHeader}>
+        <View style={[styles.bioAvatar, { backgroundColor: "rgba(255, 215, 0, 0.2)" }]}>
+          <Ionicons name="business" size={20} color={Colors.dark.gold} />
+        </View>
+        <View style={styles.bioInfo}>
+          <Text style={styles.bioName}>{profile.ownerName}</Text>
+          <Text style={styles.bioAcademy}>{profile.academyName}</Text>
+        </View>
+        <View style={[styles.pendingBadge, { backgroundColor: "rgba(255, 215, 0, 0.1)" }]}>
+          <Text style={[styles.pendingBadgeText, { color: Colors.dark.gold }]}>
+            {roleLabels[profile.role] || profile.role}
+          </Text>
+        </View>
+      </View>
+      
+      <View style={styles.bioDetails}>
+        {profile.yearsInSports ? (
+          <View style={styles.bioDetailRow}>
+            <Text style={styles.bioLabel}>Experience:</Text>
+            <Text style={styles.bioValue}>{profile.yearsInSports}</Text>
+          </View>
+        ) : null}
+        
+        {profile.visionTags.length > 0 ? (
+          <View style={styles.bioDetailRow}>
+            <Text style={styles.bioLabel}>Vision:</Text>
+            <View style={styles.tagsRow}>
+              {profile.visionTags.slice(0, 3).map((tag, i) => (
+                <View key={i} style={[styles.tag, { backgroundColor: "rgba(255, 215, 0, 0.1)" }]}>
+                  <Text style={[styles.tagText, { color: Colors.dark.gold }]}>
+                    {visionLabels[tag] || tag}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+        
+        {profile.publicMessage ? (
+          <View style={styles.quoteBox}>
+            <Ionicons name="megaphone" size={14} color={Colors.dark.textMuted} />
+            <Text style={styles.quoteText}>"{profile.publicMessage}"</Text>
+          </View>
+        ) : null}
+      </View>
+      
+      <View style={styles.bioActions}>
+        <Pressable 
+          style={[styles.actionButton, styles.rejectButton]}
+          onPress={() => onReject(profile.academyId)}
+          disabled={isLoading}
+        >
+          <Ionicons name="close" size={16} color={Colors.dark.error} />
+          <Text style={[styles.actionButtonText, { color: Colors.dark.error }]}>Reject</Text>
+        </Pressable>
+        <Pressable 
+          style={[styles.actionButton, styles.approveButton]}
+          onPress={() => onApprove(profile.academyId)}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator size="small" color={Colors.dark.primary} />
+          ) : (
+            <>
+              <Ionicons name="checkmark" size={16} color={Colors.dark.primary} />
+              <Text style={[styles.actionButtonText, { color: Colors.dark.primary }]}>Approve</Text>
+            </>
+          )}
+        </Pressable>
+      </View>
+    </View>
+  );
 }
 
 function PendingBioRow({ bio, onApprove, onReject, isLoading }: PendingBioRowProps) {
@@ -178,6 +288,10 @@ export default function CoachHealthScreen() {
     queryKey: ["/api/platform/pending-bios"],
   });
 
+  const { data: pendingOwnerProfilesData, isLoading: loadingOwnerProfiles } = useQuery<{ pendingProfiles: PendingOwnerProfile[] }>({
+    queryKey: ["/api/platform/pending-owner-profiles"],
+  });
+
   const reviewMutation = useMutation({
     mutationFn: async ({ coachId, action, rejectionReason }: { coachId: string; action: "approve" | "reject"; rejectionReason?: string }) => {
       return apiRequest("POST", `/api/platform/review-bio/${coachId}`, { action, rejectionReason });
@@ -187,8 +301,40 @@ export default function CoachHealthScreen() {
     },
   });
 
+  const ownerReviewMutation = useMutation({
+    mutationFn: async ({ academyId, action }: { academyId: string; action: "approve" | "reject" }) => {
+      return apiRequest("POST", `/api/platform/review-owner-profile/${academyId}`, { action });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/platform/pending-owner-profiles"] });
+    },
+  });
+
   const handleApprove = (coachId: string) => {
     reviewMutation.mutate({ coachId, action: "approve" });
+  };
+
+  const handleApproveOwner = (academyId: string) => {
+    ownerReviewMutation.mutate({ academyId, action: "approve" });
+  };
+
+  const handleRejectOwner = (academyId: string) => {
+    if (Platform.OS === "web") {
+      if (window.confirm("Are you sure you want to reject this owner profile?")) {
+        ownerReviewMutation.mutate({ academyId, action: "reject" });
+      }
+    } else {
+      Alert.alert(
+        "Reject Profile",
+        "Are you sure you want to reject this owner profile?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Reject", style: "destructive", onPress: () => {
+            ownerReviewMutation.mutate({ academyId, action: "reject" });
+          }},
+        ]
+      );
+    }
   };
 
   const handleReject = (coachId: string) => {
@@ -230,6 +376,7 @@ export default function CoachHealthScreen() {
 
   const atRiskCoaches = coaches.filter(c => c.burnoutRisk === "high" || c.burnoutRisk === "medium");
   const pendingBios = pendingBiosData?.pendingBios || [];
+  const pendingOwnerProfiles = pendingOwnerProfilesData?.pendingProfiles || [];
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -272,6 +419,33 @@ export default function CoachHealthScreen() {
         ) : loadingPendingBios ? (
           <View style={styles.loadingSection}>
             <ActivityIndicator size="small" color={PLATFORM_COLOR} />
+          </View>
+        ) : null}
+
+        {pendingOwnerProfiles.length > 0 ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="business" size={20} color={Colors.dark.gold} />
+              <Text style={styles.sectionTitle}>Pending Owner Profiles</Text>
+              <View style={[styles.countBadge, { backgroundColor: "rgba(255, 215, 0, 0.2)" }]}>
+                <Text style={[styles.countBadgeText, { color: Colors.dark.gold }]}>{pendingOwnerProfiles.length}</Text>
+              </View>
+            </View>
+            <View style={[styles.coachesCard, CardStyles.elevated]}>
+              {pendingOwnerProfiles.map((profile) => (
+                <PendingOwnerProfileRow 
+                  key={profile.academyId} 
+                  profile={profile} 
+                  onApprove={handleApproveOwner}
+                  onReject={handleRejectOwner}
+                  isLoading={ownerReviewMutation.isPending}
+                />
+              ))}
+            </View>
+          </View>
+        ) : loadingOwnerProfiles ? (
+          <View style={styles.loadingSection}>
+            <ActivityIndicator size="small" color={Colors.dark.gold} />
           </View>
         ) : null}
 
