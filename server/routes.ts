@@ -4760,22 +4760,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== PLAYER APP API ENDPOINTS ====================
   
-  // Middleware to require player role and linked playerId
-  function requirePlayer(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+  // Middleware to require player role OR allow owners/coaches to view player mode
+  function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
     if (!req.user) {
       res.status(401).json({ error: "Authentication required" });
       return;
     }
-    if (req.user.role !== "player" || !req.user.playerId) {
-      res.status(403).json({ error: "Player account required" });
+    // Allow owners and admins to view player mode (will show demo data)
+    if (req.user.role === "owner" || req.user.role === "admin") {
+      next();
       return;
     }
-    next();
+    // Allow coaches to view player mode (will show demo data)
+    if (req.user.role === "coach" && req.user.coachId) {
+      next();
+      return;
+    }
+    // Regular players must have a playerId
+    if (req.user.role === "player" && req.user.playerId) {
+      next();
+      return;
+    }
+    res.status(403).json({ error: "Player account required" });
+  }
+  
+  // Helper to get demo player data for owners/coaches viewing player mode
+  function getDemoPlayerData(user: AuthenticatedRequest["user"]) {
+    return {
+      id: "demo-player",
+      name: user?.email?.split("@")[0] || "Demo Player",
+      level: 5,
+      xp: 2450,
+      glowScore: 73,
+      ballLevel: "green",
+      coach: {
+        id: "demo-coach",
+        name: "Coach Demo",
+        email: user?.email || "demo@example.com",
+      },
+      academy: {
+        id: "demo-academy",
+        name: "Tennis Academy Pro",
+      },
+      nextSession: {
+        id: "demo-session",
+        date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        type: "Private",
+        courtName: "Court 1",
+      },
+      lastFeedback: {
+        message: "Great progress on your forehand technique! Keep working on footwork.",
+        date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      streak: 7,
+    };
   }
   
   // Get player dashboard data
-  app.get("/api/player/me/dashboard", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/player/me/dashboard", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      // Return demo data for owners/coaches/admins
+      if (!req.user!.playerId) {
+        return res.json(getDemoPlayerData(req.user));
+      }
       const playerId = req.user!.playerId!;
       
       // Get player data
@@ -4864,8 +4911,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get player sessions
-  app.get("/api/player/me/sessions", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/player/me/sessions", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      // Return demo sessions for owners/coaches
+      if (!req.user!.playerId) {
+        return res.json([
+          { id: "demo-1", startTime: new Date().toISOString(), endTime: new Date(Date.now() + 60*60*1000).toISOString(), sessionType: "Private", status: "scheduled", courtName: "Court 1", attended: false },
+          { id: "demo-2", startTime: new Date(Date.now() - 2*24*60*60*1000).toISOString(), endTime: new Date(Date.now() - 2*24*60*60*1000 + 60*60*1000).toISOString(), sessionType: "Group", status: "completed", courtName: "Court 2", attended: true },
+        ]);
+      }
       const playerId = req.user!.playerId!;
       
       // Get sessions for the past 90 days and next 30 days
@@ -4900,8 +4954,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get player progress data (skill domains, XP, level)
-  app.get("/api/player/me/progress", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/player/me/progress", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      // Return demo progress for owners/coaches
+      if (!req.user!.playerId) {
+        return res.json({
+          level: 5,
+          totalXp: 2450,
+          xpToNextLevel: 550,
+          glowScore: 73,
+          skillRadar: [
+            { domain: "Technical", label: "Technical", score: 72, icon: "tennisball", recentXp: 150 },
+            { domain: "Mental", label: "Mental", score: 65, icon: "brain", recentXp: 80 },
+            { domain: "Physical", label: "Physical", score: 78, icon: "body", recentXp: 120 },
+            { domain: "Social", label: "Social", score: 60, icon: "people", recentXp: 50 },
+            { domain: "Tactical", label: "Tactical", score: 68, icon: "map", recentXp: 100 },
+          ],
+        });
+      }
       const playerId = req.user!.playerId!;
       
       const player = await storage.getPlayer(playerId);
@@ -5010,7 +5080,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get player journey (milestones, badges, achievements)
-  app.get("/api/player/me/journey", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/player/me/journey", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    // Return demo journey for owners/coaches
+    if (!req.user!.playerId) {
+      return res.json({
+        milestones: [
+          { id: "m1", type: "level_up", title: "Reached Level 5", date: new Date(Date.now() - 7*24*60*60*1000).toISOString(), xp: 500 },
+          { id: "m2", type: "badge", title: "Consistency Champion", date: new Date(Date.now() - 14*24*60*60*1000).toISOString(), description: "Attended 10 sessions in a row" },
+        ],
+        badges: [
+          { id: "b1", name: "First Session", icon: "star", earnedAt: new Date(Date.now() - 30*24*60*60*1000).toISOString() },
+          { id: "b2", name: "Week Warrior", icon: "flame", earnedAt: new Date(Date.now() - 20*24*60*60*1000).toISOString() },
+        ],
+      });
+    }
+    // Original implementation below
     try {
       const playerId = req.user!.playerId!;
       
@@ -5073,7 +5157,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get player profile data
-  app.get("/api/player/me/profile", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/player/me/profile", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    // Return demo profile for owners/coaches
+    if (!req.user!.playerId) {
+      const demo = getDemoPlayerData(req.user);
+      return res.json({
+        ...demo,
+        email: req.user?.email,
+        phone: null,
+        birthDate: null,
+        medicalNotes: null,
+        stats: { totalSessions: 24, attendanceRate: 92, avgXpPerSession: 45 },
+      });
+    }
+    // Original implementation below
     try {
       const playerId = req.user!.playerId!;
       
@@ -5141,7 +5238,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get academy peers (other players in same academy for safe comparison)
-  app.get("/api/player/me/peers", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/player/me/peers", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    // Return demo peers for owners/coaches
+    if (!req.user!.playerId) {
+      return res.json([
+        { id: "p1", name: "Alex", level: 4, ballLevel: "orange", glowScore: 65 },
+        { id: "p2", name: "Sam", level: 6, ballLevel: "green", glowScore: 82 },
+      ]);
+    }
+    // Original implementation below
     try {
       const playerId = req.user!.playerId!;
       
@@ -5192,7 +5297,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get player recognition (badges, achievements, validations)
-  app.get("/api/player/me/recognition", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/player/me/recognition", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    // Return demo recognition for owners/coaches
+    if (!req.user!.playerId) {
+      return res.json({
+        recentPraise: [
+          { id: "r1", message: "Excellent serve today!", from: "Coach Demo", date: new Date(Date.now() - 24*60*60*1000).toISOString() },
+        ],
+        achievements: [
+          { id: "a1", title: "Rising Star", description: "Gained 500 XP in one week", date: new Date(Date.now() - 5*24*60*60*1000).toISOString() },
+        ],
+      });
+    }
+    // Original implementation below
     try {
       const playerId = req.user!.playerId!;
       
@@ -5328,8 +5445,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get player training history for training tab
-  app.get("/api/player/training-history", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/player/training-history", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      // Return demo training history for owners/coaches
+      if (!req.user!.playerId) {
+        return res.json([
+          { id: "t1", date: new Date(Date.now() - 2*24*60*60*1000).toISOString(), type: "Private", duration: 60, coachName: "Coach Demo", attended: true, xpEarned: 65, domains: ["Technical", "Physical"], feedback: undefined },
+          { id: "t2", date: new Date(Date.now() - 5*24*60*60*1000).toISOString(), type: "Group", duration: 90, coachName: "Coach Demo", attended: true, xpEarned: 50, domains: ["Tactical"], feedback: undefined },
+        ]);
+      }
       const playerId = req.user!.playerId!;
       
       const sessions = await storage.getPlayerSessionsWithDetails(
@@ -5363,8 +5487,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get single training session detail
-  app.get("/api/player/training/:sessionId", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/player/training/:sessionId", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      // Return demo training detail for owners/coaches
+      if (!req.user!.playerId) {
+        return res.json({
+          id: req.params.sessionId,
+          date: new Date(Date.now() - 2*24*60*60*1000).toISOString(),
+          type: "Private",
+          duration: 60,
+          coachName: "Coach Demo",
+          xpEarned: 65,
+          feedback: { focus: 4, effort: 5 },
+          domainImpacts: [{ domain: "Technical", xp: 40 }, { domain: "Physical", xp: 25 }],
+          focusArea: "Forehand technique",
+        });
+      }
       const playerId = req.user!.playerId!;
       const { sessionId } = req.params;
       
@@ -5399,8 +5537,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get skill details for a specific domain
-  app.get("/api/player/skills/:domain", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/player/skills/:domain", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      // Return demo skill details for owners/coaches
+      if (!req.user!.playerId) {
+        return res.json({
+          domain: { id: req.params.domain, name: req.params.domain, label: req.params.domain, icon: "star" },
+          score: 72,
+          recentXp: 150,
+          recentObservations: [
+            { id: "o1", date: new Date(Date.now() - 2*24*60*60*1000).toISOString(), note: "Excellent forehand progress", xp: 40, skill: "Forehand" },
+          ],
+          subSkills: [],
+        });
+      }
       const playerId = req.user!.playerId!;
       const { domain: domainId } = req.params;
       
@@ -5452,8 +5602,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get peer journey snapshot
-  app.get("/api/player/peers/:peerId/journey", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/player/peers/:peerId/journey", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      // Return demo peer journey for owners/coaches
+      if (!req.user!.playerId) {
+        return res.json({
+          id: req.params.peerId,
+          name: "Demo Peer",
+          level: 5,
+          recentMilestones: [
+            { id: "pm1", type: "level_up", title: "Reached Level 5", date: new Date(Date.now() - 10*24*60*60*1000).toISOString() },
+          ],
+          recentBadges: [
+            { id: "pb1", name: "Consistent Player", icon: "flame", earnedAt: new Date(Date.now() - 15*24*60*60*1000).toISOString() },
+          ],
+        });
+      }
       const playerId = req.user!.playerId!;
       const { peerId } = req.params;
       
@@ -5501,8 +5665,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get group challenges (V2 placeholder)
-  app.get("/api/player/challenges", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/player/challenges", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      // Return demo challenges for owners/coaches
+      if (!req.user!.playerId) {
+        return res.json([
+          { id: "c1", title: "Weekly Rally Challenge", description: "Complete 5 sessions this week", progress: 3, target: 5, reward: 100, endDate: new Date(Date.now() + 4*24*60*60*1000).toISOString() },
+        ]);
+      }
       const playerId = req.user!.playerId!;
       const player = await storage.getPlayer(playerId);
       
