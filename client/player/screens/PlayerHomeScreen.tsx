@@ -7,6 +7,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
 import { LinearGradient } from "expo-linear-gradient";
 import ModeSwitcher from "@/components/ModeSwitcher";
+import { useAuth } from "@/coach/context/AuthContext";
 
 interface DashboardData {
   player: {
@@ -109,18 +110,34 @@ function PeerCard({ peer, onPress }: { peer: Peer; onPress: () => void }) {
 export default function PlayerHomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const { user } = useAuth();
+  
+  const isPlayer = user?.role === "player";
   
   const { data, isLoading, error } = useQuery<DashboardData>({
     queryKey: ["/api/player/me/dashboard"],
+    enabled: isPlayer,
   });
   
   const { data: peersData } = useQuery<PeersData>({
     queryKey: ["/api/player/me/peers"],
+    enabled: isPlayer,
   });
 
   const handlePeerPress = (peer: Peer) => {
     navigation.navigate("PeerJourney", { peerId: peer.id, peerName: peer.name });
   };
+
+  if (!isPlayer) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <Ionicons name="tennisball" size={48} color={Colors.dark.xpCyan} />
+        <Text style={styles.errorText}>Player Mode</Text>
+        <Text style={styles.errorSubtext}>Sign in with a player account to view your dashboard</Text>
+        <ModeSwitcher />
+      </View>
+    );
+  }
 
   if (isLoading) {
     return (
