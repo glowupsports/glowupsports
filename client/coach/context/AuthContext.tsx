@@ -7,6 +7,7 @@ import {
   setAuthToken,
   AuthUser 
 } from "@/lib/auth";
+import { useAppMode } from "@/context/AppModeContext";
 
 interface Coach {
   id: string;
@@ -52,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [coach, setCoach] = useState<Coach | null>(null);
   const [academy, setAcademy] = useState<Academy | null>(null);
+  const { setMode } = useAppMode();
 
   const fetchUserData = useCallback(async (token: string) => {
     try {
@@ -73,6 +75,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(data.user);
         setCoach(data.coach);
         setAcademy(data.academy);
+        
+        if (data.user?.role === "coach" || data.user?.role === "owner" || data.coach) {
+          setMode("coach");
+        } else if (data.user?.role === "player") {
+          setMode("player");
+        }
+        
         return true;
       }
       console.log("[AuthContext] /api/me returned status:", response.status);
@@ -81,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("[AuthContext] Failed to fetch user data:", error);
       return false;
     }
-  }, []);
+  }, [setMode]);
 
   useEffect(() => {
     let isMounted = true;
