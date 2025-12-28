@@ -967,7 +967,7 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   coachName: {
-    ...Typography.h1,
+    ...Typography.h3,
     color: Colors.dark.text,
     marginBottom: 2,
   },
@@ -1000,10 +1000,9 @@ const styles = StyleSheet.create({
   },
   xpBarContainer: {
     flex: 1,
-    maxWidth: 80,
-    height: 6,
+    height: 8,
     backgroundColor: Colors.dark.backgroundRoot,
-    borderRadius: 3,
+    borderRadius: 4,
     overflow: "hidden",
     position: "relative" as const,
   },
