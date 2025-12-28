@@ -226,6 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    console.log("[AuthContext] Logout called");
     try {
       await clearAuthState();
       setAuthToken(null);
@@ -233,8 +234,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setCoach(null);
       setAcademy(null);
+      console.log("[AuthContext] Logout successful");
     } catch (error) {
-      console.error("Logout error:", error);
+      console.error("[AuthContext] Logout error:", error);
     }
   };
 
