@@ -2037,7 +2037,7 @@ function PlansTab({ insets }: { insets: { bottom: number } }) {
   return (
     <ScrollView
       style={styles.content}
-      contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
+      contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + Spacing.xl }}
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.plansHeader}>
@@ -2485,10 +2485,12 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   emptyCard: {
+    flex: 1,
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
     padding: Spacing.xl,
     alignItems: "center",
+    justifyContent: "center",
     gap: Spacing.md,
   },
   emptyText: {

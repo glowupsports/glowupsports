@@ -2417,7 +2417,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId!;
-      const updates = req.body;
+      const updates = { ...req.body };
+      
+      // Sanitize numeric fields: convert empty strings to null, valid strings to numbers
+      if (updates.hourlyRate === "" || updates.hourlyRate === undefined) {
+        updates.hourlyRate = null;
+      } else if (updates.hourlyRate !== null) {
+        updates.hourlyRate = String(Number(updates.hourlyRate));
+      }
+      
+      // Sanitize optional text fields: convert empty strings to null
+      if (updates.phone === "") updates.phone = null;
+      if (updates.specialty === "") updates.specialty = null;
+      if (updates.bio === "") updates.bio = null;
       
       // Verify coach belongs to academy first
       const coach = await storage.getCoach(id, academyId);
