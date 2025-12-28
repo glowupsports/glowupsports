@@ -178,15 +178,14 @@ export default function PlayerHomeScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.modeSwitcherContainer}>
+        <ModeSwitcher />
+      </View>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.modeSwitcherContainer}>
-          <ModeSwitcher />
-        </View>
-
         <View style={styles.header}>
           {isOwner && (
             <View style={styles.ownerBadge}>
@@ -362,6 +361,7 @@ const styles = StyleSheet.create({
   modeSwitcherContainer: {
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
   header: {
     padding: Spacing.xl,
