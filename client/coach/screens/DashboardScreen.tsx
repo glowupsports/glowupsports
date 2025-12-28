@@ -617,7 +617,13 @@ export default function DashboardScreen() {
             />
           </Pressable>
 
-          {energyCollapsed ? null : (
+          {energyCollapsed ? (
+            <View style={styles.collapsedPreview}>
+              <Text style={styles.collapsedPreviewText}>
+                Stamina {todaysSessions.length === 0 ? "100" : coachStats.staminaPercent}% · Impact {todaysSessions.length === 0 ? "100" : coachStats.impactPercent}%
+              </Text>
+            </View>
+          ) : (
           <>
           <View style={styles.energyBarsContainer}>
             {/* Stamina Bar */}
@@ -698,7 +704,13 @@ export default function DashboardScreen() {
               color={Colors.dark.tabIconDefault} 
             />
           </Pressable>
-          {insightsCollapsed ? null : (
+          {insightsCollapsed ? (
+            <View style={styles.collapsedPreview}>
+              <Text style={styles.collapsedPreviewText}>
+                Load forecast and burnout risk
+              </Text>
+            </View>
+          ) : (
             <>
               <BurnoutRiskCard />
               <LoadForecastCard 
@@ -785,7 +797,22 @@ export default function DashboardScreen() {
                 color={Colors.dark.tabIconDefault} 
               />
             </Pressable>
-            {timelineCollapsed ? null : (
+            {timelineCollapsed ? (
+              <View style={styles.collapsedPreview}>
+                <Text style={styles.collapsedPreviewText}>
+                  {(() => {
+                    const now = new Date();
+                    const nextSession = todaysSessions.find(s => new Date(s.startTime) > now);
+                    const currentSession = todaysSessions.find(s => 
+                      new Date(s.startTime) <= now && new Date(s.endTime) > now
+                    );
+                    if (currentSession) return "In session now";
+                    if (nextSession) return `Next: ${formatTime(nextSession.startTime)}`;
+                    return "All sessions complete";
+                  })()}
+                </Text>
+              </View>
+            ) : (
               <View style={styles.timelineCard}>
                 <MiniTimeline
                   sessions={todaysSessions.map(s => ({
@@ -818,7 +845,17 @@ export default function DashboardScreen() {
                 />
               </View>
             </Pressable>
-            {sessionsCollapsed ? null : todaysSessions.map((session) => {
+            {sessionsCollapsed ? (
+              <View style={styles.collapsedPreview}>
+                <Text style={styles.collapsedPreviewText}>
+                  {(() => {
+                    const totalDuration = todaysSessions.reduce((sum, s) => sum + (s.duration || 0), 0);
+                    const playerCount = todaysSessions.reduce((sum, s) => sum + ((s as any).players?.length || 0), 0);
+                    return `${totalDuration}m total · ${playerCount} player${playerCount !== 1 ? 's' : ''}`;
+                  })()}
+                </Text>
+              </View>
+            ) : todaysSessions.map((session) => {
               const isPast = new Date(session.endTime) < new Date();
               const isCurrent =
                 new Date(session.startTime) <= new Date() && new Date(session.endTime) > new Date();
@@ -1335,6 +1372,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: 10,
+  },
+  collapsedPreview: {
+    paddingTop: Spacing.sm,
+  },
+  collapsedPreviewText: {
+    ...Typography.small,
+    color: Colors.dark.textSecondary,
     overflow: "hidden",
   },
   alertCard: {
