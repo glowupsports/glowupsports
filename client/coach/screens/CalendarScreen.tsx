@@ -1708,7 +1708,11 @@ export default function CalendarScreen() {
 
       {/* MONTH VIEW */}
       {viewMode === "month" && (
-        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          style={{ flex: 1 }} 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+        >
           {/* Month Mode Toggle */}
           <View style={styles.monthModeToggle}>
             <Pressable
