@@ -4961,17 +4961,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allHighlights = skillRadar.flatMap(s => s.insights.recentHighlights).slice(0, 5);
       const allFocusAreas = skillRadar.flatMap(s => s.insights.focusAreas).slice(0, 5);
       
+      // Calculate level readiness for next level
+      const nextLevel = player.ballLevel === 'red1' ? 'red2' : 
+                        player.ballLevel === 'red2' ? 'red3' :
+                        player.ballLevel === 'red3' ? 'orange1' :
+                        player.ballLevel === 'orange1' ? 'orange2' :
+                        player.ballLevel === 'orange2' ? 'orange3' :
+                        player.ballLevel === 'orange3' ? 'green1' :
+                        player.ballLevel === 'green1' ? 'green2' :
+                        player.ballLevel === 'green2' ? 'green3' :
+                        player.ballLevel === 'green3' ? 'yellow1' :
+                        player.ballLevel === 'yellow1' ? 'yellow2' :
+                        player.ballLevel === 'yellow2' ? 'yellow3' :
+                        player.ballLevel === 'yellow3' ? 'glow' : 'glow';
+      
+      let levelReadiness = null;
+      try {
+        levelReadiness = await storage.calculatePlayerLevelReadiness(playerId, nextLevel);
+      } catch (e) {
+        // Silently fail - readiness is optional
+      }
+      
       res.json({
         level,
         xp: totalXp,
         xpForNextLevel: (level + 1) * 500,
         glowScore,
         ballLevel: player.ballLevel,
+        nextBallLevel: nextLevel,
         skillRadar,
         overallInsights: {
           strengths: allHighlights,
           focusAreas: allFocusAreas,
         },
+        levelReadiness: levelReadiness ? {
+          isReady: levelReadiness.isReady,
+          requirements: levelReadiness.requirements,
+          sessionCount: levelReadiness.sessionCount,
+          minSessionsRequired: levelReadiness.minSessionsRequired,
+          coachApprovalRequired: true,
+          coachApprovalStatus: "pending",
+        } : null,
       });
     } catch (error) {
       console.error("Error fetching player progress:", error);
@@ -5107,6 +5137,193 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching player profile:", error);
       res.status(500).json({ error: "Failed to fetch player profile" });
+    }
+  });
+  
+  // Get academy peers (other players in same academy for safe comparison)
+  app.get("/api/player/me/peers", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId!;
+      
+      const player = await storage.getPlayer(playerId);
+      if (!player || !player.academyId) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Get other players in the same academy (excluding self)
+      const allPlayers = await storage.listPlayers(player.academyId);
+      const peers = allPlayers
+        .filter(p => p.id !== playerId && p.isActive)
+        .map(p => ({
+          id: p.id,
+          name: p.name,
+          level: p.level || 1,
+          ballLevel: p.ballLevel,
+          glowScore: p.glowScore || 0,
+          avatar: p.name.charAt(0).toUpperCase(),
+        }))
+        .slice(0, 20); // Limit to 20 peers
+      
+      // Group by ball level for safe comparison
+      const peersByLevel: Record<string, typeof peers> = {};
+      peers.forEach(peer => {
+        const level = peer.ballLevel || 'unknown';
+        if (!peersByLevel[level]) peersByLevel[level] = [];
+        peersByLevel[level].push(peer);
+      });
+      
+      // Get players at same level for comparison
+      const sameLevelPeers = peers.filter(p => p.ballLevel === player.ballLevel);
+      
+      res.json({
+        totalPeers: peers.length,
+        peers: peers,
+        sameLevelPeers: sameLevelPeers,
+        peersByLevel,
+        myRankAtLevel: sameLevelPeers.length > 0 
+          ? sameLevelPeers.filter(p => (p.glowScore || 0) > (player.glowScore || 0)).length + 1
+          : 1,
+        totalAtLevel: sameLevelPeers.length + 1,
+      });
+    } catch (error) {
+      console.error("Error fetching peers:", error);
+      res.status(500).json({ error: "Failed to fetch peers" });
+    }
+  });
+  
+  // Get player recognition (badges, achievements, validations)
+  app.get("/api/player/me/recognition", authMiddleware, requirePlayer, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId!;
+      
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Get skill states for domain badges
+      const skillStates = await storage.getPlayerSkillStates(playerId);
+      const domains = await storage.listSkillDomains();
+      
+      // Get XP history for streak calculation
+      const xpHistory = await storage.getPlayerXpHistory(playerId);
+      
+      // Get session attendance for consistency badge
+      const sessions = await storage.getPlayerSessionsWithDetails(
+        playerId, 
+        new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
+        new Date()
+      );
+      
+      const attendedSessions = sessions.filter(s => s.attended === "present").length;
+      
+      // Calculate achievements
+      const achievements = [
+        {
+          id: "first_session",
+          name: "First Steps",
+          description: "Complete your first training session",
+          icon: "footsteps",
+          color: "#2ECC40",
+          earned: attendedSessions >= 1,
+          earnedAt: attendedSessions >= 1 ? sessions[0]?.session?.sessionDate : null,
+        },
+        {
+          id: "five_sessions",
+          name: "Getting Started",
+          description: "Complete 5 training sessions",
+          icon: "tennisball",
+          color: "#FF9500",
+          earned: attendedSessions >= 5,
+          earnedAt: attendedSessions >= 5 ? new Date().toISOString() : null,
+        },
+        {
+          id: "ten_sessions",
+          name: "Consistency Champion",
+          description: "Complete 10 training sessions",
+          icon: "ribbon",
+          color: "#00D4FF",
+          earned: attendedSessions >= 10,
+          earnedAt: attendedSessions >= 10 ? new Date().toISOString() : null,
+        },
+        {
+          id: "twenty_sessions",
+          name: "Dedicated Player",
+          description: "Complete 20 training sessions",
+          icon: "trophy",
+          color: "#FFD700",
+          earned: attendedSessions >= 20,
+          earnedAt: attendedSessions >= 20 ? new Date().toISOString() : null,
+        },
+        {
+          id: "level_5",
+          name: "Rising Star",
+          description: "Reach level 5",
+          icon: "star",
+          color: "#FFD700",
+          earned: (player.level || 1) >= 5,
+          earnedAt: (player.level || 1) >= 5 ? new Date().toISOString() : null,
+        },
+        {
+          id: "level_10",
+          name: "Advanced Player",
+          description: "Reach level 10",
+          icon: "diamond",
+          color: "#E040FB",
+          earned: (player.level || 1) >= 10,
+          earnedAt: (player.level || 1) >= 10 ? new Date().toISOString() : null,
+        },
+      ];
+      
+      // Domain mastery badges
+      const domainBadges = domains.map(domain => {
+        const state = skillStates.find(s => s.domainId === domain.id);
+        const progress = state?.progressValue || 0;
+        return {
+          id: `domain_${domain.id}`,
+          name: `${domain.displayName} Apprentice`,
+          description: `Reach 50% progress in ${domain.displayName}`,
+          icon: domain.icon || "star",
+          color: domain.color || "#888888",
+          earned: progress >= 50,
+          earnedAt: progress >= 50 ? new Date().toISOString() : null,
+          progress: progress,
+          domainId: domain.id,
+        };
+      });
+      
+      // Coach validations
+      const validations = skillStates
+        .filter(s => s.assessmentStatus === "meets" || s.assessmentStatus === "above")
+        .map(s => {
+          const domain = domains.find(d => d.id === s.domainId);
+          return {
+            id: `validation_${s.domainId}`,
+            type: "coach_validation",
+            domain: domain?.displayName || "Skill",
+            status: s.assessmentStatus,
+            validatedAt: s.updatedAt,
+          };
+        });
+      
+      const earnedAchievements = achievements.filter(a => a.earned);
+      const earnedDomainBadges = domainBadges.filter(b => b.earned);
+      
+      res.json({
+        achievements,
+        domainBadges,
+        validations,
+        summary: {
+          totalAchievements: achievements.length,
+          earnedAchievements: earnedAchievements.length,
+          totalDomainBadges: domainBadges.length,
+          earnedDomainBadges: earnedDomainBadges.length,
+          totalValidations: validations.length,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching recognition:", error);
+      res.status(500).json({ error: "Failed to fetch recognition" });
     }
   });
 

@@ -29,6 +29,47 @@ interface Badge {
   isLocked: boolean;
 }
 
+interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+  earned: boolean;
+  earnedAt: string | null;
+}
+
+interface DomainBadge {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+  earned: boolean;
+  earnedAt: string | null;
+  progress: number;
+  domainId: string;
+}
+
+interface RecognitionData {
+  achievements: Achievement[];
+  domainBadges: DomainBadge[];
+  validations: Array<{
+    id: string;
+    type: string;
+    domain: string;
+    status: string;
+    validatedAt: string;
+  }>;
+  summary: {
+    totalAchievements: number;
+    earnedAchievements: number;
+    totalDomainBadges: number;
+    earnedDomainBadges: number;
+    totalValidations: number;
+  };
+}
+
 interface JourneyData {
   milestones: Milestone[];
   badges: Badge[];
@@ -105,15 +146,79 @@ function BadgeCard({ badge }: { badge: Badge }) {
   );
 }
 
+function AchievementCard({ achievement }: { achievement: Achievement }) {
+  return (
+    <View style={[styles.achievementCard, !achievement.earned && styles.achievementCardLocked]}>
+      <View style={[
+        styles.achievementIcon, 
+        { backgroundColor: achievement.earned ? `${achievement.color}20` : Colors.dark.backgroundTertiary }
+      ]}>
+        <Ionicons 
+          name={achievement.icon as any} 
+          size={28} 
+          color={achievement.earned ? achievement.color : Colors.dark.textMuted} 
+        />
+      </View>
+      <View style={styles.achievementInfo}>
+        <Text style={[styles.achievementName, !achievement.earned && styles.achievementNameLocked]}>
+          {achievement.name}
+        </Text>
+        <Text style={styles.achievementDescription}>{achievement.description}</Text>
+      </View>
+      {achievement.earned ? (
+        <Ionicons name="checkmark-circle" size={20} color={Colors.dark.primary} />
+      ) : (
+        <Ionicons name="ellipse-outline" size={20} color={Colors.dark.textMuted} />
+      )}
+    </View>
+  );
+}
+
+function DomainBadgeCard({ badge }: { badge: DomainBadge }) {
+  return (
+    <View style={[styles.domainBadgeCard, !badge.earned && styles.domainBadgeCardLocked]}>
+      <View style={[
+        styles.domainBadgeIcon, 
+        { backgroundColor: badge.earned ? `${badge.color}20` : Colors.dark.backgroundTertiary }
+      ]}>
+        <Ionicons 
+          name={badge.icon as any} 
+          size={24} 
+          color={badge.earned ? badge.color : Colors.dark.textMuted} 
+        />
+      </View>
+      <Text style={[styles.domainBadgeName, !badge.earned && styles.domainBadgeNameLocked]}>
+        {badge.name}
+      </Text>
+      <View style={styles.domainBadgeProgress}>
+        <View 
+          style={[
+            styles.domainBadgeProgressFill, 
+            { width: `${badge.progress}%`, backgroundColor: badge.earned ? badge.color : Colors.dark.textMuted }
+          ]} 
+        />
+      </View>
+      <Text style={styles.domainBadgeProgressText}>{badge.progress}%</Text>
+    </View>
+  );
+}
+
 export default function PlayerJourneyScreen() {
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = React.useState<"timeline" | "badges">("timeline");
+  const [activeTab, setActiveTab] = React.useState<"timeline" | "achievements" | "skills">("timeline");
 
-  const { data: journeyData, isLoading, error } = useQuery<JourneyData>({
+  const { data: journeyData, isLoading: journeyLoading, error: journeyError } = useQuery<JourneyData>({
     queryKey: ["/api/player/me/journey"],
   });
+  
+  const { data: recognitionData, isLoading: recognitionLoading } = useQuery<RecognitionData>({
+    queryKey: ["/api/player/me/recognition"],
+  });
+  
+  const isLoading = journeyLoading;
+  const error = journeyError;
 
-  if (isLoading) {
+  if (isLoading || recognitionLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
@@ -132,12 +237,17 @@ export default function PlayerJourneyScreen() {
     );
   }
 
-  const milestones = journeyData.milestones;
-  const badges = journeyData.badges;
-  const badgesAvailable = journeyData.badgesAvailable;
-  const badgeMessage = journeyData.badgeMessage;
-  const earnedBadges = badges.filter(b => !b.isLocked).length;
-  const totalXp = journeyData.xpHistory.reduce((sum, xp) => sum + xp.amount, 0);
+  const milestones = journeyData?.milestones || [];
+  const totalXp = (journeyData?.xpHistory || []).reduce((sum, xp) => sum + xp.amount, 0);
+  
+  const achievements = recognitionData?.achievements || [];
+  const domainBadges = recognitionData?.domainBadges || [];
+  const summary = recognitionData?.summary || { 
+    earnedAchievements: 0, 
+    totalAchievements: achievements.length, 
+    earnedDomainBadges: 0, 
+    totalDomainBadges: domainBadges.length 
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -152,8 +262,8 @@ export default function PlayerJourneyScreen() {
           <Text style={styles.statLabel}>Milestones</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>{earnedBadges}/{badges.length}</Text>
-          <Text style={styles.statLabel}>Badges</Text>
+          <Text style={styles.statValue}>{summary.earnedAchievements}/{summary.totalAchievements}</Text>
+          <Text style={styles.statLabel}>Achievements</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>
@@ -173,7 +283,7 @@ export default function PlayerJourneyScreen() {
         >
           <Ionicons 
             name="time-outline" 
-            size={18} 
+            size={16} 
             color={activeTab === "timeline" ? Colors.dark.xpCyan : Colors.dark.textMuted} 
           />
           <Text style={[styles.tabText, activeTab === "timeline" && styles.tabTextActive]}>
@@ -181,19 +291,35 @@ export default function PlayerJourneyScreen() {
           </Text>
         </Pressable>
         <Pressable
-          style={[styles.tab, activeTab === "badges" && styles.tabActive]}
+          style={[styles.tab, activeTab === "achievements" && styles.tabActive]}
           onPress={() => {
             Haptics.selectionAsync();
-            setActiveTab("badges");
+            setActiveTab("achievements");
           }}
         >
           <Ionicons 
-            name="medal-outline" 
-            size={18} 
-            color={activeTab === "badges" ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+            name="trophy-outline" 
+            size={16} 
+            color={activeTab === "achievements" ? Colors.dark.xpCyan : Colors.dark.textMuted} 
           />
-          <Text style={[styles.tabText, activeTab === "badges" && styles.tabTextActive]}>
-            Badges
+          <Text style={[styles.tabText, activeTab === "achievements" && styles.tabTextActive]}>
+            Awards
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.tab, activeTab === "skills" && styles.tabActive]}
+          onPress={() => {
+            Haptics.selectionAsync();
+            setActiveTab("skills");
+          }}
+        >
+          <Ionicons 
+            name="star-outline" 
+            size={16} 
+            color={activeTab === "skills" ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+          />
+          <Text style={[styles.tabText, activeTab === "skills" && styles.tabTextActive]}>
+            Skills
           </Text>
         </Pressable>
       </View>
@@ -220,28 +346,47 @@ export default function PlayerJourneyScreen() {
             </View>
           }
         />
+      ) : activeTab === "achievements" ? (
+        <FlatList
+          data={achievements}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => <AchievementCard achievement={item} />}
+          contentContainerStyle={[
+            styles.achievementsContent,
+            { paddingBottom: insets.bottom + 100 },
+          ]}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="trophy-outline" size={48} color={Colors.dark.textMuted} />
+              <Text style={styles.emptyText}>No achievements yet</Text>
+              <Text style={styles.emptySubtext}>
+                Complete training sessions to earn achievements
+              </Text>
+            </View>
+          }
+        />
       ) : (
-        badgesAvailable && badges.length > 0 ? (
-          <FlatList
-            data={badges}
-            keyExtractor={(item) => item.id}
-            numColumns={4}
-            renderItem={({ item }) => <BadgeCard badge={item} />}
-            contentContainerStyle={[
-              styles.badgesContent,
-              { paddingBottom: insets.bottom + 100 },
-            ]}
-            showsVerticalScrollIndicator={false}
-          />
-        ) : (
-          <View style={[styles.emptyState, { paddingBottom: insets.bottom + 100 }]}>
-            <Ionicons name="medal-outline" size={48} color={Colors.dark.textMuted} />
-            <Text style={styles.emptyText}>Badges Coming Soon</Text>
-            <Text style={styles.emptySubtext}>
-              {badgeMessage || "Keep training to unlock achievements!"}
-            </Text>
-          </View>
-        )
+        <FlatList
+          data={domainBadges}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          renderItem={({ item }) => <DomainBadgeCard badge={item} />}
+          contentContainerStyle={[
+            styles.badgesContent,
+            { paddingBottom: insets.bottom + 100 },
+          ]}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="star-outline" size={48} color={Colors.dark.textMuted} />
+              <Text style={styles.emptyText}>Skill badges loading</Text>
+              <Text style={styles.emptySubtext}>
+                Your coach validates your skill progress
+              </Text>
+            </View>
+          }
+        />
       )}
     </View>
   );
@@ -450,5 +595,85 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.textMuted,
     textAlign: "center",
+  },
+  achievementsContent: {
+    paddingHorizontal: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  achievementCard: {
+    ...CardStyles.elevated,
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  achievementCardLocked: {
+    opacity: 0.6,
+  },
+  achievementIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  achievementInfo: {
+    flex: 1,
+  },
+  achievementName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  achievementNameLocked: {
+    color: Colors.dark.textMuted,
+  },
+  achievementDescription: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  domainBadgeCard: {
+    flex: 1,
+    maxWidth: "50%",
+    ...CardStyles.elevated,
+    padding: Spacing.md,
+    margin: Spacing.xs,
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  domainBadgeCardLocked: {
+    opacity: 0.6,
+  },
+  domainBadgeIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  domainBadgeName: {
+    ...Typography.small,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  domainBadgeNameLocked: {
+    color: Colors.dark.textMuted,
+  },
+  domainBadgeProgress: {
+    width: "100%",
+    height: 4,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  domainBadgeProgressFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  domainBadgeProgressText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
   },
 });
