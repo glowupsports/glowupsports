@@ -1,0 +1,465 @@
+import React from "react";
+import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useQuery } from "@tanstack/react-query";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
+import { LinearGradient } from "expo-linear-gradient";
+
+interface PlayerData {
+  id: string;
+  name: string;
+  level: number;
+  xp: number;
+  glowScore: number;
+  ballLevel: string;
+  coach: {
+    id: string;
+    name: string;
+    avatar?: string;
+  };
+  academy: {
+    id: string;
+    name: string;
+  };
+  nextSession?: {
+    id: string;
+    date: string;
+    type: string;
+    courtName?: string;
+  };
+  lastFeedback?: {
+    message: string;
+    date: string;
+  };
+  streak: number;
+}
+
+function XPBar({ current, max, level }: { current: number; max: number; level: number }) {
+  const progress = Math.min(current / max, 1);
+  
+  return (
+    <View style={styles.xpBarContainer}>
+      <View style={styles.xpBarTrack}>
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={[styles.xpBarFill, { width: `${progress * 100}%` }]}
+        />
+      </View>
+      <View style={styles.xpLabels}>
+        <Text style={styles.xpText}>Level {level}</Text>
+        <Text style={styles.xpText}>{current} / {max} XP</Text>
+      </View>
+    </View>
+  );
+}
+
+function StatCard({ label, value, icon, color }: { label: string; value: string | number; icon: string; color: string }) {
+  return (
+    <View style={styles.statCard}>
+      <Ionicons name={icon as any} size={24} color={color} />
+      <Text style={[styles.statValue, { color }]}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
+export default function PlayerHomeScreen() {
+  const insets = useSafeAreaInsets();
+  
+  const { data: player, isLoading } = useQuery<PlayerData>({
+    queryKey: ["/api/player/me"],
+    enabled: false,
+  });
+
+  const mockPlayer: PlayerData = {
+    id: "1",
+    name: "Alex",
+    level: 12,
+    xp: 2450,
+    glowScore: 78,
+    ballLevel: "orange",
+    coach: {
+      id: "1",
+      name: "Coach Mike",
+    },
+    academy: {
+      id: "1",
+      name: "Glow Up Tennis Academy",
+    },
+    nextSession: {
+      id: "1",
+      date: new Date(Date.now() + 86400000).toISOString(),
+      type: "private",
+      courtName: "Court 1",
+    },
+    lastFeedback: {
+      message: "Great focus today! Keep working on that forehand follow-through.",
+      date: new Date().toISOString(),
+    },
+    streak: 5,
+  };
+
+  const data = player || mockPlayer;
+  const xpForNextLevel = (data.level + 1) * 500;
+  const currentLevelXp = data.xp % 500;
+
+  const getTimeUntilSession = () => {
+    if (!data.nextSession) return null;
+    const sessionDate = new Date(data.nextSession.date);
+    const now = new Date();
+    const diff = sessionDate.getTime() - now.getTime();
+    if (diff < 0) return "Now";
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const days = Math.floor(hours / 24);
+    if (days > 0) return `${days}d ${hours % 24}h`;
+    return `${hours}h`;
+  };
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <View style={styles.headerTop}>
+            <View>
+              <Text style={styles.greeting}>Welcome back,</Text>
+              <Text style={styles.playerName}>{data.name}</Text>
+            </View>
+            <View style={styles.avatarContainer}>
+              <LinearGradient
+                colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                style={styles.avatarGradient}
+              >
+                <View style={styles.avatarInner}>
+                  <Text style={styles.avatarText}>{data.name.charAt(0)}</Text>
+                </View>
+              </LinearGradient>
+            </View>
+          </View>
+          
+          <View style={styles.levelContainer}>
+            <View style={styles.levelBadge}>
+              <Ionicons name="star" size={16} color={Colors.dark.gold} />
+              <Text style={styles.levelText}>Level {data.level}</Text>
+            </View>
+            <View style={styles.glowBadge}>
+              <Ionicons name="flash" size={14} color={Colors.dark.xpCyan} />
+              <Text style={styles.glowText}>{data.glowScore} Glow</Text>
+            </View>
+          </View>
+          
+          <XPBar current={currentLevelXp} max={500} level={data.level} />
+        </View>
+
+        {data.nextSession ? (
+          <View style={styles.nextSessionCard}>
+            <View style={styles.nextSessionHeader}>
+              <Ionicons name="calendar" size={20} color={Colors.dark.primary} />
+              <Text style={styles.nextSessionTitle}>Next Training</Text>
+              <View style={styles.countdownBadge}>
+                <Text style={styles.countdownText}>{getTimeUntilSession()}</Text>
+              </View>
+            </View>
+            <View style={styles.nextSessionDetails}>
+              <Text style={styles.sessionType}>
+                {data.nextSession.type === "private" ? "Private Session" : 
+                 data.nextSession.type === "group" ? "Group Training" : "Training"}
+              </Text>
+              {data.nextSession.courtName ? (
+                <Text style={styles.sessionCourt}>{data.nextSession.courtName}</Text>
+              ) : null}
+              <Text style={styles.sessionCoach}>with {data.coach.name}</Text>
+            </View>
+          </View>
+        ) : null}
+
+        {data.lastFeedback ? (
+          <View style={styles.feedbackCard}>
+            <View style={styles.feedbackHeader}>
+              <Ionicons name="chatbubble" size={18} color={Colors.dark.xpCyan} />
+              <Text style={styles.feedbackTitle}>Coach Feedback</Text>
+            </View>
+            <Text style={styles.feedbackMessage}>"{data.lastFeedback.message}"</Text>
+            <Text style={styles.feedbackCoach}>- {data.coach.name}</Text>
+          </View>
+        ) : null}
+
+        <View style={styles.statsGrid}>
+          <StatCard 
+            label="Streak" 
+            value={`${data.streak} days`} 
+            icon="flame" 
+            color={Colors.dark.orange} 
+          />
+          <StatCard 
+            label="Total XP" 
+            value={data.xp.toLocaleString()} 
+            icon="trending-up" 
+            color={Colors.dark.xpCyan} 
+          />
+        </View>
+
+        <View style={styles.academyCard}>
+          <View style={styles.academyHeader}>
+            <Ionicons name="school" size={20} color={Colors.dark.primary} />
+            <Text style={styles.academyName}>{data.academy.name}</Text>
+          </View>
+          <View style={styles.coachInfo}>
+            <View style={styles.coachAvatar}>
+              <Text style={styles.coachAvatarText}>{data.coach.name.charAt(0)}</Text>
+            </View>
+            <View>
+              <Text style={styles.coachLabel}>Your Coach</Text>
+              <Text style={styles.coachName}>{data.coach.name}</Text>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  header: {
+    padding: Spacing.xl,
+    paddingBottom: Spacing.lg,
+  },
+  headerTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  greeting: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+  },
+  playerName: {
+    ...Typography.h1,
+    color: Colors.dark.text,
+  },
+  avatarContainer: {
+    width: 56,
+    height: 56,
+  },
+  avatarGradient: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    padding: 2,
+  },
+  avatarInner: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: 26,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarText: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+  },
+  levelContainer: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  levelBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  levelText: {
+    ...Typography.caption,
+    color: Colors.dark.gold,
+    fontWeight: "600",
+  },
+  glowBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(0, 212, 255, 0.15)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  glowText: {
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+  },
+  xpBarContainer: {
+    marginTop: Spacing.xs,
+  },
+  xpBarTrack: {
+    height: 8,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  xpBarFill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  xpLabels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: Spacing.xs,
+  },
+  xpText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  nextSessionCard: {
+    ...CardStyles.glowCard,
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+  },
+  nextSessionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  nextSessionTitle: {
+    ...Typography.h4,
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  countdownBadge: {
+    backgroundColor: "rgba(46, 204, 64, 0.2)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  countdownText: {
+    ...Typography.caption,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  nextSessionDetails: {
+    gap: 4,
+  },
+  sessionType: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  sessionCourt: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  sessionCoach: {
+    ...Typography.small,
+    color: Colors.dark.xpCyan,
+  },
+  feedbackCard: {
+    ...CardStyles.elevated,
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+  },
+  feedbackHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  feedbackTitle: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  feedbackMessage: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontStyle: "italic",
+    lineHeight: 22,
+    marginBottom: Spacing.sm,
+  },
+  feedbackCoach: {
+    ...Typography.small,
+    color: Colors.dark.xpCyan,
+    textAlign: "right",
+  },
+  statsGrid: {
+    flexDirection: "row",
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    gap: Spacing.md,
+  },
+  statCard: {
+    flex: 1,
+    ...CardStyles.statusCard,
+    padding: Spacing.lg,
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  statValue: {
+    ...Typography.numberMedium,
+  },
+  statLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  academyCard: {
+    ...CardStyles.elevated,
+    marginHorizontal: Spacing.xl,
+    padding: Spacing.lg,
+  },
+  academyHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  academyName: {
+    ...Typography.h4,
+    color: Colors.dark.text,
+  },
+  coachInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  coachAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.primary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  coachAvatarText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  coachLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  coachName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+});

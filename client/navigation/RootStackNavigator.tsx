@@ -1,8 +1,8 @@
 import React from "react";
 import { ActivityIndicator, View, StyleSheet } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import DrawerNavigator from "@/navigation/DrawerNavigator";
 import CoachNavigator from "@/coach/navigation/CoachNavigator";
+import PlayerNavigator from "@/player/navigation/PlayerNavigator";
 import LoginScreen from "@/coach/screens/LoginScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAppMode } from "@/context/AppModeContext";
@@ -10,7 +10,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { Colors } from "@/constants/theme";
 
 export type RootStackParamList = {
-  Main: undefined;
+  Player: undefined;
   Coach: undefined;
   Login: undefined;
 };
@@ -46,8 +46,8 @@ export default function RootStackNavigator() {
         />
       ) : (
         <Stack.Screen
-          name="Main"
-          component={DrawerNavigator}
+          name="Player"
+          component={PlayerNavigator}
           options={{ headerShown: false }}
         />
       )}
