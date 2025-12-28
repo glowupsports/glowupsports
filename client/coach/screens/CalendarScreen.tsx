@@ -2229,17 +2229,19 @@ const styles = StyleSheet.create({
   },
   courtFilterContainer: {
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.xs,
     borderBottomWidth: 1,
     borderBottomColor: Colors.dark.border,
+    maxHeight: 40,
   },
   courtFilterContent: {
-    gap: Spacing.sm,
+    gap: Spacing.xs,
+    alignItems: "center",
   },
   courtFilterChip: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
     backgroundColor: Colors.dark.backgroundSecondary,
     borderWidth: 1,
     borderColor: Colors.dark.border,
@@ -2249,7 +2251,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.primary,
   },
   courtFilterText: {
-    ...Typography.small,
+    ...Typography.caption,
     color: Colors.dark.textSecondary,
     fontWeight: "500",
   },
