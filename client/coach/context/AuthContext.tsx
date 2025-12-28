@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from "react";
 import { getApiUrl } from "@/lib/query-client";
 import { 
   loadAuthState, 
@@ -54,6 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [coach, setCoach] = useState<Coach | null>(null);
   const [academy, setAcademy] = useState<Academy | null>(null);
   const { setMode, setAvailableModes } = useAppMode();
+  const setAvailableModesRef = useRef(setAvailableModes);
+  setAvailableModesRef.current = setAvailableModes;
 
   const fetchUserData = useCallback(async (token: string) => {
     try {
@@ -79,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userRole = data.user?.role || "player";
         const availableModes = getModesForRole(userRole);
         const defaultMode = getDefaultModeForRole(userRole);
-        setAvailableModes(availableModes, defaultMode);
+        setAvailableModesRef.current(availableModes, defaultMode);
         
         return true;
       }
@@ -89,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("[AuthContext] Failed to fetch user data:", error);
       return false;
     }
-  }, [setAvailableModes]);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
