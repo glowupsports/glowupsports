@@ -126,7 +126,9 @@ export const players = pgTable("players", {
   academyId: varchar("academy_id").references(() => academies.id),
   coachId: varchar("coach_id").references(() => coaches.id), // primary coach
   name: text("name").notNull(),
+  email: text("email"),
   phone: text("phone"),
+  age: integer("age"),
   ballLevel: text("ball_level"), // red/orange/green/yellow/glow
   skillLevel: integer("skill_level"), // 1/2/3
   membershipType: text("membership_type"),

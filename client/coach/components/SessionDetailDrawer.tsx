@@ -82,6 +82,8 @@ export default function SessionDetailDrawer({
   const [guestName, setGuestName] = useState("");
   const [showGuestConvert, setShowGuestConvert] = useState<{id: string; name: string} | null>(null);
   const [guestPhone, setGuestPhone] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestAge, setGuestAge] = useState("");
   const [guestBallLevel, setGuestBallLevel] = useState<string>("");
 
   const { data: allPlayersData } = useQuery<AvailablePlayer[]>({
@@ -169,11 +171,13 @@ export default function SessionDetailDrawer({
   });
 
   const convertGuestMutation = useMutation({
-    mutationFn: async ({ playerId, phone, ballLevel }: { playerId: string; phone: string; ballLevel: string }) => {
+    mutationFn: async ({ playerId, phone, email, age, ballLevel }: { playerId: string; phone: string; email: string; age: number | null; ballLevel: string }) => {
       const cleanName = showGuestConvert?.name.replace(" (Guest)", "") || "";
       return apiRequest("PATCH", `/api/players/${playerId}`, {
         name: cleanName,
         phone: phone || undefined,
+        email: email || undefined,
+        age: age || undefined,
         ballLevel: ballLevel || undefined,
         membershipType: "regular",
       });
@@ -184,6 +188,8 @@ export default function SessionDetailDrawer({
       queryClient.invalidateQueries({ queryKey: ["/api/players"] });
       setShowGuestConvert(null);
       setGuestPhone("");
+      setGuestEmail("");
+      setGuestAge("");
       setGuestBallLevel("");
       Alert.alert("Success", "Guest converted to player");
     },
@@ -194,9 +200,12 @@ export default function SessionDetailDrawer({
 
   const handleConvertGuest = () => {
     if (!showGuestConvert) return;
+    const ageNum = guestAge.trim() ? parseInt(guestAge.trim(), 10) : null;
     convertGuestMutation.mutate({
       playerId: showGuestConvert.id,
       phone: guestPhone.trim(),
+      email: guestEmail.trim(),
+      age: ageNum && !isNaN(ageNum) ? ageNum : null,
       ballLevel: guestBallLevel,
     });
   };
@@ -398,6 +407,25 @@ export default function SessionDetailDrawer({
             value={guestPhone}
             onChangeText={setGuestPhone}
             keyboardType="phone-pad"
+          />
+          
+          <TextInput
+            style={styles.guestConvertInput}
+            placeholder="Email (optional)"
+            placeholderTextColor={Colors.dark.tabIconDefault}
+            value={guestEmail}
+            onChangeText={setGuestEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          
+          <TextInput
+            style={styles.guestConvertInput}
+            placeholder="Age (optional)"
+            placeholderTextColor={Colors.dark.tabIconDefault}
+            value={guestAge}
+            onChangeText={setGuestAge}
+            keyboardType="number-pad"
           />
           
           <Text style={styles.guestConvertLabel}>Ball Level</Text>
