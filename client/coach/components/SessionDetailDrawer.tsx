@@ -135,12 +135,19 @@ export default function SessionDetailDrawer({
 
   const addGuestMutation = useMutation({
     mutationFn: async (name: string) => {
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        throw new Error("Guest name is required");
+      }
+      if (!session?.id) {
+        throw new Error("No session selected");
+      }
       const createRes = await apiRequest("POST", "/api/players", {
-        name: `${name} (Guest)`,
+        name: `${trimmedName} (Guest)`,
         membershipType: "guest",
       });
       const guest = await createRes.json();
-      await apiRequest("POST", `/api/coach/sessions/${session?.id}/players`, {
+      await apiRequest("POST", `/api/coach/sessions/${session.id}/players`, {
         playerId: guest.id,
         isGuest: true,
       });
