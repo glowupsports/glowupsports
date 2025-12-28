@@ -72,6 +72,8 @@ export const coaches = pgTable("coaches", {
   name: text("name").notNull(),
   email: text("email"),
   phone: text("phone"),
+  specialty: text("specialty"),
+  bio: text("bio"),
   role: text("role").default("coach"), // owner | coach | assistant
   homeLocationId: varchar("home_location_id"),
   hourlyRate: numeric("hourly_rate"),
