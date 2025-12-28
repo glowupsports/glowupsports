@@ -5961,12 +5961,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.user!.playerId) {
       const demo = getDemoPlayerData(req.user);
       return res.json({
-        ...demo,
-        email: req.user?.email,
-        phone: null,
-        birthDate: null,
-        medicalNotes: null,
-        stats: { totalSessions: 24, attendanceRate: 92, avgXpPerSession: 45 },
+        player: {
+          ...demo.player,
+          email: req.user?.email,
+          createdAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        coach: demo.coach,
+        academy: demo.academy,
+        stats: { sessionsAttended: 22, sessionsTotal: 24, attendanceRate: 92 },
       });
     }
     // Original implementation below
@@ -6005,18 +6007,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sessionsAttended = playerSessions.filter(s => s.attended === "present").length;
       
       res.json({
-        id: player.id,
-        name: player.name,
-        email: player.email,
-        level,
-        xp: totalXp,
-        ballLevel: player.ballLevel,
-        membershipType: player.membershipType,
+        player: {
+          id: player.id,
+          name: player.name,
+          email: player.email,
+          level,
+          xp: totalXp,
+          glowScore: player.glowScore || 0,
+          ballLevel: player.ballLevel || "red",
+          streak: player.streak || 0,
+          createdAt: player.createdAt,
+        },
         coach: coach ? {
           id: coach.id,
           name: coach.name,
           email: coach.email,
-          phone: coach.phone,
         } : null,
         academy: academy ? {
           id: academy.id,
@@ -6024,11 +6029,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } : null,
         stats: {
           sessionsAttended,
-          totalSessions,
+          sessionsTotal: totalSessions,
           attendanceRate: totalSessions > 0 ? Math.round((sessionsAttended / totalSessions) * 100) : 0,
-          badgesEarned: 0,
         },
-        createdAt: player.createdAt,
       });
     } catch (error) {
       console.error("Error fetching player profile:", error);

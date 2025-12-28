@@ -114,7 +114,7 @@ export default function PlayerProfileScreen() {
     );
   }
 
-  if (error || !data) {
+  if (error || !data || !data.player) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <Ionicons name="alert-circle" size={48} color={Colors.dark.error} />
