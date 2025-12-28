@@ -28,7 +28,7 @@ The application features a dark-themed gaming aesthetic with neon green (#2ECC40
     - **Real-time Chat**: WebSocket server for secure, multi-tenant, real-time communication with typing indicators and connection status.
     - **Security**: Comprehensive authentication (login/register/logout/refresh), role-based access control, multi-tenant isolation, input sanitization, security headers, request size limits, and audit logging.
     - **Progression & Intelligence**: Anti-abuse rules engine (XP caps, pattern detection, severity factors), skill domain dashboard UI, observation trend charts, and an Insights API for attendance, XP velocity, coach load, and burnout risk forecasting.
-    - **Business Readiness**: Database schema, storage functions, and API routes for academy management, push notifications, and billing/payments.
+    - **Business Readiness**: Database schema, storage functions, and API routes for academy management, push notifications, and billing/payments. Frontend screens include AcademySettingsScreen (business info, timezone, currency, team management, coach invites), BillingScreen (revenue overview, invoice creation, payment tracking), and AcademySwitcher component for multi-academy support.
 
 ## External Dependencies
 
