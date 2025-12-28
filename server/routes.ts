@@ -4787,16 +4787,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Helper to get demo player data for owners/coaches viewing player mode
   function getDemoPlayerData(user: AuthenticatedRequest["user"]) {
     return {
-      id: "demo-player",
-      name: user?.email?.split("@")[0] || "Demo Player",
-      level: 5,
-      xp: 2450,
-      glowScore: 73,
-      ballLevel: "green",
+      player: {
+        id: "demo-player",
+        name: user?.email?.split("@")[0] || "Demo Player",
+        level: 5,
+        xp: 2450,
+        glowScore: 73,
+        ballLevel: "green",
+        streak: 7,
+      },
       coach: {
         id: "demo-coach",
         name: "Coach Demo",
-        email: user?.email || "demo@example.com",
+        avatar: null,
       },
       academy: {
         id: "demo-academy",
@@ -4811,8 +4814,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       lastFeedback: {
         message: "Great progress on your forehand technique! Keep working on footwork.",
         date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        coachName: "Coach Demo",
       },
-      streak: 7,
+      recentXpGains: [
+        { id: "xp1", amount: 50, reason: "Session attendance", date: new Date(Date.now() - 24*60*60*1000).toISOString() },
+        { id: "xp2", amount: 25, reason: "Technique improvement", date: new Date(Date.now() - 2*24*60*60*1000).toISOString() },
+      ],
     };
   }
   
@@ -4885,24 +4892,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const glowScore = Math.min(100, Math.round((totalXp / (level * 500)) * 100));
       
       res.json({
-        id: player.id,
-        name: player.name,
-        level,
-        xp: totalXp,
-        glowScore,
-        ballLevel: player.ballLevel,
+        player: {
+          id: player.id,
+          name: player.name,
+          level,
+          xp: totalXp,
+          glowScore,
+          ballLevel: player.ballLevel,
+          streak,
+        },
         coach: coach ? {
           id: coach.id,
           name: coach.name,
-          email: coach.email,
+          avatar: null,
         } : null,
         academy: academy ? {
           id: academy.id,
           name: academy.name,
         } : null,
         nextSession,
-        lastFeedback,
-        streak,
+        lastFeedback: lastFeedback ? {
+          ...lastFeedback,
+          coachName: coach?.name || "Coach",
+        } : null,
+        recentXpGains: [],
       });
     } catch (error) {
       console.error("Error fetching player dashboard:", error);
@@ -5241,10 +5254,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/player/me/peers", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     // Return demo peers for owners/coaches
     if (!req.user!.playerId) {
-      return res.json([
-        { id: "p1", name: "Alex", level: 4, ballLevel: "orange", glowScore: 65 },
-        { id: "p2", name: "Sam", level: 6, ballLevel: "green", glowScore: 82 },
-      ]);
+      return res.json({
+        totalPeers: 2,
+        peers: [
+          { id: "p1", name: "Alex", level: 4, ballLevel: "orange", glowScore: 65, avatar: "A" },
+          { id: "p2", name: "Sam", level: 6, ballLevel: "green", glowScore: 82, avatar: "S" },
+        ],
+        sameLevelPeers: [
+          { id: "p1", name: "Alex", level: 4, ballLevel: "orange", glowScore: 65, avatar: "A" },
+        ],
+        myRankAtLevel: 1,
+        totalAtLevel: 3,
+      });
     }
     // Original implementation below
     try {
