@@ -48,14 +48,17 @@ export default function CoachProfileScreen() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (updates: Partial<CoachProfile>) =>
-      apiRequest("PATCH", `/api/coach/profile/${coach?.id}`, updates),
+    mutationFn: async (data: { coachId: string; updates: Partial<CoachProfile> }) =>
+      apiRequest("PATCH", `/api/coach/profile/${data.coachId}`, data.updates),
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/coach/profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coaches"] });
       setIsEditing(false);
+      Alert.alert("Saved", "Profile updated successfully");
     },
     onError: (error: Error) => {
+      console.error("Profile update error:", error);
       Alert.alert("Error", error.message || "Failed to update profile");
     },
   });
@@ -73,7 +76,11 @@ export default function CoachProfileScreen() {
   };
 
   const handleSave = () => {
-    updateMutation.mutate(formData);
+    if (!coach?.id) {
+      Alert.alert("Error", "Coach profile not loaded");
+      return;
+    }
+    updateMutation.mutate({ coachId: coach.id, updates: formData });
   };
 
   const handleCancel = () => {
