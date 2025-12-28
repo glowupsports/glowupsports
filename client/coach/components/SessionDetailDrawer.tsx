@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -56,6 +56,7 @@ interface SessionDetailDrawerProps {
   onClose: () => void;
   onAttendance: () => void;
   onFeedback?: () => void;
+  initialAction?: "attendance" | "detail" | "extend" | "end";
 }
 
 type StartDateOption = "today" | "previous" | "custom";
@@ -67,11 +68,36 @@ export default function SessionDetailDrawer({
   onClose,
   onAttendance,
   onFeedback,
+  initialAction,
 }: SessionDetailDrawerProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   
   const [showAddPlayer, setShowAddPlayer] = useState(false);
+  const [showExtendOptions, setShowExtendOptions] = useState(false);
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
+
+  // Handle initial action from deep linking and reset when drawer closes
+  useEffect(() => {
+    if (visible) {
+      if (initialAction === "extend") {
+        setShowExtendOptions(true);
+        setShowEndConfirm(false);
+      } else if (initialAction === "end") {
+        setShowEndConfirm(true);
+        setShowExtendOptions(false);
+      } else {
+        // Reset to main view for normal openings
+        setShowExtendOptions(false);
+        setShowEndConfirm(false);
+      }
+    } else {
+      // Reset all views when drawer closes
+      setShowExtendOptions(false);
+      setShowEndConfirm(false);
+      setShowAddPlayer(false);
+    }
+  }, [visible, initialAction]);
   const [selectedPlayer, setSelectedPlayer] = useState<AvailablePlayer | null>(null);
   const [startDateOption, setStartDateOption] = useState<StartDateOption>("today");
   const [customDate, setCustomDate] = useState<Date>(new Date());
@@ -205,6 +231,49 @@ export default function SessionDetailDrawer({
     },
     onError: (error: Error) => {
       Alert.alert("Error", error.message || "Failed to convert guest");
+    },
+  });
+
+  // Extend session mutation
+  const extendSessionMutation = useMutation({
+    mutationFn: async (minutes: number) => {
+      if (!session) throw new Error("No session selected");
+      const currentEnd = new Date(session.endTime);
+      const newEnd = new Date(currentEnd.getTime() + minutes * 60 * 1000);
+      return apiRequest("PATCH", `/api/coach/sessions/${session.id}`, {
+        endTime: newEnd.toISOString(),
+      });
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      setShowExtendOptions(false);
+      Alert.alert("Success", "Session extended");
+    },
+    onError: (error: Error) => {
+      Alert.alert("Error", error.message || "Failed to extend session");
+    },
+  });
+
+  // End session mutation
+  const endSessionMutation = useMutation({
+    mutationFn: async () => {
+      if (!session) throw new Error("No session selected");
+      const now = new Date();
+      return apiRequest("PATCH", `/api/coach/sessions/${session.id}`, {
+        endTime: now.toISOString(),
+        status: "completed",
+      });
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      setShowEndConfirm(false);
+      onClose();
+      Alert.alert("Session Ended", "Session has been marked as completed");
+    },
+    onError: (error: Error) => {
+      Alert.alert("Error", error.message || "Failed to end session");
     },
   });
 
@@ -573,6 +642,82 @@ export default function SessionDetailDrawer({
             <Text style={[styles.actionButtonText, { color: Colors.dark.gold }]}>Feedback</Text>
           </Pressable>
         )}
+
+        <Pressable style={styles.actionButton} onPress={() => setShowExtendOptions(true)}>
+          <Ionicons name="time-outline" size={20} color={Colors.dark.xpCyan} />
+          <Text style={[styles.actionButtonText, { color: Colors.dark.xpCyan }]}>Extend Session</Text>
+        </Pressable>
+
+        <Pressable style={[styles.actionButton, styles.dangerActionButton]} onPress={() => setShowEndConfirm(true)}>
+          <Ionicons name="stop-circle-outline" size={20} color={Colors.dark.error} />
+          <Text style={[styles.actionButtonText, { color: Colors.dark.error }]}>End Session Now</Text>
+        </Pressable>
+      </View>
+    </>
+  );
+
+  const renderExtendOptions = () => (
+    <>
+      <View style={styles.stepHeader}>
+        <Pressable onPress={() => setShowExtendOptions(false)}>
+          <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+        </Pressable>
+        <Text style={styles.stepTitle}>Extend Session</Text>
+        <View style={{ width: 24 }} />
+      </View>
+      <Text style={styles.stepLabel}>HOW LONG?</Text>
+      <View style={styles.extendOptionsGrid}>
+        {[15, 30, 45, 60].map((minutes) => (
+          <Pressable
+            key={minutes}
+            style={styles.extendOption}
+            onPress={() => extendSessionMutation.mutate(minutes)}
+            disabled={extendSessionMutation.isPending}
+          >
+            <Text style={styles.extendOptionTime}>+{minutes}</Text>
+            <Text style={styles.extendOptionLabel}>min</Text>
+          </Pressable>
+        ))}
+      </View>
+      {extendSessionMutation.isPending && (
+        <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginTop: Spacing.lg }} />
+      )}
+    </>
+  );
+
+  const renderEndConfirm = () => (
+    <>
+      <View style={styles.stepHeader}>
+        <Pressable onPress={() => setShowEndConfirm(false)}>
+          <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+        </Pressable>
+        <Text style={styles.stepTitle}>End Session</Text>
+        <View style={{ width: 24 }} />
+      </View>
+      <View style={styles.endConfirmContent}>
+        <Ionicons name="warning-outline" size={48} color={Colors.dark.orange} />
+        <Text style={styles.endConfirmText}>
+          End this session now? The session will be marked as completed.
+        </Text>
+        <View style={styles.endConfirmButtons}>
+          <Pressable
+            style={styles.endCancelButton}
+            onPress={() => setShowEndConfirm(false)}
+          >
+            <Text style={styles.endCancelButtonText}>Cancel</Text>
+          </Pressable>
+          <Pressable
+            style={styles.endConfirmButton}
+            onPress={() => endSessionMutation.mutate()}
+            disabled={endSessionMutation.isPending}
+          >
+            {endSessionMutation.isPending ? (
+              <ActivityIndicator size="small" color={Colors.dark.text} />
+            ) : (
+              <Text style={styles.endConfirmButtonText}>End Session</Text>
+            )}
+          </Pressable>
+        </View>
       </View>
     </>
   );
@@ -847,7 +992,9 @@ export default function SessionDetailDrawer({
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {showCatchUp ? renderCatchUpContent() : 
-           showAddPlayer ? renderAddPlayerContent() : 
+           showAddPlayer ? renderAddPlayerContent() :
+           showExtendOptions ? renderExtendOptions() :
+           showEndConfirm ? renderEndConfirm() :
            renderMainContent()}
         </ScrollView>
       </View>
@@ -1139,6 +1286,76 @@ const styles = StyleSheet.create({
   actionButtonText: {
     ...Typography.body,
     color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  dangerActionButton: {
+    borderWidth: 1,
+    borderColor: Colors.dark.error + "40",
+  },
+  extendOptionsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.md,
+    marginTop: Spacing.md,
+  },
+  extendOption: {
+    flex: 1,
+    minWidth: 80,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  extendOptionTime: {
+    ...Typography.h2,
+    color: Colors.dark.xpCyan,
+    fontWeight: "700",
+  },
+  extendOptionLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textSecondary,
+    marginTop: 2,
+  },
+  endConfirmContent: {
+    alignItems: "center",
+    padding: Spacing.xl,
+    gap: Spacing.lg,
+  },
+  endConfirmText: {
+    ...Typography.body,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+  },
+  endConfirmButtons: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginTop: Spacing.lg,
+    width: "100%",
+  },
+  endCancelButton: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    alignItems: "center",
+  },
+  endCancelButtonText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  endConfirmButton: {
+    flex: 1,
+    backgroundColor: Colors.dark.error,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    alignItems: "center",
+  },
+  endConfirmButtonText: {
+    ...Typography.body,
+    color: Colors.dark.text,
     fontWeight: "600",
   },
   stepHeader: {

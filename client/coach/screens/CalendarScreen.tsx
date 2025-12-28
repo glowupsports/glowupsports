@@ -28,12 +28,22 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useQuery } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
+import { useRoute, RouteProp } from "@react-navigation/native";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+
 import CreateSessionDrawer from "@/coach/components/CreateSessionDrawer";
 import NowPlayingCard from "@/coach/components/NowPlayingCard";
 import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
 import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
+
 import CoachLoadIndicator from "@/coach/components/CoachLoadIndicator";
+
+type CalendarRouteParams = {
+  Calendar: {
+    openSessionId?: string;
+    action?: "attendance" | "detail" | "extend" | "end";
+  };
+};
 
 interface CoachData {
   id: string;
@@ -486,6 +496,7 @@ const dragStyles = StyleSheet.create({
 export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const route = useRoute<RouteProp<CalendarRouteParams, "Calendar">>();
   const {
     coach,
     setCoach,
@@ -505,6 +516,7 @@ export default function CalendarScreen() {
   const [selectedSlot, setSelectedSlot] = useState<{ courtId: string; time: Date } | null>(null);
   const [selectedSessionForAttendance, setSelectedSessionForAttendance] = useState<Session | null>(null);
   const [selectedSessionForDetail, setSelectedSessionForDetail] = useState<Session | null>(null);
+  const [detailInitialAction, setDetailInitialAction] = useState<"attendance" | "detail" | "extend" | "end" | undefined>(undefined);
   const [weekMode, setWeekMode] = useState<"overview" | "availability">("availability");
   const [monthMode, setMonthMode] = useState<"load" | "availability">("load");
   const [draggingSession, setDraggingSession] = useState<string | null>(null);
@@ -518,6 +530,23 @@ export default function CalendarScreen() {
   
   const hourHeight = timeGrid === 30 ? HOUR_HEIGHT_30 : HOUR_HEIGHT_60;
   const courts = calendarData?.courts || [];
+
+  // Handle deep linking from Dashboard quick actions
+  useEffect(() => {
+    const params = route.params;
+    if (params?.openSessionId && calendarData?.ownSessions) {
+      const session = calendarData.ownSessions.find(s => s.id === params.openSessionId);
+      if (session) {
+        if (params.action === "attendance") {
+          setSelectedSessionForAttendance(session as Session);
+        } else {
+          // For extend/end/detail, open session detail drawer with the action
+          setDetailInitialAction(params.action);
+          setSelectedSessionForDetail(session as Session);
+        }
+      }
+    }
+  }, [route.params?.openSessionId, route.params?.action, calendarData?.ownSessions]);
   
   const updateSessionMutation = useMutation({
     mutationFn: async ({ sessionId, startTime, endTime, courtId, originalData }: { 
@@ -1975,12 +2004,16 @@ export default function CalendarScreen() {
         visible={!!selectedSessionForDetail}
         session={selectedSessionForDetail}
         courts={courts}
-        onClose={() => setSelectedSessionForDetail(null)}
+        onClose={() => {
+          setSelectedSessionForDetail(null);
+          setDetailInitialAction(undefined);
+        }}
         onAttendance={() => {
           if (selectedSessionForDetail) {
             handleAttendance(selectedSessionForDetail);
           }
         }}
+        initialAction={detailInitialAction}
       />
 
       {/* Attendance Drawer */}

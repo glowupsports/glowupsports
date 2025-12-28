@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,13 @@ import {
   ScrollView,
   ActivityIndicator,
 } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -48,6 +55,28 @@ export default function DashboardScreen() {
   const [sessionsCollapsed, setSessionsCollapsed] = useState(true);
   const [focusCollapsed, setFocusCollapsed] = useState(false);
   const [energyCollapsed, setEnergyCollapsed] = useState(false);
+
+  // Pulse animation for live indicator
+  const pulseScale = useSharedValue(1);
+  const pulseOpacity = useSharedValue(0.3);
+
+  useEffect(() => {
+    pulseScale.value = withRepeat(
+      withTiming(1.8, { duration: 1200, easing: Easing.out(Easing.ease) }),
+      -1,
+      false
+    );
+    pulseOpacity.value = withRepeat(
+      withTiming(0, { duration: 1200, easing: Easing.out(Easing.ease) }),
+      -1,
+      false
+    );
+  }, []);
+
+  const pulseAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+    opacity: pulseOpacity.value,
+  }));
   const [insightsCollapsed, setInsightsCollapsed] = useState(false);
   const [timelineCollapsed, setTimelineCollapsed] = useState(false);
   const [alertsCollapsed, setAlertsCollapsed] = useState(false);
@@ -151,6 +180,17 @@ export default function DashboardScreen() {
       return now >= start && now < end;
     });
   }, [todaysSessions]);
+
+  const sessionTimeRemaining = useMemo(() => {
+    if (!currentSession) return "--:--";
+    const now = new Date();
+    const end = new Date(currentSession.endTime);
+    const diff = end.getTime() - now.getTime();
+    if (diff <= 0) return "0:00";
+    const minutes = Math.floor(diff / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  }, [currentSession]);
 
   const getTimeUntil = (startTime: string) => {
     const start = new Date(startTime);
@@ -433,17 +473,61 @@ export default function DashboardScreen() {
                 {/* Main Focus State */}
                 <View style={styles.focusMain}>
                   {currentSession ? (
-                    <View style={styles.liveIndicator}>
-                      <View style={styles.liveDot} />
-                      <Text style={styles.liveText}>IN PROGRESS</Text>
-                    </View>
-                  ) : null}
-                  <Text style={styles.focusPrimary}>{focusMessage.primary}</Text>
-                  <Text style={styles.focusSecondary}>{focusMessage.secondary}</Text>
+                    <>
+                      <View style={styles.liveIndicator}>
+                        <Animated.View style={[styles.liveDotPulse, pulseAnimatedStyle]} />
+                        <View style={styles.liveDot} />
+                        <Text style={styles.liveText}>IN PROGRESS</Text>
+                      </View>
+                      <Text style={styles.focusPrimaryLarge}>{sessionTimeRemaining}</Text>
+                      <Text style={styles.focusSecondaryMuted}>remaining</Text>
+                      <Text style={styles.focusContext}>
+                        {getSessionTypeLabel(currentSession.sessionType)} · {calendarData?.courts?.find(c => c.id === currentSession.courtId)?.name || "Court"}
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.focusPrimary}>{focusMessage.primary}</Text>
+                      <Text style={styles.focusSecondary}>{focusMessage.secondary}</Text>
+                    </>
+                  )}
                 </View>
 
-                {/* Stats Row (only if sessions exist) */}
-                {todaysSessions.length > 0 ? (
+                {/* Quick Actions when In Session */}
+                {currentSession ? (
+                  <View style={styles.sessionActions}>
+                    <Pressable
+                      style={styles.sessionActionButton}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        (navigation as any).navigate("Calendar", { openSessionId: currentSession.id, action: "attendance" });
+                      }}
+                    >
+                      <Ionicons name="checkmark-circle-outline" size={20} color={Colors.dark.primary} />
+                      <Text style={styles.sessionActionText}>Attendance</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.sessionActionButton}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        (navigation as any).navigate("Calendar", { openSessionId: currentSession.id, action: "extend" });
+                      }}
+                    >
+                      <Ionicons name="time-outline" size={20} color={Colors.dark.xpCyan} />
+                      <Text style={[styles.sessionActionText, { color: Colors.dark.xpCyan }]}>Extend</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.sessionActionButton}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        (navigation as any).navigate("Calendar", { openSessionId: currentSession.id, action: "end" });
+                      }}
+                    >
+                      <Ionicons name="stop-circle-outline" size={20} color={Colors.dark.orange} />
+                      <Text style={[styles.sessionActionText, { color: Colors.dark.orange }]}>End</Text>
+                    </Pressable>
+                  </View>
+                ) : todaysSessions.length > 0 ? (
                   <View style={styles.focusStats}>
                     <View style={styles.focusStatItem}>
                       <Text style={styles.focusStatNumber}>{todaysSessions.length}</Text>
@@ -1032,6 +1116,15 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     marginBottom: Spacing.sm,
   },
+  liveDotPulse: {
+    position: "absolute",
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.dark.primary,
+    opacity: 0.3,
+    left: -4,
+  },
   liveDot: {
     width: 8,
     height: 8,
@@ -1043,6 +1136,50 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.primary,
     letterSpacing: 1,
+  },
+  focusPrimaryLarge: {
+    fontSize: 48,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textAlign: "center",
+    letterSpacing: -1,
+  },
+  focusSecondaryMuted: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+    textAlign: "center",
+    marginTop: -Spacing.xs,
+    opacity: 0.7,
+  },
+  focusContext: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.primary,
+    textAlign: "center",
+    marginTop: Spacing.sm,
+    fontWeight: "500",
+  },
+  sessionActions: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: Spacing.md,
+    paddingTop: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.06)",
+    marginTop: Spacing.md,
+  },
+  sessionActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: BorderRadius.md,
+  },
+  sessionActionText: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.primary,
   },
   focusPrimary: {
     fontSize: 36,
