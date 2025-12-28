@@ -28,6 +28,7 @@ import { CoachStatusPanel } from "@/coach/components/CoachStatusPanel";
 import { BurnoutRiskCard } from "@/coach/components/BurnoutRiskCard";
 import { LoadForecastCard } from "@/coach/components/LoadForecastCard";
 import { AcademySwitcher } from "@/coach/components/AcademySwitcher";
+import ModeSwitcher from "@/components/ModeSwitcher";
 
 interface Session {
   id: string;
@@ -324,6 +325,11 @@ export default function DashboardScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.footerCollapsed + 100 }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Mode Switcher for owners/admins */}
+        <View style={styles.modeSwitcherContainer}>
+          <ModeSwitcher />
+        </View>
+
         {/* Header with Coach Level + XP */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -960,6 +966,9 @@ const styles = StyleSheet.create({
   },
   
   // Header
+  modeSwitcherContainer: {
+    marginBottom: Spacing.md,
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
