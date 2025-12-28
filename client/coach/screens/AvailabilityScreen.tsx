@@ -8,6 +8,8 @@ import {
   Switch,
   Alert,
   Platform,
+  Modal,
+  TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -64,6 +66,9 @@ export default function AvailabilityScreen() {
   const [hasChanges, setHasChanges] = useState(false);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [showAddException, setShowAddException] = useState(false);
+  const [exceptionStartDate, setExceptionStartDate] = useState("");
+  const [exceptionEndDate, setExceptionEndDate] = useState("");
+  const [exceptionReason, setExceptionReason] = useState("Holiday");
 
   const { data: availabilityData, isLoading } = useQuery({
     queryKey: ["/api/coaches", coach?.id, "availability"],
@@ -495,6 +500,93 @@ export default function AvailabilityScreen() {
           </Pressable>
         </View>
       ) : null}
+
+      <Modal
+        visible={showAddException}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowAddException(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add Exception</Text>
+              <Pressable onPress={() => setShowAddException(false)}>
+                <Feather name="x" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+            <Text style={styles.modalHint}>e.g. Dec 31 - unavailable for holiday</Text>
+
+            <View style={styles.modalFormGroup}>
+              <Text style={styles.modalLabel}>Start Date</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={exceptionStartDate}
+                onChangeText={setExceptionStartDate}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={Colors.dark.disabled}
+              />
+            </View>
+
+            <View style={styles.modalFormGroup}>
+              <Text style={styles.modalLabel}>End Date</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={exceptionEndDate}
+                onChangeText={setExceptionEndDate}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={Colors.dark.disabled}
+              />
+            </View>
+
+            <View style={styles.modalFormGroup}>
+              <Text style={styles.modalLabel}>Reason</Text>
+              <View style={styles.reasonOptions}>
+                {REASON_OPTIONS.map((reason) => (
+                  <Pressable
+                    key={reason}
+                    style={[
+                      styles.reasonOption,
+                      exceptionReason === reason && styles.reasonOptionActive,
+                    ]}
+                    onPress={() => setExceptionReason(reason)}
+                  >
+                    <Feather
+                      name={reason === "Holiday" ? "sun" : reason === "Sick" ? "thermometer" : reason === "Tournament" ? "award" : "user"}
+                      size={16}
+                      color={exceptionReason === reason ? Colors.dark.backgroundRoot : Colors.dark.text}
+                    />
+                    <Text style={[
+                      styles.reasonOptionText,
+                      exceptionReason === reason && styles.reasonOptionTextActive,
+                    ]}>
+                      {reason}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
+            <Pressable
+              style={[
+                styles.modalSaveButton,
+                (!exceptionStartDate || !exceptionEndDate) && styles.modalSaveButtonDisabled,
+              ]}
+              onPress={() => {
+                if (exceptionStartDate && exceptionEndDate) {
+                  addException(exceptionStartDate, exceptionEndDate, exceptionReason);
+                  setExceptionStartDate("");
+                  setExceptionEndDate("");
+                  setExceptionReason("Holiday");
+                }
+              }}
+              disabled={!exceptionStartDate || !exceptionEndDate}
+            >
+              <Text style={styles.modalSaveButtonText}>Add Exception</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -784,6 +876,87 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   saveButtonText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    gap: Spacing.lg,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  modalTitle: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+  },
+  modalHint: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+    marginTop: -Spacing.sm,
+  },
+  modalFormGroup: {
+    gap: Spacing.sm,
+  },
+  modalLabel: {
+    ...Typography.small,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  modalInput: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  reasonOptions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  reasonOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  reasonOptionActive: {
+    backgroundColor: Colors.dark.primary,
+  },
+  reasonOptionText: {
+    ...Typography.small,
+    color: Colors.dark.text,
+  },
+  reasonOptionTextActive: {
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  modalSaveButton: {
+    backgroundColor: Colors.dark.primary,
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    marginTop: Spacing.md,
+  },
+  modalSaveButtonDisabled: {
+    opacity: 0.5,
+  },
+  modalSaveButtonText: {
     ...Typography.body,
     color: Colors.dark.backgroundRoot,
     fontWeight: "600",
