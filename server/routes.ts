@@ -4971,18 +4971,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Return demo progress for owners/coaches
       if (!req.user!.playerId) {
+        const demoInsights = {
+          recentHighlights: ["Consistent technique", "Good focus"],
+          focusAreas: ["Movement speed"],
+          lastObservation: { direction: "up", note: "Great progress", date: new Date().toISOString() },
+          avgDelta: 5,
+        };
         return res.json({
           level: 5,
-          totalXp: 2450,
-          xpToNextLevel: 550,
+          xp: 2450,
+          xpForNextLevel: 500,
           glowScore: 73,
+          ballLevel: "green",
+          nextBallLevel: "orange",
           skillRadar: [
-            { domain: "Technical", label: "Technical", score: 72, icon: "tennisball", recentXp: 150 },
-            { domain: "Mental", label: "Mental", score: 65, icon: "brain", recentXp: 80 },
-            { domain: "Physical", label: "Physical", score: 78, icon: "body", recentXp: 120 },
-            { domain: "Social", label: "Social", score: 60, icon: "people", recentXp: 50 },
-            { domain: "Tactical", label: "Tactical", score: 68, icon: "map", recentXp: 100 },
+            { domain: "Technical", domainId: "technical", color: "#2ECC40", icon: "tennisball", progress: 72, trend: "up", momentum: "positive", xp: 150, observationCount: 12, assessmentStatus: "validated", insights: demoInsights },
+            { domain: "Mental", domainId: "mental", color: "#00D4FF", icon: "brain", progress: 65, trend: "stable", momentum: "neutral", xp: 80, observationCount: 8, assessmentStatus: "pending", insights: demoInsights },
+            { domain: "Physical", domainId: "physical", color: "#FFD700", icon: "body", progress: 78, trend: "up", momentum: "positive", xp: 120, observationCount: 15, assessmentStatus: "validated", insights: demoInsights },
+            { domain: "Social", domainId: "social", color: "#FF6B6B", icon: "people", progress: 60, trend: "stable", momentum: "neutral", xp: 50, observationCount: 5, assessmentStatus: "pending", insights: demoInsights },
+            { domain: "Tactical", domainId: "tactical", color: "#9B59B6", icon: "map", progress: 68, trend: "up", momentum: "positive", xp: 100, observationCount: 10, assessmentStatus: "validated", insights: demoInsights },
           ],
+          overallInsights: {
+            strengths: ["Technical fundamentals", "Physical conditioning"],
+            focusAreas: ["Match strategy", "Pressure handling"],
+          },
+          levelReadiness: {
+            isReady: false,
+            requirements: [
+              { domainId: "technical", domainName: "Technical", required: "75", current: "72", met: false },
+              { domainId: "mental", domainName: "Mental", required: "70", current: "65", met: false },
+            ],
+            sessionCount: 18,
+            minSessionsRequired: 20,
+            coachApprovalRequired: true,
+            coachApprovalStatus: "pending",
+          },
         });
       }
       const playerId = req.user!.playerId!;
