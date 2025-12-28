@@ -1,8 +1,41 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+
+interface FinanceData {
+  revenue: {
+    thisWeek: number;
+    thisMonth: number;
+    weekChange: number;
+    monthChange: number;
+    weekSessions: number;
+    monthSessions: number;
+  };
+  summary: {
+    collected: number;
+    pending: number;
+    overdue: number;
+  };
+  payments: Array<{
+    id: string;
+    playerName: string;
+    package: string;
+    amount: number;
+    status: "paid" | "pending" | "overdue";
+    dueDate?: string;
+  }>;
+  subscriptions: {
+    total: number;
+    monthlyRevenue: number;
+    breakdown: Array<{
+      type: string;
+      count: number;
+    }>;
+  };
+}
 
 interface RevenueCardProps {
   period: string;
@@ -37,13 +70,13 @@ function RevenueCard({ period, amount, change, sessions }: RevenueCardProps) {
 
 interface PaymentRowProps {
   playerName: string;
-  package: string;
+  packageName: string;
   amount: number;
   status: "paid" | "pending" | "overdue";
   dueDate?: string;
 }
 
-function PaymentRow({ playerName, package: pkg, amount, status, dueDate }: PaymentRowProps) {
+function PaymentRow({ playerName, packageName, amount, status, dueDate }: PaymentRowProps) {
   const statusConfig = {
     paid: { color: Colors.dark.primary, label: "Paid", icon: "checkmark-circle" as const },
     pending: { color: Colors.dark.orange, label: "Pending", icon: "time" as const },
@@ -56,7 +89,7 @@ function PaymentRow({ playerName, package: pkg, amount, status, dueDate }: Payme
     <Pressable style={styles.paymentRow}>
       <View style={styles.paymentInfo}>
         <Text style={styles.paymentPlayerName}>{playerName}</Text>
-        <Text style={styles.paymentPackage}>{pkg}</Text>
+        <Text style={styles.paymentPackage}>{packageName}</Text>
       </View>
       <View style={styles.paymentRight}>
         <Text style={styles.paymentAmount}>${amount}</Text>
@@ -90,12 +123,30 @@ function SummaryStat({ icon, label, value, color }: SummaryStatProps) {
 export default function FinanceScreen() {
   const insets = useSafeAreaInsets();
 
-  const payments: PaymentRowProps[] = [
-    { playerName: "Tommy Wilson", package: "Monthly Unlimited", amount: 299, status: "paid" },
-    { playerName: "Sarah Chen", package: "8-Session Pack", amount: 200, status: "pending", dueDate: "Jan 5" },
-    { playerName: "Emma Davis", package: "Monthly Unlimited", amount: 299, status: "overdue", dueDate: "Dec 20" },
-    { playerName: "Jake Brown", package: "4-Session Pack", amount: 120, status: "paid" },
-  ];
+  const { data: financeData, isLoading } = useQuery<FinanceData>({
+    queryKey: ["/api/owner/finance"],
+  });
+
+  const revenue = financeData?.revenue || {
+    thisWeek: 0,
+    thisMonth: 0,
+    weekChange: 0,
+    monthChange: 0,
+    weekSessions: 0,
+    monthSessions: 0,
+  };
+  const summary = financeData?.summary || { collected: 0, pending: 0, overdue: 0 };
+  const payments = financeData?.payments || [];
+  const subscriptions = financeData?.subscriptions || { total: 0, monthlyRevenue: 0, breakdown: [] };
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={Colors.dark.gold} />
+        <Text style={styles.loadingText}>Loading finance data...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -110,16 +161,26 @@ export default function FinanceScreen() {
         </View>
 
         <View style={styles.revenueCards}>
-          <RevenueCard period="This Week" amount={2450} change={12} sessions={28} />
-          <RevenueCard period="This Month" amount={8750} change={8} sessions={112} />
+          <RevenueCard 
+            period="This Week" 
+            amount={revenue.thisWeek} 
+            change={revenue.weekChange} 
+            sessions={revenue.weekSessions} 
+          />
+          <RevenueCard 
+            period="This Month" 
+            amount={revenue.thisMonth} 
+            change={revenue.monthChange} 
+            sessions={revenue.monthSessions} 
+          />
         </View>
 
         <View style={[styles.summaryCard, CardStyles.elevated]}>
-          <SummaryStat icon="checkmark-circle" label="Collected" value="$7,850" color={Colors.dark.primary} />
+          <SummaryStat icon="checkmark-circle" label="Collected" value={`$${summary.collected.toLocaleString()}`} color={Colors.dark.primary} />
           <View style={styles.summaryDivider} />
-          <SummaryStat icon="time" label="Pending" value="$499" color={Colors.dark.orange} />
+          <SummaryStat icon="time" label="Pending" value={`$${summary.pending.toLocaleString()}`} color={Colors.dark.orange} />
           <View style={styles.summaryDivider} />
-          <SummaryStat icon="alert-circle" label="Overdue" value="$299" color={Colors.dark.error} />
+          <SummaryStat icon="alert-circle" label="Overdue" value={`$${summary.overdue.toLocaleString()}`} color={Colors.dark.error} />
         </View>
 
         <View style={styles.section}>
@@ -131,8 +192,15 @@ export default function FinanceScreen() {
             </Pressable>
           </View>
           <View style={[styles.paymentsContainer, CardStyles.elevated]}>
-            {payments.map((payment, index) => (
-              <PaymentRow key={index} {...payment} />
+            {payments.map((payment) => (
+              <PaymentRow 
+                key={payment.id} 
+                playerName={payment.playerName}
+                packageName={payment.package}
+                amount={payment.amount}
+                status={payment.status}
+                dueDate={payment.dueDate}
+              />
             ))}
           </View>
         </View>
@@ -143,19 +211,17 @@ export default function FinanceScreen() {
             <View style={styles.subscriptionHeader}>
               <Ionicons name="repeat" size={24} color={Colors.dark.gold} />
               <View style={styles.subscriptionInfo}>
-                <Text style={styles.subscriptionCount}>18 Active</Text>
-                <Text style={styles.subscriptionRevenue}>$5,382/month recurring</Text>
+                <Text style={styles.subscriptionCount}>{subscriptions.total} Active</Text>
+                <Text style={styles.subscriptionRevenue}>${subscriptions.monthlyRevenue.toLocaleString()}/month recurring</Text>
               </View>
             </View>
             <View style={styles.subscriptionBreakdown}>
-              <View style={styles.breakdownItem}>
-                <Text style={styles.breakdownLabel}>Monthly Unlimited</Text>
-                <Text style={styles.breakdownValue}>12 players</Text>
-              </View>
-              <View style={styles.breakdownItem}>
-                <Text style={styles.breakdownLabel}>Session Packs</Text>
-                <Text style={styles.breakdownValue}>6 players</Text>
-              </View>
+              {subscriptions.breakdown.map((item, index) => (
+                <View key={index} style={styles.breakdownItem}>
+                  <Text style={styles.breakdownLabel}>{item.type}</Text>
+                  <Text style={styles.breakdownValue}>{item.count} players</Text>
+                </View>
+              ))}
             </View>
           </View>
         </View>
@@ -168,6 +234,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  centered: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
   },
   scrollView: {
     flex: 1,

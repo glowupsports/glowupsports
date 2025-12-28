@@ -6494,6 +6494,143 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Academy Owner - Get schedule/operations data
+  app.get("/api/owner/operations", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      
+      const courts = [
+        { id: "court-1", name: "Court 1" },
+        { id: "court-2", name: "Court 2" },
+        { id: "court-3", name: "Court 3" },
+      ];
+
+      const mockSchedule = courts.map(court => ({
+        name: court.name,
+        sessions: [
+          { time: "09:00", coach: "Alex", status: "booked" as const },
+          { time: "10:00", coach: "Maria", status: "booked" as const },
+          { time: "11:00", coach: "", status: "available" as const },
+          { time: "12:00", coach: "", status: "available" as const },
+          { time: "13:00", coach: "Alex", status: "booked" as const },
+        ],
+      }));
+
+      res.json({
+        courts: mockSchedule,
+        insights: {
+          peakHours: "10-12",
+          utilization: 72,
+          conflicts: 0,
+        },
+      });
+    } catch (error) {
+      console.error("Owner operations error:", error);
+      res.status(500).json({ error: "Failed to fetch operations data" });
+    }
+  });
+
+  // Academy Owner - Get finance data
+  app.get("/api/owner/finance", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      res.json({
+        revenue: {
+          thisWeek: 2450,
+          thisMonth: 8750,
+          weekChange: 12,
+          monthChange: 8,
+          weekSessions: 28,
+          monthSessions: 112,
+        },
+        summary: {
+          collected: 7850,
+          pending: 499,
+          overdue: 299,
+        },
+        payments: [
+          { id: "p1", playerName: "Tommy Wilson", package: "Monthly Unlimited", amount: 299, status: "paid" },
+          { id: "p2", playerName: "Sarah Chen", package: "8-Session Pack", amount: 200, status: "pending", dueDate: "Jan 5" },
+          { id: "p3", playerName: "Emma Davis", package: "Monthly Unlimited", amount: 299, status: "overdue", dueDate: "Dec 20" },
+          { id: "p4", playerName: "Jake Brown", package: "4-Session Pack", amount: 120, status: "paid" },
+        ],
+        subscriptions: {
+          total: 18,
+          monthlyRevenue: 5382,
+          breakdown: [
+            { type: "Monthly Unlimited", count: 12 },
+            { type: "Session Packs", count: 6 },
+          ],
+        },
+      });
+    } catch (error) {
+      console.error("Owner finance error:", error);
+      res.status(500).json({ error: "Failed to fetch finance data" });
+    }
+  });
+
+  // Academy Owner - Get coaches and players for People screen
+  app.get("/api/owner/people", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      
+      let coaches: any[] = [];
+      let players: any[] = [];
+      
+      if (academyId) {
+        coaches = await storage.getCoachesByAcademy(academyId);
+        players = await storage.getPlayersByAcademy(academyId);
+      }
+
+      const coachData = await Promise.all(
+        coaches.map(async (coach) => {
+          return {
+            id: coach.id,
+            name: coach.name,
+            role: coach.role || "Coach",
+            status: coach.isActive !== false ? "active" : "paused",
+            stats: [
+              { label: "Sessions/wk", value: String(coach.weeklySessionCount || 0) },
+              { label: "Feedback %", value: `${coach.feedbackRate || 0}%` },
+              { label: "Level", value: String(coach.level || 1) },
+            ],
+          };
+        })
+      );
+
+      const playerData = await Promise.all(
+        players.map(async (player) => {
+          const xpData = await storage.getPlayerXpTotal(player.id);
+          return {
+            id: player.id,
+            name: player.name,
+            role: player.ballLevel ? `${player.ballLevel.charAt(0).toUpperCase() + player.ballLevel.slice(1)} Ball` : "Green Ball",
+            status: player.isActive !== false ? "active" : "paused",
+            stats: [
+              { label: "Attendance", value: `${player.attendanceRate || 0}%` },
+              { label: "Streak", value: String(player.streak || 0) },
+              { label: "Level", value: String(xpData.level || player.level || 1) },
+            ],
+            coachId: player.coachId,
+          };
+        })
+      );
+
+      res.json({
+        coaches: coachData.length > 0 ? coachData : [
+          { id: "demo-coach-1", name: "Alex Johnson", role: "Head Coach", status: "active", stats: [{ label: "Sessions/wk", value: "12" }, { label: "Feedback %", value: "94%" }, { label: "Level", value: "8" }] },
+          { id: "demo-coach-2", name: "Maria Garcia", role: "Assistant Coach", status: "active", stats: [{ label: "Sessions/wk", value: "8" }, { label: "Feedback %", value: "87%" }, { label: "Level", value: "5" }] },
+        ],
+        players: playerData.length > 0 ? playerData : [
+          { id: "demo-player-1", name: "Tommy Wilson", role: "Green Ball", status: "active", stats: [{ label: "Attendance", value: "92%" }, { label: "Streak", value: "5" }, { label: "Level", value: "12" }] },
+          { id: "demo-player-2", name: "Sarah Chen", role: "Orange Ball", status: "active", stats: [{ label: "Attendance", value: "85%" }, { label: "Streak", value: "3" }, { label: "Level", value: "8" }] },
+        ],
+      });
+    } catch (error) {
+      console.error("Owner people error:", error);
+      res.status(500).json({ error: "Failed to fetch people data" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat

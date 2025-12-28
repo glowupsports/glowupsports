@@ -1,14 +1,28 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
 
 type TabType = "coaches" | "players";
+
+interface PersonData {
+  id: string;
+  name: string;
+  role: string;
+  status: "active" | "paused" | "onboarding";
+  stats: { label: string; value: string }[];
+}
+
+interface PeopleData {
+  coaches: PersonData[];
+  players: PersonData[];
+}
 
 interface PersonCardProps {
   name: string;
@@ -58,6 +72,13 @@ export default function PeopleScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<OwnerStackParamList>>();
   const [activeTab, setActiveTab] = useState<TabType>("coaches");
 
+  const { data: peopleData, isLoading } = useQuery<PeopleData>({
+    queryKey: ["/api/owner/people"],
+  });
+
+  const coaches = peopleData?.coaches || [];
+  const players = peopleData?.players || [];
+
   const handleTabChange = (tab: TabType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveTab(tab);
@@ -68,15 +89,14 @@ export default function PeopleScreen() {
     navigation.navigate("InviteManagement");
   };
 
-  const mockCoaches = [
-    { name: "Alex Johnson", role: "Head Coach", status: "active" as const, stats: [{ label: "Sessions/wk", value: "12" }, { label: "Feedback %", value: "94%" }, { label: "Level", value: "8" }] },
-    { name: "Maria Garcia", role: "Assistant Coach", status: "active" as const, stats: [{ label: "Sessions/wk", value: "8" }, { label: "Feedback %", value: "87%" }, { label: "Level", value: "5" }] },
-  ];
-
-  const mockPlayers = [
-    { name: "Tommy Wilson", role: "Green Ball", status: "active" as const, stats: [{ label: "Attendance", value: "92%" }, { label: "Progress", value: "Ready" }, { label: "Level", value: "12" }] },
-    { name: "Sarah Chen", role: "Orange Ball", status: "active" as const, stats: [{ label: "Attendance", value: "85%" }, { label: "Progress", value: "Growing" }, { label: "Level", value: "8" }] },
-  ];
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={Colors.dark.gold} />
+        <Text style={styles.loadingText}>Loading people...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -96,7 +116,7 @@ export default function PeopleScreen() {
             color={activeTab === "coaches" ? Colors.dark.backgroundRoot : Colors.dark.textMuted} 
           />
           <Text style={[styles.tabText, activeTab === "coaches" && styles.tabTextActive]}>
-            Coaches
+            Coaches ({coaches.length})
           </Text>
         </Pressable>
         <Pressable
@@ -109,7 +129,7 @@ export default function PeopleScreen() {
             color={activeTab === "players" ? Colors.dark.backgroundRoot : Colors.dark.textMuted} 
           />
           <Text style={[styles.tabText, activeTab === "players" && styles.tabTextActive]}>
-            Players
+            Players ({players.length})
           </Text>
         </Pressable>
       </View>
@@ -132,10 +152,28 @@ export default function PeopleScreen() {
         </View>
 
         <View style={styles.list}>
-          {(activeTab === "coaches" ? mockCoaches : mockPlayers).map((person, index) => (
-            <PersonCard key={index} {...person} />
+          {(activeTab === "coaches" ? coaches : players).map((person) => (
+            <PersonCard key={person.id} {...person} />
           ))}
         </View>
+
+        {(activeTab === "coaches" ? coaches : players).length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons 
+              name={activeTab === "coaches" ? "tennisball-outline" : "people-outline"} 
+              size={48} 
+              color={Colors.dark.textMuted} 
+            />
+            <Text style={styles.emptyText}>
+              No {activeTab} yet
+            </Text>
+            <Text style={styles.emptySubtext}>
+              {activeTab === "coaches" 
+                ? "Invite coaches to start building your team" 
+                : "Add players to your academy"}
+            </Text>
+          </View>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -145,6 +183,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  centered: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
   },
   header: {
     padding: Spacing.lg,
@@ -280,5 +327,21 @@ const styles = StyleSheet.create({
   statLabel: {
     ...Typography.small,
     color: Colors.dark.textMuted,
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing["2xl"],
+  },
+  emptyText: {
+    ...Typography.h3,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
+  },
+  emptySubtext: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
+    textAlign: "center",
   },
 });

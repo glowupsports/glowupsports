@@ -1,15 +1,36 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 
 type ViewType = "day" | "week" | "month";
 
+interface CourtSession {
+  time: string;
+  coach: string;
+  status: "booked" | "available" | "conflict";
+}
+
+interface CourtSchedule {
+  name: string;
+  sessions: CourtSession[];
+}
+
+interface OperationsData {
+  courts: CourtSchedule[];
+  insights: {
+    peakHours: string;
+    utilization: number;
+    conflicts: number;
+  };
+}
+
 interface CourtRowProps {
   name: string;
-  sessions: { time: string; coach: string; status: "booked" | "available" | "conflict" }[];
+  sessions: CourtSession[];
 }
 
 function CourtRow({ name, sessions }: CourtRowProps) {
@@ -72,43 +93,30 @@ export default function OperationsScreen() {
   const insets = useSafeAreaInsets();
   const [viewType, setViewType] = useState<ViewType>("day");
 
+  const { data: operationsData, isLoading } = useQuery<OperationsData>({
+    queryKey: ["/api/owner/operations"],
+  });
+
+  const courts = operationsData?.courts || [];
+  const insights = operationsData?.insights || {
+    peakHours: "N/A",
+    utilization: 0,
+    conflicts: 0,
+  };
+
   const handleViewChange = (view: ViewType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setViewType(view);
   };
 
-  const mockCourts: CourtRowProps[] = [
-    {
-      name: "Court 1",
-      sessions: [
-        { time: "09:00", coach: "Alex", status: "booked" },
-        { time: "10:00", coach: "Maria", status: "booked" },
-        { time: "11:00", coach: "", status: "available" },
-        { time: "12:00", coach: "Alex", status: "conflict" },
-        { time: "13:00", coach: "", status: "available" },
-      ],
-    },
-    {
-      name: "Court 2",
-      sessions: [
-        { time: "09:00", coach: "", status: "available" },
-        { time: "10:00", coach: "Alex", status: "booked" },
-        { time: "11:00", coach: "Maria", status: "booked" },
-        { time: "12:00", coach: "", status: "available" },
-        { time: "13:00", coach: "Alex", status: "booked" },
-      ],
-    },
-    {
-      name: "Court 3",
-      sessions: [
-        { time: "09:00", coach: "Maria", status: "booked" },
-        { time: "10:00", coach: "", status: "available" },
-        { time: "11:00", coach: "", status: "available" },
-        { time: "12:00", coach: "Maria", status: "booked" },
-        { time: "13:00", coach: "", status: "available" },
-      ],
-    },
-  ];
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={Colors.dark.gold} />
+        <Text style={styles.loadingText}>Loading operations...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -137,19 +145,37 @@ export default function OperationsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.insightsRow}>
-          <InsightCard icon="time" title="Peak Hours" value="10-12" color={Colors.dark.gold} />
-          <InsightCard icon="analytics" title="Utilization" value="72%" color={Colors.dark.primary} trend="up" />
-          <InsightCard icon="warning" title="Conflicts" value="1" color={Colors.dark.error} />
+          <InsightCard icon="time" title="Peak Hours" value={insights.peakHours} color={Colors.dark.gold} />
+          <InsightCard 
+            icon="analytics" 
+            title="Utilization" 
+            value={`${insights.utilization}%`} 
+            color={Colors.dark.primary} 
+            trend={insights.utilization > 70 ? "up" : "down"} 
+          />
+          <InsightCard 
+            icon="warning" 
+            title="Conflicts" 
+            value={String(insights.conflicts)} 
+            color={insights.conflicts > 0 ? Colors.dark.error : Colors.dark.primary} 
+          />
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Court Allocation</Text>
           <View style={[styles.courtsContainer, CardStyles.elevated]}>
-            {mockCourts.map((court, index) => (
+            {courts.map((court, index) => (
               <CourtRow key={index} {...court} />
             ))}
           </View>
         </View>
+
+        {courts.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="calendar-outline" size={48} color={Colors.dark.textMuted} />
+            <Text style={styles.emptyText}>No court data available</Text>
+          </View>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -159,6 +185,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  centered: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
   },
   header: {
     padding: Spacing.lg,
@@ -288,5 +323,15 @@ const styles = StyleSheet.create({
     color: Colors.dark.primary,
     fontWeight: "600",
     fontSize: 11,
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing["2xl"],
+  },
+  emptyText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
   },
 });

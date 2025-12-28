@@ -1,18 +1,54 @@
-import React, { useMemo } from "react";
+import React from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Pressable,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import ModeSwitcher from "@/components/ModeSwitcher";
+
+interface AcademyStats {
+  isOwnerView: boolean;
+  academy: {
+    id: string;
+    name: string;
+  };
+  stats: {
+    totalPlayers: number;
+    activePlayers: number;
+    totalCoaches: number;
+    sessionsThisMonth: number;
+    completedSessions: number;
+    avgAttendanceRate: number;
+  };
+  topPerformers: Array<{
+    id: string;
+    name: string;
+    level: number;
+    totalXp: number;
+    glowScore: number;
+    ballLevel: string;
+  }>;
+  levelDistribution: {
+    beginner: number;
+    intermediate: number;
+    advanced: number;
+  };
+  recentActivity: Array<{
+    type: string;
+    message: string;
+    time: string;
+  }>;
+}
 
 interface StatCardProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -104,23 +140,36 @@ function QuickAction({ icon, label, color, onPress }: QuickActionProps) {
   );
 }
 
-interface SessionRowProps {
-  time: string;
-  coach: string;
-  court: string;
-  players: number;
+interface TopPerformerRowProps {
+  name: string;
+  level: number;
+  glowScore: number;
+  ballLevel: string;
+  rank: number;
 }
 
-function SessionRow({ time, coach, court, players }: SessionRowProps) {
+function TopPerformerRow({ name, level, glowScore, ballLevel, rank }: TopPerformerRowProps) {
+  const ballColors: Record<string, string> = {
+    red: "#FF4444",
+    orange: "#FF8C00",
+    green: "#2ECC40",
+    yellow: "#FFD700",
+  };
+
   return (
-    <View style={styles.sessionRow}>
-      <Text style={styles.sessionTime}>{time}</Text>
-      <View style={styles.sessionInfo}>
-        <Text style={styles.sessionCoach}>{coach}</Text>
-        <Text style={styles.sessionDetails}>{court} - {players} players</Text>
+    <View style={styles.performerRow}>
+      <View style={styles.rankBadge}>
+        <Text style={styles.rankText}>{rank}</Text>
       </View>
-      <View style={styles.sessionStatus}>
-        <View style={styles.sessionLive} />
+      <View style={styles.performerInfo}>
+        <Text style={styles.performerName}>{name}</Text>
+        <View style={styles.performerStats}>
+          <View style={[styles.ballIndicator, { backgroundColor: ballColors[ballLevel] || ballColors.green }]} />
+          <Text style={styles.performerLevel}>Level {level}</Text>
+        </View>
+      </View>
+      <View style={styles.glowScoreBadge}>
+        <Text style={styles.glowScoreText}>{glowScore}</Text>
       </View>
     </View>
   );
@@ -128,51 +177,32 @@ function SessionRow({ time, coach, court, players }: SessionRowProps) {
 
 export default function OwnerDashboardScreen() {
   const insets = useSafeAreaInsets();
-  const { user, academy } = useAuth();
+  const { user } = useAuth();
 
-  const academyName = academy?.name || "My Academy";
-  
-  const stats = useMemo(() => ({
-    coaches: academy?.coachCount || 0,
-    players: academy?.playerCount || 0,
-    sessionsToday: academy?.todaySessionCount || 0,
-    glowScore: academy?.glowScore || 0,
-    revenueMonth: academy?.monthlyRevenue || 0,
-    revenueWeek: academy?.weeklyRevenue || 0,
-  }), [academy]);
+  const { data: statsData, isLoading } = useQuery<AcademyStats>({
+    queryKey: ["/api/owner/academy-stats"],
+  });
 
-  const alerts = useMemo(() => {
-    const pendingAlerts: AlertCardProps[] = [];
-    if (academy?.missedFeedbackCount && academy.missedFeedbackCount > 0) {
-      pendingAlerts.push({
-        icon: "alert-circle" as const,
-        title: "Missed Feedback",
-        message: `${academy.missedFeedbackCount} sessions need feedback`,
-        type: "warning" as const,
-      });
-    }
-    if (academy?.overduePaymentCount && academy.overduePaymentCount > 0) {
-      pendingAlerts.push({
-        icon: "cash" as const,
-        title: "Payment Overdue",
-        message: `${academy.overduePaymentCount} player(s) with outstanding balance`,
-        type: "error" as const,
-      });
-    }
-    if (academy?.atRiskPlayerCount && academy.atRiskPlayerCount > 0) {
-      pendingAlerts.push({
-        icon: "person" as const,
-        title: "Players at Risk",
-        message: `${academy.atRiskPlayerCount} player(s) showing drop-off signs`,
-        type: "info" as const,
-      });
-    }
-    return pendingAlerts;
-  }, [academy]);
+  const academyName = statsData?.academy?.name || "My Academy";
+  const stats = statsData?.stats || {
+    totalPlayers: 0,
+    activePlayers: 0,
+    totalCoaches: 0,
+    sessionsThisMonth: 0,
+    completedSessions: 0,
+    avgAttendanceRate: 0,
+  };
+  const topPerformers = statsData?.topPerformers || [];
+  const recentActivity = statsData?.recentActivity || [];
 
-  const todaySessions = useMemo(() => {
-    return academy?.todaySessions || [];
-  }, [academy]);
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={Colors.dark.gold} />
+        <Text style={styles.loadingText}>Loading dashboard...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -200,9 +230,6 @@ export default function OwnerDashboardScreen() {
               onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
             >
               <Ionicons name="notifications" size={24} color={Colors.dark.gold} />
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>3</Text>
-              </View>
             </Pressable>
           </View>
 
@@ -210,46 +237,46 @@ export default function OwnerDashboardScreen() {
         </View>
 
         <View style={styles.statsGrid}>
-          <StatCard icon="tennisball" label="Coaches" value={stats.coaches} color={Colors.dark.primary} />
-          <StatCard icon="people" label="Players" value={stats.players} color={Colors.dark.xpCyan} />
-          <StatCard icon="calendar" label="Today" value={stats.sessionsToday} color={Colors.dark.orange} />
+          <StatCard 
+            icon="tennisball" 
+            label="Coaches" 
+            value={stats.totalCoaches} 
+            color={Colors.dark.primary} 
+          />
+          <StatCard 
+            icon="people" 
+            label="Players" 
+            value={stats.totalPlayers} 
+            color={Colors.dark.xpCyan} 
+          />
+          <StatCard 
+            icon="calendar" 
+            label="Sessions" 
+            value={stats.sessionsThisMonth} 
+            color={Colors.dark.orange} 
+          />
           <StatCard
-            icon="star"
-            label="Glow Score"
-            value={stats.glowScore}
+            icon="stats-chart"
+            label="Attendance"
+            value={`${stats.avgAttendanceRate}%`}
             color={Colors.dark.gold}
-            trend={{ value: "+0.3", direction: "up" }}
+            trend={stats.avgAttendanceRate > 80 ? { value: "Good", direction: "up" } : undefined}
           />
         </View>
 
-        <View style={[styles.revenueCard, CardStyles.elevated]}>
-          <View style={styles.revenueHeader}>
-            <Ionicons name="trending-up" size={24} color={Colors.dark.gold} />
-            <Text style={styles.revenueTitle}>Revenue</Text>
-          </View>
-          <View style={styles.revenueRow}>
-            <View style={styles.revenueStat}>
-              <Text style={styles.revenueValue}>${stats.revenueMonth.toLocaleString()}</Text>
-              <Text style={styles.revenueLabel}>This Month</Text>
-            </View>
-            <View style={styles.revenueDivider} />
-            <View style={styles.revenueStat}>
-              <Text style={styles.revenueValue}>${stats.revenueWeek.toLocaleString()}</Text>
-              <Text style={styles.revenueLabel}>This Week</Text>
-            </View>
-          </View>
-        </View>
-
-        {alerts.length > 0 ? (
+        {recentActivity.length > 0 ? (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Alerts</Text>
-              <View style={styles.alertBadge}>
-                <Text style={styles.alertBadgeText}>{alerts.length}</Text>
-              </View>
+              <Text style={styles.sectionTitle}>Recent Activity</Text>
             </View>
-            {alerts.map((alert, index) => (
-              <AlertCard key={index} {...alert} />
+            {recentActivity.map((activity, index) => (
+              <AlertCard 
+                key={index} 
+                icon={activity.type === "session" ? "calendar" : activity.type === "xp" ? "star" : "analytics"}
+                title={activity.message}
+                message={activity.time}
+                type="info"
+              />
             ))}
           </View>
         ) : null}
@@ -266,15 +293,22 @@ export default function OwnerDashboardScreen() {
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Sessions Today</Text>
-            <Pressable style={styles.viewAllButton}>
-              <Text style={styles.viewAllText}>View All</Text>
-              <Ionicons name="chevron-forward" size={16} color={Colors.dark.gold} />
-            </Pressable>
+            <Text style={styles.sectionTitle}>Top Performers</Text>
+            <View style={styles.glowScoreLabel}>
+              <Ionicons name="star" size={12} color={Colors.dark.gold} />
+              <Text style={styles.glowScoreLabelText}>Glow Score</Text>
+            </View>
           </View>
-          <View style={[styles.sessionsCard, CardStyles.elevated]}>
-            {todaySessions.map((session, index) => (
-              <SessionRow key={index} {...session} />
+          <View style={[styles.performersCard, CardStyles.elevated]}>
+            {topPerformers.slice(0, 5).map((performer, index) => (
+              <TopPerformerRow 
+                key={performer.id}
+                name={performer.name}
+                level={performer.level}
+                glowScore={performer.glowScore}
+                ballLevel={performer.ballLevel}
+                rank={index + 1}
+              />
             ))}
           </View>
         </View>
@@ -287,6 +321,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  centered: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
   },
   headerGradient: {
     position: "absolute",
@@ -339,23 +382,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  notificationBadge: {
-    position: "absolute",
-    top: 6,
-    right: 6,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: Colors.dark.error,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  notificationBadgeText: {
-    ...Typography.small,
-    color: Colors.dark.text,
-    fontSize: 10,
-    fontWeight: "700",
-  },
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -396,43 +422,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "600",
   },
-  revenueCard: {
-    padding: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
-    marginBottom: Spacing.xl,
-  },
-  revenueHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  revenueTitle: {
-    ...Typography.h3,
-    color: Colors.dark.text,
-  },
-  revenueRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  revenueStat: {
-    flex: 1,
-    alignItems: "center",
-  },
-  revenueValue: {
-    ...Typography.h1,
-    color: Colors.dark.gold,
-  },
-  revenueLabel: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
-  },
-  revenueDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: Colors.dark.backgroundRoot,
-  },
   section: {
     marginBottom: Spacing.xl,
   },
@@ -445,20 +434,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...Typography.h3,
     color: Colors.dark.text,
-  },
-  alertBadge: {
-    minWidth: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: Colors.dark.error,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 8,
-  },
-  alertBadgeText: {
-    ...Typography.small,
-    color: Colors.dark.text,
-    fontWeight: "700",
   },
   alertCard: {
     flexDirection: "row",
@@ -513,53 +488,71 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     textAlign: "center",
   },
-  viewAllButton: {
+  glowScoreLabel: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
   },
-  viewAllText: {
+  glowScoreLabelText: {
     ...Typography.small,
     color: Colors.dark.gold,
-    fontWeight: "500",
   },
-  sessionsCard: {
+  performersCard: {
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
   },
-  sessionRow: {
+  performerRow: {
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Colors.dark.backgroundRoot,
   },
-  sessionTime: {
-    ...Typography.body,
-    color: Colors.dark.gold,
-    fontWeight: "600",
-    width: 60,
+  rankBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.dark.gold + "20",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.md,
   },
-  sessionInfo: {
+  rankText: {
+    ...Typography.small,
+    color: Colors.dark.gold,
+    fontWeight: "700",
+  },
+  performerInfo: {
     flex: 1,
   },
-  sessionCoach: {
+  performerName: {
     ...Typography.body,
     color: Colors.dark.text,
   },
-  sessionDetails: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
-  },
-  sessionStatus: {
-    width: 30,
+  performerStats: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 6,
   },
-  sessionLive: {
+  ballIndicator: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.dark.primary,
+  },
+  performerLevel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  glowScoreBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    backgroundColor: Colors.dark.gold + "20",
+    borderRadius: BorderRadius.sm,
+  },
+  glowScoreText: {
+    ...Typography.small,
+    color: Colors.dark.gold,
+    fontWeight: "700",
   },
 });

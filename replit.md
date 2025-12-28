@@ -56,6 +56,9 @@ The application features a dark-themed gaming aesthetic with neon green (#2ECC40
 
 - **Owner API Endpoints**:
     - `GET /api/owner/academy-stats`: Returns aggregate academy statistics including total players, coaches, sessions, attendance rate, top performers, level distribution, and recent activity. Protected by `requireRole("owner", "academy_owner", "platform_owner")` middleware.
+    - `GET /api/owner/people`: Returns coaches and players data for the People screen with stats. Protected by `requireRole("owner", "academy_owner", "platform_owner")` middleware.
+    - `GET /api/owner/operations`: Returns court schedules, insights (peak hours, utilization, conflicts). Protected by `requireRole("owner", "academy_owner", "platform_owner")` middleware.
+    - `GET /api/owner/finance`: Returns revenue, payment summary, recent payments, and subscriptions. Protected by `requireRole("owner", "academy_owner", "platform_owner")` middleware.
     - `GET /api/platform/stats`: Returns platform-wide statistics for Platform Owner including all academies, coaches, players, MRR, alerts, and revenue data. Protected by `requireRole("platform_owner")` middleware.
 
 - **Web Compatibility**:
