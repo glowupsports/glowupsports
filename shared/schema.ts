@@ -12,6 +12,7 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   role: text("role").notNull().default("coach"), // platform_owner | academy_owner | coach | assistant | player
+  status: text("status").notNull().default("active"), // active | pending | suspended
   academyId: varchar("academy_id"), // references academies.id (set after registration)
   coachId: varchar("coach_id"), // references coaches.id (links user to coach profile)
   playerId: varchar("player_id"), // references players.id (links user to player profile)
@@ -23,6 +24,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
   password: true,
   role: true,
+  status: true,
   academyId: true,
   coachId: true,
   playerId: true,
@@ -33,11 +35,32 @@ export const loginSchema = z.object({
   password: z.string().min(6),
 });
 
+// Player self-registration (open, no academy required)
+export const playerRegisterSchema = z.object({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  dateOfBirth: z.string().optional(),
+  email: z.string().email("Valid email is required"),
+  phone: z.string().optional(),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+// Coach registration via invite token
+export const coachInviteRegisterSchema = z.object({
+  token: z.string().min(1, "Invite token is required"),
+  name: z.string().min(2, "Name is required"),
+  email: z.string().email("Valid email is required"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  phone: z.string().optional(),
+  specialty: z.string().optional(),
+});
+
+// Legacy register schema (for backwards compatibility)
 export const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   name: z.string().min(2),
-  academyName: z.string().min(2).optional(), // For new academy creation
+  academyName: z.string().min(2).optional(),
   role: z.enum(["platform_owner", "academy_owner", "coach", "assistant", "player"]).default("coach"),
 });
 
@@ -45,6 +68,8 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
+export type PlayerRegisterInput = z.infer<typeof playerRegisterSchema>;
+export type CoachInviteRegisterInput = z.infer<typeof coachInviteRegisterSchema>;
 
 // ==================== MULTI-ACADEMY STRUCTURE ====================
 
@@ -62,6 +87,57 @@ export const academies = pgTable("academies", {
 export const insertAcademySchema = createInsertSchema(academies).omit({ id: true, createdAt: true });
 export type InsertAcademy = z.infer<typeof insertAcademySchema>;
 export type Academy = typeof academies.$inferSelect;
+
+// Academy Applications (for new academies awaiting platform owner approval)
+export const academyApplications = pgTable("academy_applications", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyName: text("academy_name").notNull(),
+  country: text("country").notNull(),
+  contactPerson: text("contact_person").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  description: text("description"),
+  status: text("status").default("pending").notNull(), // pending | approved | rejected
+  reviewedBy: varchar("reviewed_by"), // platform owner who reviewed
+  reviewedAt: timestamp("reviewed_at"),
+  rejectionReason: text("rejection_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAcademyApplicationSchema = createInsertSchema(academyApplications).omit({ id: true, createdAt: true, reviewedBy: true, reviewedAt: true });
+export const academyApplicationInputSchema = z.object({
+  academyName: z.string().min(2, "Academy name must be at least 2 characters"),
+  country: z.string().min(2, "Country is required"),
+  contactPerson: z.string().min(2, "Contact person name is required"),
+  email: z.string().email("Valid email is required"),
+  phone: z.string().optional(),
+  description: z.string().optional(),
+});
+export type InsertAcademyApplication = z.infer<typeof insertAcademyApplicationSchema>;
+export type AcademyApplication = typeof academyApplications.$inferSelect;
+export type AcademyApplicationInput = z.infer<typeof academyApplicationInputSchema>;
+
+// Invites (for coaches to join academies)
+export const invites = pgTable("invites", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  token: text("token").notNull().unique(),
+  role: text("role").notNull().default("coach"), // coach | assistant
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  invitedEmail: text("invited_email"), // optional pre-set email
+  invitedBy: varchar("invited_by").notNull(), // coach/owner who created invite
+  usedBy: varchar("used_by"), // user who accepted
+  usedAt: timestamp("used_at"),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertInviteSchema = createInsertSchema(invites).omit({ id: true, createdAt: true, usedBy: true, usedAt: true });
+export type InsertInvite = z.infer<typeof insertInviteSchema>;
+export type Invite = typeof invites.$inferSelect;
 
 // ==================== COACH APP TABLES ====================
 

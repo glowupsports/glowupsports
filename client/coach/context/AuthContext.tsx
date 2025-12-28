@@ -26,6 +26,14 @@ interface Academy {
   slug: string;
 }
 
+interface PlayerRegisterData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  phone?: string;
+}
+
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -34,6 +42,7 @@ interface AuthContextType {
   academy: Academy | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
+  registerPlayer: (data: PlayerRegisterData) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
 }
@@ -188,6 +197,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const registerPlayer = async (playerData: PlayerRegisterData): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const apiUrl = getApiUrl();
+      const response = await fetch(new URL("/auth/register/player", apiUrl).toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(playerData),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        return { success: false, error: data.error || "Registration failed" };
+      }
+      
+      await saveAuthState(data.token, data.user);
+      setAuthToken(data.token);
+      await fetchUserData(data.token);
+      setIsAuthenticated(true);
+      
+      return { success: true };
+    } catch (error) {
+      console.error("Player registration error:", error);
+      return { success: false, error: "Network error. Please try again." };
+    }
+  };
+
   const logout = async () => {
     try {
       await clearAuthState();
@@ -218,6 +254,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         academy,
         login,
         register,
+        registerPlayer,
         logout,
         refreshAuth,
       }}

@@ -8,6 +8,12 @@ import {
   type InsertUser,
   // Multi-academy structure
   academies,
+  academyApplications,
+  invites,
+  type AcademyApplication,
+  type InsertAcademyApplication,
+  type Invite,
+  type InsertInvite,
   // Core tables
   coaches,
   locations,
@@ -215,6 +221,75 @@ export const storage = {
 
   async updateAcademy(id: string, data: Partial<InsertAcademy>): Promise<Academy | undefined> {
     const result = await db.update(academies).set(data).where(eq(academies.id, id)).returning();
+    return result[0];
+  },
+
+  // ==================== ACADEMY APPLICATIONS ====================
+  async getAcademyApplication(id: string): Promise<AcademyApplication | undefined> {
+    const result = await db.select().from(academyApplications).where(eq(academyApplications.id, id));
+    return result[0];
+  },
+
+  async getAcademyApplicationByEmail(email: string): Promise<AcademyApplication | undefined> {
+    const result = await db.select().from(academyApplications)
+      .where(and(eq(academyApplications.email, email.toLowerCase()), eq(academyApplications.status, "pending")));
+    return result[0];
+  },
+
+  async getAllAcademyApplications(status?: string): Promise<AcademyApplication[]> {
+    if (status) {
+      return db.select().from(academyApplications)
+        .where(eq(academyApplications.status, status))
+        .orderBy(desc(academyApplications.createdAt));
+    }
+    return db.select().from(academyApplications).orderBy(desc(academyApplications.createdAt));
+  },
+
+  async createAcademyApplication(data: InsertAcademyApplication): Promise<AcademyApplication> {
+    const result = await db.insert(academyApplications).values({
+      ...data,
+      email: data.email.toLowerCase(),
+    }).returning();
+    return result[0];
+  },
+
+  async updateAcademyApplication(id: string, data: Partial<AcademyApplication>): Promise<AcademyApplication | undefined> {
+    const result = await db.update(academyApplications).set(data).where(eq(academyApplications.id, id)).returning();
+    return result[0];
+  },
+
+  // ==================== INVITES ====================
+  async getInvite(id: string): Promise<Invite | undefined> {
+    const result = await db.select().from(invites).where(eq(invites.id, id));
+    return result[0];
+  },
+
+  async getInviteByToken(token: string): Promise<Invite | undefined> {
+    const result = await db.select().from(invites).where(eq(invites.token, token));
+    return result[0];
+  },
+
+  async getCoachInvites(academyId: string): Promise<Invite[]> {
+    return db.select().from(invites)
+      .where(eq(invites.academyId, academyId))
+      .orderBy(desc(invites.createdAt));
+  },
+
+  async createInvite(data: InsertInvite): Promise<Invite> {
+    const result = await db.insert(invites).values(data).returning();
+    return result[0];
+  },
+
+  async updateInvite(id: string, data: Partial<Invite>): Promise<Invite | undefined> {
+    const result = await db.update(invites).set(data).where(eq(invites.id, id)).returning();
+    return result[0];
+  },
+
+  async markInviteUsed(id: string, userId: string): Promise<Invite | undefined> {
+    const result = await db.update(invites).set({
+      usedBy: userId,
+      usedAt: new Date(),
+    }).where(eq(invites.id, id)).returning();
     return result[0];
   },
 

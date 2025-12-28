@@ -21,6 +21,9 @@ import {
 import { 
   loginSchema, 
   registerSchema,
+  playerRegisterSchema,
+  coachInviteRegisterSchema,
+  academyApplicationInputSchema,
   insertSessionSchema,
   insertPlayerSchema,
   updatePlayerSchema,
@@ -29,6 +32,7 @@ import {
   insertMessageSchema,
   insertMessageReactionSchema,
 } from "@shared/schema";
+import crypto from "crypto";
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "./utils/sanitize";
@@ -81,82 +85,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==================== AUTH ENDPOINTS ====================
-  
-  app.post("/auth/register", authLimiter, async (req: Request, res: Response) => {
-    try {
-      const parsed = registerSchema.safeParse(req.body);
-      if (!parsed.success) {
-        return res.status(400).json({ error: fromZodError(parsed.error).message });
-      }
-
-      const { email, password, name, academyName, role } = parsed.data;
-
-      const existingUser = await storage.getUserByEmail(email);
-      if (existingUser) {
-        return res.status(409).json({ error: "Email already registered" });
-      }
-
-      const hashedPassword = await hashPassword(password);
-
-      let academyId: string | null = null;
-      let coachId: string | null = null;
-
-      if (academyName) {
-        const slug = academyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-        const existingAcademy = await storage.getAcademyBySlug(slug);
-        if (existingAcademy) {
-          return res.status(409).json({ error: "Academy name already taken" });
-        }
-        
-        const academy = await storage.createAcademy({ name: academyName, slug, ownerId: null });
-        academyId = academy.id;
-        
-        const coach = await storage.createCoach({ 
-          name, 
-          email, 
-          academyId, 
-          role: "academy_owner",
-          level: 1,
-          totalXp: 0,
-        });
-        coachId = coach.id;
-        
-        await storage.updateAcademy(academyId, { ownerId: coachId });
-      }
-
-      const user = await storage.createUser({
-        email,
-        password: hashedPassword,
-        role: academyName ? "academy_owner" : role,
-        academyId,
-        coachId,
-      });
-
-      const token = generateToken({
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-        academyId: user.academyId,
-        coachId: user.coachId,
-        playerId: user.playerId,
-      });
-
-      res.status(201).json({ 
-        token,
-        user: {
-          id: user.id,
-          email: user.email,
-          role: user.role,
-          academyId: user.academyId,
-          coachId: user.coachId,
-          playerId: user.playerId,
-        }
-      });
-    } catch (error) {
-      console.error("Registration error:", error);
-      res.status(500).json({ error: "Registration failed" });
-    }
-  });
+  // Registration routes are role-specific:
+  // - /auth/register/player - Open player self-registration
+  // - /auth/register/coach - Invite-only coach registration (requires valid invite token)
+  // - /auth/apply/academy - Academy owner application (requires platform owner approval)
+  // The legacy /auth/register endpoint has been removed for security.
 
   app.post("/auth/login", authLimiter, async (req: Request, res: Response) => {
     try {
@@ -205,6 +138,237 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Player self-registration (open, no academy required)
+  app.post("/auth/register/player", authLimiter, async (req: Request, res: Response) => {
+    try {
+      const parsed = playerRegisterSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: fromZodError(parsed.error).message });
+      }
+
+      const { firstName, lastName, dateOfBirth, email, phone, password } = parsed.data;
+
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({ error: "Email already registered" });
+      }
+
+      const hashedPassword = await hashPassword(password);
+      const fullName = `${firstName} ${lastName}`;
+
+      // Create player profile first
+      const player = await storage.createPlayer({
+        name: fullName,
+        email,
+        phone: phone || null,
+        academyId: null, // No academy yet
+        coachId: null,
+      });
+
+      // Create user account
+      const user = await storage.createUser({
+        email,
+        password: hashedPassword,
+        role: "player",
+        status: "active",
+        academyId: null,
+        playerId: player.id,
+      });
+
+      const token = generateToken({
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        academyId: user.academyId,
+        coachId: user.coachId,
+        playerId: user.playerId,
+      });
+
+      res.status(201).json({
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          academyId: user.academyId,
+          playerId: user.playerId,
+        },
+        message: "Account created successfully. Join an academy to start training!",
+      });
+    } catch (error) {
+      console.error("Player registration error:", error);
+      res.status(500).json({ error: "Registration failed" });
+    }
+  });
+
+  // Coach registration via invite token
+  app.post("/auth/register/coach", authLimiter, async (req: Request, res: Response) => {
+    try {
+      const parsed = coachInviteRegisterSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: fromZodError(parsed.error).message });
+      }
+
+      const { token, name, email, password, phone, specialty } = parsed.data;
+
+      // Validate invite token
+      const invite = await storage.getInviteByToken(token);
+      if (!invite) {
+        return res.status(400).json({ error: "Invalid or expired invite link" });
+      }
+
+      if (invite.usedAt) {
+        return res.status(400).json({ error: "This invite has already been used" });
+      }
+
+      if (new Date() > new Date(invite.expiresAt)) {
+        return res.status(400).json({ error: "This invite has expired" });
+      }
+
+      // Check if email matches invite (if pre-set)
+      if (invite.invitedEmail && invite.invitedEmail.toLowerCase() !== email.toLowerCase()) {
+        return res.status(400).json({ error: "Email does not match the invite" });
+      }
+
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({ error: "Email already registered" });
+      }
+
+      const hashedPassword = await hashPassword(password);
+
+      // Create coach profile
+      const coach = await storage.createCoach({
+        name,
+        email,
+        phone: phone || null,
+        specialty: specialty || null,
+        academyId: invite.academyId,
+        role: invite.role || "coach",
+        level: 1,
+        totalXp: 0,
+      });
+
+      // Create user account
+      const user = await storage.createUser({
+        email,
+        password: hashedPassword,
+        role: invite.role || "coach",
+        status: "active",
+        academyId: invite.academyId,
+        coachId: coach.id,
+      });
+
+      // Mark invite as used
+      await storage.markInviteUsed(invite.id, user.id);
+
+      const authToken = generateToken({
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        academyId: user.academyId,
+        coachId: user.coachId,
+        playerId: user.playerId,
+      });
+
+      res.status(201).json({
+        token: authToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          academyId: user.academyId,
+          coachId: user.coachId,
+        },
+        message: "Welcome to the team!",
+      });
+    } catch (error) {
+      console.error("Coach registration error:", error);
+      res.status(500).json({ error: "Registration failed" });
+    }
+  });
+
+  // Validate invite token (for checking before showing registration form)
+  app.get("/auth/invite/:token", async (req: Request, res: Response) => {
+    try {
+      const { token } = req.params;
+      const invite = await storage.getInviteByToken(token);
+
+      if (!invite) {
+        return res.status(404).json({ error: "Invite not found" });
+      }
+
+      if (invite.usedAt) {
+        return res.status(400).json({ error: "This invite has already been used" });
+      }
+
+      if (new Date() > new Date(invite.expiresAt)) {
+        return res.status(400).json({ error: "This invite has expired" });
+      }
+
+      // Get academy info
+      const academy = await storage.getAcademy(invite.academyId);
+
+      res.json({
+        valid: true,
+        role: invite.role,
+        academyName: academy?.name || "Unknown Academy",
+        invitedEmail: invite.invitedEmail,
+        expiresAt: invite.expiresAt,
+      });
+    } catch (error) {
+      console.error("Invite validation error:", error);
+      res.status(500).json({ error: "Failed to validate invite" });
+    }
+  });
+
+  // Academy application (submit for platform owner approval)
+  app.post("/auth/apply/academy", authLimiter, async (req: Request, res: Response) => {
+    try {
+      const parsed = academyApplicationInputSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: fromZodError(parsed.error).message });
+      }
+
+      const { academyName, country, contactPerson, email, phone, description } = parsed.data;
+
+      // Check for existing pending application
+      const existingApplication = await storage.getAcademyApplicationByEmail(email);
+      if (existingApplication) {
+        return res.status(409).json({ error: "You already have a pending application" });
+      }
+
+      // Check if academy name slug exists
+      const slug = academyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      const existingAcademy = await storage.getAcademyBySlug(slug);
+      if (existingAcademy) {
+        return res.status(409).json({ error: "An academy with this name already exists" });
+      }
+
+      const application = await storage.createAcademyApplication({
+        academyName,
+        country,
+        contactPerson,
+        email,
+        phone: phone || null,
+        description: description || null,
+        status: "pending",
+      });
+
+      res.status(201).json({
+        application: {
+          id: application.id,
+          academyName: application.academyName,
+          status: application.status,
+        },
+        message: "Application submitted successfully. You will be notified once reviewed.",
+      });
+    } catch (error) {
+      console.error("Academy application error:", error);
+      res.status(500).json({ error: "Application submission failed" });
+    }
+  });
+
   app.post("/auth/logout", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     res.json({ success: true, message: "Logged out successfully" });
   });
@@ -224,6 +388,192 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Token refresh error:", error);
       res.status(500).json({ error: "Token refresh failed" });
+    }
+  });
+
+  // ==================== COACH INVITES (Academy Owner/Admin) ====================
+  
+  // Create coach invite
+  app.post("/api/invites", authMiddleware, requireRole("academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { role = "coach", email, expiresInDays = 7 } = req.body;
+      const academyId = req.user!.academyId;
+      const invitedBy = req.user!.coachId;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID is required" });
+      }
+
+      if (!invitedBy) {
+        return res.status(400).json({ error: "Inviter ID is required" });
+      }
+
+      // Generate secure token
+      const token = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+
+      const invite = await storage.createInvite({
+        token,
+        role,
+        academyId,
+        invitedEmail: email?.toLowerCase() || null,
+        invitedBy,
+        expiresAt,
+      });
+
+      res.status(201).json({
+        invite: {
+          id: invite.id,
+          token: invite.token,
+          role: invite.role,
+          invitedEmail: invite.invitedEmail,
+          expiresAt: invite.expiresAt,
+        },
+        inviteUrl: `/join/${invite.token}`,
+      });
+    } catch (error) {
+      console.error("Create invite error:", error);
+      res.status(500).json({ error: "Failed to create invite" });
+    }
+  });
+
+  // List invites for academy
+  app.get("/api/invites", authMiddleware, requireRole("academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID is required" });
+      }
+
+      const invitesList = await storage.getCoachInvites(academyId);
+      res.json({ invites: invitesList });
+    } catch (error) {
+      console.error("Get invites error:", error);
+      res.status(500).json({ error: "Failed to get invites" });
+    }
+  });
+
+  // ==================== ACADEMY APPLICATIONS (Platform Owner Only) ====================
+
+  // List all academy applications
+  app.get("/api/platform/applications", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { status } = req.query;
+      const applications = await storage.getAllAcademyApplications(status as string | undefined);
+      res.json({ applications });
+    } catch (error) {
+      console.error("Get applications error:", error);
+      res.status(500).json({ error: "Failed to get applications" });
+    }
+  });
+
+  // Get single application
+  app.get("/api/platform/applications/:id", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const application = await storage.getAcademyApplication(id);
+      
+      if (!application) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+
+      res.json({ application });
+    } catch (error) {
+      console.error("Get application error:", error);
+      res.status(500).json({ error: "Failed to get application" });
+    }
+  });
+
+  // Approve academy application
+  app.post("/api/platform/applications/:id/approve", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const reviewedBy = req.user!.userId;
+
+      const application = await storage.getAcademyApplication(id);
+      if (!application) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+
+      if (application.status !== "pending") {
+        return res.status(400).json({ error: "Application has already been processed" });
+      }
+
+      // Create the academy
+      const slug = application.academyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      const academy = await storage.createAcademy({
+        name: application.academyName,
+        slug,
+        ownerId: null,
+      });
+
+      // Create invite for the academy owner
+      const inviteToken = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30); // 30 days to accept
+
+      await storage.createInvite({
+        token: inviteToken,
+        role: "academy_owner",
+        academyId: academy.id,
+        invitedEmail: application.email,
+        invitedBy: reviewedBy,
+        expiresAt,
+      });
+
+      // Update application status
+      await storage.updateAcademyApplication(id, {
+        status: "approved",
+        reviewedBy,
+        reviewedAt: new Date(),
+      });
+
+      res.json({
+        success: true,
+        academy: {
+          id: academy.id,
+          name: academy.name,
+        },
+        inviteToken,
+        message: "Academy approved. Invite sent to owner.",
+      });
+    } catch (error) {
+      console.error("Approve application error:", error);
+      res.status(500).json({ error: "Failed to approve application" });
+    }
+  });
+
+  // Reject academy application
+  app.post("/api/platform/applications/:id/reject", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+      const reviewedBy = req.user!.userId;
+
+      const application = await storage.getAcademyApplication(id);
+      if (!application) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+
+      if (application.status !== "pending") {
+        return res.status(400).json({ error: "Application has already been processed" });
+      }
+
+      await storage.updateAcademyApplication(id, {
+        status: "rejected",
+        reviewedBy,
+        reviewedAt: new Date(),
+        rejectionReason: reason || null,
+      });
+
+      res.json({
+        success: true,
+        message: "Application rejected.",
+      });
+    } catch (error) {
+      console.error("Reject application error:", error);
+      res.status(500).json({ error: "Failed to reject application" });
     }
   });
 
