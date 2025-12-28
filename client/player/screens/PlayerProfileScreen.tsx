@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -8,31 +8,32 @@ import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constan
 import { LinearGradient } from "expo-linear-gradient";
 import { useAppMode } from "@/context/AppModeContext";
 
-interface PlayerProfile {
-  id: string;
-  name: string;
-  email: string;
-  level: number;
-  xp: number;
-  glowScore: number;
-  ballLevel: string;
-  avatar?: string;
-  stats: {
-    sessionsPlayed: number;
-    minutesTrained: number;
+interface ProfileData {
+  player: {
+    id: string;
+    name: string;
+    email: string;
+    level: number;
+    xp: number;
+    glowScore: number;
+    ballLevel: string | null;
     streak: number;
-    favoriteSkill: string;
+    createdAt: string;
   };
   coach: {
     id: string;
     name: string;
     email?: string;
-  };
+  } | null;
   academy: {
     id: string;
     name: string;
+  } | null;
+  stats: {
+    sessionsAttended: number;
+    sessionsTotal: number;
+    attendanceRate: number;
   };
-  joinedAt: string;
 }
 
 function StatItem({ label, value, icon }: { label: string; value: string | number; icon: string }) {
@@ -73,40 +74,32 @@ export default function PlayerProfileScreen() {
   const insets = useSafeAreaInsets();
   const { setMode } = useAppMode();
 
-  const { data: profile } = useQuery<PlayerProfile>({
-    queryKey: ["/api/player/profile"],
-    enabled: false,
+  const { data, isLoading, error } = useQuery<ProfileData>({
+    queryKey: ["/api/player/me/profile"],
   });
 
-  const mockProfile: PlayerProfile = {
-    id: "1",
-    name: "Alex Thompson",
-    email: "alex@example.com",
-    level: 12,
-    xp: 2450,
-    glowScore: 78,
-    ballLevel: "orange",
-    stats: {
-      sessionsPlayed: 45,
-      minutesTrained: 2700,
-      streak: 5,
-      favoriteSkill: "Forehand",
-    },
-    coach: {
-      id: "1",
-      name: "Coach Mike",
-      email: "mike@glowup.tennis",
-    },
-    academy: {
-      id: "1",
-      name: "Glow Up Tennis Academy",
-    },
-    joinedAt: "2024-06-15",
-  };
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+        <Text style={styles.loadingText}>Loading your profile...</Text>
+      </View>
+    );
+  }
 
-  const data = profile || mockProfile;
-  const ballColor = getBallLevelColor(data.ballLevel);
-  const memberSince = new Date(data.joinedAt).toLocaleDateString("en-US", {
+  if (error || !data) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <Ionicons name="alert-circle" size={48} color={Colors.dark.error} />
+        <Text style={styles.errorText}>Unable to load profile</Text>
+        <Text style={styles.errorSubtext}>Please try again later</Text>
+      </View>
+    );
+  }
+
+  const { player, coach, academy, stats } = data;
+  const ballColor = getBallLevelColor(player.ballLevel || "red");
+  const memberSince = new Date(player.createdAt).toLocaleDateString("en-US", {
     month: "long",
     year: "numeric",
   });
@@ -115,6 +108,8 @@ export default function PlayerProfileScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setMode("coach");
   };
+
+  const ballLevel = player.ballLevel || "red";
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -131,27 +126,27 @@ export default function PlayerProfileScreen() {
                 style={styles.avatarGradient}
               >
                 <View style={styles.avatarInner}>
-                  <Text style={styles.avatarText}>{data.name.charAt(0)}</Text>
+                  <Text style={styles.avatarText}>{player.name.charAt(0)}</Text>
                 </View>
               </LinearGradient>
               <View style={[styles.levelBadgeOverlay, { backgroundColor: ballColor }]}>
-                <Text style={styles.levelBadgeText}>{data.level}</Text>
+                <Text style={styles.levelBadgeText}>{player.level}</Text>
               </View>
             </View>
-            <Text style={styles.playerName}>{data.name}</Text>
-            <Text style={styles.levelTitle}>{getLevelTitle(data.level)}</Text>
+            <Text style={styles.playerName}>{player.name}</Text>
+            <Text style={styles.levelTitle}>{getLevelTitle(player.level)}</Text>
           </View>
 
           <View style={styles.badges}>
             <View style={[styles.ballBadge, { borderColor: ballColor }]}>
               <View style={[styles.ballDot, { backgroundColor: ballColor }]} />
               <Text style={[styles.ballText, { color: ballColor }]}>
-                {data.ballLevel.charAt(0).toUpperCase() + data.ballLevel.slice(1)} Ball
+                {ballLevel.charAt(0).toUpperCase() + ballLevel.slice(1)} Ball
               </Text>
             </View>
             <View style={styles.glowBadge}>
               <Ionicons name="flash" size={14} color={Colors.dark.xpCyan} />
-              <Text style={styles.glowText}>{data.glowScore} Glow</Text>
+              <Text style={styles.glowText}>{player.glowScore} Glow</Text>
             </View>
           </View>
         </View>
@@ -161,55 +156,59 @@ export default function PlayerProfileScreen() {
           <View style={styles.statsGrid}>
             <StatItem 
               label="Sessions" 
-              value={data.stats.sessionsPlayed} 
+              value={stats.sessionsAttended} 
               icon="tennisball" 
             />
             <StatItem 
-              label="Minutes" 
-              value={data.stats.minutesTrained.toLocaleString()} 
-              icon="time" 
+              label="Attendance" 
+              value={`${Math.round(stats.attendanceRate)}%`} 
+              icon="checkmark-circle" 
             />
             <StatItem 
               label="Streak" 
-              value={`${data.stats.streak} days`} 
+              value={`${player.streak} days`} 
               icon="flame" 
             />
             <StatItem 
-              label="Best Skill" 
-              value={data.stats.favoriteSkill} 
+              label="Level" 
+              value={player.level} 
               icon="star" 
             />
           </View>
         </View>
 
-        <View style={styles.coachCard}>
-          <Text style={styles.sectionTitle}>Your Coach</Text>
-          <View style={styles.coachInfo}>
-            <View style={styles.coachAvatar}>
-              <Text style={styles.coachAvatarText}>{data.coach.name.charAt(0)}</Text>
+        {coach ? (
+          <View style={styles.coachCard}>
+            <Text style={styles.sectionTitle}>Your Coach</Text>
+            <View style={styles.coachInfo}>
+              <View style={styles.coachAvatar}>
+                <Text style={styles.coachAvatarText}>{coach.name.charAt(0)}</Text>
+              </View>
+              <View style={styles.coachDetails}>
+                <Text style={styles.coachName}>{coach.name}</Text>
+                {coach.email ? (
+                  <Text style={styles.coachEmail}>{coach.email}</Text>
+                ) : null}
+              </View>
+              <Pressable 
+                style={styles.chatButton}
+                onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+              >
+                <Ionicons name="chatbubble" size={18} color={Colors.dark.primary} />
+              </Pressable>
             </View>
-            <View style={styles.coachDetails}>
-              <Text style={styles.coachName}>{data.coach.name}</Text>
-              {data.coach.email ? (
-                <Text style={styles.coachEmail}>{data.coach.email}</Text>
-              ) : null}
-            </View>
-            <Pressable 
-              style={styles.chatButton}
-              onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-            >
-              <Ionicons name="chatbubble" size={18} color={Colors.dark.primary} />
-            </Pressable>
           </View>
-        </View>
+        ) : null}
 
-        <View style={styles.academyCard}>
-          <View style={styles.academyHeader}>
-            <Ionicons name="school" size={20} color={Colors.dark.primary} />
-            <Text style={styles.academyName}>{data.academy.name}</Text>
+        {academy ? (
+          <View style={styles.academyCard}>
+            <View style={styles.academyHeader}>
+              <Ionicons name="school" size={20} color={Colors.dark.primary} />
+              <Text style={styles.academyName}>{academy.name}</Text>
+            </View>
+            <Text style={styles.memberSince}>Member since {memberSince}</Text>
           </View>
-          <Text style={styles.memberSince}>Member since {memberSince}</Text>
-        </View>
+        ) : null}
 
         <View style={styles.settingsSection}>
           <Text style={styles.sectionTitle}>Settings</Text>
@@ -258,6 +257,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  centered: {
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
+  },
+  errorText: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  errorSubtext: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
   },
   scrollView: {
     flex: 1,

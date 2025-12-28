@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, FlatList, Pressable } from "react-native";
+import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -9,7 +9,7 @@ import { LinearGradient } from "expo-linear-gradient";
 
 interface Milestone {
   id: string;
-  type: "level_up" | "badge" | "skill_unlock" | "validation" | "achievement" | "streak";
+  type: string;
   title: string;
   description: string;
   date: string;
@@ -27,6 +27,21 @@ interface Badge {
   color: string;
   earnedAt: string;
   isLocked: boolean;
+}
+
+interface JourneyData {
+  milestones: Milestone[];
+  badges: Badge[];
+  badgesAvailable: boolean;
+  badgeMessage?: string;
+  totalMilestones: number;
+  totalBadges: number;
+  xpHistory: Array<{
+    id: string;
+    amount: number;
+    reason: string;
+    date: string;
+  }>;
 }
 
 function MilestoneCard({ milestone, isFirst }: { milestone: Milestone; isFirst: boolean }) {
@@ -94,109 +109,35 @@ export default function PlayerJourneyScreen() {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = React.useState<"timeline" | "badges">("timeline");
 
-  const { data: journeyData } = useQuery({
-    queryKey: ["/api/player/journey"],
-    enabled: false,
+  const { data: journeyData, isLoading, error } = useQuery<JourneyData>({
+    queryKey: ["/api/player/me/journey"],
   });
 
-  const mockMilestones: Milestone[] = [
-    {
-      id: "1",
-      type: "level_up",
-      title: "Reached Level 12",
-      description: "You've grown from Rising Star to Intermediate player!",
-      date: new Date(Date.now() - 86400000 * 2).toISOString(),
-      icon: "star",
-      color: Colors.dark.gold,
-      xpEarned: 100,
-    },
-    {
-      id: "2",
-      type: "badge",
-      title: "Consistency Champion",
-      description: "Attended 10 training sessions in a row",
-      date: new Date(Date.now() - 86400000 * 5).toISOString(),
-      icon: "trophy",
-      color: Colors.dark.primary,
-      xpEarned: 50,
-    },
-    {
-      id: "3",
-      type: "validation",
-      title: "Forehand Level 3 Unlocked",
-      description: "Your coach validated your forehand technique progression",
-      date: new Date(Date.now() - 86400000 * 7).toISOString(),
-      icon: "checkmark-circle",
-      color: Colors.dark.xpCyan,
-      xpEarned: 75,
-      coachName: "Coach Mike",
-    },
-    {
-      id: "4",
-      type: "streak",
-      title: "5-Day Training Streak",
-      description: "You've trained 5 days in a row. Keep the momentum!",
-      date: new Date(Date.now() - 86400000 * 10).toISOString(),
-      icon: "flame",
-      color: Colors.dark.orange,
-      xpEarned: 25,
-    },
-    {
-      id: "5",
-      type: "level_up",
-      title: "Reached Level 11",
-      description: "Climbing the ranks steadily!",
-      date: new Date(Date.now() - 86400000 * 14).toISOString(),
-      icon: "star",
-      color: Colors.dark.gold,
-      xpEarned: 100,
-    },
-    {
-      id: "6",
-      type: "achievement",
-      title: "First Match Played",
-      description: "Competed in your first official match",
-      date: new Date(Date.now() - 86400000 * 20).toISOString(),
-      icon: "tennisball",
-      color: Colors.dark.primary,
-      xpEarned: 150,
-    },
-    {
-      id: "7",
-      type: "skill_unlock",
-      title: "Red to Orange Transition",
-      description: "Graduated from red ball to orange ball level",
-      date: new Date(Date.now() - 86400000 * 30).toISOString(),
-      icon: "arrow-up-circle",
-      color: Colors.dark.ballOrange,
-      xpEarned: 200,
-      coachName: "Coach Mike",
-    },
-    {
-      id: "8",
-      type: "achievement",
-      title: "Journey Begins",
-      description: "Started your tennis journey at Glow Up Academy",
-      date: new Date(Date.now() - 86400000 * 60).toISOString(),
-      icon: "rocket",
-      color: "#E040FB",
-    },
-  ];
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+        <Text style={styles.loadingText}>Loading your journey...</Text>
+      </View>
+    );
+  }
 
-  const mockBadges: Badge[] = [
-    { id: "1", name: "First Steps", description: "Complete your first session", icon: "footsteps", color: Colors.dark.primary, earnedAt: new Date().toISOString(), isLocked: false },
-    { id: "2", name: "Rising Star", description: "Reach level 5", icon: "star", color: Colors.dark.gold, earnedAt: new Date().toISOString(), isLocked: false },
-    { id: "3", name: "Consistency", description: "10 sessions in a row", icon: "ribbon", color: Colors.dark.xpCyan, earnedAt: new Date().toISOString(), isLocked: false },
-    { id: "4", name: "On Fire", description: "5-day training streak", icon: "flame", color: Colors.dark.orange, earnedAt: new Date().toISOString(), isLocked: false },
-    { id: "5", name: "Ball Master", description: "Progress through all ball levels", icon: "tennisball", color: "#E040FB", earnedAt: "", isLocked: true },
-    { id: "6", name: "Champion", description: "Win your first tournament", icon: "trophy", color: Colors.dark.gold, earnedAt: "", isLocked: true },
-    { id: "7", name: "Iron Will", description: "30-day training streak", icon: "shield", color: Colors.dark.primary, earnedAt: "", isLocked: true },
-    { id: "8", name: "Perfectionist", description: "100% attendance for a month", icon: "diamond", color: Colors.dark.xpCyan, earnedAt: "", isLocked: true },
-  ];
+  if (error || !journeyData) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <Ionicons name="alert-circle" size={48} color={Colors.dark.error} />
+        <Text style={styles.errorText}>Unable to load journey</Text>
+        <Text style={styles.errorSubtext}>Please try again later</Text>
+      </View>
+    );
+  }
 
-  const milestones = mockMilestones;
-  const badges = mockBadges;
+  const milestones = journeyData.milestones;
+  const badges = journeyData.badges;
+  const badgesAvailable = journeyData.badgesAvailable;
+  const badgeMessage = journeyData.badgeMessage;
   const earnedBadges = badges.filter(b => !b.isLocked).length;
+  const totalXp = journeyData.xpHistory.reduce((sum, xp) => sum + xp.amount, 0);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -216,7 +157,7 @@ export default function PlayerJourneyScreen() {
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>
-            {milestones.reduce((sum, m) => sum + (m.xpEarned || 0), 0).toLocaleString()}
+            {totalXp.toLocaleString()}
           </Text>
           <Text style={styles.statLabel}>XP Earned</Text>
         </View>
@@ -280,17 +221,27 @@ export default function PlayerJourneyScreen() {
           }
         />
       ) : (
-        <FlatList
-          data={badges}
-          keyExtractor={(item) => item.id}
-          numColumns={4}
-          renderItem={({ item }) => <BadgeCard badge={item} />}
-          contentContainerStyle={[
-            styles.badgesContent,
-            { paddingBottom: insets.bottom + 100 },
-          ]}
-          showsVerticalScrollIndicator={false}
-        />
+        badgesAvailable && badges.length > 0 ? (
+          <FlatList
+            data={badges}
+            keyExtractor={(item) => item.id}
+            numColumns={4}
+            renderItem={({ item }) => <BadgeCard badge={item} />}
+            contentContainerStyle={[
+              styles.badgesContent,
+              { paddingBottom: insets.bottom + 100 },
+            ]}
+            showsVerticalScrollIndicator={false}
+          />
+        ) : (
+          <View style={[styles.emptyState, { paddingBottom: insets.bottom + 100 }]}>
+            <Ionicons name="medal-outline" size={48} color={Colors.dark.textMuted} />
+            <Text style={styles.emptyText}>Badges Coming Soon</Text>
+            <Text style={styles.emptySubtext}>
+              {badgeMessage || "Keep training to unlock achievements!"}
+            </Text>
+          </View>
+        )
       )}
     </View>
   );
@@ -300,6 +251,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  centered: {
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
+  },
+  errorText: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  errorSubtext: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
   },
   header: {
     padding: Spacing.xl,

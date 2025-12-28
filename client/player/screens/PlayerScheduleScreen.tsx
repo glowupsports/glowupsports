@@ -1,10 +1,25 @@
 import React, { useState, useMemo } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
+
+interface SessionData {
+  id: string;
+  sessionId: string;
+  attendanceStatus: string;
+  session: {
+    id: string;
+    sessionDate: string;
+    startTime: string;
+    endTime: string;
+    sessionType: string;
+    courtName: string | null;
+  } | null;
+  coachName: string | null;
+}
 
 interface ScheduledSession {
   id: string;
@@ -30,55 +45,37 @@ export default function PlayerScheduleScreen() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
-  const { data: sessions } = useQuery<ScheduledSession[]>({
-    queryKey: ["/api/player/schedule"],
-    enabled: false,
+  const { data: rawSessions, isLoading, error } = useQuery<SessionData[]>({
+    queryKey: ["/api/player/me/sessions"],
   });
 
-  const mockSessions: ScheduledSession[] = [
-    {
-      id: "1",
-      date: new Date().toISOString().split("T")[0],
-      startTime: "14:00",
-      endTime: "15:00",
-      type: "private",
-      coachName: "Coach Mike",
-      courtName: "Court 1",
-      status: "upcoming",
-    },
-    {
-      id: "2",
-      date: new Date(Date.now() + 86400000 * 2).toISOString().split("T")[0],
-      startTime: "10:00",
-      endTime: "11:30",
-      type: "group",
-      coachName: "Coach Mike",
-      courtName: "Court 3",
-      status: "upcoming",
-    },
-    {
-      id: "3",
-      date: new Date(Date.now() + 86400000 * 5).toISOString().split("T")[0],
-      startTime: "16:00",
-      endTime: "17:00",
-      type: "physical",
-      coachName: "Coach Sarah",
-      status: "upcoming",
-    },
-    {
-      id: "4",
-      date: new Date(Date.now() - 86400000 * 2).toISOString().split("T")[0],
-      startTime: "14:00",
-      endTime: "15:00",
-      type: "private",
-      coachName: "Coach Mike",
-      courtName: "Court 1",
-      status: "completed",
-      xpEarned: 45,
-    },
-  ];
+  const sessions: ScheduledSession[] = useMemo(() => {
+    if (!rawSessions) return [];
+    const now = new Date();
+    return rawSessions.map(s => {
+      const sessionDate = s.session?.sessionDate ? new Date(s.session.sessionDate) : new Date();
+      const startTime = s.session?.startTime || "00:00";
+      
+      const [hours, minutes] = startTime.split(":").map(Number);
+      const sessionDateTime = new Date(sessionDate);
+      sessionDateTime.setHours(hours || 0, minutes || 0, 0, 0);
+      
+      const isPast = sessionDateTime < now;
+      
+      return {
+        id: s.id,
+        date: sessionDate.toISOString().split("T")[0],
+        startTime: s.session?.startTime || "",
+        endTime: s.session?.endTime || "",
+        type: s.session?.sessionType || "training",
+        coachName: s.coachName || "Coach",
+        courtName: s.session?.courtName || undefined,
+        status: s.attendanceStatus === "cancelled" ? "cancelled" : (isPast ? "completed" : "upcoming"),
+      };
+    });
+  }, [rawSessions]);
 
-  const data = sessions || mockSessions;
+  const data = sessions;
 
   const calendarDays = useMemo(() => {
     const year = currentMonth.getFullYear();
@@ -147,6 +144,25 @@ export default function PlayerScheduleScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + direction, 1));
   };
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+        <Text style={styles.loadingText}>Loading schedule...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <Ionicons name="alert-circle" size={48} color={Colors.dark.error} />
+        <Text style={styles.errorText}>Unable to load schedule</Text>
+        <Text style={styles.errorSubtext}>Please try again later</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -278,6 +294,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  centered: {
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
+  },
+  errorText: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  errorSubtext: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
   },
   header: {
     padding: Spacing.xl,

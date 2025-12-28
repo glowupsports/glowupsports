@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -7,22 +7,52 @@ import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constan
 import Svg, { Polygon, Circle, Text as SvgText, Line } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 
+interface DomainInsights {
+  recentHighlights: string[];
+  focusAreas: string[];
+  lastObservation: {
+    direction: string;
+    note: string | null;
+    date: string | null;
+  } | null;
+  avgDelta: number;
+}
+
+interface SkillRadarItem {
+  domain: string;
+  domainId: string;
+  color: string;
+  icon: string;
+  progress: number;
+  trend: string;
+  momentum: string;
+  xp: number;
+  observationCount: number;
+  assessmentStatus: string;
+  insights: DomainInsights;
+}
+
+interface ProgressData {
+  level: number;
+  xp: number;
+  xpForNextLevel: number;
+  glowScore: number;
+  ballLevel: string | null;
+  skillRadar: SkillRadarItem[];
+  overallInsights: {
+    strengths: string[];
+    focusAreas: string[];
+  };
+}
+
 interface SkillDomain {
   name: string;
   value: number;
   maxValue: number;
   icon: string;
   color: string;
-  lastUpdated?: string;
-  updatedBy?: string;
-}
-
-interface PlayerProgress {
-  level: number;
-  xp: number;
-  glowScore: number;
-  totalSessions: number;
-  domains: SkillDomain[];
+  trend?: string;
+  insights?: DomainInsights;
 }
 
 function SkillRadar({ domains }: { domains: SkillDomain[] }) {
@@ -115,6 +145,18 @@ function SkillRadar({ domains }: { domains: SkillDomain[] }) {
 function SkillBar({ domain }: { domain: SkillDomain }) {
   const progress = domain.value / domain.maxValue;
   
+  const getTrendIcon = () => {
+    if (domain.trend === "rising") return "trending-up";
+    if (domain.trend === "falling") return "trending-down";
+    return "remove";
+  };
+  
+  const getTrendColor = () => {
+    if (domain.trend === "rising") return Colors.dark.primary;
+    if (domain.trend === "falling") return Colors.dark.orange;
+    return Colors.dark.textMuted;
+  };
+  
   return (
     <View style={styles.skillCard}>
       <View style={styles.skillHeader}>
@@ -123,8 +165,13 @@ function SkillBar({ domain }: { domain: SkillDomain }) {
         </View>
         <View style={styles.skillInfo}>
           <Text style={styles.skillName}>{domain.name}</Text>
-          {domain.updatedBy ? (
-            <Text style={styles.skillUpdated}>Updated by {domain.updatedBy}</Text>
+          {domain.trend ? (
+            <View style={styles.trendRow}>
+              <Ionicons name={getTrendIcon() as any} size={12} color={getTrendColor()} />
+              <Text style={[styles.skillUpdated, { color: getTrendColor() }]}>
+                {domain.trend === "rising" ? "Improving" : domain.trend === "falling" ? "Needs focus" : "Stable"}
+              </Text>
+            </View>
           ) : null}
         </View>
         <Text style={[styles.skillValue, { color: domain.color }]}>
@@ -146,28 +193,42 @@ function SkillBar({ domain }: { domain: SkillDomain }) {
 export default function PlayerProgressScreen() {
   const insets = useSafeAreaInsets();
 
-  const { data: progress } = useQuery<PlayerProgress>({
-    queryKey: ["/api/player/progress"],
-    enabled: false,
+  const { data, isLoading, error } = useQuery<ProgressData>({
+    queryKey: ["/api/player/me/progress"],
   });
 
-  const mockProgress: PlayerProgress = {
-    level: 12,
-    xp: 2450,
-    glowScore: 78,
-    totalSessions: 45,
-    domains: [
-      { name: "Technical", value: 72, maxValue: 100, icon: "tennisball", color: Colors.dark.primary, updatedBy: "Coach Mike" },
-      { name: "Tactical", value: 58, maxValue: 100, icon: "bulb", color: Colors.dark.gold, updatedBy: "Coach Mike" },
-      { name: "Physical", value: 85, maxValue: 100, icon: "fitness", color: Colors.dark.orange, updatedBy: "Coach Sarah" },
-      { name: "Mental", value: 65, maxValue: 100, icon: "brain", color: Colors.dark.xpCyan, updatedBy: "Coach Mike" },
-      { name: "Social", value: 70, maxValue: 100, icon: "people", color: "#E040FB", updatedBy: "Coach Mike" },
-    ],
-  };
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+        <Text style={styles.loadingText}>Loading your progress...</Text>
+      </View>
+    );
+  }
 
-  const data = progress || mockProgress;
-  const xpForNextLevel = (data.level + 1) * 500;
+  if (error || !data) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <Ionicons name="alert-circle" size={48} color={Colors.dark.error} />
+        <Text style={styles.errorText}>Unable to load progress</Text>
+        <Text style={styles.errorSubtext}>Please try again later</Text>
+      </View>
+    );
+  }
+
+  const domains: SkillDomain[] = data.skillRadar.map(skill => ({
+    name: skill.domain,
+    value: skill.progress,
+    maxValue: 100,
+    icon: skill.icon || "star",
+    color: skill.color,
+    trend: skill.trend,
+    insights: skill.insights,
+  }));
+
   const currentLevelXp = data.xp % 500;
+
+  const totalObservations = data.skillRadar.reduce((sum, s) => sum + s.observationCount, 0);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -196,9 +257,9 @@ export default function PlayerProgressScreen() {
           </View>
           <View style={styles.statCard}>
             <View style={styles.sessionsCircle}>
-              <Text style={styles.sessionsValue}>{data.totalSessions}</Text>
+              <Text style={styles.sessionsValue}>{totalObservations}</Text>
             </View>
-            <Text style={styles.statLabel}>Sessions</Text>
+            <Text style={styles.statLabel}>Observations</Text>
           </View>
         </View>
 
@@ -219,17 +280,45 @@ export default function PlayerProgressScreen() {
 
         <View style={styles.radarSection}>
           <Text style={styles.sectionTitle}>Skill Domains</Text>
-          <SkillRadar domains={data.domains} />
+          <SkillRadar domains={domains} />
         </View>
 
         <View style={styles.skillsSection}>
           <Text style={styles.sectionTitle}>Skill Breakdown</Text>
           <View style={styles.skillsList}>
-            {data.domains.map((domain) => (
+            {domains.map((domain) => (
               <SkillBar key={domain.name} domain={domain} />
             ))}
           </View>
         </View>
+
+        {data.overallInsights.strengths.length > 0 ? (
+          <View style={styles.insightsSection}>
+            <Text style={styles.sectionTitle}>Your Strengths</Text>
+            <View style={styles.insightsList}>
+              {data.overallInsights.strengths.map((strength, i) => (
+                <View key={i} style={styles.insightItem}>
+                  <Ionicons name="checkmark-circle" size={16} color={Colors.dark.primary} />
+                  <Text style={styles.insightText}>{strength}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        {data.overallInsights.focusAreas.length > 0 ? (
+          <View style={styles.insightsSection}>
+            <Text style={styles.sectionTitle}>Focus Areas</Text>
+            <View style={styles.insightsList}>
+              {data.overallInsights.focusAreas.map((area, i) => (
+                <View key={i} style={styles.insightItem}>
+                  <Ionicons name="arrow-forward-circle" size={16} color={Colors.dark.xpCyan} />
+                  <Text style={styles.insightText}>{area}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         <View style={styles.infoCard}>
           <Ionicons name="information-circle" size={20} color={Colors.dark.xpCyan} />
@@ -247,6 +336,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  centered: {
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
+  },
+  errorText: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  errorSubtext: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
   },
   scrollView: {
     flex: 1,
@@ -401,6 +508,12 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.textMuted,
   },
+  trendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 2,
+  },
   skillValue: {
     ...Typography.numberMedium,
   },
@@ -427,5 +540,24 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.textMuted,
     lineHeight: 20,
+  },
+  insightsSection: {
+    paddingHorizontal: Spacing.xl,
+    marginBottom: Spacing.xl,
+  },
+  insightsList: {
+    ...CardStyles.elevated,
+    padding: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  insightItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  insightText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    flex: 1,
   },
 });

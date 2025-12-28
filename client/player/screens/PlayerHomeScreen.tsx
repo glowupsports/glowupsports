@@ -1,38 +1,47 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
 import { LinearGradient } from "expo-linear-gradient";
 
-interface PlayerData {
-  id: string;
-  name: string;
-  level: number;
-  xp: number;
-  glowScore: number;
-  ballLevel: string;
+interface DashboardData {
+  player: {
+    id: string;
+    name: string;
+    level: number;
+    xp: number;
+    glowScore: number;
+    ballLevel: string | null;
+    streak: number;
+  };
   coach: {
     id: string;
     name: string;
-    avatar?: string;
-  };
+    avatar?: string | null;
+  } | null;
   academy: {
     id: string;
     name: string;
-  };
-  nextSession?: {
+  } | null;
+  nextSession: {
     id: string;
     date: string;
     type: string;
     courtName?: string;
-  };
-  lastFeedback?: {
+  } | null;
+  lastFeedback: {
     message: string;
     date: string;
-  };
-  streak: number;
+    coachName: string;
+  } | null;
+  recentXpGains: Array<{
+    id: string;
+    amount: number;
+    reason: string;
+    date: string;
+  }>;
 }
 
 function XPBar({ current, max, level }: { current: number; max: number; level: number }) {
@@ -69,46 +78,36 @@ function StatCard({ label, value, icon, color }: { label: string; value: string 
 export default function PlayerHomeScreen() {
   const insets = useSafeAreaInsets();
   
-  const { data: player, isLoading } = useQuery<PlayerData>({
-    queryKey: ["/api/player/me"],
-    enabled: false,
+  const { data, isLoading, error } = useQuery<DashboardData>({
+    queryKey: ["/api/player/me/dashboard"],
   });
 
-  const mockPlayer: PlayerData = {
-    id: "1",
-    name: "Alex",
-    level: 12,
-    xp: 2450,
-    glowScore: 78,
-    ballLevel: "orange",
-    coach: {
-      id: "1",
-      name: "Coach Mike",
-    },
-    academy: {
-      id: "1",
-      name: "Glow Up Tennis Academy",
-    },
-    nextSession: {
-      id: "1",
-      date: new Date(Date.now() + 86400000).toISOString(),
-      type: "private",
-      courtName: "Court 1",
-    },
-    lastFeedback: {
-      message: "Great focus today! Keep working on that forehand follow-through.",
-      date: new Date().toISOString(),
-    },
-    streak: 5,
-  };
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+        <Text style={styles.loadingText}>Loading your dashboard...</Text>
+      </View>
+    );
+  }
 
-  const data = player || mockPlayer;
-  const xpForNextLevel = (data.level + 1) * 500;
-  const currentLevelXp = data.xp % 500;
+  if (error || !data) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <Ionicons name="alert-circle" size={48} color={Colors.dark.error} />
+        <Text style={styles.errorText}>Unable to load dashboard</Text>
+        <Text style={styles.errorSubtext}>Please try again later</Text>
+      </View>
+    );
+  }
+
+  const { player, coach, academy, nextSession, lastFeedback } = data;
+  const xpForNextLevel = (player.level + 1) * 500;
+  const currentLevelXp = player.xp % 500;
 
   const getTimeUntilSession = () => {
-    if (!data.nextSession) return null;
-    const sessionDate = new Date(data.nextSession.date);
+    if (!nextSession) return null;
+    const sessionDate = new Date(nextSession.date);
     const now = new Date();
     const diff = sessionDate.getTime() - now.getTime();
     if (diff < 0) return "Now";
@@ -129,7 +128,7 @@ export default function PlayerHomeScreen() {
           <View style={styles.headerTop}>
             <View>
               <Text style={styles.greeting}>Welcome back,</Text>
-              <Text style={styles.playerName}>{data.name}</Text>
+              <Text style={styles.playerName}>{player.name}</Text>
             </View>
             <View style={styles.avatarContainer}>
               <LinearGradient
@@ -137,7 +136,7 @@ export default function PlayerHomeScreen() {
                 style={styles.avatarGradient}
               >
                 <View style={styles.avatarInner}>
-                  <Text style={styles.avatarText}>{data.name.charAt(0)}</Text>
+                  <Text style={styles.avatarText}>{player.name.charAt(0)}</Text>
                 </View>
               </LinearGradient>
             </View>
@@ -146,18 +145,18 @@ export default function PlayerHomeScreen() {
           <View style={styles.levelContainer}>
             <View style={styles.levelBadge}>
               <Ionicons name="star" size={16} color={Colors.dark.gold} />
-              <Text style={styles.levelText}>Level {data.level}</Text>
+              <Text style={styles.levelText}>Level {player.level}</Text>
             </View>
             <View style={styles.glowBadge}>
               <Ionicons name="flash" size={14} color={Colors.dark.xpCyan} />
-              <Text style={styles.glowText}>{data.glowScore} Glow</Text>
+              <Text style={styles.glowText}>{player.glowScore} Glow</Text>
             </View>
           </View>
           
-          <XPBar current={currentLevelXp} max={500} level={data.level} />
+          <XPBar current={currentLevelXp} max={500} level={player.level} />
         </View>
 
-        {data.nextSession ? (
+        {nextSession ? (
           <View style={styles.nextSessionCard}>
             <View style={styles.nextSessionHeader}>
               <Ionicons name="calendar" size={20} color={Colors.dark.primary} />
@@ -168,58 +167,64 @@ export default function PlayerHomeScreen() {
             </View>
             <View style={styles.nextSessionDetails}>
               <Text style={styles.sessionType}>
-                {data.nextSession.type === "private" ? "Private Session" : 
-                 data.nextSession.type === "group" ? "Group Training" : "Training"}
+                {nextSession.type === "private" ? "Private Session" : 
+                 nextSession.type === "group" ? "Group Training" : "Training"}
               </Text>
-              {data.nextSession.courtName ? (
-                <Text style={styles.sessionCourt}>{data.nextSession.courtName}</Text>
+              {nextSession.courtName ? (
+                <Text style={styles.sessionCourt}>{nextSession.courtName}</Text>
               ) : null}
-              <Text style={styles.sessionCoach}>with {data.coach.name}</Text>
+              {coach ? (
+                <Text style={styles.sessionCoach}>with {coach.name}</Text>
+              ) : null}
             </View>
           </View>
         ) : null}
 
-        {data.lastFeedback ? (
+        {lastFeedback ? (
           <View style={styles.feedbackCard}>
             <View style={styles.feedbackHeader}>
               <Ionicons name="chatbubble" size={18} color={Colors.dark.xpCyan} />
               <Text style={styles.feedbackTitle}>Coach Feedback</Text>
             </View>
-            <Text style={styles.feedbackMessage}>"{data.lastFeedback.message}"</Text>
-            <Text style={styles.feedbackCoach}>- {data.coach.name}</Text>
+            <Text style={styles.feedbackMessage}>"{lastFeedback.message}"</Text>
+            <Text style={styles.feedbackCoach}>- {lastFeedback.coachName}</Text>
           </View>
         ) : null}
 
         <View style={styles.statsGrid}>
           <StatCard 
             label="Streak" 
-            value={`${data.streak} days`} 
+            value={`${player.streak} days`} 
             icon="flame" 
             color={Colors.dark.orange} 
           />
           <StatCard 
             label="Total XP" 
-            value={data.xp.toLocaleString()} 
+            value={player.xp.toLocaleString()} 
             icon="trending-up" 
             color={Colors.dark.xpCyan} 
           />
         </View>
 
-        <View style={styles.academyCard}>
-          <View style={styles.academyHeader}>
-            <Ionicons name="school" size={20} color={Colors.dark.primary} />
-            <Text style={styles.academyName}>{data.academy.name}</Text>
-          </View>
-          <View style={styles.coachInfo}>
-            <View style={styles.coachAvatar}>
-              <Text style={styles.coachAvatarText}>{data.coach.name.charAt(0)}</Text>
+        {academy ? (
+          <View style={styles.academyCard}>
+            <View style={styles.academyHeader}>
+              <Ionicons name="school" size={20} color={Colors.dark.primary} />
+              <Text style={styles.academyName}>{academy.name}</Text>
             </View>
-            <View>
-              <Text style={styles.coachLabel}>Your Coach</Text>
-              <Text style={styles.coachName}>{data.coach.name}</Text>
-            </View>
+            {coach ? (
+              <View style={styles.coachInfo}>
+                <View style={styles.coachAvatar}>
+                  <Text style={styles.coachAvatarText}>{coach.name.charAt(0)}</Text>
+                </View>
+                <View>
+                  <Text style={styles.coachLabel}>Your Coach</Text>
+                  <Text style={styles.coachName}>{coach.name}</Text>
+                </View>
+              </View>
+            ) : null}
           </View>
-        </View>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -229,6 +234,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  centered: {
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
+  },
+  errorText: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  errorSubtext: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
   },
   scrollView: {
     flex: 1,
