@@ -62,7 +62,7 @@ export function AcademySwitcher() {
   if (activeAcademies.length <= 1) {
     return (
       <View style={styles.container}>
-        <Text style={styles.academyName} numberOfLines={1}>
+        <Text style={styles.academyName}>
           {academy?.name || "My Academy"}
         </Text>
       </View>
@@ -72,7 +72,7 @@ export function AcademySwitcher() {
   return (
     <>
       <Pressable style={styles.container} onPress={() => setShowModal(true)}>
-        <Text style={styles.academyName} numberOfLines={1}>
+        <Text style={styles.academyName}>
           {academy?.name || "My Academy"}
         </Text>
         <Ionicons name="chevron-down" size={16} color={Colors.dark.disabled} />
@@ -136,7 +136,6 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.text,
     fontWeight: "600",
-    maxWidth: 150,
   },
   overlay: {
     flex: 1,

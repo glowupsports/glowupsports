@@ -241,9 +241,24 @@ export default function DashboardScreen() {
             
             {/* Coach Level + XP Bar */}
             <View style={styles.xpContainer}>
-              <Text style={styles.levelBadge}>Lv {coachXP.level}</Text>
+              <View style={styles.levelBadgeContainer}>
+                <LinearGradient
+                  colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.levelBadgeGradient}
+                >
+                  <Text style={styles.levelBadge}>Lv {coachXP.level}</Text>
+                </LinearGradient>
+              </View>
               <View style={styles.xpBarContainer}>
-                <View style={[styles.xpBarFill, { width: `${coachXP.xpPercent}%` }]} />
+                <LinearGradient
+                  colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[styles.xpBarFill, { width: `${coachXP.xpPercent}%` }]}
+                />
+                <View style={styles.xpBarGlow} />
               </View>
               <Text style={styles.xpText}>{coachXP.currentXP}/{coachXP.requiredXP}</Text>
             </View>
@@ -368,51 +383,19 @@ export default function DashboardScreen() {
                   <Text style={styles.focusStatLabel}>Minutes</Text>
                 </View>
               </View>
-            ) : null}
+            ) : (
+              <Pressable
+                style={styles.focusCta}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  handleNavigate("Players");
+                }}
+              >
+                <Ionicons name="trending-up-outline" size={16} color={Colors.dark.primary} />
+                <Text style={styles.focusCtaText}>Review player progress</Text>
+              </Pressable>
+            )}
           </LinearGradient>
-        </View>
-
-        {/* Quick Actions */}
-        <View style={styles.quickActions}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.actionGrid}>
-            <Pressable
-              style={styles.actionCard}
-              onPress={() => handleNavigate("AcademySettings")}
-            >
-              <View style={[styles.actionIconContainer, styles.actionIconActive]}>
-                <Ionicons name="business-outline" size={24} color={Colors.dark.primary} />
-              </View>
-              <Text style={styles.actionText}>Academy</Text>
-            </Pressable>
-            <Pressable
-              style={styles.actionCard}
-              onPress={() => handleNavigate("Billing")}
-            >
-              <View style={[styles.actionIconContainer, styles.actionIconActive]}>
-                <Ionicons name="card-outline" size={24} color={Colors.dark.xpCyan} />
-              </View>
-              <Text style={styles.actionText}>Billing</Text>
-            </Pressable>
-            <Pressable
-              style={styles.actionCard}
-              onPress={() => handleNavigate("Templates")}
-            >
-              <View style={[styles.actionIconContainer, styles.actionIconActive]}>
-                <Ionicons name="layers-outline" size={24} color={Colors.dark.orange} />
-              </View>
-              <Text style={styles.actionText}>Templates</Text>
-            </Pressable>
-            <Pressable
-              style={styles.actionCard}
-              onPress={() => handleNavigate("ChatInbox")}
-            >
-              <View style={[styles.actionIconContainer, styles.actionIconActive]}>
-                <Ionicons name="chatbubbles-outline" size={24} color={Colors.dark.gold} />
-              </View>
-              <Text style={styles.actionText}>Messages</Text>
-            </Pressable>
-          </View>
         </View>
 
         {/* Stamina & Impact Card */}
@@ -427,7 +410,9 @@ export default function DashboardScreen() {
                 styles.energyStateBadge,
                 {
                   backgroundColor:
-                    coachStats.energyState === "intense"
+                    todaysSessions.length === 0
+                      ? Colors.dark.xpCyan + "15"
+                      : coachStats.energyState === "intense"
                       ? Colors.dark.error + "15"
                       : coachStats.energyState === "focused"
                       ? Colors.dark.orange + "15"
@@ -442,7 +427,9 @@ export default function DashboardScreen() {
                   styles.energyStateText,
                   {
                     color:
-                      coachStats.energyState === "intense"
+                      todaysSessions.length === 0
+                        ? Colors.dark.xpCyan
+                        : coachStats.energyState === "intense"
                         ? Colors.dark.error
                         : coachStats.energyState === "focused"
                         ? Colors.dark.orange
@@ -452,7 +439,9 @@ export default function DashboardScreen() {
                   },
                 ]}
               >
-                {coachStats.energyState.charAt(0).toUpperCase() + coachStats.energyState.slice(1)}
+                {todaysSessions.length === 0 
+                  ? "Rested" 
+                  : coachStats.energyState.charAt(0).toUpperCase() + coachStats.energyState.slice(1)}
               </Text>
             </View>
           </View>
@@ -463,24 +452,21 @@ export default function DashboardScreen() {
               <Text style={styles.energyBarLabel}>Stamina</Text>
               <View style={styles.energyBarBackground}>
                 <LinearGradient
-                  colors={[
-                    coachStats.energyState === "intense"
-                      ? Colors.dark.error + "80"
+                  colors={
+                    todaysSessions.length === 0
+                      ? [Colors.dark.xpCyan + "80", Colors.dark.xpCyan + "40"]
+                      : coachStats.energyState === "intense"
+                      ? [Colors.dark.error + "80", Colors.dark.error + "40"]
                       : coachStats.energyState === "focused"
-                      ? Colors.dark.orange + "80"
-                      : Colors.dark.primary + "80",
-                    coachStats.energyState === "intense"
-                      ? Colors.dark.error + "40"
-                      : coachStats.energyState === "focused"
-                      ? Colors.dark.orange + "40"
-                      : Colors.dark.primary + "40",
-                  ]}
+                      ? [Colors.dark.orange + "80", Colors.dark.orange + "40"]
+                      : [Colors.dark.primary + "80", Colors.dark.primary + "40"]
+                  }
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
-                  style={[styles.energyBarFill, { width: `${coachStats.staminaPercent}%` }]}
+                  style={[styles.energyBarFill, { width: todaysSessions.length === 0 ? "100%" : `${coachStats.staminaPercent}%` }]}
                 />
               </View>
-              <Text style={styles.energyBarValue}>{coachStats.staminaPercent}%</Text>
+              <Text style={styles.energyBarValue}>{todaysSessions.length === 0 ? "100" : coachStats.staminaPercent}%</Text>
             </View>
 
             {/* Impact Bar */}
@@ -491,15 +477,17 @@ export default function DashboardScreen() {
                   colors={[Colors.dark.xpCyan + "80", Colors.dark.xpCyan + "40"]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
-                  style={[styles.energyBarFill, { width: `${coachStats.impactPercent}%` }]}
+                  style={[styles.energyBarFill, { width: todaysSessions.length === 0 ? "100%" : `${coachStats.impactPercent}%` }]}
                 />
               </View>
-              <Text style={styles.energyBarValue}>{coachStats.impactPercent}%</Text>
+              <Text style={styles.energyBarValue}>{todaysSessions.length === 0 ? "100" : coachStats.impactPercent}%</Text>
             </View>
           </View>
 
           <Text style={styles.energySubtext}>
-            {coachStats.impactPercent === 100
+            {todaysSessions.length === 0
+              ? "Fully recharged and ready"
+              : coachStats.impactPercent === 100
               ? "High impact sessions give bonus XP"
               : coachStats.completedMinutes > 0
               ? `${coachStats.completedMinutes}m coached, ${coachStats.remainingMinutes}m remaining`
@@ -711,27 +699,43 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginTop: Spacing.xs,
   },
+  levelBadgeContainer: {
+    overflow: "hidden",
+    borderRadius: BorderRadius.sm,
+  },
+  levelBadgeGradient: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+  },
   levelBadge: {
     fontSize: Typography.caption.fontSize,
     fontWeight: "700",
-    color: Colors.dark.primary,
-    backgroundColor: Colors.dark.primary + "15",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
+    color: "#FFFFFF",
   },
   xpBarContainer: {
     flex: 1,
     maxWidth: 80,
-    height: 4,
+    height: 6,
     backgroundColor: Colors.dark.backgroundRoot,
-    borderRadius: 2,
+    borderRadius: 3,
     overflow: "hidden",
+    position: "relative" as const,
   },
   xpBarFill: {
     height: "100%",
-    backgroundColor: Colors.dark.primary,
-    borderRadius: 2,
+    borderRadius: 3,
+  },
+  xpBarGlow: {
+    position: "absolute" as const,
+    top: -2,
+    left: 0,
+    right: 0,
+    height: 10,
+    backgroundColor: "transparent",
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
   },
   xpText: {
     fontSize: Typography.caption.fontSize,
@@ -890,6 +894,21 @@ const styles = StyleSheet.create({
   focusStatDivider: {
     width: 1,
     backgroundColor: "rgba(255, 255, 255, 0.08)",
+  },
+  focusCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.06)",
+    marginTop: Spacing.md,
+  },
+  focusCtaText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.primary,
+    fontWeight: "600",
   },
   
   // Energy Card
