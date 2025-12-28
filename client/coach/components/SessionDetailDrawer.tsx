@@ -15,7 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 
 interface Player {
@@ -86,6 +86,7 @@ export default function SessionDetailDrawer({
   const [guestAge, setGuestAge] = useState("");
   const [guestBallLevel, setGuestBallLevel] = useState<string>("");
   const [conversionErrors, setConversionErrors] = useState<{email?: string; age?: string}>({});
+  const [playerSearch, setPlayerSearch] = useState("");
 
   const { data: allPlayersData } = useQuery<AvailablePlayer[]>({
     queryKey: ["/api/players"],
@@ -95,6 +96,12 @@ export default function SessionDetailDrawer({
 
   const existingPlayerIds = session?.players?.map(p => p.id) || [];
   const availablePlayers = allPlayers.filter(p => !existingPlayerIds.includes(p.id));
+  
+  // Filter players by search query
+  const filteredPlayers = availablePlayers.filter(p => 
+    p.name.toLowerCase().includes(playerSearch.toLowerCase()) ||
+    (p.ballLevel && p.ballLevel.toLowerCase().includes(playerSearch.toLowerCase()))
+  );
 
   const addPlayerMutation = useMutation({
     mutationFn: async ({ playerId }: { playerId: string }) => {
@@ -568,7 +575,7 @@ export default function SessionDetailDrawer({
   const renderAddPlayerContent = () => (
     <>
       <View style={styles.stepHeader}>
-        <Pressable onPress={() => { setShowAddPlayer(false); setSelectedPlayer(null); }}>
+        <Pressable onPress={() => { setShowAddPlayer(false); setSelectedPlayer(null); setPlayerSearch(""); }}>
           <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
         </Pressable>
         <Text style={styles.stepTitle}>Add Player</Text>
@@ -577,26 +584,48 @@ export default function SessionDetailDrawer({
 
       {!selectedPlayer ? (
         <>
-          <Text style={styles.stepLabel}>Select Player</Text>
+          <Text style={styles.stepLabel}>SELECT PLAYER</Text>
+          
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={18} color={Colors.dark.tabIconDefault} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search players..."
+              placeholderTextColor={Colors.dark.tabIconDefault}
+              value={playerSearch}
+              onChangeText={setPlayerSearch}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {playerSearch.length > 0 && (
+              <Pressable onPress={() => setPlayerSearch("")}>
+                <Ionicons name="close-circle" size={18} color={Colors.dark.tabIconDefault} />
+              </Pressable>
+            )}
+          </View>
+          
           <ScrollView style={styles.playerSelectList}>
-            {availablePlayers.map(player => (
+            {filteredPlayers.map(player => (
               <Pressable
                 key={player.id}
                 style={styles.playerSelectItem}
                 onPress={() => setSelectedPlayer(player)}
               >
-                <View style={styles.playerAvatar}>
+                <View style={[styles.playerAvatar, { backgroundColor: getPlayerLevelColor(player.ballLevel) }]}>
                   <Text style={styles.playerAvatarText}>{player.name.charAt(0)}</Text>
                 </View>
                 <View style={styles.playerSelectInfo}>
                   <Text style={styles.playerSelectName}>{player.name}</Text>
                   {player.ballLevel && (
-                    <Text style={styles.playerSelectLevel}>{player.ballLevel} ball</Text>
+                    <Text style={[styles.playerSelectLevel, { color: getPlayerLevelColor(player.ballLevel) }]}>{player.ballLevel} ball</Text>
                   )}
                 </View>
                 <Ionicons name="chevron-forward" size={20} color={Colors.dark.disabled} />
               </Pressable>
             ))}
+            {filteredPlayers.length === 0 && availablePlayers.length > 0 && (
+              <Text style={styles.noPlayersText}>No players match "{playerSearch}"</Text>
+            )}
             {availablePlayers.length === 0 && (
               <Text style={styles.noPlayersText}>All players are already in this session</Text>
             )}
@@ -605,7 +634,7 @@ export default function SessionDetailDrawer({
       ) : (
         <>
           <View style={styles.selectedPlayerCard}>
-            <View style={styles.playerAvatar}>
+            <View style={[styles.playerAvatar, { backgroundColor: getPlayerLevelColor(selectedPlayer.ballLevel) }]}>
               <Text style={styles.playerAvatarText}>{selectedPlayer.name.charAt(0)}</Text>
             </View>
             <Text style={styles.selectedPlayerName}>{selectedPlayer.name}</Text>
@@ -1123,6 +1152,22 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     textTransform: "uppercase",
     letterSpacing: 1,
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    ...Typography.body,
+    color: Colors.dark.text,
+    paddingVertical: Spacing.xs,
   },
   playerSelectList: {
     flex: 1,
