@@ -369,8 +369,6 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
     const hasDownTechnical = technicalSkills.some(s => pf.skillProgress[s] === "down");
     if (hasUpTechnical) technical = "up";
     else if (hasDownTechnical) technical = "down";
-    else if (pf.progressTrend === "up") technical = "up";
-    else if (pf.progressTrend === "down") technical = "down";
 
     if (pf.skillProgress["Mental"] === "up" || mood === "good" || pf.quickSignals.includes("focused")) mental = "up";
     else if (pf.skillProgress["Mental"] === "down" || mood === "low") mental = "down";
@@ -388,7 +386,7 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
     else if (sessionPlayers.length > 1 && pf.effortLevel !== "low") social = "stable";
 
     if (pf.quickSignals.includes("smart_decisions") || focusTags.includes("Positioning") || focusTags.includes("Shot choice")) tactical = "up";
-    else if (pf.progressTrend === "up" && focusTags.length > 0) tactical = "up";
+    else if (pf.skillProgress["Shot choice"] === "up" || pf.skillProgress["Positioning"] === "up") tactical = "up";
 
     return { technical, mental, physical, social, tactical };
   };
@@ -623,28 +621,41 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
       const coachId = calendarData?.ownSessions?.[0]?.coachId;
       if (coachId && domains.length > 0) {
         for (const pf of data.feedback.playerFeedback) {
-          // Map progressTrend to domain observations
-          // We create observations for Technical domain based on progress trend
+          // Derive direction from per-skill progress
+          const skillProgress = pf.skillProgress || {};
+          const upCount = Object.values(skillProgress).filter(s => s === "up").length;
+          const downCount = Object.values(skillProgress).filter(s => s === "down").length;
+          const overallDirection = upCount > downCount ? "up" : downCount > upCount ? "down" : "stable";
+          
           const technicalDomain = domains.find(d => d.name === "technical");
           const mentalDomain = domains.find(d => d.name === "mental");
           
           const observations = [];
           
-          // Technical domain observation based on progressTrend
+          // Technical domain observation based on per-skill progress
           if (technicalDomain) {
+            const technicalSkills = ["Forehand", "Backhand", "Serve", "Volley"];
+            const techUpCount = technicalSkills.filter(s => skillProgress[s] === "up").length;
+            const techDownCount = technicalSkills.filter(s => skillProgress[s] === "down").length;
+            const techDirection = techUpCount > techDownCount ? "up" : techDownCount > techUpCount ? "down" : overallDirection;
+            
             observations.push({
               domainId: technicalDomain.id,
-              direction: pf.progressTrend === "up" ? "up" : pf.progressTrend === "down" ? "down" : "stable",
+              direction: techDirection,
               effortLevel: pf.effortLevel,
               note: pf.note || null,
             });
           }
           
-          // Mental domain observation based on mood
-          if (mentalDomain && data.feedback.mood) {
+          // Mental domain observation based on mood or Mental skill
+          if (mentalDomain) {
+            const mentalSkillDirection = skillProgress["Mental"];
+            const moodDirection = data.feedback.mood === "good" ? "up" : data.feedback.mood === "low" ? "down" : null;
+            const mentalDirection = mentalSkillDirection || moodDirection || "stable";
+            
             observations.push({
               domainId: mentalDomain.id,
-              direction: data.feedback.mood === "good" ? "up" : data.feedback.mood === "low" ? "down" : "stable",
+              direction: mentalDirection,
               effortLevel: pf.effortLevel,
               note: null,
             });
@@ -688,6 +699,15 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
   const handleSaveFeedback = () => {
     if (!selectedSession) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    // Derive progressTrend from skillProgress for each player (for backward compatibility)
+    const enrichedPlayerFeedback = playerFeedback.map(pf => {
+      const upCount = Object.values(pf.skillProgress).filter(s => s === "up").length;
+      const downCount = Object.values(pf.skillProgress).filter(s => s === "down").length;
+      const derivedTrend: ProgressTrend = upCount > downCount ? "up" : downCount > upCount ? "down" : "stable";
+      return { ...pf, progressTrend: derivedTrend };
+    });
+    
     saveFeedbackMutation.mutate({
       sessionId: selectedSession.id,
       feedback: {
@@ -695,7 +715,7 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
         mood,
         focusTags,
         generalNote,
-        playerFeedback,
+        playerFeedback: enrichedPlayerFeedback,
       },
     });
   };
@@ -856,14 +876,26 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
                   >
                     <Text style={styles.playerFeedbackName}>{pf.playerName}</Text>
                     <View style={styles.playerFeedbackHeaderRight}>
-                      {!isExpanded && pf.progressTrend !== "stable" ? (
-                        <Ionicons 
-                          name={pf.progressTrend === "up" ? "trending-up" : "trending-down"}
-                          size={14}
-                          color={pf.progressTrend === "up" ? Colors.dark.primary : Colors.dark.error}
-                          style={{ marginRight: Spacing.sm }}
-                        />
-                      ) : null}
+                      {!isExpanded ? (() => {
+                        const upCount = Object.values(pf.skillProgress).filter(s => s === "up").length;
+                        const downCount = Object.values(pf.skillProgress).filter(s => s === "down").length;
+                        return (
+                          <>
+                            {upCount > 0 ? (
+                              <View style={styles.headerProgressBadge}>
+                                <Ionicons name="trending-up" size={10} color={Colors.dark.primary} />
+                                <Text style={[styles.headerProgressText, { color: Colors.dark.primary }]}>{upCount}</Text>
+                              </View>
+                            ) : null}
+                            {downCount > 0 ? (
+                              <View style={styles.headerProgressBadge}>
+                                <Ionicons name="trending-down" size={10} color={Colors.dark.error} />
+                                <Text style={[styles.headerProgressText, { color: Colors.dark.error }]}>{downCount}</Text>
+                              </View>
+                            ) : null}
+                          </>
+                        );
+                      })() : null}
                       <Ionicons 
                         name={isExpanded ? "chevron-up" : "chevron-down"}
                         size={18}
@@ -874,124 +906,32 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
                   
                   {isExpanded ? (
                     <>
-                      <View style={styles.playerFeedbackRow}>
-                        <Text style={styles.playerFeedbackLabel}>Observed Progress</Text>
-                        <View style={styles.trendButtons}>
-                          {([
-                            { value: "up", icon: "trending-up" as const, color: Colors.dark.primary },
-                            { value: "stable", icon: "remove" as const, color: Colors.dark.orange },
-                            { value: "down", icon: "trending-down" as const, color: Colors.dark.error },
-                          ] as const).map((opt) => (
-                            <Pressable
-                              key={opt.value}
-                              style={[
-                                styles.trendButton,
-                                pf.progressTrend === opt.value && { backgroundColor: opt.color + "20", borderColor: opt.color },
-                              ]}
-                              onPress={() => updatePlayerFeedback(pf.playerId, "progressTrend", opt.value)}
-                              onLongPress={() => {
-                                if (opt.value !== "stable" && focusTags.length > 0) {
-                                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                  updatePlayerFeedback(pf.playerId, "progressTrend", opt.value);
-                                  setShowSkillSelector(pf.playerId);
-                                }
-                              }}
-                              delayLongPress={400}
-                            >
-                              <Ionicons
-                                name={opt.icon}
-                                size={16}
-                                color={pf.progressTrend === opt.value ? opt.color : Colors.dark.disabled}
-                              />
-                            </Pressable>
-                          ))}
-                        </View>
-                      </View>
-                      
-                      {/* Inline skill selector (appears on long-press) */}
-                      {showSkillSelector === pf.playerId ? (
-                        <View style={styles.skillSelectorContainer}>
-                          <View style={styles.skillSelectorHeader}>
-                            <Text style={styles.skillSelectorTitle}>
-                              Refine which skills {pf.progressTrend === "up" ? "improved" : "need work"}:
-                            </Text>
-                            <Pressable 
-                              onPress={() => setShowSkillSelector(null)}
-                              hitSlop={8}
-                            >
-                              <Ionicons name="close" size={18} color={Colors.dark.tabIconDefault} />
-                            </Pressable>
+                      {/* Per-skill progress summary */}
+                      {(() => {
+                        const upCount = Object.values(pf.skillProgress).filter(s => s === "up").length;
+                        const downCount = Object.values(pf.skillProgress).filter(s => s === "down").length;
+                        const hasProgress = upCount > 0 || downCount > 0;
+                        return hasProgress ? (
+                          <View style={styles.skillProgressSummary}>
+                            {upCount > 0 ? (
+                              <View style={styles.skillProgressBadge}>
+                                <Ionicons name="trending-up" size={12} color={Colors.dark.primary} />
+                                <Text style={[styles.skillProgressBadgeText, { color: Colors.dark.primary }]}>
+                                  {upCount} improved
+                                </Text>
+                              </View>
+                            ) : null}
+                            {downCount > 0 ? (
+                              <View style={styles.skillProgressBadge}>
+                                <Ionicons name="trending-down" size={12} color={Colors.dark.error} />
+                                <Text style={[styles.skillProgressBadgeText, { color: Colors.dark.error }]}>
+                                  {downCount} needs work
+                                </Text>
+                              </View>
+                            ) : null}
                           </View>
-                          <View style={styles.skillSelectorChips}>
-                            {focusTags.map((skill) => {
-                              const isSelected = pf.skillProgress[skill] === pf.progressTrend;
-                              return (
-                                <Pressable
-                                  key={skill}
-                                  style={[
-                                    styles.skillSelectorChip,
-                                    isSelected && { 
-                                      backgroundColor: pf.progressTrend === "up" ? Colors.dark.primary + "20" : Colors.dark.error + "20",
-                                      borderColor: pf.progressTrend === "up" ? Colors.dark.primary : Colors.dark.error,
-                                    },
-                                  ]}
-                                  onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                    setPlayerFeedback(prev => prev.map(p => {
-                                      if (p.playerId !== pf.playerId) return p;
-                                      const newSkillProgress = { ...p.skillProgress };
-                                      if (isSelected) {
-                                        delete newSkillProgress[skill];
-                                      } else {
-                                        newSkillProgress[skill] = pf.progressTrend as SkillChipState;
-                                      }
-                                      return { ...p, skillProgress: newSkillProgress };
-                                    }));
-                                  }}
-                                >
-                                  <Ionicons 
-                                    name={isSelected ? "checkmark-circle" : "ellipse-outline"} 
-                                    size={14} 
-                                    color={isSelected 
-                                      ? (pf.progressTrend === "up" ? Colors.dark.primary : Colors.dark.error)
-                                      : Colors.dark.tabIconDefault
-                                    } 
-                                  />
-                                  <Text style={[
-                                    styles.skillSelectorChipText,
-                                    isSelected && { 
-                                      color: pf.progressTrend === "up" ? Colors.dark.primary : Colors.dark.error,
-                                    },
-                                  ]}>
-                                    {skill}
-                                  </Text>
-                                </Pressable>
-                              );
-                            })}
-                          </View>
-                        </View>
-                      ) : null}
-                      
-                      {/* Show focus skills connection hint */}
-                      {focusTags.length > 0 && pf.progressTrend !== "stable" && showSkillSelector !== pf.playerId ? (
-                        <Pressable 
-                          style={styles.focusLinkHint}
-                          onPress={() => setShowSkillSelector(pf.playerId)}
-                        >
-                          <Ionicons name="link-outline" size={12} color={Colors.dark.tabIconDefault} />
-                          <Text style={styles.focusLinkText}>
-                            Applied to: {focusTags.join(", ")}
-                          </Text>
-                          <Ionicons name="chevron-forward" size={10} color={Colors.dark.tabIconDefault} />
-                        </Pressable>
-                      ) : focusTags.length === 0 && pf.progressTrend !== "stable" ? (
-                        <View style={styles.focusLinkHint}>
-                          <Ionicons name="information-circle-outline" size={12} color={Colors.dark.tabIconDefault} />
-                          <Text style={styles.focusLinkText}>
-                            General progress (no focus selected)
-                          </Text>
-                        </View>
-                      ) : null}
+                        ) : null;
+                      })()}
 
                       <View style={styles.playerFeedbackRow}>
                         <Text style={styles.playerFeedbackLabel}>Effort</Text>
@@ -2883,6 +2823,39 @@ const styles = StyleSheet.create({
   skillWarningText: {
     fontSize: Typography.small.fontSize,
     color: Colors.dark.orange,
+  },
+  skillProgressSummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+  },
+  skillProgressBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.sm,
+  },
+  skillProgressBadgeText: {
+    fontSize: Typography.small.fontSize,
+  },
+  headerProgressBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.xs,
+    marginRight: Spacing.xs,
+  },
+  headerProgressText: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "600",
   },
   focusLinkHint: {
     flexDirection: "row",
