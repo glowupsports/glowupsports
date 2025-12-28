@@ -29,7 +29,7 @@ interface DomainDetail {
 
 const DOMAIN_CONFIG: Record<string, { icon: string; color: string; label: string }> = {
   technical: { icon: "construct", color: Colors.dark.primary, label: "Technical" },
-  mental: { icon: "brain", color: "#9B59B6", label: "Mental" },
+  mental: { icon: "bulb", color: "#9B59B6", label: "Mental" },
   physical: { icon: "fitness", color: Colors.dark.orange, label: "Physical" },
   tactical: { icon: "compass", color: Colors.dark.gold, label: "Tactical" },
   social: { icon: "people", color: Colors.dark.xpCyan, label: "Social" },
@@ -118,6 +118,8 @@ export default function SkillDetailScreen() {
   };
 
   const data = domainData || mockData;
+  const overallProgress = data?.overallProgress ?? 0;
+  const skills = data?.skills || [];
   const [expandedSkill, setExpandedSkill] = React.useState<string | null>(null);
 
   return (
@@ -143,7 +145,7 @@ export default function SkillDetailScreen() {
             <Text style={styles.domainSubtitle}>Overall Progress</Text>
           </View>
           <View style={styles.progressCircle}>
-            <Text style={[styles.progressValue, { color: config.color }]}>{data.overallProgress}%</Text>
+            <Text style={[styles.progressValue, { color: config.color }]}>{overallProgress}%</Text>
           </View>
         </View>
 
@@ -152,7 +154,7 @@ export default function SkillDetailScreen() {
             <View 
               style={[
                 styles.progressBarFill, 
-                { width: `${data.overallProgress}%`, backgroundColor: config.color }
+                { width: `${overallProgress}%`, backgroundColor: config.color }
               ]} 
             />
           </View>
@@ -161,7 +163,7 @@ export default function SkillDetailScreen() {
         <Text style={styles.sectionTitle}>Individual Skills</Text>
         <Text style={styles.sectionSubtitle}>Tap a skill to see details and suggestions</Text>
 
-        {data.skills.map((skill) => {
+        {skills.map((skill) => {
           const statusConfig = STATUS_CONFIG[skill.status] || STATUS_CONFIG.stable;
           const isExpanded = expandedSkill === skill.id;
 
