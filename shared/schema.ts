@@ -183,6 +183,31 @@ export const coaches = pgTable("coaches", {
   level: integer("level").default(1),
   totalXp: integer("total_xp").default(0),
   
+  // Coach Onboarding
+  onboardingCompleted: boolean("onboarding_completed").default(false),
+  onboardingMode: text("onboarding_mode"), // basic | standard | advanced
+  onboardingCompletedAt: timestamp("onboarding_completed_at"),
+  onboardingAcknowledgements: jsonb("onboarding_acknowledgements").$type<{
+    fairness?: boolean;
+    feedbackRules?: boolean;
+    attendanceRules?: boolean;
+  }>(),
+  
+  // Coach Bio/Identity (Private)
+  yearsExperience: text("years_experience"), // 0-2 | 3-5 | 6-10 | 10+
+  certifications: text("certifications"),
+  backgroundTags: jsonb("background_tags").$type<string[]>(), // former_player, coaching_education, self_developed, mixed
+  philosophyTags: jsonb("philosophy_tags").$type<string[]>(), // confidence, discipline, fun, technique, performance, growth (max 3)
+  
+  // Coach Bio (Public - visible to players after approval)
+  publicQuote: text("public_quote"), // max 120 chars
+  photoUrl: text("photo_url"),
+  bioStatus: text("bio_status").default("draft"), // draft | pending_approval | approved | rejected
+  bioApprovedBy: varchar("bio_approved_by"),
+  bioApprovedAt: timestamp("bio_approved_at"),
+  bioRejectionReason: text("bio_rejection_reason"),
+  showProfileToPlayers: boolean("show_profile_to_players").default(true),
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 

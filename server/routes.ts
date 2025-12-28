@@ -6135,6 +6135,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Save coach onboarding data
+  app.post("/api/coach/me/onboarding", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      if (!coachId) {
+        return res.status(403).json({ error: "Coach account required" });
+      }
+
+      const { yearsExperience, backgroundTags, philosophyTags, acknowledgements, publicQuote } = req.body;
+
+      const updatedCoach = await storage.updateCoach(coachId, {
+        onboardingCompleted: true,
+        onboardingCompletedAt: new Date(),
+        onboardingMode: "standard",
+        yearsExperience,
+        backgroundTags,
+        philosophyTags,
+        onboardingAcknowledgements: acknowledgements,
+        publicQuote,
+        bioStatus: publicQuote ? "pending_approval" : "draft",
+      });
+
+      res.json({ success: true, coach: updatedCoach });
+    } catch (error) {
+      console.error("Error saving coach onboarding:", error);
+      res.status(500).json({ error: "Failed to save onboarding data" });
+    }
+  });
+
+  // Get coach profile (for onboarding status)
+  app.get("/api/coach/me/profile", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      if (!coachId) {
+        return res.status(403).json({ error: "Coach account required" });
+      }
+
+      const coach = await storage.getCoach(coachId);
+      if (!coach) {
+        return res.status(404).json({ error: "Coach not found" });
+      }
+
+      res.json({ coach });
+    } catch (error) {
+      console.error("Error fetching coach profile:", error);
+      res.status(500).json({ error: "Failed to fetch coach profile" });
+    }
+  });
+
   // Get player recognition (badges, achievements, validations)
   app.get("/api/player/me/recognition", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     // Return demo recognition for owners/coaches

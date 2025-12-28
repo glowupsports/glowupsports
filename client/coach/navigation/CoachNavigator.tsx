@@ -1,7 +1,8 @@
-import React from "react";
-import { StyleSheet, View, Platform } from "react-native";
+import React, { useState } from "react";
+import { StyleSheet, View, Platform, ActivityIndicator } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
 import DashboardScreen from "@/coach/screens/DashboardScreen";
@@ -18,6 +19,8 @@ import CourtPreferencesScreen from "@/coach/screens/CourtPreferencesScreen";
 import TemplatesScreen from "@/coach/screens/TemplatesScreen";
 import AcademySettingsScreen from "@/coach/screens/AcademySettingsScreen";
 import BillingScreen from "@/coach/screens/BillingScreen";
+import CoachOnboardingScreen from "@/coach/screens/CoachOnboardingScreen";
+import { useAuth } from "@/coach/context/AuthContext";
 import { Colors } from "@/constants/theme";
 
 export type CoachTabParamList = {
@@ -122,7 +125,7 @@ function CoachTabs() {
   );
 }
 
-export default function CoachNavigator() {
+function CoachStackNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="CoachTabs" component={CoachTabs} />
@@ -187,7 +190,54 @@ export default function CoachNavigator() {
   );
 }
 
+interface CoachProfile {
+  coach: {
+    id: string;
+    name: string;
+    onboardingCompleted?: boolean;
+  };
+}
+
+export default function CoachNavigator() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
+
+  const { data: profile, isLoading } = useQuery<CoachProfile>({
+    queryKey: ["/api/coach/me/profile"],
+    enabled: !!user?.coachId,
+  });
+
+  const handleOnboardingComplete = () => {
+    setOnboardingComplete(true);
+    queryClient.invalidateQueries({ queryKey: ["/api/coach/me/profile"] });
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.dark.primary} />
+      </View>
+    );
+  }
+
+  const coachOnboardingCompleted = profile?.coach?.onboardingCompleted ?? false;
+  const showOnboarding = user?.coachId && !coachOnboardingCompleted && onboardingComplete !== true;
+
+  if (showOnboarding) {
+    return <CoachOnboardingScreen onComplete={handleOnboardingComplete} />;
+  }
+
+  return <CoachStackNavigator />;
+}
+
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
   tabBar: {
     position: "absolute",
     borderTopWidth: 0,
