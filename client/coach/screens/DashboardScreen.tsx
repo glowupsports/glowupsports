@@ -320,16 +320,16 @@ export default function DashboardScreen() {
         style={StyleSheet.absoluteFill}
       />
 
+      {/* Mode Switcher - always visible at top */}
+      <View style={styles.modeSwitcherContainer}>
+        <ModeSwitcher />
+      </View>
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.footerCollapsed + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Mode Switcher for owners/admins */}
-        <View style={styles.modeSwitcherContainer}>
-          <ModeSwitcher />
-        </View>
-
         {/* Header with Coach Level + XP */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -967,7 +967,9 @@ const styles = StyleSheet.create({
   
   // Header
   modeSwitcherContainer: {
-    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.sm,
+    marginBottom: Spacing.sm,
   },
   header: {
     flexDirection: "row",
