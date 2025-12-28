@@ -17,7 +17,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
@@ -29,6 +29,7 @@ interface Player {
   id: string;
   name: string;
   level: string;
+  ballLevel?: string | null;
   status?: AttendanceStatus;
   lateMinutes?: LateMinutes;
   absentReason?: AbsentReason;
@@ -400,9 +401,9 @@ export default function AttendanceDrawer({
                     }}
                   >
                     <View style={styles.playerSelectInfo}>
-                      {player.ballLevel ? (
-                        <View style={[styles.levelBadge, { backgroundColor: getLevelColor(player.ballLevel) }]}>
-                          <Text style={styles.levelText}>{player.ballLevel}</Text>
+                      {(player.ballLevel || player.level) ? (
+                        <View style={[styles.levelBadge, { backgroundColor: getPlayerLevelColor(player.ballLevel ?? player.level ?? "green") }]}>
+                          <Text style={styles.levelText}>{player.ballLevel || player.level}</Text>
                         </View>
                       ) : null}
                       <Text style={styles.playerSelectName}>{player.name}</Text>
@@ -449,8 +450,8 @@ export default function AttendanceDrawer({
                 <View key={player.id} style={styles.playerCard}>
                   <View style={styles.playerHeader}>
                     <View style={styles.playerInfo}>
-                      <View style={[styles.levelBadge, { backgroundColor: getLevelColor(player.level) }]}>
-                        <Text style={styles.levelText}>{player.level}</Text>
+                      <View style={[styles.levelBadge, { backgroundColor: getPlayerLevelColor(player.ballLevel ?? player.level ?? "green") }]}>
+                        <Text style={styles.levelText}>{player.ballLevel || player.level}</Text>
                       </View>
                       <Text style={styles.playerName}>{player.name}</Text>
                     </View>
@@ -586,23 +587,6 @@ export default function AttendanceDrawer({
       </View>
     </Modal>
   );
-}
-
-function getLevelColor(level: string): string {
-  switch (level?.toLowerCase()) {
-    case "red":
-      return "#FF4444";
-    case "orange":
-      return "#FF851B";
-    case "green":
-      return "#2ECC40";
-    case "yellow":
-      return "#FFDC00";
-    case "glow":
-      return "#00D4FF";
-    default:
-      return Colors.dark.disabled;
-  }
 }
 
 const styles = StyleSheet.create({

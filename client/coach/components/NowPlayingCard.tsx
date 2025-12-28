@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable, Animated as RNAnimated, LayoutAnimat
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -13,6 +13,7 @@ interface Player {
   id: string;
   name: string;
   level: string;
+  ballLevel?: string | null;
 }
 
 interface Session {
@@ -212,7 +213,7 @@ export default function NowPlayingCard({
           <View style={styles.playersList}>
             {players.map((player, index) => (
               <View key={player.id} style={styles.playerItem}>
-                <View style={styles.playerAvatar}>
+                <View style={[styles.playerAvatar, { backgroundColor: getPlayerLevelColor(player.ballLevel || player.level) }]}>
                   <Text style={styles.playerInitial}>{player.name.charAt(0).toUpperCase()}</Text>
                 </View>
                 <Text style={styles.playerName}>{player.name}</Text>

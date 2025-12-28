@@ -22,6 +22,7 @@ interface Player {
   id: string;
   name: string;
   level?: string;
+  ballLevel?: string | null;
   status?: string;
 }
 
@@ -408,7 +409,11 @@ export default function SessionDetailDrawer({
                   }}
                   disabled={!isGuest || !isPastSession}
                 >
-                  <View style={[styles.playerAvatar, isGuest && styles.playerAvatarGuest]}>
+                  <View style={[
+                    styles.playerAvatar, 
+                    isGuest && styles.playerAvatarGuest,
+                    !isGuest && { backgroundColor: getPlayerLevelColor(player.ballLevel || player.level) }
+                  ]}>
                     <Text style={styles.playerAvatarText}>{player.name.charAt(0)}</Text>
                   </View>
                   <View style={styles.playerNameContainer}>

@@ -15,7 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
 import PackagesCard from "@/coach/components/PackagesCard";
@@ -148,22 +148,7 @@ export default function PlayersScreen() {
 
   const ballLevels = ["red", "orange", "green", "yellow", "glow"];
 
-  const getLevelColor = (level: string | null) => {
-    switch (level?.toLowerCase()) {
-      case "red":
-        return "#FF4444";
-      case "orange":
-        return "#FF851B";
-      case "green":
-        return "#2ECC40";
-      case "yellow":
-        return "#FFDC00";
-      case "glow":
-        return "#00D4FF";
-      default:
-        return Colors.dark.disabled;
-    }
-  };
+
 
   const getStatusBadge = (status: string | null) => {
     switch (status?.toLowerCase()) {
@@ -261,15 +246,15 @@ export default function PlayersScreen() {
               key={level}
               style={[
                 styles.filterChip,
-                filterLevel === level && { backgroundColor: getLevelColor(level) + "30" },
+                filterLevel === level && { backgroundColor: getPlayerLevelColor(level) + "30" },
               ]}
               onPress={() => setFilterLevel(filterLevel === level ? null : level)}
             >
-              <View style={[styles.levelDot, { backgroundColor: getLevelColor(level) }]} />
+              <View style={[styles.levelDot, { backgroundColor: getPlayerLevelColor(level) }]} />
               <Text
                 style={[
                   styles.filterChipText,
-                  filterLevel === level && { color: getLevelColor(level) },
+                  filterLevel === level && { color: getPlayerLevelColor(level) },
                 ]}
               >
                 {level.charAt(0).toUpperCase() + level.slice(1)}
@@ -300,7 +285,7 @@ export default function PlayersScreen() {
                 style={styles.playerCard}
                 onPress={() => handleSelectPlayer(player)}
               >
-                <View style={styles.playerAvatar}>
+                <View style={[styles.playerAvatar, { backgroundColor: getPlayerLevelColor(player.ballLevel ?? "green") }]}>
                   <Text style={styles.playerInitial}>
                     {player.name.charAt(0).toUpperCase()}
                   </Text>
@@ -321,7 +306,7 @@ export default function PlayersScreen() {
                     {player.ballLevel ? (
                       <View style={styles.levelBadge}>
                         <View
-                          style={[styles.levelDot, { backgroundColor: getLevelColor(player.ballLevel) }]}
+                          style={[styles.levelDot, { backgroundColor: getPlayerLevelColor(player.ballLevel) }]}
                         />
                         <Text style={styles.levelText}>
                           {player.ballLevel.charAt(0).toUpperCase() + player.ballLevel.slice(1)}
@@ -397,7 +382,7 @@ export default function PlayersScreen() {
                     ]}
                     onPress={() => setNewPlayerBallLevel(level)}
                   >
-                    <View style={[styles.levelDot, { backgroundColor: getLevelColor(level) }]} />
+                    <View style={[styles.levelDot, { backgroundColor: getPlayerLevelColor(level) }]} />
                     <Text
                       style={[
                         styles.levelOptionText,
@@ -528,22 +513,7 @@ function PlayerDetailView({
     ]);
   };
 
-  const getLevelColor = (level: string | null) => {
-    switch (level?.toLowerCase()) {
-      case "red":
-        return "#FF4444";
-      case "orange":
-        return "#FF851B";
-      case "green":
-        return "#2ECC40";
-      case "yellow":
-        return "#FFDC00";
-      case "glow":
-        return "#00D4FF";
-      default:
-        return Colors.dark.disabled;
-    }
-  };
+
 
   const getCategoryInfo = (category: string | null) => {
     return NOTE_CATEGORIES.find(c => c.value === category) || NOTE_CATEGORIES[4];
@@ -580,13 +550,13 @@ function PlayerDetailView({
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.profileHeader}>
-          <View style={styles.largeAvatar}>
-            <Text style={styles.largeInitial}>{player.name.charAt(0).toUpperCase()}</Text>
+          <View style={[styles.largeAvatar, { backgroundColor: getPlayerLevelColor(player.ballLevel ?? "green") + "30" }]}>
+            <Text style={[styles.largeInitial, { color: getPlayerLevelColor(player.ballLevel ?? "green") }]}>{player.name.charAt(0).toUpperCase()}</Text>
           </View>
           <Text style={styles.profileName}>{player.name}</Text>
           {player.ballLevel ? (
             <View style={styles.profileLevel}>
-              <View style={[styles.levelDot, { backgroundColor: getLevelColor(player.ballLevel) }]} />
+              <View style={[styles.levelDot, { backgroundColor: getPlayerLevelColor(player.ballLevel) }]} />
               <Text style={styles.profileLevelText}>
                 {player.ballLevel.charAt(0).toUpperCase() + player.ballLevel.slice(1)} Ball
               </Text>
@@ -612,14 +582,14 @@ function PlayerDetailView({
             <View style={styles.progressContainer}>
               <View style={styles.levelLabels}>
                 <View style={styles.currentLevelLabel}>
-                  <View style={[styles.levelDotSmall, { backgroundColor: getLevelColor(player.ballLevel) }]} />
+                  <View style={[styles.levelDotSmall, { backgroundColor: getPlayerLevelColor(player.ballLevel) }]} />
                   <Text style={styles.levelLabelText}>
                     {player.ballLevel.charAt(0).toUpperCase() + player.ballLevel.slice(1)}
                   </Text>
                 </View>
                 <Ionicons name="arrow-forward" size={14} color={Colors.dark.tabIconDefault} />
                 <View style={styles.nextLevelLabel}>
-                  <View style={[styles.levelDotSmall, { backgroundColor: getLevelColor(levelReadiness.nextLevel) }]} />
+                  <View style={[styles.levelDotSmall, { backgroundColor: getPlayerLevelColor(levelReadiness.nextLevel) }]} />
                   <Text style={styles.levelLabelText}>
                     {levelReadiness.nextLevel.charAt(0).toUpperCase() + levelReadiness.nextLevel.slice(1)}
                   </Text>
@@ -629,7 +599,7 @@ function PlayerDetailView({
               <View style={styles.progressBarContainer}>
                 <View style={styles.progressBarBackground}>
                   <LinearGradient
-                    colors={[getLevelColor(player.ballLevel), getLevelColor(levelReadiness.nextLevel)]}
+                    colors={[getPlayerLevelColor(player.ballLevel), getPlayerLevelColor(levelReadiness.nextLevel)]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={[styles.progressBarFill, { width: `${levelReadiness.progress}%` }]}
