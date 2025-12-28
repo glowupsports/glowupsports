@@ -5,17 +5,28 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
 import AdminDashboardScreen from "@/admin/screens/AdminDashboardScreen";
+import AdminCoachesScreen from "@/admin/screens/AdminCoachesScreen";
+import AdminPlayersScreen from "@/admin/screens/AdminPlayersScreen";
+import AdminScheduleScreen from "@/admin/screens/AdminScheduleScreen";
+import AdminReportsScreen from "@/admin/screens/AdminReportsScreen";
+import AdminSettingsScreen from "@/admin/screens/AdminSettingsScreen";
 import { Colors } from "@/constants/theme";
 
 export type AdminTabParamList = {
   AdminDashboard: undefined;
-  Users: undefined;
-  Reports: undefined;
-  Settings: undefined;
+  AdminCoaches: undefined;
+  AdminPlayers: undefined;
+  AdminSchedule: undefined;
+  AdminReports: undefined;
+  AdminSettings: undefined;
 };
 
 export type AdminStackParamList = {
   AdminTabs: undefined;
+  AddCoach: undefined;
+  AddPlayer: undefined;
+  CoachDetail: { coachId: string };
+  PlayerDetail: { playerId: string };
 };
 
 const Tab = createBottomTabNavigator<AdminTabParamList>();
@@ -56,18 +67,38 @@ function AdminTabs() {
         }}
       />
       <Tab.Screen
-        name="Users"
-        component={AdminDashboardScreen}
+        name="AdminCoaches"
+        component={AdminCoachesScreen}
         options={{
-          tabBarLabel: "Users",
+          tabBarLabel: "Coaches",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people-outline" size={size} color={color} />
           ),
         }}
       />
       <Tab.Screen
-        name="Reports"
-        component={AdminDashboardScreen}
+        name="AdminPlayers"
+        component={AdminPlayersScreen}
+        options={{
+          tabBarLabel: "Players",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="AdminSchedule"
+        component={AdminScheduleScreen}
+        options={{
+          tabBarLabel: "Schedule",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="AdminReports"
+        component={AdminReportsScreen}
         options={{
           tabBarLabel: "Reports",
           tabBarIcon: ({ color, size }) => (
@@ -76,8 +107,8 @@ function AdminTabs() {
         }}
       />
       <Tab.Screen
-        name="Settings"
-        component={AdminDashboardScreen}
+        name="AdminSettings"
+        component={AdminSettingsScreen}
         options={{
           tabBarLabel: "Settings",
           tabBarIcon: ({ color, size }) => (
@@ -114,7 +145,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(18, 18, 18, 0.95)",
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "500",
   },
 });

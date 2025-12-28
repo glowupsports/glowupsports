@@ -1,21 +1,24 @@
-import React, { useMemo, useState } from "react";
+import React from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
+import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import ModeSwitcher from "@/components/ModeSwitcher";
+import type { AdminTabParamList } from "@/admin/navigation/AdminNavigator";
+
+type AdminNavProp = BottomTabNavigationProp<AdminTabParamList>;
 
 interface StatCardProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -29,7 +32,12 @@ function StatCard({ icon, label, value, color = Colors.dark.primary, onPress }: 
   return (
     <Pressable
       style={[styles.statCard, CardStyles.elevated]}
-      onPress={onPress}
+      onPress={() => {
+        if (onPress) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onPress();
+        }
+      }}
       disabled={!onPress}
     >
       <View style={[styles.statIconContainer, { backgroundColor: `${color}20` }]}>
@@ -67,15 +75,27 @@ function QuickAction({ icon, label, color = Colors.dark.primary, onPress }: Quic
 
 export default function AdminDashboardScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const navigation = useNavigation<AdminNavProp>();
   const { user } = useAuth();
 
-  const stats = useMemo(() => ({
-    totalCoaches: 4,
-    totalPlayers: 23,
-    activeSessions: 3,
+  const { data: coaches = [] } = useQuery<any[]>({
+    queryKey: ["/api/coaches"],
+  });
+
+  const { data: players = [] } = useQuery<any[]>({
+    queryKey: ["/api/players"],
+  });
+
+  const { data: sessions = [] } = useQuery<any[]>({
+    queryKey: ["/api/sessions"],
+  });
+
+  const stats = {
+    totalCoaches: coaches.length,
+    totalPlayers: players.length,
+    activeSessions: sessions.filter((s: any) => s.status === "scheduled").length,
     monthlyRevenue: 4250,
-  }), []);
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -110,25 +130,75 @@ export default function AdminDashboardScreen() {
         </View>
 
         <View style={styles.statsGrid}>
-          <StatCard icon="people" label="Coaches" value={stats.totalCoaches} color={Colors.dark.primary} />
-          <StatCard icon="person" label="Players" value={stats.totalPlayers} color={Colors.dark.xpCyan} />
-          <StatCard icon="calendar" label="Active Sessions" value={stats.activeSessions} color={Colors.dark.orange} />
-          <StatCard icon="cash" label="Revenue" value={`$${stats.monthlyRevenue}`} color={Colors.dark.gold} />
+          <StatCard 
+            icon="people" 
+            label="Coaches" 
+            value={stats.totalCoaches} 
+            color={Colors.dark.primary}
+            onPress={() => navigation.navigate("AdminCoaches")}
+          />
+          <StatCard 
+            icon="person" 
+            label="Players" 
+            value={stats.totalPlayers} 
+            color={Colors.dark.xpCyan}
+            onPress={() => navigation.navigate("AdminPlayers")}
+          />
+          <StatCard 
+            icon="calendar" 
+            label="Active Sessions" 
+            value={stats.activeSessions} 
+            color={Colors.dark.orange}
+            onPress={() => navigation.navigate("AdminSchedule")}
+          />
+          <StatCard 
+            icon="cash" 
+            label="Revenue" 
+            value={`$${stats.monthlyRevenue}`} 
+            color={Colors.dark.gold}
+            onPress={() => navigation.navigate("AdminReports")}
+          />
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActionsGrid}>
-            <QuickAction icon="person-add" label="Add Coach" color={Colors.dark.primary} onPress={() => {}} />
-            <QuickAction icon="person-add-outline" label="Add Player" color={Colors.dark.xpCyan} onPress={() => {}} />
-            <QuickAction icon="calendar-outline" label="Schedule" color={Colors.dark.orange} onPress={() => {}} />
-            <QuickAction icon="analytics" label="Reports" color={Colors.dark.gold} onPress={() => {}} />
+            <QuickAction 
+              icon="person-add" 
+              label="Add Coach" 
+              color={Colors.dark.primary} 
+              onPress={() => navigation.navigate("AdminCoaches")} 
+            />
+            <QuickAction 
+              icon="person-add-outline" 
+              label="Add Player" 
+              color={Colors.dark.xpCyan} 
+              onPress={() => navigation.navigate("AdminPlayers")} 
+            />
+            <QuickAction 
+              icon="calendar-outline" 
+              label="Schedule" 
+              color={Colors.dark.orange} 
+              onPress={() => navigation.navigate("AdminSchedule")} 
+            />
+            <QuickAction 
+              icon="analytics" 
+              label="Reports" 
+              color={Colors.dark.gold} 
+              onPress={() => navigation.navigate("AdminReports")} 
+            />
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>User Management</Text>
-          <Pressable style={[styles.menuCard, CardStyles.elevated]}>
+          <Pressable 
+            style={[styles.menuCard, CardStyles.elevated]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("AdminCoaches");
+            }}
+          >
             <View style={styles.menuCardContent}>
               <Ionicons name="people-outline" size={24} color={Colors.dark.primary} />
               <View style={styles.menuCardText}>
@@ -139,7 +209,13 @@ export default function AdminDashboardScreen() {
             </View>
           </Pressable>
 
-          <Pressable style={[styles.menuCard, CardStyles.elevated]}>
+          <Pressable 
+            style={[styles.menuCard, CardStyles.elevated]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("AdminPlayers");
+            }}
+          >
             <View style={styles.menuCardContent}>
               <Ionicons name="person-outline" size={24} color={Colors.dark.xpCyan} />
               <View style={styles.menuCardText}>
@@ -150,7 +226,13 @@ export default function AdminDashboardScreen() {
             </View>
           </Pressable>
 
-          <Pressable style={[styles.menuCard, CardStyles.elevated]}>
+          <Pressable 
+            style={[styles.menuCard, CardStyles.elevated]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("AdminSettings");
+            }}
+          >
             <View style={styles.menuCardContent}>
               <Ionicons name="shield-outline" size={24} color={Colors.dark.orange} />
               <View style={styles.menuCardText}>
@@ -164,7 +246,13 @@ export default function AdminDashboardScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Academy Settings</Text>
-          <Pressable style={[styles.menuCard, CardStyles.elevated]}>
+          <Pressable 
+            style={[styles.menuCard, CardStyles.elevated]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("AdminSettings");
+            }}
+          >
             <View style={styles.menuCardContent}>
               <Ionicons name="business-outline" size={24} color={Colors.dark.primary} />
               <View style={styles.menuCardText}>
@@ -175,7 +263,13 @@ export default function AdminDashboardScreen() {
             </View>
           </Pressable>
 
-          <Pressable style={[styles.menuCard, CardStyles.elevated]}>
+          <Pressable 
+            style={[styles.menuCard, CardStyles.elevated]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("AdminSettings");
+            }}
+          >
             <View style={styles.menuCardContent}>
               <Ionicons name="tennisball-outline" size={24} color={Colors.dark.primary} />
               <View style={styles.menuCardText}>

@@ -1638,7 +1638,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create coach
-  app.post("/api/coaches", authMiddleware, requireRole("academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/coaches", authMiddleware, requireRole("academy_owner", "platform_owner", "admin"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId;
       const coach = await storage.createCoach({ ...req.body, academyId });
@@ -1662,7 +1662,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create location
-  app.post("/api/locations", authMiddleware, requireRole("academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/locations", authMiddleware, requireRole("academy_owner", "platform_owner", "admin"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId;
       const location = await storage.createLocation({ ...req.body, academyId });
@@ -1691,7 +1691,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create court
-  app.post("/api/courts", authMiddleware, requireRole("academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/courts", authMiddleware, requireRole("academy_owner", "platform_owner", "admin"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId;
       const court = await storage.createCourt({ ...req.body, academyId });
@@ -1703,7 +1703,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update court
-  app.patch("/api/courts/:id", authMiddleware, requireRole("academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+  app.patch("/api/courts/:id", authMiddleware, requireRole("academy_owner", "platform_owner", "admin"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
@@ -1725,7 +1725,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete court
-  app.delete("/api/courts/:id", authMiddleware, requireRole("academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+  app.delete("/api/courts/:id", authMiddleware, requireRole("academy_owner", "platform_owner", "admin"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
