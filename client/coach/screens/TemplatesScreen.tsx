@@ -250,6 +250,13 @@ export default function TemplatesScreen() {
           <Text style={styles.emptySubtitle}>
             Create templates to quickly book sessions with preset configurations
           </Text>
+          <Text style={styles.emptyHint}>
+            Most coaches create 3-5 templates for their common session types
+          </Text>
+          <Pressable onPress={() => openModal()} style={styles.emptyAction}>
+            <Ionicons name="add-circle" size={20} color={Colors.dark.primary} />
+            <Text style={styles.emptyActionText}>Create your first template</Text>
+          </Pressable>
         </View>
       ) : (
         <FlatList
@@ -514,6 +521,28 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.tabIconDefault,
     textAlign: "center",
+  },
+  emptyHint: {
+    ...Typography.caption,
+    color: Colors.dark.primary,
+    textAlign: "center",
+    marginTop: Spacing.lg,
+    opacity: 0.8,
+  },
+  emptyAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.dark.primary + "15",
+    borderRadius: BorderRadius.md,
+  },
+  emptyActionText: {
+    ...Typography.body,
+    color: Colors.dark.primary,
+    fontWeight: "600",
   },
   modalOverlay: {
     flex: 1,

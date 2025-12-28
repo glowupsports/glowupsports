@@ -90,7 +90,14 @@ export default function DashboardScreen() {
     else if (totalMinutes >= 240) energyState = "focused";
     else if (totalMinutes >= 120) energyState = "active";
     
-    return { totalMinutes, completedMinutes, remainingMinutes, staminaPercent, impactPercent, energyState };
+    // Day intensity for personality
+    let dayIntensity: "rest" | "light" | "normal" | "heavy" = "rest";
+    if (totalMinutes === 0) dayIntensity = "rest";
+    else if (totalMinutes <= 120) dayIntensity = "light";
+    else if (totalMinutes <= 240) dayIntensity = "normal";
+    else dayIntensity = "heavy";
+    
+    return { totalMinutes, completedMinutes, remainingMinutes, staminaPercent, impactPercent, energyState, dayIntensity };
   }, [todaysSessions]);
 
   // Fetch coach XP from API
@@ -192,6 +199,22 @@ export default function DashboardScreen() {
     if (hour < 18) return "Good afternoon";
     return "Good evening";
   };
+
+  const dayPersonality = useMemo(() => {
+    const sessionCount = todaysSessions.length;
+    const totalMinutes = coachStats.totalMinutes;
+    
+    if (sessionCount === 0) {
+      return { label: "Rest Day", color: Colors.dark.xpCyan };
+    }
+    if (totalMinutes <= 120) {
+      return { label: "Light Day", color: Colors.dark.primary };
+    }
+    if (totalMinutes <= 240) {
+      return { label: "Normal Day", color: Colors.dark.gold };
+    }
+    return { label: "Heavy Day", color: Colors.dark.orange };
+  }, [todaysSessions.length, coachStats.totalMinutes]);
 
   const getSessionTypeLabel = (type: string) => {
     switch (type) {
@@ -381,8 +404,15 @@ export default function DashboardScreen() {
                 setFocusCollapsed(!focusCollapsed);
               }}
             >
-              <View>
-                <Text style={styles.focusLabel}>TODAY</Text>
+              <View style={styles.focusHeaderLeft}>
+                <View style={styles.focusTitleRow}>
+                  <Text style={styles.focusLabel}>TODAY</Text>
+                  <View style={[styles.dayIntensityBadge, { backgroundColor: dayPersonality.color + "20" }]}>
+                    <Text style={[styles.dayIntensityText, { color: dayPersonality.color }]}>
+                      {dayPersonality.label}
+                    </Text>
+                  </View>
+                </View>
                 <Text style={styles.focusDate}>
                   {today.toLocaleDateString("en-US", {
                     weekday: "long",
@@ -973,6 +1003,24 @@ const styles = StyleSheet.create({
     marginTop: 2,
     opacity: 0.8,
     textTransform: "capitalize",
+  },
+  focusHeaderLeft: {
+    flex: 1,
+  },
+  focusTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  dayIntensityBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+  },
+  dayIntensityText: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
   focusMain: {
     alignItems: "center",

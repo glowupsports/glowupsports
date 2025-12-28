@@ -26,10 +26,23 @@ export const Colors = {
     ballOrange: "#FF851B",
     ballGreen: "#2ECC40",
     ballYellow: "#FFD700",
-    ballGlow: "#E040FB", // Purple/Magenta for adults
+    ballGlow: "#E040FB",
+    // 3-Level Color Hierarchy
+    // Level 1: Primary Glow (CTA, active, focus) - bright, prominent
+    primaryGlow: "#3DDB52",
+    primaryGlowLight: "#50E865",
+    // Level 2: Soft Status (info, metrics) - muted, restful
+    softStatus: "#28A745",
+    softStatusMuted: "#1E7A34",
+    // Level 3: Accent (rare, warnings, errors)
+    accentWarning: "#FFD700",
+    accentError: "#FF4444",
+    accentInfo: "#00D4FF",
   },
   dark: {
     text: "#ECEDEE",
+    textMuted: "#9BA1A6",
+    textSubtle: "#6B7280",
     buttonText: "#FFFFFF",
     tabIconDefault: "#9BA1A6",
     tabIconSelected: "#2ECC40",
@@ -53,7 +66,18 @@ export const Colors = {
     ballOrange: "#FF851B",
     ballGreen: "#2ECC40",
     ballYellow: "#FFD700",
-    ballGlow: "#E040FB", // Purple/Magenta for adults
+    ballGlow: "#E040FB",
+    // 3-Level Color Hierarchy
+    // Level 1: Primary Glow (CTA, active, focus) - bright, prominent
+    primaryGlow: "#3DDB52",
+    primaryGlowLight: "#50E865",
+    // Level 2: Soft Status (info, metrics) - muted, restful
+    softStatus: "#28A745",
+    softStatusMuted: "#1E7A34",
+    // Level 3: Accent (rare, warnings, errors)
+    accentWarning: "#FFD700",
+    accentError: "#FF4444",
+    accentInfo: "#00D4FF",
   },
 };
 
@@ -136,6 +160,86 @@ export const Typography = {
     fontSize: 16,
     fontWeight: "400" as const,
   },
+  // Number Emphasis - for metrics, XP, time, stats (dominant)
+  numberLarge: {
+    fontSize: 32,
+    fontWeight: "700" as const,
+    letterSpacing: -0.5,
+  },
+  numberMedium: {
+    fontSize: 24,
+    fontWeight: "600" as const,
+    letterSpacing: -0.3,
+  },
+  numberSmall: {
+    fontSize: 18,
+    fontWeight: "600" as const,
+  },
+  // Labels - smaller, more subtle (supporting text)
+  labelLarge: {
+    fontSize: 13,
+    fontWeight: "500" as const,
+    letterSpacing: 0.3,
+  },
+  labelSmall: {
+    fontSize: 11,
+    fontWeight: "500" as const,
+    letterSpacing: 0.5,
+    textTransform: "uppercase" as const,
+  },
+  // Section titles with better spacing
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: "600" as const,
+    letterSpacing: 0.8,
+    textTransform: "uppercase" as const,
+  },
+};
+
+// Card depth and elevation styles (using background colors, not shadows per design guidelines)
+export const CardStyles = {
+  // Base card with subtle depth via border highlights
+  elevated: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.05)",
+    borderTopColor: "rgba(255, 255, 255, 0.08)",
+  },
+  // Premium card with glow effect via border (no shadows)
+  glowCard: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(46, 204, 64, 0.2)",
+    borderTopColor: "rgba(46, 204, 64, 0.25)",
+  },
+  // Interactive card (pressable)
+  interactive: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.03)",
+  },
+  // Status card (metrics, stats)
+  statusCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.02)",
+  },
+};
+
+// Gradient presets for premium UI
+export const Gradients = {
+  // Subtle card gradient (top to bottom)
+  cardSubtle: ["rgba(255, 255, 255, 0.03)", "rgba(0, 0, 0, 0.02)"],
+  // Primary glow gradient
+  primaryGlow: ["rgba(46, 204, 64, 0.15)", "rgba(46, 204, 64, 0.05)"],
+  // Status gradient (muted green)
+  statusMuted: ["rgba(40, 167, 69, 0.12)", "rgba(40, 167, 69, 0.04)"],
+  // Dark fade
+  darkFade: ["rgba(26, 26, 26, 0)", "rgba(26, 26, 26, 0.95)"],
 };
 
 export const Fonts = Platform.select({
