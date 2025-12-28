@@ -57,6 +57,7 @@ import {
   academySettings,
   academyInvites,
   coachAcademyMemberships,
+  academyOwnerProfiles,
   // Phase 3: Push Notifications
   pushDeviceTokens,
   notificationPreferences,
@@ -142,6 +143,8 @@ import {
   type InsertAcademySettings,
   type AcademyInvite,
   type InsertAcademyInvite,
+  type AcademyOwnerProfile,
+  type InsertAcademyOwnerProfile,
   type CoachAcademyMembership,
   type InsertCoachAcademyMembership,
   type PushDeviceToken,
@@ -2726,6 +2729,54 @@ export const storage = {
       return (await this.updateAcademySettings(academyId, data))!;
     }
     return this.createAcademySettings({ ...data, academyId });
+  },
+
+  // ==================== ACADEMY OWNER PROFILES ====================
+
+  async getAcademyOwnerProfile(academyId: string): Promise<AcademyOwnerProfile | undefined> {
+    const result = await db.select().from(academyOwnerProfiles).where(eq(academyOwnerProfiles.academyId, academyId));
+    return result[0];
+  },
+
+  async getAllPendingOwnerProfiles(): Promise<AcademyOwnerProfile[]> {
+    return db.select().from(academyOwnerProfiles).where(eq(academyOwnerProfiles.approved, false));
+  },
+
+  async createAcademyOwnerProfile(data: InsertAcademyOwnerProfile): Promise<AcademyOwnerProfile> {
+    const result = await db.insert(academyOwnerProfiles).values(data).returning();
+    return result[0];
+  },
+
+  async updateAcademyOwnerProfile(academyId: string, data: Partial<InsertAcademyOwnerProfile>): Promise<AcademyOwnerProfile | undefined> {
+    const result = await db.update(academyOwnerProfiles)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(academyOwnerProfiles.academyId, academyId))
+      .returning();
+    return result[0];
+  },
+
+  async upsertAcademyOwnerProfile(academyId: string, data: Partial<InsertAcademyOwnerProfile>): Promise<AcademyOwnerProfile> {
+    const existing = await this.getAcademyOwnerProfile(academyId);
+    if (existing) {
+      return (await this.updateAcademyOwnerProfile(academyId, data))!;
+    }
+    return this.createAcademyOwnerProfile({ ...data, academyId } as InsertAcademyOwnerProfile);
+  },
+
+  async approveOwnerProfile(academyId: string, approvedBy: string): Promise<AcademyOwnerProfile | undefined> {
+    const result = await db.update(academyOwnerProfiles)
+      .set({ approved: true, approvedBy, approvedAt: new Date(), updatedAt: new Date() })
+      .where(eq(academyOwnerProfiles.academyId, academyId))
+      .returning();
+    return result[0];
+  },
+
+  async rejectOwnerProfile(academyId: string): Promise<AcademyOwnerProfile | undefined> {
+    const result = await db.update(academyOwnerProfiles)
+      .set({ approved: false, approvedBy: null, approvedAt: null, updatedAt: new Date() })
+      .where(eq(academyOwnerProfiles.academyId, academyId))
+      .returning();
+    return result[0];
   },
 
   // ==================== PHASE 3: ACADEMY INVITES ====================

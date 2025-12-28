@@ -119,6 +119,38 @@ export type InsertAcademyApplication = z.infer<typeof insertAcademyApplicationSc
 export type AcademyApplication = typeof academyApplications.$inferSelect;
 export type AcademyApplicationInput = z.infer<typeof academyApplicationInputSchema>;
 
+// Academy Owner Profiles (public bio/identity for the academy owner)
+export const academyOwnerProfiles = pgTable("academy_owner_profiles", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull().unique(),
+  ownerName: text("owner_name").notNull(),
+  role: text("role").notNull().default("owner"), // owner | director | founder
+  yearsInSports: text("years_in_sports"), // e.g. "10+ years"
+  backgroundTags: jsonb("background_tags").$type<string[]>().default([]), // former_player, coach, business, parent, mixed
+  visionTags: jsonb("vision_tags").$type<string[]>().default([]), // player_development, long_term_growth, fun_confidence, performance_pathway, community
+  academyFocus: text("academy_focus"), // recreational | performance | mixed
+  internalNote: text("internal_note"), // "What matters most in this academy?"
+  publicMessage: text("public_message"), // visible to players
+  photoUrl: text("photo_url"),
+  approved: boolean("approved").default(false),
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAcademyOwnerProfileSchema = createInsertSchema(academyOwnerProfiles).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true,
+  approvedBy: true,
+  approvedAt: true 
+});
+export type InsertAcademyOwnerProfile = z.infer<typeof insertAcademyOwnerProfileSchema>;
+export type AcademyOwnerProfile = typeof academyOwnerProfiles.$inferSelect;
+
 // Invites (for coaches to join academies)
 export const invites = pgTable("invites", {
   id: varchar("id")
