@@ -2478,7 +2478,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get coach observation patterns (anti-abuse stats)
-  app.get("/api/coach/:id/stats", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/coach/:id/observation-patterns", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId!;
@@ -2509,8 +2509,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           : "Your observation patterns are healthy",
       });
     } catch (error) {
-      console.error("Error fetching coach stats:", error);
-      res.status(500).json({ error: "Failed to fetch coach stats" });
+      console.error("Error fetching coach observation patterns:", error);
+      res.status(500).json({ error: "Failed to fetch coach observation patterns" });
     }
   });
 
