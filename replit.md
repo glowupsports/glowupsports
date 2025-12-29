@@ -91,22 +91,26 @@ The application features a dark-themed gaming aesthetic with neon green (#2ECC40
 - **Web**: Single-page application via Expo web build
 
 ## Recent Changes
-**December 29, 2025:**
-- Created comprehensive PLATFORM_AUDIT_REPORT.md covering all 5 dashboards
-- Revised platform status to 65-70% MVP-ready (corrected from initial 80-85%)
-- Updated completion levels: Player (70%), Coach (80%), Admin (75%), Owner (60%), Platform (65%)
-- Identified MVP blockers: Stripe, push/email notifications, Apple Sign-In
-- Generated P0/P1/P2 priority roadmap and 15 quick wins
-- Documented risk register and data integrity review
-- Previously fixed: Day slider timezone bug using UTC date comparison
+**December 29, 2025 (Latest Session):**
+- **Player Dashboard Cleanup:**
+  - Removed GroupChallengesScreen.tsx and PeerJourneyScreen.tsx (mock data screens with peer comparisons)
+  - Cleaned up PlayerNavigator.tsx, PlayerHomeScreen.tsx - removed all peer-related queries, UI, and styles
+  - Removed mock data from SkillDetailScreen, PlayerTrainingScreen, TrainingDetailScreen
+  - Added proper empty states with parent-friendly messaging (no "behind/worse/ahead" language)
+- **Push Notifications Foundation:**
+  - Created usePushNotifications hook (client/hooks/usePushNotifications.ts) with expo-notifications
+  - Integrated into CoachNavigator and PlayerNavigator
+  - Role-aware token registration (coaches only until player endpoints exist)
+  - Android notification channel setup, permission handling, cleanup on unmount
+- Previous: Day slider timezone bug fixed, PLATFORM_AUDIT_REPORT.md created
 
 ## Platform Status
-- **Overall:** 65-70% MVP-ready
-- **Core Working:** Username auth, RBAC, sessions, XP engine, chat (WebSocket), reports (partial)
+- **Overall:** 70% MVP-ready (up from 65%)
+- **Core Working:** Username auth, RBAC, sessions, XP engine, chat (WebSocket), reports (partial), push notification token registration (coach)
 - **MVP BLOCKERS:**
   - Stripe payment integration (critical - no revenue)
-  - Push notifications (expo-notifications - schema only)
+  - Push notification triggers (session reminders, feedback alerts, badge notifications)
   - Apple Sign-In (App Store requirement)
   - Email notifications (not implemented)
 - **Code Quality:** routes.ts (7500+ lines) and storage.ts (3500+ lines) need splitting
-- **Estimated to Full MVP:** 4-6 weeks focused development
+- **Estimated to Full MVP:** 3-5 weeks focused development
