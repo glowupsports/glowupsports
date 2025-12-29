@@ -17,7 +17,6 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -96,12 +95,11 @@ interface Squad {
   name: string;
 }
 
-const TAB_BAR_FALLBACK = 85;
+const TAB_BAR_HEIGHT = 85;
 
 export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   const insets = useSafeAreaInsets();
-  const hookTabBarHeight = useBottomTabBarHeight();
-  const tabBarHeight = Math.max(hookTabBarHeight, TAB_BAR_FALLBACK);
+  const tabBarHeight = TAB_BAR_HEIGHT;
   const queryClient = useQueryClient();
   const { coach } = useCoach();
   const { user } = useAuth();
