@@ -6,12 +6,17 @@ import {
   ScrollView,
   Pressable,
   Modal,
+  Platform,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 
 interface AdminStats {
@@ -23,11 +28,38 @@ interface AdminStats {
   attendanceRate: number;
 }
 
+interface RevenueData {
+  month: number;
+  year: number;
+  monthName: string;
+  totalRevenue: number;
+  sessionFees: number;
+  subscriptionRevenue: number;
+  otherRevenue: number;
+  refundsTotal: number;
+  netRevenue: number;
+  completedSessions: number;
+  averageSessionRate: number;
+  paymentsCount: number;
+  pendingAmount: number;
+  activePlayers: number;
+  playerLifetimeValue: number;
+}
+
 type ReportType = "player-progress" | "session-history" | "revenue" | "coach-performance" | null;
+
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
 
 export default function AdminReportsScreen() {
   const insets = useSafeAreaInsets();
   const [activeReport, setActiveReport] = useState<ReportType>(null);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const { data: coaches = [] } = useQuery<any[]>({
     queryKey: ["/api/coaches"],
@@ -41,13 +73,166 @@ export default function AdminReportsScreen() {
     queryKey: ["/api/sessions"],
   });
 
+  const { data: revenueData, isLoading: isLoadingRevenue } = useQuery<RevenueData>({
+    queryKey: ["/api/admin/revenue", { month: selectedMonth, year: selectedYear }],
+  });
+
   const stats: AdminStats = {
     totalCoaches: coaches.length,
     totalPlayers: players.length,
     totalSessions: sessions.length,
     activeSessions: sessions.filter((s: any) => s.status === "scheduled").length,
-    monthlyRevenue: 4250,
+    monthlyRevenue: revenueData?.totalRevenue || 0,
     attendanceRate: 87,
+  };
+
+  const handlePreviousMonth = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (selectedMonth === 1) {
+      setSelectedMonth(12);
+      setSelectedYear(selectedYear - 1);
+    } else {
+      setSelectedMonth(selectedMonth - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const now = new Date();
+    const isCurrentMonth = selectedMonth === now.getMonth() + 1 && selectedYear === now.getFullYear();
+    if (isCurrentMonth) return;
+    
+    if (selectedMonth === 12) {
+      setSelectedMonth(1);
+      setSelectedYear(selectedYear + 1);
+    } else {
+      setSelectedMonth(selectedMonth + 1);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!revenueData) return;
+    
+    setIsExporting(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    try {
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <title>Revenue Report - ${revenueData.monthName} ${revenueData.year}</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; background: #fff; color: #1a1a1a; }
+              h1 { color: #FFD700; margin-bottom: 8px; }
+              h2 { color: #666; font-size: 18px; font-weight: normal; margin-bottom: 32px; }
+              .revenue-box { background: linear-gradient(135deg, #2a2a0a 0%, #1a1a0a 100%); color: #FFD700; padding: 24px; border-radius: 12px; text-align: center; margin-bottom: 32px; }
+              .revenue-amount { font-size: 36px; font-weight: bold; }
+              .revenue-label { font-size: 14px; color: #999; margin-top: 8px; }
+              .section { margin-bottom: 24px; }
+              .section-title { font-size: 16px; font-weight: 600; color: #333; margin-bottom: 16px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+              .row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+              .row-label { color: #666; }
+              .row-value { font-weight: 600; color: #333; }
+              .footer { margin-top: 40px; text-align: center; color: #999; font-size: 12px; }
+            </style>
+          </head>
+          <body>
+            <h1>Revenue Report</h1>
+            <h2>${revenueData.monthName} ${revenueData.year}</h2>
+            
+            <div class="revenue-box">
+              <div class="revenue-amount">AED ${revenueData.totalRevenue.toLocaleString()}</div>
+              <div class="revenue-label">Total Revenue</div>
+            </div>
+            
+            <div class="section">
+              <div class="section-title">Revenue Breakdown</div>
+              <div class="row">
+                <span class="row-label">Session Fees</span>
+                <span class="row-value">AED ${revenueData.sessionFees.toLocaleString()}</span>
+              </div>
+              <div class="row">
+                <span class="row-label">Subscriptions</span>
+                <span class="row-value">AED ${revenueData.subscriptionRevenue.toLocaleString()}</span>
+              </div>
+              <div class="row">
+                <span class="row-label">Other Revenue</span>
+                <span class="row-value">AED ${revenueData.otherRevenue.toLocaleString()}</span>
+              </div>
+              <div class="row">
+                <span class="row-label">Refunds</span>
+                <span class="row-value" style="color: #EF4444;">- AED ${revenueData.refundsTotal.toLocaleString()}</span>
+              </div>
+              <div class="row" style="font-weight: bold; border-top: 2px solid #333; margin-top: 8px; padding-top: 16px;">
+                <span class="row-label">Net Revenue</span>
+                <span class="row-value" style="color: #22C55E;">AED ${revenueData.netRevenue.toLocaleString()}</span>
+              </div>
+            </div>
+            
+            <div class="section">
+              <div class="section-title">Key Metrics</div>
+              <div class="row">
+                <span class="row-label">Completed Sessions</span>
+                <span class="row-value">${revenueData.completedSessions}</span>
+              </div>
+              <div class="row">
+                <span class="row-label">Average Session Rate</span>
+                <span class="row-value">AED ${revenueData.averageSessionRate}</span>
+              </div>
+              <div class="row">
+                <span class="row-label">Active Players</span>
+                <span class="row-value">${revenueData.activePlayers}</span>
+              </div>
+              <div class="row">
+                <span class="row-label">Player Lifetime Value</span>
+                <span class="row-value">AED ${revenueData.playerLifetimeValue.toLocaleString()}</span>
+              </div>
+              <div class="row">
+                <span class="row-label">Pending Payments</span>
+                <span class="row-value" style="color: #F97316;">AED ${revenueData.pendingAmount.toLocaleString()}</span>
+              </div>
+            </div>
+            
+            <div class="footer">
+              Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}
+            </div>
+          </body>
+        </html>
+      `;
+
+      if (Platform.OS === 'web') {
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          printWindow.document.write(htmlContent);
+          printWindow.document.close();
+          printWindow.print();
+        }
+      } else {
+        const { uri } = await Print.printToFileAsync({ html: htmlContent });
+        
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(uri, { 
+            mimeType: 'application/pdf',
+            dialogTitle: 'Share Revenue Report',
+            UTI: 'com.adobe.pdf'
+          });
+        } else {
+          Alert.alert('PDF Generated', 'Report saved successfully');
+        }
+      }
+    } catch (error) {
+      console.error('PDF export error:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Failed to generate PDF');
+      } else {
+        Alert.alert('Error', 'Failed to generate PDF');
+      }
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const ballLevelDistribution = players.reduce((acc: Record<string, number>, player: any) => {
@@ -191,36 +376,99 @@ export default function AdminReportsScreen() {
         title = "Revenue Report";
         icon = "cash-outline";
         iconColor = Colors.dark.gold;
+        const isCurrentMonth = selectedMonth === new Date().getMonth() + 1 && selectedYear === new Date().getFullYear();
         content = (
           <View style={styles.reportModalContent}>
-            <View style={styles.revenueHeader}>
-              <Text style={styles.revenueAmount}>AED {stats.monthlyRevenue.toLocaleString()}</Text>
-              <Text style={styles.revenueLabel}>Monthly Revenue</Text>
+            <View style={styles.monthSelector}>
+              <Pressable onPress={handlePreviousMonth} style={styles.monthArrow}>
+                <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
+              </Pressable>
+              <View style={styles.monthDisplay}>
+                <Text style={styles.monthText}>{MONTHS[selectedMonth - 1]} {selectedYear}</Text>
+              </View>
+              <Pressable 
+                onPress={handleNextMonth} 
+                style={[styles.monthArrow, isCurrentMonth && styles.monthArrowDisabled]}
+                disabled={isCurrentMonth}
+              >
+                <Ionicons name="chevron-forward" size={24} color={isCurrentMonth ? Colors.dark.textMuted : Colors.dark.text} />
+              </Pressable>
             </View>
-            <View style={styles.reportDivider} />
-            <Text style={styles.reportSubheader}>Revenue Breakdown</Text>
-            <View style={styles.reportRow}>
-              <Text style={styles.reportRowText}>Session Fees</Text>
-              <Text style={styles.reportRowValue}>AED 3,200</Text>
-            </View>
-            <View style={styles.reportRow}>
-              <Text style={styles.reportRowText}>Monthly Subscriptions</Text>
-              <Text style={styles.reportRowValue}>AED 850</Text>
-            </View>
-            <View style={styles.reportRow}>
-              <Text style={styles.reportRowText}>Equipment Rentals</Text>
-              <Text style={styles.reportRowValue}>AED 200</Text>
-            </View>
-            <View style={styles.reportDivider} />
-            <Text style={styles.reportSubheader}>Key Metrics</Text>
-            <View style={styles.reportRow}>
-              <Text style={styles.reportRowText}>Average Session Rate</Text>
-              <Text style={styles.reportRowValue}>AED {stats.totalSessions > 0 ? Math.round(3200 / stats.totalSessions) : 0}</Text>
-            </View>
-            <View style={styles.reportRow}>
-              <Text style={styles.reportRowText}>Player Lifetime Value</Text>
-              <Text style={styles.reportRowValue}>AED {stats.totalPlayers > 0 ? Math.round((stats.monthlyRevenue * 6) / stats.totalPlayers) : 0}</Text>
-            </View>
+
+            {isLoadingRevenue ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={Colors.dark.gold} />
+                <Text style={styles.loadingText}>Loading revenue data...</Text>
+              </View>
+            ) : (
+              <>
+                <View style={styles.revenueHeader}>
+                  <Text style={styles.revenueAmount}>AED {(revenueData?.totalRevenue || 0).toLocaleString()}</Text>
+                  <Text style={styles.revenueLabel}>Total Revenue</Text>
+                </View>
+
+                <View style={styles.reportDivider} />
+                <Text style={styles.reportSubheader}>Revenue Breakdown</Text>
+                <View style={styles.reportRow}>
+                  <Text style={styles.reportRowText}>Session Fees</Text>
+                  <Text style={styles.reportRowValue}>AED {(revenueData?.sessionFees || 0).toLocaleString()}</Text>
+                </View>
+                <View style={styles.reportRow}>
+                  <Text style={styles.reportRowText}>Subscriptions</Text>
+                  <Text style={styles.reportRowValue}>AED {(revenueData?.subscriptionRevenue || 0).toLocaleString()}</Text>
+                </View>
+                <View style={styles.reportRow}>
+                  <Text style={styles.reportRowText}>Other Revenue</Text>
+                  <Text style={styles.reportRowValue}>AED {(revenueData?.otherRevenue || 0).toLocaleString()}</Text>
+                </View>
+                <View style={styles.reportRow}>
+                  <Text style={styles.reportRowText}>Refunds</Text>
+                  <Text style={[styles.reportRowValue, { color: Colors.dark.error }]}>- AED {(revenueData?.refundsTotal || 0).toLocaleString()}</Text>
+                </View>
+                <View style={[styles.reportRow, styles.netRevenueRow]}>
+                  <Text style={[styles.reportRowText, { fontWeight: '600' }]}>Net Revenue</Text>
+                  <Text style={[styles.reportRowValue, { color: Colors.dark.successNeon, fontWeight: '600' }]}>AED {(revenueData?.netRevenue || 0).toLocaleString()}</Text>
+                </View>
+
+                <View style={styles.reportDivider} />
+                <Text style={styles.reportSubheader}>Key Metrics</Text>
+                <View style={styles.reportRow}>
+                  <Text style={styles.reportRowText}>Completed Sessions</Text>
+                  <Text style={styles.reportRowValue}>{revenueData?.completedSessions || 0}</Text>
+                </View>
+                <View style={styles.reportRow}>
+                  <Text style={styles.reportRowText}>Average Session Rate</Text>
+                  <Text style={styles.reportRowValue}>AED {revenueData?.averageSessionRate || 0}</Text>
+                </View>
+                <View style={styles.reportRow}>
+                  <Text style={styles.reportRowText}>Active Players</Text>
+                  <Text style={styles.reportRowValue}>{revenueData?.activePlayers || 0}</Text>
+                </View>
+                <View style={styles.reportRow}>
+                  <Text style={styles.reportRowText}>Player Lifetime Value</Text>
+                  <Text style={styles.reportRowValue}>AED {(revenueData?.playerLifetimeValue || 0).toLocaleString()}</Text>
+                </View>
+                <View style={styles.reportRow}>
+                  <Text style={styles.reportRowText}>Pending Payments</Text>
+                  <Text style={[styles.reportRowValue, { color: Colors.dark.orange }]}>AED {(revenueData?.pendingAmount || 0).toLocaleString()}</Text>
+                </View>
+
+                <Pressable 
+                  style={[styles.exportButton, isExporting && styles.exportButtonDisabled]}
+                  onPress={handleExportPdf}
+                  disabled={isExporting}
+                >
+                  {isExporting ? (
+                    <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                  ) : (
+                    <Ionicons name="download-outline" size={20} color={Colors.dark.backgroundRoot} />
+                  )}
+                  <Text style={styles.exportButtonText}>
+                    {isExporting ? "Generating..." : "Download PDF"}
+                  </Text>
+                </Pressable>
+              </>
+            )}
           </View>
         );
         break;
@@ -745,5 +993,63 @@ const styles = StyleSheet.create({
     height: 4,
     backgroundColor: Colors.dark.primary,
     borderRadius: 2,
+  },
+  monthSelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+  },
+  monthArrow: {
+    padding: Spacing.sm,
+  },
+  monthArrowDisabled: {
+    opacity: 0.3,
+  },
+  monthDisplay: {
+    flex: 1,
+    alignItems: "center",
+  },
+  monthText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  loadingContainer: {
+    alignItems: "center",
+    padding: Spacing.xl,
+    gap: Spacing.md,
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+  },
+  netRevenueRow: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.md,
+  },
+  exportButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.gold,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.xl,
+  },
+  exportButtonDisabled: {
+    opacity: 0.6,
+  },
+  exportButtonText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
   },
 });

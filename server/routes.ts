@@ -6107,6 +6107,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin - Get revenue report by month
+  app.get("/api/admin/revenue", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const month = parseInt(req.query.month as string) || new Date().getMonth() + 1;
+      const year = parseInt(req.query.year as string) || new Date().getFullYear();
+
+      const revenue = await storage.getAdminRevenueByMonth(academyId, year, month);
+
+      const players = await storage.getPlayersByAcademy(academyId);
+      const activePlayers = players.filter(p => p.status === 'active').length;
+      const playerLifetimeValue = activePlayers > 0 
+        ? Math.round((revenue.totalRevenue * 12) / activePlayers) 
+        : 0;
+
+      res.json({
+        month,
+        year,
+        monthName: new Date(year, month - 1).toLocaleString('default', { month: 'long' }),
+        ...revenue,
+        activePlayers,
+        playerLifetimeValue,
+      });
+    } catch (error) {
+      console.error("Admin revenue error:", error);
+      res.status(500).json({ error: "Failed to fetch revenue data" });
+    }
+  });
+
   // Admin - Get detailed player stats with payments
   app.get("/api/admin/players/:playerId/stats", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {

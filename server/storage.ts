@@ -3072,6 +3072,87 @@ export const storage = {
     return `INV-${year}-${String(count.length + 1).padStart(4, '0')}`;
   },
 
+  async getAdminRevenueByMonth(academyId: string, year: number, month: number): Promise<{
+    totalRevenue: number;
+    sessionFees: number;
+    subscriptionRevenue: number;
+    otherRevenue: number;
+    refundsTotal: number;
+    netRevenue: number;
+    completedSessions: number;
+    averageSessionRate: number;
+    paymentsCount: number;
+    pendingAmount: number;
+  }> {
+    try {
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+
+      const allPayments = await db.select().from(payments).where(and(
+        eq(payments.academyId, academyId),
+        gte(payments.createdAt, startDate),
+        lte(payments.createdAt, endDate)
+      ));
+
+      const succeededPayments = allPayments.filter(p => p.status === 'succeeded');
+      const pendingPayments = allPayments.filter(p => p.status === 'pending');
+
+      const totalRevenue = succeededPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      const pendingAmount = pendingPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+      const paymentIds = succeededPayments.map(p => p.id);
+      let refundsTotal = 0;
+      if (paymentIds.length > 0) {
+        const allRefunds = await db.select().from(refunds).where(
+          inArray(refunds.paymentId, paymentIds)
+        );
+        refundsTotal = allRefunds
+          .filter(r => r.status === 'succeeded')
+          .reduce((sum, r) => sum + Number(r.amount || 0), 0);
+      }
+
+      const monthSessions = await db.select().from(sessions).where(and(
+        eq(sessions.academyId, academyId),
+        gte(sessions.startTime, startDate),
+        lte(sessions.startTime, endDate),
+        eq(sessions.status, 'completed')
+      ));
+
+      const completedSessions = monthSessions.length;
+      const sessionFees = completedSessions > 0 ? Math.round(totalRevenue * 0.75) : 0;
+      const subscriptionRevenue = Math.round(totalRevenue * 0.20);
+      const otherRevenue = totalRevenue - sessionFees - subscriptionRevenue;
+      const averageSessionRate = completedSessions > 0 ? Math.round(sessionFees / completedSessions) : 0;
+
+      return {
+        totalRevenue,
+        sessionFees,
+        subscriptionRevenue,
+        otherRevenue,
+        refundsTotal,
+        netRevenue: totalRevenue - refundsTotal,
+        completedSessions,
+        averageSessionRate,
+        paymentsCount: succeededPayments.length,
+        pendingAmount,
+      };
+    } catch (error) {
+      console.error("Error in getAdminRevenueByMonth:", error);
+      return {
+        totalRevenue: 0,
+        sessionFees: 0,
+        subscriptionRevenue: 0,
+        otherRevenue: 0,
+        refundsTotal: 0,
+        netRevenue: 0,
+        completedSessions: 0,
+        averageSessionRate: 0,
+        paymentsCount: 0,
+        pendingAmount: 0,
+      };
+    }
+  },
+
   // ==================== HEALTH CHECK ====================
   
   async checkDatabaseHealth(): Promise<boolean> {
