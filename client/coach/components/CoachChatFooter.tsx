@@ -98,6 +98,7 @@ export function CoachChatFooter() {
   const [showSquadSelector, setShowSquadSelector] = useState(false);
   const [showCoachSelector, setShowCoachSelector] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Map<string, Set<string>>>(new Map());
+  const [academyConvCreated, setAcademyConvCreated] = useState<Conversation | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -211,6 +212,9 @@ export function CoachChatFooter() {
     onSuccess: (data: Conversation) => {
       queryClient.invalidateQueries({ queryKey: ["/api/coaches", coach?.id, "conversations"] });
       setSelectedConversation(data);
+      if (data.type === "academy") {
+        setAcademyConvCreated(data);
+      }
       setShowNewMessage(false);
       setShowSquadSelector(false);
       setShowCoachSelector(false);
@@ -329,20 +333,26 @@ export function CoachChatFooter() {
   // Auto-select or create Academy conversation when Academy tab is active
   useEffect(() => {
     if (currentTab === "academy" && !createConversationMutation.isPending) {
+      // First check if we have an academy conversation from the server
       const academyConv = conversations.find(c => c.type === "academy");
       if (academyConv) {
         if (!selectedConversation || selectedConversation.id !== academyConv.id) {
           setSelectedConversation(academyConv);
         }
-      } else if (conversations.length === 0 || !conversations.some(c => c.type === "academy")) {
-        // Auto-create academy chat if it doesn't exist
+      } else if (academyConvCreated) {
+        // Use locally created academy conversation if backend hasn't returned it yet
+        if (!selectedConversation || selectedConversation.id !== academyConvCreated.id) {
+          setSelectedConversation(academyConvCreated);
+        }
+      } else {
+        // Create academy chat if it doesn't exist
         createConversationMutation.mutate({
           type: "academy",
           title: "Academy Chat",
         });
       }
     }
-  }, [currentTab, conversations, selectedConversation, createConversationMutation.isPending]);
+  }, [currentTab, conversations, selectedConversation, createConversationMutation.isPending, academyConvCreated]);
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isOwn = item.senderType === "coach" && item.senderCoachId === coach?.id;
