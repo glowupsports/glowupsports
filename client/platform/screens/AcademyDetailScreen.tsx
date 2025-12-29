@@ -41,6 +41,10 @@ export default function AcademyDetailScreen() {
 
   const { data: academy, isLoading } = useQuery<AcademyDetails>({
     queryKey: ["/api/platform/academies", academyId],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/platform/academies/${academyId}`);
+      return res.json();
+    },
   });
 
   useEffect(() => {
