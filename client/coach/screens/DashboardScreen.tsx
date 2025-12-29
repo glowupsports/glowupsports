@@ -21,6 +21,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
+import { getApiUrl } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -51,6 +52,13 @@ interface Alert {
   priority: "high" | "medium" | "low";
 }
 
+interface WeeklyCalendarData {
+  ownSessions: Session[];
+  blockedSessions: any[];
+  courts: any[];
+  dateRange: { start: string; end: string };
+}
+
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -61,6 +69,23 @@ export default function DashboardScreen() {
   const [focusCollapsed, setFocusCollapsed] = useState(false);
   const [energyCollapsed, setEnergyCollapsed] = useState(false);
   const [selectedDayOffset, setSelectedDayOffset] = useState(0);
+  
+  const todayDateStr = new Date().toISOString().split("T")[0];
+  const { data: weeklyCalendarData } = useQuery<WeeklyCalendarData>({
+    queryKey: ["/api/coach/calendar", coach?.id, todayDateStr, "week"],
+    queryFn: async () => {
+      const baseUrl = getApiUrl();
+      const url = new URL(`/api/coach/calendar?coachId=${coach?.id}&date=${todayDateStr}&view=week`, baseUrl);
+      const response = await fetch(url.toString(), {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch weekly calendar");
+      return response.json();
+    },
+    enabled: !!coach?.id,
+  });
+  
+  const allSessions = weeklyCalendarData?.ownSessions || calendarData?.ownSessions || [];
 
   // Pulse animation for live indicator
   const pulseScale = useSharedValue(1);
@@ -98,8 +123,8 @@ export default function DashboardScreen() {
   const selectedDate = getDateForOffset(selectedDayOffset);
   
   const getSessionsForDate = (date: Date) => {
-    if (!calendarData?.ownSessions) return [];
-    return calendarData.ownSessions.filter((session) => {
+    if (!allSessions || allSessions.length === 0) return [];
+    return allSessions.filter((session) => {
       const sessionDate = new Date(session.startTime);
       return (
         sessionDate.getFullYear() === date.getFullYear() &&
@@ -110,8 +135,8 @@ export default function DashboardScreen() {
     });
   };
   
-  const todaysSessions = useMemo(() => getSessionsForDate(today), [calendarData?.ownSessions]);
-  const selectedDaySessions = useMemo(() => getSessionsForDate(selectedDate), [calendarData?.ownSessions, selectedDayOffset]);
+  const todaysSessions = useMemo(() => getSessionsForDate(today), [allSessions]);
+  const selectedDaySessions = useMemo(() => getSessionsForDate(selectedDate), [allSessions, selectedDayOffset]);
   
   const getDayLabel = (offset: number) => {
     if (offset === 0) return "TODAY";
