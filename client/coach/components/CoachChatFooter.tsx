@@ -583,6 +583,13 @@ export function CoachChatFooter() {
     </View>
   );
 
+  const handleCreateAcademyChat = () => {
+    createConversationMutation.mutate({
+      type: "academy",
+      title: "Academy Chat",
+    });
+  };
+
   const renderConversationListContent = () => (
     <>
       <FlatList
@@ -612,6 +619,42 @@ export function CoachChatFooter() {
           <View style={styles.emptyState}>
             <Ionicons name="chatbubbles-outline" size={40} color={Colors.dark.tabIconDefault} />
             <ThemedText style={styles.emptyText}>No {currentTabConfig?.name.toLowerCase()} chats yet</ThemedText>
+            {currentTab === "academy" ? (
+              <Pressable
+                onPress={handleCreateAcademyChat}
+                style={styles.startChatButton}
+                disabled={createConversationMutation.isPending}
+              >
+                <Ionicons name="chatbubble" size={16} color={Colors.dark.buttonText} />
+                <ThemedText style={styles.startChatButtonText}>
+                  {createConversationMutation.isPending ? "Starting..." : "Start Academy Chat"}
+                </ThemedText>
+              </Pressable>
+            ) : currentTab === "players" ? (
+              <Pressable
+                onPress={() => setShowNewMessage(true)}
+                style={styles.startChatButton}
+              >
+                <Ionicons name="add" size={16} color={Colors.dark.buttonText} />
+                <ThemedText style={styles.startChatButtonText}>Message a Player</ThemedText>
+              </Pressable>
+            ) : currentTab === "coaches" ? (
+              <Pressable
+                onPress={() => setShowCoachSelector(true)}
+                style={styles.startChatButton}
+              >
+                <Ionicons name="add" size={16} color={Colors.dark.buttonText} />
+                <ThemedText style={styles.startChatButtonText}>Message a Coach</ThemedText>
+              </Pressable>
+            ) : currentTab === "squad" ? (
+              <Pressable
+                onPress={() => setShowSquadSelector(true)}
+                style={styles.startChatButton}
+              >
+                <Ionicons name="add" size={16} color={Colors.dark.buttonText} />
+                <ThemedText style={styles.startChatButtonText}>Select a Squad</ThemedText>
+              </Pressable>
+            ) : null}
           </View>
         }
       />
@@ -1164,5 +1207,20 @@ const styles = StyleSheet.create({
     height: 32,
     justifyContent: "center",
     alignItems: "center",
+  },
+  startChatButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.primary,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.lg,
+  },
+  startChatButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.buttonText,
   },
 });
