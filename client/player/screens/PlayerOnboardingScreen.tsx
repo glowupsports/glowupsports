@@ -7,6 +7,9 @@ import {
   Dimensions,
   FlatList,
   Platform,
+  ScrollView,
+  TextInput,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -31,8 +34,9 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface OnboardingData {
   motivationType: string | null;
-  age: number | null;
+  dateOfBirth: string | null;
   dominantHand: string | null;
+  backhandType: string | null;
   experienceLevel: string | null;
   enjoymentTags: string[];
   focusGoals: string[];
@@ -56,7 +60,15 @@ const EXPERIENCE_OPTIONS = [
   { id: "new", label: "New to tennis" },
   { id: "6-12months", label: "6-12 months" },
   { id: "1-3years", label: "1-3 years" },
-  { id: "3+years", label: "3+ years" },
+  { id: "3-5years", label: "3-5 years" },
+  { id: "5-10years", label: "5-10 years" },
+  { id: "10-20years", label: "10-20 years" },
+  { id: "20+years", label: "20+ years" },
+];
+
+const BACKHAND_OPTIONS = [
+  { id: "single", label: "Single-handed", icon: "hand-right-outline" },
+  { id: "double", label: "Double-handed", icon: "body-outline" },
 ];
 
 const HAND_OPTIONS = [
@@ -89,7 +101,25 @@ const CONFIDENCE_OPTIONS = [
   { id: "learning", label: "I'm still learning fundamentals" },
 ];
 
-const AGE_OPTIONS = Array.from({ length: 80 }, (_, i) => i + 4);
+function calculateAge(dateOfBirth: string): number {
+  const today = new Date();
+  const birthDate = new Date(dateOfBirth);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+}
+
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { 
+    month: 'long', 
+    day: 'numeric', 
+    year: 'numeric' 
+  });
+}
 
 function ProgressBar({ currentStep, totalSteps }: { currentStep: number; totalSteps: number }) {
   return (
@@ -185,116 +215,295 @@ function WelcomeStep({ data, setData, onNext }: StepProps) {
   );
 }
 
+function DateOfBirthPicker({ 
+  value, 
+  onChange 
+}: { 
+  value: string | null; 
+  onChange: (date: string) => void;
+}) {
+  const [showPicker, setShowPicker] = useState(false);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+
+  const years = Array.from({ length: 80 }, (_, i) => new Date().getFullYear() - i);
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+  
+  const getDaysInMonth = (year: number, month: number) => {
+    return new Date(year, month + 1, 0).getDate();
+  };
+
+  const days = selectedYear !== null && selectedMonth !== null 
+    ? Array.from({ length: getDaysInMonth(selectedYear, selectedMonth) }, (_, i) => i + 1)
+    : [];
+
+  const handleConfirm = () => {
+    if (selectedYear !== null && selectedMonth !== null && selectedDay !== null) {
+      const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
+      onChange(dateStr);
+      setShowPicker(false);
+    }
+  };
+
+  return (
+    <>
+      <Pressable
+        style={[styles.datePickerButton, value ? styles.datePickerButtonActive : null]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          setShowPicker(true);
+        }}
+      >
+        <Ionicons 
+          name="calendar-outline" 
+          size={22} 
+          color={value ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+        />
+        <Text style={[styles.datePickerText, value ? styles.datePickerTextActive : null]}>
+          {value ? formatDate(value) : "Select your date of birth"}
+        </Text>
+        {value ? (
+          <View style={styles.ageBadge}>
+            <Text style={styles.ageBadgeText}>{calculateAge(value)} years old</Text>
+          </View>
+        ) : null}
+      </Pressable>
+
+      <Modal
+        visible={showPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPicker(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setShowPicker(false)}
+        >
+          <Pressable style={styles.datePickerModal} onPress={() => {}}>
+            <Text style={styles.datePickerModalTitle}>Select Date of Birth</Text>
+            
+            <View style={styles.datePickerColumns}>
+              <View style={styles.datePickerColumn}>
+                <Text style={styles.datePickerColumnLabel}>Year</Text>
+                <ScrollView style={styles.datePickerScroll} showsVerticalScrollIndicator={false}>
+                  {years.map((year) => (
+                    <Pressable
+                      key={year}
+                      style={[
+                        styles.datePickerItem,
+                        selectedYear === year ? styles.datePickerItemActive : null,
+                      ]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSelectedYear(year);
+                      }}
+                    >
+                      <Text style={[
+                        styles.datePickerItemText,
+                        selectedYear === year ? styles.datePickerItemTextActive : null,
+                      ]}>
+                        {year}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+
+              <View style={styles.datePickerColumn}>
+                <Text style={styles.datePickerColumnLabel}>Month</Text>
+                <ScrollView style={styles.datePickerScroll} showsVerticalScrollIndicator={false}>
+                  {months.map((month, index) => (
+                    <Pressable
+                      key={month}
+                      style={[
+                        styles.datePickerItem,
+                        selectedMonth === index ? styles.datePickerItemActive : null,
+                      ]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSelectedMonth(index);
+                      }}
+                    >
+                      <Text style={[
+                        styles.datePickerItemText,
+                        selectedMonth === index ? styles.datePickerItemTextActive : null,
+                      ]}>
+                        {month.substring(0, 3)}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+
+              <View style={styles.datePickerColumn}>
+                <Text style={styles.datePickerColumnLabel}>Day</Text>
+                <ScrollView style={styles.datePickerScroll} showsVerticalScrollIndicator={false}>
+                  {days.map((day) => (
+                    <Pressable
+                      key={day}
+                      style={[
+                        styles.datePickerItem,
+                        selectedDay === day ? styles.datePickerItemActive : null,
+                      ]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSelectedDay(day);
+                      }}
+                    >
+                      <Text style={[
+                        styles.datePickerItemText,
+                        selectedDay === day ? styles.datePickerItemTextActive : null,
+                      ]}>
+                        {day}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+
+            <View style={styles.datePickerActions}>
+              <Pressable
+                style={styles.datePickerCancelButton}
+                onPress={() => setShowPicker(false)}
+              >
+                <Text style={styles.datePickerCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.datePickerConfirmButton,
+                  (selectedYear === null || selectedMonth === null || selectedDay === null) 
+                    ? styles.datePickerConfirmButtonDisabled : null,
+                ]}
+                onPress={handleConfirm}
+                disabled={selectedYear === null || selectedMonth === null || selectedDay === null}
+              >
+                <Text style={styles.datePickerConfirmText}>Confirm</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
+  );
+}
+
 function ProfileStep({ data, setData, onNext }: StepProps) {
   return (
-    <View style={styles.stepContainer}>
-      <Animated.View entering={FadeInDown.delay(100).duration(500)}>
-        <Text style={styles.stepTitle}>Tell us about yourself</Text>
-        <Text style={styles.stepSubtitle}>
-          Just the basics — your coach will help with the rest.
-        </Text>
-      </Animated.View>
+    <ScrollView 
+      style={styles.profileScrollView}
+      contentContainerStyle={styles.profileScrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.stepContainer}>
+        <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+          <Text style={styles.stepTitle}>Tell us about yourself</Text>
+          <Text style={styles.stepSubtitle}>
+            Just the basics — your coach will help with the rest.
+          </Text>
+        </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.sectionContainer}>
-        <Text style={styles.sectionLabel}>Your age</Text>
-        <View style={styles.ageSelector}>
-          {[6, 8, 10, 12, 14, 16, 18].map((age) => (
-            <Pressable
-              key={age}
-              style={[
-                styles.ageButton,
-                data.age === age ? styles.ageButtonActive : null,
-              ]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setData((prev) => ({ ...prev, age }));
-              }}
-            >
-              <Text style={[
-                styles.ageButtonText,
-                data.age === age ? styles.ageButtonTextActive : null,
-              ]}>
-                {age}
-              </Text>
-            </Pressable>
-          ))}
-          <Pressable
-            style={[
-              styles.ageButton,
-              data.age && data.age > 18 ? styles.ageButtonActive : null,
-            ]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setData((prev) => ({ ...prev, age: 25 }));
-            }}
-          >
-            <Text style={[
-              styles.ageButtonText,
-              data.age && data.age > 18 ? styles.ageButtonTextActive : null,
-            ]}>
-              18+
-            </Text>
-          </Pressable>
-        </View>
-      </Animated.View>
+        <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.sectionContainer}>
+          <Text style={styles.sectionLabel}>Date of birth</Text>
+          <DateOfBirthPicker
+            value={data.dateOfBirth}
+            onChange={(date) => setData((prev) => ({ ...prev, dateOfBirth: date }))}
+          />
+        </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.sectionContainer}>
-        <Text style={styles.sectionLabel}>Dominant hand</Text>
-        <View style={styles.handSelector}>
-          {HAND_OPTIONS.map((option) => (
-            <Pressable
-              key={option.id}
-              style={[
-                styles.handButton,
-                data.dominantHand === option.id ? styles.handButtonActive : null,
-              ]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setData((prev) => ({ ...prev, dominantHand: option.id }));
-              }}
-            >
-              <Ionicons 
-                name={option.icon as any} 
-                size={28} 
-                color={data.dominantHand === option.id ? Colors.dark.xpCyan : Colors.dark.textMuted} 
-              />
-              <Text style={[
-                styles.handButtonText,
-                data.dominantHand === option.id ? styles.handButtonTextActive : null,
-              ]}>
-                {option.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </Animated.View>
+        <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.sectionContainer}>
+          <Text style={styles.sectionLabel}>Dominant hand</Text>
+          <View style={styles.handSelector}>
+            {HAND_OPTIONS.map((option) => (
+              <Pressable
+                key={option.id}
+                style={[
+                  styles.handButton,
+                  data.dominantHand === option.id ? styles.handButtonActive : null,
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setData((prev) => ({ ...prev, dominantHand: option.id }));
+                }}
+              >
+                <Ionicons 
+                  name={option.icon as any} 
+                  size={28} 
+                  color={data.dominantHand === option.id ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+                />
+                <Text style={[
+                  styles.handButtonText,
+                  data.dominantHand === option.id ? styles.handButtonTextActive : null,
+                ]}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(400).duration(500)} style={styles.sectionContainer}>
-        <Text style={styles.sectionLabel}>Tennis experience</Text>
-        <View style={styles.experienceGrid}>
-          {EXPERIENCE_OPTIONS.map((option) => (
-            <Pressable
-              key={option.id}
-              style={[
-                styles.experienceButton,
-                data.experienceLevel === option.id ? styles.experienceButtonActive : null,
-              ]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setData((prev) => ({ ...prev, experienceLevel: option.id }));
-              }}
-            >
-              <Text style={[
-                styles.experienceButtonText,
-                data.experienceLevel === option.id ? styles.experienceButtonTextActive : null,
-              ]}>
-                {option.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </Animated.View>
-    </View>
+        <Animated.View entering={FadeInDown.delay(350).duration(500)} style={styles.sectionContainer}>
+          <Text style={styles.sectionLabel}>Backhand style</Text>
+          <View style={styles.handSelector}>
+            {BACKHAND_OPTIONS.map((option) => (
+              <Pressable
+                key={option.id}
+                style={[
+                  styles.handButton,
+                  data.backhandType === option.id ? styles.handButtonActive : null,
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setData((prev) => ({ ...prev, backhandType: option.id }));
+                }}
+              >
+                <Ionicons 
+                  name={option.icon as any} 
+                  size={28} 
+                  color={data.backhandType === option.id ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+                />
+                <Text style={[
+                  styles.handButtonText,
+                  data.backhandType === option.id ? styles.handButtonTextActive : null,
+                ]}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(400).duration(500)} style={styles.sectionContainer}>
+          <Text style={styles.sectionLabel}>Tennis experience</Text>
+          <View style={styles.experienceGrid}>
+            {EXPERIENCE_OPTIONS.map((option) => (
+              <Pressable
+                key={option.id}
+                style={[
+                  styles.experienceButton,
+                  data.experienceLevel === option.id ? styles.experienceButtonActive : null,
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setData((prev) => ({ ...prev, experienceLevel: option.id }));
+                }}
+              >
+                <Text style={[
+                  styles.experienceButtonText,
+                  data.experienceLevel === option.id ? styles.experienceButtonTextActive : null,
+                ]}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </Animated.View>
+      </View>
+    </ScrollView>
   );
 }
 
@@ -475,8 +684,9 @@ export default function PlayerOnboardingScreen({ onComplete }: Props) {
   const [currentStep, setCurrentStep] = useState(0);
   const [data, setData] = useState<OnboardingData>({
     motivationType: null,
-    age: null,
+    dateOfBirth: null,
     dominantHand: null,
+    backhandType: null,
     experienceLevel: null,
     enjoymentTags: [],
     focusGoals: [],
@@ -532,7 +742,7 @@ export default function PlayerOnboardingScreen({ onComplete }: Props) {
       case 0:
         return !!data.motivationType;
       case 1:
-        return !!data.age && !!data.dominantHand && !!data.experienceLevel;
+        return !!data.dateOfBirth && !!data.dominantHand && !!data.backhandType && !!data.experienceLevel;
       case 2:
         return data.enjoymentTags.length > 0;
       case 3:
@@ -903,6 +1113,132 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   nextButtonText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  profileScrollView: {
+    flex: 1,
+  },
+  profileScrollContent: {
+    paddingBottom: Spacing.xl,
+  },
+  datePickerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  datePickerButtonActive: {
+    borderColor: Colors.dark.xpCyan,
+    backgroundColor: `${Colors.dark.xpCyan}10`,
+  },
+  datePickerText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    flex: 1,
+  },
+  datePickerTextActive: {
+    color: Colors.dark.text,
+  },
+  ageBadge: {
+    backgroundColor: Colors.dark.xpCyan,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.md,
+  },
+  ageBadgeText: {
+    ...Typography.small,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  datePickerModal: {
+    width: "90%",
+    maxWidth: 400,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+  },
+  datePickerModalTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    textAlign: "center",
+    marginBottom: Spacing.lg,
+  },
+  datePickerColumns: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    height: 200,
+  },
+  datePickerColumn: {
+    flex: 1,
+  },
+  datePickerColumnLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    marginBottom: Spacing.sm,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  datePickerScroll: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+  },
+  datePickerItem: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    alignItems: "center",
+  },
+  datePickerItemActive: {
+    backgroundColor: `${Colors.dark.xpCyan}20`,
+  },
+  datePickerItemText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  datePickerItemTextActive: {
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+  },
+  datePickerActions: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginTop: Spacing.lg,
+  },
+  datePickerCancelButton: {
+    flex: 1,
+    padding: Spacing.md,
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+  },
+  datePickerCancelText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+  },
+  datePickerConfirmButton: {
+    flex: 1,
+    padding: Spacing.md,
+    alignItems: "center",
+    backgroundColor: Colors.dark.xpCyan,
+    borderRadius: BorderRadius.md,
+  },
+  datePickerConfirmButtonDisabled: {
+    opacity: 0.5,
+  },
+  datePickerConfirmText: {
     ...Typography.body,
     color: Colors.dark.backgroundRoot,
     fontWeight: "600",
