@@ -6010,7 +6010,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const thirtyDaysAgo = new Date(now);
       thirtyDaysAgo.setDate(now.getDate() - 30);
 
-      const sessions = await storage.getPlayerSessionsWithDetails(playerId);
+      const farPast = new Date(2020, 0, 1);
+      const farFuture = new Date(2030, 11, 31);
+      const sessions = await storage.getPlayerSessionsWithDetails(playerId, farPast, farFuture);
       const recentSessions = sessions.filter((s: any) => {
         const sessionDate = new Date(s.startTime);
         return sessionDate >= thirtyDaysAgo;

@@ -711,11 +711,12 @@ export const storage = {
     const result = await db
       .select({ count: sql<number>`count(*)` })
       .from(sessionFeedback)
+      .innerJoin(sessions, eq(sessionFeedback.sessionId, sessions.id))
       .where(
         and(
-          eq(sessionFeedback.coachId, coachId),
-          gte(sessionFeedback.feedbackDate, startDate),
-          lte(sessionFeedback.feedbackDate, endDate)
+          eq(sessions.coachId, coachId),
+          gte(sessions.startTime, startDate),
+          lte(sessions.startTime, endDate)
         )
       );
     return result[0]?.count || 0;
