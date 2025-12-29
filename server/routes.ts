@@ -7002,28 +7002,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const academyId = req.user?.academyId;
       
-      const courts = [
-        { id: "court-1", name: "Court 1" },
-        { id: "court-2", name: "Court 2" },
-        { id: "court-3", name: "Court 3" },
-      ];
+      let dbCourts: any[] = [];
+      if (academyId) {
+        dbCourts = await storage.getAllCourts(academyId);
+      }
 
-      const mockSchedule = courts.map(court => ({
-        name: court.name,
-        sessions: [
-          { time: "09:00", coach: "Alex", status: "booked" as const },
-          { time: "10:00", coach: "Maria", status: "booked" as const },
-          { time: "11:00", coach: "", status: "available" as const },
-          { time: "12:00", coach: "", status: "available" as const },
-          { time: "13:00", coach: "Alex", status: "booked" as const },
-        ],
-      }));
+      const courtSchedule = dbCourts.length > 0 
+        ? dbCourts.map(court => ({
+            name: court.name,
+            sessions: [],
+          }))
+        : [];
 
       res.json({
-        courts: mockSchedule,
+        courts: courtSchedule,
         insights: {
-          peakHours: "10-12",
-          utilization: 72,
+          peakHours: "N/A",
+          utilization: 0,
           conflicts: 0,
         },
       });
@@ -7036,33 +7031,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Academy Owner - Get finance data
   app.get("/api/owner/finance", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
+      const academyId = req.user?.academyId;
+      
+      let payments: any[] = [];
+      // Payments endpoint - currently no data until payments feature is implemented
+
+      const collected = payments.filter(p => p.status === "paid").reduce((sum, p) => sum + (p.amount || 0), 0);
+      const pending = payments.filter(p => p.status === "pending").reduce((sum, p) => sum + (p.amount || 0), 0);
+      const overdue = payments.filter(p => p.status === "overdue").reduce((sum, p) => sum + (p.amount || 0), 0);
+
       res.json({
         revenue: {
-          thisWeek: 2450,
-          thisMonth: 8750,
-          weekChange: 12,
-          monthChange: 8,
-          weekSessions: 28,
-          monthSessions: 112,
+          thisWeek: 0,
+          thisMonth: 0,
+          weekChange: 0,
+          monthChange: 0,
+          weekSessions: 0,
+          monthSessions: 0,
         },
         summary: {
-          collected: 7850,
-          pending: 499,
-          overdue: 299,
+          collected,
+          pending,
+          overdue,
         },
-        payments: [
-          { id: "p1", playerName: "Tommy Wilson", package: "Monthly Unlimited", amount: 299, status: "paid" },
-          { id: "p2", playerName: "Sarah Chen", package: "8-Session Pack", amount: 200, status: "pending", dueDate: "Jan 5" },
-          { id: "p3", playerName: "Emma Davis", package: "Monthly Unlimited", amount: 299, status: "overdue", dueDate: "Dec 20" },
-          { id: "p4", playerName: "Jake Brown", package: "4-Session Pack", amount: 120, status: "paid" },
-        ],
+        payments: payments.map(p => ({
+          id: p.id,
+          playerName: p.playerName || "Unknown",
+          package: p.packageName || "Session",
+          amount: p.amount || 0,
+          status: p.status || "pending",
+          dueDate: p.dueDate,
+        })),
         subscriptions: {
-          total: 18,
-          monthlyRevenue: 5382,
-          breakdown: [
-            { type: "Monthly Unlimited", count: 12 },
-            { type: "Session Packs", count: 6 },
-          ],
+          total: 0,
+          monthlyRevenue: 0,
+          breakdown: [],
         },
       });
     } catch (error) {
