@@ -1,7 +1,8 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 
 interface SectionCardProps {
@@ -29,6 +30,15 @@ function SectionCard({ icon, title, description, onPress }: SectionCardProps) {
 export default function AcademyScreen() {
   const insets = useSafeAreaInsets();
 
+  const showComingSoon = (feature: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS === "web") {
+      window.alert(`${feature} - Coming soon! This feature is currently being developed.`);
+    } else {
+      Alert.alert(feature, "This feature is currently being developed. Check back soon!");
+    }
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView
@@ -46,16 +56,19 @@ export default function AcademyScreen() {
             icon="business"
             title="Academy Profile"
             description="Name, logo, brand colors, contact info"
+            onPress={() => showComingSoon("Academy Profile")}
           />
           <SectionCard
             icon="location"
             title="Courts"
             description="Manage courts, capacity, and availability"
+            onPress={() => showComingSoon("Courts Management")}
           />
           <SectionCard
             icon="document-text"
             title="Rules & Policies"
             description="Attendance, cancellation, and XP rules"
+            onPress={() => showComingSoon("Rules & Policies")}
           />
         </View>
       </ScrollView>

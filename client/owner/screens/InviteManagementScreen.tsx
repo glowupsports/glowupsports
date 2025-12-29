@@ -10,6 +10,7 @@ import {
   Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
@@ -109,6 +110,7 @@ function InviteCard({ invite, onCopy }: InviteCardProps) {
 
 export default function InviteManagementScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const queryClient = useQueryClient();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [email, setEmail] = useState("");
@@ -174,8 +176,21 @@ export default function InviteManagementScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Coach Invites</Text>
-        <Text style={styles.subtitle}>Invite coaches to join your academy</Text>
+        <View style={styles.headerRow}>
+          <Pressable 
+            style={styles.backButton} 
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.goBack();
+            }}
+          >
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <View style={styles.headerContent}>
+            <Text style={styles.title}>Coach Invites</Text>
+            <Text style={styles.subtitle}>Invite coaches to join your academy</Text>
+          </View>
+        </View>
       </View>
 
       <View style={styles.statsRow}>
@@ -328,6 +343,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.md,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.md,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerContent: {
+    flex: 1,
   },
   title: {
     ...Typography.h1,

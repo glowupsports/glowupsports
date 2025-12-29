@@ -5692,10 +5692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         academy: academy ? {
           id: academy.id,
           name: academy.name,
-        } : {
-          id: "demo-academy",
-          name: "Your Academy",
-        },
+        } : null,
         stats: {
           totalPlayers,
           activePlayers: activePlayersCount,
@@ -5704,23 +5701,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           completedSessions,
           avgAttendanceRate,
         },
-        topPerformers: topPerformers.length > 0 ? topPerformers : [
-          { id: "demo-1", name: "Alex Chen", level: 8, totalXp: 4250, glowScore: 92, ballLevel: "yellow" },
-          { id: "demo-2", name: "Maria Santos", level: 7, totalXp: 3890, glowScore: 88, ballLevel: "yellow" },
-          { id: "demo-3", name: "James Wilson", level: 6, totalXp: 3120, glowScore: 85, ballLevel: "green" },
-          { id: "demo-4", name: "Sophie Liu", level: 5, totalXp: 2750, glowScore: 82, ballLevel: "green" },
-          { id: "demo-5", name: "Lucas Brown", level: 5, totalXp: 2400, glowScore: 79, ballLevel: "green" },
-        ],
-        levelDistribution: totalPlayers > 0 ? levelDistribution : {
-          beginner: 12,
-          intermediate: 18,
-          advanced: 5,
-        },
-        recentActivity: [
-          { type: "session", message: "Group training completed", time: "2 hours ago" },
-          { type: "xp", message: "5 players leveled up this week", time: "Today" },
-          { type: "attendance", message: "92% attendance rate this month", time: "This month" },
-        ],
+        topPerformers,
+        levelDistribution,
+        recentActivity: [],
       });
     } catch (error) {
       console.error("Owner academy stats error:", error);

@@ -1,10 +1,15 @@
 import React from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
+import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
+
+type NavigationProp = NativeStackNavigationProp<OwnerStackParamList>;
 
 interface SettingRowProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -70,6 +75,7 @@ function Section({ title, children }: SectionProps) {
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NavigationProp>();
   const { logout } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
   const [xpVisible, setXpVisible] = React.useState(true);
@@ -131,7 +137,13 @@ export default function SettingsScreen() {
           />
         </Section>
 
-        <Section title="Access Control">
+        <Section title="Team Management">
+          <SettingRow
+            icon="person-add"
+            title="Coach Invites"
+            subtitle="Invite new coaches to your academy"
+            onPress={() => navigation.navigate("InviteManagement")}
+          />
           <SettingRow
             icon="shield-checkmark"
             title="Coach Permissions"

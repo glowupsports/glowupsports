@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -15,6 +17,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import ModeSwitcher from "@/components/ModeSwitcher";
+import type { OwnerTabParamList } from "@/owner/navigation/OwnerNavigator";
+
+type NavigationProp = NativeStackNavigationProp<OwnerTabParamList>;
 
 interface AcademyStats {
   isOwnerView: boolean;
@@ -178,6 +183,7 @@ function TopPerformerRow({ name, level, glowScore, ballLevel, rank }: TopPerform
 export default function OwnerDashboardScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const navigation = useNavigation<NavigationProp>();
 
   const { data: statsData, isLoading } = useQuery<AcademyStats>({
     queryKey: ["/api/owner/academy-stats"],
@@ -284,10 +290,30 @@ export default function OwnerDashboardScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActionsGrid}>
-            <QuickAction icon="person-add" label="Add Player" color={Colors.dark.xpCyan} />
-            <QuickAction icon="add-circle" label="New Session" color={Colors.dark.primary} />
-            <QuickAction icon="document-text" label="Reports" color={Colors.dark.orange} />
-            <QuickAction icon="settings" label="Settings" color={Colors.dark.gold} />
+            <QuickAction 
+              icon="person-add" 
+              label="Add Player" 
+              color={Colors.dark.xpCyan} 
+              onPress={() => navigation.navigate("People")}
+            />
+            <QuickAction 
+              icon="add-circle" 
+              label="New Session" 
+              color={Colors.dark.primary} 
+              onPress={() => navigation.navigate("Operations")}
+            />
+            <QuickAction 
+              icon="document-text" 
+              label="Reports" 
+              color={Colors.dark.orange} 
+              onPress={() => navigation.navigate("Performance")}
+            />
+            <QuickAction 
+              icon="settings" 
+              label="Settings" 
+              color={Colors.dark.gold} 
+              onPress={() => navigation.navigate("Settings")}
+            />
           </View>
         </View>
 
@@ -300,16 +326,24 @@ export default function OwnerDashboardScreen() {
             </View>
           </View>
           <View style={[styles.performersCard, CardStyles.elevated]}>
-            {topPerformers.slice(0, 5).map((performer, index) => (
-              <TopPerformerRow 
-                key={performer.id}
-                name={performer.name}
-                level={performer.level}
-                glowScore={performer.glowScore}
-                ballLevel={performer.ballLevel}
-                rank={index + 1}
-              />
-            ))}
+            {topPerformers.length > 0 ? (
+              topPerformers.slice(0, 5).map((performer, index) => (
+                <TopPerformerRow 
+                  key={performer.id}
+                  name={performer.name}
+                  level={performer.level}
+                  glowScore={performer.glowScore}
+                  ballLevel={performer.ballLevel}
+                  rank={index + 1}
+                />
+              ))
+            ) : (
+              <View style={styles.emptyState}>
+                <Ionicons name="trophy-outline" size={32} color={Colors.dark.textMuted} />
+                <Text style={styles.emptyStateText}>No players yet</Text>
+                <Text style={styles.emptyStateSubtext}>Add players to see top performers</Text>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -554,5 +588,20 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.gold,
     fontWeight: "700",
+  },
+  emptyState: {
+    padding: Spacing.xl,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+  },
+  emptyStateText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.sm,
+  },
+  emptyStateSubtext: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
   },
 });
