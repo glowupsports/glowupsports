@@ -8,6 +8,7 @@ import {
   AuthUser 
 } from "@/lib/auth";
 import { useAppMode, getModesForRole, getDefaultModeForRole } from "@/context/AppModeContext";
+import { TshirtSize } from "@shared/schema";
 
 interface Coach {
   id: string;
@@ -33,6 +34,7 @@ interface PlayerRegisterData {
   email: string;
   password: string;
   phone?: string;
+  tshirtSize?: TshirtSize;
 }
 
 interface AuthContextType {

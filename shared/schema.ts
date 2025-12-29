@@ -45,6 +45,10 @@ export const usernameSchema = z.string()
   .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores")
   .transform(val => val.toLowerCase());
 
+// T-shirt sizes for merchandise and giveaways
+export const tshirtSizes = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"] as const;
+export type TshirtSize = typeof tshirtSizes[number];
+
 // Player self-registration (open, no academy required)
 export const playerRegisterSchema = z.object({
   username: z.string()
@@ -58,6 +62,7 @@ export const playerRegisterSchema = z.object({
   email: z.string().email("Valid email is required"),
   phone: z.string().min(5, "Phone number is required for WhatsApp communication"),
   password: z.string().min(8, "Password must be at least 8 characters"),
+  tshirtSize: z.enum(tshirtSizes).optional(),
 });
 
 // Coach registration via invite token
@@ -73,6 +78,7 @@ export const coachInviteRegisterSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
   phone: z.string().min(5, "Phone number is required for WhatsApp communication"),
   specialty: z.string().optional(),
+  tshirtSize: z.enum(tshirtSizes).optional(),
 });
 
 // Legacy register schema (for backwards compatibility)
@@ -231,6 +237,7 @@ export const coaches = pgTable("coaches", {
   name: text("name").notNull(),
   email: text("email"),
   phone: text("phone"),
+  tshirtSize: text("tshirt_size"), // XS, S, M, L, XL, XXL, XXXL
   specialty: text("specialty"),
   bio: text("bio"),
   role: text("role").default("coach"), // platform_owner | academy_owner | coach | assistant
@@ -314,6 +321,7 @@ export const players = pgTable("players", {
   name: text("name").notNull(),
   email: text("email"),
   phone: text("phone"),
+  tshirtSize: text("tshirt_size"), // XS, S, M, L, XL, XXL, XXXL
   age: integer("age"),
   dateOfBirth: text("date_of_birth"), // ISO date string (YYYY-MM-DD)
   ballLevel: text("ball_level"), // red/orange/green/yellow/glow

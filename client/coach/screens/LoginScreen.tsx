@@ -17,6 +17,8 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 import CountryCodePicker, { getDefaultCountry, CountryCode } from "@/components/CountryCodePicker";
+import { TshirtSizePicker } from "@/components/TshirtSizePicker";
+import { TshirtSize } from "@shared/schema";
 
 type AuthMode = "login" | "player_register" | "coach_info" | "academy_apply";
 
@@ -65,6 +67,7 @@ export default function LoginScreen() {
   const [country, setCountry] = useState("");
   const [contactPerson, setContactPerson] = useState("");
   const [description, setDescription] = useState("");
+  const [tshirtSize, setTshirtSize] = useState<TshirtSize | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [applicationSubmitted, setApplicationSubmitted] = useState(false);
@@ -81,6 +84,7 @@ export default function LoginScreen() {
     setCountry("");
     setContactPerson("");
     setDescription("");
+    setTshirtSize(undefined);
   };
 
   const handleLogin = async () => {
@@ -148,6 +152,7 @@ export default function LoginScreen() {
         email,
         password,
         phone: fullPhone,
+        tshirtSize,
       });
       if (!result.success) {
         Alert.alert("Registration Failed", result.error || "Please try again");
@@ -385,6 +390,12 @@ export default function LoginScreen() {
             />
           </Pressable>
         </View>
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>T-Shirt Size (optional)</Text>
+        <TshirtSizePicker value={tshirtSize} onChange={setTshirtSize} />
+        <Text style={styles.hintText}>For academy merchandise and giveaways</Text>
       </View>
 
       <Pressable

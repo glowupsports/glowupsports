@@ -171,7 +171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: fromZodError(parsed.error).message });
       }
 
-      const { username: rawUsername, firstName, lastName, dateOfBirth, email, phone, password } = parsed.data;
+      const { username: rawUsername, firstName, lastName, dateOfBirth, email, phone, password, tshirtSize } = parsed.data;
       
       // Normalize username to lowercase for consistent storage
       const username = rawUsername.toLowerCase();
@@ -190,6 +190,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: fullName,
         email,
         phone: phone || null,
+        tshirtSize: tshirtSize || null,
         academyId: null, // No academy yet
         coachId: null,
       });
@@ -242,7 +243,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: fromZodError(parsed.error).message });
       }
 
-      const { token, username: rawUsername, name, email, password, phone, specialty } = parsed.data;
+      const { token, username: rawUsername, name, email, password, phone, specialty, tshirtSize } = parsed.data;
       
       // Normalize username to lowercase for consistent storage
       const username = rawUsername.toLowerCase();
@@ -279,6 +280,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name,
         email,
         phone: phone || null,
+        tshirtSize: tshirtSize || null,
         specialty: specialty || null,
         academyId: invite.academyId,
         role: invite.role || "coach",

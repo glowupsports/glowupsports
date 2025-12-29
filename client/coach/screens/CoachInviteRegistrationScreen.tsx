@@ -20,6 +20,8 @@ import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constan
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import CountryCodePicker, { getDefaultCountry, CountryCode } from "@/components/CountryCodePicker";
+import { TshirtSizePicker } from "@/components/TshirtSizePicker";
+import { TshirtSize } from "@shared/schema";
 
 interface InviteInfo {
   valid: boolean;
@@ -51,6 +53,7 @@ export default function CoachInviteRegistrationScreen({
   const [phone, setPhone] = useState("");
   const [countryCode, setCountryCode] = useState<CountryCode>(getDefaultCountry());
   const [specialty, setSpecialty] = useState("");
+  const [tshirtSize, setTshirtSize] = useState<TshirtSize | undefined>(undefined);
   const [showPassword, setShowPassword] = useState(false);
 
   const { data: inviteData, isLoading: inviteLoading, error: inviteError } = useQuery<InviteInfo>({
@@ -80,6 +83,7 @@ export default function CoachInviteRegistrationScreen({
       password: string;
       phone?: string;
       specialty?: string;
+      tshirtSize?: TshirtSize;
     }) => {
       const response = await apiRequest("POST", "/auth/register/coach", data);
       return response.json();
@@ -147,6 +151,7 @@ export default function CoachInviteRegistrationScreen({
       password,
       phone: fullPhone,
       specialty: specialty.trim() || undefined,
+      tshirtSize,
     });
   };
 
@@ -339,6 +344,12 @@ export default function CoachInviteRegistrationScreen({
                 placeholderTextColor={Colors.dark.disabled}
               />
             </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>T-Shirt Size (optional)</Text>
+            <TshirtSizePicker value={tshirtSize} onChange={setTshirtSize} />
+            <Text style={styles.inputHint}>For academy merchandise and giveaways</Text>
           </View>
         </View>
 
