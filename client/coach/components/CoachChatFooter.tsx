@@ -74,8 +74,9 @@ const CHAT_TABS: { id: ChatTab; name: string; icon: keyof typeof Ionicons.glyphM
 
 interface Player {
   id: string;
-  firstName: string;
-  lastName: string;
+  name: string;
+  firstName?: string;
+  lastName?: string;
 }
 
 interface Squad {
@@ -479,7 +480,7 @@ export function CoachChatFooter() {
               <Ionicons name="person" size={20} color={Colors.dark.text} />
             </View>
             <ThemedText style={styles.conversationName}>
-              {item.firstName} {item.lastName}
+              {item.name || `${item.firstName || ''} ${item.lastName || ''}`.trim() || 'Unknown Player'}
             </ThemedText>
           </Pressable>
         )}
