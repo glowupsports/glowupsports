@@ -84,9 +84,12 @@ interface Squad {
   name: string;
 }
 
+const TAB_BAR_FALLBACK = 60;
+
 export function CoachChatFooter() {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const hookTabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = Math.max(hookTabBarHeight, TAB_BAR_FALLBACK + insets.bottom);
   const queryClient = useQueryClient();
   const { coach } = useCoach();
   const [isExpanded, setIsExpanded] = useState(false);

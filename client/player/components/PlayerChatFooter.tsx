@@ -79,7 +79,7 @@ interface OtherPlayer {
 
 export function PlayerChatFooter() {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = TAB_BAR_HEIGHT;
+  const tabBarHeight = TAB_BAR_HEIGHT + insets.bottom;
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const playerId = user?.playerId;
