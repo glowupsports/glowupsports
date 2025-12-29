@@ -60,6 +60,7 @@ export default function DashboardScreen() {
   const [sessionsCollapsed, setSessionsCollapsed] = useState(true);
   const [focusCollapsed, setFocusCollapsed] = useState(false);
   const [energyCollapsed, setEnergyCollapsed] = useState(false);
+  const [selectedDayOffset, setSelectedDayOffset] = useState(0);
 
   // Pulse animation for live indicator
   const pulseScale = useSharedValue(1);
@@ -87,18 +88,37 @@ export default function DashboardScreen() {
   const [alertsCollapsed, setAlertsCollapsed] = useState(false);
 
   const today = new Date();
-  const todaysSessions = useMemo(() => {
+  
+  const getDateForOffset = (offset: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() + offset);
+    return date;
+  };
+  
+  const selectedDate = getDateForOffset(selectedDayOffset);
+  
+  const getSessionsForDate = (date: Date) => {
     if (!calendarData?.ownSessions) return [];
     return calendarData.ownSessions.filter((session) => {
       const sessionDate = new Date(session.startTime);
       return (
-        sessionDate.getFullYear() === today.getFullYear() &&
-        sessionDate.getMonth() === today.getMonth() &&
-        sessionDate.getDate() === today.getDate() &&
+        sessionDate.getFullYear() === date.getFullYear() &&
+        sessionDate.getMonth() === date.getMonth() &&
+        sessionDate.getDate() === date.getDate() &&
         session.status !== "cancelled"
       );
     });
-  }, [calendarData?.ownSessions, today]);
+  };
+  
+  const todaysSessions = useMemo(() => getSessionsForDate(today), [calendarData?.ownSessions]);
+  const selectedDaySessions = useMemo(() => getSessionsForDate(selectedDate), [calendarData?.ownSessions, selectedDayOffset]);
+  
+  const getDayLabel = (offset: number) => {
+    if (offset === 0) return "TODAY";
+    if (offset === 1) return "TOMORROW";
+    if (offset === -1) return "YESTERDAY";
+    return getDateForOffset(offset).toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
+  };
 
   const nextSession = useMemo(() => {
     const now = new Date();
@@ -260,6 +280,41 @@ export default function DashboardScreen() {
     }
     return { label: "Heavy Day", color: Colors.dark.orange };
   }, [todaysSessions.length, coachStats.totalMinutes]);
+
+  const selectedDayPersonality = useMemo(() => {
+    const sessions = selectedDaySessions;
+    const totalMinutes = sessions.reduce((acc, s) => acc + s.duration, 0);
+    
+    if (sessions.length === 0) {
+      return { label: "Rest Day", color: Colors.dark.xpCyan };
+    }
+    if (totalMinutes <= 120) {
+      return { label: "Light Day", color: Colors.dark.primary };
+    }
+    if (totalMinutes <= 240) {
+      return { label: "Normal Day", color: Colors.dark.gold };
+    }
+    return { label: "Heavy Day", color: Colors.dark.orange };
+  }, [selectedDaySessions]);
+  
+  const selectedDayStats = useMemo(() => {
+    const totalMinutes = selectedDaySessions.reduce((acc, s) => acc + s.duration, 0);
+    return { sessionCount: selectedDaySessions.length, totalMinutes };
+  }, [selectedDaySessions]);
+  
+  const getSelectedDayFocusMessage = () => {
+    if (selectedDaySessions.length === 0) {
+      return { primary: "Rest Day", secondary: "No sessions scheduled" };
+    }
+    const firstSession = selectedDaySessions.sort((a, b) => 
+      new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+    )[0];
+    const context = getSessionContext(firstSession);
+    return { 
+      primary: `${selectedDaySessions.length} Session${selectedDaySessions.length > 1 ? 's' : ''}`, 
+      secondary: `First: ${formatTime(firstSession.startTime)} - ${context}` 
+    };
+  };
 
   const getSessionTypeLabel = (type: string) => {
     switch (type) {
@@ -441,48 +496,92 @@ export default function DashboardScreen() {
           </Pressable>
         </ScrollView>
 
-        {/* FOCUS Card (formerly TODAY Card) */}
+        {/* FOCUS Card (formerly TODAY Card) with Day Slider */}
         <View style={styles.focusCard}>
           <LinearGradient
             colors={["rgba(46, 204, 64, 0.12)", "rgba(46, 204, 64, 0.03)"]}
             style={styles.focusGradient}
           >
-            <Pressable 
-              style={styles.focusHeader}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setFocusCollapsed(!focusCollapsed);
-              }}
-            >
-              <View style={styles.focusHeaderLeft}>
+            {/* Day Navigation Header */}
+            <View style={styles.dayNavHeader}>
+              <Pressable 
+                style={styles.dayNavArrow}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedDayOffset(prev => prev - 1);
+                }}
+              >
+                <Ionicons name="chevron-back" size={20} color={Colors.dark.primary} />
+              </Pressable>
+              
+              <Pressable 
+                style={styles.focusHeaderCenter}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setFocusCollapsed(!focusCollapsed);
+                }}
+              >
                 <View style={styles.focusTitleRow}>
-                  <Text style={styles.focusLabel}>TODAY</Text>
-                  <View style={[styles.dayIntensityBadge, { backgroundColor: dayPersonality.color + "20" }]}>
-                    <Text style={[styles.dayIntensityText, { color: dayPersonality.color }]}>
-                      {dayPersonality.label}
+                  <Text style={styles.focusLabel}>{getDayLabel(selectedDayOffset)}</Text>
+                  <View style={[styles.dayIntensityBadge, { backgroundColor: selectedDayPersonality.color + "20" }]}>
+                    <Text style={[styles.dayIntensityText, { color: selectedDayPersonality.color }]}>
+                      {selectedDayPersonality.label}
                     </Text>
                   </View>
                 </View>
                 <Text style={styles.focusDate}>
-                  {today.toLocaleDateString("en-US", {
+                  {selectedDate.toLocaleDateString("en-US", {
                     weekday: "long",
                     day: "numeric",
                     month: "long",
                   })}
                 </Text>
-              </View>
-              <Ionicons 
-                name={focusCollapsed ? "chevron-down" : "chevron-up"} 
-                size={18} 
-                color={Colors.dark.tabIconDefault} 
-              />
-            </Pressable>
+              </Pressable>
+              
+              <Pressable 
+                style={styles.dayNavArrow}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedDayOffset(prev => Math.min(prev + 1, 7));
+                }}
+              >
+                <Ionicons name="chevron-forward" size={20} color={selectedDayOffset >= 7 ? Colors.dark.tabIconDefault : Colors.dark.primary} />
+              </Pressable>
+              
+              <Pressable 
+                style={styles.dayNavCollapseBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setFocusCollapsed(!focusCollapsed);
+                }}
+              >
+                <Ionicons 
+                  name={focusCollapsed ? "chevron-down" : "chevron-up"} 
+                  size={18} 
+                  color={Colors.dark.tabIconDefault} 
+                />
+              </Pressable>
+            </View>
+            
+            {/* Today indicator dot when viewing other days */}
+            {selectedDayOffset !== 0 ? (
+              <Pressable 
+                style={styles.backToTodayBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedDayOffset(0);
+                }}
+              >
+                <Ionicons name="today-outline" size={14} color={Colors.dark.primary} />
+                <Text style={styles.backToTodayText}>Back to Today</Text>
+              </Pressable>
+            ) : null}
 
             {focusCollapsed ? null : (
               <>
                 {/* Main Focus State */}
                 <View style={styles.focusMain}>
-                  {currentSession ? (
+                  {selectedDayOffset === 0 && currentSession ? (
                     <>
                       <View style={styles.liveIndicator}>
                         <Animated.View style={[styles.liveDotPulse, pulseAnimatedStyle]} />
@@ -495,16 +594,21 @@ export default function DashboardScreen() {
                         {getSessionTypeLabel(currentSession.sessionType)} · {calendarData?.courts?.find(c => c.id === currentSession.courtId)?.name || "Court"}
                       </Text>
                     </>
-                  ) : (
+                  ) : selectedDayOffset === 0 ? (
                     <>
                       <Text style={styles.focusPrimary}>{focusMessage.primary}</Text>
                       <Text style={styles.focusSecondary}>{focusMessage.secondary}</Text>
                     </>
+                  ) : (
+                    <>
+                      <Text style={styles.focusPrimary}>{getSelectedDayFocusMessage().primary}</Text>
+                      <Text style={styles.focusSecondary}>{getSelectedDayFocusMessage().secondary}</Text>
+                    </>
                   )}
                 </View>
 
-                {/* Quick Actions when In Session */}
-                {currentSession ? (
+                {/* Quick Actions when In Session (only for today) */}
+                {selectedDayOffset === 0 && currentSession ? (
                   <View style={styles.sessionActions}>
                     <Pressable
                       style={styles.sessionActionButton}
@@ -537,16 +641,16 @@ export default function DashboardScreen() {
                       <Text style={[styles.sessionActionText, { color: Colors.dark.orange }]}>End</Text>
                     </Pressable>
                   </View>
-                ) : todaysSessions.length > 0 ? (
+                ) : selectedDaySessions.length > 0 ? (
                   <View style={styles.focusStats}>
                     <View style={styles.focusStatItem}>
-                      <Text style={styles.focusStatNumber}>{todaysSessions.length}</Text>
+                      <Text style={styles.focusStatNumber}>{selectedDaySessions.length}</Text>
                       <Text style={styles.focusStatLabel}>Sessions</Text>
                     </View>
                     <View style={styles.focusStatDivider} />
                     <View style={styles.focusStatItem}>
                       <Text style={styles.focusStatNumber}>
-                        {todaysSessions.reduce((acc, s) => acc + s.duration, 0)}
+                        {selectedDaySessions.reduce((acc, s) => acc + s.duration, 0)}
                       </Text>
                       <Text style={styles.focusStatLabel}>Minutes</Text>
                     </View>
@@ -1162,6 +1266,38 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: Spacing.md,
+  },
+  dayNavHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  dayNavArrow: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dayNavCollapseBtn: {
+    marginLeft: Spacing.xs,
+    padding: Spacing.xs,
+  },
+  focusHeaderCenter: {
+    flex: 1,
+    alignItems: "center",
+  },
+  backToTodayBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  backToTodayText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.primary,
+    fontWeight: "600",
   },
   focusLabel: {
     fontSize: Typography.caption.fontSize,
