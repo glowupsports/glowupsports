@@ -84,6 +84,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== MAINTENANCE MODE CHECK ====================
+  // Check maintenance status endpoint (for clients to check before proceeding)
+  app.get("/api/maintenance/status", async (_req: Request, res: Response) => {
+    try {
+      const isMaintenanceMode = await storage.isMaintenanceMode();
+      res.json({ 
+        maintenance: isMaintenanceMode,
+        message: isMaintenanceMode ? "Platform is under maintenance. Please try again later." : null,
+      });
+    } catch (error) {
+      res.json({ maintenance: false, message: null });
+    }
+  });
+
+  // Maintenance middleware - blocks access when enabled (except for platform_owner)
+  const maintenanceMiddleware = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      // Skip maintenance check for platform owners
+      if (req.user?.role === "platform_owner") {
+        return next();
+      }
+      
+      const isMaintenanceMode = await storage.isMaintenanceMode();
+      if (isMaintenanceMode) {
+        return res.status(503).json({ 
+          error: "Platform is under maintenance",
+          message: "Glow Up Sports is currently undergoing scheduled maintenance. Please try again later.",
+          maintenance: true,
+        });
+      }
+      next();
+    } catch (error) {
+      next();
+    }
+  };
+
   // ==================== AUTH ENDPOINTS ====================
   // Registration routes are role-specific:
   // - /auth/register/player - Open player self-registration
@@ -5772,6 +5808,249 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Platform stats error:", error);
       res.status(500).json({ error: "Failed to fetch platform stats" });
+    }
+  });
+
+  // ==================== PLATFORM CONFIG ENDPOINTS ====================
+
+  // Get all platform configs
+  app.get("/api/platform/config", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const configs = await storage.getAllPlatformConfigs();
+      res.json(configs);
+    } catch (error) {
+      console.error("Get platform configs error:", error);
+      res.status(500).json({ error: "Failed to fetch platform configs" });
+    }
+  });
+
+  // Get specific platform config by key
+  app.get("/api/platform/config/:key", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { key } = req.params;
+      const config = await storage.getPlatformConfig(key);
+      
+      if (!config) {
+        return res.status(404).json({ error: "Config not found" });
+      }
+      
+      res.json(config);
+    } catch (error) {
+      console.error("Get platform config error:", error);
+      res.status(500).json({ error: "Failed to fetch platform config" });
+    }
+  });
+
+  // Set platform config
+  app.put("/api/platform/config/:key", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { key } = req.params;
+      const { value } = req.body;
+      
+      if (value === undefined) {
+        return res.status(400).json({ error: "Value is required" });
+      }
+
+      const oldConfig = await storage.getPlatformConfig(key);
+      const config = await storage.setPlatformConfig(key, value, req.user?.userId);
+
+      await storage.createAuditLog({
+        academyId: null,
+        entityType: "platform_config",
+        entityId: key,
+        action: oldConfig ? "update" : "create",
+        performedBy: req.user?.userId,
+        performedByRole: req.user?.role,
+        beforeState: oldConfig?.value || null,
+        afterState: value,
+        metadata: JSON.stringify({ key }),
+      });
+
+      res.json(config);
+    } catch (error) {
+      console.error("Set platform config error:", error);
+      res.status(500).json({ error: "Failed to set platform config" });
+    }
+  });
+
+  // Delete platform config
+  app.delete("/api/platform/config/:key", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { key } = req.params;
+      
+      const oldConfig = await storage.getPlatformConfig(key);
+      if (!oldConfig) {
+        return res.status(404).json({ error: "Config not found" });
+      }
+
+      await storage.deletePlatformConfig(key);
+
+      await storage.createAuditLog({
+        academyId: null,
+        entityType: "platform_config",
+        entityId: key,
+        action: "delete",
+        performedBy: req.user?.userId,
+        performedByRole: req.user?.role,
+        beforeState: oldConfig.value,
+        afterState: null,
+        metadata: JSON.stringify({ key }),
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete platform config error:", error);
+      res.status(500).json({ error: "Failed to delete platform config" });
+    }
+  });
+
+  // ==================== MAINTENANCE MODE ENDPOINTS ====================
+
+  // Toggle maintenance mode
+  app.post("/api/platform/maintenance", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { enabled } = req.body;
+      
+      if (typeof enabled !== "boolean") {
+        return res.status(400).json({ error: "enabled must be a boolean" });
+      }
+
+      const oldStatus = await storage.isMaintenanceMode();
+      const config = await storage.setMaintenanceMode(enabled, req.user?.userId);
+
+      await storage.createAuditLog({
+        academyId: null,
+        entityType: "platform_config",
+        entityId: "maintenance",
+        action: "update",
+        performedBy: req.user?.userId,
+        performedByRole: req.user?.role,
+        beforeState: { enabled: oldStatus },
+        afterState: { enabled },
+        metadata: JSON.stringify({ action: enabled ? "PLATFORM_LOCKED" : "PLATFORM_UNLOCKED" }),
+      });
+
+      res.json({ 
+        success: true, 
+        maintenance: enabled,
+        message: enabled ? "Platform is now in maintenance mode" : "Platform is now operational",
+      });
+    } catch (error) {
+      console.error("Toggle maintenance error:", error);
+      res.status(500).json({ error: "Failed to toggle maintenance mode" });
+    }
+  });
+
+  // ==================== XP ENGINE CONFIG ENDPOINTS ====================
+
+  // Get XP engine config
+  app.get("/api/platform/xp-config", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const config = await storage.getXpConfig();
+      res.json(config);
+    } catch (error) {
+      console.error("Get XP config error:", error);
+      res.status(500).json({ error: "Failed to fetch XP config" });
+    }
+  });
+
+  // Update XP engine config
+  app.put("/api/platform/xp-config", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { baseValues, multipliers, dailyCap, weeklyCap } = req.body;
+      
+      const oldConfig = await storage.getXpConfig();
+      
+      const newConfig = {
+        baseValues: baseValues || oldConfig.baseValues,
+        multipliers: multipliers || oldConfig.multipliers,
+        dailyCap: dailyCap ?? oldConfig.dailyCap,
+        weeklyCap: weeklyCap ?? oldConfig.weeklyCap,
+      };
+
+      const config = await storage.setXpConfig(newConfig, req.user?.userId);
+
+      await storage.createAuditLog({
+        academyId: null,
+        entityType: "xp_config",
+        entityId: "xp_engine",
+        action: "update",
+        performedBy: req.user?.userId,
+        performedByRole: req.user?.role,
+        beforeState: oldConfig,
+        afterState: newConfig,
+        metadata: JSON.stringify({ source: "platform_settings" }),
+      });
+
+      res.json(newConfig);
+    } catch (error) {
+      console.error("Update XP config error:", error);
+      res.status(500).json({ error: "Failed to update XP config" });
+    }
+  });
+
+  // ==================== PLATFORM FINANCIALS (ESTIMATED) ====================
+
+  // Get platform financials - ESTIMATED / LABELED (no Stripe)
+  app.get("/api/platform/financials", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academies = await storage.getAllAcademies();
+      
+      let totalEstimatedMrr = 0;
+      let totalActiveSubscriptions = 0;
+      let totalPendingRevenue = 0;
+      const breakdownByPlan: Record<string, { count: number; total: number }> = {};
+
+      for (const academy of academies) {
+        if (academy.isActive === false) continue;
+
+        const subscriptions = await storage.getActivePlayerSubscriptions(academy.id);
+        
+        for (const sub of subscriptions) {
+          const price = Number(sub.price || 0);
+          const monthlyEquivalent = sub.billingPeriod === "weekly" ? price * 4 : price;
+          totalEstimatedMrr += monthlyEquivalent;
+          totalActiveSubscriptions++;
+
+          const planKey = sub.planName || "Standard";
+          if (!breakdownByPlan[planKey]) {
+            breakdownByPlan[planKey] = { count: 0, total: 0 };
+          }
+          breakdownByPlan[planKey].count++;
+          breakdownByPlan[planKey].total += monthlyEquivalent;
+        }
+
+        const payments = await storage.getPayments(academy.id);
+        const pendingPayments = payments.filter(p => p.status === "pending");
+        totalPendingRevenue += pendingPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      }
+
+      res.json({
+        disclaimer: "These figures are ESTIMATED based on active player subscriptions. They do not represent collected revenue.",
+        estimatedMrr: {
+          amount: totalEstimatedMrr,
+          currency: "AED",
+          label: "Estimated Monthly Recurring Revenue",
+          tooltip: "Calculated from active player subscriptions across all academies. This is a projection, not actual collected payments.",
+        },
+        pendingRevenue: {
+          amount: totalPendingRevenue,
+          currency: "AED",
+          label: "Pending Payments (Aggregated)",
+          tooltip: "Sum of unconfirmed payments from all academies. These are recorded but not yet verified.",
+        },
+        subscriptionBreakdown: Object.entries(breakdownByPlan).map(([planName, data]) => ({
+          planName,
+          count: data.count,
+          monthlyTotal: data.total,
+        })),
+        totalActiveSubscriptions,
+        academiesCount: academies.filter(a => a.isActive !== false).length,
+        generatedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Platform financials error:", error);
+      res.status(500).json({ error: "Failed to fetch platform financials" });
     }
   });
 

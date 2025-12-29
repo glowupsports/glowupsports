@@ -537,6 +537,18 @@ export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: tru
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type AuditLog = typeof auditLogs.$inferSelect;
 
+// Platform Config - Central configuration for the entire platform
+export const platformConfig = pgTable("platform_config", {
+  key: varchar("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedBy: varchar("updated_by"),
+});
+
+export const insertPlatformConfigSchema = createInsertSchema(platformConfig);
+export type InsertPlatformConfig = z.infer<typeof insertPlatformConfigSchema>;
+export type PlatformConfig = typeof platformConfig.$inferSelect;
+
 // Offline Queue (V2)
 export const offlineQueue = pgTable("offline_queue", {
   id: varchar("id")

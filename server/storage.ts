@@ -172,6 +172,10 @@ import {
   coachPayouts,
   type CoachPayout,
   type InsertCoachPayout,
+  // Platform Config
+  platformConfig,
+  type PlatformConfig,
+  type InsertPlatformConfig,
 } from "@shared/schema";
 
 export const storage = {
@@ -3676,5 +3680,85 @@ export const storage = {
         hoursWorked: Math.round(d.hours * 10) / 10,
         sessionsCount: d.count,
       }));
+  },
+
+  // ==================== PLATFORM CONFIG ====================
+
+  async getPlatformConfig(key: string): Promise<PlatformConfig | undefined> {
+    const result = await db.select().from(platformConfig).where(eq(platformConfig.key, key));
+    return result[0];
+  },
+
+  async getAllPlatformConfigs(): Promise<PlatformConfig[]> {
+    return db.select().from(platformConfig).orderBy(platformConfig.key);
+  },
+
+  async setPlatformConfig(key: string, value: any, updatedBy?: string): Promise<PlatformConfig> {
+    const existing = await this.getPlatformConfig(key);
+    
+    if (existing) {
+      const result = await db.update(platformConfig)
+        .set({ value, updatedAt: new Date(), updatedBy })
+        .where(eq(platformConfig.key, key))
+        .returning();
+      return result[0];
+    } else {
+      const result = await db.insert(platformConfig)
+        .values({ key, value, updatedBy })
+        .returning();
+      return result[0];
+    }
+  },
+
+  async deletePlatformConfig(key: string): Promise<boolean> {
+    const result = await db.delete(platformConfig).where(eq(platformConfig.key, key));
+    return true;
+  },
+
+  async isMaintenanceMode(): Promise<boolean> {
+    const config = await this.getPlatformConfig("maintenance");
+    return config?.value === true || (config?.value as any)?.enabled === true;
+  },
+
+  async setMaintenanceMode(enabled: boolean, updatedBy?: string): Promise<PlatformConfig> {
+    return this.setPlatformConfig("maintenance", { enabled, updatedAt: new Date().toISOString() }, updatedBy);
+  },
+
+  async getXpConfig(): Promise<{
+    baseValues: Record<string, number>;
+    multipliers: Record<string, number>;
+    dailyCap: number;
+    weeklyCap: number;
+  }> {
+    const config = await this.getPlatformConfig("xp_engine");
+    if (!config) {
+      return {
+        baseValues: {
+          attendance: 10,
+          feedback_received: 15,
+          level_up: 50,
+          badge_earned: 25,
+          streak_bonus: 5,
+          assessment_completed: 20,
+        },
+        multipliers: {
+          high_effort: 1.5,
+          coach_validated: 1.2,
+          first_of_day: 1.1,
+        },
+        dailyCap: 100,
+        weeklyCap: 500,
+      };
+    }
+    return config.value as any;
+  },
+
+  async setXpConfig(config: {
+    baseValues: Record<string, number>;
+    multipliers: Record<string, number>;
+    dailyCap: number;
+    weeklyCap: number;
+  }, updatedBy?: string): Promise<PlatformConfig> {
+    return this.setPlatformConfig("xp_engine", config, updatedBy);
   },
 };
