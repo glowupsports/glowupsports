@@ -101,7 +101,7 @@ export function CoachChatFooter() {
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const height = useSharedValue(FOOTER_COLLAPSED + insets.bottom);
+  const height = useSharedValue(FOOTER_COLLAPSED);
 
   const handleNewMessage = useCallback((payload: NewMessagePayload) => {
     queryClient.invalidateQueries({ queryKey: ["/api/conversations", payload.conversationId, "messages"] });
@@ -252,10 +252,10 @@ export function CoachChatFooter() {
     const targetHeight = isFullscreen 
       ? FOOTER_FULLSCREEN 
       : isExpanded 
-        ? FOOTER_EXPANDED + insets.bottom 
-        : FOOTER_COLLAPSED + insets.bottom;
+        ? FOOTER_EXPANDED 
+        : FOOTER_COLLAPSED;
     height.value = withSpring(targetHeight, { damping: 20, stiffness: 200 });
-  }, [isExpanded, isFullscreen, insets.bottom]);
+  }, [isExpanded, isFullscreen]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     height: height.value,
@@ -326,15 +326,23 @@ export function CoachChatFooter() {
     }
   };
   
-  // Auto-select Academy conversation when data loads and Academy tab is active
+  // Auto-select or create Academy conversation when Academy tab is active
   useEffect(() => {
-    if (currentTab === "academy" && !selectedConversation && conversations.length > 0) {
+    if (currentTab === "academy" && !createConversationMutation.isPending) {
       const academyConv = conversations.find(c => c.type === "academy");
       if (academyConv) {
-        setSelectedConversation(academyConv);
+        if (!selectedConversation || selectedConversation.id !== academyConv.id) {
+          setSelectedConversation(academyConv);
+        }
+      } else if (conversations.length === 0 || !conversations.some(c => c.type === "academy")) {
+        // Auto-create academy chat if it doesn't exist
+        createConversationMutation.mutate({
+          type: "academy",
+          title: "Academy Chat",
+        });
       }
     }
-  }, [currentTab, conversations, selectedConversation]);
+  }, [currentTab, conversations, selectedConversation, createConversationMutation.isPending]);
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isOwn = item.senderType === "coach" && item.senderCoachId === coach?.id;
@@ -618,18 +626,13 @@ export function CoachChatFooter() {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="chatbubbles-outline" size={40} color={Colors.dark.tabIconDefault} />
-            <ThemedText style={styles.emptyText}>No {currentTabConfig?.name.toLowerCase()} chats yet</ThemedText>
+            <ThemedText style={styles.emptyText}>
+              {currentTab === "academy" && createConversationMutation.isPending 
+                ? "Setting up Academy Chat..." 
+                : `No ${currentTabConfig?.name.toLowerCase()} chats yet`}
+            </ThemedText>
             {currentTab === "academy" ? (
-              <Pressable
-                onPress={handleCreateAcademyChat}
-                style={styles.startChatButton}
-                disabled={createConversationMutation.isPending}
-              >
-                <Ionicons name="chatbubble" size={16} color={Colors.dark.buttonText} />
-                <ThemedText style={styles.startChatButtonText}>
-                  {createConversationMutation.isPending ? "Starting..." : "Start Academy Chat"}
-                </ThemedText>
-              </Pressable>
+              <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginTop: Spacing.md }} />
             ) : currentTab === "players" ? (
               <Pressable
                 onPress={() => setShowNewMessage(true)}
@@ -662,7 +665,7 @@ export function CoachChatFooter() {
   );
 
   return (
-    <Animated.View style={[styles.container, { bottom: tabBarHeight - insets.bottom }, animatedStyle]}>
+    <Animated.View style={[styles.container, { bottom: tabBarHeight + insets.bottom }, animatedStyle]}>
       <View style={styles.header}>
         <Pressable
           onPress={() => {
