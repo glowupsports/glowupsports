@@ -3072,25 +3072,30 @@ export const storage = {
     courtId: string | null;
     attended: string | null;
   }[]> {
-    const result = await db
-      .select({
-        id: sessions.id,
-        startTime: sessions.startTime,
-        endTime: sessions.endTime,
-        sessionType: sessions.sessionType,
-        status: sessions.status,
-        courtId: sessions.courtId,
-        attended: sessionPlayers.attendanceStatus,
-      })
-      .from(sessionPlayers)
-      .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
-      .where(and(
-        eq(sessionPlayers.playerId, playerId),
-        gte(sessions.startTime, startDate),
-        lte(sessions.endTime, endDate)
-      ))
-      .orderBy(sessions.startTime);
-    return result;
+    try {
+      const result = await db
+        .select({
+          id: sessions.id,
+          startTime: sessions.startTime,
+          endTime: sessions.endTime,
+          sessionType: sessions.sessionType,
+          status: sessions.status,
+          courtId: sessions.courtId,
+          attended: sessionPlayers.attendanceStatus,
+        })
+        .from(sessionPlayers)
+        .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+        .where(and(
+          eq(sessionPlayers.playerId, playerId),
+          gte(sessions.startTime, startDate),
+          lte(sessions.endTime, endDate)
+        ))
+        .orderBy(sessions.startTime);
+      return result;
+    } catch (error) {
+      console.error("Error fetching player sessions with details:", error);
+      return [];
+    }
   },
 
   async getPlayerFeedbackNotes(playerId: string, limit: number = 10): Promise<{
@@ -3150,65 +3155,78 @@ export const storage = {
     title: string;
     date: Date | null;
   }[]> {
-    const milestones: { id: string; type: string; title: string; date: Date | null }[] = [];
-    
-    // Get skill observations that represent major improvements
-    const observations = await db
-      .select({
-        id: sessionSkillObservations.id,
-        direction: sessionSkillObservations.direction,
-        domainId: sessionSkillObservations.domainId,
-        createdAt: sessionSkillObservations.createdAt,
-      })
-      .from(sessionSkillObservations)
-      .where(and(
-        eq(sessionSkillObservations.playerId, playerId),
-        eq(sessionSkillObservations.direction, "up")
-      ))
-      .orderBy(desc(sessionSkillObservations.createdAt))
-      .limit(20);
-    
-    for (const obs of observations) {
-      milestones.push({
-        id: obs.id,
-        type: "skill_improvement",
-        title: `Skill improved`,
-        date: obs.createdAt,
+    try {
+      const milestones: { id: string; type: string; title: string; date: Date | null }[] = [];
+      
+      // Get skill observations that represent major improvements
+      try {
+        const observations = await db
+          .select({
+            id: sessionSkillObservations.id,
+            direction: sessionSkillObservations.direction,
+            domainId: sessionSkillObservations.domainId,
+            createdAt: sessionSkillObservations.createdAt,
+          })
+          .from(sessionSkillObservations)
+          .where(and(
+            eq(sessionSkillObservations.playerId, playerId),
+            eq(sessionSkillObservations.direction, "up")
+          ))
+          .orderBy(desc(sessionSkillObservations.createdAt))
+          .limit(20);
+        
+        for (const obs of observations) {
+          milestones.push({
+            id: obs.id,
+            type: "skill_improvement",
+            title: `Skill improved`,
+            date: obs.createdAt,
+          });
+        }
+      } catch (e) {
+        // Table may not exist or have data, skip silently
+      }
+      
+      // Get XP milestones (large XP gains)
+      try {
+        const xpMilestones = await db
+          .select({
+            id: xpTransactions.id,
+            amount: xpTransactions.amount,
+            reason: xpTransactions.reason,
+            createdAt: xpTransactions.createdAt,
+          })
+          .from(xpTransactions)
+          .where(and(
+            eq(xpTransactions.playerId, playerId),
+            gte(xpTransactions.amount, 50)
+          ))
+          .orderBy(desc(xpTransactions.createdAt))
+          .limit(10);
+        
+        for (const xp of xpMilestones) {
+          milestones.push({
+            id: xp.id,
+            type: "xp_gain",
+            title: xp.reason || `Earned ${xp.amount} XP`,
+            date: xp.createdAt,
+          });
+        }
+      } catch (e) {
+        // Table may not exist or have data, skip silently
+      }
+      
+      // Sort by date
+      milestones.sort((a, b) => {
+        if (!a.date || !b.date) return 0;
+        return b.date.getTime() - a.date.getTime();
       });
+      
+      return milestones.slice(0, 20);
+    } catch (error) {
+      console.error("Error fetching player milestones:", error);
+      return [];
     }
-    
-    // Get XP milestones (large XP gains)
-    const xpMilestones = await db
-      .select({
-        id: xpTransactions.id,
-        amount: xpTransactions.amount,
-        reason: xpTransactions.reason,
-        createdAt: xpTransactions.createdAt,
-      })
-      .from(xpTransactions)
-      .where(and(
-        eq(xpTransactions.playerId, playerId),
-        gte(xpTransactions.amount, 50)
-      ))
-      .orderBy(desc(xpTransactions.createdAt))
-      .limit(10);
-    
-    for (const xp of xpMilestones) {
-      milestones.push({
-        id: xp.id,
-        type: "xp_gain",
-        title: xp.reason || `Earned ${xp.amount} XP`,
-        date: xp.createdAt,
-      });
-    }
-    
-    // Sort by date
-    milestones.sort((a, b) => {
-      if (!a.date || !b.date) return 0;
-      return b.date.getTime() - a.date.getTime();
-    });
-    
-    return milestones.slice(0, 20);
   },
 
   async listSkillDomains(): Promise<SkillDomain[]> {

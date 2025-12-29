@@ -6204,17 +6204,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Get player journey (milestones, badges, achievements)
   app.get("/api/player/me/journey", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
-    // Return demo journey for owners/coaches
+    // Return empty journey for users without player profile
     if (!req.user!.playerId) {
       return res.json({
-        milestones: [
-          { id: "m1", type: "level_up", title: "Reached Level 5", date: new Date(Date.now() - 7*24*60*60*1000).toISOString(), xp: 500 },
-          { id: "m2", type: "badge", title: "Consistency Champion", date: new Date(Date.now() - 14*24*60*60*1000).toISOString(), description: "Attended 10 sessions in a row" },
-        ],
-        badges: [
-          { id: "b1", name: "First Session", icon: "star", earnedAt: new Date(Date.now() - 30*24*60*60*1000).toISOString() },
-          { id: "b2", name: "Week Warrior", icon: "flame", earnedAt: new Date(Date.now() - 20*24*60*60*1000).toISOString() },
-        ],
+        milestones: [],
+        badges: [],
+        badgesAvailable: false,
+        badgeMessage: "Start training to unlock achievements!",
+        totalMilestones: 0,
+        totalBadges: 0,
+        xpHistory: [],
       });
     }
     // Original implementation below
@@ -6390,9 +6389,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get other players in the same academy (excluding self)
-      const allPlayers = await storage.listPlayers(player.academyId);
+      const allPlayers = await storage.getPlayersByAcademy(player.academyId);
       const peers = allPlayers
-        .filter(p => p.id !== playerId && p.isActive)
+        .filter(p => p.id !== playerId)
         .map(p => ({
           id: p.id,
           name: p.name,
@@ -6621,15 +6620,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get player recognition (badges, achievements, validations)
   app.get("/api/player/me/recognition", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
-    // Return demo recognition for owners/coaches
+    // Return empty recognition for users without player profile
     if (!req.user!.playerId) {
       return res.json({
-        recentPraise: [
-          { id: "r1", message: "Excellent serve today!", from: "Coach Demo", date: new Date(Date.now() - 24*60*60*1000).toISOString() },
-        ],
-        achievements: [
-          { id: "a1", title: "Rising Star", description: "Gained 500 XP in one week", date: new Date(Date.now() - 5*24*60*60*1000).toISOString() },
-        ],
+        achievements: [],
+        domainBadges: [],
+        validations: [],
+        summary: {
+          totalAchievements: 0,
+          earnedAchievements: 0,
+          totalDomainBadges: 0,
+          earnedDomainBadges: 0,
+          totalValidations: 0,
+        },
       });
     }
     // Original implementation below
@@ -6666,7 +6669,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           icon: "footsteps",
           color: "#2ECC40",
           earned: attendedSessions >= 1,
-          earnedAt: attendedSessions >= 1 ? sessions[0]?.session?.sessionDate : null,
+          earnedAt: attendedSessions >= 1 ? sessions[0]?.startTime?.toISOString() : null,
         },
         {
           id: "five_sessions",
