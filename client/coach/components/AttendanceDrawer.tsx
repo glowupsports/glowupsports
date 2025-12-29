@@ -9,6 +9,7 @@ import {
   Alert,
   ScrollView,
   TextInput,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -20,6 +21,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { useNetwork } from "@/context/NetworkContext";
 
 type AttendanceStatus = "present" | "late" | "absent" | "holiday";
 type LateMinutes = 5 | 10 | 15 | 20 | 30 | 999;
@@ -69,7 +71,6 @@ interface AttendanceDrawerProps {
   onPlayersAdded?: () => void;
 }
 
-const OFFLINE_QUEUE_KEY = "coach_offline_attendance_queue";
 const LAST_LATE_MINUTES_KEY = "coach_last_late_minutes";
 const DEFAULT_LATE_MINUTES: LateMinutes = 10;
 
@@ -82,9 +83,9 @@ export default function AttendanceDrawer({
 }: AttendanceDrawerProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { isOffline, logOfflineAttempt } = useNetwork();
   const [attendance, setAttendance] = useState<Map<string, AttendanceRecord>>(new Map());
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
-  const [isOffline, setIsOffline] = useState(false);
   const [showAddPlayers, setShowAddPlayers] = useState(false);
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -152,6 +153,18 @@ export default function AttendanceDrawer({
     }
   }, [session]);
 
+  const showOfflineAlert = useCallback(() => {
+    if (Platform.OS === "web") {
+      window.alert("You're currently offline. This action can't be saved.");
+    } else {
+      Alert.alert(
+        "You're Offline",
+        "You're currently offline. This action can't be saved. Please reconnect to the internet and try again.",
+        [{ text: "OK", style: "default" }]
+      );
+    }
+  }, []);
+
   const saveMutation = useMutation({
     mutationFn: async (data: { sessionId: string; attendance: AttendanceRecord[] }) => {
       return apiRequest("POST", `/api/coach/sessions/${data.sessionId}/attendance`, {
@@ -164,41 +177,10 @@ export default function AttendanceDrawer({
       onSave();
       onClose();
     },
-    onError: async (error: Error) => {
-      const msg = error.message.toLowerCase();
-      if (msg.includes("network") || msg.includes("offline") || msg.includes("failed")) {
-        await saveToOfflineQueue();
-      } else {
-        Alert.alert("Error", error.message || "Failed to save attendance");
-      }
+    onError: (error: Error) => {
+      Alert.alert("Error", error.message || "Failed to save attendance");
     },
   });
-
-  const saveToOfflineQueue = async () => {
-    if (!session) return;
-    try {
-      const existing = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY);
-      const queue: Array<{ sessionId: string; attendance: AttendanceRecord[]; timestamp: number }> = 
-        existing ? JSON.parse(existing) : [];
-      
-      queue.push({
-        sessionId: session.id,
-        attendance: Array.from(attendance.values()),
-        timestamp: Date.now(),
-      });
-      
-      await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
-      setIsOffline(true);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert(
-        "Saved Offline",
-        "Attendance saved locally and will sync when connection is restored.",
-        [{ text: "OK", onPress: onClose }]
-      );
-    } catch (e) {
-      Alert.alert("Error", "Failed to save attendance offline");
-    }
-  };
 
   const setPlayerStatus = (playerId: string, status: AttendanceStatus) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -243,8 +225,18 @@ export default function AttendanceDrawer({
     });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!session) return;
+    
+    if (isOffline) {
+      await logOfflineAttempt({
+        screen: "AttendanceDrawer",
+        action: "save_attendance",
+      });
+      showOfflineAlert();
+      return;
+    }
+    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     saveMutation.mutate({
       sessionId: session.id,
@@ -337,9 +329,12 @@ export default function AttendanceDrawer({
             </Text>
           </View>
           <Pressable
-            style={[styles.saveButton, saveMutation.isPending && styles.saveButtonDisabled]}
+            style={[
+              styles.saveButton, 
+              (saveMutation.isPending || isOffline) && styles.saveButtonDisabled
+            ]}
             onPress={handleSave}
-            disabled={saveMutation.isPending}
+            disabled={saveMutation.isPending || isOffline}
           >
             {saveMutation.isPending ? (
               <ActivityIndicator size="small" color="#FFF" />
@@ -577,11 +572,11 @@ export default function AttendanceDrawer({
           </View>
         )}
 
-        {/* Offline Indicator */}
+        {/* Offline Warning */}
         {isOffline ? (
           <View style={styles.offlineIndicator}>
-            <Ionicons name="cloud-offline-outline" size={16} color={Colors.dark.orange} />
-            <Text style={styles.offlineText}>Saved offline - will sync when connected</Text>
+            <Ionicons name="wifi-outline" size={16} color={Colors.dark.accentWarning} />
+            <Text style={styles.offlineText}>You're offline. Saving is disabled.</Text>
           </View>
         ) : null}
       </View>

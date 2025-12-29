@@ -20,6 +20,7 @@ import TemplatesScreen from "@/coach/screens/TemplatesScreen";
 import AcademySettingsScreen from "@/coach/screens/AcademySettingsScreen";
 import BillingScreen from "@/coach/screens/BillingScreen";
 import CoachOnboardingScreen from "@/coach/screens/CoachOnboardingScreen";
+import OfflineBanner from "@/components/OfflineBanner";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Colors } from "@/constants/theme";
 
@@ -228,10 +229,19 @@ export default function CoachNavigator() {
     return <CoachOnboardingScreen onComplete={handleOnboardingComplete} />;
   }
 
-  return <CoachStackNavigator />;
+  return (
+    <View style={styles.container}>
+      <OfflineBanner />
+      <CoachStackNavigator />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",

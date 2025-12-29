@@ -13,6 +13,7 @@ import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PlayerProvider } from "@/context/PlayerContext";
 import { AppModeProvider } from "@/context/AppModeContext";
+import { NetworkProvider } from "@/context/NetworkContext";
 import { CoachProvider } from "@/coach/context/CoachContext";
 import { AuthProvider } from "@/coach/context/AuthContext";
 
@@ -23,19 +24,21 @@ export default function App() {
         <SafeAreaProvider>
           <GestureHandlerRootView style={styles.root}>
             <KeyboardProvider>
-              <AppModeProvider>
-                <AuthProvider>
-                  <PlayerProvider>
-                    <CoachProvider>
-                      <View style={styles.root}>
-                        <NavigationContainer>
-                          <RootStackNavigator />
-                        </NavigationContainer>
-                      </View>
-                    </CoachProvider>
-                  </PlayerProvider>
-                </AuthProvider>
-              </AppModeProvider>
+              <NetworkProvider>
+                <AppModeProvider>
+                  <AuthProvider>
+                    <PlayerProvider>
+                      <CoachProvider>
+                        <View style={styles.root}>
+                          <NavigationContainer>
+                            <RootStackNavigator />
+                          </NavigationContainer>
+                        </View>
+                      </CoachProvider>
+                    </PlayerProvider>
+                  </AuthProvider>
+                </AppModeProvider>
+              </NetworkProvider>
               <StatusBar style="light" />
             </KeyboardProvider>
           </GestureHandlerRootView>
