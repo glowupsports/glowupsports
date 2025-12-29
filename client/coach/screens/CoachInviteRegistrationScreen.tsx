@@ -42,6 +42,7 @@ export default function CoachInviteRegistrationScreen({
   const insets = useSafeAreaInsets();
   const { login } = useAuth();
   
+  const [username, setUsername] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -71,13 +72,14 @@ export default function CoachInviteRegistrationScreen({
   const registerMutation = useMutation({
     mutationFn: async (data: {
       token: string;
+      username: string;
       name: string;
       email: string;
       password: string;
       phone?: string;
       specialty?: string;
     }) => {
-      const response = await apiRequest("POST", "/api/auth/coach/register", data);
+      const response = await apiRequest("POST", "/auth/register/coach", data);
       return response.json();
     },
     onSuccess: async (data) => {
@@ -95,6 +97,21 @@ export default function CoachInviteRegistrationScreen({
   });
 
   const handleRegister = () => {
+    // Normalize username to lowercase
+    const normalizedUsername = username.trim().toLowerCase();
+    
+    if (!normalizedUsername) {
+      Alert.alert("Error", "Please enter a username");
+      return;
+    }
+    if (normalizedUsername.length < 3) {
+      Alert.alert("Error", "Username must be at least 3 characters");
+      return;
+    }
+    if (!/^[a-z0-9_]+$/.test(normalizedUsername)) {
+      Alert.alert("Error", "Username can only contain letters, numbers, and underscores");
+      return;
+    }
     if (!name.trim()) {
       Alert.alert("Error", "Please enter your name");
       return;
@@ -115,6 +132,7 @@ export default function CoachInviteRegistrationScreen({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     registerMutation.mutate({
       token,
+      username: normalizedUsername,
       name: name.trim(),
       email: email.trim(),
       password,
@@ -188,6 +206,23 @@ export default function CoachInviteRegistrationScreen({
 
         <View style={styles.form}>
           <Text style={styles.formTitle}>Create Your Account</Text>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Username *</Text>
+            <View style={styles.inputWrapper}>
+              <Ionicons name="at-outline" size={18} color={Colors.dark.textMuted} />
+              <TextInput
+                style={styles.input}
+                value={username}
+                onChangeText={setUsername}
+                placeholder="Choose a unique username"
+                placeholderTextColor={Colors.dark.disabled}
+                autoCapitalize="none"
+                autoComplete="username"
+              />
+            </View>
+            <Text style={styles.hintText}>Letters, numbers, and underscores only</Text>
+          </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Full Name *</Text>
@@ -432,6 +467,11 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     fontWeight: "600",
     marginBottom: Spacing.xs,
+  },
+  hintText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
   },
   inputWrapper: {
     flexDirection: "row",

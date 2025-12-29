@@ -33,21 +33,25 @@ export const insertUserSchema = createInsertSchema(users).pick({
 });
 
 export const loginSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
+  username: z.string()
+    .min(3, "Username must be at least 3 characters")
+    .transform(val => val.toLowerCase()),
   password: z.string().min(6),
 });
 
 export const usernameSchema = z.string()
   .min(3, "Username must be at least 3 characters")
   .max(30, "Username must be 30 characters or less")
-  .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores");
+  .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores")
+  .transform(val => val.toLowerCase());
 
 // Player self-registration (open, no academy required)
 export const playerRegisterSchema = z.object({
   username: z.string()
     .min(3, "Username must be at least 3 characters")
     .max(30, "Username must be 30 characters or less")
-    .regex(/^[a-zA-Z0-9_]+$/, "Only letters, numbers, and underscores allowed"),
+    .regex(/^[a-zA-Z0-9_]+$/, "Only letters, numbers, and underscores allowed")
+    .transform(val => val.toLowerCase()),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   dateOfBirth: z.string().optional(),
@@ -62,7 +66,8 @@ export const coachInviteRegisterSchema = z.object({
   username: z.string()
     .min(3, "Username must be at least 3 characters")
     .max(30, "Username must be 30 characters or less")
-    .regex(/^[a-zA-Z0-9_]+$/, "Only letters, numbers, and underscores allowed"),
+    .regex(/^[a-zA-Z0-9_]+$/, "Only letters, numbers, and underscores allowed")
+    .transform(val => val.toLowerCase()),
   name: z.string().min(2, "Name is required"),
   email: z.string().email("Valid email is required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
@@ -75,7 +80,8 @@ export const registerSchema = z.object({
   username: z.string()
     .min(3, "Username must be at least 3 characters")
     .max(30, "Username must be 30 characters or less")
-    .regex(/^[a-zA-Z0-9_]+$/, "Only letters, numbers, and underscores allowed"),
+    .regex(/^[a-zA-Z0-9_]+$/, "Only letters, numbers, and underscores allowed")
+    .transform(val => val.toLowerCase()),
   email: z.string().email(),
   password: z.string().min(8),
   name: z.string().min(2),

@@ -90,7 +90,8 @@ export default function LoginScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      const result = await login(username, password);
+      // Normalize username to lowercase for consistency
+      const result = await login(username.toLowerCase(), password);
       if (!result.success) {
         Alert.alert("Login Failed", result.error || "Please check your credentials");
       }
@@ -107,12 +108,15 @@ export default function LoginScreen() {
       return;
     }
 
-    if (username.length < 3) {
+    // Normalize username to lowercase
+    const normalizedUsername = username.toLowerCase();
+
+    if (normalizedUsername.length < 3) {
       Alert.alert("Error", "Username must be at least 3 characters");
       return;
     }
 
-    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+    if (!/^[a-z0-9_]+$/.test(normalizedUsername)) {
       Alert.alert("Error", "Username can only contain letters, numbers, and underscores");
       return;
     }
@@ -127,7 +131,7 @@ export default function LoginScreen() {
 
     try {
       const result = await registerPlayer({
-        username,
+        username: normalizedUsername,
         firstName,
         lastName,
         email,

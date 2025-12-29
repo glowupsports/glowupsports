@@ -94,13 +94,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Check username availability (for real-time validation during registration)
   app.get("/api/auth/check-username/:username", async (req: Request, res: Response) => {
     try {
-      const { username } = req.params;
+      const { username: rawUsername } = req.params;
+      
+      // Normalize to lowercase for consistent checking
+      const username = rawUsername.toLowerCase();
       
       if (!username || username.length < 3) {
         return res.status(400).json({ available: false, error: "Username must be at least 3 characters" });
       }
       
-      if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      if (!/^[a-z0-9_]+$/.test(username)) {
         return res.status(400).json({ available: false, error: "Only letters, numbers, and underscores allowed" });
       }
       
@@ -168,7 +171,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: fromZodError(parsed.error).message });
       }
 
-      const { username, firstName, lastName, dateOfBirth, email, phone, password } = parsed.data;
+      const { username: rawUsername, firstName, lastName, dateOfBirth, email, phone, password } = parsed.data;
+      
+      // Normalize username to lowercase for consistent storage
+      const username = rawUsername.toLowerCase();
 
       // Check if username is already taken (globally unique)
       const usernameExists = await storage.checkUsernameExists(username);
@@ -236,7 +242,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: fromZodError(parsed.error).message });
       }
 
-      const { token, username, name, email, password, phone, specialty } = parsed.data;
+      const { token, username: rawUsername, name, email, password, phone, specialty } = parsed.data;
+      
+      // Normalize username to lowercase for consistent storage
+      const username = rawUsername.toLowerCase();
 
       // Check if username is already taken
       const usernameExists = await storage.checkUsernameExists(username);
