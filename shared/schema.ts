@@ -56,7 +56,7 @@ export const playerRegisterSchema = z.object({
   lastName: z.string().min(1, "Last name is required"),
   dateOfBirth: z.string().optional(),
   email: z.string().email("Valid email is required"),
-  phone: z.string().optional(),
+  phone: z.string().min(5, "Phone number is required for WhatsApp communication"),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
@@ -71,7 +71,7 @@ export const coachInviteRegisterSchema = z.object({
   name: z.string().min(2, "Name is required"),
   email: z.string().email("Valid email is required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  phone: z.string().optional(),
+  phone: z.string().min(5, "Phone number is required for WhatsApp communication"),
   specialty: z.string().optional(),
 });
 

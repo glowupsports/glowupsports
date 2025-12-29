@@ -16,6 +16,7 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest } from "@/lib/query-client";
+import CountryCodePicker, { getDefaultCountry, CountryCode } from "@/components/CountryCodePicker";
 
 type AuthMode = "login" | "player_register" | "coach_info" | "academy_apply";
 
@@ -59,6 +60,7 @@ export default function LoginScreen() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
+  const [countryCode, setCountryCode] = useState<CountryCode>(getDefaultCountry());
   const [academyName, setAcademyName] = useState("");
   const [country, setCountry] = useState("");
   const [contactPerson, setContactPerson] = useState("");
@@ -74,6 +76,7 @@ export default function LoginScreen() {
     setFirstName("");
     setLastName("");
     setPhone("");
+    setCountryCode(getDefaultCountry());
     setAcademyName("");
     setCountry("");
     setContactPerson("");
@@ -108,6 +111,11 @@ export default function LoginScreen() {
       return;
     }
 
+    if (!phone.trim()) {
+      Alert.alert("Error", "Phone number is required for WhatsApp communication");
+      return;
+    }
+
     // Normalize username to lowercase
     const normalizedUsername = username.toLowerCase();
 
@@ -129,6 +137,9 @@ export default function LoginScreen() {
     setIsSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+    // Combine country code with phone number (E.164 format, no spaces)
+    const fullPhone = `${countryCode.dial}${phone.trim().replace(/\s/g, '')}`;
+
     try {
       const result = await registerPlayer({
         username: normalizedUsername,
@@ -136,7 +147,7 @@ export default function LoginScreen() {
         lastName,
         email,
         password,
-        phone: phone || undefined,
+        phone: fullPhone,
       });
       if (!result.success) {
         Alert.alert("Registration Failed", result.error || "Please try again");
@@ -334,15 +345,21 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Phone (optional)</Text>
-        <TextInput
-          value={phone}
-          onChangeText={setPhone}
-          placeholder="Enter your phone number"
-          placeholderTextColor={Colors.dark.disabled}
-          keyboardType="phone-pad"
-          style={styles.input}
-        />
+        <Text style={styles.label}>Phone (for WhatsApp)</Text>
+        <View style={styles.phoneRow}>
+          <CountryCodePicker
+            selectedCountry={countryCode}
+            onSelect={setCountryCode}
+          />
+          <TextInput
+            value={phone}
+            onChangeText={setPhone}
+            placeholder="Phone number"
+            placeholderTextColor={Colors.dark.disabled}
+            keyboardType="phone-pad"
+            style={[styles.input, styles.phoneInput]}
+          />
+        </View>
       </View>
 
       <View style={styles.inputGroup}>
@@ -660,6 +677,13 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: "row",
     gap: Spacing.md,
+  },
+  phoneRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  phoneInput: {
+    flex: 1,
   },
   label: {
     ...Typography.small,

@@ -19,6 +19,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
+import CountryCodePicker, { getDefaultCountry, CountryCode } from "@/components/CountryCodePicker";
 
 interface InviteInfo {
   valid: boolean;
@@ -48,6 +49,7 @@ export default function CoachInviteRegistrationScreen({
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [phone, setPhone] = useState("");
+  const [countryCode, setCountryCode] = useState<CountryCode>(getDefaultCountry());
   const [specialty, setSpecialty] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
@@ -120,6 +122,10 @@ export default function CoachInviteRegistrationScreen({
       Alert.alert("Error", "Please enter your email");
       return;
     }
+    if (!phone.trim()) {
+      Alert.alert("Error", "Phone number is required for WhatsApp communication");
+      return;
+    }
     if (password.length < 8) {
       Alert.alert("Error", "Password must be at least 8 characters");
       return;
@@ -129,6 +135,9 @@ export default function CoachInviteRegistrationScreen({
       return;
     }
 
+    // Combine country code with phone number (E.164 format, no spaces)
+    const fullPhone = `${countryCode.dial}${phone.trim().replace(/\s/g, '')}`;
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     registerMutation.mutate({
       token,
@@ -136,7 +145,7 @@ export default function CoachInviteRegistrationScreen({
       name: name.trim(),
       email: email.trim(),
       password,
-      phone: phone.trim() || undefined,
+      phone: fullPhone,
       specialty: specialty.trim() || undefined,
     });
   };
@@ -299,17 +308,22 @@ export default function CoachInviteRegistrationScreen({
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Phone (optional)</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="call-outline" size={18} color={Colors.dark.textMuted} />
-              <TextInput
-                style={styles.input}
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="Your phone number"
-                placeholderTextColor={Colors.dark.disabled}
-                keyboardType="phone-pad"
+            <Text style={styles.inputLabel}>Phone (for WhatsApp) *</Text>
+            <View style={styles.phoneRow}>
+              <CountryCodePicker
+                selectedCountry={countryCode}
+                onSelect={setCountryCode}
               />
+              <View style={[styles.inputWrapper, styles.phoneInputWrapper]}>
+                <TextInput
+                  style={styles.input}
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="Phone number"
+                  placeholderTextColor={Colors.dark.disabled}
+                  keyboardType="phone-pad"
+                />
+              </View>
             </View>
           </View>
 
@@ -480,6 +494,13 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     gap: Spacing.sm,
+  },
+  phoneRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  phoneInputWrapper: {
+    flex: 1,
   },
   input: {
     flex: 1,
