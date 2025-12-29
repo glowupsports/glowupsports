@@ -22,6 +22,7 @@ import BillingScreen from "@/coach/screens/BillingScreen";
 import CoachOnboardingScreen from "@/coach/screens/CoachOnboardingScreen";
 import OfflineBanner from "@/components/OfflineBanner";
 import { useAuth } from "@/coach/context/AuthContext";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { Colors } from "@/constants/theme";
 
 export type CoachTabParamList = {
@@ -203,6 +204,8 @@ export default function CoachNavigator() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
+
+  usePushNotifications();
 
   const { data: profile, isLoading } = useQuery<CoachProfile>({
     queryKey: ["/api/coach/me/profile"],

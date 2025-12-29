@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoute, useNavigation, RouteProp } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
@@ -54,47 +54,34 @@ export default function TrainingDetailScreen() {
     enabled: !!sessionId,
   });
 
-  const mockTraining: TrainingDetail = {
-    id: sessionId || "1",
-    date: new Date(Date.now() - 86400000).toISOString(),
-    type: "private",
-    duration: 60,
-    coachName: "Coach Mike",
-    xpEarned: 80,
-    feedback: {
-      focus: 4,
-      effort: 5,
-      message: "Excellent footwork improvement today. Your split-step timing is getting much better. Focus on recovery speed after wide balls.",
-    },
-    focusArea: "Court Positioning",
-    domainImpacts: [
-      {
-        domain: "technical",
-        xp: 40,
-        skillsAffected: [
-          { name: "Forehand Consistency", change: 3 },
-          { name: "Footwork", change: 2 },
-        ],
-      },
-      {
-        domain: "physical",
-        xp: 30,
-        skillsAffected: [
-          { name: "Court Coverage", change: 2 },
-          { name: "Recovery Speed", change: 1 },
-        ],
-      },
-      {
-        domain: "mental",
-        xp: 10,
-        skillsAffected: [
-          { name: "Focus", change: 1 },
-        ],
-      },
-    ],
-  };
+  if (!training && !isLoading) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Training Details</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={styles.emptyState}>
+          <Ionicons name="fitness-outline" size={48} color={Colors.dark.textMuted} />
+          <Text style={styles.emptyTitle}>Training session not found</Text>
+          <Text style={styles.emptySubtitle}>This session may have been removed or is no longer available</Text>
+        </View>
+      </View>
+    );
+  }
 
-  const data = training || mockTraining;
+  if (!training) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={Colors.dark.primary} />
+      </View>
+    );
+  }
+
+  const data = training;
   const date = new Date(data.date);
   const dateStr = date.toLocaleDateString("en-US", {
     weekday: "long",
@@ -539,5 +526,24 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.xpCyan,
     fontWeight: "700",
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: Spacing["2xl"],
+    gap: Spacing.md,
+  },
+  emptyTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  emptySubtitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    lineHeight: 20,
   },
 });

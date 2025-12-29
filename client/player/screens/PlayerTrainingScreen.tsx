@@ -167,86 +167,9 @@ export default function PlayerTrainingScreen() {
     queryKey: ["/api/player/training-history"],
   });
 
-  const activeFocus: FocusArea | null = {
-    name: "Court Positioning",
-    setBy: "Coach Mike",
-    setDate: "2 days ago",
-  };
+  const activeFocus: FocusArea | null = null;
 
-  const mockSessions: TrainingSession[] = [
-    {
-      id: "1",
-      date: new Date(Date.now() - 86400000).toISOString(),
-      type: "private",
-      duration: 60,
-      coachName: "Coach Mike",
-      attended: true,
-      xpEarned: 80,
-      domains: [
-        { domain: "technical", xp: 40 },
-        { domain: "physical", xp: 30 },
-        { domain: "mental", xp: 10 },
-      ],
-      feedback: {
-        focus: 4,
-        effort: 5,
-        message: "Excellent footwork improvement. Keep up the momentum!",
-      },
-    },
-    {
-      id: "2",
-      date: new Date(Date.now() - 86400000 * 3).toISOString(),
-      type: "group",
-      duration: 90,
-      coachName: "Coach Mike",
-      attended: true,
-      xpEarned: 55,
-      domains: [
-        { domain: "tactical", xp: 35 },
-        { domain: "social", xp: 20 },
-      ],
-      feedback: {
-        focus: 3,
-        effort: 4,
-      },
-    },
-    {
-      id: "3",
-      date: new Date(Date.now() - 86400000 * 5).toISOString(),
-      type: "physical",
-      duration: 45,
-      coachName: "Coach Sarah",
-      attended: true,
-      xpEarned: 45,
-      domains: [
-        { domain: "physical", xp: 35 },
-        { domain: "mental", xp: 10 },
-      ],
-      feedback: {
-        focus: 5,
-        effort: 5,
-        message: "Great stamina work. Core strength is improving.",
-      },
-    },
-    {
-      id: "4",
-      date: new Date(Date.now() - 86400000 * 7).toISOString(),
-      type: "private",
-      duration: 60,
-      coachName: "Coach Mike",
-      attended: true,
-      xpEarned: 50,
-      domains: [
-        { domain: "technical", xp: 50 },
-      ],
-      feedback: {
-        focus: 4,
-        effort: 4,
-      },
-    },
-  ];
-
-  const data = sessions || mockSessions;
+  const data = sessions || [];
 
   const handleSessionPress = (sessionId: string) => {
     navigation.navigate("TrainingDetail", { sessionId });

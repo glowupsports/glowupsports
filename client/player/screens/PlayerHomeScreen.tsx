@@ -65,23 +65,6 @@ interface DashboardData {
   }>;
 }
 
-interface Peer {
-  id: string;
-  name: string;
-  level: number;
-  ballLevel: string | null;
-  glowScore: number;
-  avatar: string;
-}
-
-interface PeersData {
-  totalPeers: number;
-  peers: Peer[];
-  sameLevelPeers: Peer[];
-  myRankAtLevel: number;
-  totalAtLevel: number;
-}
-
 interface OwnerAcademyStats {
   isOwnerView: boolean;
   academy: {
@@ -144,18 +127,6 @@ function StatCard({ label, value, icon, color }: { label: string; value: string 
       <Text style={[styles.statValue, { color }]}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
-  );
-}
-
-function PeerCard({ peer, onPress }: { peer: Peer; onPress: () => void }) {
-  return (
-    <Pressable style={styles.peerCard} onPress={onPress}>
-      <View style={styles.peerAvatar}>
-        <Text style={styles.peerAvatarText}>{peer.avatar}</Text>
-      </View>
-      <Text style={styles.peerName} numberOfLines={1}>{peer.name.split(" ")[0]}</Text>
-      <Text style={styles.peerLevel}>Lv.{peer.level}</Text>
-    </Pressable>
   );
 }
 
@@ -325,19 +296,10 @@ export default function PlayerHomeScreen() {
     enabled: showOwnerOverview,
   });
   
-  const { data: peersData } = useQuery<PeersData>({
-    queryKey: ["/api/player/me/peers"],
-    enabled: canAccessPlayerMode && showPlayerDashboard,
-  });
-
   const { data: ownerProfileData } = useQuery<OwnerProfileData>({
     queryKey: ["/api/player/academy-owner"],
     enabled: canAccessPlayerMode && showPlayerDashboard,
   });
-
-  const handlePeerPress = (peer: Peer) => {
-    navigation.navigate("PeerJourney", { peerId: peer.id, peerName: peer.name });
-  };
 
   if (!canAccessPlayerMode) {
     return (
@@ -620,31 +582,6 @@ export default function PlayerHomeScreen() {
             color={Colors.dark.xpCyan} 
           />
         </View>
-
-        {peersData && peersData.sameLevelPeers.length > 0 ? (
-          <View style={styles.peersSection}>
-            <View style={styles.peersSectionHeader}>
-              <Ionicons name="people" size={18} color={Colors.dark.xpCyan} />
-              <Text style={styles.peersSectionTitle}>Training Partners</Text>
-              <View style={styles.rankBadge}>
-                <Text style={styles.rankText}>#{peersData.myRankAtLevel} of {peersData.totalAtLevel}</Text>
-              </View>
-            </View>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.peersScroll}
-            >
-              {peersData.sameLevelPeers.slice(0, 8).map(peer => (
-                <PeerCard 
-                  key={peer.id} 
-                  peer={peer} 
-                  onPress={() => handlePeerPress(peer)}
-                />
-              ))}
-            </ScrollView>
-          </View>
-        ) : null}
 
         {academy ? (
           <View style={styles.academyCard}>
@@ -1036,69 +973,6 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
     borderTopWidth: 1,
     borderTopColor: Colors.dark.border,
-  },
-  peersSection: {
-    marginHorizontal: Spacing.xl,
-    marginBottom: Spacing.lg,
-    ...CardStyles.elevated,
-    padding: Spacing.lg,
-  },
-  peersSectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  peersSectionTitle: {
-    ...Typography.caption,
-    color: Colors.dark.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    flex: 1,
-  },
-  rankBadge: {
-    backgroundColor: "rgba(0, 212, 255, 0.15)",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.sm,
-  },
-  rankText: {
-    ...Typography.caption,
-    color: Colors.dark.xpCyan,
-    fontWeight: "600",
-  },
-  peersScroll: {
-    gap: Spacing.md,
-  },
-  peerCard: {
-    alignItems: "center",
-    gap: Spacing.xs,
-    width: 64,
-  },
-  peerAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.dark.backgroundTertiary,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: Colors.dark.xpCyan,
-  },
-  peerAvatarText: {
-    ...Typography.body,
-    color: Colors.dark.xpCyan,
-    fontWeight: "600",
-  },
-  peerName: {
-    ...Typography.caption,
-    color: Colors.dark.text,
-    textAlign: "center",
-  },
-  peerLevel: {
-    ...Typography.caption,
-    color: Colors.dark.textMuted,
-    fontSize: 10,
   },
   ownerBadge: {
     flexDirection: "row",

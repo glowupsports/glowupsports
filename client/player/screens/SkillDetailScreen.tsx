@@ -55,72 +55,10 @@ export default function SkillDetailScreen() {
 
   const config = DOMAIN_CONFIG[domain] || DOMAIN_CONFIG.technical;
 
-  const mockData: DomainDetail = {
-    domain,
-    overallProgress: 68,
-    skills: [
-      {
-        id: "1",
-        name: "Forehand Consistency",
-        progress: 72,
-        status: "improving",
-        recentImpact: [
-          { session: "Forehand + Movement", change: 3, date: "Yesterday" },
-          { session: "Private Training", change: 2, date: "3 days ago" },
-        ],
-        suggestions: [
-          "2 more coach sessions tagged 'Technical'",
-          "No negative consistency drops",
-        ],
-      },
-      {
-        id: "2",
-        name: "Backhand Control",
-        progress: 55,
-        status: "needs_work",
-        recentImpact: [
-          { session: "Group Training", change: 1, date: "Last week" },
-        ],
-        suggestions: [
-          "Focus on follow-through motion",
-          "Practice cross-court shots",
-        ],
-      },
-      {
-        id: "3",
-        name: "Serve Rhythm",
-        progress: 61,
-        status: "stable",
-        recentImpact: [
-          { session: "Serve Practice", change: 2, date: "4 days ago" },
-        ],
-      },
-      {
-        id: "4",
-        name: "Volley Touch",
-        progress: 48,
-        status: "needs_work",
-        suggestions: [
-          "More net approach drills needed",
-          "Work on soft hands at the net",
-        ],
-      },
-      {
-        id: "5",
-        name: "Footwork",
-        progress: 65,
-        status: "improving",
-        recentImpact: [
-          { session: "Footwork Drills", change: 4, date: "Yesterday" },
-        ],
-      },
-    ],
-  };
-
-  const data = domainData || mockData;
-  const overallProgress = data?.overallProgress ?? 0;
-  const skills = data?.skills || [];
+  const overallProgress = domainData?.overallProgress ?? 0;
+  const skills = domainData?.skills || [];
   const [expandedSkill, setExpandedSkill] = React.useState<string | null>(null);
+  const hasData = domainData && skills.length > 0;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -162,6 +100,16 @@ export default function SkillDetailScreen() {
 
         <Text style={styles.sectionTitle}>Individual Skills</Text>
         <Text style={styles.sectionSubtitle}>Tap a skill to see details and suggestions</Text>
+
+        {!hasData && !isLoading ? (
+          <View style={styles.emptyState}>
+            <Ionicons name={config.icon as any} size={48} color={Colors.dark.textMuted} />
+            <Text style={styles.emptyTitle}>No {config.label} skills tracked yet</Text>
+            <Text style={styles.emptySubtitle}>
+              Complete training sessions with your coach to start building your {config.label.toLowerCase()} skill profile
+            </Text>
+          </View>
+        ) : null}
 
         {skills.map((skill) => {
           const statusConfig = STATUS_CONFIG[skill.status] || STATUS_CONFIG.stable;
@@ -428,5 +376,23 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.textMuted,
     flex: 1,
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: Spacing["2xl"],
+    gap: Spacing.md,
+  },
+  emptyTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  emptySubtitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    lineHeight: 20,
   },
 });

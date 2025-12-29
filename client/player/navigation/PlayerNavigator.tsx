@@ -14,13 +14,12 @@ import PlayerProfileScreen from "@/player/screens/PlayerProfileScreen";
 import TrainingDetailScreen from "@/player/screens/TrainingDetailScreen";
 import SkillDetailScreen from "@/player/screens/SkillDetailScreen";
 import PlayerSettingsScreen from "@/player/screens/PlayerSettingsScreen";
-import PeerJourneyScreen from "@/player/screens/PeerJourneyScreen";
-import GroupChallengesScreen from "@/player/screens/GroupChallengesScreen";
 import AcademyBrowserScreen from "@/player/screens/AcademyBrowserScreen";
 import PlayerOnboardingScreen from "@/player/screens/PlayerOnboardingScreen";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 export type PlayerTabParamList = {
   Home: undefined;
@@ -36,8 +35,6 @@ export type PlayerStackParamList = {
   TrainingDetail: { sessionId: string };
   SkillDetail: { domain: string };
   Settings: undefined;
-  PeerJourney: { peerId: string; peerName: string };
-  GroupChallenges: undefined;
   AcademyBrowser: undefined;
 };
 
@@ -158,20 +155,6 @@ function PlayerStackNavigator() {
         }}
       />
       <Stack.Screen 
-        name="PeerJourney" 
-        component={PeerJourneyScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen 
-        name="GroupChallenges" 
-        component={GroupChallengesScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen 
         name="AcademyBrowser" 
         component={AcademyBrowserScreen}
         options={{
@@ -196,6 +179,8 @@ export default function PlayerNavigator() {
   const { user, refreshAuth } = useAuth();
   const queryClient = useQueryClient();
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
+
+  usePushNotifications();
 
   // Fetch dashboard for player users who might need onboarding
   // Only fetch if user is a player role - owners/coaches viewing player mode have their own playerId
