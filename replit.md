@@ -91,30 +91,33 @@ The application features a dark-themed gaming aesthetic with neon green (#2ECC40
 - **Web**: Single-page application via Expo web build
 
 ## Recent Changes
-**December 29, 2025 (Latest Session):**
-- **Courts & Locations Management (NEW):**
-  - Created AdminCourtsScreen.tsx with full CRUD (name, location, color picker, active status)
-  - Created AdminLocationsScreen.tsx with full CRUD (name, address, active/inactive sections)
-  - Data integrity: Cannot delete locations with attached courts
-  - Added /api/admin/courts and /api/admin/locations endpoints with proper middleware
-  - Added menu cards to AdminDashboardScreen for Locations and Courts navigation
-  - Predicate-based React Query invalidation refreshes both entities together
-- **Manual Payments System (COMPLETED):**
-  - Payment statuses: pending → confirmed/rejected with admin confirmation
-  - Payment methods: cash, bank_transfer
-  - Filter queries properly construct URLs with status/paymentMethod params
-  - Revenue calculation uses SUM(confirmed payments only)
-- **Previous:**
-  - Player Dashboard Cleanup (removed peer comparisons, mock data)
-  - Push Notifications Foundation (token registration hook)
-  - Day slider timezone bug fixed
+**December 29, 2025 (Latest Session - Continued):**
+- **Player Subscriptions System (NEW):**
+  - Created `playerSubscriptions` table schema for billing contracts (what players SHOULD pay)
+  - Fields: planName, price, currency, billingPeriod (weekly/monthly), sessionsPerPeriod, status (active/paused/cancelled)
+  - Storage functions: CRUD operations + filtering by status/player + getActivePlayerSubscriptions
+  - API endpoints: `/api/admin/player-subscriptions` (GET, POST, PUT, DELETE)
+  - Created AdminSubscriptionsScreen.tsx with full CRUD, pause/resume functionality, monthly revenue forecasting
+  - Added menu card to AdminDashboardScreen for Subscriptions navigation
+- **Owner Finance 3-Section Layout (REFACTORED):**
+  - Section 1 (Collected): Confirmed payments only, cash/bank breakdown, month-over-month change
+  - Section 2 (Pending): Payments awaiting confirmation with count
+  - Section 3 (Estimated): Subscription-based forecast with plan breakdown
+  - All sections include info-icon tooltips for clarity
+  - PaymentRow component handles all statuses: paid, confirmed, pending, overdue, rejected
+  - `/api/owner/finance` returns comprehensive data with tooltips
+- **Previous (Earlier in Session):**
+  - Courts & Locations Management with full CRUD
+  - Manual Payments System with status filters
+  - Player Dashboard Cleanup
+  - Push Notifications Foundation
 
 ## Platform Status
-- **Overall:** 85% MVP-ready (up from 70%)
-- **Core Working:** Username auth, RBAC, sessions, XP engine, chat (WebSocket), manual payments with filters, courts/locations management, push notifications, audit logging
+- **Overall:** 87% MVP-ready (up from 85%)
+- **Core Working:** Username auth, RBAC, sessions, XP engine, chat (WebSocket), manual payments with filters, player subscriptions, courts/locations management, push notifications, audit logging
 - **MVP BLOCKERS:**
   - Push notification triggers (session reminders, feedback alerts, badge notifications)
   - Apple Sign-In (App Store requirement)
   - Email notifications (not implemented)
-- **Code Quality:** routes.ts (7500+ lines) and storage.ts (3500+ lines) need splitting
+- **Code Quality:** routes.ts (8200+ lines) and storage.ts (3600+ lines) need splitting
 - **Estimated to Full MVP:** 2-3 weeks focused development
