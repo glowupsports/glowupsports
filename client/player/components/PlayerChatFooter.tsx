@@ -413,7 +413,7 @@ export function PlayerChatFooter() {
   }
 
   return (
-    <Animated.View style={[styles.container, { bottom: tabBarHeight + insets.bottom }, animatedStyle]}>
+    <Animated.View style={[styles.container, { bottom: tabBarHeight }, animatedStyle]}>
       <View style={styles.header}>
         <Pressable
           onPress={() => {
