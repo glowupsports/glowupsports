@@ -61,7 +61,7 @@ interface Conversation {
 
 const REACTION_EMOJIS = ["thumbsup", "heart", "fire", "trophy", "star"];
 
-const TAB_BAR_HEIGHT = 60;
+const TAB_BAR_HEIGHT = 85;
 
 type ChatTab = "coach" | "players" | "group";
 
@@ -79,7 +79,7 @@ interface OtherPlayer {
 
 export function PlayerChatFooter() {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = TAB_BAR_HEIGHT + insets.bottom;
+  const tabBarHeight = TAB_BAR_HEIGHT;
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const playerId = user?.playerId;
