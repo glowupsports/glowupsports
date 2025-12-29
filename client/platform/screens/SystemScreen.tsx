@@ -1,13 +1,15 @@
-import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform } from "react-native";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, Switch, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
+import { apiRequest } from "@/lib/query-client";
 import type { PlatformStackParamList } from "@/platform/navigation/PlatformNavigator";
 
 type NavigationProp = NativeStackNavigationProp<PlatformStackParamList>;
@@ -73,26 +75,61 @@ export default function SystemScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const { logout } = useAuth();
+  const queryClient = useQueryClient();
 
-  const handleMaintenanceMode = () => {
+  const { data: maintenanceStatus, isLoading: maintenanceLoading } = useQuery<{ maintenance: boolean }>({
+    queryKey: ["/api/maintenance/status"],
+  });
+
+  const maintenanceMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      return apiRequest("POST", "/api/platform/maintenance", { enabled });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/maintenance/status"] });
+    },
+  });
+
+  const isMaintenanceOn = maintenanceStatus?.maintenance ?? false;
+
+  const handleMaintenanceToggle = (enabled: boolean) => {
+    const action = enabled ? "enable" : "disable";
+    const message = enabled 
+      ? "This will temporarily disable platform access for all users (except platform owners)."
+      : "This will restore platform access for all users.";
+
     if (Platform.OS === "web") {
-      const confirmed = window.confirm("Enable Maintenance Mode? This will temporarily disable platform access for all users.");
+      const confirmed = window.confirm(`${enabled ? "Enable" : "Disable"} Maintenance Mode?\n\n${message}`);
       if (confirmed) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        window.alert("Maintenance mode is now enabled.");
+        maintenanceMutation.mutate(enabled, {
+          onSuccess: () => {
+            Haptics.notificationAsync(enabled ? Haptics.NotificationFeedbackType.Warning : Haptics.NotificationFeedbackType.Success);
+            window.alert(`Maintenance mode ${enabled ? "enabled" : "disabled"}.`);
+          },
+          onError: () => {
+            window.alert("Failed to toggle maintenance mode. Please try again.");
+          },
+        });
       }
     } else {
       Alert.alert(
-        "Enable Maintenance Mode",
-        "This will temporarily disable platform access for all users.",
+        `${enabled ? "Enable" : "Disable"} Maintenance Mode`,
+        message,
         [
           { text: "Cancel", style: "cancel" },
           {
-            text: "Enable",
-            style: "destructive",
+            text: enabled ? "Enable" : "Disable",
+            style: enabled ? "destructive" : "default",
             onPress: () => {
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-              Alert.alert("Success", "Maintenance mode is now enabled.");
+              maintenanceMutation.mutate(enabled, {
+                onSuccess: () => {
+                  Haptics.notificationAsync(enabled ? Haptics.NotificationFeedbackType.Warning : Haptics.NotificationFeedbackType.Success);
+                  Alert.alert("Success", `Maintenance mode ${enabled ? "enabled" : "disabled"}.`);
+                },
+                onError: () => {
+                  Alert.alert("Error", "Failed to toggle maintenance mode. Please try again.");
+                },
+              });
             },
           },
         ]
@@ -102,23 +139,37 @@ export default function SystemScreen() {
 
   const handleKillSwitch = () => {
     if (Platform.OS === "web") {
-      const confirmed = window.confirm("EMERGENCY KILL SWITCH\n\nThis will immediately shut down all platform services. Only use in case of critical emergency.\n\nAre you absolutely sure?");
+      const confirmed = window.confirm("EMERGENCY KILL SWITCH\n\nThis will immediately shut down all platform services by enabling maintenance mode. Only use in case of critical emergency.\n\nAre you absolutely sure?");
       if (confirmed) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        window.alert("Kill switch activated. All services are being shut down.");
+        maintenanceMutation.mutate(true, {
+          onSuccess: () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            window.alert("Kill switch activated. Platform is now in maintenance mode.");
+          },
+          onError: () => {
+            window.alert("Failed to activate kill switch. Please try again.");
+          },
+        });
       }
     } else {
       Alert.alert(
         "EMERGENCY KILL SWITCH",
-        "This will immediately shut down all platform services. Only use in case of critical emergency.\n\nAre you absolutely sure?",
+        "This will immediately shut down all platform services by enabling maintenance mode. Only use in case of critical emergency.\n\nAre you absolutely sure?",
         [
           { text: "Cancel", style: "cancel" },
           {
             text: "ACTIVATE",
             style: "destructive",
             onPress: () => {
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-              Alert.alert("Kill Switch Activated", "All services are being shut down.");
+              maintenanceMutation.mutate(true, {
+                onSuccess: () => {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                  Alert.alert("Kill Switch Activated", "Platform is now in maintenance mode.");
+                },
+                onError: () => {
+                  Alert.alert("Error", "Failed to activate kill switch. Please try again.");
+                },
+              });
             },
           },
         ]
@@ -288,13 +339,27 @@ export default function SystemScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Danger Zone</Text>
           <View style={[styles.settingsCard, CardStyles.elevated]}>
-            <SettingRow 
-              icon="pause" 
-              label="Maintenance Mode" 
-              description="Temporarily disable platform access"
-              danger
-              onPress={handleMaintenanceMode}
-            />
+            <View style={styles.settingRow}>
+              <View style={[styles.settingIcon, { backgroundColor: `${Colors.dark.error}20` }]}>
+                <Ionicons name="pause" size={20} color={Colors.dark.error} />
+              </View>
+              <View style={styles.settingInfo}>
+                <Text style={[styles.settingLabel, { color: Colors.dark.error }]}>Maintenance Mode</Text>
+                <Text style={styles.settingDescription}>
+                  {isMaintenanceOn ? "Platform is currently locked" : "Temporarily disable platform access"}
+                </Text>
+              </View>
+              {maintenanceLoading || maintenanceMutation.isPending ? (
+                <ActivityIndicator size="small" color={Colors.dark.error} />
+              ) : (
+                <Switch
+                  value={isMaintenanceOn}
+                  onValueChange={handleMaintenanceToggle}
+                  trackColor={{ false: Colors.dark.backgroundRoot, true: Colors.dark.error + "80" }}
+                  thumbColor={isMaintenanceOn ? Colors.dark.error : Colors.dark.textMuted}
+                />
+              )}
+            </View>
             <SettingRow 
               icon="nuclear" 
               label="Kill Switch" 
