@@ -5816,6 +5816,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch platform stats" });
     }
   });
+
+  // Platform Owner - Get single academy details
+  app.get("/api/platform/academies/:id", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.params.id;
+      const academy = await storage.getAcademy(academyId);
+      
+      if (!academy) {
+        return res.status(404).json({ error: "Academy not found" });
+      }
+
+      const coaches = await storage.getCoachesByAcademy(academyId);
+      const players = await storage.getPlayersByAcademy(academyId);
+      const settings = await storage.getAcademySettings(academyId);
+
+      res.json({
+        id: academy.id,
+        name: academy.name,
+        currency: settings?.currency || "AED",
+        timezone: settings?.timezone || "Asia/Dubai",
+        createdAt: academy.createdAt,
+        coaches: coaches.map(c => ({
+          id: c.id,
+          name: c.name,
+          email: c.email || "",
+        })),
+        players: players.map(p => ({
+          id: p.id,
+          name: p.name,
+          ballLevel: p.ballLevel || "red",
+        })),
+      });
+    } catch (error) {
+      console.error("Get academy detail error:", error);
+      res.status(500).json({ error: "Failed to fetch academy details" });
+    }
+  });
+
+  // Platform Owner - Update academy
+  app.patch("/api/platform/academies/:id", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.params.id;
+      const { name, currency, timezone } = req.body;
+
+      const academy = await storage.getAcademy(academyId);
+      if (!academy) {
+        return res.status(404).json({ error: "Academy not found" });
+      }
+
+      // Update academy name if provided
+      if (name) {
+        await storage.updateAcademy(academyId, { name });
+      }
+
+      // Update settings (currency, timezone) if provided
+      if (currency || timezone) {
+        await storage.upsertAcademySettings(academyId, {
+          academyId,
+          currency: currency || undefined,
+          timezone: timezone || undefined,
+        });
+      }
+
+      const updatedAcademy = await storage.getAcademy(academyId);
+      res.json({ success: true, academy: updatedAcademy });
+    } catch (error) {
+      console.error("Update academy error:", error);
+      res.status(500).json({ error: "Failed to update academy" });
+    }
+  });
+
+  // Platform Owner - Delete academy
+  app.delete("/api/platform/academies/:id", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.params.id;
+
+      const academy = await storage.getAcademy(academyId);
+      if (!academy) {
+        return res.status(404).json({ error: "Academy not found" });
+      }
+
+      // Delete the academy (this should cascade to related data)
+      await storage.deleteAcademy(academyId);
+
+      res.json({ success: true, message: "Academy deleted successfully" });
+    } catch (error) {
+      console.error("Delete academy error:", error);
+      res.status(500).json({ error: "Failed to delete academy" });
+    }
+  });
   
   // Get player dashboard data
   app.get("/api/player/me/dashboard", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {

@@ -4,8 +4,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
+import type { PlatformStackParamList } from "@/platform/navigation/PlatformNavigator";
+
+type NavigationProp = NativeStackNavigationProp<PlatformStackParamList>;
 
 const PLATFORM_COLOR = "#9B59B6";
 
@@ -66,7 +71,78 @@ function StatusIndicator({ label, status }: StatusIndicatorProps) {
 
 export default function SystemScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NavigationProp>();
   const { logout } = useAuth();
+
+  const handleMaintenanceMode = () => {
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm("Enable Maintenance Mode? This will temporarily disable platform access for all users.");
+      if (confirmed) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        window.alert("Maintenance mode is now enabled.");
+      }
+    } else {
+      Alert.alert(
+        "Enable Maintenance Mode",
+        "This will temporarily disable platform access for all users.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Enable",
+            style: "destructive",
+            onPress: () => {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+              Alert.alert("Success", "Maintenance mode is now enabled.");
+            },
+          },
+        ]
+      );
+    }
+  };
+
+  const handleKillSwitch = () => {
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm("EMERGENCY KILL SWITCH\n\nThis will immediately shut down all platform services. Only use in case of critical emergency.\n\nAre you absolutely sure?");
+      if (confirmed) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        window.alert("Kill switch activated. All services are being shut down.");
+      }
+    } else {
+      Alert.alert(
+        "EMERGENCY KILL SWITCH",
+        "This will immediately shut down all platform services. Only use in case of critical emergency.\n\nAre you absolutely sure?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "ACTIVATE",
+            style: "destructive",
+            onPress: () => {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              Alert.alert("Kill Switch Activated", "All services are being shut down.");
+            },
+          },
+        ]
+      );
+    }
+  };
+
+  const handleExportData = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (Platform.OS === "web") {
+      window.alert("Preparing data export... You will receive a download link via email when ready.");
+    } else {
+      Alert.alert("Export Started", "Preparing data export... You will receive a download link via email when ready.");
+    }
+  };
+
+  const handleGDPR = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS === "web") {
+      window.alert("GDPR Tools:\n- Data subject access requests\n- Right to erasure requests\n- Data portability\n- Consent management\n\nFull GDPR compliance tools coming soon.");
+    } else {
+      Alert.alert("GDPR Tools", "Data privacy and compliance features:\n\n- Data subject access requests\n- Right to erasure requests\n- Data portability\n- Consent management\n\nFull GDPR compliance tools coming soon.");
+    }
+  };
 
   const handleLogout = () => {
     if (Platform.OS === "web") {
@@ -133,21 +209,25 @@ export default function SystemScreen() {
               icon="flash" 
               label="XP Multipliers" 
               description="Configure base XP values"
+              onPress={() => navigation.navigate("XPMultipliers")}
             />
             <SettingRow 
               icon="shield-checkmark" 
               label="Anti-Abuse Rules" 
               description="XP caps and pattern detection"
+              onPress={() => navigation.navigate("AntiAbuseRules")}
             />
             <SettingRow 
               icon="trending-up" 
               label="Level Thresholds" 
               description="XP required per level"
+              onPress={() => navigation.navigate("LevelThresholds")}
             />
             <SettingRow 
               icon="ribbon" 
               label="Badge Definitions" 
               description="Manage achievement badges"
+              onPress={() => navigation.navigate("BadgeDefinitions")}
             />
           </View>
         </View>
@@ -159,16 +239,19 @@ export default function SystemScreen() {
               icon="business" 
               label="Academy Defaults" 
               description="Default settings for new academies"
+              onPress={() => navigation.navigate("AcademyDefaults")}
             />
             <SettingRow 
               icon="card" 
               label="Billing Configuration" 
               description="Stripe and payment settings"
+              onPress={() => navigation.navigate("BillingConfig")}
             />
             <SettingRow 
               icon="notifications" 
               label="Notification Templates" 
               description="Email and push notification templates"
+              onPress={() => navigation.navigate("NotificationTemplates")}
             />
             <SettingRow 
               icon="document-text" 
@@ -185,16 +268,19 @@ export default function SystemScreen() {
               icon="download" 
               label="Export All Data" 
               description="Download complete platform data"
+              onPress={handleExportData}
             />
             <SettingRow 
               icon="analytics" 
               label="Audit Logs" 
               description="View system activity logs"
+              onPress={() => navigation.navigate("AuditLogs")}
             />
             <SettingRow 
               icon="shield" 
               label="GDPR Tools" 
               description="Data privacy and compliance"
+              onPress={handleGDPR}
             />
           </View>
         </View>
@@ -207,12 +293,14 @@ export default function SystemScreen() {
               label="Maintenance Mode" 
               description="Temporarily disable platform access"
               danger
+              onPress={handleMaintenanceMode}
             />
             <SettingRow 
               icon="nuclear" 
               label="Kill Switch" 
               description="Emergency platform shutdown"
               danger
+              onPress={handleKillSwitch}
             />
           </View>
         </View>

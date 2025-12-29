@@ -247,6 +247,10 @@ export const storage = {
     return result[0];
   },
 
+  async deleteAcademy(id: string): Promise<void> {
+    await db.delete(academies).where(eq(academies.id, id));
+  },
+
   // ==================== ACADEMY APPLICATIONS ====================
   async getAcademyApplication(id: string): Promise<AcademyApplication | undefined> {
     const result = await db.select().from(academyApplications).where(eq(academyApplications.id, id));

@@ -5,7 +5,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import type { PlatformStackParamList } from "@/platform/navigation/PlatformNavigator";
 
 const PLATFORM_COLOR = "#9B59B6";
 
@@ -108,8 +111,11 @@ function AcademyCard({ name, coaches, players, mrr, status, lastActivity, onPres
   );
 }
 
+type NavigationProp = NativeStackNavigationProp<PlatformStackParamList>;
+
 export default function AcademiesScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NavigationProp>();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
 
@@ -197,7 +203,14 @@ export default function AcademiesScreen() {
 
         <View style={styles.academiesList}>
           {filteredAcademies.map((academy) => (
-            <AcademyCard key={academy.id} {...academy} />
+            <AcademyCard 
+              key={academy.id} 
+              {...academy} 
+              onPress={() => navigation.navigate("AcademyDetail", { 
+                academyId: academy.id, 
+                academyName: academy.name 
+              })}
+            />
           ))}
         </View>
 

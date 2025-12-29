@@ -6,10 +6,19 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
 import CommandCenterScreen from "@/platform/screens/CommandCenterScreen";
 import AcademiesScreen from "@/platform/screens/AcademiesScreen";
+import AcademyDetailScreen from "@/platform/screens/AcademyDetailScreen";
 import CoachHealthScreen from "@/platform/screens/CoachHealthScreen";
 import PlayerHealthScreen from "@/platform/screens/PlayerHealthScreen";
 import FinancialsScreen from "@/platform/screens/FinancialsScreen";
 import SystemScreen from "@/platform/screens/SystemScreen";
+import XPMultipliersScreen from "@/platform/screens/XPMultipliersScreen";
+import AntiAbuseRulesScreen from "@/platform/screens/AntiAbuseRulesScreen";
+import LevelThresholdsScreen from "@/platform/screens/LevelThresholdsScreen";
+import BadgeDefinitionsScreen from "@/platform/screens/BadgeDefinitionsScreen";
+import AcademyDefaultsScreen from "@/platform/screens/AcademyDefaultsScreen";
+import BillingConfigScreen from "@/platform/screens/BillingConfigScreen";
+import NotificationTemplatesScreen from "@/platform/screens/NotificationTemplatesScreen";
+import AuditLogsScreen from "@/platform/screens/AuditLogsScreen";
 import { Colors } from "@/constants/theme";
 
 export type PlatformTabParamList = {
@@ -23,6 +32,15 @@ export type PlatformTabParamList = {
 
 export type PlatformStackParamList = {
   PlatformTabs: undefined;
+  AcademyDetail: { academyId: string; academyName: string };
+  XPMultipliers: undefined;
+  AntiAbuseRules: undefined;
+  LevelThresholds: undefined;
+  BadgeDefinitions: undefined;
+  AcademyDefaults: undefined;
+  BillingConfig: undefined;
+  NotificationTemplates: undefined;
+  AuditLogs: undefined;
 };
 
 const Tab = createBottomTabNavigator<PlatformTabParamList>();
@@ -122,6 +140,15 @@ export default function PlatformNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="PlatformTabs" component={PlatformTabs} />
+      <Stack.Screen name="AcademyDetail" component={AcademyDetailScreen} />
+      <Stack.Screen name="XPMultipliers" component={XPMultipliersScreen} />
+      <Stack.Screen name="AntiAbuseRules" component={AntiAbuseRulesScreen} />
+      <Stack.Screen name="LevelThresholds" component={LevelThresholdsScreen} />
+      <Stack.Screen name="BadgeDefinitions" component={BadgeDefinitionsScreen} />
+      <Stack.Screen name="AcademyDefaults" component={AcademyDefaultsScreen} />
+      <Stack.Screen name="BillingConfig" component={BillingConfigScreen} />
+      <Stack.Screen name="NotificationTemplates" component={NotificationTemplatesScreen} />
+      <Stack.Screen name="AuditLogs" component={AuditLogsScreen} />
     </Stack.Navigator>
   );
 }

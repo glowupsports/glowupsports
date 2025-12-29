@@ -48,11 +48,21 @@ The application features a dark-themed gaming aesthetic with neon green (#2ECC40
 - **Platform Owner App Features** (client/platform/):
     - **Navigation**: 6-tab bottom navigation (Overview, Academies, Coaches, Players, Finance, System) with purple accent color (#9B59B6)
     - **Command Center Screen**: Key metrics (active academies, total coaches/players, MRR), alerts/warnings for inactive academies, activity heatmap, revenue growth charts. Uses react-query with `/api/platform/stats` endpoint.
-    - **Academies Screen**: Searchable list of all academies with status filters (active, trial, paused, overdue), academy cards showing coaches/players/MRR
+    - **Academies Screen**: Searchable list of all academies with status filters (active, trial, paused, overdue), academy cards showing coaches/players/MRR. Tapping an academy opens Academy Detail screen.
+    - **Academy Detail Screen**: View/edit academy details (name, currency, timezone), coaches list, players list, delete academy functionality.
     - **Coach Health Screen**: Monitor coach workload and burnout risk across all academies
     - **Player Health Screen**: Player engagement tracking, level distribution charts, at-risk player identification
     - **Financials Screen**: MRR overview, revenue trends, recent transactions, churn tracking
     - **System Screen**: System status indicators, XP engine configuration, platform settings, danger zone controls (maintenance mode, kill switch), logout
+    - **Platform Settings Screens** (accessible from System tab):
+        - XP Multipliers: Configure base XP values for different actions (attendance, feedback, level up, etc.)
+        - Anti-Abuse Rules: Configure XP caps (daily/weekly) and abuse detection settings
+        - Level Thresholds: Configure XP required for each player level (Red, Orange, Green, Yellow, Glow)
+        - Badge Definitions: Manage achievement badges with icons, descriptions, and XP rewards
+        - Academy Defaults: Default settings for new academies (currency AED, timezone Asia/Dubai, trial period)
+        - Billing Config: Stripe payment settings and subscription pricing
+        - Notification Templates: Email and push notification template management
+        - Audit Logs: Searchable system activity logs with filters
 
 - **Owner API Endpoints**:
     - `GET /api/owner/academy-stats`: Returns aggregate academy statistics including total players, coaches, sessions, attendance rate, top performers, level distribution, and recent activity. Protected by `requireRole("owner", "academy_owner", "platform_owner")` middleware.
