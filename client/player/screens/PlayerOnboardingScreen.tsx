@@ -241,6 +241,21 @@ function DateOfBirthPicker({
     ? Array.from({ length: getDaysInMonth(selectedYear, selectedMonth) }, (_, i) => i + 1)
     : [];
 
+  const handleOpenPicker = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (value) {
+      const date = new Date(value);
+      setSelectedYear(date.getFullYear());
+      setSelectedMonth(date.getMonth());
+      setSelectedDay(date.getDate());
+    } else {
+      setSelectedYear(null);
+      setSelectedMonth(null);
+      setSelectedDay(null);
+    }
+    setShowPicker(true);
+  };
+
   const handleConfirm = () => {
     if (selectedYear !== null && selectedMonth !== null && selectedDay !== null) {
       const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
@@ -249,14 +264,14 @@ function DateOfBirthPicker({
     }
   };
 
+  const age = value ? calculateAge(value) : null;
+  const ageDisplay = age !== null && !isNaN(age) ? `${age} years old` : null;
+
   return (
     <>
       <Pressable
         style={[styles.datePickerButton, value ? styles.datePickerButtonActive : null]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          setShowPicker(true);
-        }}
+        onPress={handleOpenPicker}
       >
         <Ionicons 
           name="calendar-outline" 
@@ -266,9 +281,9 @@ function DateOfBirthPicker({
         <Text style={[styles.datePickerText, value ? styles.datePickerTextActive : null]}>
           {value ? formatDate(value) : "Select your date of birth"}
         </Text>
-        {value ? (
+        {ageDisplay ? (
           <View style={styles.ageBadge}>
-            <Text style={styles.ageBadgeText}>{calculateAge(value)} years old</Text>
+            <Text style={styles.ageBadgeText}>{ageDisplay}</Text>
           </View>
         ) : null}
       </Pressable>

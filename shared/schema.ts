@@ -290,6 +290,7 @@ export const players = pgTable("players", {
   email: text("email"),
   phone: text("phone"),
   age: integer("age"),
+  dateOfBirth: text("date_of_birth"), // ISO date string (YYYY-MM-DD)
   ballLevel: text("ball_level"), // red/orange/green/yellow/glow
   skillLevel: integer("skill_level"), // 1/2/3
   membershipType: text("membership_type"),
@@ -301,8 +302,9 @@ export const players = pgTable("players", {
   
   onboardingCompleted: boolean("onboarding_completed").default(false),
   motivationType: text("motivation_type"), // fun/improve/compete/unsure
-  experienceLevel: text("experience_level"), // new/6-12months/1-3years/3+years
+  experienceLevel: text("experience_level"), // new/6-12months/1-3years/3-5years/5-10years/10-20years/20+years
   dominantHand: text("dominant_hand"), // left/right
+  backhandType: text("backhand_type"), // single/double
   enjoymentTags: jsonb("enjoyment_tags").$type<string[]>(), // max 3 selections
   focusGoals: jsonb("focus_goals").$type<string[]>(), // multi-select
   selfConfidenceFlags: jsonb("self_confidence_flags").$type<string[]>(), // optional self-check
@@ -316,11 +318,13 @@ export const updatePlayerSchema = z.object({
   email: z.string().email("Invalid email format").optional().nullable().or(z.literal("")),
   phone: z.string().optional().nullable(),
   age: z.number().int().min(0, "Age must be positive").max(120, "Age must be realistic").optional().nullable(),
+  dateOfBirth: z.string().optional().nullable(), // ISO date string (YYYY-MM-DD)
   ballLevel: z.enum(["red", "orange", "green", "yellow", "glow"]).optional().nullable(),
   skillLevel: z.number().int().min(1).max(3).optional().nullable(),
   membershipType: z.string().optional().nullable(),
   medicalNotes: z.string().optional().nullable(),
   coachId: z.string().optional().nullable(),
+  backhandType: z.enum(["single", "double"]).optional().nullable(),
 }).transform((data) => ({
   ...data,
   email: data.email === "" ? null : data.email,
