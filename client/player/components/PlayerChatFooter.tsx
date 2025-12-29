@@ -63,12 +63,13 @@ const REACTION_EMOJIS = ["thumbsup", "heart", "fire", "trophy", "star"];
 
 const TAB_BAR_HEIGHT = 85;
 
-type ChatTab = "coach" | "players" | "group";
+type ChatTab = "players" | "coaches" | "academy" | "squad";
 
 const CHAT_TABS: { id: ChatTab; name: string; icon: keyof typeof Ionicons.glyphMap; types: string[] }[] = [
-  { id: "coach", name: "Coach", icon: "ribbon-outline", types: ["coach_player", "direct_message"] },
   { id: "players", name: "Players", icon: "people-outline", types: ["player_player"] },
-  { id: "group", name: "Group", icon: "fitness-outline", types: ["squad", "group"] },
+  { id: "coaches", name: "Coaches", icon: "ribbon-outline", types: ["coach_player", "direct_message"] },
+  { id: "academy", name: "Academy", icon: "home-outline", types: ["academy"] },
+  { id: "squad", name: "Squad", icon: "fitness-outline", types: ["squad", "group"] },
 ];
 
 interface OtherPlayer {
@@ -89,8 +90,9 @@ export function PlayerChatFooter() {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [showReactions, setShowReactions] = useState<string | null>(null);
   const [typingUsers, setTypingUsers] = useState<Map<string, Set<string>>>(new Map());
-  const [currentTab, setCurrentTab] = useState<ChatTab>("coach");
+  const [currentTab, setCurrentTab] = useState<ChatTab>("players");
   const [showNewPlayerChat, setShowNewPlayerChat] = useState(false);
+  const [academyConvCreated, setAcademyConvCreated] = useState<Conversation | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -183,6 +185,9 @@ export function PlayerChatFooter() {
       queryClient.invalidateQueries({ queryKey: ["/api/players", playerId, "conversations"] });
       setSelectedConversation(data);
       setShowNewPlayerChat(false);
+      if (data.type === "academy") {
+        setAcademyConvCreated(data);
+      }
     },
   });
 
@@ -271,6 +276,27 @@ export function PlayerChatFooter() {
       setSelectedConversation(null);
     }
   };
+
+  // Auto-select or create Academy conversation when Academy tab is active
+  useEffect(() => {
+    if (currentTab === "academy" && !createConversationMutation.isPending) {
+      const academyConv = conversations.find(c => c.type === "academy");
+      if (academyConv) {
+        if (!selectedConversation || selectedConversation.id !== academyConv.id) {
+          setSelectedConversation(academyConv);
+        }
+      } else if (academyConvCreated) {
+        if (!selectedConversation || selectedConversation.id !== academyConvCreated.id) {
+          setSelectedConversation(academyConvCreated);
+        }
+      } else {
+        createConversationMutation.mutate({
+          type: "academy",
+          title: "Academy Chat",
+        });
+      }
+    }
+  }, [currentTab, conversations, selectedConversation, createConversationMutation.isPending, academyConvCreated]);
 
   const handleStartPlayerChat = (player: OtherPlayer) => {
     const existingConv = conversations.find(c => 
@@ -491,7 +517,7 @@ export function PlayerChatFooter() {
                   <Ionicons name="chevron-back" size={20} color={Colors.dark.text} />
                 </Pressable>
                 <ThemedText style={styles.chatTitle}>
-                  {selectedConversation.coachName || selectedConversation.title || (currentTab === "coach" ? "Coach" : "Chat")}
+                  {selectedConversation.coachName || selectedConversation.title || (currentTab === "coaches" ? "Coach" : currentTab === "academy" ? "Academy" : "Chat")}
                 </ThemedText>
               </View>
               {loadingMessages ? (
@@ -551,7 +577,7 @@ export function PlayerChatFooter() {
                 </View>
               ) : (
                 <FlatList
-                  data={filteredConversations.length > 0 ? filteredConversations : (currentTab === "coach" ? conversations : [])}
+                  data={filteredConversations.length > 0 ? filteredConversations : (currentTab === "coaches" || currentTab === "academy" ? conversations : [])}
                   keyExtractor={(item) => item.id}
                   renderItem={({ item }) => (
                     <Pressable
@@ -560,14 +586,14 @@ export function PlayerChatFooter() {
                     >
                       <View style={[styles.conversationAvatar, currentTab === "players" && styles.playerAvatar]}>
                         <Ionicons 
-                          name={currentTab === "coach" ? "ribbon" : currentTab === "players" ? "person" : "fitness"} 
+                          name={currentTab === "coaches" ? "ribbon" : currentTab === "players" ? "person" : currentTab === "academy" ? "home" : "fitness"} 
                           size={20} 
-                          color={currentTab === "coach" ? Colors.dark.primary : Colors.dark.xpCyan} 
+                          color={currentTab === "coaches" ? Colors.dark.primary : Colors.dark.xpCyan} 
                         />
                       </View>
                       <View style={styles.conversationInfo}>
                         <ThemedText style={styles.conversationName}>
-                          {item.coachName || item.title || (currentTab === "coach" ? "Coach" : "Chat")}
+                          {item.coachName || item.title || (currentTab === "coaches" ? "Coach" : currentTab === "academy" ? "Academy" : "Chat")}
                         </ThemedText>
                         {item.lastMessagePreview ? (
                           <ThemedText numberOfLines={1} style={styles.conversationPreview}>
@@ -580,15 +606,15 @@ export function PlayerChatFooter() {
                   ListEmptyComponent={
                     <View style={styles.emptyState}>
                       <Ionicons 
-                        name={currentTab === "coach" ? "ribbon-outline" : currentTab === "players" ? "people-outline" : "fitness-outline"} 
+                        name={currentTab === "coaches" ? "ribbon-outline" : currentTab === "players" ? "people-outline" : currentTab === "academy" ? "home-outline" : "fitness-outline"} 
                         size={40} 
                         color={Colors.dark.tabIconDefault} 
                       />
                       <ThemedText style={styles.emptyText}>
-                        {currentTab === "coach" ? "No coach chats" : currentTab === "players" ? "No player chats" : "No group chats"}
+                        {currentTab === "coaches" ? "No coach chats" : currentTab === "players" ? "No player chats" : currentTab === "academy" ? "No academy chat" : "No group chats"}
                       </ThemedText>
                       <ThemedText style={styles.emptySubtext}>
-                        {currentTab === "coach" ? "Your coach will start a conversation" : currentTab === "players" ? "Tap + to chat with a teammate" : "Join a group to chat"}
+                        {currentTab === "coaches" ? "Your coach will start a conversation" : currentTab === "players" ? "Tap + to chat with a teammate" : currentTab === "academy" ? "Academy chat coming soon" : "Join a group to chat"}
                       </ThemedText>
                     </View>
                   }
