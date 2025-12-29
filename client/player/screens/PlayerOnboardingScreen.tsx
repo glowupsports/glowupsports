@@ -24,6 +24,8 @@ import Animated, {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { saveAuthState, setAuthToken, AuthUser } from "@/lib/auth";
+import { useAuth } from "@/coach/context/AuthContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -469,6 +471,7 @@ interface Props {
 export default function PlayerOnboardingScreen({ onComplete }: Props) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { user, refreshAuth } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [data, setData] = useState<OnboardingData>({
     motivationType: null,
@@ -482,9 +485,23 @@ export default function PlayerOnboardingScreen({ onComplete }: Props) {
 
   const saveMutation = useMutation({
     mutationFn: async (onboardingData: OnboardingData) => {
-      return apiRequest("POST", "/api/player/me/onboarding", onboardingData);
+      const response = await apiRequest("POST", "/api/player/me/onboarding", onboardingData);
+      return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async (responseData: { success: boolean; playerId: string; token?: string }) => {
+      // If a new token was issued (player profile was created), save it
+      if (responseData.token && user) {
+        setAuthToken(responseData.token);
+        const updatedUser: AuthUser = {
+          ...user,
+          playerId: responseData.playerId,
+        };
+        await saveAuthState(responseData.token, updatedUser);
+      }
+      
+      // Refresh auth to get updated user data
+      await refreshAuth();
+      
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/me"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

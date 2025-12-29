@@ -5362,16 +5362,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   
   // Helper to get demo player data for owners/coaches viewing player mode
-  function getDemoPlayerData(user: AuthenticatedRequest["user"]) {
+  function getDemoPlayerData(user: AuthenticatedRequest["user"], forOnboarding = false) {
     return {
+      isDemo: true,
+      isOnboarding: forOnboarding,
       player: {
         id: "demo-player",
         name: user?.email?.split("@")[0] || "Demo Player",
-        level: 5,
-        xp: 2450,
-        glowScore: 73,
-        ballLevel: "green",
-        streak: 7,
+        level: forOnboarding ? 1 : 5,
+        xp: forOnboarding ? 0 : 2450,
+        glowScore: forOnboarding ? 0 : 73,
+        ballLevel: forOnboarding ? "green" : "green",
+        streak: forOnboarding ? 0 : 7,
+        onboardingCompleted: forOnboarding ? false : true,
       },
       coach: {
         id: "demo-coach",
@@ -5762,9 +5765,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get player dashboard data
   app.get("/api/player/me/dashboard", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      // Return demo data for owners/coaches/admins
+      // Return demo data for owners/coaches/admins - with onboarding flag for new players
       if (!req.user!.playerId) {
-        return res.json(getDemoPlayerData(req.user));
+        // Check if this is a player role needing onboarding (forOnboarding=true) or an owner/coach viewing demo (forOnboarding=false)
+        const isPlayerNeedingOnboarding = req.user!.role === "player";
+        return res.json(getDemoPlayerData(req.user, isPlayerNeedingOnboarding));
       }
       const playerId = req.user!.playerId!;
       
@@ -6287,12 +6292,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Save player onboarding data
   app.post("/api/player/me/onboarding", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const playerId = req.user!.playerId;
-      if (!playerId) {
-        return res.status(403).json({ error: "Player account required" });
-      }
-
+      let playerId = req.user!.playerId;
+      let newPlayerCreated = false;
       const { motivationType, age, dominantHand, experienceLevel, enjoymentTags, focusGoals, selfConfidenceFlags } = req.body;
+
+      // If no player profile exists, create one during onboarding
+      if (!playerId) {
+        if (req.user!.role !== "player") {
+          return res.status(403).json({ error: "Player account required" });
+        }
+        
+        // Create a new player profile for this user
+        const user = await storage.getUser(req.user!.id);
+        if (!user) {
+          return res.status(404).json({ error: "User not found" });
+        }
+        
+        // Create player with minimal required fields (name is the only required field)
+        const newPlayer = await storage.createPlayer({
+          name: user.email.split("@")[0] || "Player",
+          email: user.email,
+          ballLevel: "green",
+          academyId: null, // Will be assigned when they join an academy
+          coachId: null,
+        });
+        
+        playerId = newPlayer.id;
+        newPlayerCreated = true;
+        
+        // Link the player to the user account
+        await storage.updateUser(user.id, { playerId: newPlayer.id });
+      }
 
       const updatedPlayer = await storage.updatePlayer(playerId, {
         onboardingCompleted: true,
@@ -6305,7 +6335,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         selfConfidenceFlags,
       });
 
-      res.json({ success: true, player: updatedPlayer });
+      // If a new player was created, generate a fresh token with the new playerId
+      // This ensures the frontend can immediately use the new playerId without re-login
+      let token: string | undefined;
+      if (newPlayerCreated) {
+        const user = await storage.getUser(req.user!.id);
+        if (user) {
+          token = generateToken({
+            userId: user.id,
+            email: user.email,
+            role: user.role,
+            academyId: user.academyId,
+            coachId: user.coachId,
+            playerId: playerId,
+          });
+        }
+      }
+
+      res.json({ 
+        success: true, 
+        player: updatedPlayer, 
+        playerId,
+        token, // Include fresh token if player was just created
+      });
     } catch (error) {
       console.error("Error saving onboarding:", error);
       res.status(500).json({ error: "Failed to save onboarding data" });

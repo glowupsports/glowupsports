@@ -179,6 +179,8 @@ function PlayerStackNavigator() {
 }
 
 interface PlayerDashboard {
+  isDemo?: boolean;
+  isOnboarding?: boolean;
   player: {
     id: string;
     name: string;
@@ -187,21 +189,28 @@ interface PlayerDashboard {
 }
 
 export default function PlayerNavigator() {
-  const { user } = useAuth();
+  const { user, refreshAuth } = useAuth();
   const queryClient = useQueryClient();
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
 
+  // Fetch dashboard for player users who might need onboarding
+  // Only fetch if user is a player role - owners/coaches viewing player mode have their own playerId
+  const shouldFetchDashboard = user?.role === "player";
+  
   const { data: dashboard, isLoading } = useQuery<PlayerDashboard>({
     queryKey: ["/api/player/me/dashboard"],
-    enabled: !!user?.playerId,
+    enabled: shouldFetchDashboard,
   });
 
-  const handleOnboardingComplete = () => {
+  const handleOnboardingComplete = async () => {
+    // Refresh user data to get the new playerId
+    await refreshAuth();
     setOnboardingComplete(true);
     queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/me"] });
   };
 
-  if (isLoading) {
+  if (isLoading && shouldFetchDashboard) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
@@ -209,8 +218,10 @@ export default function PlayerNavigator() {
     );
   }
 
-  const playerOnboardingCompleted = dashboard?.player?.onboardingCompleted ?? false;
-  const showOnboarding = user?.playerId && !playerOnboardingCompleted && onboardingComplete !== true;
+  // Show onboarding only for new player users who haven't completed onboarding
+  // Use isOnboarding flag from server to detect new players needing onboarding
+  const needsOnboarding = dashboard?.isOnboarding === true && dashboard?.player?.onboardingCompleted === false;
+  const showOnboarding = user?.role === "player" && needsOnboarding && onboardingComplete !== true;
 
   if (showOnboarding) {
     return <PlayerOnboardingScreen onComplete={handleOnboardingComplete} />;
