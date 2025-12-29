@@ -171,10 +171,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: fromZodError(parsed.error).message });
       }
 
-      const { username: rawUsername, firstName, lastName, dateOfBirth, email, phone, password, tshirtSize } = parsed.data;
+      const { username: rawUsername, firstName, lastName, dateOfBirth, email, phone, password, tshirtSize, height } = parsed.data;
       
       // Normalize username to lowercase for consistent storage
       const username = rawUsername.toLowerCase();
+      
+      // Calculate age from date of birth
+      let age: number | null = null;
+      if (dateOfBirth) {
+        const birthDate = new Date(dateOfBirth);
+        const today = new Date();
+        age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
+      }
 
       // Check if username is already taken (globally unique)
       const usernameExists = await storage.checkUsernameExists(username);
@@ -191,6 +203,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email,
         phone: phone || null,
         tshirtSize: tshirtSize || null,
+        height: height || null,
+        age: age,
+        dateOfBirth: dateOfBirth || null,
         academyId: null, // No academy yet
         coachId: null,
       });

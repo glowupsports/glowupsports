@@ -46,7 +46,13 @@ export const usernameSchema = z.string()
   .transform(val => val.toLowerCase());
 
 // T-shirt sizes for merchandise and giveaways
-export const tshirtSizes = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"] as const;
+// Children's sizes (ages 2-16): 2T, 3T, 4T, YXS (4-5), YS (6-7), YM (8-10), YL (12-14), YXL (16)
+// Adult sizes (ages 17+): XS, S, M, L, XL, XXL, XXXL
+export const childTshirtSizes = ["2T", "3T", "4T", "YXS", "YS", "YM", "YL", "YXL"] as const;
+export const adultTshirtSizes = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"] as const;
+export const tshirtSizes = [...childTshirtSizes, ...adultTshirtSizes] as const;
+export type ChildTshirtSize = typeof childTshirtSizes[number];
+export type AdultTshirtSize = typeof adultTshirtSizes[number];
 export type TshirtSize = typeof tshirtSizes[number];
 
 // Player self-registration (open, no academy required)
@@ -63,6 +69,7 @@ export const playerRegisterSchema = z.object({
   phone: z.string().min(5, "Phone number is required for WhatsApp communication"),
   password: z.string().min(8, "Password must be at least 8 characters"),
   tshirtSize: z.enum(tshirtSizes).optional(),
+  height: z.number().int().min(50).max(250).optional(), // height in cm
 });
 
 // Coach registration via invite token
@@ -321,7 +328,8 @@ export const players = pgTable("players", {
   name: text("name").notNull(),
   email: text("email"),
   phone: text("phone"),
-  tshirtSize: text("tshirt_size"), // XS, S, M, L, XL, XXL, XXXL
+  tshirtSize: text("tshirt_size"), // Children: 2T, 3T, 4T, YXS, YS, YM, YL, YXL; Adults: XS, S, M, L, XL, XXL, XXXL
+  height: integer("height"), // height in cm
   age: integer("age"),
   dateOfBirth: text("date_of_birth"), // ISO date string (YYYY-MM-DD)
   ballLevel: text("ball_level"), // red/orange/green/yellow/glow
@@ -358,6 +366,8 @@ export const updatePlayerSchema = z.object({
   medicalNotes: z.string().optional().nullable(),
   coachId: z.string().optional().nullable(),
   backhandType: z.enum(["single", "double"]).optional().nullable(),
+  tshirtSize: z.enum(tshirtSizes).optional().nullable(),
+  height: z.number().int().min(50).max(250).optional().nullable(),
 }).transform((data) => ({
   ...data,
   email: data.email === "" ? null : data.email,

@@ -35,6 +35,8 @@ interface PlayerRegisterData {
   password: string;
   phone?: string;
   tshirtSize?: TshirtSize;
+  dateOfBirth?: string;
+  height?: number;
 }
 
 interface AuthContextType {

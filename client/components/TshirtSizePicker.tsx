@@ -4,20 +4,24 @@ import {
   Text,
   Pressable,
   Modal,
-  FlatList,
   StyleSheet,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
-import { tshirtSizes, TshirtSize } from "@shared/schema";
+import { childTshirtSizes, adultTshirtSizes, TshirtSize } from "@shared/schema";
 
 interface TshirtSizePickerProps {
   value: TshirtSize | undefined;
   onChange: (size: TshirtSize) => void;
+  age?: number;
 }
 
-export function TshirtSizePicker({ value, onChange }: TshirtSizePickerProps) {
+export function TshirtSizePicker({ value, onChange, age }: TshirtSizePickerProps) {
   const [modalVisible, setModalVisible] = useState(false);
+
+  const isChild = age !== undefined && age < 17;
+  const sizesToShow = isChild ? [...childTshirtSizes] : [...adultTshirtSizes];
+  const title = isChild ? "Select Youth Size" : "Select T-Shirt Size";
 
   const handleSelect = (size: TshirtSize) => {
     onChange(size);
@@ -49,7 +53,7 @@ export function TshirtSizePicker({ value, onChange }: TshirtSizePickerProps) {
         >
           <View style={styles.modal}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select T-Shirt Size</Text>
+              <Text style={styles.modalTitle}>{title}</Text>
               <Pressable
                 onPress={() => setModalVisible(false)}
                 hitSlop={8}
@@ -58,18 +62,23 @@ export function TshirtSizePicker({ value, onChange }: TshirtSizePickerProps) {
               </Pressable>
             </View>
 
-            <FlatList
-              data={tshirtSizes}
-              keyExtractor={(item) => item}
-              numColumns={3}
-              contentContainerStyle={styles.grid}
-              renderItem={({ item }) => (
+            {isChild ? (
+              <Text style={styles.sizeGuide}>
+                2T-4T: Toddler sizes{"\n"}
+                YXS: 4-5 yrs | YS: 6-7 yrs | YM: 8-10 yrs{"\n"}
+                YL: 12-14 yrs | YXL: 16 yrs
+              </Text>
+            ) : null}
+
+            <View style={styles.grid}>
+              {sizesToShow.map((item) => (
                 <Pressable
+                  key={item}
                   style={[
                     styles.sizeButton,
                     value === item && styles.sizeButtonSelected,
                   ]}
-                  onPress={() => handleSelect(item)}
+                  onPress={() => handleSelect(item as TshirtSize)}
                 >
                   <Text
                     style={[
@@ -80,8 +89,8 @@ export function TshirtSizePicker({ value, onChange }: TshirtSizePickerProps) {
                     {item}
                   </Text>
                 </Pressable>
-              )}
-            />
+              ))}
+            </View>
           </View>
         </Pressable>
       </Modal>
@@ -116,7 +125,7 @@ const styles = StyleSheet.create({
   },
   modal: {
     width: "100%",
-    maxWidth: 320,
+    maxWidth: 340,
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
@@ -125,25 +134,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   modalTitle: {
     ...Typography.h3,
     color: Colors.dark.text,
   },
+  sizeGuide: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.md,
+    lineHeight: 18,
+  },
   grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: Spacing.sm,
   },
   sizeButton: {
-    flex: 1,
-    margin: Spacing.xs,
     paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.md,
     backgroundColor: Colors.dark.backgroundRoot,
     alignItems: "center",
     justifyContent: "center",
-    minWidth: 70,
+    minWidth: 60,
   },
   sizeButtonSelected: {
     backgroundColor: Colors.dark.primary,

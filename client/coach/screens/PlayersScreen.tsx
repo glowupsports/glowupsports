@@ -31,6 +31,9 @@ interface Player {
   medicalNotes: string | null;
   lastLessonDate: string | null;
   createdAt: string;
+  age?: number | null;
+  height?: number | null;
+  tshirtSize?: string | null;
   onboardingCompleted?: boolean;
   motivationType?: string | null;
   experienceLevel?: string | null;
@@ -752,6 +755,24 @@ function PlayerDetailView({
               <View style={styles.infoRow}>
                 <Ionicons name="trophy-outline" size={20} color={Colors.dark.tabIconDefault} />
                 <Text style={styles.infoText}>Skill Level: {player.skillLevel}</Text>
+              </View>
+            ) : null}
+            {player.age ? (
+              <View style={styles.infoRow}>
+                <Ionicons name="calendar-outline" size={20} color={Colors.dark.tabIconDefault} />
+                <Text style={styles.infoText}>Age: {player.age} years</Text>
+              </View>
+            ) : null}
+            {player.height ? (
+              <View style={styles.infoRow}>
+                <Ionicons name="resize-outline" size={20} color={Colors.dark.tabIconDefault} />
+                <Text style={styles.infoText}>Height: {player.height} cm</Text>
+              </View>
+            ) : null}
+            {player.tshirtSize ? (
+              <View style={styles.infoRow}>
+                <Ionicons name="shirt-outline" size={20} color={Colors.dark.tabIconDefault} />
+                <Text style={styles.infoText}>T-Shirt: {player.tshirtSize}</Text>
               </View>
             ) : null}
           </View>
