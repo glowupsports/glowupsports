@@ -18,7 +18,7 @@ import PeerJourneyScreen from "@/player/screens/PeerJourneyScreen";
 import GroupChallengesScreen from "@/player/screens/GroupChallengesScreen";
 import AcademyBrowserScreen from "@/player/screens/AcademyBrowserScreen";
 import PlayerOnboardingScreen from "@/player/screens/PlayerOnboardingScreen";
-import { PlayerChatFooter } from "@/player/components/PlayerChatFooter";
+import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 
@@ -64,7 +64,7 @@ function PlayerTabs() {
               )}
             </View>
           ),
-          tabBarActiveTintColor: Colors.dark.xpCyan,
+          tabBarActiveTintColor: Colors.dark.primary,
           tabBarInactiveTintColor: Colors.dark.tabIconDefault,
           tabBarLabelStyle: styles.tabLabel,
         }}
@@ -120,7 +120,7 @@ function PlayerTabs() {
           }}
         />
       </Tab.Navigator>
-      <PlayerChatFooter />
+      <CoachChatFooter mode="player" />
     </View>
   );
 }

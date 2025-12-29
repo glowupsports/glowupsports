@@ -23,8 +23,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
+import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useWebSocket, type NewMessagePayload, type TypingPayload } from "@/lib/useWebSocket";
+
+interface ChatFooterProps {
+  mode?: "coach" | "player";
+}
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const FOOTER_COLLAPSED = 60;
@@ -64,12 +69,19 @@ const REACTION_EMOJIS = ["thumbsup", "heart", "fire", "trophy", "star"];
 
 type ChatTab = "players" | "coaches" | "academy" | "squad" | "admin";
 
-const CHAT_TABS: { id: ChatTab; name: string; icon: keyof typeof Ionicons.glyphMap; types: string[] }[] = [
+const COACH_CHAT_TABS: { id: ChatTab; name: string; icon: keyof typeof Ionicons.glyphMap; types: string[] }[] = [
   { id: "players", name: "Players", icon: "people-outline", types: ["direct_message", "coach_player"] },
   { id: "coaches", name: "Coaches", icon: "ribbon-outline", types: ["coach_coach"] },
   { id: "academy", name: "Academy", icon: "home-outline", types: ["academy"] },
   { id: "squad", name: "Squad", icon: "fitness-outline", types: ["squad", "group"] },
   { id: "admin", name: "Admin", icon: "shield-outline", types: ["admin"] },
+];
+
+const PLAYER_CHAT_TABS: { id: ChatTab; name: string; icon: keyof typeof Ionicons.glyphMap; types: string[] }[] = [
+  { id: "players", name: "Players", icon: "people-outline", types: ["player_player"] },
+  { id: "coaches", name: "Coaches", icon: "ribbon-outline", types: ["coach_player", "direct_message"] },
+  { id: "academy", name: "Academy", icon: "home-outline", types: ["academy"] },
+  { id: "squad", name: "Squad", icon: "fitness-outline", types: ["squad", "group"] },
 ];
 
 interface Player {
@@ -86,12 +98,19 @@ interface Squad {
 
 const TAB_BAR_FALLBACK = 85;
 
-export function CoachChatFooter() {
+export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   const insets = useSafeAreaInsets();
   const hookTabBarHeight = useBottomTabBarHeight();
   const tabBarHeight = Math.max(hookTabBarHeight, TAB_BAR_FALLBACK);
   const queryClient = useQueryClient();
   const { coach } = useCoach();
+  const { user } = useAuth();
+  
+  // Determine user ID based on mode
+  const isPlayerMode = mode === "player";
+  const userId = isPlayerMode ? user?.playerId : coach?.id;
+  const userType = isPlayerMode ? "player" : "coach";
+  const CHAT_TABS = isPlayerMode ? PLAYER_CHAT_TABS : COACH_CHAT_TABS;
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [inputText, setInputText] = useState("");
@@ -110,30 +129,31 @@ export function CoachChatFooter() {
 
   const handleNewMessage = useCallback((payload: NewMessagePayload) => {
     queryClient.invalidateQueries({ queryKey: ["/api/conversations", payload.conversationId, "messages"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/coaches", coach?.id, "conversations"] });
+    const endpoint = isPlayerMode ? "/api/players" : "/api/coaches";
+    queryClient.invalidateQueries({ queryKey: [endpoint, userId, "conversations"] });
     if (selectedConversation?.id === payload.conversationId) {
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
-  }, [queryClient, coach?.id, selectedConversation?.id]);
+  }, [queryClient, userId, selectedConversation?.id, isPlayerMode]);
 
   const handleTyping = useCallback((payload: TypingPayload) => {
     setTypingUsers(prev => {
       const next = new Map(prev);
       const conversationTypers = next.get(payload.conversationId) || new Set();
-      const userId = payload.coachId || payload.playerId;
-      if (userId && userId !== coach?.id) {
+      const typingUserId = payload.coachId || payload.playerId;
+      if (typingUserId && typingUserId !== userId) {
         if (payload.isTyping) {
-          conversationTypers.add(userId);
+          conversationTypers.add(typingUserId);
         } else {
-          conversationTypers.delete(userId);
+          conversationTypers.delete(typingUserId);
         }
         next.set(payload.conversationId, conversationTypers);
       }
       return next;
     });
-  }, [coach?.id]);
+  }, [userId]);
 
   const { isConnected, sendTyping, sendReadReceipt } = useWebSocket({
     onNewMessage: handleNewMessage,
@@ -167,9 +187,11 @@ export function CoachChatFooter() {
     }
   };
 
+  const conversationsEndpoint = isPlayerMode ? "/api/players" : "/api/coaches";
+  
   const { data: conversations = [], isLoading: loadingConversations } = useQuery<Conversation[]>({
-    queryKey: ["/api/coaches", coach?.id, "conversations"],
-    enabled: !!coach?.id,
+    queryKey: [conversationsEndpoint, userId, "conversations"],
+    enabled: !!userId,
   });
 
   const { data: messages = [], isLoading: loadingMessages } = useQuery<Message[]>({
@@ -179,42 +201,45 @@ export function CoachChatFooter() {
   });
 
   const { data: unreadData } = useQuery<{ unreadCount: number }>({
-    queryKey: ["/api/coaches", coach?.id, "unread-count"],
-    enabled: !!coach?.id,
+    queryKey: [conversationsEndpoint, userId, "unread-count"],
+    enabled: !!userId,
     refetchInterval: 30000,
   });
 
   const { data: playersData } = useQuery<Player[]>({
-    queryKey: ["/api/players"],
-    enabled: !!coach?.id && showNewMessage,
+    queryKey: isPlayerMode ? ["/api/players/squad-members"] : ["/api/players"],
+    enabled: !!userId && (showNewMessage || (isPlayerMode && currentTab === "players")),
   });
   const players = Array.isArray(playersData) ? playersData : [];
 
   const { data: allCoaches = [] } = useQuery<{ id: string; name: string }[]>({
     queryKey: ["/api/coaches"],
-    enabled: !!coach?.id && currentTab === "coaches",
+    enabled: !!userId && currentTab === "coaches",
   });
   
-  const otherCoaches = allCoaches.filter(c => c.id !== coach?.id);
+  const otherCoaches = isPlayerMode ? allCoaches : allCoaches.filter(c => c.id !== coach?.id);
 
   const { data: squads = [] } = useQuery<Squad[]>({
     queryKey: ["/api/squads"],
-    enabled: !!coach?.id && (currentTab === "squad" || showSquadSelector),
+    enabled: !!userId && (currentTab === "squad" || showSquadSelector),
   });
 
   const createConversationMutation = useMutation({
-    mutationFn: async ({ type, playerId, title }: { type: string; playerId?: string; title?: string }): Promise<Conversation> => {
-      if (!coach) throw new Error("No coach");
-      const response = await apiRequest("POST", "/api/conversations", {
-        type,
-        playerId,
-        coachId: coach.id,
-        title,
-      });
+    mutationFn: async ({ type, playerId, otherPlayerId, title }: { type: string; playerId?: string; otherPlayerId?: string; title?: string }): Promise<Conversation> => {
+      if (!userId) throw new Error("No user");
+      const payload: Record<string, string | undefined> = { type, title };
+      if (isPlayerMode) {
+        payload.playerId = userId;
+        payload.otherPlayerId = otherPlayerId;
+      } else {
+        payload.coachId = userId;
+        payload.playerId = playerId;
+      }
+      const response = await apiRequest("POST", "/api/conversations", payload);
       return response.json();
     },
     onSuccess: (data: Conversation) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coaches", coach?.id, "conversations"] });
+      queryClient.invalidateQueries({ queryKey: [conversationsEndpoint, userId, "conversations"] });
       setSelectedConversation(data);
       if (data.type === "academy") {
         setAcademyConvCreated(data);
@@ -227,29 +252,39 @@ export function CoachChatFooter() {
 
   const sendMessageMutation = useMutation({
     mutationFn: async (body: string) => {
-      if (!selectedConversation || !coach) return;
-      return apiRequest("POST", `/api/conversations/${selectedConversation.id}/messages`, {
-        senderType: "coach",
-        senderCoachId: coach.id,
+      if (!selectedConversation || !userId) return;
+      const payload: Record<string, string> = {
+        senderType: userType,
         body,
         messageType: "text",
-      });
+      };
+      if (isPlayerMode) {
+        payload.senderPlayerId = userId;
+      } else {
+        payload.senderCoachId = userId;
+      }
+      return apiRequest("POST", `/api/conversations/${selectedConversation.id}/messages`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/conversations", selectedConversation?.id, "messages"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/coaches", coach?.id, "conversations"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/coaches", coach?.id, "unread-count"] });
+      queryClient.invalidateQueries({ queryKey: [conversationsEndpoint, userId, "conversations"] });
+      queryClient.invalidateQueries({ queryKey: [conversationsEndpoint, userId, "unread-count"] });
     },
   });
 
   const addReactionMutation = useMutation({
     mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
-      if (!coach) return;
-      return apiRequest("POST", `/api/messages/${messageId}/reactions`, {
-        reactorType: "coach",
-        reactorCoachId: coach.id,
+      if (!userId) return;
+      const payload: Record<string, string> = {
+        reactorType: userType,
         emoji,
-      });
+      };
+      if (isPlayerMode) {
+        payload.reactorPlayerId = userId;
+      } else {
+        payload.reactorCoachId = userId;
+      }
+      return apiRequest("POST", `/api/messages/${messageId}/reactions`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/conversations", selectedConversation?.id, "messages"] });
@@ -359,7 +394,9 @@ export function CoachChatFooter() {
   }, [currentTab, conversations, selectedConversation, createConversationMutation.isPending, academyConvCreated]);
 
   const renderMessage = ({ item }: { item: Message }) => {
-    const isOwn = item.senderType === "coach" && item.senderCoachId === coach?.id;
+    const isOwn = isPlayerMode 
+      ? (item.senderType === "player" && item.senderPlayerId === userId)
+      : (item.senderType === "coach" && item.senderCoachId === userId);
     const isSystem = item.messageType === "system";
 
     if (isSystem) {
@@ -424,16 +461,35 @@ export function CoachChatFooter() {
   };
 
   const handleStartNewPlayerChat = (player: Player) => {
-    const existingConv = conversations.find(c => c.playerId === player.id);
-    if (existingConv) {
-      setSelectedConversation(existingConv);
-      setShowNewMessage(false);
+    const playerName = player.name || `${player.firstName || ''} ${player.lastName || ''}`.trim() || 'Player';
+    if (isPlayerMode) {
+      // Player-to-player chat
+      const existingConv = conversations.find(c => 
+        c.type === "player_player" && c.title?.includes(playerName)
+      );
+      if (existingConv) {
+        setSelectedConversation(existingConv);
+        setShowNewMessage(false);
+      } else {
+        createConversationMutation.mutate({
+          type: "player_player",
+          otherPlayerId: player.id,
+          title: playerName,
+        });
+      }
     } else {
-      createConversationMutation.mutate({
-        type: "coach_player",
-        playerId: player.id,
-        title: `${player.firstName} ${player.lastName}`,
-      });
+      // Coach-to-player chat
+      const existingConv = conversations.find(c => c.playerId === player.id);
+      if (existingConv) {
+        setSelectedConversation(existingConv);
+        setShowNewMessage(false);
+      } else {
+        createConversationMutation.mutate({
+          type: "coach_player",
+          playerId: player.id,
+          title: playerName,
+        });
+      }
     }
   };
 
