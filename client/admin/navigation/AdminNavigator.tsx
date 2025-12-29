@@ -11,6 +11,8 @@ import AdminScheduleScreen from "@/admin/screens/AdminScheduleScreen";
 import AdminReportsScreen from "@/admin/screens/AdminReportsScreen";
 import AdminSettingsScreen from "@/admin/screens/AdminSettingsScreen";
 import AdminPaymentsScreen from "@/admin/screens/AdminPaymentsScreen";
+import AdminCourtsScreen from "@/admin/screens/AdminCourtsScreen";
+import AdminLocationsScreen from "@/admin/screens/AdminLocationsScreen";
 import { Colors } from "@/constants/theme";
 
 export type AdminTabParamList = {
@@ -29,6 +31,8 @@ export type AdminStackParamList = {
   CoachDetail: { coachId: string };
   PlayerDetail: { playerId: string };
   AdminPayments: undefined;
+  AdminCourts: undefined;
+  AdminLocations: undefined;
 };
 
 const Tab = createBottomTabNavigator<AdminTabParamList>();
@@ -127,6 +131,8 @@ export default function AdminNavigator() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="AdminTabs" component={AdminTabs} />
       <Stack.Screen name="AdminPayments" component={AdminPaymentsScreen} />
+      <Stack.Screen name="AdminCourts" component={AdminCourtsScreen} />
+      <Stack.Screen name="AdminLocations" component={AdminLocationsScreen} />
     </Stack.Navigator>
   );
 }

@@ -446,6 +446,40 @@ export default function AdminDashboardScreen() {
             style={[styles.menuCard, CardStyles.elevated]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("AdminLocations");
+            }}
+          >
+            <View style={styles.menuCardContent}>
+              <Ionicons name="location-outline" size={24} color={Colors.dark.accentInfo} />
+              <View style={styles.menuCardText}>
+                <Text style={styles.menuCardTitle}>Locations</Text>
+                <Text style={styles.menuCardSubtitle}>Manage training locations</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+            </View>
+          </Pressable>
+
+          <Pressable 
+            style={[styles.menuCard, CardStyles.elevated]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("AdminCourts");
+            }}
+          >
+            <View style={styles.menuCardContent}>
+              <Ionicons name="tennisball-outline" size={24} color={Colors.dark.primary} />
+              <View style={styles.menuCardText}>
+                <Text style={styles.menuCardTitle}>Courts</Text>
+                <Text style={styles.menuCardSubtitle}>Manage tennis courts</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+            </View>
+          </Pressable>
+
+          <Pressable 
+            style={[styles.menuCard, CardStyles.elevated]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               navigation.navigate("AdminSettings");
             }}
           >
@@ -453,7 +487,7 @@ export default function AdminDashboardScreen() {
               <Ionicons name="business-outline" size={24} color={Colors.dark.orange} />
               <View style={styles.menuCardText}>
                 <Text style={styles.menuCardTitle}>Academy Settings</Text>
-                <Text style={styles.menuCardSubtitle}>Profile, courts, permissions</Text>
+                <Text style={styles.menuCardSubtitle}>Profile, permissions</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
             </View>

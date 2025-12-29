@@ -1,0 +1,747 @@
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  Pressable,
+  TextInput,
+  Modal,
+  Alert,
+  ActivityIndicator,
+  Platform,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { Colors, Spacing, BorderRadius, CardStyles, Typography } from "@/constants/theme";
+import { apiRequest } from "@/lib/query-client";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+
+interface Court {
+  id: string;
+  academyId: string;
+  locationId: string | null;
+  name: string;
+  color: string;
+  isActive: boolean;
+  createdAt: string;
+  locationName?: string;
+}
+
+interface Location {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+
+const COURT_COLORS = [
+  { name: "Green", value: "#2ECC40" },
+  { name: "Blue", value: "#0074D9" },
+  { name: "Red", value: "#FF4136" },
+  { name: "Orange", value: "#FF851B" },
+  { name: "Yellow", value: "#FFDC00" },
+  { name: "Purple", value: "#B10DC9" },
+  { name: "Teal", value: "#39CCCC" },
+  { name: "Navy", value: "#001f3f" },
+];
+
+export default function AdminCourtsScreen() {
+  const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedCourt, setSelectedCourt] = useState<Court | null>(null);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+
+  const [formData, setFormData] = useState({
+    name: "",
+    locationId: "",
+    color: "#2ECC40",
+    isActive: true,
+  });
+
+  const { data: courts = [], isLoading } = useQuery<Court[]>({
+    queryKey: ["/api/admin/courts"],
+  });
+
+  const { data: locations = [] } = useQuery<Location[]>({
+    queryKey: ["/api/admin/locations"],
+  });
+
+  const activeLocations = locations.filter(l => l.isActive);
+
+  const invalidateCourts = () => {
+    queryClient.invalidateQueries({ predicate: (query) => {
+      const key = query.queryKey[0];
+      return typeof key === 'string' && (
+        key.startsWith('/api/admin/courts') ||
+        key.startsWith('/api/admin/locations')
+      );
+    }});
+  };
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/admin/courts", data),
+    onSuccess: () => {
+      invalidateCourts();
+      setShowAddModal(false);
+      resetForm();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error.message || "Failed to create court");
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      apiRequest("PUT", `/api/admin/courts/${id}`, data),
+    onSuccess: () => {
+      invalidateCourts();
+      setShowEditModal(false);
+      setSelectedCourt(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error.message || "Failed to update court");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/admin/courts/${id}`),
+    onSuccess: () => {
+      invalidateCourts();
+      setShowEditModal(false);
+      setSelectedCourt(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error.message || "Failed to delete court");
+    },
+  });
+
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      locationId: activeLocations.length > 0 ? activeLocations[0].id : "",
+      color: "#2ECC40",
+      isActive: true,
+    });
+  };
+
+  const handleCreate = () => {
+    if (!formData.name.trim()) {
+      Alert.alert("Error", "Court name is required");
+      return;
+    }
+    createMutation.mutate({
+      name: formData.name.trim(),
+      locationId: formData.locationId || null,
+      color: formData.color,
+      isActive: formData.isActive,
+    });
+  };
+
+  const handleUpdate = () => {
+    if (!selectedCourt || !formData.name.trim()) {
+      Alert.alert("Error", "Court name is required");
+      return;
+    }
+    updateMutation.mutate({
+      id: selectedCourt.id,
+      data: {
+        name: formData.name.trim(),
+        locationId: formData.locationId || null,
+        color: formData.color,
+        isActive: formData.isActive,
+      },
+    });
+  };
+
+  const handleDelete = (court: Court) => {
+    if (Platform.OS === "web") {
+      if (window.confirm(`Delete court "${court.name}"? This action cannot be undone.`)) {
+        deleteMutation.mutate(court.id);
+      }
+    } else {
+      Alert.alert(
+        "Delete Court",
+        `Delete court "${court.name}"? This action cannot be undone.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Delete", style: "destructive", onPress: () => deleteMutation.mutate(court.id) },
+        ]
+      );
+    }
+  };
+
+  const openEditModal = (court: Court) => {
+    setSelectedCourt(court);
+    setFormData({
+      name: court.name,
+      locationId: court.locationId || "",
+      color: court.color || "#2ECC40",
+      isActive: court.isActive,
+    });
+    setShowEditModal(true);
+  };
+
+  const groupedCourts = courts.reduce((acc, court) => {
+    const key = court.locationName || "No Location";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(court);
+    return acc;
+  }, {} as Record<string, Court[]>);
+
+  const activeCourts = courts.filter(c => c.isActive);
+  const inactiveCourts = courts.filter(c => !c.isActive);
+
+  return (
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + Spacing.xl },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.title}>Courts</Text>
+            <Text style={styles.subtitle}>
+              {activeCourts.length} active, {inactiveCourts.length} inactive
+            </Text>
+          </View>
+          <Pressable
+            style={styles.addButton}
+            onPress={() => {
+              resetForm();
+              setShowAddModal(true);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          >
+            <Ionicons name="add" size={24} color="#FFF" />
+          </Pressable>
+        </View>
+
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.dark.gold} />
+          </View>
+        ) : courts.length === 0 ? (
+          <View style={[styles.emptyContainer, CardStyles.elevated]}>
+            <Ionicons name="tennisball-outline" size={48} color={Colors.dark.textMuted} />
+            <Text style={styles.emptyText}>No courts yet</Text>
+            <Text style={styles.emptySubtext}>Add your first tennis court</Text>
+          </View>
+        ) : (
+          Object.entries(groupedCourts).map(([locationName, locationCourts]) => (
+            <View key={locationName} style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="location" size={16} color={Colors.dark.textMuted} />
+                <Text style={styles.sectionTitle}>{locationName}</Text>
+              </View>
+              {locationCourts.map((court) => (
+                <Pressable
+                  key={court.id}
+                  style={[
+                    styles.courtCard,
+                    CardStyles.elevated,
+                    !court.isActive && styles.inactiveCard,
+                  ]}
+                  onPress={() => openEditModal(court)}
+                >
+                  <View style={[styles.courtColorDot, { backgroundColor: court.color }]} />
+                  <View style={styles.courtInfo}>
+                    <Text style={[styles.courtName, !court.isActive && styles.inactiveText]}>
+                      {court.name}
+                    </Text>
+                    {!court.isActive && (
+                      <Text style={styles.inactiveLabel}>Inactive</Text>
+                    )}
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+                </Pressable>
+              ))}
+            </View>
+          ))
+        )}
+      </ScrollView>
+
+      <Modal
+        visible={showAddModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowAddModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, CardStyles.elevated]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add Court</Text>
+              <Pressable onPress={() => setShowAddModal(false)}>
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+
+            <KeyboardAwareScrollViewCompat>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Court Name *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={formData.name}
+                  onChangeText={(text) => setFormData({ ...formData, name: text })}
+                  placeholder="e.g. Court 1, Center Court"
+                  placeholderTextColor={Colors.dark.textMuted}
+                />
+              </View>
+
+              {activeLocations.length > 0 && (
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Location</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.locationPicker}>
+                    {activeLocations.map((location) => (
+                      <Pressable
+                        key={location.id}
+                        style={[
+                          styles.locationOption,
+                          formData.locationId === location.id && styles.locationOptionActive,
+                        ]}
+                        onPress={() => setFormData({ ...formData, locationId: location.id })}
+                      >
+                        <Text
+                          style={[
+                            styles.locationOptionText,
+                            formData.locationId === location.id && styles.locationOptionTextActive,
+                          ]}
+                        >
+                          {location.name}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Court Color</Text>
+                <View style={styles.colorPicker}>
+                  {COURT_COLORS.map((color) => (
+                    <Pressable
+                      key={color.value}
+                      style={[
+                        styles.colorOption,
+                        { backgroundColor: color.value },
+                        formData.color === color.value && styles.colorOptionActive,
+                      ]}
+                      onPress={() => setFormData({ ...formData, color: color.value })}
+                    >
+                      {formData.color === color.value && (
+                        <Ionicons name="checkmark" size={18} color="#FFF" />
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              <Pressable
+                style={styles.toggleRow}
+                onPress={() => setFormData({ ...formData, isActive: !formData.isActive })}
+              >
+                <Text style={styles.toggleLabel}>Active</Text>
+                <View style={[styles.toggle, formData.isActive && styles.toggleActive]}>
+                  <View style={[styles.toggleKnob, formData.isActive && styles.toggleKnobActive]} />
+                </View>
+              </Pressable>
+
+              <Pressable
+                style={[styles.submitButton, createMutation.isPending && styles.submitButtonDisabled]}
+                onPress={handleCreate}
+                disabled={createMutation.isPending}
+              >
+                {createMutation.isPending ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.submitButtonText}>Add Court</Text>
+                )}
+              </Pressable>
+            </KeyboardAwareScrollViewCompat>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showEditModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, CardStyles.elevated]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Court</Text>
+              <Pressable onPress={() => setShowEditModal(false)}>
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+
+            <KeyboardAwareScrollViewCompat>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Court Name *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={formData.name}
+                  onChangeText={(text) => setFormData({ ...formData, name: text })}
+                  placeholder="Court name"
+                  placeholderTextColor={Colors.dark.textMuted}
+                />
+              </View>
+
+              {activeLocations.length > 0 && (
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Location</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.locationPicker}>
+                    {activeLocations.map((location) => (
+                      <Pressable
+                        key={location.id}
+                        style={[
+                          styles.locationOption,
+                          formData.locationId === location.id && styles.locationOptionActive,
+                        ]}
+                        onPress={() => setFormData({ ...formData, locationId: location.id })}
+                      >
+                        <Text
+                          style={[
+                            styles.locationOptionText,
+                            formData.locationId === location.id && styles.locationOptionTextActive,
+                          ]}
+                        >
+                          {location.name}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Court Color</Text>
+                <View style={styles.colorPicker}>
+                  {COURT_COLORS.map((color) => (
+                    <Pressable
+                      key={color.value}
+                      style={[
+                        styles.colorOption,
+                        { backgroundColor: color.value },
+                        formData.color === color.value && styles.colorOptionActive,
+                      ]}
+                      onPress={() => setFormData({ ...formData, color: color.value })}
+                    >
+                      {formData.color === color.value && (
+                        <Ionicons name="checkmark" size={18} color="#FFF" />
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              <Pressable
+                style={styles.toggleRow}
+                onPress={() => setFormData({ ...formData, isActive: !formData.isActive })}
+              >
+                <Text style={styles.toggleLabel}>Active</Text>
+                <View style={[styles.toggle, formData.isActive && styles.toggleActive]}>
+                  <View style={[styles.toggleKnob, formData.isActive && styles.toggleKnobActive]} />
+                </View>
+              </Pressable>
+
+              <View style={styles.buttonRow}>
+                <Pressable
+                  style={[styles.submitButton, styles.flexButton, updateMutation.isPending && styles.submitButtonDisabled]}
+                  onPress={handleUpdate}
+                  disabled={updateMutation.isPending}
+                >
+                  {updateMutation.isPending ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={styles.submitButtonText}>Save Changes</Text>
+                  )}
+                </Pressable>
+              </View>
+
+              <Pressable
+                style={styles.deleteButton}
+                onPress={() => selectedCourt && handleDelete(selectedCourt)}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? (
+                  <ActivityIndicator color={Colors.dark.error} />
+                ) : (
+                  <>
+                    <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+                    <Text style={styles.deleteButtonText}>Delete Court</Text>
+                  </>
+                )}
+              </Pressable>
+            </KeyboardAwareScrollViewCompat>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: Spacing.lg,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.xl,
+  },
+  title: {
+    fontSize: Typography.h1.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  subtitle: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  addButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.dark.gold,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingContainer: {
+    padding: Spacing["2xl"],
+    alignItems: "center",
+  },
+  emptyContainer: {
+    padding: Spacing["2xl"],
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+  },
+  emptyText: {
+    fontSize: Typography.h3.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    marginTop: Spacing.md,
+  },
+  emptySubtext: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
+  },
+  section: {
+    marginBottom: Spacing.xl,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  courtCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+  },
+  inactiveCard: {
+    opacity: 0.7,
+  },
+  courtColorDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginRight: Spacing.md,
+  },
+  courtInfo: {
+    flex: 1,
+  },
+  courtName: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  inactiveLabel: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  inactiveText: {
+    color: Colors.dark.textMuted,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    maxHeight: "80%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  modalTitle: {
+    fontSize: Typography.h2.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  formGroup: {
+    marginBottom: Spacing.lg,
+  },
+  label: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.xs,
+  },
+  input: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  locationPicker: {
+    flexDirection: "row",
+  },
+  locationOption: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.md,
+    marginRight: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  locationOptionActive: {
+    backgroundColor: Colors.dark.gold,
+    borderColor: Colors.dark.gold,
+  },
+  locationOptionText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.textMuted,
+  },
+  locationOptionTextActive: {
+    color: "#FFF",
+    fontWeight: "600",
+  },
+  colorPicker: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  colorOption: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  colorOptionActive: {
+    borderWidth: 3,
+    borderColor: "#FFF",
+  },
+  toggleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+    paddingVertical: Spacing.sm,
+  },
+  toggleLabel: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+  },
+  toggle: {
+    width: 50,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.dark.border,
+    justifyContent: "center",
+    padding: 2,
+  },
+  toggleActive: {
+    backgroundColor: Colors.dark.primary,
+  },
+  toggleKnob: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#FFF",
+  },
+  toggleKnobActive: {
+    alignSelf: "flex-end",
+  },
+  buttonRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  flexButton: {
+    flex: 1,
+  },
+  submitButton: {
+    backgroundColor: Colors.dark.gold,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
+  submitButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: "#FFF",
+  },
+  deleteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: Spacing.md,
+    gap: Spacing.xs,
+  },
+  deleteButtonText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.error,
+  },
+});
