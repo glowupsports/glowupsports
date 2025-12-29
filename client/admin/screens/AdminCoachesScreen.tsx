@@ -10,6 +10,7 @@ import {
   Alert,
   Platform,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -27,27 +28,88 @@ interface Coach {
   phone?: string;
   specialty?: string;
   status?: string;
+  role?: string;
+  hourlyRate?: number;
+}
+
+interface CoachStats {
+  coach: {
+    id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    specialty?: string;
+    bio?: string;
+    yearsExperience?: number;
+    role?: string;
+  };
+  performance: {
+    sessionsThisMonth: number;
+    completedSessions: number;
+    activePlayers: number;
+    feedbackCompletionRate: number;
+    attendanceAccuracy: number;
+  };
+  finance: {
+    hourlyRate: number;
+    totalHours: number;
+    amountOwed: number;
+    amountPaid: number;
+    invoiceHistory: any[];
+  };
+}
+
+interface StatItemProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string | number;
+  color?: string;
+}
+
+function StatItem({ icon, label, value, color = Colors.dark.primary }: StatItemProps) {
+  return (
+    <View style={styles.statItem}>
+      <View style={[styles.statIcon, { backgroundColor: `${color}20` }]}>
+        <Ionicons name={icon} size={18} color={color} />
+      </View>
+      <View>
+        <Text style={styles.statValue}>{value}</Text>
+        <Text style={styles.statLabel}>{label}</Text>
+      </View>
+    </View>
+  );
 }
 
 export default function AdminCoachesScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedCoachId, setSelectedCoachId] = useState<string | null>(null);
   const [editingCoach, setEditingCoach] = useState<Coach | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     specialty: "",
+    hourlyRate: "",
   });
 
   const { data: coaches = [], isLoading, error, refetch } = useQuery<Coach[]>({
     queryKey: ["/api/coaches"],
   });
 
+  const { data: coachStats, isLoading: statsLoading } = useQuery<CoachStats>({
+    queryKey: ["/api/admin/coaches", selectedCoachId, "stats"],
+    enabled: !!selectedCoachId,
+  });
+
   const addCoachMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      return apiRequest("POST", "/api/coaches", data);
+      return apiRequest("POST", "/api/coaches", {
+        ...data,
+        hourlyRate: data.hourlyRate ? parseFloat(data.hourlyRate) : undefined,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/coaches"] });
@@ -65,13 +127,19 @@ export default function AdminCoachesScreen() {
   });
 
   const resetForm = () => {
-    setFormData({ name: "", email: "", phone: "", specialty: "" });
+    setFormData({ name: "", email: "", phone: "", specialty: "", hourlyRate: "" });
     setEditingCoach(null);
   };
 
   const openAddModal = () => {
     resetForm();
     setShowAddModal(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const openDetailModal = (coachId: string) => {
+    setSelectedCoachId(coachId);
+    setShowDetailModal(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
@@ -87,20 +155,28 @@ export default function AdminCoachesScreen() {
     addCoachMutation.mutate(formData);
   };
 
+  const getRoleColor = (role?: string) => {
+    switch (role) {
+      case "head_coach": return Colors.dark.gold;
+      case "assistant": return Colors.dark.orange;
+      case "intern": return Colors.dark.xpCyan;
+      default: return Colors.dark.primary;
+    }
+  };
+
+  const getRoleLabel = (role?: string) => {
+    switch (role) {
+      case "head_coach": return "Head Coach";
+      case "assistant": return "Assistant";
+      case "intern": return "Intern";
+      default: return "Coach";
+    }
+  };
+
   const renderCoach = ({ item }: { item: Coach }) => (
     <Pressable
       style={[styles.coachCard, CardStyles.elevated]}
-      onPress={() => {
-        setEditingCoach(item);
-        setFormData({
-          name: item.name || "",
-          email: item.email || "",
-          phone: item.phone || "",
-          specialty: item.specialty || "",
-        });
-        setShowAddModal(true);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }}
+      onPress={() => openDetailModal(item.id)}
     >
       <View style={styles.coachAvatar}>
         <Ionicons name="person" size={24} color={Colors.dark.primary} />
@@ -112,13 +188,160 @@ export default function AdminCoachesScreen() {
           <Text style={styles.coachSpecialty}>{item.specialty}</Text>
         ) : null}
       </View>
-      <View style={[styles.statusBadge, { backgroundColor: `${Colors.dark.successNeon}20` }]}>
-        <Text style={[styles.statusText, { color: Colors.dark.successNeon }]}>
-          {item.status || "Active"}
-        </Text>
+      <View style={styles.coachMeta}>
+        <View style={[styles.roleBadge, { backgroundColor: `${getRoleColor(item.role)}20` }]}>
+          <Text style={[styles.roleText, { color: getRoleColor(item.role) }]}>
+            {getRoleLabel(item.role)}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
       </View>
     </Pressable>
   );
+
+  const renderDetailModal = () => {
+    const stats = coachStats;
+    
+    return (
+      <Modal
+        visible={showDetailModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowDetailModal(false)}
+      >
+        <View style={[styles.modalContainer, { paddingTop: insets.top + Spacing.lg }]}>
+          <View style={styles.modalHeader}>
+            <Pressable onPress={() => setShowDetailModal(false)}>
+              <Ionicons name="close" size={24} color={Colors.dark.text} />
+            </Pressable>
+            <Text style={styles.modalTitle}>Coach Details</Text>
+            <Pressable onPress={() => {
+              if (stats?.coach) {
+                setEditingCoach({
+                  id: stats.coach.id,
+                  name: stats.coach.name,
+                  email: stats.coach.email,
+                  phone: stats.coach.phone,
+                  specialty: stats.coach.specialty,
+                  role: stats.coach.role,
+                });
+                setFormData({
+                  name: stats.coach.name || "",
+                  email: stats.coach.email || "",
+                  phone: stats.coach.phone || "",
+                  specialty: stats.coach.specialty || "",
+                  hourlyRate: stats.finance?.hourlyRate?.toString() || "",
+                });
+                setShowDetailModal(false);
+                setShowAddModal(true);
+              }
+            }}>
+              <Ionicons name="pencil" size={20} color={Colors.dark.orange} />
+            </Pressable>
+          </View>
+
+          {statsLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.dark.orange} />
+            </View>
+          ) : stats ? (
+            <ScrollView 
+              style={styles.detailScroll}
+              contentContainerStyle={[styles.detailContent, { paddingBottom: insets.bottom + 40 }]}
+            >
+              <View style={styles.profileSection}>
+                <View style={styles.profileAvatar}>
+                  <Ionicons name="person" size={40} color={Colors.dark.primary} />
+                </View>
+                <Text style={styles.profileName}>{stats.coach.name}</Text>
+                <View style={[styles.roleBadge, { backgroundColor: `${getRoleColor(stats.coach.role)}20` }]}>
+                  <Text style={[styles.roleText, { color: getRoleColor(stats.coach.role) }]}>
+                    {getRoleLabel(stats.coach.role)}
+                  </Text>
+                </View>
+                {stats.coach.email ? (
+                  <Text style={styles.profileEmail}>{stats.coach.email}</Text>
+                ) : null}
+                {stats.coach.phone ? (
+                  <Text style={styles.profilePhone}>{stats.coach.phone}</Text>
+                ) : null}
+              </View>
+
+              {stats.coach.bio ? (
+                <View style={[styles.section, CardStyles.elevated]}>
+                  <Text style={styles.sectionTitle}>About</Text>
+                  <Text style={styles.bioText}>{stats.coach.bio}</Text>
+                  {stats.coach.yearsExperience ? (
+                    <Text style={styles.experienceText}>
+                      {stats.coach.yearsExperience} years experience
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
+
+              <View style={[styles.section, CardStyles.elevated]}>
+                <Text style={styles.sectionTitle}>Performance</Text>
+                <View style={styles.statsGrid}>
+                  <StatItem 
+                    icon="calendar" 
+                    label="Sessions/Mo" 
+                    value={stats.performance.sessionsThisMonth}
+                    color={Colors.dark.orange}
+                  />
+                  <StatItem 
+                    icon="checkmark-circle" 
+                    label="Completed" 
+                    value={stats.performance.completedSessions}
+                    color={Colors.dark.successNeon}
+                  />
+                  <StatItem 
+                    icon="people" 
+                    label="Players" 
+                    value={stats.performance.activePlayers}
+                    color={Colors.dark.xpCyan}
+                  />
+                  <StatItem 
+                    icon="chatbubble" 
+                    label="Feedback %" 
+                    value={`${stats.performance.feedbackCompletionRate}%`}
+                    color={Colors.dark.primary}
+                  />
+                </View>
+              </View>
+
+              <View style={[styles.section, CardStyles.elevated]}>
+                <Text style={styles.sectionTitle}>Finance</Text>
+                <View style={styles.financeRow}>
+                  <Text style={styles.financeLabel}>Hourly Rate</Text>
+                  <Text style={styles.financeValue}>AED {stats.finance.hourlyRate}</Text>
+                </View>
+                <View style={styles.financeRow}>
+                  <Text style={styles.financeLabel}>Hours This Month</Text>
+                  <Text style={styles.financeValue}>{stats.finance.totalHours}h</Text>
+                </View>
+                <View style={styles.divider} />
+                <View style={styles.financeRow}>
+                  <Text style={styles.financeLabel}>Amount Owed</Text>
+                  <Text style={[styles.financeValue, { color: Colors.dark.error }]}>
+                    AED {stats.finance.amountOwed}
+                  </Text>
+                </View>
+                <View style={styles.financeRow}>
+                  <Text style={styles.financeLabel}>Amount Paid</Text>
+                  <Text style={[styles.financeValue, { color: Colors.dark.successNeon }]}>
+                    AED {stats.finance.amountPaid}
+                  </Text>
+                </View>
+                <Pressable style={styles.markPaidButton}>
+                  <Text style={styles.markPaidText}>Mark as Paid</Text>
+                </Pressable>
+              </View>
+            </ScrollView>
+          ) : null}
+        </View>
+      </Modal>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -168,6 +391,8 @@ export default function AdminCoachesScreen() {
           </View>
         }
       />
+
+      {renderDetailModal()}
 
       <Modal
         visible={showAddModal}
@@ -243,6 +468,18 @@ export default function AdminCoachesScreen() {
                 placeholderTextColor={Colors.dark.textMuted}
               />
             </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Hourly Rate (AED)</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.hourlyRate}
+                onChangeText={(text) => setFormData((prev) => ({ ...prev, hourlyRate: text }))}
+                placeholder="100"
+                placeholderTextColor={Colors.dark.textMuted}
+                keyboardType="numeric"
+              />
+            </View>
           </KeyboardAwareScrollViewCompat>
         </View>
       </Modal>
@@ -256,6 +493,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundRoot,
   },
   centered: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingContainer: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -322,12 +564,16 @@ const styles = StyleSheet.create({
     color: Colors.dark.orange,
     marginTop: 4,
   },
-  statusBadge: {
+  coachMeta: {
+    alignItems: "flex-end",
+    gap: Spacing.sm,
+  },
+  roleBadge: {
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
   },
-  statusText: {
+  roleText: {
     ...Typography.caption,
     fontWeight: "600",
   },
@@ -411,5 +657,117 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     ...Typography.body,
     color: Colors.dark.text,
+  },
+  detailScroll: {
+    flex: 1,
+  },
+  detailContent: {
+    padding: Spacing.lg,
+  },
+  profileSection: {
+    alignItems: "center",
+    marginBottom: Spacing.xl,
+  },
+  profileAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: `${Colors.dark.primary}20`,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.md,
+  },
+  profileName: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+    marginBottom: Spacing.sm,
+  },
+  profileEmail: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.sm,
+  },
+  profilePhone: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
+  },
+  section: {
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  sectionTitle: {
+    ...Typography.sectionTitle,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.md,
+  },
+  bioText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    lineHeight: 22,
+  },
+  experienceText: {
+    ...Typography.small,
+    color: Colors.dark.orange,
+    marginTop: Spacing.md,
+  },
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.md,
+  },
+  statItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    width: "45%",
+  },
+  statIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: BorderRadius.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statValue: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  statLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  financeRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+  },
+  financeLabel: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+  },
+  financeValue: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: Colors.dark.border,
+    marginVertical: Spacing.md,
+  },
+  markPaidButton: {
+    backgroundColor: Colors.dark.orange,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    marginTop: Spacing.lg,
+  },
+  markPaidText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
   },
 });

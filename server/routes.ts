@@ -5746,6 +5746,314 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin Dashboard - Comprehensive stats and alerts for academy admins
+  app.get("/api/admin/dashboard", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const academy = await storage.getAcademy(academyId);
+      const settings = await storage.getAcademySettings(academyId);
+      const players = await storage.getPlayersByAcademy(academyId);
+      const coaches = await storage.getCoachesByAcademy(academyId);
+      const allSessions = await storage.getSessionsByAcademy(academyId);
+
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
+      
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 7);
+
+      const sessionsThisWeek = allSessions.filter((s: any) => {
+        const sessionDate = new Date(s.startTime);
+        return sessionDate >= startOfWeek && sessionDate < endOfWeek;
+      });
+
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(now.getDate() - 30);
+
+      const recentSessions = allSessions.filter((s: any) => {
+        const sessionDate = new Date(s.startTime);
+        return sessionDate >= thirtyDaysAgo && sessionDate <= now;
+      });
+
+      const completedSessions = recentSessions.filter((s: any) => s.status === "completed");
+      const attendanceRate = recentSessions.length > 0 
+        ? Math.round((completedSessions.length / recentSessions.length) * 100) 
+        : 0;
+
+      const activePlayers = players.filter((p: any) => p.isActive !== false);
+      const activeCoaches = coaches.filter((c: any) => c.isActive !== false);
+
+      const currency = settings?.currency || "AED";
+      
+      const monthlyRevenue = players.reduce((sum: number, p: any) => {
+        return sum + (p.monthlyRate || 0);
+      }, 0);
+
+      const outstandingPayments = players.filter((p: any) => {
+        return (p.balanceDue || 0) > 0;
+      }).reduce((sum: number, p: any) => sum + (p.balanceDue || 0), 0);
+
+      const alerts: any[] = [];
+
+      const unpaidPlayers = players.filter((p: any) => (p.balanceDue || 0) > 0);
+      unpaidPlayers.slice(0, 5).forEach((p: any) => {
+        alerts.push({
+          id: `unpaid-${p.id}`,
+          type: "error",
+          category: "payment",
+          title: "Payment Overdue",
+          description: `${p.name} has ${currency} ${p.balanceDue || 0} outstanding`,
+          playerId: p.id,
+          playerName: p.name,
+          amount: p.balanceDue || 0,
+        });
+      });
+
+      const lowAttendancePlayers = players.filter((p: any) => {
+        const attendancePercent = p.attendanceRate || 100;
+        return attendancePercent < 70;
+      });
+      lowAttendancePlayers.slice(0, 3).forEach((p: any) => {
+        alerts.push({
+          id: `attendance-${p.id}`,
+          type: "warning",
+          category: "attendance",
+          title: "Low Attendance",
+          description: `${p.name} attendance at ${p.attendanceRate || 0}%`,
+          playerId: p.id,
+          playerName: p.name,
+        });
+      });
+
+      const inactiveCoaches = coaches.filter((c: any) => {
+        const lastActive = c.lastActiveAt ? new Date(c.lastActiveAt) : null;
+        if (!lastActive) return false;
+        const daysSinceActive = Math.floor((now.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24));
+        return daysSinceActive > 7;
+      });
+      inactiveCoaches.slice(0, 3).forEach((c: any) => {
+        alerts.push({
+          id: `inactive-coach-${c.id}`,
+          type: "warning",
+          category: "coach",
+          title: "Coach Inactive",
+          description: `${c.name} hasn't logged activity recently`,
+          coachId: c.id,
+          coachName: c.name,
+        });
+      });
+
+      const upcomingSessions = sessionsThisWeek.slice(0, 10).map((s: any) => ({
+        id: s.id,
+        title: s.title || "Session",
+        startTime: s.startTime,
+        endTime: s.endTime,
+        coachId: s.coachId,
+        coachName: coaches.find((c: any) => c.id === s.coachId)?.name || "Unassigned",
+        status: s.status,
+      }));
+
+      res.json({
+        academy: academy ? {
+          id: academy.id,
+          name: academy.name,
+          currency,
+          timezone: settings?.timezone || "Asia/Dubai",
+        } : null,
+        kpis: {
+          activePlayers: activePlayers.length,
+          activeCoaches: activeCoaches.length,
+          sessionsThisWeek: sessionsThisWeek.length,
+          attendanceRate,
+          outstandingPayments,
+          monthlyRevenue,
+          currency,
+        },
+        alerts: alerts.sort((a, b) => {
+          const priority = { error: 0, warning: 1, info: 2 };
+          return (priority[a.type as keyof typeof priority] || 2) - (priority[b.type as keyof typeof priority] || 2);
+        }),
+        upcomingSessions,
+        quickStats: {
+          totalPlayers: players.length,
+          totalCoaches: coaches.length,
+          completedSessionsThisMonth: completedSessions.length,
+          unpaidPlayerCount: unpaidPlayers.length,
+        },
+      });
+    } catch (error) {
+      console.error("Admin dashboard error:", error);
+      res.status(500).json({ error: "Failed to fetch admin dashboard data" });
+    }
+  });
+
+  // Admin - Get detailed coach stats with finance
+  app.get("/api/admin/coaches/:coachId/stats", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { coachId } = req.params;
+      const academyId = req.user?.academyId;
+      
+      const coach = await storage.getCoach(coachId);
+      if (!coach || (academyId && coach.academyId !== academyId)) {
+        return res.status(404).json({ error: "Coach not found" });
+      }
+
+      const sessions = await storage.getAllSessionsByCoach(coachId);
+      const players = await storage.getPlayersByCoach(coachId);
+      
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(now.getDate() - 30);
+      
+      const sessionsThisMonth = sessions.filter((s: any) => {
+        const sessionDate = new Date(s.startTime);
+        return sessionDate >= thirtyDaysAgo;
+      });
+
+      const completedSessions = sessionsThisMonth.filter((s: any) => s.status === "completed");
+
+      const feedbackCount = await storage.getFeedbackCountByCoach(coachId, thirtyDaysAgo, now);
+      const feedbackCompletionRate = completedSessions.length > 0 
+        ? Math.round((feedbackCount / completedSessions.length) * 100) 
+        : 0;
+
+      const hourlyRate = coach.hourlyRate || 100;
+      const totalHours = sessionsThisMonth.reduce((sum: number, s: any) => {
+        const start = new Date(s.startTime);
+        const end = new Date(s.endTime);
+        return sum + (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+      }, 0);
+
+      res.json({
+        coach: {
+          id: coach.id,
+          name: coach.name,
+          email: coach.email,
+          phone: coach.phone,
+          specialty: coach.specialty,
+          bio: coach.bio,
+          yearsExperience: coach.yearsExperience,
+          role: coach.role || "coach",
+        },
+        performance: {
+          sessionsThisMonth: sessionsThisMonth.length,
+          completedSessions: completedSessions.length,
+          activePlayers: players.length,
+          feedbackCompletionRate,
+          attendanceAccuracy: 95,
+        },
+        finance: {
+          hourlyRate,
+          totalHours: Math.round(totalHours * 10) / 10,
+          amountOwed: Math.round(totalHours * hourlyRate),
+          amountPaid: coach.amountPaid || 0,
+          invoiceHistory: [],
+        },
+      });
+    } catch (error) {
+      console.error("Coach stats error:", error);
+      res.status(500).json({ error: "Failed to fetch coach stats" });
+    }
+  });
+
+  // Admin - Get detailed player stats with payments
+  app.get("/api/admin/players/:playerId/stats", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { playerId } = req.params;
+      const academyId = req.user?.academyId;
+      
+      const player = await storage.getPlayer(playerId);
+      if (!player || (academyId && player.academyId !== academyId)) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      const coach = player.coachId ? await storage.getCoach(player.coachId) : null;
+      const xpData = await storage.getPlayerXpTotal(playerId);
+      const milestones = await storage.getPlayerMilestones(playerId);
+
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(now.getDate() - 30);
+
+      const sessions = await storage.getPlayerSessionsWithDetails(playerId);
+      const recentSessions = sessions.filter((s: any) => {
+        const sessionDate = new Date(s.startTime);
+        return sessionDate >= thirtyDaysAgo;
+      });
+
+      const attendedSessions = recentSessions.filter((s: any) => 
+        s.attendanceStatus === "present" || s.status === "completed"
+      );
+      const attendanceRate = recentSessions.length > 0 
+        ? Math.round((attendedSessions.length / recentSessions.length) * 100)
+        : 100;
+
+      const currentLevel = xpData.level || player.level || 1;
+      const xpProgress = xpData.totalXp || 0;
+      const xpToNext = xpData.xpToNextLevel || 500;
+      
+      const totalOwed = player.balanceDue || 0;
+      const totalPaid = player.totalPaid || 0;
+      let paymentStatus: "paid" | "partial" | "overdue" = "paid";
+      if (totalOwed > 0) {
+        paymentStatus = totalPaid > 0 ? "partial" : "overdue";
+      }
+
+      res.json({
+        player: {
+          id: player.id,
+          name: player.name,
+          email: player.email,
+          phone: player.phone,
+          ballLevel: player.ballLevel,
+          level: currentLevel,
+          totalXp: xpProgress,
+          glowScore: player.glowScore || 0,
+          coachName: coach?.name || "Unassigned",
+          parentName: player.parentName,
+          parentPhone: player.parentPhone,
+          medicalNotes: player.medicalNotes,
+        },
+        attendance: {
+          totalSessions: sessions.length,
+          attended: attendedSessions.length,
+          missed: recentSessions.length - attendedSessions.length,
+          rate: attendanceRate,
+          streak: player.currentStreak || 0,
+        },
+        progress: {
+          level: currentLevel,
+          xp: xpProgress,
+          xpToNextLevel: xpToNext,
+          skills: {
+            technical: player.technicalScore || 50,
+            tactical: player.tacticalScore || 50,
+            physical: player.physicalScore || 50,
+            mental: player.mentalScore || 50,
+            social: player.socialScore || 50,
+          },
+          recentMilestones: milestones.slice(0, 5).map((m: any) => m.title || m.type),
+        },
+        payments: {
+          totalOwed,
+          totalPaid,
+          lastPaymentDate: player.lastPaymentDate,
+          status: paymentStatus,
+          currency: "AED",
+        },
+      });
+    } catch (error) {
+      console.error("Player stats error:", error);
+      res.status(500).json({ error: "Failed to fetch player stats" });
+    }
+  });
+
   // Platform Owner - Get single academy details
   app.get("/api/platform/academies/:id", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {

@@ -699,6 +699,28 @@ export const storage = {
     return db.select().from(sessions).where(and(...conditions));
   },
 
+  async getSessionsByAcademy(academyId: string): Promise<Session[]> {
+    return db.select().from(sessions).where(eq(sessions.academyId, academyId));
+  },
+
+  async getPlayersByCoach(coachId: string): Promise<Player[]> {
+    return db.select().from(players).where(eq(players.coachId, coachId));
+  },
+
+  async getFeedbackCountByCoach(coachId: string, startDate: Date, endDate: Date): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(sessionFeedback)
+      .where(
+        and(
+          eq(sessionFeedback.coachId, coachId),
+          gte(sessionFeedback.feedbackDate, startDate),
+          lte(sessionFeedback.feedbackDate, endDate)
+        )
+      );
+    return result[0]?.count || 0;
+  },
+
   async getBlockedSessions(coachId: string, startDate: Date, endDate: Date, academyId?: string): Promise<Session[]> {
     const conditions = [
       ne(sessions.coachId, coachId),

@@ -1,10 +1,12 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Pressable,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -20,18 +22,63 @@ import type { AdminTabParamList } from "@/admin/navigation/AdminNavigator";
 
 type AdminNavProp = BottomTabNavigationProp<AdminTabParamList>;
 
-interface StatCardProps {
+interface DashboardData {
+  academy: {
+    id: string;
+    name: string;
+    currency: string;
+    timezone: string;
+  } | null;
+  kpis: {
+    activePlayers: number;
+    activeCoaches: number;
+    sessionsThisWeek: number;
+    attendanceRate: number;
+    outstandingPayments: number;
+    monthlyRevenue: number;
+    currency: string;
+  };
+  alerts: Array<{
+    id: string;
+    type: "error" | "warning" | "info";
+    category: string;
+    title: string;
+    description: string;
+    playerId?: string;
+    playerName?: string;
+    coachId?: string;
+    coachName?: string;
+    amount?: number;
+  }>;
+  upcomingSessions: Array<{
+    id: string;
+    title: string;
+    startTime: string;
+    endTime: string;
+    coachName: string;
+    status: string;
+  }>;
+  quickStats: {
+    totalPlayers: number;
+    totalCoaches: number;
+    completedSessionsThisMonth: number;
+    unpaidPlayerCount: number;
+  };
+}
+
+interface KpiCardProps {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: string | number;
+  subValue?: string;
   color?: string;
   onPress?: () => void;
 }
 
-function StatCard({ icon, label, value, color = Colors.dark.primary, onPress }: StatCardProps) {
+function KpiCard({ icon, label, value, subValue, color = Colors.dark.primary, onPress }: KpiCardProps) {
   return (
     <Pressable
-      style={[styles.statCard, CardStyles.elevated]}
+      style={[styles.kpiCard, CardStyles.elevated]}
       onPress={() => {
         if (onPress) {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -40,36 +87,92 @@ function StatCard({ icon, label, value, color = Colors.dark.primary, onPress }: 
       }}
       disabled={!onPress}
     >
-      <View style={[styles.statIconContainer, { backgroundColor: `${color}20` }]}>
-        <Ionicons name={icon} size={24} color={color} />
+      <View style={[styles.kpiIconContainer, { backgroundColor: `${color}20` }]}>
+        <Ionicons name={icon} size={20} color={color} />
       </View>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.kpiValue}>{value}</Text>
+      <Text style={styles.kpiLabel}>{label}</Text>
+      {subValue ? <Text style={styles.kpiSubValue}>{subValue}</Text> : null}
     </Pressable>
   );
 }
 
-interface QuickActionProps {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  color?: string;
-  onPress: () => void;
+interface AlertCardProps {
+  alert: DashboardData["alerts"][0];
+  onPress?: () => void;
 }
 
-function QuickAction({ icon, label, color = Colors.dark.primary, onPress }: QuickActionProps) {
+function AlertCard({ alert, onPress }: AlertCardProps) {
+  const getAlertColor = (type: string) => {
+    switch (type) {
+      case "error": return Colors.dark.error;
+      case "warning": return Colors.dark.orange;
+      default: return Colors.dark.xpCyan;
+    }
+  };
+
+  const getAlertIcon = (category: string): keyof typeof Ionicons.glyphMap => {
+    switch (category) {
+      case "payment": return "card-outline";
+      case "attendance": return "calendar-outline";
+      case "coach": return "person-outline";
+      default: return "alert-circle-outline";
+    }
+  };
+
+  const color = getAlertColor(alert.type);
+
   return (
     <Pressable
-      style={styles.quickAction}
+      style={[styles.alertCard, { borderLeftColor: color }]}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onPress();
+        onPress?.();
       }}
     >
-      <View style={[styles.quickActionIcon, { backgroundColor: `${color}20` }]}>
-        <Ionicons name={icon} size={22} color={color} />
+      <View style={[styles.alertIconContainer, { backgroundColor: `${color}20` }]}>
+        <Ionicons name={getAlertIcon(alert.category)} size={18} color={color} />
       </View>
-      <Text style={styles.quickActionLabel}>{label}</Text>
+      <View style={styles.alertContent}>
+        <Text style={styles.alertTitle}>{alert.title}</Text>
+        <Text style={styles.alertDescription}>{alert.description}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
     </Pressable>
+  );
+}
+
+interface SessionCardProps {
+  session: DashboardData["upcomingSessions"][0];
+}
+
+function SessionCard({ session }: SessionCardProps) {
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+  };
+
+  const formatDay = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", { weekday: "short", day: "numeric" });
+  };
+
+  return (
+    <View style={[styles.sessionCard, CardStyles.elevated]}>
+      <View style={styles.sessionTime}>
+        <Text style={styles.sessionDay}>{formatDay(session.startTime)}</Text>
+        <Text style={styles.sessionHour}>{formatTime(session.startTime)}</Text>
+      </View>
+      <View style={styles.sessionInfo}>
+        <Text style={styles.sessionTitle}>{session.title}</Text>
+        <Text style={styles.sessionCoach}>{session.coachName}</Text>
+      </View>
+      <View style={[styles.sessionStatus, { backgroundColor: `${Colors.dark.primary}20` }]}>
+        <Text style={[styles.sessionStatusText, { color: Colors.dark.primary }]}>
+          {session.status}
+        </Text>
+      </View>
+    </View>
   );
 }
 
@@ -77,25 +180,35 @@ export default function AdminDashboardScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<AdminNavProp>();
   const { user } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
 
-  const { data: coaches = [] } = useQuery<any[]>({
-    queryKey: ["/api/coaches"],
+  const { data: dashboardData, isLoading, refetch } = useQuery<DashboardData>({
+    queryKey: ["/api/admin/dashboard"],
   });
 
-  const { data: players = [] } = useQuery<any[]>({
-    queryKey: ["/api/players"],
-  });
-
-  const { data: sessions = [] } = useQuery<any[]>({
-    queryKey: ["/api/sessions"],
-  });
-
-  const stats = {
-    totalCoaches: coaches.length,
-    totalPlayers: players.length,
-    activeSessions: sessions.filter((s: any) => s.status === "scheduled").length,
-    monthlyRevenue: 4250,
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
   };
+
+  const kpis = dashboardData?.kpis;
+  const alerts = dashboardData?.alerts || [];
+  const upcomingSessions = dashboardData?.upcomingSessions || [];
+  const currency = kpis?.currency || "AED";
+
+  const formatCurrency = (amount: number) => {
+    return `${currency} ${amount.toLocaleString()}`;
+  };
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={Colors.dark.orange} />
+        <Text style={styles.loadingText}>Loading dashboard...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -108,90 +221,171 @@ export default function AdminDashboardScreen() {
         style={styles.scrollView}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.dark.orange} />
+        }
       >
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <View>
               <Text style={styles.welcomeText}>Admin Dashboard</Text>
-              <Text style={styles.academyName}>Tennis Academy Pro</Text>
+              <Text style={styles.academyName}>{dashboardData?.academy?.name || "Tennis Academy"}</Text>
             </View>
             <Pressable
               style={styles.notificationButton}
               onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
             >
               <Ionicons name="notifications-outline" size={24} color={Colors.dark.text} />
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>3</Text>
-              </View>
+              {alerts.length > 0 ? (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>{alerts.length}</Text>
+                </View>
+              ) : null}
             </Pressable>
           </View>
 
           <ModeSwitcher />
         </View>
 
-        <View style={styles.statsGrid}>
-          <StatCard 
-            icon="people" 
-            label="Coaches" 
-            value={stats.totalCoaches} 
-            color={Colors.dark.primary}
-            onPress={() => navigation.navigate("AdminCoaches")}
-          />
-          <StatCard 
+        <View style={styles.kpisGrid}>
+          <KpiCard 
             icon="person" 
-            label="Players" 
-            value={stats.totalPlayers} 
+            label="Active Players" 
+            value={kpis?.activePlayers || 0}
             color={Colors.dark.xpCyan}
             onPress={() => navigation.navigate("AdminPlayers")}
           />
-          <StatCard 
+          <KpiCard 
+            icon="people" 
+            label="Active Coaches" 
+            value={kpis?.activeCoaches || 0}
+            color={Colors.dark.primary}
+            onPress={() => navigation.navigate("AdminCoaches")}
+          />
+          <KpiCard 
             icon="calendar" 
-            label="Active Sessions" 
-            value={stats.activeSessions} 
+            label="Sessions/Week" 
+            value={kpis?.sessionsThisWeek || 0}
             color={Colors.dark.orange}
             onPress={() => navigation.navigate("AdminSchedule")}
           />
-          <StatCard 
+          <KpiCard 
+            icon="checkmark-circle" 
+            label="Attendance" 
+            value={`${kpis?.attendanceRate || 0}%`}
+            color={Colors.dark.successNeon}
+            onPress={() => navigation.navigate("AdminReports")}
+          />
+          <KpiCard 
+            icon="alert-circle" 
+            label="Outstanding" 
+            value={formatCurrency(kpis?.outstandingPayments || 0)}
+            color={Colors.dark.error}
+            onPress={() => navigation.navigate("AdminReports")}
+          />
+          <KpiCard 
             icon="cash" 
-            label="Revenue" 
-            value={`$${stats.monthlyRevenue}`} 
+            label="Revenue/Mo" 
+            value={formatCurrency(kpis?.monthlyRevenue || 0)}
             color={Colors.dark.gold}
             onPress={() => navigation.navigate("AdminReports")}
           />
         </View>
 
+        {alerts.length > 0 ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Alerts</Text>
+              <View style={styles.alertCountBadge}>
+                <Text style={styles.alertCountText}>{alerts.length}</Text>
+              </View>
+            </View>
+            {alerts.slice(0, 5).map((alert) => (
+              <AlertCard 
+                key={alert.id} 
+                alert={alert}
+                onPress={() => {
+                  if (alert.playerId) {
+                    navigation.navigate("AdminPlayers");
+                  } else if (alert.coachId) {
+                    navigation.navigate("AdminCoaches");
+                  }
+                }}
+              />
+            ))}
+          </View>
+        ) : null}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActionsGrid}>
-            <QuickAction 
-              icon="person-add" 
-              label="Add Coach" 
-              color={Colors.dark.primary} 
-              onPress={() => navigation.navigate("AdminCoaches")} 
-            />
-            <QuickAction 
-              icon="person-add-outline" 
-              label="Add Player" 
-              color={Colors.dark.xpCyan} 
-              onPress={() => navigation.navigate("AdminPlayers")} 
-            />
-            <QuickAction 
-              icon="calendar-outline" 
-              label="Schedule" 
-              color={Colors.dark.orange} 
-              onPress={() => navigation.navigate("AdminSchedule")} 
-            />
-            <QuickAction 
-              icon="analytics" 
-              label="Reports" 
-              color={Colors.dark.gold} 
-              onPress={() => navigation.navigate("AdminReports")} 
-            />
+            <Pressable 
+              style={styles.quickAction}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("AdminPlayers");
+              }}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.xpCyan}20` }]}>
+                <Ionicons name="person-add" size={22} color={Colors.dark.xpCyan} />
+              </View>
+              <Text style={styles.quickActionLabel}>Add Player</Text>
+            </Pressable>
+            <Pressable 
+              style={styles.quickAction}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("AdminCoaches");
+              }}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.primary}20` }]}>
+                <Ionicons name="person-add-outline" size={22} color={Colors.dark.primary} />
+              </View>
+              <Text style={styles.quickActionLabel}>Add Coach</Text>
+            </Pressable>
+            <Pressable 
+              style={styles.quickAction}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("AdminSchedule");
+              }}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.orange}20` }]}>
+                <Ionicons name="calendar-outline" size={22} color={Colors.dark.orange} />
+              </View>
+              <Text style={styles.quickActionLabel}>Schedule</Text>
+            </Pressable>
+            <Pressable 
+              style={styles.quickAction}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("AdminReports");
+              }}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.gold}20` }]}>
+                <Ionicons name="analytics" size={22} color={Colors.dark.gold} />
+              </View>
+              <Text style={styles.quickActionLabel}>Reports</Text>
+            </Pressable>
           </View>
         </View>
 
+        {upcomingSessions.length > 0 ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Upcoming Sessions</Text>
+              <Pressable onPress={() => navigation.navigate("AdminSchedule")}>
+                <Text style={styles.seeAllText}>See All</Text>
+              </Pressable>
+            </View>
+            {upcomingSessions.slice(0, 5).map((session) => (
+              <SessionCard key={session.id} session={session} />
+            ))}
+          </View>
+        ) : null}
+
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>User Management</Text>
+          <Text style={styles.sectionTitle}>Management</Text>
           <Pressable 
             style={[styles.menuCard, CardStyles.elevated]}
             onPress={() => {
@@ -203,7 +397,7 @@ export default function AdminDashboardScreen() {
               <Ionicons name="people-outline" size={24} color={Colors.dark.primary} />
               <View style={styles.menuCardText}>
                 <Text style={styles.menuCardTitle}>Manage Coaches</Text>
-                <Text style={styles.menuCardSubtitle}>View, edit, and add coaches</Text>
+                <Text style={styles.menuCardSubtitle}>Performance, payments, profiles</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
             </View>
@@ -220,7 +414,7 @@ export default function AdminDashboardScreen() {
               <Ionicons name="person-outline" size={24} color={Colors.dark.xpCyan} />
               <View style={styles.menuCardText}>
                 <Text style={styles.menuCardTitle}>Manage Players</Text>
-                <Text style={styles.menuCardSubtitle}>View, edit, and add players</Text>
+                <Text style={styles.menuCardSubtitle}>Attendance, progress, payments</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
             </View>
@@ -234,47 +428,10 @@ export default function AdminDashboardScreen() {
             }}
           >
             <View style={styles.menuCardContent}>
-              <Ionicons name="shield-outline" size={24} color={Colors.dark.orange} />
+              <Ionicons name="business-outline" size={24} color={Colors.dark.orange} />
               <View style={styles.menuCardText}>
-                <Text style={styles.menuCardTitle}>Roles & Permissions</Text>
-                <Text style={styles.menuCardSubtitle}>Manage access controls</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
-            </View>
-          </Pressable>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Academy Settings</Text>
-          <Pressable 
-            style={[styles.menuCard, CardStyles.elevated]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("AdminSettings");
-            }}
-          >
-            <View style={styles.menuCardContent}>
-              <Ionicons name="business-outline" size={24} color={Colors.dark.primary} />
-              <View style={styles.menuCardText}>
-                <Text style={styles.menuCardTitle}>Academy Profile</Text>
-                <Text style={styles.menuCardSubtitle}>Business info, branding, location</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
-            </View>
-          </Pressable>
-
-          <Pressable 
-            style={[styles.menuCard, CardStyles.elevated]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("AdminSettings");
-            }}
-          >
-            <View style={styles.menuCardContent}>
-              <Ionicons name="tennisball-outline" size={24} color={Colors.dark.primary} />
-              <View style={styles.menuCardText}>
-                <Text style={styles.menuCardTitle}>Courts & Facilities</Text>
-                <Text style={styles.menuCardSubtitle}>Manage court types and availability</Text>
+                <Text style={styles.menuCardTitle}>Academy Settings</Text>
+                <Text style={styles.menuCardSubtitle}>Profile, courts, permissions</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
             </View>
@@ -289,6 +446,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  loadingContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
   },
   headerGradient: {
     position: "absolute",
@@ -345,41 +511,98 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
   },
-  statsGrid: {
+  kpisGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: Spacing.md,
+    gap: Spacing.sm,
     marginBottom: Spacing.xl,
   },
-  statCard: {
-    width: "47%",
-    padding: Spacing.lg,
+  kpiCard: {
+    width: "31%",
+    padding: Spacing.md,
     alignItems: "center",
   },
-  statIconContainer: {
-    width: 48,
-    height: 48,
+  kpiIconContainer: {
+    width: 36,
+    height: 36,
     borderRadius: BorderRadius.full,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: Spacing.sm,
-  },
-  statValue: {
-    ...Typography.numberLarge,
-    color: Colors.dark.text,
     marginBottom: Spacing.xs,
   },
-  statLabel: {
-    ...Typography.small,
+  kpiValue: {
+    ...Typography.numberLarge,
+    color: Colors.dark.text,
+    fontSize: 18,
+    marginBottom: 2,
+  },
+  kpiLabel: {
+    ...Typography.caption,
     color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  kpiSubValue: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
   },
   section: {
     marginBottom: Spacing.xl,
   },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
   sectionTitle: {
     ...Typography.sectionTitle,
     color: Colors.dark.textMuted,
-    marginBottom: Spacing.md,
+  },
+  alertCountBadge: {
+    backgroundColor: Colors.dark.error,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  alertCountText: {
+    ...Typography.caption,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  seeAllText: {
+    ...Typography.small,
+    color: Colors.dark.orange,
+  },
+  alertCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderLeftWidth: 3,
+  },
+  alertIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: BorderRadius.full,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.md,
+  },
+  alertContent: {
+    flex: 1,
+  },
+  alertTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  alertDescription: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
   },
   quickActionsGrid: {
     flexDirection: "row",
@@ -402,6 +625,48 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.text,
     textAlign: "center",
+  },
+  sessionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  sessionTime: {
+    alignItems: "center",
+    marginRight: Spacing.md,
+    minWidth: 50,
+  },
+  sessionDay: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  sessionHour: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  sessionInfo: {
+    flex: 1,
+  },
+  sessionTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  sessionCoach: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  sessionStatus: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  sessionStatusText: {
+    ...Typography.caption,
+    fontWeight: "600",
+    textTransform: "capitalize",
   },
   menuCard: {
     marginBottom: Spacing.sm,

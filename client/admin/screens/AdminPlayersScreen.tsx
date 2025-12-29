@@ -10,6 +10,7 @@ import {
   Alert,
   Platform,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -28,24 +29,112 @@ interface Player {
   ballLevel?: string;
   level?: number;
   totalXp?: number;
+  coachName?: string;
+}
+
+interface PlayerStats {
+  player: {
+    id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    ballLevel?: string;
+    level?: number;
+    totalXp?: number;
+    glowScore?: number;
+    coachName?: string;
+    parentName?: string;
+    parentPhone?: string;
+    medicalNotes?: string;
+  };
+  attendance: {
+    totalSessions: number;
+    attended: number;
+    missed: number;
+    rate: number;
+    streak: number;
+  };
+  progress: {
+    level: number;
+    xp: number;
+    xpToNextLevel: number;
+    skills: {
+      technical: number;
+      tactical: number;
+      physical: number;
+      mental: number;
+      social: number;
+    };
+    recentMilestones: string[];
+  };
+  payments: {
+    totalOwed: number;
+    totalPaid: number;
+    lastPaymentDate?: string;
+    status: "paid" | "partial" | "overdue";
+    currency: string;
+  };
 }
 
 const BALL_LEVELS = ["red", "orange", "green", "yellow"];
+
+interface StatItemProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string | number;
+  color?: string;
+}
+
+function StatItem({ icon, label, value, color = Colors.dark.primary }: StatItemProps) {
+  return (
+    <View style={styles.statItem}>
+      <View style={[styles.statIcon, { backgroundColor: `${color}20` }]}>
+        <Ionicons name={icon} size={18} color={color} />
+      </View>
+      <View>
+        <Text style={styles.statValue}>{value}</Text>
+        <Text style={styles.statLabel}>{label}</Text>
+      </View>
+    </View>
+  );
+}
+
+function SkillBar({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <View style={styles.skillRow}>
+      <Text style={styles.skillLabel}>{label}</Text>
+      <View style={styles.skillBarContainer}>
+        <View style={[styles.skillBarFill, { width: `${value}%`, backgroundColor: color }]} />
+      </View>
+      <Text style={styles.skillValue}>{value}</Text>
+    </View>
+  );
+}
 
 export default function AdminPlayersScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     ballLevel: "green",
+    parentName: "",
+    parentPhone: "",
   });
 
   const { data: players = [], isLoading, error, refetch } = useQuery<Player[]>({
     queryKey: ["/api/players"],
+  });
+
+  const { data: playerStats, isLoading: statsLoading } = useQuery<PlayerStats>({
+    queryKey: ["/api/admin/players", selectedPlayerId, "stats"],
+    enabled: !!selectedPlayerId,
   });
 
   const addPlayerMutation = useMutation({
@@ -73,18 +162,25 @@ export default function AdminPlayersScreen() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/players"] });
+      setShowDetailModal(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
   });
 
   const resetForm = () => {
-    setFormData({ name: "", email: "", phone: "", ballLevel: "green" });
+    setFormData({ name: "", email: "", phone: "", ballLevel: "green", parentName: "", parentPhone: "" });
     setEditingPlayer(null);
   };
 
   const openAddModal = () => {
     resetForm();
     setShowAddModal(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const openDetailModal = (playerId: string) => {
+    setSelectedPlayerId(playerId);
+    setShowDetailModal(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
@@ -100,19 +196,21 @@ export default function AdminPlayersScreen() {
     addPlayerMutation.mutate(formData);
   };
 
-  const handleDelete = (player: Player) => {
+  const handleDelete = () => {
+    if (!selectedPlayerId || !playerStats) return;
+    
     const confirmDelete = () => {
-      deletePlayerMutation.mutate(player.id);
+      deletePlayerMutation.mutate(selectedPlayerId);
     };
 
     if (Platform.OS === "web") {
-      if (window.confirm(`Delete ${player.name}?`)) {
+      if (window.confirm(`Delete ${playerStats.player.name}? This action cannot be undone.`)) {
         confirmDelete();
       }
     } else {
       Alert.alert(
         "Delete Player",
-        `Are you sure you want to delete ${player.name}?`,
+        `Are you sure you want to delete ${playerStats.player.name}? This action cannot be undone.`,
         [
           { text: "Cancel", style: "cancel" },
           { text: "Delete", style: "destructive", onPress: confirmDelete },
@@ -131,21 +229,24 @@ export default function AdminPlayersScreen() {
     }
   };
 
+  const getPaymentStatusColor = (status?: string) => {
+    switch (status) {
+      case "paid": return Colors.dark.successNeon;
+      case "partial": return Colors.dark.orange;
+      case "overdue": return Colors.dark.error;
+      default: return Colors.dark.textMuted;
+    }
+  };
+
+  const filteredPlayers = players.filter((player) =>
+    player.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    player.email?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const renderPlayer = ({ item }: { item: Player }) => (
     <Pressable
       style={[styles.playerCard, CardStyles.elevated]}
-      onPress={() => {
-        setEditingPlayer(item);
-        setFormData({
-          name: item.name || "",
-          email: item.email || "",
-          phone: item.phone || "",
-          ballLevel: item.ballLevel || "green",
-        });
-        setShowAddModal(true);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }}
-      onLongPress={() => handleDelete(item)}
+      onPress={() => openDetailModal(item.id)}
     >
       <View style={[styles.playerAvatar, { borderColor: getBallLevelColor(item.ballLevel) }]}>
         <Text style={styles.avatarText}>{item.name?.charAt(0).toUpperCase() || "?"}</Text>
@@ -163,11 +264,212 @@ export default function AdminPlayersScreen() {
           {item.level ? (
             <Text style={styles.levelText}>Level {item.level}</Text>
           ) : null}
+          {item.coachName ? (
+            <Text style={styles.coachText}>{item.coachName}</Text>
+          ) : null}
         </View>
       </View>
       <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
     </Pressable>
   );
+
+  const renderDetailModal = () => {
+    const stats = playerStats;
+    
+    return (
+      <Modal
+        visible={showDetailModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowDetailModal(false)}
+      >
+        <View style={[styles.modalContainer, { paddingTop: insets.top + Spacing.lg }]}>
+          <View style={styles.modalHeader}>
+            <Pressable onPress={() => setShowDetailModal(false)}>
+              <Ionicons name="close" size={24} color={Colors.dark.text} />
+            </Pressable>
+            <Text style={styles.modalTitle}>Player Details</Text>
+            <Pressable onPress={() => {
+              if (stats?.player) {
+                setEditingPlayer({
+                  id: stats.player.id,
+                  name: stats.player.name,
+                  email: stats.player.email,
+                  phone: stats.player.phone,
+                  ballLevel: stats.player.ballLevel,
+                });
+                setFormData({
+                  name: stats.player.name || "",
+                  email: stats.player.email || "",
+                  phone: stats.player.phone || "",
+                  ballLevel: stats.player.ballLevel || "green",
+                  parentName: stats.player.parentName || "",
+                  parentPhone: stats.player.parentPhone || "",
+                });
+                setShowDetailModal(false);
+                setShowAddModal(true);
+              }
+            }}>
+              <Ionicons name="pencil" size={20} color={Colors.dark.orange} />
+            </Pressable>
+          </View>
+
+          {statsLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.dark.orange} />
+            </View>
+          ) : stats ? (
+            <ScrollView 
+              style={styles.detailScroll}
+              contentContainerStyle={[styles.detailContent, { paddingBottom: insets.bottom + 40 }]}
+            >
+              <View style={styles.profileSection}>
+                <View style={[styles.profileAvatar, { borderColor: getBallLevelColor(stats.player.ballLevel) }]}>
+                  <Text style={styles.profileAvatarText}>
+                    {stats.player.name?.charAt(0).toUpperCase() || "?"}
+                  </Text>
+                </View>
+                <Text style={styles.profileName}>{stats.player.name}</Text>
+                <View style={[styles.ballBadgeLarge, { backgroundColor: `${getBallLevelColor(stats.player.ballLevel)}20` }]}>
+                  <View style={[styles.ballDotLarge, { backgroundColor: getBallLevelColor(stats.player.ballLevel) }]} />
+                  <Text style={[styles.ballTextLarge, { color: getBallLevelColor(stats.player.ballLevel) }]}>
+                    {stats.player.ballLevel || "N/A"} Ball
+                  </Text>
+                </View>
+                {stats.player.coachName ? (
+                  <Text style={styles.coachAssignment}>Coach: {stats.player.coachName}</Text>
+                ) : null}
+              </View>
+
+              <View style={[styles.section, CardStyles.elevated]}>
+                <Text style={styles.sectionTitle}>Attendance</Text>
+                <View style={styles.statsGrid}>
+                  <StatItem 
+                    icon="checkmark-circle" 
+                    label="Attended" 
+                    value={stats.attendance.attended}
+                    color={Colors.dark.successNeon}
+                  />
+                  <StatItem 
+                    icon="close-circle" 
+                    label="Missed" 
+                    value={stats.attendance.missed}
+                    color={Colors.dark.error}
+                  />
+                  <StatItem 
+                    icon="trending-up" 
+                    label="Rate" 
+                    value={`${stats.attendance.rate}%`}
+                    color={Colors.dark.orange}
+                  />
+                  <StatItem 
+                    icon="flame" 
+                    label="Streak" 
+                    value={stats.attendance.streak}
+                    color={Colors.dark.gold}
+                  />
+                </View>
+              </View>
+
+              <View style={[styles.section, CardStyles.elevated]}>
+                <Text style={styles.sectionTitle}>Progress</Text>
+                <View style={styles.progressHeader}>
+                  <View style={styles.levelBadge}>
+                    <Text style={styles.levelNumber}>{stats.progress.level}</Text>
+                    <Text style={styles.levelLabel}>Level</Text>
+                  </View>
+                  <View style={styles.xpInfo}>
+                    <Text style={styles.xpText}>{stats.progress.xp} / {stats.progress.xpToNextLevel} XP</Text>
+                    <View style={styles.xpBar}>
+                      <View 
+                        style={[
+                          styles.xpFill, 
+                          { width: `${(stats.progress.xp / stats.progress.xpToNextLevel) * 100}%` }
+                        ]} 
+                      />
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.skillsSection}>
+                  <SkillBar label="Technical" value={stats.progress.skills.technical} color={Colors.dark.xpCyan} />
+                  <SkillBar label="Tactical" value={stats.progress.skills.tactical} color={Colors.dark.primary} />
+                  <SkillBar label="Physical" value={stats.progress.skills.physical} color={Colors.dark.orange} />
+                  <SkillBar label="Mental" value={stats.progress.skills.mental} color={Colors.dark.gold} />
+                  <SkillBar label="Social" value={stats.progress.skills.social} color={Colors.dark.successNeon} />
+                </View>
+              </View>
+
+              <View style={[styles.section, CardStyles.elevated]}>
+                <Text style={styles.sectionTitle}>Payments</Text>
+                <View style={styles.paymentSummary}>
+                  <View style={[
+                    styles.paymentStatusBadge, 
+                    { backgroundColor: `${getPaymentStatusColor(stats.payments.status)}20` }
+                  ]}>
+                    <Text style={[styles.paymentStatusText, { color: getPaymentStatusColor(stats.payments.status) }]}>
+                      {stats.payments.status?.toUpperCase() || "N/A"}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.financeRow}>
+                  <Text style={styles.financeLabel}>Total Owed</Text>
+                  <Text style={[styles.financeValue, { color: Colors.dark.error }]}>
+                    {stats.payments.currency} {stats.payments.totalOwed}
+                  </Text>
+                </View>
+                <View style={styles.financeRow}>
+                  <Text style={styles.financeLabel}>Total Paid</Text>
+                  <Text style={[styles.financeValue, { color: Colors.dark.successNeon }]}>
+                    {stats.payments.currency} {stats.payments.totalPaid}
+                  </Text>
+                </View>
+                {stats.payments.lastPaymentDate ? (
+                  <View style={styles.financeRow}>
+                    <Text style={styles.financeLabel}>Last Payment</Text>
+                    <Text style={styles.financeValue}>{stats.payments.lastPaymentDate}</Text>
+                  </View>
+                ) : null}
+                <Pressable style={styles.recordPaymentButton}>
+                  <Text style={styles.recordPaymentText}>Record Payment</Text>
+                </Pressable>
+              </View>
+
+              {stats.player.parentName || stats.player.parentPhone ? (
+                <View style={[styles.section, CardStyles.elevated]}>
+                  <Text style={styles.sectionTitle}>Parent/Guardian</Text>
+                  {stats.player.parentName ? (
+                    <View style={styles.contactRow}>
+                      <Ionicons name="person" size={18} color={Colors.dark.textMuted} />
+                      <Text style={styles.contactText}>{stats.player.parentName}</Text>
+                    </View>
+                  ) : null}
+                  {stats.player.parentPhone ? (
+                    <View style={styles.contactRow}>
+                      <Ionicons name="call" size={18} color={Colors.dark.textMuted} />
+                      <Text style={styles.contactText}>{stats.player.parentPhone}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {stats.player.medicalNotes ? (
+                <View style={[styles.section, CardStyles.elevated, styles.medicalSection]}>
+                  <Text style={styles.sectionTitle}>Medical Notes</Text>
+                  <Text style={styles.medicalText}>{stats.player.medicalNotes}</Text>
+                </View>
+              ) : null}
+
+              <Pressable style={styles.deleteButton} onPress={handleDelete}>
+                <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+                <Text style={styles.deleteText}>Delete Player</Text>
+              </Pressable>
+            </ScrollView>
+          ) : null}
+        </View>
+      </Modal>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -203,8 +505,24 @@ export default function AdminPlayersScreen() {
         </Pressable>
       </View>
 
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={20} color={Colors.dark.textMuted} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search players..."
+          placeholderTextColor={Colors.dark.textMuted}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery ? (
+          <Pressable onPress={() => setSearchQuery("")}>
+            <Ionicons name="close-circle" size={20} color={Colors.dark.textMuted} />
+          </Pressable>
+        ) : null}
+      </View>
+
       <FlatList
-        data={players}
+        data={filteredPlayers}
         keyExtractor={(item) => item.id}
         renderItem={renderPlayer}
         contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
@@ -212,11 +530,17 @@ export default function AdminPlayersScreen() {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="person-outline" size={48} color={Colors.dark.textMuted} />
-            <Text style={styles.emptyText}>No players yet</Text>
-            <Text style={styles.emptySubtext}>Tap + to add your first player</Text>
+            <Text style={styles.emptyText}>
+              {searchQuery ? "No players found" : "No players yet"}
+            </Text>
+            <Text style={styles.emptySubtext}>
+              {searchQuery ? "Try a different search" : "Tap + to add your first player"}
+            </Text>
           </View>
         }
       />
+
+      {renderDetailModal()}
 
       <Modal
         visible={showAddModal}
@@ -276,7 +600,7 @@ export default function AdminPlayersScreen() {
                 style={styles.input}
                 value={formData.phone}
                 onChangeText={(text) => setFormData((prev) => ({ ...prev, phone: text }))}
-                placeholder="+1 234 567 8900"
+                placeholder="+971 50 123 4567"
                 placeholderTextColor={Colors.dark.textMuted}
                 keyboardType="phone-pad"
               />
@@ -306,6 +630,33 @@ export default function AdminPlayersScreen() {
                 ))}
               </View>
             </View>
+
+            <View style={styles.formDivider}>
+              <Text style={styles.formDividerText}>Parent/Guardian</Text>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Parent Name</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.parentName}
+                onChangeText={(text) => setFormData((prev) => ({ ...prev, parentName: text }))}
+                placeholder="Parent name"
+                placeholderTextColor={Colors.dark.textMuted}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Parent Phone</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.parentPhone}
+                onChangeText={(text) => setFormData((prev) => ({ ...prev, parentPhone: text }))}
+                placeholder="+971 50 123 4567"
+                placeholderTextColor={Colors.dark.textMuted}
+                keyboardType="phone-pad"
+              />
+            </View>
           </KeyboardAwareScrollViewCompat>
         </View>
       </Modal>
@@ -319,6 +670,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundRoot,
   },
   centered: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingContainer: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -348,9 +704,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    gap: Spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    ...Typography.body,
+    color: Colors.dark.text,
+    paddingVertical: Spacing.md,
+  },
   list: {
     padding: Spacing.lg,
-    paddingTop: Spacing.sm,
+    paddingTop: 0,
   },
   playerCard: {
     flexDirection: "row",
@@ -412,6 +784,10 @@ const styles = StyleSheet.create({
   levelText: {
     ...Typography.caption,
     color: Colors.dark.textMuted,
+  },
+  coachText: {
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
   },
   emptyState: {
     alignItems: "center",
@@ -494,6 +870,16 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.text,
   },
+  formDivider: {
+    marginVertical: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+    paddingTop: Spacing.lg,
+  },
+  formDividerText: {
+    ...Typography.sectionTitle,
+    color: Colors.dark.textMuted,
+  },
   ballLevelSelector: {
     flexDirection: "row",
     gap: Spacing.sm,
@@ -510,7 +896,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   ballLevelSelected: {
-    backgroundColor: `${Colors.dark.backgroundSecondary}`,
+    backgroundColor: Colors.dark.backgroundSecondary,
   },
   ballLevelDot: {
     width: 12,
@@ -520,5 +906,235 @@ const styles = StyleSheet.create({
   ballLevelText: {
     ...Typography.small,
     fontWeight: "600",
+  },
+  detailScroll: {
+    flex: 1,
+  },
+  detailContent: {
+    padding: Spacing.lg,
+  },
+  profileSection: {
+    alignItems: "center",
+    marginBottom: Spacing.xl,
+  },
+  profileAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 3,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.md,
+  },
+  profileAvatarText: {
+    ...Typography.h1,
+    color: Colors.dark.text,
+  },
+  profileName: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+    marginBottom: Spacing.sm,
+  },
+  ballBadgeLarge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    gap: Spacing.sm,
+  },
+  ballDotLarge: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  ballTextLarge: {
+    ...Typography.body,
+    fontWeight: "600",
+    textTransform: "capitalize",
+  },
+  coachAssignment: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
+  },
+  section: {
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  sectionTitle: {
+    ...Typography.sectionTitle,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.md,
+  },
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.md,
+  },
+  statItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    width: "45%",
+  },
+  statIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: BorderRadius.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statValue: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  statLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  progressHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  levelBadge: {
+    width: 60,
+    height: 60,
+    borderRadius: BorderRadius.md,
+    backgroundColor: `${Colors.dark.gold}20`,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  levelNumber: {
+    ...Typography.h2,
+    color: Colors.dark.gold,
+  },
+  levelLabel: {
+    ...Typography.caption,
+    color: Colors.dark.gold,
+  },
+  xpInfo: {
+    flex: 1,
+  },
+  xpText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    marginBottom: Spacing.sm,
+  },
+  xpBar: {
+    height: 8,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  xpFill: {
+    height: "100%",
+    backgroundColor: Colors.dark.gold,
+    borderRadius: 4,
+  },
+  skillsSection: {
+    gap: Spacing.sm,
+  },
+  skillRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  skillLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    width: 70,
+  },
+  skillBarContainer: {
+    flex: 1,
+    height: 6,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  skillBarFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  skillValue: {
+    ...Typography.caption,
+    color: Colors.dark.text,
+    width: 30,
+    textAlign: "right",
+  },
+  paymentSummary: {
+    alignItems: "flex-start",
+    marginBottom: Spacing.md,
+  },
+  paymentStatusBadge: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  paymentStatusText: {
+    ...Typography.caption,
+    fontWeight: "700",
+  },
+  financeRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+  },
+  financeLabel: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+  },
+  financeValue: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  recordPaymentButton: {
+    backgroundColor: Colors.dark.orange,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    marginTop: Spacing.lg,
+  },
+  recordPaymentText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  contactRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  contactText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  medicalSection: {
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.dark.error,
+  },
+  medicalText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    lineHeight: 22,
+  },
+  deleteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.lg,
+    marginTop: Spacing.lg,
+  },
+  deleteText: {
+    ...Typography.body,
+    color: Colors.dark.error,
   },
 });
