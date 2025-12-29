@@ -325,7 +325,7 @@ export function PlayerChatFooter() {
           <Ionicons
             name={tab.icon}
             size={16}
-            color={currentTab === tab.id ? Colors.dark.xpCyan : Colors.dark.text}
+            color={currentTab === tab.id ? Colors.dark.primary : Colors.dark.text}
           />
           <ThemedText style={[styles.tabName, currentTab === tab.id && styles.tabNameActive]}>
             {tab.name}
@@ -354,7 +354,7 @@ export function PlayerChatFooter() {
         renderItem={({ item }) => (
           <Pressable onPress={() => handleStartPlayerChat(item)} style={styles.playerSelectItem}>
             <View style={styles.playerSelectAvatar}>
-              <Ionicons name="person" size={18} color={Colors.dark.xpCyan} />
+              <Ionicons name="person" size={18} color={Colors.dark.primary} />
             </View>
             <ThemedText style={styles.playerSelectName}>
               {item.firstName} {item.lastName}
@@ -378,7 +378,7 @@ export function PlayerChatFooter() {
     if (isSystem) {
       return (
         <View style={styles.systemMessage}>
-          <Ionicons name="notifications-outline" size={14} color={Colors.dark.xpCyan} />
+          <Ionicons name="notifications-outline" size={14} color={Colors.dark.primary} />
           <ThemedText style={styles.systemText}>{item.body}</ThemedText>
         </View>
       );
@@ -453,7 +453,7 @@ export function PlayerChatFooter() {
         >
           <View style={styles.headerLeft}>
             <View style={styles.chatIconContainer}>
-              <Ionicons name="chatbubble-outline" size={20} color={Colors.dark.xpCyan} />
+              <Ionicons name="chatbubble-outline" size={20} color={Colors.dark.primary} />
               {unreadCount > 0 ? (
                 <View style={styles.unreadBadge}>
                   <ThemedText style={styles.unreadText}>{unreadCount}</ThemedText>
@@ -522,7 +522,7 @@ export function PlayerChatFooter() {
               </View>
               {loadingMessages ? (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                  <ActivityIndicator size="small" color={Colors.dark.primary} />
                 </View>
               ) : (
                 <FlatList
@@ -573,7 +573,7 @@ export function PlayerChatFooter() {
             <View style={styles.conversationList}>
               {loadingConversations ? (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                  <ActivityIndicator size="small" color={Colors.dark.primary} />
                 </View>
               ) : (
                 <FlatList
@@ -588,7 +588,7 @@ export function PlayerChatFooter() {
                         <Ionicons 
                           name={currentTab === "coaches" ? "ribbon" : currentTab === "players" ? "person" : currentTab === "academy" ? "home" : "fitness"} 
                           size={20} 
-                          color={currentTab === "coaches" ? Colors.dark.primary : Colors.dark.xpCyan} 
+                          color={Colors.dark.primary} 
                         />
                       </View>
                       <View style={styles.conversationInfo}>
@@ -664,7 +664,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.dark.xpCyan + "20",
+    backgroundColor: Colors.dark.primary + "20",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -672,7 +672,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -4,
     right: -4,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     borderRadius: 10,
     minWidth: 18,
     height: 18,
@@ -707,7 +707,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
   },
   headerActions: {
     flexDirection: "row",
@@ -789,7 +789,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   ownMessage: {
-    backgroundColor: Colors.dark.xpCyan + "20",
+    backgroundColor: Colors.dark.primary + "20",
     alignSelf: "flex-end",
     borderBottomRightRadius: 4,
   },
@@ -881,7 +881,7 @@ const styles = StyleSheet.create({
   },
   typingText: {
     fontSize: 12,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontStyle: "italic",
   },
   inputContainer: {
@@ -906,7 +906,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -950,16 +950,16 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
   },
   tabActive: {
-    backgroundColor: `${Colors.dark.xpCyan}20`,
+    backgroundColor: `${Colors.dark.primary}20`,
     borderWidth: 1,
-    borderColor: `${Colors.dark.xpCyan}40`,
+    borderColor: `${Colors.dark.primary}40`,
   },
   tabName: {
     fontSize: 12,
     color: Colors.dark.textMuted,
   },
   tabNameActive: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
   addButton: {
@@ -967,7 +967,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -999,7 +999,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: `${Colors.dark.xpCyan}20`,
+    backgroundColor: `${Colors.dark.primary}20`,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1009,6 +1009,6 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   playerAvatar: {
-    backgroundColor: `${Colors.dark.xpCyan}20`,
+    backgroundColor: `${Colors.dark.primary}20`,
   },
 });
