@@ -14,13 +14,18 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
+import type { CompositeNavigationProp } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import ModeSwitcher from "@/components/ModeSwitcher";
-import type { AdminTabParamList } from "@/admin/navigation/AdminNavigator";
+import type { AdminTabParamList, AdminStackParamList } from "@/admin/navigation/AdminNavigator";
 
-type AdminNavProp = BottomTabNavigationProp<AdminTabParamList>;
+type AdminNavProp = CompositeNavigationProp<
+  BottomTabNavigationProp<AdminTabParamList>,
+  NativeStackNavigationProp<AdminStackParamList>
+>;
 
 interface DashboardData {
   academy: {
@@ -415,6 +420,23 @@ export default function AdminDashboardScreen() {
               <View style={styles.menuCardText}>
                 <Text style={styles.menuCardTitle}>Manage Players</Text>
                 <Text style={styles.menuCardSubtitle}>Attendance, progress, payments</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+            </View>
+          </Pressable>
+
+          <Pressable 
+            style={[styles.menuCard, CardStyles.elevated]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("AdminPayments");
+            }}
+          >
+            <View style={styles.menuCardContent}>
+              <Ionicons name="cash-outline" size={24} color={Colors.dark.gold} />
+              <View style={styles.menuCardText}>
+                <Text style={styles.menuCardTitle}>Payments</Text>
+                <Text style={styles.menuCardSubtitle}>Record, confirm, track payments</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
             </View>

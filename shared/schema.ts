@@ -515,16 +515,21 @@ export const insertSessionFeedbackSchema = createInsertSchema(sessionFeedback).o
 export type InsertSessionFeedback = z.infer<typeof insertSessionFeedbackSchema>;
 export type SessionFeedback = typeof sessionFeedback.$inferSelect;
 
-// Audit Logs
+// Audit Logs - Enhanced for payment tracking and admin actions
 export const auditLogs = pgTable("audit_logs", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
-  entityType: text("entity_type").notNull(), // session/player/etc
+  academyId: varchar("academy_id").references(() => academies.id),
+  entityType: text("entity_type").notNull(), // payment/session/player/court/location/settings
   entityId: varchar("entity_id"),
-  action: text("action").notNull(), // create/update/delete/move
+  action: text("action").notNull(), // create/update/delete/confirm/reject
   performedBy: varchar("performed_by"),
+  performedByRole: text("performed_by_role"), // admin/coach/owner
+  beforeState: jsonb("before_state"),
+  afterState: jsonb("after_state"),
   metadata: text("metadata"), // JSON string with additional context
+  ipAddress: text("ip_address"),
   timestamp: timestamp("timestamp").defaultNow(),
 });
 
@@ -1319,13 +1324,16 @@ export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true,
 export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
 export type Invoice = typeof invoices.$inferSelect;
 
-// Payments - Payment records
+// Payments - Payment records (Manual payments for MVP - cash & bank transfer)
 export const payments = pgTable("payments", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
   academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id),
   invoiceId: varchar("invoice_id").references(() => invoices.id),
+  
+  payerName: text("payer_name"),
   
   stripePaymentIntentId: text("stripe_payment_intent_id"),
   stripeChargeId: text("stripe_charge_id"),
@@ -1333,15 +1341,27 @@ export const payments = pgTable("payments", {
   amount: numeric("amount").notNull(),
   currency: text("currency").default("AED"),
   
-  status: text("status").default("pending"), // pending | succeeded | failed | refunded
-  paymentMethod: text("payment_method"), // card | cash | bank_transfer
+  status: text("status").default("pending"), // pending | confirmed | rejected
+  paymentMethod: text("payment_method"), // cash | bank_transfer
+  paymentDate: timestamp("payment_date").defaultNow(),
+  
+  receivedBy: varchar("received_by").references(() => coaches.id),
+  confirmedBy: varchar("confirmed_by").references(() => coaches.id),
+  confirmedAt: timestamp("confirmed_at"),
+  rejectedBy: varchar("rejected_by").references(() => coaches.id),
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  proofUrl: text("proof_url"),
+  notes: text("notes"),
   
   metadata: jsonb("metadata"),
   
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true, createdAt: true });
+export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type Payment = typeof payments.$inferSelect;
 

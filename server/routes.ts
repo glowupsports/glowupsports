@@ -7508,6 +7508,582 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== ADMIN PAYMENTS (MANUAL PAYMENTS MVP) ====================
+
+  // Get all payments with filters
+  app.get("/api/admin/payments", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const filters: any = {};
+      if (req.query.status) filters.status = req.query.status as string;
+      if (req.query.paymentMethod) filters.paymentMethod = req.query.paymentMethod as string;
+      if (req.query.playerId) filters.playerId = req.query.playerId as string;
+      if (req.query.receivedBy) filters.receivedBy = req.query.receivedBy as string;
+      if (req.query.startDate) filters.startDate = new Date(req.query.startDate as string);
+      if (req.query.endDate) filters.endDate = new Date(req.query.endDate as string);
+
+      const payments = await storage.getPaymentsWithFilters(academyId, filters);
+
+      const paymentsWithDetails = await Promise.all(
+        payments.map(async (p) => {
+          const player = p.playerId ? await storage.getPlayer(p.playerId) : null;
+          const receiver = p.receivedBy ? await storage.getCoach(p.receivedBy) : null;
+          return {
+            ...p,
+            playerName: player?.name || p.payerName || "Unknown",
+            receiverName: receiver?.name || "Unknown",
+          };
+        })
+      );
+
+      res.json(paymentsWithDetails);
+    } catch (error) {
+      console.error("Admin payments error:", error);
+      res.status(500).json({ error: "Failed to fetch payments" });
+    }
+  });
+
+  // Create a new payment (admin only)
+  app.post("/api/admin/payments", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      const userId = req.user?.coachId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const { playerId, payerName, amount, currency, paymentMethod, paymentDate, receivedBy, proofUrl, notes, status } = req.body;
+
+      if (!amount || !paymentMethod) {
+        return res.status(400).json({ error: "Amount and payment method are required" });
+      }
+
+      const payment = await storage.createPayment({
+        academyId,
+        playerId: playerId || null,
+        payerName: payerName || null,
+        amount: String(amount),
+        currency: currency || "AED",
+        paymentMethod,
+        paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
+        receivedBy: receivedBy || userId || null,
+        proofUrl: proofUrl || null,
+        notes: notes || null,
+        status: status || "pending",
+      });
+
+      await storage.createAuditLog({
+        academyId,
+        entityType: "payment",
+        entityId: payment.id,
+        action: "create",
+        performedBy: userId || null,
+        performedByRole: req.user?.role || null,
+        afterState: payment as any,
+      });
+
+      res.status(201).json(payment);
+    } catch (error) {
+      console.error("Create payment error:", error);
+      res.status(500).json({ error: "Failed to create payment" });
+    }
+  });
+
+  // Update a payment
+  app.put("/api/admin/payments/:id", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+      const userId = req.user?.coachId;
+
+      const existingPayment = await storage.getPayment(id);
+      if (!existingPayment || (academyId && existingPayment.academyId !== academyId)) {
+        return res.status(404).json({ error: "Payment not found" });
+      }
+
+      if (existingPayment.status === "confirmed") {
+        return res.status(400).json({ error: "Cannot edit confirmed payments" });
+      }
+
+      const { playerId, payerName, amount, currency, paymentMethod, paymentDate, receivedBy, proofUrl, notes } = req.body;
+
+      const updatedPayment = await storage.updatePayment(id, {
+        playerId: playerId !== undefined ? playerId : existingPayment.playerId,
+        payerName: payerName !== undefined ? payerName : existingPayment.payerName,
+        amount: amount !== undefined ? String(amount) : existingPayment.amount,
+        currency: currency !== undefined ? currency : existingPayment.currency,
+        paymentMethod: paymentMethod !== undefined ? paymentMethod : existingPayment.paymentMethod,
+        paymentDate: paymentDate ? new Date(paymentDate) : existingPayment.paymentDate,
+        receivedBy: receivedBy !== undefined ? receivedBy : existingPayment.receivedBy,
+        proofUrl: proofUrl !== undefined ? proofUrl : existingPayment.proofUrl,
+        notes: notes !== undefined ? notes : existingPayment.notes,
+      });
+
+      await storage.createAuditLog({
+        academyId,
+        entityType: "payment",
+        entityId: id,
+        action: "update",
+        performedBy: userId || null,
+        performedByRole: req.user?.role || null,
+        beforeState: existingPayment as any,
+        afterState: updatedPayment as any,
+      });
+
+      res.json(updatedPayment);
+    } catch (error) {
+      console.error("Update payment error:", error);
+      res.status(500).json({ error: "Failed to update payment" });
+    }
+  });
+
+  // Confirm a payment (admin only)
+  app.post("/api/admin/payments/:id/confirm", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+      const userId = req.user?.coachId;
+
+      const existingPayment = await storage.getPayment(id);
+      if (!existingPayment || (academyId && existingPayment.academyId !== academyId)) {
+        return res.status(404).json({ error: "Payment not found" });
+      }
+
+      if (existingPayment.status !== "pending") {
+        return res.status(400).json({ error: "Only pending payments can be confirmed" });
+      }
+
+      const confirmedPayment = await storage.confirmPayment(id, userId || "");
+
+      await storage.createAuditLog({
+        academyId,
+        entityType: "payment",
+        entityId: id,
+        action: "confirm",
+        performedBy: userId || null,
+        performedByRole: req.user?.role || null,
+        beforeState: existingPayment as any,
+        afterState: confirmedPayment as any,
+      });
+
+      res.json(confirmedPayment);
+    } catch (error) {
+      console.error("Confirm payment error:", error);
+      res.status(500).json({ error: "Failed to confirm payment" });
+    }
+  });
+
+  // Reject a payment (admin only)
+  app.post("/api/admin/payments/:id/reject", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+      const academyId = req.user?.academyId;
+      const userId = req.user?.coachId;
+
+      const existingPayment = await storage.getPayment(id);
+      if (!existingPayment || (academyId && existingPayment.academyId !== academyId)) {
+        return res.status(404).json({ error: "Payment not found" });
+      }
+
+      if (existingPayment.status !== "pending") {
+        return res.status(400).json({ error: "Only pending payments can be rejected" });
+      }
+
+      const rejectedPayment = await storage.rejectPayment(id, userId || "", reason || "No reason provided");
+
+      await storage.createAuditLog({
+        academyId,
+        entityType: "payment",
+        entityId: id,
+        action: "reject",
+        performedBy: userId || null,
+        performedByRole: req.user?.role || null,
+        beforeState: existingPayment as any,
+        afterState: rejectedPayment as any,
+        metadata: JSON.stringify({ reason }),
+      });
+
+      res.json(rejectedPayment);
+    } catch (error) {
+      console.error("Reject payment error:", error);
+      res.status(500).json({ error: "Failed to reject payment" });
+    }
+  });
+
+  // Delete a payment (admin only, only pending/rejected)
+  app.delete("/api/admin/payments/:id", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+      const userId = req.user?.coachId;
+
+      const existingPayment = await storage.getPayment(id);
+      if (!existingPayment || (academyId && existingPayment.academyId !== academyId)) {
+        return res.status(404).json({ error: "Payment not found" });
+      }
+
+      if (existingPayment.status === "confirmed") {
+        return res.status(400).json({ error: "Cannot delete confirmed payments" });
+      }
+
+      await storage.deletePayment(id);
+
+      await storage.createAuditLog({
+        academyId,
+        entityType: "payment",
+        entityId: id,
+        action: "delete",
+        performedBy: userId || null,
+        performedByRole: req.user?.role || null,
+        beforeState: existingPayment as any,
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete payment error:", error);
+      res.status(500).json({ error: "Failed to delete payment" });
+    }
+  });
+
+  // Coach payment registration (pending only)
+  app.post("/api/coach/payments", authMiddleware, requireRole("coach", "admin", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      const coachId = req.user?.coachId;
+      if (!academyId || !coachId) {
+        return res.status(400).json({ error: "Academy and coach ID required" });
+      }
+
+      const { playerId, payerName, amount, currency, paymentMethod, paymentDate, proofUrl, notes } = req.body;
+
+      if (!amount || !paymentMethod) {
+        return res.status(400).json({ error: "Amount and payment method are required" });
+      }
+
+      const payment = await storage.createPayment({
+        academyId,
+        playerId: playerId || null,
+        payerName: payerName || null,
+        amount: String(amount),
+        currency: currency || "AED",
+        paymentMethod,
+        paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
+        receivedBy: coachId,
+        proofUrl: proofUrl || null,
+        notes: notes || null,
+        status: "pending",
+      });
+
+      await storage.createAuditLog({
+        academyId,
+        entityType: "payment",
+        entityId: payment.id,
+        action: "create",
+        performedBy: coachId,
+        performedByRole: "coach",
+        afterState: payment as any,
+      });
+
+      res.status(201).json(payment);
+    } catch (error) {
+      console.error("Coach create payment error:", error);
+      res.status(500).json({ error: "Failed to create payment" });
+    }
+  });
+
+  // ==================== ADMIN COURTS MANAGEMENT ====================
+
+  app.get("/api/admin/courts", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const courts = await storage.getAllCourts(academyId);
+      const locations = await storage.getAllLocations(academyId);
+
+      const courtsWithLocations = courts.map(court => {
+        const location = locations.find(l => l.id === court.locationId);
+        return {
+          ...court,
+          locationName: location?.name || "Unassigned",
+        };
+      });
+
+      res.json(courtsWithLocations);
+    } catch (error) {
+      console.error("Admin courts error:", error);
+      res.status(500).json({ error: "Failed to fetch courts" });
+    }
+  });
+
+  app.post("/api/admin/courts", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      const userId = req.user?.coachId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const { name, locationId, color, isActive } = req.body;
+      if (!name) {
+        return res.status(400).json({ error: "Court name is required" });
+      }
+
+      const court = await storage.createCourt({
+        academyId,
+        name,
+        locationId: locationId || null,
+        color: color || "#2ECC40",
+        isActive: isActive !== false,
+      });
+
+      await storage.createAuditLog({
+        academyId,
+        entityType: "court",
+        entityId: court.id,
+        action: "create",
+        performedBy: userId || null,
+        performedByRole: req.user?.role || null,
+        afterState: court as any,
+      });
+
+      res.status(201).json(court);
+    } catch (error) {
+      console.error("Create court error:", error);
+      res.status(500).json({ error: "Failed to create court" });
+    }
+  });
+
+  app.put("/api/admin/courts/:id", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+      const userId = req.user?.coachId;
+
+      const existingCourt = await storage.getCourt(id, academyId || undefined);
+      if (!existingCourt) {
+        return res.status(404).json({ error: "Court not found" });
+      }
+
+      const { name, locationId, color, isActive } = req.body;
+
+      const updatedCourt = await storage.updateCourt(id, {
+        name: name !== undefined ? name : existingCourt.name,
+        locationId: locationId !== undefined ? locationId : existingCourt.locationId,
+        color: color !== undefined ? color : existingCourt.color,
+        isActive: isActive !== undefined ? isActive : existingCourt.isActive,
+      }, academyId || undefined);
+
+      await storage.createAuditLog({
+        academyId,
+        entityType: "court",
+        entityId: id,
+        action: "update",
+        performedBy: userId || null,
+        performedByRole: req.user?.role || null,
+        beforeState: existingCourt as any,
+        afterState: updatedCourt as any,
+      });
+
+      res.json(updatedCourt);
+    } catch (error) {
+      console.error("Update court error:", error);
+      res.status(500).json({ error: "Failed to update court" });
+    }
+  });
+
+  app.delete("/api/admin/courts/:id", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+      const userId = req.user?.coachId;
+
+      const existingCourt = await storage.getCourt(id, academyId || undefined);
+      if (!existingCourt) {
+        return res.status(404).json({ error: "Court not found" });
+      }
+
+      await storage.deleteCourt(id, academyId || undefined);
+
+      await storage.createAuditLog({
+        academyId,
+        entityType: "court",
+        entityId: id,
+        action: "delete",
+        performedBy: userId || null,
+        performedByRole: req.user?.role || null,
+        beforeState: existingCourt as any,
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete court error:", error);
+      res.status(500).json({ error: "Failed to delete court" });
+    }
+  });
+
+  // ==================== ADMIN LOCATIONS MANAGEMENT ====================
+
+  app.get("/api/admin/locations", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const locations = await storage.getAllLocations(academyId);
+      const courts = await storage.getAllCourts(academyId);
+
+      const locationsWithCounts = locations.map(loc => ({
+        ...loc,
+        courtCount: courts.filter(c => c.locationId === loc.id).length,
+      }));
+
+      res.json(locationsWithCounts);
+    } catch (error) {
+      console.error("Admin locations error:", error);
+      res.status(500).json({ error: "Failed to fetch locations" });
+    }
+  });
+
+  app.post("/api/admin/locations", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      const userId = req.user?.coachId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const { name, timezone } = req.body;
+      if (!name) {
+        return res.status(400).json({ error: "Location name is required" });
+      }
+
+      const location = await storage.createLocation({
+        academyId,
+        name,
+        timezone: timezone || "Asia/Dubai",
+      });
+
+      await storage.createAuditLog({
+        academyId,
+        entityType: "location",
+        entityId: location.id,
+        action: "create",
+        performedBy: userId || null,
+        performedByRole: req.user?.role || null,
+        afterState: location as any,
+      });
+
+      res.status(201).json(location);
+    } catch (error) {
+      console.error("Create location error:", error);
+      res.status(500).json({ error: "Failed to create location" });
+    }
+  });
+
+  app.put("/api/admin/locations/:id", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+      const userId = req.user?.coachId;
+
+      const existingLocation = await storage.getLocation(id, academyId || undefined);
+      if (!existingLocation) {
+        return res.status(404).json({ error: "Location not found" });
+      }
+
+      const { name, timezone } = req.body;
+
+      const updatedLocation = await storage.updateLocation(id, {
+        name: name !== undefined ? name : existingLocation.name,
+        timezone: timezone !== undefined ? timezone : existingLocation.timezone,
+      }, academyId || undefined);
+
+      await storage.createAuditLog({
+        academyId,
+        entityType: "location",
+        entityId: id,
+        action: "update",
+        performedBy: userId || null,
+        performedByRole: req.user?.role || null,
+        beforeState: existingLocation as any,
+        afterState: updatedLocation as any,
+      });
+
+      res.json(updatedLocation);
+    } catch (error) {
+      console.error("Update location error:", error);
+      res.status(500).json({ error: "Failed to update location" });
+    }
+  });
+
+  app.delete("/api/admin/locations/:id", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+      const userId = req.user?.coachId;
+
+      const existingLocation = await storage.getLocation(id, academyId || undefined);
+      if (!existingLocation) {
+        return res.status(404).json({ error: "Location not found" });
+      }
+
+      const courts = await storage.getCourtsByLocation(id, academyId || undefined);
+      if (courts.length > 0) {
+        return res.status(400).json({ error: "Cannot delete location with courts. Move or delete courts first." });
+      }
+
+      await storage.deleteLocation(id, academyId || undefined);
+
+      await storage.createAuditLog({
+        academyId,
+        entityType: "location",
+        entityId: id,
+        action: "delete",
+        performedBy: userId || null,
+        performedByRole: req.user?.role || null,
+        beforeState: existingLocation as any,
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete location error:", error);
+      res.status(500).json({ error: "Failed to delete location" });
+    }
+  });
+
+  // ==================== ADMIN AUDIT LOGS ====================
+
+  app.get("/api/admin/audit-logs", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const filters: any = {};
+      if (req.query.entityType) filters.entityType = req.query.entityType as string;
+      if (req.query.startDate) filters.startDate = new Date(req.query.startDate as string);
+      if (req.query.endDate) filters.endDate = new Date(req.query.endDate as string);
+      if (req.query.limit) filters.limit = parseInt(req.query.limit as string);
+
+      const logs = await storage.getAuditLogsByAcademy(academyId, filters);
+
+      res.json(logs);
+    } catch (error) {
+      console.error("Admin audit logs error:", error);
+      res.status(500).json({ error: "Failed to fetch audit logs" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat

@@ -1,0 +1,1024 @@
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Modal,
+  Platform,
+  Alert,
+  ActivityIndicator,
+  TextInput,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import * as Haptics from "expo-haptics";
+import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { apiRequest } from "@/lib/query-client";
+
+interface Payment {
+  id: string;
+  academyId: string;
+  playerId: string | null;
+  payerName: string | null;
+  playerName?: string;
+  amount: string;
+  currency: string;
+  paymentMethod: string;
+  paymentDate: string;
+  status: string;
+  receivedBy: string | null;
+  receiverName?: string;
+  proofUrl: string | null;
+  notes: string | null;
+  confirmedBy: string | null;
+  confirmedAt: string | null;
+  rejectedBy: string | null;
+  rejectedAt: string | null;
+  rejectionReason: string | null;
+  createdAt: string;
+}
+
+interface Player {
+  id: string;
+  name: string;
+}
+
+type FilterStatus = "all" | "pending" | "confirmed" | "rejected";
+type FilterMethod = "all" | "cash" | "bank_transfer";
+
+export default function AdminPaymentsScreen() {
+  const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
+  const [filterMethod, setFilterMethod] = useState<FilterMethod>("all");
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+
+  const [formData, setFormData] = useState({
+    playerId: "",
+    payerName: "",
+    amount: "",
+    paymentMethod: "cash" as "cash" | "bank_transfer",
+    notes: "",
+    status: "pending" as "pending" | "confirmed",
+  });
+
+  const getPaymentsUrl = () => {
+    const params: string[] = [];
+    if (filterStatus !== "all") params.push(`status=${filterStatus}`);
+    if (filterMethod !== "all") params.push(`paymentMethod=${filterMethod}`);
+    const queryString = params.length > 0 ? `?${params.join("&")}` : "";
+    return `/api/admin/payments${queryString}`;
+  };
+
+  const { data: payments = [], isLoading } = useQuery<Payment[]>({
+    queryKey: [getPaymentsUrl()],
+  });
+
+  const { data: players = [] } = useQuery<Player[]>({
+    queryKey: ["/api/players"],
+  });
+
+  const invalidatePayments = () => {
+    queryClient.invalidateQueries({ predicate: (query) => {
+      const key = query.queryKey[0];
+      return typeof key === 'string' && key.startsWith('/api/admin/payments');
+    }});
+  };
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/admin/payments", data),
+    onSuccess: () => {
+      invalidatePayments();
+      setShowAddModal(false);
+      resetForm();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error.message || "Failed to create payment");
+    },
+  });
+
+  const confirmMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("POST", `/api/admin/payments/${id}/confirm`),
+    onSuccess: () => {
+      invalidatePayments();
+      queryClient.invalidateQueries({ predicate: (query) => {
+        const key = query.queryKey[0];
+        return typeof key === 'string' && key.startsWith('/api/admin/revenue');
+      }});
+      setShowDetailModal(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error.message || "Failed to confirm payment");
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      apiRequest("POST", `/api/admin/payments/${id}/reject`, { reason }),
+    onSuccess: () => {
+      invalidatePayments();
+      setShowRejectModal(false);
+      setShowDetailModal(false);
+      setRejectReason("");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error.message || "Failed to reject payment");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/admin/payments/${id}`),
+    onSuccess: () => {
+      invalidatePayments();
+      setShowDetailModal(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error.message || "Failed to delete payment");
+    },
+  });
+
+  const resetForm = () => {
+    setFormData({
+      playerId: "",
+      payerName: "",
+      amount: "",
+      paymentMethod: "cash",
+      notes: "",
+      status: "pending",
+    });
+  };
+
+  const handleCreate = () => {
+    if (!formData.amount) {
+      Alert.alert("Error", "Amount is required");
+      return;
+    }
+    createMutation.mutate({
+      ...formData,
+      amount: parseFloat(formData.amount),
+      playerId: formData.playerId || null,
+      payerName: formData.payerName || null,
+    });
+  };
+
+  const handleConfirm = (payment: Payment) => {
+    if (Platform.OS === "web") {
+      if (window.confirm(`Confirm payment of AED ${payment.amount} from ${payment.playerName || payment.payerName}?`)) {
+        confirmMutation.mutate(payment.id);
+      }
+    } else {
+      Alert.alert(
+        "Confirm Payment",
+        `Confirm payment of AED ${payment.amount} from ${payment.playerName || payment.payerName}?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Confirm", onPress: () => confirmMutation.mutate(payment.id) },
+        ]
+      );
+    }
+  };
+
+  const handleReject = () => {
+    if (!selectedPayment) return;
+    rejectMutation.mutate({ id: selectedPayment.id, reason: rejectReason || "No reason provided" });
+  };
+
+  const handleDelete = (payment: Payment) => {
+    if (Platform.OS === "web") {
+      if (window.confirm("Are you sure you want to delete this payment?")) {
+        deleteMutation.mutate(payment.id);
+      }
+    } else {
+      Alert.alert(
+        "Delete Payment",
+        "Are you sure you want to delete this payment?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Delete", style: "destructive", onPress: () => deleteMutation.mutate(payment.id) },
+        ]
+      );
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "confirmed":
+        return Colors.dark.successNeon;
+      case "rejected":
+        return Colors.dark.error;
+      default:
+        return Colors.dark.orange;
+    }
+  };
+
+  const getMethodIcon = (method: string) => {
+    return method === "cash" ? "cash-outline" : "card-outline";
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
+
+  const pendingCount = payments.filter((p: Payment) => p.status === "pending").length;
+  const confirmedTotal = payments.filter((p: Payment) => p.status === "confirmed").reduce((sum: number, p: Payment) => sum + parseFloat(p.amount), 0);
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <LinearGradient colors={["#1a1a0a", "#0a0a0a"]} style={StyleSheet.absoluteFill} />
+
+      <View style={styles.header}>
+        <Text style={styles.title}>Payments</Text>
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryValue}>{pendingCount}</Text>
+            <Text style={styles.summaryLabel}>Pending</Text>
+          </View>
+          <View style={styles.summaryItem}>
+            <Text style={[styles.summaryValue, { color: Colors.dark.successNeon }]}>
+              AED {confirmedTotal.toLocaleString()}
+            </Text>
+            <Text style={styles.summaryLabel}>Confirmed</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.filters}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+          {(["all", "pending", "confirmed", "rejected"] as FilterStatus[]).map((status) => (
+            <Pressable
+              key={status}
+              style={[styles.filterChip, filterStatus === status && styles.filterChipActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setFilterStatus(status);
+              }}
+            >
+              <Text style={[styles.filterChipText, filterStatus === status && styles.filterChipTextActive]}>
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+              </Text>
+            </Pressable>
+          ))}
+          <View style={styles.filterDivider} />
+          {(["all", "cash", "bank_transfer"] as FilterMethod[]).map((method) => (
+            <Pressable
+              key={method}
+              style={[styles.filterChip, filterMethod === method && styles.filterChipActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setFilterMethod(method);
+              }}
+            >
+              <Text style={[styles.filterChipText, filterMethod === method && styles.filterChipTextActive]}>
+                {method === "all" ? "All Methods" : method === "cash" ? "Cash" : "Bank"}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </View>
+
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.dark.orange} />
+        </View>
+      ) : (
+        <ScrollView style={styles.list} contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}>
+          {payments.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="receipt-outline" size={48} color={Colors.dark.textSecondary} />
+              <Text style={styles.emptyText}>No payments found</Text>
+              <Text style={styles.emptySubtext}>Tap the + button to record a payment</Text>
+            </View>
+          ) : (
+            payments.map((payment: Payment) => (
+              <Pressable
+                key={payment.id}
+                style={styles.paymentCard}
+                onPress={() => {
+                  setSelectedPayment(payment);
+                  setShowDetailModal(true);
+                }}
+              >
+                <View style={styles.paymentHeader}>
+                  <View style={styles.paymentInfo}>
+                    <Text style={styles.paymentName}>{payment.playerName || payment.payerName || "Unknown"}</Text>
+                    <Text style={styles.paymentDate}>{formatDate(payment.paymentDate || payment.createdAt)}</Text>
+                  </View>
+                  <View style={styles.paymentAmount}>
+                    <Text style={styles.amountText}>AED {parseFloat(payment.amount).toLocaleString()}</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(payment.status) + "20" }]}>
+                      <Text style={[styles.statusText, { color: getStatusColor(payment.status) }]}>
+                        {payment.status}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.paymentFooter}>
+                  <View style={styles.methodBadge}>
+                    <Ionicons name={getMethodIcon(payment.paymentMethod) as any} size={14} color={Colors.dark.textSecondary} />
+                    <Text style={styles.methodText}>
+                      {payment.paymentMethod === "cash" ? "Cash" : "Bank Transfer"}
+                    </Text>
+                  </View>
+                  {payment.receiverName ? (
+                    <Text style={styles.receiverText}>Received by {payment.receiverName}</Text>
+                  ) : null}
+                </View>
+              </Pressable>
+            ))
+          )}
+        </ScrollView>
+      )}
+
+      <Pressable
+        style={styles.fab}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          setShowAddModal(true);
+        }}
+      >
+        <LinearGradient colors={[Colors.dark.orange, "#CC9900"]} style={styles.fabGradient}>
+          <Ionicons name="add" size={28} color="#000" />
+        </LinearGradient>
+      </Pressable>
+
+      <Modal visible={showAddModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Record Payment</Text>
+              <Pressable onPress={() => setShowAddModal(false)}>
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              <Text style={styles.inputLabel}>Player (Optional)</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.playerPicker}>
+                <Pressable
+                  style={[styles.playerChip, !formData.playerId && styles.playerChipActive]}
+                  onPress={() => setFormData({ ...formData, playerId: "" })}
+                >
+                  <Text style={[styles.playerChipText, !formData.playerId && styles.playerChipTextActive]}>
+                    Other
+                  </Text>
+                </Pressable>
+                {players.map((player: Player) => (
+                  <Pressable
+                    key={player.id}
+                    style={[styles.playerChip, formData.playerId === player.id && styles.playerChipActive]}
+                    onPress={() => setFormData({ ...formData, playerId: player.id, payerName: player.name })}
+                  >
+                    <Text style={[styles.playerChipText, formData.playerId === player.id && styles.playerChipTextActive]}>
+                      {player.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+
+              {!formData.playerId ? (
+                <>
+                  <Text style={styles.inputLabel}>Payer Name</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={formData.payerName}
+                    onChangeText={(text) => setFormData({ ...formData, payerName: text })}
+                    placeholder="Enter payer name"
+                    placeholderTextColor={Colors.dark.textSecondary}
+                  />
+                </>
+              ) : null}
+
+              <Text style={styles.inputLabel}>Amount (AED)</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.amount}
+                onChangeText={(text) => setFormData({ ...formData, amount: text.replace(/[^0-9.]/g, "") })}
+                placeholder="0.00"
+                placeholderTextColor={Colors.dark.textSecondary}
+                keyboardType="decimal-pad"
+              />
+
+              <Text style={styles.inputLabel}>Payment Method</Text>
+              <View style={styles.methodPicker}>
+                <Pressable
+                  style={[styles.methodOption, formData.paymentMethod === "cash" && styles.methodOptionActive]}
+                  onPress={() => setFormData({ ...formData, paymentMethod: "cash" })}
+                >
+                  <Ionicons name="cash-outline" size={20} color={formData.paymentMethod === "cash" ? Colors.dark.orange : Colors.dark.textSecondary} />
+                  <Text style={[styles.methodOptionText, formData.paymentMethod === "cash" && styles.methodOptionTextActive]}>Cash</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.methodOption, formData.paymentMethod === "bank_transfer" && styles.methodOptionActive]}
+                  onPress={() => setFormData({ ...formData, paymentMethod: "bank_transfer" })}
+                >
+                  <Ionicons name="card-outline" size={20} color={formData.paymentMethod === "bank_transfer" ? Colors.dark.orange : Colors.dark.textSecondary} />
+                  <Text style={[styles.methodOptionText, formData.paymentMethod === "bank_transfer" && styles.methodOptionTextActive]}>Bank Transfer</Text>
+                </Pressable>
+              </View>
+
+              <Text style={styles.inputLabel}>Status</Text>
+              <View style={styles.methodPicker}>
+                <Pressable
+                  style={[styles.methodOption, formData.status === "pending" && styles.methodOptionActive]}
+                  onPress={() => setFormData({ ...formData, status: "pending" })}
+                >
+                  <Text style={[styles.methodOptionText, formData.status === "pending" && styles.methodOptionTextActive]}>Pending</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.methodOption, formData.status === "confirmed" && styles.methodOptionActive]}
+                  onPress={() => setFormData({ ...formData, status: "confirmed" })}
+                >
+                  <Text style={[styles.methodOptionText, formData.status === "confirmed" && styles.methodOptionTextActive]}>Confirmed</Text>
+                </Pressable>
+              </View>
+
+              <Text style={styles.inputLabel}>Notes (Optional)</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={formData.notes}
+                onChangeText={(text) => setFormData({ ...formData, notes: text })}
+                placeholder="Add notes..."
+                placeholderTextColor={Colors.dark.textSecondary}
+                multiline
+                numberOfLines={3}
+              />
+            </ScrollView>
+
+            <Pressable
+              style={[styles.submitButton, createMutation.isPending && styles.submitButtonDisabled]}
+              onPress={handleCreate}
+              disabled={createMutation.isPending}
+            >
+              {createMutation.isPending ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <Text style={styles.submitButtonText}>Record Payment</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showDetailModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            {selectedPayment ? (
+              <>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Payment Details</Text>
+                  <Pressable onPress={() => setShowDetailModal(false)}>
+                    <Ionicons name="close" size={24} color={Colors.dark.text} />
+                  </Pressable>
+                </View>
+
+                <ScrollView style={styles.modalBody}>
+                  <View style={styles.detailAmount}>
+                    <Text style={styles.detailAmountValue}>AED {parseFloat(selectedPayment.amount).toLocaleString()}</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(selectedPayment.status) + "20" }]}>
+                      <Text style={[styles.statusText, { color: getStatusColor(selectedPayment.status) }]}>
+                        {selectedPayment.status}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>From</Text>
+                    <Text style={styles.detailValue}>{selectedPayment.playerName || selectedPayment.payerName || "Unknown"}</Text>
+                  </View>
+
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Method</Text>
+                    <Text style={styles.detailValue}>{selectedPayment.paymentMethod === "cash" ? "Cash" : "Bank Transfer"}</Text>
+                  </View>
+
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Date</Text>
+                    <Text style={styles.detailValue}>{formatDate(selectedPayment.paymentDate || selectedPayment.createdAt)}</Text>
+                  </View>
+
+                  {selectedPayment.receiverName ? (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Received By</Text>
+                      <Text style={styles.detailValue}>{selectedPayment.receiverName}</Text>
+                    </View>
+                  ) : null}
+
+                  {selectedPayment.notes ? (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Notes</Text>
+                      <Text style={styles.detailValue}>{selectedPayment.notes}</Text>
+                    </View>
+                  ) : null}
+
+                  {selectedPayment.rejectionReason ? (
+                    <View style={[styles.detailRow, styles.rejectionRow]}>
+                      <Text style={styles.detailLabel}>Rejection Reason</Text>
+                      <Text style={[styles.detailValue, { color: Colors.dark.error }]}>{selectedPayment.rejectionReason}</Text>
+                    </View>
+                  ) : null}
+                </ScrollView>
+
+                {selectedPayment.status === "pending" ? (
+                  <View style={styles.actionButtons}>
+                    <Pressable
+                      style={[styles.actionButton, styles.confirmButton]}
+                      onPress={() => handleConfirm(selectedPayment)}
+                      disabled={confirmMutation.isPending}
+                    >
+                      {confirmMutation.isPending ? (
+                        <ActivityIndicator size="small" color="#000" />
+                      ) : (
+                        <>
+                          <Ionicons name="checkmark" size={20} color="#000" />
+                          <Text style={styles.confirmButtonText}>Confirm</Text>
+                        </>
+                      )}
+                    </Pressable>
+                    <Pressable
+                      style={[styles.actionButton, styles.rejectButton]}
+                      onPress={() => setShowRejectModal(true)}
+                    >
+                      <Ionicons name="close" size={20} color="#fff" />
+                      <Text style={styles.rejectButtonText}>Reject</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+
+                {selectedPayment.status !== "confirmed" ? (
+                  <Pressable
+                    style={styles.deleteButton}
+                    onPress={() => handleDelete(selectedPayment)}
+                    disabled={deleteMutation.isPending}
+                  >
+                    {deleteMutation.isPending ? (
+                      <ActivityIndicator size="small" color={Colors.dark.error} />
+                    ) : (
+                      <Text style={styles.deleteButtonText}>Delete Payment</Text>
+                    )}
+                  </Pressable>
+                ) : null}
+              </>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showRejectModal} animationType="fade" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.rejectModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <Text style={styles.rejectModalTitle}>Reject Payment</Text>
+            <Text style={styles.rejectModalSubtitle}>Please provide a reason for rejection</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={rejectReason}
+              onChangeText={setRejectReason}
+              placeholder="Reason for rejection..."
+              placeholderTextColor={Colors.dark.textSecondary}
+              multiline
+              numberOfLines={3}
+            />
+            <View style={styles.rejectModalButtons}>
+              <Pressable
+                style={styles.rejectModalCancel}
+                onPress={() => {
+                  setShowRejectModal(false);
+                  setRejectReason("");
+                }}
+              >
+                <Text style={styles.rejectModalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={styles.rejectModalConfirm}
+                onPress={handleReject}
+                disabled={rejectMutation.isPending}
+              >
+                {rejectMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.rejectModalConfirmText}>Reject</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  header: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.md,
+  },
+  title: {
+    ...Typography.h1,
+    color: Colors.dark.text,
+    marginBottom: Spacing.md,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    gap: Spacing.lg,
+  },
+  summaryItem: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    alignItems: "center",
+  },
+  summaryValue: {
+    ...Typography.numberMedium,
+    color: Colors.dark.orange,
+  },
+  summaryLabel: {
+    ...Typography.small,
+    color: Colors.dark.textSecondary,
+    marginTop: 2,
+  },
+  filters: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  filterScroll: {
+    gap: Spacing.sm,
+  },
+  filterChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  filterChipActive: {
+    backgroundColor: Colors.dark.orange + "20",
+    borderColor: Colors.dark.orange,
+  },
+  filterChipText: {
+    ...Typography.small,
+    color: Colors.dark.textSecondary,
+  },
+  filterChipTextActive: {
+    color: Colors.dark.orange,
+    fontWeight: "600",
+  },
+  filterDivider: {
+    width: 1,
+    backgroundColor: Colors.dark.border,
+    marginHorizontal: Spacing.sm,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  list: {
+    flex: 1,
+    paddingHorizontal: Spacing.lg,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingTop: 100,
+  },
+  emptyText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    marginTop: Spacing.md,
+  },
+  emptySubtext: {
+    ...Typography.small,
+    color: Colors.dark.textSecondary,
+    marginTop: Spacing.xs,
+  },
+  paymentCard: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  paymentHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  paymentInfo: {
+    flex: 1,
+  },
+  paymentName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  paymentDate: {
+    ...Typography.small,
+    color: Colors.dark.textSecondary,
+    marginTop: 2,
+  },
+  paymentAmount: {
+    alignItems: "flex-end",
+  },
+  amountText: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  statusBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+    marginTop: 4,
+  },
+  statusText: {
+    ...Typography.caption,
+    textTransform: "capitalize",
+  },
+  paymentFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  methodBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  methodText: {
+    ...Typography.small,
+    color: Colors.dark.textSecondary,
+  },
+  receiverText: {
+    ...Typography.small,
+    color: Colors.dark.textSecondary,
+  },
+  fab: {
+    position: "absolute",
+    bottom: 100,
+    right: Spacing.lg,
+    borderRadius: 28,
+    overflow: "hidden",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  fabGradient: {
+    width: 56,
+    height: 56,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    maxHeight: "85%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  modalTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  modalBody: {
+    padding: Spacing.lg,
+  },
+  inputLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textSecondary,
+    marginBottom: Spacing.xs,
+    marginTop: Spacing.md,
+  },
+  input: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    ...Typography.body,
+    color: Colors.dark.text,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  textArea: {
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
+  playerPicker: {
+    marginTop: Spacing.xs,
+  },
+  playerChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.full,
+    marginRight: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  playerChipActive: {
+    backgroundColor: Colors.dark.orange + "20",
+    borderColor: Colors.dark.orange,
+  },
+  playerChipText: {
+    ...Typography.small,
+    color: Colors.dark.textSecondary,
+  },
+  playerChipTextActive: {
+    color: Colors.dark.orange,
+  },
+  methodPicker: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  methodOption: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  methodOptionActive: {
+    backgroundColor: Colors.dark.orange + "20",
+    borderColor: Colors.dark.orange,
+  },
+  methodOptionText: {
+    ...Typography.small,
+    color: Colors.dark.textSecondary,
+  },
+  methodOptionTextActive: {
+    color: Colors.dark.orange,
+  },
+  submitButton: {
+    backgroundColor: Colors.dark.orange,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    alignItems: "center",
+    marginHorizontal: Spacing.lg,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
+  submitButtonText: {
+    ...Typography.body,
+    fontWeight: "600",
+    color: "#000",
+  },
+  detailAmount: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  detailAmountValue: {
+    ...Typography.numberLarge,
+    color: Colors.dark.text,
+  },
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  detailLabel: {
+    ...Typography.body,
+    color: Colors.dark.textSecondary,
+  },
+  detailValue: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "500",
+    textAlign: "right",
+    flex: 1,
+    marginLeft: Spacing.md,
+  },
+  rejectionRow: {
+    backgroundColor: Colors.dark.error + "10",
+    marginHorizontal: -Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+  },
+  actionButtons: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  confirmButton: {
+    backgroundColor: Colors.dark.successNeon,
+  },
+  confirmButtonText: {
+    ...Typography.body,
+    fontWeight: "600",
+    color: "#000",
+  },
+  rejectButton: {
+    backgroundColor: Colors.dark.error,
+  },
+  rejectButtonText: {
+    ...Typography.body,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  deleteButton: {
+    alignItems: "center",
+    padding: Spacing.md,
+    marginTop: Spacing.md,
+  },
+  deleteButtonText: {
+    ...Typography.body,
+    color: Colors.dark.error,
+  },
+  rejectModalContent: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.xl,
+    margin: Spacing.lg,
+    padding: Spacing.lg,
+  },
+  rejectModalTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    marginBottom: Spacing.xs,
+  },
+  rejectModalSubtitle: {
+    ...Typography.small,
+    color: Colors.dark.textSecondary,
+    marginBottom: Spacing.md,
+  },
+  rejectModalButtons: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginTop: Spacing.md,
+  },
+  rejectModalCancel: {
+    flex: 1,
+    alignItems: "center",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundDefault,
+  },
+  rejectModalCancelText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  rejectModalConfirm: {
+    flex: 1,
+    alignItems: "center",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.error,
+  },
+  rejectModalConfirmText: {
+    ...Typography.body,
+    fontWeight: "600",
+    color: "#fff",
+  },
+});

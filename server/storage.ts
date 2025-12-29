@@ -411,6 +411,23 @@ export const storage = {
     return result[0];
   },
 
+  async updateLocation(id: string, data: Partial<InsertLocation>, academyId?: string): Promise<Location | undefined> {
+    const conditions = [eq(locations.id, id)];
+    if (academyId) {
+      conditions.push(eq(locations.academyId, academyId));
+    }
+    const result = await db.update(locations).set(data).where(and(...conditions)).returning();
+    return result[0];
+  },
+
+  async deleteLocation(id: string, academyId?: string): Promise<void> {
+    const conditions = [eq(locations.id, id)];
+    if (academyId) {
+      conditions.push(eq(locations.academyId, academyId));
+    }
+    await db.delete(locations).where(and(...conditions));
+  },
+
   // ==================== COURTS ====================
   async getCourt(id: string, academyId?: string): Promise<Court | undefined> {
     const conditions = [eq(courts.id, id)];
@@ -1034,6 +1051,27 @@ export const storage = {
       .from(auditLogs)
       .where(and(...conditions))
       .orderBy(desc(auditLogs.timestamp));
+  },
+
+  async getAuditLogsByAcademy(academyId: string, filters?: {
+    entityType?: string;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+  }): Promise<AuditLog[]> {
+    const allLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.academyId, academyId))
+      .orderBy(desc(auditLogs.timestamp))
+      .limit(filters?.limit || 100);
+    
+    return allLogs.filter(log => {
+      if (filters?.entityType && log.entityType !== filters.entityType) return false;
+      if (filters?.startDate && log.timestamp && new Date(log.timestamp) < filters.startDate) return false;
+      if (filters?.endDate && log.timestamp && new Date(log.timestamp) > filters.endDate) return false;
+      return true;
+    });
   },
 
   // ==================== OFFLINE QUEUE ====================
@@ -3049,8 +3087,68 @@ export const storage = {
   },
 
   async updatePayment(id: string, data: Partial<InsertPayment>): Promise<Payment | undefined> {
-    const result = await db.update(payments).set(data).where(eq(payments.id, id)).returning();
+    const result = await db.update(payments).set({ ...data, updatedAt: new Date() }).where(eq(payments.id, id)).returning();
     return result[0];
+  },
+
+  async getPayment(id: string): Promise<Payment | undefined> {
+    const result = await db.select().from(payments).where(eq(payments.id, id));
+    return result[0];
+  },
+
+  async getPaymentsWithFilters(academyId: string, filters: {
+    status?: string;
+    paymentMethod?: string;
+    playerId?: string;
+    receivedBy?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<Payment[]> {
+    let query = db.select().from(payments).where(eq(payments.academyId, academyId));
+    
+    const allPayments = await query.orderBy(desc(payments.createdAt));
+    
+    return allPayments.filter(p => {
+      if (filters.status && p.status !== filters.status) return false;
+      if (filters.paymentMethod && p.paymentMethod !== filters.paymentMethod) return false;
+      if (filters.playerId && p.playerId !== filters.playerId) return false;
+      if (filters.receivedBy && p.receivedBy !== filters.receivedBy) return false;
+      if (filters.startDate && p.createdAt && new Date(p.createdAt) < filters.startDate) return false;
+      if (filters.endDate && p.createdAt && new Date(p.createdAt) > filters.endDate) return false;
+      return true;
+    });
+  },
+
+  async confirmPayment(id: string, confirmedById: string): Promise<Payment | undefined> {
+    const result = await db.update(payments)
+      .set({
+        status: 'confirmed',
+        confirmedBy: confirmedById,
+        confirmedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(payments.id, id))
+      .returning();
+    return result[0];
+  },
+
+  async rejectPayment(id: string, rejectedById: string, reason: string): Promise<Payment | undefined> {
+    const result = await db.update(payments)
+      .set({
+        status: 'rejected',
+        rejectedBy: rejectedById,
+        rejectedAt: new Date(),
+        rejectionReason: reason,
+        updatedAt: new Date(),
+      })
+      .where(eq(payments.id, id))
+      .returning();
+    return result[0];
+  },
+
+  async deletePayment(id: string): Promise<boolean> {
+    const result = await db.delete(payments).where(eq(payments.id, id)).returning();
+    return result.length > 0;
   },
 
   async createRefund(data: InsertRefund): Promise<Refund> {
@@ -3074,15 +3172,13 @@ export const storage = {
 
   async getAdminRevenueByMonth(academyId: string, year: number, month: number): Promise<{
     totalRevenue: number;
-    sessionFees: number;
-    subscriptionRevenue: number;
-    otherRevenue: number;
-    refundsTotal: number;
-    netRevenue: number;
-    completedSessions: number;
-    averageSessionRate: number;
-    paymentsCount: number;
+    cashTotal: number;
+    bankTotal: number;
     pendingAmount: number;
+    confirmedCount: number;
+    pendingCount: number;
+    netRevenue: number;
+    isManualPayments: boolean;
   }> {
     try {
       const startDate = new Date(year, month - 1, 1);
@@ -3094,13 +3190,18 @@ export const storage = {
         lte(payments.createdAt, endDate)
       ));
 
-      const succeededPayments = allPayments.filter(p => p.status === 'succeeded');
+      const confirmedPayments = allPayments.filter(p => p.status === 'confirmed');
       const pendingPayments = allPayments.filter(p => p.status === 'pending');
 
-      const totalRevenue = succeededPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      const totalRevenue = confirmedPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
       const pendingAmount = pendingPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
-      const paymentIds = succeededPayments.map(p => p.id);
+      const cashPayments = confirmedPayments.filter(p => p.paymentMethod === 'cash');
+      const bankPayments = confirmedPayments.filter(p => p.paymentMethod === 'bank_transfer');
+      const cashTotal = cashPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      const bankTotal = bankPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+      const paymentIds = confirmedPayments.map(p => p.id);
       let refundsTotal = 0;
       if (paymentIds.length > 0) {
         const allRefunds = await db.select().from(refunds).where(
@@ -3126,29 +3227,25 @@ export const storage = {
 
       return {
         totalRevenue,
-        sessionFees,
-        subscriptionRevenue,
-        otherRevenue,
-        refundsTotal,
-        netRevenue: totalRevenue - refundsTotal,
-        completedSessions,
-        averageSessionRate,
-        paymentsCount: succeededPayments.length,
+        cashTotal,
+        bankTotal,
         pendingAmount,
+        confirmedCount: confirmedPayments.length,
+        pendingCount: pendingPayments.length,
+        netRevenue: totalRevenue,
+        isManualPayments: true,
       };
     } catch (error) {
       console.error("Error in getAdminRevenueByMonth:", error);
       return {
         totalRevenue: 0,
-        sessionFees: 0,
-        subscriptionRevenue: 0,
-        otherRevenue: 0,
-        refundsTotal: 0,
-        netRevenue: 0,
-        completedSessions: 0,
-        averageSessionRate: 0,
-        paymentsCount: 0,
+        cashTotal: 0,
+        bankTotal: 0,
         pendingAmount: 0,
+        confirmedCount: 0,
+        pendingCount: 0,
+        netRevenue: 0,
+        isManualPayments: true,
       };
     }
   },
