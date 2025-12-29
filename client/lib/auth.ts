@@ -5,6 +5,7 @@ const AUTH_USER_KEY = "@auth_user";
 
 export interface AuthUser {
   id: string;
+  username: string;
   email: string;
   role: string;
   academyId: string | null;

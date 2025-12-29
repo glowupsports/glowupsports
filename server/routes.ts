@@ -91,6 +91,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // - /auth/apply/academy - Academy owner application (requires platform owner approval)
   // The legacy /auth/register endpoint has been removed for security.
 
+  // Check username availability (for real-time validation during registration)
+  app.get("/api/auth/check-username/:username", async (req: Request, res: Response) => {
+    try {
+      const { username } = req.params;
+      
+      if (!username || username.length < 3) {
+        return res.status(400).json({ available: false, error: "Username must be at least 3 characters" });
+      }
+      
+      if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+        return res.status(400).json({ available: false, error: "Only letters, numbers, and underscores allowed" });
+      }
+      
+      const exists = await storage.checkUsernameExists(username);
+      res.json({ available: !exists });
+    } catch (error) {
+      console.error("Username check error:", error);
+      res.status(500).json({ available: false, error: "Check failed" });
+    }
+  });
+
   app.post("/auth/login", authLimiter, async (req: Request, res: Response) => {
     try {
       const parsed = loginSchema.safeParse(req.body);
@@ -98,9 +119,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: fromZodError(parsed.error).message });
       }
 
-      const { email, password } = parsed.data;
+      const { username, password } = parsed.data;
 
-      const user = await storage.getUserByEmail(email);
+      const user = await storage.getUserByUsername(username);
       if (!user) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
@@ -125,6 +146,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         token,
         user: {
           id: user.id,
+          username: user.username,
           email: user.email,
           role: user.role,
           academyId: user.academyId,
@@ -146,11 +168,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: fromZodError(parsed.error).message });
       }
 
-      const { firstName, lastName, dateOfBirth, email, phone, password } = parsed.data;
+      const { username, firstName, lastName, dateOfBirth, email, phone, password } = parsed.data;
 
-      const existingUser = await storage.getUserByEmail(email);
-      if (existingUser) {
-        return res.status(409).json({ error: "Email already registered" });
+      // Check if username is already taken (globally unique)
+      const usernameExists = await storage.checkUsernameExists(username);
+      if (usernameExists) {
+        return res.status(409).json({ error: "Username already taken. Please choose a different one." });
       }
 
       const hashedPassword = await hashPassword(password);
@@ -165,15 +188,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         coachId: null,
       });
 
-      // Create user account
+      // Create user account with username
       const user = await storage.createUser({
+        username,
         email,
         password: hashedPassword,
         role: "player",
-        status: "active",
         academyId: null,
-        playerId: player.id,
+        coachId: null,
       });
+
+      // Link player to user
+      await storage.updateUser(user.id, { playerId: player.id });
 
       const token = generateToken({
         userId: user.id,
@@ -181,17 +207,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role: user.role,
         academyId: user.academyId,
         coachId: user.coachId,
-        playerId: user.playerId,
+        playerId: player.id,
       });
 
       res.status(201).json({
         token,
         user: {
           id: user.id,
+          username: user.username,
           email: user.email,
           role: user.role,
           academyId: user.academyId,
-          playerId: user.playerId,
+          playerId: player.id,
         },
         message: "Account created successfully. Join an academy to start training!",
       });
@@ -209,7 +236,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: fromZodError(parsed.error).message });
       }
 
-      const { token, name, email, password, phone, specialty } = parsed.data;
+      const { token, username, name, email, password, phone, specialty } = parsed.data;
+
+      // Check if username is already taken
+      const usernameExists = await storage.checkUsernameExists(username);
+      if (usernameExists) {
+        return res.status(409).json({ error: "Username already taken. Please choose a different one." });
+      }
 
       // Validate invite token
       const invite = await storage.getInviteByToken(token);
@@ -230,11 +263,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Email does not match the invite" });
       }
 
-      const existingUser = await storage.getUserByEmail(email);
-      if (existingUser) {
-        return res.status(409).json({ error: "Email already registered" });
-      }
-
       const hashedPassword = await hashPassword(password);
 
       // Create coach profile
@@ -249,12 +277,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalXp: 0,
       });
 
-      // Create user account
+      // Create user account with username
       const user = await storage.createUser({
+        username,
         email,
         password: hashedPassword,
         role: invite.role || "coach",
-        status: "active",
         academyId: invite.academyId,
         coachId: coach.id,
       });
@@ -275,6 +303,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         token: authToken,
         user: {
           id: user.id,
+          username: user.username,
           email: user.email,
           role: user.role,
           academyId: user.academyId,

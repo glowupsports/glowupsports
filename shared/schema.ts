@@ -9,7 +9,8 @@ export const users = pgTable("users", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
-  email: text("email").notNull().unique(),
+  username: text("username").notNull().unique(), // globally unique username for login
+  email: text("email").notNull(), // email can be shared by family members (not unique)
   password: text("password").notNull(),
   role: text("role").notNull().default("coach"), // platform_owner | academy_owner | coach | assistant | player
   status: text("status").notNull().default("active"), // active | pending | suspended
@@ -21,6 +22,7 @@ export const users = pgTable("users", {
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
+  username: true,
   email: true,
   password: true,
   role: true,
@@ -31,12 +33,21 @@ export const insertUserSchema = createInsertSchema(users).pick({
 });
 
 export const loginSchema = z.object({
-  email: z.string().email(),
+  username: z.string().min(3, "Username must be at least 3 characters"),
   password: z.string().min(6),
 });
 
+export const usernameSchema = z.string()
+  .min(3, "Username must be at least 3 characters")
+  .max(30, "Username must be 30 characters or less")
+  .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores");
+
 // Player self-registration (open, no academy required)
 export const playerRegisterSchema = z.object({
+  username: z.string()
+    .min(3, "Username must be at least 3 characters")
+    .max(30, "Username must be 30 characters or less")
+    .regex(/^[a-zA-Z0-9_]+$/, "Only letters, numbers, and underscores allowed"),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   dateOfBirth: z.string().optional(),
@@ -48,6 +59,10 @@ export const playerRegisterSchema = z.object({
 // Coach registration via invite token
 export const coachInviteRegisterSchema = z.object({
   token: z.string().min(1, "Invite token is required"),
+  username: z.string()
+    .min(3, "Username must be at least 3 characters")
+    .max(30, "Username must be 30 characters or less")
+    .regex(/^[a-zA-Z0-9_]+$/, "Only letters, numbers, and underscores allowed"),
   name: z.string().min(2, "Name is required"),
   email: z.string().email("Valid email is required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
@@ -57,6 +72,10 @@ export const coachInviteRegisterSchema = z.object({
 
 // Legacy register schema (for backwards compatibility)
 export const registerSchema = z.object({
+  username: z.string()
+    .min(3, "Username must be at least 3 characters")
+    .max(30, "Username must be 30 characters or less")
+    .regex(/^[a-zA-Z0-9_]+$/, "Only letters, numbers, and underscores allowed"),
   email: z.string().email(),
   password: z.string().min(8),
   name: z.string().min(2),

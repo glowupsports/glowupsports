@@ -179,7 +179,18 @@ export const storage = {
     return result[0];
   },
 
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.username, username.toLowerCase()));
+    return result[0];
+  },
+
+  async checkUsernameExists(username: string): Promise<boolean> {
+    const result = await db.select({ id: users.id }).from(users).where(eq(users.username, username.toLowerCase())).limit(1);
+    return result.length > 0;
+  },
+
   async createUser(data: { 
+    username: string;
     email: string; 
     password: string; 
     role: string; 
@@ -187,6 +198,7 @@ export const storage = {
     coachId?: string | null; 
   }): Promise<User> {
     const result = await db.insert(users).values({
+      username: data.username.toLowerCase(),
       email: data.email.toLowerCase(),
       password: data.password,
       role: data.role,

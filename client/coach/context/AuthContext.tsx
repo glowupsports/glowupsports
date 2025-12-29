@@ -27,6 +27,7 @@ interface Academy {
 }
 
 interface PlayerRegisterData {
+  username: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -40,7 +41,7 @@ interface AuthContextType {
   user: AuthUser | null;
   coach: Coach | null;
   academy: Academy | null;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
   registerPlayer: (data: PlayerRegisterData) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -144,13 +145,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [fetchUserData]);
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const apiUrl = getApiUrl();
       const response = await fetch(new URL("/auth/login", apiUrl).toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
       });
       
       const data = await response.json();

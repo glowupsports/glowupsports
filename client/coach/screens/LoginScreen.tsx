@@ -53,6 +53,7 @@ export default function LoginScreen() {
   const { login, registerPlayer } = useAuth();
 
   const [mode, setMode] = useState<AuthMode>("login");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -67,6 +68,7 @@ export default function LoginScreen() {
   const [applicationSubmitted, setApplicationSubmitted] = useState(false);
 
   const resetForm = () => {
+    setUsername("");
     setEmail("");
     setPassword("");
     setFirstName("");
@@ -79,7 +81,7 @@ export default function LoginScreen() {
   };
 
   const handleLogin = async () => {
-    if (!email || !password) {
+    if (!username || !password) {
       Alert.alert("Error", "Please fill in all required fields");
       return;
     }
@@ -88,7 +90,7 @@ export default function LoginScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      const result = await login(email, password);
+      const result = await login(username, password);
       if (!result.success) {
         Alert.alert("Login Failed", result.error || "Please check your credentials");
       }
@@ -100,8 +102,18 @@ export default function LoginScreen() {
   };
 
   const handlePlayerRegister = async () => {
-    if (!firstName || !lastName || !email || !password) {
+    if (!username || !firstName || !lastName || !email || !password) {
       Alert.alert("Error", "Please fill in all required fields");
+      return;
+    }
+
+    if (username.length < 3) {
+      Alert.alert("Error", "Username must be at least 3 characters");
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      Alert.alert("Error", "Username can only contain letters, numbers, and underscores");
       return;
     }
 
@@ -115,6 +127,7 @@ export default function LoginScreen() {
 
     try {
       const result = await registerPlayer({
+        username,
         firstName,
         lastName,
         email,
@@ -168,15 +181,14 @@ export default function LoginScreen() {
   const renderLoginForm = () => (
     <>
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Email</Text>
+        <Text style={styles.label}>Username</Text>
         <TextInput
-          value={email}
-          onChangeText={setEmail}
-          placeholder="Enter your email"
+          value={username}
+          onChangeText={setUsername}
+          placeholder="Enter your username"
           placeholderTextColor={Colors.dark.disabled}
-          keyboardType="email-address"
           autoCapitalize="none"
-          autoComplete="email"
+          autoComplete="username"
           style={styles.input}
         />
       </View>
@@ -262,6 +274,20 @@ export default function LoginScreen() {
           <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
         </Pressable>
         <Text style={styles.formTitle}>Create Player Account</Text>
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Username</Text>
+        <TextInput
+          value={username}
+          onChangeText={setUsername}
+          placeholder="Choose a unique username"
+          placeholderTextColor={Colors.dark.disabled}
+          autoCapitalize="none"
+          autoComplete="username"
+          style={styles.input}
+        />
+        <Text style={styles.hintText}>Letters, numbers, and underscores only</Text>
       </View>
 
       <View style={styles.inputRow}>
@@ -727,6 +753,11 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     textAlign: "center",
     marginTop: Spacing.lg,
+  },
+  hintText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
   },
   infoCard: {
     backgroundColor: Colors.dark.backgroundSecondary,
