@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -239,7 +239,30 @@ export default function PlayerProfileScreen() {
           
           <Pressable 
             style={styles.settingsItem}
-            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              if (Platform.OS === "web") {
+                window.alert("Notification settings are available in the Expo Go app on your device.");
+              } else {
+                Alert.alert(
+                  "Notifications",
+                  "Notification preferences can be managed in your device settings.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { 
+                      text: "Open Settings", 
+                      onPress: async () => {
+                        try {
+                          await Linking.openSettings();
+                        } catch (e) {
+                          // Settings not available
+                        }
+                      }
+                    },
+                  ]
+                );
+              }
+            }}
           >
             <View style={styles.settingsIcon}>
               <Ionicons name="notifications-outline" size={20} color={Colors.dark.text} />
@@ -250,7 +273,20 @@ export default function PlayerProfileScreen() {
 
           <Pressable 
             style={styles.settingsItem}
-            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              if (Platform.OS === "web") {
+                window.alert("Need help? Contact us at support@glowupsports.com");
+              } else {
+                Alert.alert(
+                  "Help & Support",
+                  "For assistance, please contact us at support@glowupsports.com",
+                  [
+                    { text: "OK", style: "default" },
+                  ]
+                );
+              }
+            }}
           >
             <View style={styles.settingsIcon}>
               <Ionicons name="help-circle-outline" size={20} color={Colors.dark.text} />
@@ -311,7 +347,7 @@ const styles = StyleSheet.create({
   header: {
     alignItems: "center",
     padding: Spacing.xl,
-    paddingTop: Spacing["2xl"],
+    paddingTop: Spacing["3xl"],
   },
   avatarSection: {
     alignItems: "center",

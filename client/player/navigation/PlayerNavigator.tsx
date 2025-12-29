@@ -18,6 +18,7 @@ import PeerJourneyScreen from "@/player/screens/PeerJourneyScreen";
 import GroupChallengesScreen from "@/player/screens/GroupChallengesScreen";
 import AcademyBrowserScreen from "@/player/screens/AcademyBrowserScreen";
 import PlayerOnboardingScreen from "@/player/screens/PlayerOnboardingScreen";
+import { PlayerChatFooter } from "@/player/components/PlayerChatFooter";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 
@@ -45,79 +46,82 @@ const Stack = createNativeStackNavigator<PlayerStackParamList>();
 
 function PlayerTabs() {
   return (
-    <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: styles.tabBar,
-        tabBarBackground: () => (
-          <View style={styles.tabBarBackground}>
-            {Platform.OS === "ios" ? (
-              <BlurView
-                intensity={80}
-                tint="dark"
-                style={StyleSheet.absoluteFill}
-              />
-            ) : (
-              <View style={[StyleSheet.absoluteFill, styles.androidTabBackground]} />
-            )}
-          </View>
-        ),
-        tabBarActiveTintColor: Colors.dark.xpCyan,
-        tabBarInactiveTintColor: Colors.dark.tabIconDefault,
-        tabBarLabelStyle: styles.tabLabel,
-      }}
-    >
-      <Tab.Screen
-        name="Home"
-        component={PlayerHomeScreen}
-        options={{
-          tabBarLabel: "Home",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+    <View style={styles.tabsContainer}>
+      <Tab.Navigator
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: styles.tabBar,
+          tabBarBackground: () => (
+            <View style={styles.tabBarBackground}>
+              {Platform.OS === "ios" ? (
+                <BlurView
+                  intensity={80}
+                  tint="dark"
+                  style={StyleSheet.absoluteFill}
+                />
+              ) : (
+                <View style={[StyleSheet.absoluteFill, styles.androidTabBackground]} />
+              )}
+            </View>
           ),
+          tabBarActiveTintColor: Colors.dark.xpCyan,
+          tabBarInactiveTintColor: Colors.dark.tabIconDefault,
+          tabBarLabelStyle: styles.tabLabel,
         }}
-      />
-      <Tab.Screen
-        name="Journey"
-        component={PlayerJourneyScreen}
-        options={{
-          tabBarLabel: "Journey",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="map-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Progress"
-        component={PlayerProgressScreen}
-        options={{
-          tabBarLabel: "Progress",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="stats-chart-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Schedule"
-        component={PlayerScheduleScreen}
-        options={{
-          tabBarLabel: "Schedule",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={PlayerProfileScreen}
-        options={{
-          tabBarLabel: "Profile",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
-          ),
-        }}
-      />
-    </Tab.Navigator>
+      >
+        <Tab.Screen
+          name="Home"
+          component={PlayerHomeScreen}
+          options={{
+            tabBarLabel: "Home",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="home-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Journey"
+          component={PlayerJourneyScreen}
+          options={{
+            tabBarLabel: "Journey",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="map-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Progress"
+          component={PlayerProgressScreen}
+          options={{
+            tabBarLabel: "Progress",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="stats-chart-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Schedule"
+          component={PlayerScheduleScreen}
+          options={{
+            tabBarLabel: "Schedule",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="calendar-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Profile"
+          component={PlayerProfileScreen}
+          options={{
+            tabBarLabel: "Profile",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="person-outline" size={size} color={color} />
+            ),
+          }}
+        />
+      </Tab.Navigator>
+      <PlayerChatFooter />
+    </View>
   );
 }
 
@@ -231,6 +235,10 @@ export default function PlayerNavigator() {
 }
 
 const styles = StyleSheet.create({
+  tabsContainer: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",

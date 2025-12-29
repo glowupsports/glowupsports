@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable } from "react-native";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Modal, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
@@ -190,6 +190,111 @@ function TopPerformerCard({ performer, rank }: { performer: OwnerAcademyStats["t
         <Text style={ownerStyles.performerGlowText}>{performer.glowScore}</Text>
       </View>
     </View>
+  );
+}
+
+interface PlayerStatusAvatarProps {
+  player: DashboardData["player"];
+  coach: DashboardData["coach"];
+  academy: DashboardData["academy"];
+}
+
+function PlayerStatusAvatar({ player, coach, academy }: PlayerStatusAvatarProps) {
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+  
+  return (
+    <>
+      <Pressable 
+        style={styles.avatarContainer}
+        onPress={() => setShowStatusMenu(true)}
+      >
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          style={styles.avatarGradient}
+        >
+          <View style={styles.avatarInner}>
+            <Text style={styles.avatarText}>{player.name.charAt(0)}</Text>
+          </View>
+        </LinearGradient>
+      </Pressable>
+      
+      <Modal
+        visible={showStatusMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowStatusMenu(false)}
+      >
+        <Pressable 
+          style={statusStyles.overlay}
+          onPress={() => setShowStatusMenu(false)}
+        >
+          <View style={statusStyles.menu}>
+            <View style={statusStyles.header}>
+              <LinearGradient
+                colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                style={statusStyles.avatarGradient}
+              >
+                <View style={statusStyles.avatarInner}>
+                  <Text style={statusStyles.avatarText}>{player.name.charAt(0)}</Text>
+                </View>
+              </LinearGradient>
+              <Text style={statusStyles.playerName}>{player.name}</Text>
+              {academy ? (
+                <Text style={statusStyles.academyName}>{academy.name}</Text>
+              ) : null}
+            </View>
+            
+            <View style={statusStyles.statsRow}>
+              <View style={statusStyles.statItem}>
+                <Ionicons name="star" size={18} color={Colors.dark.gold} />
+                <Text style={statusStyles.statValue}>Level {player.level}</Text>
+              </View>
+              <View style={statusStyles.statItem}>
+                <Ionicons name="flash" size={18} color={Colors.dark.xpCyan} />
+                <Text style={statusStyles.statValue}>{player.glowScore} Glow</Text>
+              </View>
+            </View>
+            
+            <View style={statusStyles.statsRow}>
+              <View style={statusStyles.statItem}>
+                <Ionicons name="flame" size={18} color={Colors.dark.orange} />
+                <Text style={statusStyles.statValue}>{player.streak} day streak</Text>
+              </View>
+              <View style={statusStyles.statItem}>
+                <Ionicons name="trending-up" size={18} color={Colors.dark.primary} />
+                <Text style={statusStyles.statValue}>{player.xp.toLocaleString()} XP</Text>
+              </View>
+            </View>
+            
+            {player.ballLevel ? (
+              <View style={statusStyles.ballLevelRow}>
+                <Ionicons name="tennisball" size={18} color={Colors.dark.primary} />
+                <Text style={statusStyles.ballLevelText}>{player.ballLevel} Ball</Text>
+              </View>
+            ) : null}
+            
+            {coach ? (
+              <View style={statusStyles.coachRow}>
+                <View style={statusStyles.coachAvatar}>
+                  <Ionicons name="ribbon" size={14} color={Colors.dark.primary} />
+                </View>
+                <View>
+                  <Text style={statusStyles.coachLabel}>Coach</Text>
+                  <Text style={statusStyles.coachName}>{coach.name}</Text>
+                </View>
+              </View>
+            ) : null}
+            
+            <Pressable 
+              style={statusStyles.closeButton}
+              onPress={() => setShowStatusMenu(false)}
+            >
+              <Text style={statusStyles.closeButtonText}>Close</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+    </>
   );
 }
 
@@ -452,16 +557,11 @@ export default function PlayerHomeScreen() {
               <Text style={styles.greeting}>Welcome back,</Text>
               <Text style={styles.playerName}>{player.name}</Text>
             </View>
-            <View style={styles.avatarContainer}>
-              <LinearGradient
-                colors={[Colors.dark.primary, Colors.dark.xpCyan]}
-                style={styles.avatarGradient}
-              >
-                <View style={styles.avatarInner}>
-                  <Text style={styles.avatarText}>{player.name.charAt(0)}</Text>
-                </View>
-              </LinearGradient>
-            </View>
+            <PlayerStatusAvatar 
+              player={player} 
+              coach={coach}
+              academy={academy}
+            />
           </View>
           
           <View style={styles.levelContainer}>
@@ -1242,5 +1342,120 @@ const ownerStyles = StyleSheet.create({
   activityTime: {
     ...Typography.caption,
     color: Colors.dark.textMuted,
+  },
+});
+
+const statusStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  menu: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    width: "100%",
+    maxWidth: 320,
+  },
+  header: {
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  avatarGradient: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    padding: 3,
+    marginBottom: Spacing.md,
+  },
+  avatarInner: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: 37,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarText: {
+    ...Typography.h1,
+    color: Colors.dark.text,
+    fontSize: 32,
+  },
+  playerName: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    marginBottom: 4,
+  },
+  academyName: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: Spacing.md,
+  },
+  statItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  statValue: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  ballLevelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+  },
+  ballLevelText: {
+    ...Typography.body,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  coachRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.lg,
+  },
+  coachAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.primary + "20",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  coachLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  coachName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  closeButton: {
+    backgroundColor: Colors.dark.primary,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+  },
+  closeButtonText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
   },
 });

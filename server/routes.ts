@@ -1753,7 +1753,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create court
-  app.post("/api/courts", authMiddleware, requireRole("academy_owner", "platform_owner", "admin"), async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/courts", authMiddleware, requireRole("academy_owner", "platform_owner", "admin", "coach"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId;
       const court = await storage.createCourt({ ...req.body, academyId });
@@ -1765,7 +1765,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update court
-  app.patch("/api/courts/:id", authMiddleware, requireRole("academy_owner", "platform_owner", "admin"), async (req: AuthenticatedRequest, res: Response) => {
+  app.patch("/api/courts/:id", authMiddleware, requireRole("academy_owner", "platform_owner", "admin", "coach"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
@@ -1787,7 +1787,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete court
-  app.delete("/api/courts/:id", authMiddleware, requireRole("academy_owner", "platform_owner", "admin"), async (req: AuthenticatedRequest, res: Response) => {
+  app.delete("/api/courts/:id", authMiddleware, requireRole("academy_owner", "platform_owner", "admin", "coach"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
@@ -3957,75 +3957,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
       
-      // Add sample conversations for different types if they don't exist
-      const hasAcademy = enriched.some(c => c.type === "academy");
-      const hasAdmin = enriched.some(c => c.type === "admin");
-      const hasSquad = enriched.some(c => c.type === "squad");
-      const hasCoachCoach = enriched.some(c => c.type === "coach_coach");
-      
-      const sampleConversations: any[] = [];
-      
-      if (!hasAcademy) {
-        sampleConversations.push({
-          id: "sample-academy",
-          type: "academy",
-          title: "Academy Announcements",
-          playerId: null,
-          coachId: id,
-          lastMessageAt: new Date().toISOString(),
-          lastMessagePreview: "Welcome to the winter training program!",
-          isArchived: false,
-          participants: [],
-          playerName: null,
-        });
-      }
-      
-      if (!hasAdmin) {
-        sampleConversations.push({
-          id: "sample-admin",
-          type: "admin",
-          title: "Staff Chat",
-          playerId: null,
-          coachId: id,
-          lastMessageAt: new Date().toISOString(),
-          lastMessagePreview: "Court 3 maintenance scheduled for tomorrow",
-          isArchived: false,
-          participants: [],
-          playerName: null,
-        });
-      }
-      
-      if (!hasSquad) {
-        sampleConversations.push({
-          id: "sample-squad-1",
-          type: "squad",
-          title: "Red 2 Squad",
-          playerId: null,
-          coachId: id,
-          lastMessageAt: new Date().toISOString(),
-          lastMessagePreview: "Great practice today everyone!",
-          isArchived: false,
-          participants: [],
-          playerName: null,
-        });
-      }
-      
-      if (!hasCoachCoach) {
-        sampleConversations.push({
-          id: "sample-coach-maria",
-          type: "coach_coach",
-          title: "Coach Maria",
-          playerId: null,
-          coachId: id,
-          lastMessageAt: new Date().toISOString(),
-          lastMessagePreview: "Did you see the new training schedule?",
-          isArchived: false,
-          participants: [],
-          playerName: null,
-        });
-      }
-      
-      res.json([...enriched, ...sampleConversations]);
+      // Return only real conversations - no sample/demo data
+      res.json(enriched);
     } catch (error) {
       console.error("Error fetching conversations:", error);
       res.status(500).json({ error: "Failed to fetch conversations" });
@@ -5906,11 +5839,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get player dashboard data
   app.get("/api/player/me/dashboard", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      // Return demo data for owners/coaches/admins - with onboarding flag for new players
+      // Return empty data for users without player profile
       if (!req.user!.playerId) {
-        // Check if this is a player role needing onboarding (forOnboarding=true) or an owner/coach viewing demo (forOnboarding=false)
+        // Check if this is a player role needing onboarding
         const isPlayerNeedingOnboarding = req.user!.role === "player";
-        return res.json(getDemoPlayerData(req.user, isPlayerNeedingOnboarding));
+        return res.json({
+          needsOnboarding: isPlayerNeedingOnboarding,
+          player: null,
+          coach: null,
+          academy: null,
+          nextSession: null,
+          lastFeedback: null,
+          recentXpGains: [],
+        });
       }
       const playerId = req.user!.playerId!;
       
@@ -6013,12 +5954,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get player sessions
   app.get("/api/player/me/sessions", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      // Return demo sessions for owners/coaches
+      // Return empty sessions for users without player profile
       if (!req.user!.playerId) {
-        return res.json([
-          { id: "demo-1", startTime: new Date().toISOString(), endTime: new Date(Date.now() + 60*60*1000).toISOString(), sessionType: "Private", status: "scheduled", courtName: "Court 1", attended: false },
-          { id: "demo-2", startTime: new Date(Date.now() - 2*24*60*60*1000).toISOString(), endTime: new Date(Date.now() - 2*24*60*60*1000 + 60*60*1000).toISOString(), sessionType: "Group", status: "completed", courtName: "Court 2", attended: true },
-        ]);
+        return res.json([]);
       }
       const playerId = req.user!.playerId!;
       
@@ -6056,43 +5994,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get player progress data (skill domains, XP, level)
   app.get("/api/player/me/progress", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      // Return demo progress for owners/coaches
+      // Return empty progress for users without player profile
       if (!req.user!.playerId) {
-        const demoInsights = {
-          recentHighlights: ["Consistent technique", "Good focus"],
-          focusAreas: ["Movement speed"],
-          lastObservation: { direction: "up", note: "Great progress", date: new Date().toISOString() },
-          avgDelta: 5,
-        };
         return res.json({
-          level: 5,
-          xp: 2450,
+          level: 1,
+          xp: 0,
           xpForNextLevel: 500,
-          glowScore: 73,
-          ballLevel: "green",
-          nextBallLevel: "orange",
-          skillRadar: [
-            { domain: "Technical", domainId: "technical", color: "#2ECC40", icon: "tennisball", progress: 72, trend: "up", momentum: "positive", xp: 150, observationCount: 12, assessmentStatus: "validated", insights: demoInsights },
-            { domain: "Mental", domainId: "mental", color: "#00D4FF", icon: "brain", progress: 65, trend: "stable", momentum: "neutral", xp: 80, observationCount: 8, assessmentStatus: "pending", insights: demoInsights },
-            { domain: "Physical", domainId: "physical", color: "#FFD700", icon: "body", progress: 78, trend: "up", momentum: "positive", xp: 120, observationCount: 15, assessmentStatus: "validated", insights: demoInsights },
-            { domain: "Social", domainId: "social", color: "#FF6B6B", icon: "people", progress: 60, trend: "stable", momentum: "neutral", xp: 50, observationCount: 5, assessmentStatus: "pending", insights: demoInsights },
-            { domain: "Tactical", domainId: "tactical", color: "#9B59B6", icon: "map", progress: 68, trend: "up", momentum: "positive", xp: 100, observationCount: 10, assessmentStatus: "validated", insights: demoInsights },
-          ],
+          glowScore: 0,
+          ballLevel: "red1",
+          nextBallLevel: "red2",
+          skillRadar: [],
           overallInsights: {
-            strengths: ["Technical fundamentals", "Physical conditioning"],
-            focusAreas: ["Match strategy", "Pressure handling"],
+            strengths: [],
+            focusAreas: [],
           },
-          levelReadiness: {
-            isReady: false,
-            requirements: [
-              { domainId: "technical", domainName: "Technical", required: "75", current: "72", met: false },
-              { domainId: "mental", domainName: "Mental", required: "70", current: "65", met: false },
-            ],
-            sessionCount: 18,
-            minSessionsRequired: 20,
-            coachApprovalRequired: true,
-            coachApprovalStatus: "pending",
-          },
+          levelReadiness: null,
         });
       }
       const playerId = req.user!.playerId!;
@@ -6280,18 +6196,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Get player profile data
   app.get("/api/player/me/profile", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
-    // Return demo profile for owners/coaches
+    // Return empty profile for users without player profile
     if (!req.user!.playerId) {
-      const demo = getDemoPlayerData(req.user);
       return res.json({
-        player: {
-          ...demo.player,
-          email: req.user?.email,
-          createdAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-        coach: demo.coach,
-        academy: demo.academy,
-        stats: { sessionsAttended: 22, sessionsTotal: 24, attendanceRate: 92 },
+        player: null,
+        coach: null,
+        academy: null,
+        stats: { sessionsAttended: 0, sessionsTotal: 0, attendanceRate: 0 },
       });
     }
     // Original implementation below
@@ -6364,19 +6275,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Get academy peers (other players in same academy for safe comparison)
   app.get("/api/player/me/peers", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
-    // Return demo peers for owners/coaches
+    // Return empty peers for users without player profile
     if (!req.user!.playerId) {
       return res.json({
-        totalPeers: 2,
-        peers: [
-          { id: "p1", name: "Alex", level: 4, ballLevel: "orange", glowScore: 65, avatar: "A" },
-          { id: "p2", name: "Sam", level: 6, ballLevel: "green", glowScore: 82, avatar: "S" },
-        ],
-        sameLevelPeers: [
-          { id: "p1", name: "Alex", level: 4, ballLevel: "orange", glowScore: 65, avatar: "A" },
-        ],
-        myRankAtLevel: 1,
-        totalAtLevel: 3,
+        totalPeers: 0,
+        peers: [],
+        sameLevelPeers: [],
+        myRankAtLevel: 0,
+        totalAtLevel: 0,
       });
     }
     // Original implementation below
@@ -6773,12 +6679,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get player training history for training tab
   app.get("/api/player/training-history", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      // Return demo training history for owners/coaches
+      // Return empty training history for users without player profile
       if (!req.user!.playerId) {
-        return res.json([
-          { id: "t1", date: new Date(Date.now() - 2*24*60*60*1000).toISOString(), type: "Private", duration: 60, coachName: "Coach Demo", attended: true, xpEarned: 65, domains: ["Technical", "Physical"], feedback: undefined },
-          { id: "t2", date: new Date(Date.now() - 5*24*60*60*1000).toISOString(), type: "Group", duration: 90, coachName: "Coach Demo", attended: true, xpEarned: 50, domains: ["Tactical"], feedback: undefined },
-        ]);
+        return res.json([]);
       }
       const playerId = req.user!.playerId!;
       
@@ -6815,19 +6718,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get single training session detail
   app.get("/api/player/training/:sessionId", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      // Return demo training detail for owners/coaches
+      // Return not found for users without player profile
       if (!req.user!.playerId) {
-        return res.json({
-          id: req.params.sessionId,
-          date: new Date(Date.now() - 2*24*60*60*1000).toISOString(),
-          type: "Private",
-          duration: 60,
-          coachName: "Coach Demo",
-          xpEarned: 65,
-          feedback: { focus: 4, effort: 5 },
-          domainImpacts: [{ domain: "Technical", xp: 40 }, { domain: "Physical", xp: 25 }],
-          focusArea: "Forehand technique",
-        });
+        return res.status(404).json({ error: "No player profile found" });
       }
       const playerId = req.user!.playerId!;
       const { sessionId } = req.params;
@@ -6865,17 +6758,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get skill details for a specific domain
   app.get("/api/player/skills/:domain", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      // Return demo skill details for owners/coaches
+      // Return not found for users without player profile
       if (!req.user!.playerId) {
-        return res.json({
-          domain: { id: req.params.domain, name: req.params.domain, label: req.params.domain, icon: "star" },
-          score: 72,
-          recentXp: 150,
-          recentObservations: [
-            { id: "o1", date: new Date(Date.now() - 2*24*60*60*1000).toISOString(), note: "Excellent forehand progress", xp: 40, skill: "Forehand" },
-          ],
-          subSkills: [],
-        });
+        return res.status(404).json({ error: "No player profile found" });
       }
       const playerId = req.user!.playerId!;
       const { domain: domainId } = req.params;
@@ -6930,19 +6815,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get peer journey snapshot
   app.get("/api/player/peers/:peerId/journey", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      // Return demo peer journey for owners/coaches
+      // Return not found for users without player profile
       if (!req.user!.playerId) {
-        return res.json({
-          id: req.params.peerId,
-          name: "Demo Peer",
-          level: 5,
-          recentMilestones: [
-            { id: "pm1", type: "level_up", title: "Reached Level 5", date: new Date(Date.now() - 10*24*60*60*1000).toISOString() },
-          ],
-          recentBadges: [
-            { id: "pb1", name: "Consistent Player", icon: "flame", earnedAt: new Date(Date.now() - 15*24*60*60*1000).toISOString() },
-          ],
-        });
+        return res.status(404).json({ error: "No player profile found" });
       }
       const playerId = req.user!.playerId!;
       const { peerId } = req.params;
@@ -6993,11 +6868,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get group challenges (V2 placeholder)
   app.get("/api/player/challenges", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      // Return demo challenges for owners/coaches
+      // Return empty challenges for users without player profile
       if (!req.user!.playerId) {
-        return res.json([
-          { id: "c1", title: "Weekly Rally Challenge", description: "Complete 5 sessions this week", progress: 3, target: 5, reward: 100, endDate: new Date(Date.now() + 4*24*60*60*1000).toISOString() },
-        ]);
+        return res.json([]);
       }
       const playerId = req.user!.playerId!;
       const player = await storage.getPlayer(playerId);
