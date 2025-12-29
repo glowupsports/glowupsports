@@ -10,6 +10,7 @@ import ModeSwitcher from "@/components/ModeSwitcher";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useAppMode } from "@/context/AppModeContext";
 import { OwnerCard } from "@/player/components/OwnerCard";
+import { PlayerStatusBar } from "@/player/components/PlayerStatusBar";
 
 interface OwnerProfileData {
   profile: {
@@ -551,30 +552,13 @@ export default function PlayerHomeScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <View style={styles.headerTop}>
-            <View>
-              <Text style={styles.greeting}>Welcome back,</Text>
-              <Text style={styles.playerName}>{player.name}</Text>
-            </View>
-            <PlayerStatusAvatar 
-              player={player} 
-              coach={coach}
-              academy={academy}
-            />
-          </View>
-          
-          <View style={styles.levelContainer}>
-            <View style={styles.levelBadge}>
-              <Ionicons name="star" size={16} color={Colors.dark.gold} />
-              <Text style={styles.levelText}>Level {player.level}</Text>
-            </View>
-            <View style={styles.glowBadge}>
-              <Ionicons name="flash" size={14} color={Colors.dark.xpCyan} />
-              <Text style={styles.glowText}>{player.glowScore} Glow</Text>
-            </View>
-          </View>
-          
+        <PlayerStatusBar 
+          player={player}
+          coach={coach}
+          lastFeedback={lastFeedback}
+        />
+        
+        <View style={styles.xpSection}>
           <XPBar current={currentLevelXp} max={500} level={player.level} />
         </View>
 
@@ -755,6 +739,10 @@ const styles = StyleSheet.create({
   header: {
     padding: Spacing.xl,
     paddingBottom: Spacing.lg,
+  },
+  xpSection: {
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
   },
   headerTop: {
     flexDirection: "row",
