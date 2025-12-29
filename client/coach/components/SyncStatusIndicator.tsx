@@ -1,3 +1,15 @@
+/**
+ * FEATURE FLAG: SYNC STATUS INDICATOR - DISABLED
+ * 
+ * This component shows offline sync status in the UI.
+ * It is currently DISABLED - not imported anywhere in the app.
+ * 
+ * To enable: Import and render this component in CoachNavigator header
+ * 
+ * Status: Preserved for future implementation
+ * Last updated: December 2025
+ */
+
 import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import Animated, {

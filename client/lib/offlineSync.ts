@@ -1,3 +1,16 @@
+/**
+ * FEATURE FLAG: OFFLINE SYNC - DISABLED
+ * 
+ * This module provides offline queuing and sync capabilities for the coach app.
+ * It is currently DISABLED because it requires extensive testing before production use.
+ * 
+ * To enable: Import and use useOfflineSync hook in components
+ * To disable: Do not import this module (current state)
+ * 
+ * Status: Preserved for future implementation
+ * Last updated: December 2025
+ */
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiRequest, getApiUrl } from "./query-client";
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -19,6 +20,7 @@ import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { useNetwork } from "@/context/NetworkContext";
 
 interface Player {
   id: string;
@@ -74,6 +76,19 @@ export default function CreateSessionDrawer({
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { coach, refetchCalendar } = useCoach();
+  const { isOffline, logOfflineAttempt } = useNetwork();
+
+  const showOfflineAlert = useCallback(() => {
+    if (Platform.OS === "web") {
+      window.alert("You're currently offline. This action can't be saved.");
+    } else {
+      Alert.alert(
+        "You're Offline",
+        "You're currently offline. This action can't be saved. Please reconnect to the internet and try again.",
+        [{ text: "OK", style: "default" }]
+      );
+    }
+  }, []);
 
   const [sessionType, setSessionType] = useState<SessionType>("private");
   const [duration, setDuration] = useState(60);
@@ -221,7 +236,12 @@ export default function CreateSessionDrawer({
     },
   });
 
-  const handleAddGuest = () => {
+  const handleAddGuest = async () => {
+    if (isOffline) {
+      await logOfflineAttempt({ screen: "CreateSessionDrawer", action: "add_guest" });
+      showOfflineAlert();
+      return;
+    }
     if (!guestName.trim()) return;
     createGuestMutation.mutate(guestName.trim());
   };
@@ -287,7 +307,13 @@ export default function CreateSessionDrawer({
     }
   }, [visible, selectedCourtId, startTime, duration, selectedPlayers]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (isOffline) {
+      await logOfflineAttempt({ screen: "CreateSessionDrawer", action: "create_session" });
+      showOfflineAlert();
+      return;
+    }
+
     if (!selectedCourtId) {
       Alert.alert("Error", "Please select a court");
       return;

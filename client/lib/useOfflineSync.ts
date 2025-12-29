@@ -1,3 +1,16 @@
+/**
+ * FEATURE FLAG: OFFLINE SYNC HOOK - DISABLED
+ * 
+ * This hook provides access to offline sync status and actions.
+ * It is currently DISABLED - not imported anywhere in the app.
+ * 
+ * The app instead uses NetworkContext/useOfflineGuard to block
+ * data-modifying actions when offline.
+ * 
+ * Status: Preserved for future implementation
+ * Last updated: December 2025
+ */
+
 import { useState, useEffect, useCallback } from "react";
 import {
   SyncStatus,

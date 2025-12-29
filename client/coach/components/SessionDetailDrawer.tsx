@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Alert,
   TextInput,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -17,6 +18,7 @@ import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { useNetwork } from "@/context/NetworkContext";
 
 interface Player {
   id: string;
@@ -72,6 +74,19 @@ export default function SessionDetailDrawer({
 }: SessionDetailDrawerProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { isOffline, logOfflineAttempt } = useNetwork();
+
+  const showOfflineAlert = useCallback(() => {
+    if (Platform.OS === "web") {
+      window.alert("You're currently offline. This action can't be saved.");
+    } else {
+      Alert.alert(
+        "You're Offline",
+        "You're currently offline. This action can't be saved. Please reconnect to the internet and try again.",
+        [{ text: "OK", style: "default" }]
+      );
+    }
+  }, []);
   
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [showExtendOptions, setShowExtendOptions] = useState(false);
@@ -335,7 +350,12 @@ export default function SessionDetailDrawer({
     return Object.keys(errors).length === 0;
   };
   
-  const handleConvertGuest = () => {
+  const handleConvertGuest = async () => {
+    if (isOffline) {
+      await logOfflineAttempt({ screen: "SessionDetailDrawer", action: "convert_guest" });
+      showOfflineAlert();
+      return;
+    }
     if (!showGuestConvert) return;
     if (!validateConversionFields()) return;
     
@@ -352,7 +372,12 @@ export default function SessionDetailDrawer({
     });
   };
 
-  const handleAddGuest = () => {
+  const handleAddGuest = async () => {
+    if (isOffline) {
+      await logOfflineAttempt({ screen: "SessionDetailDrawer", action: "add_guest" });
+      showOfflineAlert();
+      return;
+    }
     if (!guestName.trim()) return;
     addGuestMutation.mutate(guestName.trim());
   };
@@ -377,6 +402,11 @@ export default function SessionDetailDrawer({
   };
 
   const handleAddPlayer = async () => {
+    if (isOffline) {
+      await logOfflineAttempt({ screen: "SessionDetailDrawer", action: "add_player" });
+      showOfflineAlert();
+      return;
+    }
     if (!selectedPlayer) return;
     
     const startDate = getStartDate();
@@ -430,6 +460,11 @@ export default function SessionDetailDrawer({
   };
 
   const handleSaveCatchUp = async () => {
+    if (isOffline) {
+      await logOfflineAttempt({ screen: "SessionDetailDrawer", action: "save_catchup" });
+      showOfflineAlert();
+      return;
+    }
     if (!selectedPlayer) return;
     
     const records = pastSessions.map(s => ({
@@ -622,9 +657,14 @@ export default function SessionDetailDrawer({
           <Pressable
             style={[
               styles.removePlayerConfirmButton,
-              removePlayerMutation.isPending && styles.removePlayerConfirmButtonDisabled,
+              (removePlayerMutation.isPending || isOffline) && styles.removePlayerConfirmButtonDisabled,
             ]}
-            onPress={() => {
+            onPress={async () => {
+              if (isOffline) {
+                await logOfflineAttempt({ screen: "SessionDetailDrawer", action: "remove_player" });
+                showOfflineAlert();
+                return;
+              }
               if (!removeReason.trim()) {
                 Alert.alert("Required", "Please provide a reason for removal");
                 return;
@@ -638,7 +678,7 @@ export default function SessionDetailDrawer({
                 fromDate: effectiveDate,
               });
             }}
-            disabled={removePlayerMutation.isPending}
+            disabled={removePlayerMutation.isPending || isOffline}
           >
             {removePlayerMutation.isPending ? (
               <ActivityIndicator size="small" color={Colors.dark.text} />
@@ -813,9 +853,16 @@ export default function SessionDetailDrawer({
         {[15, 30, 45, 60].map((minutes) => (
           <Pressable
             key={minutes}
-            style={styles.extendOption}
-            onPress={() => extendSessionMutation.mutate(minutes)}
-            disabled={extendSessionMutation.isPending}
+            style={[styles.extendOption, isOffline && { opacity: 0.5 }]}
+            onPress={async () => {
+              if (isOffline) {
+                await logOfflineAttempt({ screen: "SessionDetailDrawer", action: "extend_session" });
+                showOfflineAlert();
+                return;
+              }
+              extendSessionMutation.mutate(minutes);
+            }}
+            disabled={extendSessionMutation.isPending || isOffline}
           >
             <Text style={styles.extendOptionTime}>+{minutes}</Text>
             <Text style={styles.extendOptionLabel}>min</Text>
@@ -850,9 +897,16 @@ export default function SessionDetailDrawer({
             <Text style={styles.endCancelButtonText}>Cancel</Text>
           </Pressable>
           <Pressable
-            style={styles.endConfirmButton}
-            onPress={() => endSessionMutation.mutate()}
-            disabled={endSessionMutation.isPending}
+            style={[styles.endConfirmButton, isOffline && { opacity: 0.5 }]}
+            onPress={async () => {
+              if (isOffline) {
+                await logOfflineAttempt({ screen: "SessionDetailDrawer", action: "end_session" });
+                showOfflineAlert();
+                return;
+              }
+              endSessionMutation.mutate();
+            }}
+            disabled={endSessionMutation.isPending || isOffline}
           >
             {endSessionMutation.isPending ? (
               <ActivityIndicator size="small" color={Colors.dark.text} />

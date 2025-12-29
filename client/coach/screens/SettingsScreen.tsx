@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { useNetwork } from "@/context/NetworkContext";
 
 interface Court {
   id: string;
@@ -74,12 +75,25 @@ export default function SettingsScreen() {
   const { coach, focusMode, setFocusMode } = useCoach();
   const { setMode } = useAppMode();
   const { logout } = useAuth();
+  const { isOffline, logOfflineAttempt } = useNetwork();
   const [settings, setSettings] = useState<CoachSettings>(defaultSettings);
   const [hasChanges, setHasChanges] = useState(false);
   const [showCourtModal, setShowCourtModal] = useState(false);
   const [editingCourt, setEditingCourt] = useState<Court | null>(null);
   const [newCourtName, setNewCourtName] = useState("");
   const [newCourtColor, setNewCourtColor] = useState(COURT_COLORS[0]);
+
+  const showOfflineAlert = useCallback(() => {
+    if (Platform.OS === "web") {
+      window.alert("You're currently offline. This action can't be saved.");
+    } else {
+      Alert.alert(
+        "You're Offline",
+        "You're currently offline. This action can't be saved. Please reconnect to the internet and try again.",
+        [{ text: "OK", style: "default" }]
+      );
+    }
+  }, []);
 
   const { data: courts = [], isLoading: courtsLoading } = useQuery<Court[]>({
     queryKey: ["/api/courts"],
@@ -138,7 +152,12 @@ export default function SettingsScreen() {
     setShowCourtModal(true);
   };
 
-  const handleDeleteCourt = (court: Court) => {
+  const handleDeleteCourt = async (court: Court) => {
+    if (isOffline) {
+      await logOfflineAttempt({ screen: "SettingsScreen", action: "delete_court" });
+      showOfflineAlert();
+      return;
+    }
     Alert.alert(
       "Delete Court",
       `Are you sure you want to delete "${court.name}"?`,
@@ -149,7 +168,12 @@ export default function SettingsScreen() {
     );
   };
 
-  const handleSaveCourt = () => {
+  const handleSaveCourt = async () => {
+    if (isOffline) {
+      await logOfflineAttempt({ screen: "SettingsScreen", action: editingCourt ? "update_court" : "create_court" });
+      showOfflineAlert();
+      return;
+    }
     if (!newCourtName.trim()) return;
     if (editingCourt) {
       updateCourtMutation.mutate({ id: editingCourt.id, name: newCourtName.trim(), color: newCourtColor });
