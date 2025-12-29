@@ -1,121 +1,129 @@
-import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 
 interface FinanceData {
-  revenue: {
+  currency: string;
+  collected: {
     thisWeek: number;
     thisMonth: number;
-    weekChange: number;
+    lastMonth: number;
     monthChange: number;
-    weekSessions: number;
-    monthSessions: number;
+    cashTotal: number;
+    bankTotal: number;
+    tooltip: string;
   };
-  summary: {
-    collected: number;
-    pending: number;
-    overdue: number;
+  pending: {
+    amount: number;
+    count: number;
+    tooltip: string;
   };
-  payments: Array<{
+  estimated: {
+    monthlyForecast: number;
+    activeSubscriptions: number;
+    breakdown: Array<{
+      planName: string;
+      count: number;
+      monthlyTotal: number;
+    }>;
+    tooltip: string;
+  };
+  recentPayments: Array<{
     id: string;
     playerName: string;
     package: string;
     amount: number;
-    status: "paid" | "pending" | "overdue";
-    dueDate?: string;
+    status: string;
+    paymentMethod?: string;
+    date?: string;
   }>;
-  subscriptions: {
-    total: number;
-    monthlyRevenue: number;
-    breakdown: Array<{
-      type: string;
-      count: number;
-    }>;
-  };
 }
 
-interface RevenueCardProps {
-  period: string;
-  amount: number;
-  change: number;
-  sessions: number;
+interface FinanceSectionCardProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  iconColor: string;
+  title: string;
+  tooltip?: string;
+  children: React.ReactNode;
 }
 
-function RevenueCard({ period, amount, change, sessions }: RevenueCardProps) {
-  const isPositive = change >= 0;
+function FinanceSectionCard({ icon, iconColor, title, tooltip, children }: FinanceSectionCardProps) {
+  const [showTooltip, setShowTooltip] = useState(false);
 
   return (
-    <View style={[styles.revenueCard, CardStyles.elevated]}>
-      <Text style={styles.revenuePeriod}>{period}</Text>
-      <Text style={styles.revenueAmount}>${amount.toLocaleString()}</Text>
-      <View style={styles.revenueDetails}>
-        <View style={styles.revenueChange}>
-          <Ionicons
-            name={isPositive ? "arrow-up" : "arrow-down"}
-            size={14}
-            color={isPositive ? Colors.dark.primary : Colors.dark.error}
-          />
-          <Text style={[styles.revenueChangeText, { color: isPositive ? Colors.dark.primary : Colors.dark.error }]}>
-            {isPositive ? "+" : ""}{change}%
-          </Text>
+    <View style={[styles.sectionCard, CardStyles.elevated]}>
+      <View style={styles.sectionCardHeader}>
+        <View style={styles.sectionCardTitleRow}>
+          <Ionicons name={icon} size={20} color={iconColor} />
+          <Text style={styles.sectionCardTitle}>{title}</Text>
         </View>
-        <Text style={styles.revenueSessions}>{sessions} sessions</Text>
+        {tooltip ? (
+          <Pressable onPress={() => setShowTooltip(true)} hitSlop={8}>
+            <Ionicons name="information-circle-outline" size={18} color={Colors.dark.textMuted} />
+          </Pressable>
+        ) : null}
       </View>
+      {children}
+
+      <Modal visible={showTooltip} animationType="fade" transparent>
+        <Pressable style={styles.tooltipOverlay} onPress={() => setShowTooltip(false)}>
+          <View style={styles.tooltipContent}>
+            <Text style={styles.tooltipText}>{tooltip}</Text>
+            <Pressable style={styles.tooltipClose} onPress={() => setShowTooltip(false)}>
+              <Text style={styles.tooltipCloseText}>Got it</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
 
 interface PaymentRowProps {
   playerName: string;
-  packageName: string;
   amount: number;
-  status: "paid" | "pending" | "overdue";
-  dueDate?: string;
+  status: string;
+  paymentMethod?: string;
+  date?: string;
+  currency: string;
 }
 
-function PaymentRow({ playerName, packageName, amount, status, dueDate }: PaymentRowProps) {
-  const statusConfig = {
-    paid: { color: Colors.dark.primary, label: "Paid", icon: "checkmark-circle" as const },
-    pending: { color: Colors.dark.orange, label: "Pending", icon: "time" as const },
-    overdue: { color: Colors.dark.error, label: "Overdue", icon: "alert-circle" as const },
-  };
-
-  const config = statusConfig[status];
+function PaymentRow({ playerName, amount, status, paymentMethod, date, currency }: PaymentRowProps) {
+  const isPaid = status === "paid";
+  const config = isPaid
+    ? { color: Colors.dark.primary, label: "Confirmed", icon: "checkmark-circle" as const }
+    : { color: Colors.dark.orange, label: "Pending", icon: "time" as const };
 
   return (
-    <Pressable style={styles.paymentRow}>
+    <View style={styles.paymentRow}>
       <View style={styles.paymentInfo}>
         <Text style={styles.paymentPlayerName}>{playerName}</Text>
-        <Text style={styles.paymentPackage}>{packageName}</Text>
+        <View style={styles.paymentMeta}>
+          {paymentMethod ? (
+            <View style={styles.paymentMethodBadge}>
+              <Ionicons 
+                name={paymentMethod === "cash" ? "cash-outline" : "card-outline"} 
+                size={10} 
+                color={Colors.dark.textMuted} 
+              />
+              <Text style={styles.paymentMethodText}>
+                {paymentMethod === "cash" ? "Cash" : "Bank"}
+              </Text>
+            </View>
+          ) : null}
+          {date ? <Text style={styles.paymentDate}>{new Date(date).toLocaleDateString()}</Text> : null}
+        </View>
       </View>
       <View style={styles.paymentRight}>
-        <Text style={styles.paymentAmount}>${amount}</Text>
+        <Text style={styles.paymentAmount}>{amount.toLocaleString()} {currency}</Text>
         <View style={[styles.statusBadge, { backgroundColor: `${config.color}20` }]}>
-          <Ionicons name={config.icon} size={12} color={config.color} />
+          <Ionicons name={config.icon} size={10} color={config.color} />
           <Text style={[styles.statusText, { color: config.color }]}>{config.label}</Text>
         </View>
-        {dueDate ? <Text style={styles.paymentDue}>Due: {dueDate}</Text> : null}
       </View>
-    </Pressable>
-  );
-}
-
-interface SummaryStatProps {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  value: string;
-  color: string;
-}
-
-function SummaryStat({ icon, label, value, color }: SummaryStatProps) {
-  return (
-    <View style={styles.summaryStat}>
-      <Ionicons name={icon} size={20} color={color} />
-      <Text style={styles.summaryValue}>{value}</Text>
-      <Text style={styles.summaryLabel}>{label}</Text>
     </View>
   );
 }
@@ -127,17 +135,24 @@ export default function FinanceScreen() {
     queryKey: ["/api/owner/finance"],
   });
 
-  const revenue = financeData?.revenue || {
+  const currency = financeData?.currency || "AED";
+  const collected = financeData?.collected || {
     thisWeek: 0,
     thisMonth: 0,
-    weekChange: 0,
+    lastMonth: 0,
     monthChange: 0,
-    weekSessions: 0,
-    monthSessions: 0,
+    cashTotal: 0,
+    bankTotal: 0,
+    tooltip: "",
   };
-  const summary = financeData?.summary || { collected: 0, pending: 0, overdue: 0 };
-  const payments = financeData?.payments || [];
-  const subscriptions = financeData?.subscriptions || { total: 0, monthlyRevenue: 0, breakdown: [] };
+  const pending = financeData?.pending || { amount: 0, count: 0, tooltip: "" };
+  const estimated = financeData?.estimated || {
+    monthlyForecast: 0,
+    activeSubscriptions: 0,
+    breakdown: [],
+    tooltip: "",
+  };
+  const recentPayments = financeData?.recentPayments || [];
 
   if (isLoading) {
     return (
@@ -160,6 +175,8 @@ export default function FinanceScreen() {
     );
   }
 
+  const isPositiveChange = collected.monthChange >= 0;
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView
@@ -169,73 +186,131 @@ export default function FinanceScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.title}>Finance</Text>
-          <Text style={styles.subtitle}>Revenue and payment tracking</Text>
+          <Text style={styles.subtitle}>Revenue tracking in 3 clear sections</Text>
         </View>
 
-        <View style={styles.revenueCards}>
-          <RevenueCard 
-            period="This Week" 
-            amount={revenue.thisWeek} 
-            change={revenue.weekChange} 
-            sessions={revenue.weekSessions} 
-          />
-          <RevenueCard 
-            period="This Month" 
-            amount={revenue.thisMonth} 
-            change={revenue.monthChange} 
-            sessions={revenue.monthSessions} 
-          />
-        </View>
+        <FinanceSectionCard
+          icon="checkmark-circle"
+          iconColor={Colors.dark.primary}
+          title="Collected Revenue"
+          tooltip={collected.tooltip}
+        >
+          <View style={styles.collectedMain}>
+            <Text style={styles.bigNumber}>{collected.thisMonth.toLocaleString()} {currency}</Text>
+            <Text style={styles.bigLabel}>This Month</Text>
+            {collected.monthChange !== 0 ? (
+              <View style={styles.changeRow}>
+                <Ionicons
+                  name={isPositiveChange ? "arrow-up" : "arrow-down"}
+                  size={14}
+                  color={isPositiveChange ? Colors.dark.primary : Colors.dark.error}
+                />
+                <Text style={[styles.changeText, { color: isPositiveChange ? Colors.dark.primary : Colors.dark.error }]}>
+                  {isPositiveChange ? "+" : ""}{collected.monthChange}% vs last month
+                </Text>
+              </View>
+            ) : null}
+          </View>
+          <View style={styles.collectedBreakdown}>
+            <View style={styles.breakdownColumn}>
+              <Ionicons name="calendar-outline" size={16} color={Colors.dark.textMuted} />
+              <Text style={styles.breakdownValue}>{collected.thisWeek.toLocaleString()} {currency}</Text>
+              <Text style={styles.breakdownLabel}>This Week</Text>
+            </View>
+            <View style={styles.breakdownDivider} />
+            <View style={styles.breakdownColumn}>
+              <Ionicons name="cash-outline" size={16} color={Colors.dark.textMuted} />
+              <Text style={styles.breakdownValue}>{collected.cashTotal.toLocaleString()} {currency}</Text>
+              <Text style={styles.breakdownLabel}>Cash</Text>
+            </View>
+            <View style={styles.breakdownDivider} />
+            <View style={styles.breakdownColumn}>
+              <Ionicons name="card-outline" size={16} color={Colors.dark.textMuted} />
+              <Text style={styles.breakdownValue}>{collected.bankTotal.toLocaleString()} {currency}</Text>
+              <Text style={styles.breakdownLabel}>Bank</Text>
+            </View>
+          </View>
+        </FinanceSectionCard>
 
-        <View style={[styles.summaryCard, CardStyles.elevated]}>
-          <SummaryStat icon="checkmark-circle" label="Collected" value={`$${summary.collected.toLocaleString()}`} color={Colors.dark.primary} />
-          <View style={styles.summaryDivider} />
-          <SummaryStat icon="time" label="Pending" value={`$${summary.pending.toLocaleString()}`} color={Colors.dark.orange} />
-          <View style={styles.summaryDivider} />
-          <SummaryStat icon="alert-circle" label="Overdue" value={`$${summary.overdue.toLocaleString()}`} color={Colors.dark.error} />
-        </View>
+        <FinanceSectionCard
+          icon="time"
+          iconColor={Colors.dark.orange}
+          title="Pending"
+          tooltip={pending.tooltip}
+        >
+          <View style={styles.pendingContent}>
+            <View style={styles.pendingMain}>
+              <Text style={[styles.bigNumber, { color: Colors.dark.orange }]}>
+                {pending.amount.toLocaleString()} {currency}
+              </Text>
+              <Text style={styles.bigLabel}>Awaiting Confirmation</Text>
+            </View>
+            <View style={styles.pendingCount}>
+              <Text style={styles.pendingCountValue}>{pending.count}</Text>
+              <Text style={styles.pendingCountLabel}>payments</Text>
+            </View>
+          </View>
+        </FinanceSectionCard>
+
+        <FinanceSectionCard
+          icon="trending-up"
+          iconColor={Colors.dark.xpCyan}
+          title="Estimated Monthly Revenue"
+          tooltip={estimated.tooltip}
+        >
+          <View style={styles.estimatedMain}>
+            <Text style={[styles.bigNumber, { color: Colors.dark.xpCyan }]}>
+              {estimated.monthlyForecast.toLocaleString()} {currency}
+            </Text>
+            <Text style={styles.bigLabel}>Based on {estimated.activeSubscriptions} active subscriptions</Text>
+          </View>
+          {estimated.breakdown.length > 0 ? (
+            <View style={styles.estimatedBreakdown}>
+              <Text style={styles.estimatedBreakdownTitle}>Subscription Breakdown</Text>
+              {estimated.breakdown.map((item, index) => (
+                <View key={index} style={styles.estimatedBreakdownRow}>
+                  <View style={styles.estimatedBreakdownInfo}>
+                    <Text style={styles.estimatedBreakdownPlan}>{item.planName}</Text>
+                    <Text style={styles.estimatedBreakdownCount}>{item.count} players</Text>
+                  </View>
+                  <Text style={styles.estimatedBreakdownAmount}>
+                    {item.monthlyTotal.toLocaleString()} {currency}/mo
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptySubscriptions}>
+              <Ionicons name="receipt-outline" size={24} color={Colors.dark.textMuted} />
+              <Text style={styles.emptySubscriptionsText}>No active subscriptions yet</Text>
+            </View>
+          )}
+        </FinanceSectionCard>
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Payments</Text>
-            <Pressable style={styles.viewAllButton}>
-              <Text style={styles.viewAllText}>View All</Text>
-              <Ionicons name="chevron-forward" size={16} color={Colors.dark.gold} />
-            </Pressable>
           </View>
-          <View style={[styles.paymentsContainer, CardStyles.elevated]}>
-            {payments.map((payment) => (
-              <PaymentRow 
-                key={payment.id} 
-                playerName={payment.playerName}
-                packageName={payment.package}
-                amount={payment.amount}
-                status={payment.status}
-                dueDate={payment.dueDate}
-              />
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Active Subscriptions</Text>
-          <View style={[styles.subscriptionCard, CardStyles.elevated]}>
-            <View style={styles.subscriptionHeader}>
-              <Ionicons name="repeat" size={24} color={Colors.dark.gold} />
-              <View style={styles.subscriptionInfo}>
-                <Text style={styles.subscriptionCount}>{subscriptions.total} Active</Text>
-                <Text style={styles.subscriptionRevenue}>${subscriptions.monthlyRevenue.toLocaleString()}/month recurring</Text>
-              </View>
-            </View>
-            <View style={styles.subscriptionBreakdown}>
-              {subscriptions.breakdown.map((item, index) => (
-                <View key={index} style={styles.breakdownItem}>
-                  <Text style={styles.breakdownLabel}>{item.type}</Text>
-                  <Text style={styles.breakdownValue}>{item.count} players</Text>
-                </View>
+          {recentPayments.length > 0 ? (
+            <View style={[styles.paymentsContainer, CardStyles.elevated]}>
+              {recentPayments.map((payment) => (
+                <PaymentRow
+                  key={payment.id}
+                  playerName={payment.playerName}
+                  amount={payment.amount}
+                  status={payment.status}
+                  paymentMethod={payment.paymentMethod}
+                  date={payment.date}
+                  currency={currency}
+                />
               ))}
             </View>
-          </View>
+          ) : (
+            <View style={[styles.emptyPayments, CardStyles.elevated]}>
+              <Ionicons name="cash-outline" size={32} color={Colors.dark.textMuted} />
+              <Text style={styles.emptyPaymentsText}>No payments recorded yet</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -291,71 +366,147 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.textMuted,
   },
-  revenueCards: {
-    flexDirection: "row",
-    gap: Spacing.md,
-    marginBottom: Spacing.lg,
-  },
-  revenueCard: {
-    flex: 1,
-    padding: Spacing.lg,
+  sectionCard: {
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
   },
-  revenuePeriod: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
-    marginBottom: Spacing.xs,
-  },
-  revenueAmount: {
-    ...Typography.h1,
-    color: Colors.dark.gold,
-    marginBottom: Spacing.sm,
-  },
-  revenueDetails: {
+  sectionCardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: Spacing.md,
   },
-  revenueChange: {
+  sectionCardTitleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: Spacing.sm,
   },
-  revenueChangeText: {
-    ...Typography.small,
-    fontWeight: "600",
-  },
-  revenueSessions: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
-  },
-  summaryCard: {
-    flexDirection: "row",
-    padding: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
-    marginBottom: Spacing.xl,
-  },
-  summaryStat: {
-    flex: 1,
-    alignItems: "center",
-    gap: Spacing.xs,
-  },
-  summaryDivider: {
-    width: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
-  },
-  summaryValue: {
+  sectionCardTitle: {
     ...Typography.h3,
     color: Colors.dark.text,
   },
-  summaryLabel: {
+  collectedMain: {
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  bigNumber: {
+    fontSize: 32,
+    fontWeight: "700",
+    color: Colors.dark.gold,
+  },
+  bigLabel: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: 4,
+  },
+  changeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: Spacing.xs,
+  },
+  changeText: {
+    ...Typography.small,
+    fontWeight: "500",
+  },
+  collectedBreakdown: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.backgroundRoot,
+  },
+  breakdownColumn: {
+    flex: 1,
+    alignItems: "center",
+  },
+  breakdownDivider: {
+    width: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  breakdownValue: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    marginTop: Spacing.xs,
+  },
+  breakdownLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  pendingContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  pendingMain: {
+    flex: 1,
+  },
+  pendingCount: {
+    alignItems: "center",
+    backgroundColor: `${Colors.dark.orange}20`,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  pendingCountValue: {
+    ...Typography.h2,
+    color: Colors.dark.orange,
+  },
+  pendingCountLabel: {
     ...Typography.small,
     color: Colors.dark.textMuted,
   },
+  estimatedMain: {
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  estimatedBreakdown: {
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.backgroundRoot,
+  },
+  estimatedBreakdownTitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+  },
+  estimatedBreakdownRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: Spacing.xs,
+  },
+  estimatedBreakdownInfo: {
+    flex: 1,
+  },
+  estimatedBreakdownPlan: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  estimatedBreakdownCount: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  estimatedBreakdownAmount: {
+    ...Typography.body,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+  },
+  emptySubscriptions: {
+    alignItems: "center",
+    paddingVertical: Spacing.md,
+  },
+  emptySubscriptionsText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
+  },
   section: {
-    marginBottom: Spacing.xl,
+    marginTop: Spacing.md,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -367,16 +518,6 @@ const styles = StyleSheet.create({
     ...Typography.h3,
     color: Colors.dark.text,
   },
-  viewAllButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  viewAllText: {
-    ...Typography.small,
-    color: Colors.dark.gold,
-    fontWeight: "500",
-  },
   paymentsContainer: {
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
@@ -384,6 +525,7 @@ const styles = StyleSheet.create({
   },
   paymentRow: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
     padding: Spacing.md,
     borderBottomWidth: 1,
@@ -395,72 +537,92 @@ const styles = StyleSheet.create({
   paymentPlayerName: {
     ...Typography.body,
     color: Colors.dark.text,
+    fontWeight: "500",
   },
-  paymentPackage: {
+  paymentMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: 2,
+  },
+  paymentMethodBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.backgroundRoot,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+  },
+  paymentMethodText: {
     ...Typography.small,
     color: Colors.dark.textMuted,
+    fontSize: 10,
+  },
+  paymentDate: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontSize: 10,
   },
   paymentRight: {
     alignItems: "flex-end",
-    gap: 4,
   },
   paymentAmount: {
-    ...Typography.h3,
-    color: Colors.dark.text,
+    ...Typography.body,
+    color: Colors.dark.gold,
+    fontWeight: "600",
   },
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-    borderRadius: BorderRadius.full,
     gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    marginTop: 4,
   },
   statusText: {
     ...Typography.small,
-    fontSize: 10,
-    fontWeight: "600",
-  },
-  paymentDue: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
+    fontWeight: "500",
     fontSize: 10,
   },
-  subscriptionCard: {
-    padding: Spacing.lg,
+  emptyPayments: {
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
-  },
-  subscriptionHeader: {
-    flexDirection: "row",
+    padding: Spacing.xl,
     alignItems: "center",
-    gap: Spacing.md,
-    marginBottom: Spacing.lg,
   },
-  subscriptionInfo: {
-    flex: 1,
-  },
-  subscriptionCount: {
-    ...Typography.h3,
-    color: Colors.dark.text,
-  },
-  subscriptionRevenue: {
-    ...Typography.small,
-    color: Colors.dark.gold,
-  },
-  subscriptionBreakdown: {
-    gap: Spacing.sm,
-  },
-  breakdownItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  breakdownLabel: {
+  emptyPaymentsText: {
     ...Typography.body,
     color: Colors.dark.textMuted,
+    marginTop: Spacing.sm,
   },
-  breakdownValue: {
+  tooltipOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  tooltipContent: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    maxWidth: 300,
+  },
+  tooltipText: {
     ...Typography.body,
     color: Colors.dark.text,
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  tooltipClose: {
+    marginTop: Spacing.md,
+    alignItems: "center",
+  },
+  tooltipCloseText: {
+    ...Typography.body,
+    color: Colors.dark.gold,
+    fontWeight: "600",
   },
 });

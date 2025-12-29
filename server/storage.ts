@@ -69,6 +69,7 @@ import {
   invoices,
   payments,
   refunds,
+  playerSubscriptions,
   // Academy types
   type Academy,
   type InsertAcademy,
@@ -165,6 +166,8 @@ import {
   type InsertPayment,
   type Refund,
   type InsertRefund,
+  type PlayerSubscription,
+  type InsertPlayerSubscription,
   // Coach Payouts
   coachPayouts,
   type CoachPayout,
@@ -3148,6 +3151,52 @@ export const storage = {
 
   async deletePayment(id: string): Promise<boolean> {
     const result = await db.delete(payments).where(eq(payments.id, id)).returning();
+    return result.length > 0;
+  },
+
+  // Player Subscriptions (contracts - what players SHOULD pay)
+  async createPlayerSubscription(data: InsertPlayerSubscription): Promise<PlayerSubscription> {
+    const result = await db.insert(playerSubscriptions).values(data).returning();
+    return result[0];
+  },
+
+  async getPlayerSubscriptions(academyId: string): Promise<PlayerSubscription[]> {
+    return db.select().from(playerSubscriptions)
+      .where(eq(playerSubscriptions.academyId, academyId))
+      .orderBy(desc(playerSubscriptions.createdAt));
+  },
+
+  async getPlayerSubscriptionById(id: string): Promise<PlayerSubscription | undefined> {
+    const result = await db.select().from(playerSubscriptions)
+      .where(eq(playerSubscriptions.id, id));
+    return result[0];
+  },
+
+  async getPlayerSubscriptionsByPlayer(playerId: string): Promise<PlayerSubscription[]> {
+    return db.select().from(playerSubscriptions)
+      .where(eq(playerSubscriptions.playerId, playerId))
+      .orderBy(desc(playerSubscriptions.createdAt));
+  },
+
+  async getActivePlayerSubscriptions(academyId: string): Promise<PlayerSubscription[]> {
+    return db.select().from(playerSubscriptions)
+      .where(and(
+        eq(playerSubscriptions.academyId, academyId),
+        eq(playerSubscriptions.status, "active")
+      ))
+      .orderBy(desc(playerSubscriptions.createdAt));
+  },
+
+  async updatePlayerSubscription(id: string, data: Partial<InsertPlayerSubscription>): Promise<PlayerSubscription | undefined> {
+    const result = await db.update(playerSubscriptions)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(playerSubscriptions.id, id))
+      .returning();
+    return result[0];
+  },
+
+  async deletePlayerSubscription(id: string): Promise<boolean> {
+    const result = await db.delete(playerSubscriptions).where(eq(playerSubscriptions.id, id)).returning();
     return result.length > 0;
   },
 

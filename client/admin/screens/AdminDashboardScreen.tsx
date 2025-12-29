@@ -446,6 +446,23 @@ export default function AdminDashboardScreen() {
             style={[styles.menuCard, CardStyles.elevated]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("AdminSubscriptions");
+            }}
+          >
+            <View style={styles.menuCardContent}>
+              <Ionicons name="receipt-outline" size={24} color={Colors.dark.xpCyan} />
+              <View style={styles.menuCardText}>
+                <Text style={styles.menuCardTitle}>Subscriptions</Text>
+                <Text style={styles.menuCardSubtitle}>Player billing contracts</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+            </View>
+          </Pressable>
+
+          <Pressable 
+            style={[styles.menuCard, CardStyles.elevated]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               navigation.navigate("AdminLocations");
             }}
           >

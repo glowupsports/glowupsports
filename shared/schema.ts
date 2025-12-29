@@ -1365,6 +1365,37 @@ export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true,
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type Payment = typeof payments.$inferSelect;
 
+// Player Subscriptions - What players SHOULD pay (contracts, not auto-payments)
+// These are administrative records representing billing agreements, not Stripe subscriptions
+export const playerSubscriptions = pgTable("player_subscriptions", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  
+  planName: text("plan_name").notNull(), // e.g., "Weekly Training", "Monthly Unlimited"
+  price: numeric("price").notNull(),
+  currency: text("currency").default("AED"),
+  
+  billingPeriod: text("billing_period").default("monthly"), // weekly | monthly
+  sessionsPerPeriod: integer("sessions_per_period"), // Optional - number of sessions included
+  
+  status: text("status").default("active"), // active | paused | cancelled
+  
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"), // Nullable - ongoing if null
+  
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPlayerSubscriptionSchema = createInsertSchema(playerSubscriptions).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertPlayerSubscription = z.infer<typeof insertPlayerSubscriptionSchema>;
+export type PlayerSubscription = typeof playerSubscriptions.$inferSelect;
+
 // Refunds - Refund records
 export const refunds = pgTable("refunds", {
   id: varchar("id")

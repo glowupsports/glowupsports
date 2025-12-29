@@ -7405,44 +7405,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Academy Owner - Get finance data
+  // Academy Owner - Get finance data with 3 clear sections: Collected, Pending, Estimated
   app.get("/api/owner/finance", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user?.academyId;
-      
-      let payments: any[] = [];
-      // Payments endpoint - currently no data until payments feature is implemented
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
 
-      const collected = payments.filter(p => p.status === "paid").reduce((sum, p) => sum + (p.amount || 0), 0);
-      const pending = payments.filter(p => p.status === "pending").reduce((sum, p) => sum + (p.amount || 0), 0);
-      const overdue = payments.filter(p => p.status === "overdue").reduce((sum, p) => sum + (p.amount || 0), 0);
+      // Get real payment data
+      const allPayments = await storage.getPayments(academyId);
+      const now = new Date();
+      const thisWeekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+      const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
+      // Filter by payment date
+      const thisWeekPayments = allPayments.filter(p => 
+        p.status === "confirmed" && p.paymentDate && new Date(p.paymentDate) >= thisWeekStart
+      );
+      const thisMonthPayments = allPayments.filter(p => 
+        p.status === "confirmed" && p.paymentDate && new Date(p.paymentDate) >= thisMonthStart
+      );
+      const lastMonthPayments = allPayments.filter(p => 
+        p.status === "confirmed" && p.paymentDate && 
+        new Date(p.paymentDate) >= lastMonthStart && new Date(p.paymentDate) <= lastMonthEnd
+      );
+
+      // Calculate collected revenue (confirmed payments only)
+      const collectedThisWeek = thisWeekPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      const collectedThisMonth = thisMonthPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      const collectedLastMonth = lastMonthPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+      // Pending revenue (pending manual payments)
+      const pendingPayments = allPayments.filter(p => p.status === "pending");
+      const pendingAmount = pendingPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+      // Get active player subscriptions for estimated revenue
+      const activeSubscriptions = await storage.getActivePlayerSubscriptions(academyId);
+      
+      // Calculate estimated monthly revenue from subscriptions
+      let estimatedMonthlyRevenue = 0;
+      const subscriptionBreakdown: Record<string, { count: number; total: number }> = {};
+
+      for (const sub of activeSubscriptions) {
+        const price = Number(sub.price || 0);
+        const monthlyEquivalent = sub.billingPeriod === "weekly" ? price * 4 : price;
+        estimatedMonthlyRevenue += monthlyEquivalent;
+
+        if (!subscriptionBreakdown[sub.planName]) {
+          subscriptionBreakdown[sub.planName] = { count: 0, total: 0 };
+        }
+        subscriptionBreakdown[sub.planName].count++;
+        subscriptionBreakdown[sub.planName].total += monthlyEquivalent;
+      }
+
+      // Cash vs Bank breakdown for this month
+      const cashTotal = thisMonthPayments
+        .filter(p => p.paymentMethod === "cash")
+        .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      const bankTotal = thisMonthPayments
+        .filter(p => p.paymentMethod === "bank_transfer")
+        .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+      // Month-over-month change
+      const monthChange = collectedLastMonth > 0 
+        ? Math.round(((collectedThisMonth - collectedLastMonth) / collectedLastMonth) * 100)
+        : 0;
+
+      // Get recent payments with player names
+      const recentPayments = allPayments.slice(0, 10);
+      const paymentsWithPlayers = await Promise.all(
+        recentPayments.map(async (payment) => {
+          const player = payment.playerId ? await storage.getPlayerById(payment.playerId) : null;
+          return {
+            id: payment.id,
+            playerName: payment.payerName || player?.name || "Unknown",
+            package: "Manual Payment",
+            amount: Number(payment.amount || 0),
+            status: payment.status === "confirmed" ? "paid" : payment.status || "pending",
+            paymentMethod: payment.paymentMethod,
+            date: payment.paymentDate,
+          };
+        })
+      );
+
+      // Get academy settings for currency
+      const settings = await storage.getAcademySettings(academyId);
+      const currency = settings?.currency || "AED";
 
       res.json({
+        currency,
+        // Section 1: Collected Revenue (confirmed payments only)
+        collected: {
+          thisWeek: collectedThisWeek,
+          thisMonth: collectedThisMonth,
+          lastMonth: collectedLastMonth,
+          monthChange,
+          cashTotal,
+          bankTotal,
+          tooltip: "Confirmed payments only. This is money you have actually received.",
+        },
+        // Section 2: Pending Revenue (expected but not confirmed)
+        pending: {
+          amount: pendingAmount,
+          count: pendingPayments.length,
+          tooltip: "Pending payments awaiting confirmation. These have been recorded but not yet verified.",
+        },
+        // Section 3: Estimated Revenue (forecast from subscriptions)
+        estimated: {
+          monthlyForecast: estimatedMonthlyRevenue,
+          activeSubscriptions: activeSubscriptions.length,
+          breakdown: Object.entries(subscriptionBreakdown).map(([planName, data]) => ({
+            planName,
+            count: data.count,
+            monthlyTotal: data.total,
+          })),
+          tooltip: "Estimated revenue based on active player subscriptions. This is a forecast, not actual collected money.",
+        },
+        // Recent payment activity
+        recentPayments: paymentsWithPlayers,
+        // Legacy format for backward compatibility
         revenue: {
-          thisWeek: 0,
-          thisMonth: 0,
+          thisWeek: collectedThisWeek,
+          thisMonth: collectedThisMonth,
           weekChange: 0,
-          monthChange: 0,
+          monthChange,
           weekSessions: 0,
           monthSessions: 0,
         },
         summary: {
-          collected,
-          pending,
-          overdue,
+          collected: collectedThisMonth,
+          pending: pendingAmount,
+          overdue: 0, // We don't track overdue status in manual payments
         },
-        payments: payments.map(p => ({
-          id: p.id,
-          playerName: p.playerName || "Unknown",
-          package: p.packageName || "Session",
-          amount: p.amount || 0,
-          status: p.status || "pending",
-          dueDate: p.dueDate,
-        })),
+        payments: paymentsWithPlayers,
         subscriptions: {
-          total: 0,
-          monthlyRevenue: 0,
-          breakdown: [],
+          total: activeSubscriptions.length,
+          monthlyRevenue: estimatedMonthlyRevenue,
+          breakdown: Object.entries(subscriptionBreakdown).map(([type, data]) => ({
+            type,
+            count: data.count,
+          })),
         },
       });
     } catch (error) {
@@ -8057,6 +8162,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Delete location error:", error);
       res.status(500).json({ error: "Failed to delete location" });
+    }
+  });
+
+  // ==================== ADMIN PLAYER SUBSCRIPTIONS (CONTRACTS) ====================
+
+  app.get("/api/admin/player-subscriptions", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const subscriptions = await storage.getPlayerSubscriptions(academyId);
+      
+      const subscriptionsWithPlayers = await Promise.all(subscriptions.map(async (sub) => {
+        const player = await storage.getPlayerById(sub.playerId);
+        return {
+          ...sub,
+          playerName: player?.name || "Unknown Player",
+        };
+      }));
+
+      res.json(subscriptionsWithPlayers);
+    } catch (error) {
+      console.error("Admin get player subscriptions error:", error);
+      res.status(500).json({ error: "Failed to fetch player subscriptions" });
+    }
+  });
+
+  app.post("/api/admin/player-subscriptions", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      const userId = req.user?.coachId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const { playerId, planName, price, currency, billingPeriod, sessionsPerPeriod, startDate, notes } = req.body;
+
+      if (!playerId || !planName || !price || !startDate) {
+        return res.status(400).json({ error: "playerId, planName, price, and startDate are required" });
+      }
+
+      const subscription = await storage.createPlayerSubscription({
+        academyId,
+        playerId,
+        planName,
+        price: price.toString(),
+        currency: currency || "AED",
+        billingPeriod: billingPeriod || "monthly",
+        sessionsPerPeriod,
+        startDate,
+        notes,
+        status: "active",
+      });
+
+      await storage.createAuditLog({
+        academyId,
+        entityType: "player_subscription",
+        entityId: subscription.id,
+        action: "create",
+        performedBy: userId || null,
+        performedByRole: req.user?.role || null,
+        afterState: subscription as any,
+      });
+
+      res.json(subscription);
+    } catch (error) {
+      console.error("Admin create player subscription error:", error);
+      res.status(500).json({ error: "Failed to create player subscription" });
+    }
+  });
+
+  app.put("/api/admin/player-subscriptions/:id", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+      const userId = req.user?.coachId;
+
+      const existingSubscription = await storage.getPlayerSubscriptionById(id);
+      if (!existingSubscription || existingSubscription.academyId !== academyId) {
+        return res.status(404).json({ error: "Subscription not found" });
+      }
+
+      const { planName, price, currency, billingPeriod, sessionsPerPeriod, status, startDate, endDate, notes } = req.body;
+
+      const updated = await storage.updatePlayerSubscription(id, {
+        planName,
+        price: price?.toString(),
+        currency,
+        billingPeriod,
+        sessionsPerPeriod,
+        status,
+        startDate,
+        endDate,
+        notes,
+      });
+
+      await storage.createAuditLog({
+        academyId,
+        entityType: "player_subscription",
+        entityId: id,
+        action: "update",
+        performedBy: userId || null,
+        performedByRole: req.user?.role || null,
+        beforeState: existingSubscription as any,
+        afterState: updated as any,
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Admin update player subscription error:", error);
+      res.status(500).json({ error: "Failed to update player subscription" });
+    }
+  });
+
+  app.delete("/api/admin/player-subscriptions/:id", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+      const userId = req.user?.coachId;
+
+      const existingSubscription = await storage.getPlayerSubscriptionById(id);
+      if (!existingSubscription || existingSubscription.academyId !== academyId) {
+        return res.status(404).json({ error: "Subscription not found" });
+      }
+
+      await storage.deletePlayerSubscription(id);
+
+      await storage.createAuditLog({
+        academyId,
+        entityType: "player_subscription",
+        entityId: id,
+        action: "delete",
+        performedBy: userId || null,
+        performedByRole: req.user?.role || null,
+        beforeState: existingSubscription as any,
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Admin delete player subscription error:", error);
+      res.status(500).json({ error: "Failed to delete player subscription" });
     }
   });
 

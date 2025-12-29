@@ -13,6 +13,7 @@ import AdminSettingsScreen from "@/admin/screens/AdminSettingsScreen";
 import AdminPaymentsScreen from "@/admin/screens/AdminPaymentsScreen";
 import AdminCourtsScreen from "@/admin/screens/AdminCourtsScreen";
 import AdminLocationsScreen from "@/admin/screens/AdminLocationsScreen";
+import AdminSubscriptionsScreen from "@/admin/screens/AdminSubscriptionsScreen";
 import { Colors } from "@/constants/theme";
 
 export type AdminTabParamList = {
@@ -33,6 +34,7 @@ export type AdminStackParamList = {
   AdminPayments: undefined;
   AdminCourts: undefined;
   AdminLocations: undefined;
+  AdminSubscriptions: undefined;
 };
 
 const Tab = createBottomTabNavigator<AdminTabParamList>();
@@ -133,6 +135,7 @@ export default function AdminNavigator() {
       <Stack.Screen name="AdminPayments" component={AdminPaymentsScreen} />
       <Stack.Screen name="AdminCourts" component={AdminCourtsScreen} />
       <Stack.Screen name="AdminLocations" component={AdminLocationsScreen} />
+      <Stack.Screen name="AdminSubscriptions" component={AdminSubscriptionsScreen} />
     </Stack.Navigator>
   );
 }
