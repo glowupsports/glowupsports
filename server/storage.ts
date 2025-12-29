@@ -3097,27 +3097,52 @@ export const storage = {
     sessionType: string | null;
     status: string | null;
     courtId: string | null;
-    attended: string | null;
+    attendanceStatus: string | null;
   }[]> {
-    const result = await db
-      .select({
-        id: sessions.id,
-        startTime: sessions.startTime,
-        endTime: sessions.endTime,
-        sessionType: sessions.sessionType,
-        status: sessions.status,
-        courtId: sessions.courtId,
-        attended: sessionPlayers.attendanceStatus,
-      })
-      .from(sessionPlayers)
-      .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
-      .where(and(
-        eq(sessionPlayers.playerId, playerId),
-        gte(sessions.startTime, startDate),
-        lte(sessions.endTime, endDate)
-      ))
-      .orderBy(sessions.startTime);
-    return result;
+    try {
+      const sessionPlayerRecords = await db
+        .select()
+        .from(sessionPlayers)
+        .where(eq(sessionPlayers.playerId, playerId));
+      
+      if (sessionPlayerRecords.length === 0) {
+        return [];
+      }
+      
+      const sessionIds = sessionPlayerRecords
+        .map(sp => sp.sessionId)
+        .filter((id): id is string => id !== null);
+      
+      if (sessionIds.length === 0) {
+        return [];
+      }
+      
+      const sessionRecords = await db
+        .select()
+        .from(sessions)
+        .where(and(
+          inArray(sessions.id, sessionIds),
+          gte(sessions.startTime, startDate),
+          lte(sessions.endTime, endDate)
+        ))
+        .orderBy(sessions.startTime);
+      
+      return sessionRecords.map(s => {
+        const playerRecord = sessionPlayerRecords.find(sp => sp.sessionId === s.id);
+        return {
+          id: s.id,
+          startTime: s.startTime,
+          endTime: s.endTime,
+          sessionType: s.sessionType,
+          status: s.status,
+          courtId: s.courtId,
+          attendanceStatus: playerRecord?.attendanceStatus || null,
+        };
+      });
+    } catch (error) {
+      console.error("Error in getPlayerSessionsWithDetails:", error);
+      return [];
+    }
   },
 
   async getPlayerFeedbackNotes(playerId: string, limit: number = 10): Promise<{
@@ -3142,12 +3167,16 @@ export const storage = {
     return result;
   },
 
-  async getPlayerXpTotal(playerId: string): Promise<{ totalXp: number; level: number }> {
+  async getPlayerXpTotal(playerId: string): Promise<{ totalXp: number; level: number; xpToNextLevel: number }> {
     const player = await db.select().from(players).where(eq(players.id, playerId));
-    if (!player[0]) return { totalXp: 0, level: 1 };
+    if (!player[0]) return { totalXp: 0, level: 1, xpToNextLevel: 500 };
+    const level = player[0].level || 1;
+    const xpThresholds = [0, 500, 1200, 2500, 4500, 7500];
+    const nextLevelXp = xpThresholds[Math.min(level, xpThresholds.length - 1)] || 500;
     return {
       totalXp: player[0].totalXp || 0,
-      level: player[0].level || 1,
+      level,
+      xpToNextLevel: nextLevelXp,
     };
   },
 
