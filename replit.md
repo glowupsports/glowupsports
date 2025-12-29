@@ -91,33 +91,37 @@ The application features a dark-themed gaming aesthetic with neon green (#2ECC40
 - **Web**: Single-page application via Expo web build
 
 ## Recent Changes
-**December 29, 2025 (Latest Session - Continued):**
-- **Player Subscriptions System (NEW):**
-  - Created `playerSubscriptions` table schema for billing contracts (what players SHOULD pay)
-  - Fields: planName, price, currency, billingPeriod (weekly/monthly), sessionsPerPeriod, status (active/paused/cancelled)
-  - Storage functions: CRUD operations + filtering by status/player + getActivePlayerSubscriptions
-  - API endpoints: `/api/admin/player-subscriptions` (GET, POST, PUT, DELETE)
-  - Created AdminSubscriptionsScreen.tsx with full CRUD, pause/resume functionality, monthly revenue forecasting
-  - Added menu card to AdminDashboardScreen for Subscriptions navigation
-- **Owner Finance 3-Section Layout (REFACTORED):**
-  - Section 1 (Collected): Confirmed payments only, cash/bank breakdown, month-over-month change
-  - Section 2 (Pending): Payments awaiting confirmation with count
-  - Section 3 (Estimated): Subscription-based forecast with plan breakdown
-  - All sections include info-icon tooltips for clarity
-  - PaymentRow component handles all statuses: paid, confirmed, pending, overdue, rejected
-  - `/api/owner/finance` returns comprehensive data with tooltips
+**December 29, 2025 (Latest Session - Platform Config & Maintenance Mode):**
+- **Platform Configuration System (NEW):**
+  - Created `platform_config` table for centralized key-value config storage
+  - API endpoints: GET/PUT/DELETE `/api/platform/config/:key` with audit logging
+  - XP engine config now reads from database (baseValues, multipliers, dailyCap, weeklyCap)
+  - All configuration changes logged to audit_logs with before/after state snapshots
+- **Maintenance Mode / Kill Switch (NEW):**
+  - POST `/api/platform/maintenance` toggles platform-wide maintenance mode
+  - GET `/api/maintenance/status` public endpoint for status check
+  - Enforcement integrated into `authMiddlewareWithFreshData` (server/auth.ts)
+  - Platform owners bypass maintenance check - all other users get 503
+  - Public endpoints (login, health, status) remain accessible during maintenance
+  - SystemScreen.tsx updated with live toggle Switch component
+- **Platform Financials (REFACTORED):**
+  - Clear "ESTIMATED" disclaimer on all MRR calculations
+  - Labeled fields with tooltips explaining methodology (no Stripe integration)
+  - Aggregates across all active academies (estimated MRR + pending payments)
+  - Subscription breakdown by plan included
 - **Previous (Earlier in Session):**
+  - Player Subscriptions System with full CRUD
+  - Owner Finance 3-Section Layout
   - Courts & Locations Management with full CRUD
   - Manual Payments System with status filters
-  - Player Dashboard Cleanup
   - Push Notifications Foundation
 
 ## Platform Status
-- **Overall:** 87% MVP-ready (up from 85%)
-- **Core Working:** Username auth, RBAC, sessions, XP engine, chat (WebSocket), manual payments with filters, player subscriptions, courts/locations management, push notifications, audit logging
+- **Overall:** 92% MVP-ready (up from 87%)
+- **Core Working:** Username auth, RBAC, sessions, XP engine, chat (WebSocket), manual payments with filters, player subscriptions, courts/locations management, push notifications, audit logging, platform config, maintenance mode enforcement
 - **MVP BLOCKERS:**
   - Push notification triggers (session reminders, feedback alerts, badge notifications)
   - Apple Sign-In (App Store requirement)
   - Email notifications (not implemented)
-- **Code Quality:** routes.ts (8200+ lines) and storage.ts (3600+ lines) need splitting
-- **Estimated to Full MVP:** 2-3 weeks focused development
+- **Code Quality:** routes.ts (8600+ lines) and storage.ts (3780+ lines) need splitting
+- **Estimated to Full MVP:** 1-2 weeks focused development
