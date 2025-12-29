@@ -67,11 +67,65 @@ export default function AdminScheduleScreen() {
     }).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
   }, [sessions, selectedDate]);
 
+  const weekDays = useMemo(() => {
+    const days: { date: Date; sessions: Session[] }[] = [];
+    const startOfWeek = new Date(selectedDate);
+    const dayOfWeek = startOfWeek.getDay();
+    const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    startOfWeek.setDate(startOfWeek.getDate() + diff);
+    
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(startOfWeek);
+      day.setDate(startOfWeek.getDate() + i);
+      const dayString = day.toDateString();
+      
+      const daySessions = sessions.filter((s) => {
+        const sessionDate = new Date(s.startTime).toDateString();
+        return sessionDate === dayString;
+      }).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+      
+      days.push({ date: day, sessions: daySessions });
+    }
+    return days;
+  }, [sessions, selectedDate]);
+
+  const totalWeekSessions = useMemo(() => {
+    return weekDays.reduce((sum, day) => sum + day.sessions.length, 0);
+  }, [weekDays]);
+
   const navigateDate = (direction: number) => {
     const newDate = new Date(selectedDate);
-    newDate.setDate(newDate.getDate() + direction);
+    const increment = viewMode === "week" ? 7 : 1;
+    newDate.setDate(newDate.getDate() + (direction * increment));
     setSelectedDate(newDate);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const formatWeekRange = () => {
+    const startOfWeek = new Date(selectedDate);
+    const dayOfWeek = startOfWeek.getDay();
+    const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    startOfWeek.setDate(startOfWeek.getDate() + diff);
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    
+    const startMonth = startOfWeek.toLocaleDateString("en-US", { month: "short" });
+    const endMonth = endOfWeek.toLocaleDateString("en-US", { month: "short" });
+    const startDay = startOfWeek.getDate();
+    const endDay = endOfWeek.getDate();
+    
+    if (startMonth === endMonth) {
+      return `${startMonth} ${startDay} - ${endDay}`;
+    }
+    return `${startMonth} ${startDay} - ${endMonth} ${endDay}`;
+  };
+
+  const formatDayShort = (date: Date) => {
+    return date.toLocaleDateString("en-US", { weekday: "short" });
+  };
+
+  const isToday = (date: Date) => {
+    return date.toDateString() === new Date().toDateString();
   };
 
   const getBallLevelColor = (level?: string) => {
@@ -175,8 +229,10 @@ export default function AdminScheduleScreen() {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           }}
         >
-          <Text style={styles.dateText}>{formatDate(selectedDate)}</Text>
-          {selectedDate.toDateString() === new Date().toDateString() ? (
+          <Text style={styles.dateText}>
+            {viewMode === "week" ? formatWeekRange() : formatDate(selectedDate)}
+          </Text>
+          {selectedDate.toDateString() === new Date().toDateString() && viewMode === "day" ? (
             <View style={styles.todayBadge}>
               <Text style={styles.todayText}>Today</Text>
             </View>
@@ -189,37 +245,97 @@ export default function AdminScheduleScreen() {
 
       <View style={styles.summaryRow}>
         <View style={[styles.summaryCard, CardStyles.elevated]}>
-          <Text style={styles.summaryValue}>{todaySessions.length}</Text>
+          <Text style={styles.summaryValue}>
+            {viewMode === "week" ? totalWeekSessions : todaySessions.length}
+          </Text>
           <Text style={styles.summaryLabel}>Sessions</Text>
         </View>
         <View style={[styles.summaryCard, CardStyles.elevated]}>
           <Text style={styles.summaryValue}>
-            {todaySessions.filter((s) => s.status === "scheduled").length}
+            {viewMode === "week" 
+              ? weekDays.reduce((sum, day) => sum + day.sessions.filter((s) => s.status === "scheduled").length, 0)
+              : todaySessions.filter((s) => s.status === "scheduled").length
+            }
           </Text>
           <Text style={styles.summaryLabel}>Upcoming</Text>
         </View>
         <View style={[styles.summaryCard, CardStyles.elevated]}>
           <Text style={styles.summaryValue}>
-            {todaySessions.filter((s) => s.status === "completed").length}
+            {viewMode === "week"
+              ? weekDays.reduce((sum, day) => sum + day.sessions.filter((s) => s.status === "completed").length, 0)
+              : todaySessions.filter((s) => s.status === "completed").length
+            }
           </Text>
           <Text style={styles.summaryLabel}>Completed</Text>
         </View>
       </View>
 
-      <FlatList
-        data={todaySessions}
-        keyExtractor={(item) => item.id}
-        renderItem={renderSession}
-        contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="calendar-outline" size={48} color={Colors.dark.textMuted} />
-            <Text style={styles.emptyText}>No sessions scheduled</Text>
-            <Text style={styles.emptySubtext}>Sessions will appear here</Text>
-          </View>
-        }
-      />
+      {viewMode === "day" ? (
+        <FlatList
+          data={todaySessions}
+          keyExtractor={(item) => item.id}
+          renderItem={renderSession}
+          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="calendar-outline" size={48} color={Colors.dark.textMuted} />
+              <Text style={styles.emptyText}>No sessions scheduled</Text>
+              <Text style={styles.emptySubtext}>Sessions will appear here</Text>
+            </View>
+          }
+        />
+      ) : (
+        <ScrollView 
+          style={styles.weekContainer}
+          contentContainerStyle={[styles.weekContent, { paddingBottom: insets.bottom + 100 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          {weekDays.map((day, index) => (
+            <View key={index} style={styles.weekDay}>
+              <View style={[styles.weekDayHeader, isToday(day.date) && styles.weekDayHeaderToday]}>
+                <Text style={[styles.weekDayName, isToday(day.date) && styles.weekDayNameToday]}>
+                  {formatDayShort(day.date)}
+                </Text>
+                <Text style={[styles.weekDayDate, isToday(day.date) && styles.weekDayDateToday]}>
+                  {day.date.getDate()}
+                </Text>
+                {day.sessions.length > 0 ? (
+                  <View style={styles.sessionCountBadge}>
+                    <Text style={styles.sessionCountText}>{day.sessions.length}</Text>
+                  </View>
+                ) : null}
+              </View>
+              <View style={styles.weekDaySessions}>
+                {day.sessions.length > 0 ? (
+                  day.sessions.map((session) => (
+                    <Pressable 
+                      key={session.id} 
+                      style={[styles.weekSessionCard, CardStyles.elevated]}
+                      onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+                    >
+                      <View style={styles.weekSessionTime}>
+                        <Text style={styles.weekTimeText}>{formatTime(session.startTime)}</Text>
+                      </View>
+                      <View style={styles.weekSessionInfo}>
+                        <Text style={styles.weekSessionType} numberOfLines={1}>
+                          {session.sessionType || "Training"}
+                        </Text>
+                        <Text style={styles.weekSessionCoach} numberOfLines={1}>
+                          {getCoachName(session.coachId)}
+                        </Text>
+                      </View>
+                      <View style={[styles.weekStatusDot, { backgroundColor: getStatusColor(session.status) }]} />
+                    </Pressable>
+                  ))
+                ) : (
+                  <Text style={styles.noSessionsText}>No sessions</Text>
+                )}
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -424,5 +540,99 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.textMuted,
     marginTop: Spacing.xs,
+  },
+  weekContainer: {
+    flex: 1,
+  },
+  weekContent: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+  },
+  weekDay: {
+    marginBottom: Spacing.lg,
+  },
+  weekDayHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  weekDayHeaderToday: {
+    backgroundColor: `${Colors.dark.orange}30`,
+    borderWidth: 1,
+    borderColor: Colors.dark.orange,
+  },
+  weekDayName: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+    width: 40,
+  },
+  weekDayNameToday: {
+    color: Colors.dark.orange,
+  },
+  weekDayDate: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  weekDayDateToday: {
+    color: Colors.dark.orange,
+  },
+  sessionCountBadge: {
+    backgroundColor: Colors.dark.orange,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+    marginLeft: "auto",
+  },
+  sessionCountText: {
+    ...Typography.caption,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  weekDaySessions: {
+    paddingLeft: Spacing.md,
+    gap: Spacing.sm,
+  },
+  weekSessionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  weekSessionTime: {
+    width: 50,
+  },
+  weekTimeText: {
+    ...Typography.small,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  weekSessionInfo: {
+    flex: 1,
+  },
+  weekSessionType: {
+    ...Typography.small,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  weekSessionCoach: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  weekStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  noSessionsText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontStyle: "italic",
+    paddingVertical: Spacing.sm,
   },
 });

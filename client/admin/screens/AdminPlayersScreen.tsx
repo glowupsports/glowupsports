@@ -132,10 +132,12 @@ export default function AdminPlayersScreen() {
     queryKey: ["/api/players"],
   });
 
-  const { data: playerStats, isLoading: statsLoading } = useQuery<PlayerStats>({
+  const { data: playerStats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery<PlayerStats>({
     queryKey: ["/api/admin/players", selectedPlayerId, "stats"],
-    enabled: !!selectedPlayerId,
+    enabled: !!selectedPlayerId && showDetailModal,
   });
+
+  const selectedPlayer = players.find(p => p.id === selectedPlayerId);
 
   const addPlayerMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -162,7 +164,7 @@ export default function AdminPlayersScreen() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/players"] });
-      setShowDetailModal(false);
+      closeDetailModal();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
   });
@@ -182,6 +184,11 @@ export default function AdminPlayersScreen() {
     setSelectedPlayerId(playerId);
     setShowDetailModal(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const closeDetailModal = () => {
+    setShowDetailModal(false);
+    setSelectedPlayerId(null);
   };
 
   const handleSubmit = () => {
@@ -281,11 +288,11 @@ export default function AdminPlayersScreen() {
         visible={showDetailModal}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowDetailModal(false)}
+        onRequestClose={closeDetailModal}
       >
         <View style={[styles.modalContainer, { paddingTop: insets.top + Spacing.lg }]}>
           <View style={styles.modalHeader}>
-            <Pressable onPress={() => setShowDetailModal(false)}>
+            <Pressable onPress={closeDetailModal}>
               <Ionicons name="close" size={24} color={Colors.dark.text} />
             </Pressable>
             <Text style={styles.modalTitle}>Player Details</Text>
@@ -306,7 +313,7 @@ export default function AdminPlayersScreen() {
                   parentName: stats.player.parentName || "",
                   parentPhone: stats.player.parentPhone || "",
                 });
-                setShowDetailModal(false);
+                closeDetailModal();
                 setShowAddModal(true);
               }
             }}>
@@ -317,6 +324,15 @@ export default function AdminPlayersScreen() {
           {statsLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={Colors.dark.orange} />
+              <Text style={styles.loadingText}>Loading player details...</Text>
+            </View>
+          ) : statsError ? (
+            <View style={styles.loadingContainer}>
+              <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.error} />
+              <Text style={styles.errorText}>Failed to load player details</Text>
+              <Pressable style={styles.retryButton} onPress={() => refetchStats()}>
+                <Text style={styles.retryButtonText}>Try Again</Text>
+              </Pressable>
             </View>
           ) : stats ? (
             <ScrollView 
@@ -465,7 +481,48 @@ export default function AdminPlayersScreen() {
                 <Text style={styles.deleteText}>Delete Player</Text>
               </Pressable>
             </ScrollView>
-          ) : null}
+          ) : selectedPlayer ? (
+            <ScrollView 
+              style={styles.detailScroll}
+              contentContainerStyle={[styles.detailContent, { paddingBottom: insets.bottom + 40 }]}
+            >
+              <View style={styles.profileSection}>
+                <View style={[styles.profileAvatar, { borderColor: getBallLevelColor(selectedPlayer.ballLevel) }]}>
+                  <Text style={styles.profileAvatarText}>
+                    {selectedPlayer.name?.charAt(0).toUpperCase() || "?"}
+                  </Text>
+                </View>
+                <Text style={styles.profileName}>{selectedPlayer.name}</Text>
+                <View style={[styles.levelBadge, { backgroundColor: `${getBallLevelColor(selectedPlayer.ballLevel)}20` }]}>
+                  <View style={[styles.levelDot, { backgroundColor: getBallLevelColor(selectedPlayer.ballLevel) }]} />
+                  <Text style={[styles.levelText, { color: getBallLevelColor(selectedPlayer.ballLevel) }]}>
+                    {selectedPlayer.ballLevel || "Unknown"} Ball
+                  </Text>
+                </View>
+                {selectedPlayer.email ? (
+                  <Text style={styles.profileEmail}>{selectedPlayer.email}</Text>
+                ) : null}
+              </View>
+
+              <View style={[styles.section, CardStyles.elevated]}>
+                <Text style={styles.sectionTitle}>Basic Info</Text>
+                <View style={styles.contactRow}>
+                  <Ionicons name="call" size={18} color={Colors.dark.textMuted} />
+                  <Text style={styles.contactText}>{selectedPlayer.phone || "No phone"}</Text>
+                </View>
+              </View>
+
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={Colors.dark.orange} />
+                <Text style={styles.loadingText}>Loading full stats...</Text>
+              </View>
+            </ScrollView>
+          ) : (
+            <View style={styles.loadingContainer}>
+              <Ionicons name="person-outline" size={48} color={Colors.dark.textMuted} />
+              <Text style={styles.errorText}>No player selected</Text>
+            </View>
+          )}
         </View>
       </Modal>
     );
@@ -677,6 +734,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    padding: Spacing.xl,
+    gap: Spacing.md,
+  },
+  loadingText: {
+    color: Colors.dark.textMuted,
+    fontSize: Typography.body.fontSize,
+    marginTop: Spacing.sm,
   },
   headerGradient: {
     position: "absolute",
@@ -935,6 +999,16 @@ const styles = StyleSheet.create({
     ...Typography.h2,
     color: Colors.dark.text,
     marginBottom: Spacing.sm,
+  },
+  profileEmail: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
+  },
+  levelDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   ballBadgeLarge: {
     flexDirection: "row",

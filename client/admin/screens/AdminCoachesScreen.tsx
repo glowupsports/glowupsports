@@ -99,10 +99,12 @@ export default function AdminCoachesScreen() {
     queryKey: ["/api/coaches"],
   });
 
-  const { data: coachStats, isLoading: statsLoading } = useQuery<CoachStats>({
+  const { data: coachStats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery<CoachStats>({
     queryKey: ["/api/admin/coaches", selectedCoachId, "stats"],
-    enabled: !!selectedCoachId,
+    enabled: !!selectedCoachId && showDetailModal,
   });
+
+  const selectedCoach = coaches.find(c => c.id === selectedCoachId);
 
   const addCoachMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -141,6 +143,11 @@ export default function AdminCoachesScreen() {
     setSelectedCoachId(coachId);
     setShowDetailModal(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const closeDetailModal = () => {
+    setShowDetailModal(false);
+    setSelectedCoachId(null);
   };
 
   const handleSubmit = () => {
@@ -207,11 +214,11 @@ export default function AdminCoachesScreen() {
         visible={showDetailModal}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowDetailModal(false)}
+        onRequestClose={closeDetailModal}
       >
         <View style={[styles.modalContainer, { paddingTop: insets.top + Spacing.lg }]}>
           <View style={styles.modalHeader}>
-            <Pressable onPress={() => setShowDetailModal(false)}>
+            <Pressable onPress={closeDetailModal}>
               <Ionicons name="close" size={24} color={Colors.dark.text} />
             </Pressable>
             <Text style={styles.modalTitle}>Coach Details</Text>
@@ -232,7 +239,7 @@ export default function AdminCoachesScreen() {
                   specialty: stats.coach.specialty || "",
                   hourlyRate: stats.finance?.hourlyRate?.toString() || "",
                 });
-                setShowDetailModal(false);
+                closeDetailModal();
                 setShowAddModal(true);
               }
             }}>
@@ -243,6 +250,15 @@ export default function AdminCoachesScreen() {
           {statsLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={Colors.dark.orange} />
+              <Text style={styles.loadingText}>Loading coach details...</Text>
+            </View>
+          ) : statsError ? (
+            <View style={styles.loadingContainer}>
+              <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.error} />
+              <Text style={styles.errorText}>Failed to load coach details</Text>
+              <Pressable style={styles.retryButton} onPress={() => refetchStats()}>
+                <Text style={styles.retryButtonText}>Try Again</Text>
+              </Pressable>
             </View>
           ) : stats ? (
             <ScrollView 
@@ -337,7 +353,52 @@ export default function AdminCoachesScreen() {
                 </Pressable>
               </View>
             </ScrollView>
-          ) : null}
+          ) : selectedCoach ? (
+            <ScrollView 
+              style={styles.detailScroll}
+              contentContainerStyle={[styles.detailContent, { paddingBottom: insets.bottom + 40 }]}
+            >
+              <View style={styles.profileSection}>
+                <View style={styles.profileAvatar}>
+                  <Ionicons name="person" size={40} color={Colors.dark.primary} />
+                </View>
+                <Text style={styles.profileName}>{selectedCoach.name}</Text>
+                <View style={[styles.roleBadge, { backgroundColor: `${getRoleColor(selectedCoach.role)}20` }]}>
+                  <Text style={[styles.roleText, { color: getRoleColor(selectedCoach.role) }]}>
+                    {getRoleLabel(selectedCoach.role)}
+                  </Text>
+                </View>
+                {selectedCoach.email ? (
+                  <Text style={styles.profileEmail}>{selectedCoach.email}</Text>
+                ) : null}
+                {selectedCoach.phone ? (
+                  <Text style={styles.profilePhone}>{selectedCoach.phone}</Text>
+                ) : null}
+              </View>
+
+              <View style={[styles.section, CardStyles.elevated]}>
+                <Text style={styles.sectionTitle}>Basic Info</Text>
+                <View style={styles.financeRow}>
+                  <Text style={styles.financeLabel}>Specialty</Text>
+                  <Text style={styles.financeValue}>{selectedCoach.specialty || "Not specified"}</Text>
+                </View>
+                <View style={styles.financeRow}>
+                  <Text style={styles.financeLabel}>Hourly Rate</Text>
+                  <Text style={styles.financeValue}>AED {selectedCoach.hourlyRate || 0}</Text>
+                </View>
+              </View>
+
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={Colors.dark.orange} />
+                <Text style={styles.loadingText}>Loading full stats...</Text>
+              </View>
+            </ScrollView>
+          ) : (
+            <View style={styles.loadingContainer}>
+              <Ionicons name="person-outline" size={48} color={Colors.dark.textMuted} />
+              <Text style={styles.errorText}>No coach selected</Text>
+            </View>
+          )}
         </View>
       </Modal>
     );
@@ -500,6 +561,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    padding: Spacing.xl,
+    gap: Spacing.md,
+  },
+  loadingText: {
+    color: Colors.dark.textMuted,
+    fontSize: Typography.body.fontSize,
+    marginTop: Spacing.sm,
   },
   headerGradient: {
     position: "absolute",
