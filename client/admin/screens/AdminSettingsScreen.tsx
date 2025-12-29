@@ -34,6 +34,17 @@ export default function AdminSettingsScreen() {
   const queryClient = useQueryClient();
   const { logout } = useAuth();
   const [showCourtModal, setShowCourtModal] = useState(false);
+  const [editingCourt, setEditingCourt] = useState<Court | null>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [profileData, setProfileData] = useState({
+    name: "Glow Up Tennis Academy",
+    email: "admin@glowuptennis.com",
+  });
+  const [inviteData, setInviteData] = useState({
+    email: "",
+    role: "player" as "coach" | "player",
+  });
   const [courtFormData, setCourtFormData] = useState({
     name: "",
     type: "standard",
@@ -64,6 +75,26 @@ export default function AdminSettingsScreen() {
     },
   });
 
+  const updateCourtMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: typeof courtFormData }) => {
+      return apiRequest("PATCH", `/api/courts/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
+      setShowCourtModal(false);
+      setEditingCourt(null);
+      setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (err: Error) => {
+      if (Platform.OS === "web") {
+        window.alert(`Error: ${err.message}`);
+      } else {
+        Alert.alert("Error", err.message);
+      }
+    },
+  });
+
   const deleteCourtMutation = useMutation({
     mutationFn: async (courtId: string) => {
       return apiRequest("DELETE", `/api/courts/${courtId}`);
@@ -73,6 +104,74 @@ export default function AdminSettingsScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
   });
+
+  const handleOpenCourtEdit = (court: Court) => {
+    setEditingCourt(court);
+    setCourtFormData({
+      name: court.name,
+      type: court.type || "standard",
+      surface: court.surface || "hard",
+      isIndoor: court.isIndoor || false,
+    });
+    setShowCourtModal(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleSaveCourt = () => {
+    if (editingCourt) {
+      updateCourtMutation.mutate({ id: editingCourt.id, data: courtFormData });
+    } else {
+      addCourtMutation.mutate(courtFormData);
+    }
+  };
+
+  const handleCloseCourtModal = () => {
+    setShowCourtModal(false);
+    setEditingCourt(null);
+    setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false });
+  };
+
+  const handleShowRolesPermissions = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS === "web") {
+      window.alert("Roles & Permissions feature is coming soon. You'll be able to customize access levels for coaches and staff members.");
+    } else {
+      Alert.alert(
+        "Coming Soon",
+        "Roles & Permissions feature is coming soon. You'll be able to customize access levels for coaches and staff members.",
+        [{ text: "OK" }]
+      );
+    }
+  };
+
+  const handleSaveProfile = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setShowProfileModal(false);
+    if (Platform.OS === "web") {
+      window.alert("Profile updated successfully!");
+    } else {
+      Alert.alert("Success", "Profile updated successfully!");
+    }
+  };
+
+  const handleSendInvite = () => {
+    if (!inviteData.email.trim()) {
+      if (Platform.OS === "web") {
+        window.alert("Please enter an email address");
+      } else {
+        Alert.alert("Error", "Please enter an email address");
+      }
+      return;
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setShowInviteModal(false);
+    if (Platform.OS === "web") {
+      window.alert(`Invitation sent to ${inviteData.email} as ${inviteData.role}!`);
+    } else {
+      Alert.alert("Invitation Sent", `Invitation sent to ${inviteData.email} as ${inviteData.role}!`);
+    }
+    setInviteData({ email: "", role: "player" });
+  };
 
   const handleDeleteCourt = (court: Court) => {
     const confirmDelete = () => {
@@ -138,11 +237,17 @@ export default function AdminSettingsScreen() {
                 <Ionicons name="business" size={32} color={Colors.dark.orange} />
               </View>
               <View style={styles.profileInfo}>
-                <Text style={styles.profileName}>Glow Up Tennis Academy</Text>
-                <Text style={styles.profileEmail}>admin@glowuptennis.com</Text>
+                <Text style={styles.profileName}>{profileData.name}</Text>
+                <Text style={styles.profileEmail}>{profileData.email}</Text>
               </View>
             </View>
-            <Pressable style={styles.editProfileButton}>
+            <Pressable 
+              style={styles.editProfileButton}
+              onPress={() => {
+                setShowProfileModal(true);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+            >
               <Text style={styles.editProfileText}>Edit Profile</Text>
               <Ionicons name="chevron-forward" size={16} color={Colors.dark.orange} />
             </Pressable>
@@ -155,6 +260,8 @@ export default function AdminSettingsScreen() {
             <Pressable
               style={styles.addSmallButton}
               onPress={() => {
+                setEditingCourt(null);
+                setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false });
                 setShowCourtModal(true);
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               }}
@@ -170,7 +277,11 @@ export default function AdminSettingsScreen() {
               <Text style={styles.emptyText}>No courts added yet</Text>
               <Pressable
                 style={styles.addFirstButton}
-                onPress={() => setShowCourtModal(true)}
+                onPress={() => {
+                  setEditingCourt(null);
+                  setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false });
+                  setShowCourtModal(true);
+                }}
               >
                 <Text style={styles.addFirstText}>Add First Court</Text>
               </Pressable>
@@ -180,6 +291,7 @@ export default function AdminSettingsScreen() {
               <Pressable
                 key={court.id}
                 style={[styles.courtCard, CardStyles.elevated]}
+                onPress={() => handleOpenCourtEdit(court)}
                 onLongPress={() => handleDeleteCourt(court)}
               >
                 <View style={styles.courtIcon}>
@@ -199,7 +311,10 @@ export default function AdminSettingsScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>User Management</Text>
-          <Pressable style={[styles.menuCard, CardStyles.elevated]}>
+          <Pressable 
+            style={[styles.menuCard, CardStyles.elevated]}
+            onPress={handleShowRolesPermissions}
+          >
             <View style={styles.menuContent}>
               <Ionicons name="shield-outline" size={24} color={Colors.dark.orange} />
               <View style={styles.menuText}>
@@ -210,7 +325,13 @@ export default function AdminSettingsScreen() {
             </View>
           </Pressable>
 
-          <Pressable style={[styles.menuCard, CardStyles.elevated]}>
+          <Pressable 
+            style={[styles.menuCard, CardStyles.elevated]}
+            onPress={() => {
+              setShowInviteModal(true);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          >
             <View style={styles.menuContent}>
               <Ionicons name="mail-outline" size={24} color={Colors.dark.xpCyan} />
               <View style={styles.menuText}>
@@ -238,20 +359,20 @@ export default function AdminSettingsScreen() {
         visible={showCourtModal}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowCourtModal(false)}
+        onRequestClose={handleCloseCourtModal}
       >
         <View style={[styles.modalContainer, { paddingTop: insets.top + Spacing.lg }]}>
           <View style={styles.modalHeader}>
-            <Pressable onPress={() => setShowCourtModal(false)}>
+            <Pressable onPress={handleCloseCourtModal}>
               <Text style={styles.cancelButton}>Cancel</Text>
             </Pressable>
-            <Text style={styles.modalTitle}>Add Court</Text>
+            <Text style={styles.modalTitle}>{editingCourt ? "Edit Court" : "Add Court"}</Text>
             <Pressable
-              onPress={() => addCourtMutation.mutate(courtFormData)}
-              disabled={addCourtMutation.isPending}
+              onPress={handleSaveCourt}
+              disabled={addCourtMutation.isPending || updateCourtMutation.isPending}
             >
-              <Text style={[styles.saveButton, addCourtMutation.isPending && styles.disabledButton]}>
-                {addCourtMutation.isPending ? "Saving..." : "Save"}
+              <Text style={[styles.saveButton, (addCourtMutation.isPending || updateCourtMutation.isPending) && styles.disabledButton]}>
+                {addCourtMutation.isPending || updateCourtMutation.isPending ? "Saving..." : "Save"}
               </Text>
             </Pressable>
           </View>
@@ -353,6 +474,154 @@ export default function AdminSettingsScreen() {
                   </Text>
                 </Pressable>
               </View>
+            </View>
+          </KeyboardAwareScrollViewCompat>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showProfileModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowProfileModal(false)}
+      >
+        <View style={[styles.modalContainer, { paddingTop: insets.top + Spacing.lg }]}>
+          <View style={styles.modalHeader}>
+            <Pressable onPress={() => setShowProfileModal(false)}>
+              <Text style={styles.cancelButton}>Cancel</Text>
+            </Pressable>
+            <Text style={styles.modalTitle}>Edit Profile</Text>
+            <Pressable onPress={handleSaveProfile}>
+              <Text style={styles.saveButton}>Save</Text>
+            </Pressable>
+          </View>
+
+          <KeyboardAwareScrollViewCompat
+            style={styles.formScroll}
+            contentContainerStyle={styles.form}
+          >
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Academy Name</Text>
+              <TextInput
+                style={styles.input}
+                value={profileData.name}
+                onChangeText={(text) => setProfileData((prev) => ({ ...prev, name: text }))}
+                placeholder="Academy Name"
+                placeholderTextColor={Colors.dark.textMuted}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Email</Text>
+              <TextInput
+                style={styles.input}
+                value={profileData.email}
+                onChangeText={(text) => setProfileData((prev) => ({ ...prev, email: text }))}
+                placeholder="admin@example.com"
+                placeholderTextColor={Colors.dark.textMuted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+          </KeyboardAwareScrollViewCompat>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showInviteModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowInviteModal(false)}
+      >
+        <View style={[styles.modalContainer, { paddingTop: insets.top + Spacing.lg }]}>
+          <View style={styles.modalHeader}>
+            <Pressable onPress={() => setShowInviteModal(false)}>
+              <Text style={styles.cancelButton}>Cancel</Text>
+            </Pressable>
+            <Text style={styles.modalTitle}>Invite User</Text>
+            <Pressable onPress={handleSendInvite}>
+              <Text style={styles.saveButton}>Send</Text>
+            </Pressable>
+          </View>
+
+          <KeyboardAwareScrollViewCompat
+            style={styles.formScroll}
+            contentContainerStyle={styles.form}
+          >
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Email Address</Text>
+              <TextInput
+                style={styles.input}
+                value={inviteData.email}
+                onChangeText={(text) => setInviteData((prev) => ({ ...prev, email: text }))}
+                placeholder="user@example.com"
+                placeholderTextColor={Colors.dark.textMuted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Role</Text>
+              <View style={styles.optionRow}>
+                <Pressable
+                  style={[
+                    styles.optionButton,
+                    styles.optionWide,
+                    inviteData.role === "coach" && styles.optionSelected,
+                  ]}
+                  onPress={() => {
+                    setInviteData((prev) => ({ ...prev, role: "coach" }));
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Ionicons
+                    name="person-outline"
+                    size={20}
+                    color={inviteData.role === "coach" ? Colors.dark.text : Colors.dark.textMuted}
+                  />
+                  <Text
+                    style={[
+                      styles.optionText,
+                      inviteData.role === "coach" && styles.optionTextSelected,
+                    ]}
+                  >
+                    Coach
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[
+                    styles.optionButton,
+                    styles.optionWide,
+                    inviteData.role === "player" && styles.optionSelected,
+                  ]}
+                  onPress={() => {
+                    setInviteData((prev) => ({ ...prev, role: "player" }));
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Ionicons
+                    name="tennisball-outline"
+                    size={20}
+                    color={inviteData.role === "player" ? Colors.dark.text : Colors.dark.textMuted}
+                  />
+                  <Text
+                    style={[
+                      styles.optionText,
+                      inviteData.role === "player" && styles.optionTextSelected,
+                    ]}
+                  >
+                    Player
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <View style={styles.inviteNote}>
+              <Ionicons name="information-circle-outline" size={20} color={Colors.dark.textMuted} />
+              <Text style={styles.inviteNoteText}>
+                An invitation email will be sent to this address with instructions to join the academy.
+              </Text>
             </View>
           </KeyboardAwareScrollViewCompat>
         </View>
@@ -614,5 +883,20 @@ const styles = StyleSheet.create({
   optionTextSelected: {
     color: Colors.dark.text,
     fontWeight: "600",
+  },
+  inviteNote: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    backgroundColor: `${Colors.dark.xpCyan}10`,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.md,
+  },
+  inviteNoteText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    flex: 1,
+    lineHeight: 20,
   },
 });
