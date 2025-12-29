@@ -1,7 +1,8 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 
 interface MetricCardProps {
@@ -111,8 +112,48 @@ function PlayerHealthRow({ name, level, risk, indicator }: PlayerHealthRowProps)
   );
 }
 
+interface PeopleData {
+  coaches: Array<{
+    id: string;
+    name: string;
+    role: string;
+    status: string;
+    stats: Array<{ label: string; value: string }>;
+  }>;
+  players: Array<{
+    id: string;
+    name: string;
+    role: string;
+    status: string;
+    stats: Array<{ label: string; value: string }>;
+  }>;
+}
+
 export default function PerformanceScreen() {
   const insets = useSafeAreaInsets();
+
+  const { data: peopleData, isLoading } = useQuery<PeopleData>({
+    queryKey: ["/api/owner/people"],
+  });
+
+  const coaches = peopleData?.coaches || [];
+  const players = peopleData?.players || [];
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={Colors.dark.gold} />
+        <Text style={styles.loadingText}>Loading performance data...</Text>
+      </View>
+    );
+  }
+
+  const avgAttendance = players.length > 0 
+    ? Math.round(players.reduce((sum, p) => {
+        const att = p.stats.find(s => s.label === "Attendance");
+        return sum + (att ? parseInt(att.value) : 0);
+      }, 0) / players.length)
+    : 0;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -128,31 +169,27 @@ export default function PerformanceScreen() {
 
         <View style={styles.metricsGrid}>
           <MetricCard
-            icon="star"
-            title="Avg Glow Score"
-            value="7.8"
+            icon="people"
+            title="Total Players"
+            value={String(players.length)}
             color={Colors.dark.gold}
-            trend={{ value: "+0.3", direction: "up" }}
           />
           <MetricCard
-            icon="trending-up"
-            title="Progress Velocity"
-            value="12%"
-            subtitle="per month"
+            icon="tennisball"
+            title="Total Coaches"
+            value={String(coaches.length)}
             color={Colors.dark.primary}
-            trend={{ value: "+2%", direction: "up" }}
           />
           <MetricCard
             icon="calendar"
-            title="Attendance"
-            value="89%"
+            title="Avg Attendance"
+            value={`${avgAttendance}%`}
             color={Colors.dark.xpCyan}
-            trend={{ value: "-1%", direction: "down" }}
           />
           <MetricCard
-            icon="people"
-            title="Level Distribution"
-            value="Balanced"
+            icon="stats-chart"
+            title="Active"
+            value={String(players.filter(p => p.status === "active").length)}
             color={Colors.dark.orange}
           />
         </View>
@@ -160,18 +197,54 @@ export default function PerformanceScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Coach Performance</Text>
           <View style={[styles.tableContainer, CardStyles.elevated]}>
-            <CoachPerformanceRow name="Alex Johnson" sessions={48} feedbackRate={94} playerImprovement={15} />
-            <CoachPerformanceRow name="Maria Garcia" sessions={32} feedbackRate={87} playerImprovement={8} />
-            <CoachPerformanceRow name="John Smith" sessions={24} feedbackRate={65} playerImprovement={-2} />
+            {coaches.length > 0 ? (
+              coaches.map((coach) => {
+                const sessions = coach.stats.find(s => s.label === "Sessions/wk");
+                const feedback = coach.stats.find(s => s.label === "Feedback %");
+                return (
+                  <CoachPerformanceRow
+                    key={coach.id}
+                    name={coach.name}
+                    sessions={parseInt(sessions?.value || "0")}
+                    feedbackRate={parseInt(feedback?.value || "0")}
+                    playerImprovement={0}
+                  />
+                );
+              })
+            ) : (
+              <View style={styles.emptyState}>
+                <Ionicons name="tennisball-outline" size={32} color={Colors.dark.textMuted} />
+                <Text style={styles.emptyStateText}>No coaches yet</Text>
+              </View>
+            )}
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Player Health Indicators</Text>
           <View style={[styles.tableContainer, CardStyles.elevated]}>
-            <PlayerHealthRow name="Tommy Wilson" level="Green Ball" risk="low" indicator="Fast progress" />
-            <PlayerHealthRow name="Emma Davis" level="Orange Ball" risk="medium" indicator="Plateau detected" />
-            <PlayerHealthRow name="Jake Brown" level="Red Ball" risk="high" indicator="Drop-off risk" />
+            {players.length > 0 ? (
+              players.slice(0, 5).map((player) => {
+                const attendance = player.stats.find(s => s.label === "Attendance");
+                const attValue = parseInt(attendance?.value || "0");
+                const risk = attValue >= 80 ? "low" : attValue >= 60 ? "medium" : "high";
+                const indicator = attValue >= 80 ? "On track" : attValue >= 60 ? "Needs attention" : "At risk";
+                return (
+                  <PlayerHealthRow
+                    key={player.id}
+                    name={player.name}
+                    level={player.role}
+                    risk={risk}
+                    indicator={indicator}
+                  />
+                );
+              })
+            ) : (
+              <View style={styles.emptyState}>
+                <Ionicons name="people-outline" size={32} color={Colors.dark.textMuted} />
+                <Text style={styles.emptyStateText}>No players yet</Text>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -341,5 +414,25 @@ const styles = StyleSheet.create({
   riskText: {
     ...Typography.small,
     fontWeight: "500",
+  },
+  centered: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
+  },
+  emptyState: {
+    padding: Spacing.xl,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+  },
+  emptyStateText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.sm,
   },
 });

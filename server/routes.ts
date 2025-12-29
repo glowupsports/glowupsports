@@ -453,14 +453,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { role = "coach", email, expiresInDays = 7 } = req.body;
       const academyId = req.user!.academyId;
-      const invitedBy = req.user!.coachId;
+      const invitedBy = req.user!.coachId || req.user!.userId;
 
       if (!academyId) {
         return res.status(400).json({ error: "Academy ID is required" });
       }
 
       if (!invitedBy) {
-        return res.status(400).json({ error: "Inviter ID is required" });
+        return res.status(400).json({ error: "User ID is required" });
       }
 
       // Generate secure token
@@ -7119,14 +7119,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       res.json({
-        coaches: coachData.length > 0 ? coachData : [
-          { id: "demo-coach-1", name: "Alex Johnson", role: "Head Coach", status: "active", stats: [{ label: "Sessions/wk", value: "12" }, { label: "Feedback %", value: "94%" }, { label: "Level", value: "8" }] },
-          { id: "demo-coach-2", name: "Maria Garcia", role: "Assistant Coach", status: "active", stats: [{ label: "Sessions/wk", value: "8" }, { label: "Feedback %", value: "87%" }, { label: "Level", value: "5" }] },
-        ],
-        players: playerData.length > 0 ? playerData : [
-          { id: "demo-player-1", name: "Tommy Wilson", role: "Green Ball", status: "active", stats: [{ label: "Attendance", value: "92%" }, { label: "Streak", value: "5" }, { label: "Level", value: "12" }] },
-          { id: "demo-player-2", name: "Sarah Chen", role: "Orange Ball", status: "active", stats: [{ label: "Attendance", value: "85%" }, { label: "Streak", value: "3" }, { label: "Level", value: "8" }] },
-        ],
+        coaches: coachData,
+        players: playerData,
       });
     } catch (error) {
       console.error("Owner people error:", error);
