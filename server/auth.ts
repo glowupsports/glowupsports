@@ -21,6 +21,7 @@ export interface AuthenticatedRequest extends Request {
 
 export interface UserStorageInterface {
   getUserById(id: string): Promise<{ id: string; email: string; role: string; academyId: string | null; coachId: string | null; playerId: string | null } | null>;
+  isMaintenanceMode(): Promise<boolean>;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -98,6 +99,24 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
           coachId: freshUser.coachId,
           playerId: freshUser.playerId,
         };
+        
+        // Check maintenance mode for non-platform_owner users
+        if (freshUser.role !== "platform_owner") {
+          try {
+            const isMaintenanceOn = await freshUserStorage.isMaintenanceMode();
+            if (isMaintenanceOn) {
+              res.status(503).json({
+                error: "Platform is under maintenance",
+                message: "Glow Up Sports is currently undergoing scheduled maintenance. Please try again later.",
+                maintenance: true,
+              });
+              return;
+            }
+          } catch (maintenanceError) {
+            console.error("Error checking maintenance mode:", maintenanceError);
+          }
+        }
+        
         return next();
       }
     } catch (error) {
@@ -107,6 +126,24 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
 
   // Fallback to JWT payload if fresh data fetch fails
   req.user = payload;
+  
+  // Also check maintenance mode for fallback path
+  if (payload.role !== "platform_owner" && freshUserStorage) {
+    try {
+      const isMaintenanceOn = await freshUserStorage.isMaintenanceMode();
+      if (isMaintenanceOn) {
+        res.status(503).json({
+          error: "Platform is under maintenance",
+          message: "Glow Up Sports is currently undergoing scheduled maintenance. Please try again later.",
+          maintenance: true,
+        });
+        return;
+      }
+    } catch (maintenanceError) {
+      console.error("Error checking maintenance mode:", maintenanceError);
+    }
+  }
+  
   next();
 }
 
@@ -169,6 +206,7 @@ export function createFreshUserMiddleware(storage: UserStorageInterface) {
           role: freshUser.role,
           academyId: freshUser.academyId,
           coachId: freshUser.coachId,
+          playerId: freshUser.playerId,
         };
       }
     } catch (error) {

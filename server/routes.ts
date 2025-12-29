@@ -98,27 +98,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Maintenance middleware - blocks access when enabled (except for platform_owner)
-  const maintenanceMiddleware = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-      // Skip maintenance check for platform owners
-      if (req.user?.role === "platform_owner") {
-        return next();
-      }
-      
-      const isMaintenanceMode = await storage.isMaintenanceMode();
-      if (isMaintenanceMode) {
-        return res.status(503).json({ 
-          error: "Platform is under maintenance",
-          message: "Glow Up Sports is currently undergoing scheduled maintenance. Please try again later.",
-          maintenance: true,
-        });
-      }
-      next();
-    } catch (error) {
-      next();
-    }
-  };
+  // NOTE: Maintenance mode is now enforced in authMiddlewareWithFreshData (server/auth.ts)
+  // This ensures:
+  // 1. Public endpoints (health, maintenance status, login) work during maintenance
+  // 2. Platform owners can still access all routes during maintenance
+  // 3. All other authenticated users get 503 when maintenance is enabled
 
   // ==================== AUTH ENDPOINTS ====================
   // Registration routes are role-specific:
