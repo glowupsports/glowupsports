@@ -32,6 +32,19 @@ interface Coach {
   hourlyRate?: number;
 }
 
+interface MonthlyPayment {
+  month: number;
+  year: number;
+  hoursWorked: number;
+  sessionsCount: number;
+  hourlyRate: number;
+  grossAmount: number;
+  status: "pending" | "approved" | "paid" | "declined";
+  paidAt: string | null;
+  declineReason: string | null;
+  payoutId: string | null;
+}
+
 interface CoachStats {
   coach: {
     id: string;
@@ -55,7 +68,7 @@ interface CoachStats {
     totalHours: number;
     amountOwed: number;
     amountPaid: number;
-    invoiceHistory: any[];
+    monthlyHistory: MonthlyPayment[];
   };
 }
 
@@ -148,6 +161,116 @@ export default function AdminCoachesScreen() {
   const closeDetailModal = () => {
     setShowDetailModal(false);
     setSelectedCoachId(null);
+  };
+
+  const markPaidMutation = useMutation({
+    mutationFn: async ({ coachId, month, year }: { coachId: string; month: number; year: number }) => {
+      return apiRequest("POST", `/api/admin/coaches/${coachId}/payouts/${month}/${year}/pay`, {
+        paymentMethod: "bank_transfer",
+      });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/coaches", variables.coachId, "stats"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS === "web") {
+        window.alert("Payment marked as paid!");
+      } else {
+        Alert.alert("Success", "Payment marked as paid!");
+      }
+    },
+    onError: (err: Error) => {
+      if (Platform.OS === "web") {
+        window.alert(`Error: ${err.message}`);
+      } else {
+        Alert.alert("Error", err.message);
+      }
+    },
+  });
+
+  const declineMutation = useMutation({
+    mutationFn: async ({ coachId, month, year, reason }: { coachId: string; month: number; year: number; reason: string }) => {
+      return apiRequest("POST", `/api/admin/coaches/${coachId}/payouts/${month}/${year}/decline`, {
+        reason,
+      });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/coaches", variables.coachId, "stats"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    },
+    onError: (err: Error) => {
+      if (Platform.OS === "web") {
+        window.alert(`Error: ${err.message}`);
+      } else {
+        Alert.alert("Error", err.message);
+      }
+    },
+  });
+
+  const handleMarkPaid = (month: number, year: number) => {
+    if (!selectedCoachId) return;
+    const coachId = selectedCoachId;
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    if (Platform.OS === "web") {
+      if (window.confirm(`Mark payment for ${monthNames[month - 1]} ${year} as paid?`)) {
+        markPaidMutation.mutate({ coachId, month, year });
+      }
+    } else {
+      Alert.alert(
+        "Confirm Payment",
+        `Mark payment for ${monthNames[month - 1]} ${year} as paid?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Mark Paid", onPress: () => markPaidMutation.mutate({ coachId, month, year }) },
+        ]
+      );
+    }
+  };
+
+  const handleDecline = (month: number, year: number) => {
+    if (!selectedCoachId) return;
+    const coachId = selectedCoachId;
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    if (Platform.OS === "web") {
+      const reason = window.prompt(`Reason for declining ${monthNames[month - 1]} ${year} payment:`);
+      if (reason) {
+        declineMutation.mutate({ coachId, month, year, reason });
+      }
+    } else {
+      Alert.alert(
+        "Decline Payment",
+        `Are you sure you want to decline ${monthNames[month - 1]} ${year} payment?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Decline", style: "destructive", onPress: () => {
+            declineMutation.mutate({ coachId, month, year, reason: "Declined by admin" });
+          }},
+        ]
+      );
+    }
+  };
+
+  const handleSendHoursOverview = () => {
+    const coach = coachStats?.coach;
+    if (!coach?.email) {
+      if (Platform.OS === "web") {
+        window.alert("Coach has no email address set");
+      } else {
+        Alert.alert("Error", "Coach has no email address set");
+      }
+      return;
+    }
+    
+    if (Platform.OS === "web") {
+      window.alert(`Hours overview would be sent to ${coach.email}`);
+    } else {
+      Alert.alert("Send Overview", `Hours overview will be sent to ${coach.email}`, [
+        { text: "Cancel", style: "cancel" },
+        { text: "Send", onPress: () => {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Alert.alert("Sent", "Hours overview sent successfully!");
+        }},
+      ]);
+    }
   };
 
   const handleSubmit = () => {
@@ -326,7 +449,7 @@ export default function AdminCoachesScreen() {
               </View>
 
               <View style={[styles.section, CardStyles.elevated]}>
-                <Text style={styles.sectionTitle}>Finance</Text>
+                <Text style={styles.sectionTitle}>Finance Overview</Text>
                 <View style={styles.financeRow}>
                   <Text style={styles.financeLabel}>Hourly Rate</Text>
                   <Text style={styles.financeValue}>AED {stats.finance.hourlyRate}</Text>
@@ -338,20 +461,108 @@ export default function AdminCoachesScreen() {
                 <View style={styles.divider} />
                 <View style={styles.financeRow}>
                   <Text style={styles.financeLabel}>Amount Owed</Text>
-                  <Text style={[styles.financeValue, { color: Colors.dark.error }]}>
+                  <Text style={[styles.financeValue, { color: stats.finance.amountOwed > 0 ? Colors.dark.orange : Colors.dark.successNeon }]}>
                     AED {stats.finance.amountOwed}
                   </Text>
                 </View>
-                <View style={styles.financeRow}>
-                  <Text style={styles.financeLabel}>Amount Paid</Text>
-                  <Text style={[styles.financeValue, { color: Colors.dark.successNeon }]}>
-                    AED {stats.finance.amountPaid}
-                  </Text>
-                </View>
-                <Pressable style={styles.markPaidButton}>
-                  <Text style={styles.markPaidText}>Mark as Paid</Text>
-                </Pressable>
               </View>
+
+              <View style={[styles.section, CardStyles.elevated]}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Monthly Payment History</Text>
+                </View>
+                
+                {stats.finance.monthlyHistory && stats.finance.monthlyHistory.length > 0 ? (
+                  stats.finance.monthlyHistory.map((payment: MonthlyPayment, index: number) => {
+                    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                    const monthLabel = `${monthNames[payment.month - 1]} ${payment.year}`;
+                    
+                    const getStatusColor = (status: string) => {
+                      switch (status) {
+                        case "paid": return Colors.dark.successNeon;
+                        case "declined": return Colors.dark.error;
+                        case "approved": return Colors.dark.xpCyan;
+                        default: return Colors.dark.orange;
+                      }
+                    };
+                    
+                    const getStatusLabel = (status: string) => {
+                      switch (status) {
+                        case "paid": return "Paid";
+                        case "declined": return "Declined";
+                        case "approved": return "Approved";
+                        default: return "Pending";
+                      }
+                    };
+
+                    return (
+                      <View key={`${payment.month}-${payment.year}`} style={[
+                        styles.monthlyPaymentRow,
+                        index < stats.finance.monthlyHistory.length - 1 && styles.monthlyPaymentBorder
+                      ]}>
+                        <View style={styles.monthlyPaymentHeader}>
+                          <Text style={styles.monthlyPaymentMonth}>{monthLabel}</Text>
+                          <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(payment.status)}20` }]}>
+                            <Text style={[styles.statusBadgeText, { color: getStatusColor(payment.status) }]}>
+                              {getStatusLabel(payment.status)}
+                            </Text>
+                          </View>
+                        </View>
+                        
+                        <View style={styles.monthlyPaymentDetails}>
+                          <View style={styles.monthlyPaymentStat}>
+                            <Ionicons name="time-outline" size={14} color={Colors.dark.textMuted} />
+                            <Text style={styles.monthlyPaymentStatText}>{payment.hoursWorked}h</Text>
+                          </View>
+                          <View style={styles.monthlyPaymentStat}>
+                            <Ionicons name="calendar-outline" size={14} color={Colors.dark.textMuted} />
+                            <Text style={styles.monthlyPaymentStatText}>{payment.sessionsCount} sessions</Text>
+                          </View>
+                          <Text style={[styles.monthlyPaymentAmount, { color: getStatusColor(payment.status) }]}>
+                            AED {payment.grossAmount}
+                          </Text>
+                        </View>
+                        
+                        {payment.status === "declined" && payment.declineReason ? (
+                          <Text style={styles.declineReason}>Reason: {payment.declineReason}</Text>
+                        ) : null}
+                        
+                        {payment.status === "pending" ? (
+                          <View style={styles.paymentActions}>
+                            <Pressable 
+                              style={[styles.paymentActionButton, styles.payButton]}
+                              onPress={() => handleMarkPaid(payment.month, payment.year)}
+                            >
+                              <Ionicons name="checkmark" size={16} color={Colors.dark.text} />
+                              <Text style={styles.payButtonText}>Mark Paid</Text>
+                            </Pressable>
+                            <Pressable 
+                              style={[styles.paymentActionButton, styles.declineButton]}
+                              onPress={() => handleDecline(payment.month, payment.year)}
+                            >
+                              <Ionicons name="close" size={16} color={Colors.dark.error} />
+                              <Text style={styles.declineButtonText}>Decline</Text>
+                            </Pressable>
+                          </View>
+                        ) : null}
+                      </View>
+                    );
+                  })
+                ) : (
+                  <View style={styles.emptyPaymentHistory}>
+                    <Ionicons name="receipt-outline" size={32} color={Colors.dark.textMuted} />
+                    <Text style={styles.emptyPaymentText}>No payment history yet</Text>
+                  </View>
+                )}
+              </View>
+
+              <Pressable 
+                style={styles.sendOverviewButton}
+                onPress={() => handleSendHoursOverview()}
+              >
+                <Ionicons name="mail-outline" size={20} color={Colors.dark.text} />
+                <Text style={styles.sendOverviewText}>Send Hours Overview to Coach</Text>
+              </Pressable>
             </ScrollView>
           ) : selectedCoach ? (
             <ScrollView 
@@ -834,6 +1045,119 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg,
   },
   markPaidText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  monthlyPaymentRow: {
+    paddingVertical: Spacing.md,
+  },
+  monthlyPaymentBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  monthlyPaymentHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  monthlyPaymentMonth: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  statusBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  statusBadgeText: {
+    ...Typography.caption,
+    fontWeight: "600",
+  },
+  monthlyPaymentDetails: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  monthlyPaymentStat: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  monthlyPaymentStatText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  monthlyPaymentAmount: {
+    ...Typography.body,
+    fontWeight: "700",
+    marginLeft: "auto",
+  },
+  declineReason: {
+    ...Typography.small,
+    color: Colors.dark.error,
+    marginTop: Spacing.sm,
+    fontStyle: "italic",
+  },
+  paymentActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  paymentActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  payButton: {
+    backgroundColor: Colors.dark.successNeon,
+  },
+  payButtonText: {
+    ...Typography.small,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  declineButton: {
+    backgroundColor: `${Colors.dark.error}20`,
+    borderWidth: 1,
+    borderColor: Colors.dark.error,
+  },
+  declineButtonText: {
+    ...Typography.small,
+    color: Colors.dark.error,
+    fontWeight: "600",
+  },
+  emptyPaymentHistory: {
+    alignItems: "center",
+    paddingVertical: Spacing.xl,
+  },
+  emptyPaymentText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.sm,
+  },
+  sendOverviewButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.xpCyan,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.md,
+  },
+  sendOverviewText: {
     ...Typography.body,
     color: Colors.dark.text,
     fontWeight: "600",

@@ -165,6 +165,10 @@ import {
   type InsertPayment,
   type Refund,
   type InsertRefund,
+  // Coach Payouts
+  coachPayouts,
+  type CoachPayout,
+  type InsertCoachPayout,
 } from "@shared/schema";
 
 export const storage = {
@@ -3298,5 +3302,123 @@ export const storage = {
       avgDelta: observations.length > 0 ? Math.round((totalDelta / observations.length) * 10) / 10 : 0,
       observationCount: observations.length,
     };
+  },
+
+  // ==================== COACH PAYOUTS ====================
+  
+  async getCoachPayouts(coachId: string, limit?: number): Promise<CoachPayout[]> {
+    const query = db.select().from(coachPayouts)
+      .where(eq(coachPayouts.coachId, coachId))
+      .orderBy(desc(coachPayouts.year), desc(coachPayouts.month));
+    
+    if (limit) {
+      return query.limit(limit);
+    }
+    return query;
+  },
+
+  async getCoachPayoutsByAcademy(academyId: string, limit?: number): Promise<CoachPayout[]> {
+    const query = db.select().from(coachPayouts)
+      .where(eq(coachPayouts.academyId, academyId))
+      .orderBy(desc(coachPayouts.year), desc(coachPayouts.month));
+    
+    if (limit) {
+      return query.limit(limit);
+    }
+    return query;
+  },
+
+  async getCoachPayoutByMonthYear(coachId: string, month: number, year: number): Promise<CoachPayout | undefined> {
+    const result = await db.select().from(coachPayouts)
+      .where(and(
+        eq(coachPayouts.coachId, coachId),
+        eq(coachPayouts.month, month),
+        eq(coachPayouts.year, year)
+      ));
+    return result[0];
+  },
+
+  async createCoachPayout(data: InsertCoachPayout): Promise<CoachPayout> {
+    const result = await db.insert(coachPayouts).values(data).returning();
+    return result[0];
+  },
+
+  async updateCoachPayout(id: string, data: Partial<InsertCoachPayout>): Promise<CoachPayout | undefined> {
+    const result = await db.update(coachPayouts)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(coachPayouts.id, id))
+      .returning();
+    return result[0];
+  },
+
+  async markCoachPayoutPaid(id: string, paidBy: string, paymentMethod: string, paymentReference?: string): Promise<CoachPayout | undefined> {
+    const result = await db.update(coachPayouts)
+      .set({ 
+        status: "paid", 
+        paidAt: new Date(), 
+        paidBy,
+        paymentMethod,
+        paymentReference,
+        updatedAt: new Date() 
+      })
+      .where(eq(coachPayouts.id, id))
+      .returning();
+    return result[0];
+  },
+
+  async declineCoachPayout(id: string, reason: string): Promise<CoachPayout | undefined> {
+    const result = await db.update(coachPayouts)
+      .set({ 
+        status: "declined", 
+        declineReason: reason,
+        updatedAt: new Date() 
+      })
+      .where(eq(coachPayouts.id, id))
+      .returning();
+    return result[0];
+  },
+
+  async getCoachMonthlyHoursSummary(coachId: string, academyId?: string): Promise<{
+    month: number;
+    year: number;
+    hoursWorked: number;
+    sessionsCount: number;
+  }[]> {
+    const conditions = [eq(sessions.coachId, coachId)];
+    if (academyId) {
+      conditions.push(eq(sessions.academyId, academyId));
+    }
+
+    const allSessions = await db.select().from(sessions).where(and(...conditions));
+    
+    const monthlyData: Map<string, { hours: number; count: number; month: number; year: number }> = new Map();
+    
+    for (const session of allSessions) {
+      const startTime = new Date(session.startTime);
+      const endTime = new Date(session.endTime);
+      const month = startTime.getMonth() + 1;
+      const year = startTime.getFullYear();
+      const key = `${year}-${month}`;
+      
+      const durationHours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+      
+      if (!monthlyData.has(key)) {
+        monthlyData.set(key, { hours: 0, count: 0, month, year });
+      }
+      
+      const data = monthlyData.get(key)!;
+      data.hours += durationHours;
+      data.count += 1;
+    }
+    
+    return Array.from(monthlyData.values())
+      .sort((a, b) => b.year - a.year || b.month - a.month)
+      .slice(0, 12)
+      .map(d => ({
+        month: d.month,
+        year: d.year,
+        hoursWorked: Math.round(d.hours * 10) / 10,
+        sessionsCount: d.count,
+      }));
   },
 };

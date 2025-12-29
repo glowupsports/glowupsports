@@ -5959,6 +5959,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return sum + (end.getTime() - start.getTime()) / (1000 * 60 * 60);
       }, 0);
 
+      const monthlyHours = await storage.getCoachMonthlyHoursSummary(coachId, academyId);
+      const payoutRecords = await storage.getCoachPayouts(coachId, 12);
+      
+      const monthlyPaymentHistory = monthlyHours.map(mh => {
+        const payoutRecord = payoutRecords.find(
+          (p: any) => p.month === mh.month && p.year === mh.year
+        );
+        const rate = Number(payoutRecord?.hourlyRate || hourlyRate);
+        const grossAmount = payoutRecord 
+          ? Number(payoutRecord.grossAmount) 
+          : Math.round(mh.hoursWorked * rate);
+        
+        return {
+          month: mh.month,
+          year: mh.year,
+          hoursWorked: mh.hoursWorked,
+          sessionsCount: mh.sessionsCount,
+          hourlyRate: rate,
+          grossAmount,
+          status: payoutRecord?.status || "pending",
+          paidAt: payoutRecord?.paidAt || null,
+          declineReason: payoutRecord?.declineReason || null,
+          payoutId: payoutRecord?.id || null,
+        };
+      });
+
       res.json({
         coach: {
           id: coach.id,
@@ -5982,12 +6008,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalHours: Math.round(totalHours * 10) / 10,
           amountOwed: Math.round(totalHours * hourlyRate),
           amountPaid: coach.amountPaid || 0,
-          invoiceHistory: [],
+          monthlyHistory: monthlyPaymentHistory,
         },
       });
     } catch (error) {
       console.error("Coach stats error:", error);
       res.status(500).json({ error: "Failed to fetch coach stats" });
+    }
+  });
+
+  // Admin - Mark coach payout as paid
+  app.post("/api/admin/coaches/:coachId/payouts/:month/:year/pay", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { coachId, month, year } = req.params;
+      const { paymentMethod, paymentReference, notes } = req.body;
+      const academyId = req.user?.academyId;
+      const adminId = req.user?.coachId || req.user?.id;
+
+      const coach = await storage.getCoach(coachId);
+      if (!coach || (academyId && coach.academyId !== academyId)) {
+        return res.status(404).json({ error: "Coach not found" });
+      }
+
+      let payout = await storage.getCoachPayoutByMonthYear(coachId, parseInt(month), parseInt(year));
+      
+      if (!payout) {
+        const monthlyHours = await storage.getCoachMonthlyHoursSummary(coachId, academyId);
+        const monthData = monthlyHours.find(m => m.month === parseInt(month) && m.year === parseInt(year));
+        const hoursWorked = monthData?.hoursWorked || 0;
+        const hourlyRate = Number(coach.hourlyRate || 100);
+        
+        payout = await storage.createCoachPayout({
+          academyId: academyId!,
+          coachId,
+          month: parseInt(month),
+          year: parseInt(year),
+          hoursWorked: String(hoursWorked),
+          hourlyRate: String(hourlyRate),
+          grossAmount: String(Math.round(hoursWorked * hourlyRate)),
+          status: "pending",
+          notes,
+        });
+      }
+
+      const updatedPayout = await storage.markCoachPayoutPaid(
+        payout.id, 
+        adminId!, 
+        paymentMethod || "bank_transfer",
+        paymentReference
+      );
+
+      res.json({ success: true, payout: updatedPayout });
+    } catch (error) {
+      console.error("Mark payout paid error:", error);
+      res.status(500).json({ error: "Failed to mark payout as paid" });
+    }
+  });
+
+  // Admin - Decline coach payout
+  app.post("/api/admin/coaches/:coachId/payouts/:month/:year/decline", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { coachId, month, year } = req.params;
+      const { reason, notes } = req.body;
+      const academyId = req.user?.academyId;
+
+      const coach = await storage.getCoach(coachId);
+      if (!coach || (academyId && coach.academyId !== academyId)) {
+        return res.status(404).json({ error: "Coach not found" });
+      }
+
+      let payout = await storage.getCoachPayoutByMonthYear(coachId, parseInt(month), parseInt(year));
+      
+      if (!payout) {
+        const monthlyHours = await storage.getCoachMonthlyHoursSummary(coachId, academyId);
+        const monthData = monthlyHours.find(m => m.month === parseInt(month) && m.year === parseInt(year));
+        const hoursWorked = monthData?.hoursWorked || 0;
+        const hourlyRate = Number(coach.hourlyRate || 100);
+        
+        payout = await storage.createCoachPayout({
+          academyId: academyId!,
+          coachId,
+          month: parseInt(month),
+          year: parseInt(year),
+          hoursWorked: String(hoursWorked),
+          hourlyRate: String(hourlyRate),
+          grossAmount: String(Math.round(hoursWorked * hourlyRate)),
+          status: "pending",
+          notes,
+        });
+      }
+
+      const updatedPayout = await storage.declineCoachPayout(payout.id, reason || "No reason provided");
+
+      res.json({ success: true, payout: updatedPayout });
+    } catch (error) {
+      console.error("Decline payout error:", error);
+      res.status(500).json({ error: "Failed to decline payout" });
     }
   });
 

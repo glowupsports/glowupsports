@@ -1367,3 +1367,36 @@ export const refunds = pgTable("refunds", {
 export const insertRefundSchema = createInsertSchema(refunds).omit({ id: true, createdAt: true });
 export type InsertRefund = z.infer<typeof insertRefundSchema>;
 export type Refund = typeof refunds.$inferSelect;
+
+// Coach Payouts - Monthly payments to coaches
+export const coachPayouts = pgTable("coach_payouts", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  
+  month: integer("month").notNull(), // 1-12
+  year: integer("year").notNull(),
+  
+  hoursWorked: numeric("hours_worked").default("0"),
+  hourlyRate: numeric("hourly_rate").notNull(),
+  grossAmount: numeric("gross_amount").notNull(),
+  
+  status: text("status").default("pending"), // pending | approved | paid | declined
+  declineReason: text("decline_reason"),
+  
+  paidAt: timestamp("paid_at"),
+  paidBy: varchar("paid_by").references(() => coaches.id),
+  paymentMethod: text("payment_method"), // bank_transfer | cash | cheque
+  paymentReference: text("payment_reference"),
+  
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCoachPayoutSchema = createInsertSchema(coachPayouts).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCoachPayout = z.infer<typeof insertCoachPayoutSchema>;
+export type CoachPayout = typeof coachPayouts.$inferSelect;
