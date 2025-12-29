@@ -1682,10 +1682,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== ADMIN/SETUP ENDPOINTS ====================
 
   // Get all coaches
-  app.get("/api/coaches", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/coaches", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const academyId = req.user!.academyId;
-      const allCoaches = await storage.getAllCoaches(academyId ?? undefined);
+      const role = req.user?.role;
+      const academyId = req.user?.academyId;
+      
+      if (role !== "platform_owner" && !academyId) {
+        return res.status(403).json({ error: "Academy membership required" });
+      }
+      
+      const allCoaches = await storage.getAllCoaches(role === "platform_owner" ? undefined : academyId);
       res.json(allCoaches);
     } catch (error) {
       console.error("Error fetching coaches:", error);
@@ -1800,9 +1806,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all players with last lesson date (supports optional pagination)
-  app.get("/api/players", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/players", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const academyId = req.user!.academyId;
+      const role = req.user?.role;
+      const academyId = req.user?.academyId;
+      
+      if (role !== "platform_owner" && !academyId) {
+        return res.status(403).json({ error: "Academy membership required" });
+      }
+      
+      const effectiveAcademyId = role === "platform_owner" ? undefined : academyId;
       const { search, paginated } = req.query;
       const usePagination = paginated === 'true';
       
@@ -1812,20 +1825,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (usePagination) {
         const { limit, offset } = parsePagination(req.query as any);
         if (search) {
-          const result = await storage.searchPlayersPaginated(search as string, limit, offset, academyId ?? undefined);
+          const result = await storage.searchPlayersPaginated(search as string, limit, offset, effectiveAcademyId);
           playerList = result.players;
           total = result.total;
         } else {
-          const result = await storage.getAllPlayersPaginated(limit, offset, academyId ?? undefined);
+          const result = await storage.getAllPlayersPaginated(limit, offset, effectiveAcademyId);
           playerList = result.players;
           total = result.total;
         }
       } else {
         // Backward compatible: return all players as array
         if (search) {
-          playerList = await storage.searchPlayers(search as string, academyId ?? undefined);
+          playerList = await storage.searchPlayers(search as string, effectiveAcademyId);
         } else {
-          playerList = await storage.getAllPlayers(academyId ?? undefined);
+          playerList = await storage.getAllPlayers(effectiveAcademyId);
         }
       }
       
