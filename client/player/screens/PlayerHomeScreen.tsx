@@ -399,12 +399,15 @@ export default function PlayerHomeScreen() {
     );
   }
 
-  if (error || !data) {
+  if (error || !data || !data.player) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <View style={styles.modeSwitcherContainer}>
+          <ModeSwitcher />
+        </View>
         <Ionicons name="alert-circle" size={48} color={Colors.dark.error} />
-        <Text style={styles.errorText}>Unable to load dashboard</Text>
-        <Text style={styles.errorSubtext}>Please try again later</Text>
+        <Text style={styles.errorText}>No player profile found</Text>
+        <Text style={styles.errorSubtext}>Please set up your player profile or switch to another mode</Text>
       </View>
     );
   }
