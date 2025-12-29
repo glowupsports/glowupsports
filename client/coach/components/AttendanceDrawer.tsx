@@ -22,6 +22,7 @@ import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useNetwork } from "@/context/NetworkContext";
+import { showOfflineAlert } from "@/hooks/useOfflineGuard";
 
 type AttendanceStatus = "present" | "late" | "absent" | "holiday";
 type LateMinutes = 5 | 10 | 15 | 20 | 30 | 999;
@@ -152,18 +153,6 @@ export default function AttendanceDrawer({
       setAttendance(initial);
     }
   }, [session]);
-
-  const showOfflineAlert = useCallback(() => {
-    if (Platform.OS === "web") {
-      window.alert("You're currently offline. This action can't be saved.");
-    } else {
-      Alert.alert(
-        "You're Offline",
-        "You're currently offline. This action can't be saved. Please reconnect to the internet and try again.",
-        [{ text: "OK", style: "default" }]
-      );
-    }
-  }, []);
 
   const saveMutation = useMutation({
     mutationFn: async (data: { sessionId: string; attendance: AttendanceRecord[] }) => {

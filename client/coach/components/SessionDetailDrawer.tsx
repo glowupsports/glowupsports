@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useNetwork } from "@/context/NetworkContext";
+import { showOfflineAlert } from "@/hooks/useOfflineGuard";
 
 interface Player {
   id: string;
@@ -75,18 +76,8 @@ export default function SessionDetailDrawer({
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { isOffline, logOfflineAttempt } = useNetwork();
-
-  const showOfflineAlert = useCallback(() => {
-    if (Platform.OS === "web") {
-      window.alert("You're currently offline. This action can't be saved.");
-    } else {
-      Alert.alert(
-        "You're Offline",
-        "You're currently offline. This action can't be saved. Please reconnect to the internet and try again.",
-        [{ text: "OK", style: "default" }]
-      );
-    }
-  }, []);
+  const isOfflineRef = useRef(isOffline);
+  useEffect(() => { isOfflineRef.current = isOffline; }, [isOffline]);
   
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [showExtendOptions, setShowExtendOptions] = useState(false);
@@ -424,7 +415,14 @@ export default function SessionDetailDrawer({
           { 
             text: "Skip", 
             style: "cancel",
-            onPress: () => addPlayerMutation.mutate({ playerId: selectedPlayer.id }),
+            onPress: async () => {
+              if (isOfflineRef.current) {
+                await logOfflineAttempt({ screen: "SessionDetailDrawer", action: "add_player_skip" });
+                showOfflineAlert();
+                return;
+              }
+              addPlayerMutation.mutate({ playerId: selectedPlayer.id });
+            },
           },
           { 
             text: "Review Attendance",
@@ -474,7 +472,12 @@ export default function SessionDetailDrawer({
     }));
     
     addPlayerMutation.mutate({ playerId: selectedPlayer.id }, {
-      onSuccess: () => {
+      onSuccess: async () => {
+        if (isOfflineRef.current) {
+          await logOfflineAttempt({ screen: "SessionDetailDrawer", action: "save_catchup_records" });
+          showOfflineAlert();
+          return;
+        }
         if (records.length > 0) {
           saveCatchUpMutation.mutate(records);
         }

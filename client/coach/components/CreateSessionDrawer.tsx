@@ -21,6 +21,7 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useNetwork } from "@/context/NetworkContext";
+import { showOfflineAlert } from "@/hooks/useOfflineGuard";
 
 interface Player {
   id: string;
@@ -77,18 +78,6 @@ export default function CreateSessionDrawer({
   const queryClient = useQueryClient();
   const { coach, refetchCalendar } = useCoach();
   const { isOffline, logOfflineAttempt } = useNetwork();
-
-  const showOfflineAlert = useCallback(() => {
-    if (Platform.OS === "web") {
-      window.alert("You're currently offline. This action can't be saved.");
-    } else {
-      Alert.alert(
-        "You're Offline",
-        "You're currently offline. This action can't be saved. Please reconnect to the internet and try again.",
-        [{ text: "OK", style: "default" }]
-      );
-    }
-  }, []);
 
   const [sessionType, setSessionType] = useState<SessionType>("private");
   const [duration, setDuration] = useState(60);

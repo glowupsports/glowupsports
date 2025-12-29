@@ -23,6 +23,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useNetwork } from "@/context/NetworkContext";
+import { showOfflineAlert } from "@/hooks/useOfflineGuard";
 
 interface Court {
   id: string;
@@ -82,18 +83,6 @@ export default function SettingsScreen() {
   const [editingCourt, setEditingCourt] = useState<Court | null>(null);
   const [newCourtName, setNewCourtName] = useState("");
   const [newCourtColor, setNewCourtColor] = useState(COURT_COLORS[0]);
-
-  const showOfflineAlert = useCallback(() => {
-    if (Platform.OS === "web") {
-      window.alert("You're currently offline. This action can't be saved.");
-    } else {
-      Alert.alert(
-        "You're Offline",
-        "You're currently offline. This action can't be saved. Please reconnect to the internet and try again.",
-        [{ text: "OK", style: "default" }]
-      );
-    }
-  }, []);
 
   const { data: courts = [], isLoading: courtsLoading } = useQuery<Court[]>({
     queryKey: ["/api/courts"],
