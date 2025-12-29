@@ -94,7 +94,7 @@ export function PlayerChatFooter() {
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const height = useSharedValue(FOOTER_COLLAPSED + insets.bottom);
+  const height = useSharedValue(FOOTER_COLLAPSED);
 
   const handleNewMessage = useCallback((payload: NewMessagePayload) => {
     queryClient.invalidateQueries({ queryKey: ["/api/conversations", payload.conversationId, "messages"] });
@@ -221,10 +221,10 @@ export function PlayerChatFooter() {
     const targetHeight = isFullscreen 
       ? FOOTER_FULLSCREEN 
       : isExpanded 
-        ? FOOTER_EXPANDED + insets.bottom 
-        : FOOTER_COLLAPSED + insets.bottom;
+        ? FOOTER_EXPANDED 
+        : FOOTER_COLLAPSED;
     height.value = withSpring(targetHeight, { damping: 20, stiffness: 200 });
-  }, [isExpanded, isFullscreen, insets.bottom]);
+  }, [isExpanded, isFullscreen]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     height: height.value,
@@ -413,7 +413,7 @@ export function PlayerChatFooter() {
   }
 
   return (
-    <Animated.View style={[styles.container, { bottom: tabBarHeight - insets.bottom }, animatedStyle]}>
+    <Animated.View style={[styles.container, { bottom: tabBarHeight + insets.bottom }, animatedStyle]}>
       <View style={styles.header}>
         <Pressable
           onPress={() => {
@@ -599,7 +599,6 @@ export function PlayerChatFooter() {
         </View>
       ) : null}
 
-      <View style={{ height: insets.bottom, backgroundColor: Colors.dark.backgroundDefault }} />
     </Animated.View>
   );
 }
