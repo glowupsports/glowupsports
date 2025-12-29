@@ -21,7 +21,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
-import { getApiUrl } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -71,18 +70,12 @@ export default function DashboardScreen() {
   const [selectedDayOffset, setSelectedDayOffset] = useState(0);
   
   const todayDateStr = new Date().toISOString().split("T")[0];
+  const weeklyCalendarPath = coach?.id 
+    ? `/api/coach/calendar?coachId=${coach.id}&date=${todayDateStr}&view=week` 
+    : null;
   const { data: weeklyCalendarData } = useQuery<WeeklyCalendarData>({
-    queryKey: ["/api/coach/calendar", coach?.id, todayDateStr, "week"],
-    queryFn: async () => {
-      const baseUrl = getApiUrl();
-      const url = new URL(`/api/coach/calendar?coachId=${coach?.id}&date=${todayDateStr}&view=week`, baseUrl);
-      const response = await fetch(url.toString(), {
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to fetch weekly calendar");
-      return response.json();
-    },
-    enabled: !!coach?.id,
+    queryKey: [weeklyCalendarPath],
+    enabled: !!coach?.id && !!weeklyCalendarPath,
   });
   
   const allSessions = weeklyCalendarData?.ownSessions || calendarData?.ownSessions || [];
@@ -126,10 +119,11 @@ export default function DashboardScreen() {
     if (!allSessions || allSessions.length === 0) return [];
     return allSessions.filter((session) => {
       const sessionDate = new Date(session.startTime);
+      // Compare using UTC to avoid timezone issues
       return (
-        sessionDate.getFullYear() === date.getFullYear() &&
-        sessionDate.getMonth() === date.getMonth() &&
-        sessionDate.getDate() === date.getDate() &&
+        sessionDate.getUTCFullYear() === date.getFullYear() &&
+        sessionDate.getUTCMonth() === date.getMonth() &&
+        sessionDate.getUTCDate() === date.getDate() &&
         session.status !== "cancelled"
       );
     });
