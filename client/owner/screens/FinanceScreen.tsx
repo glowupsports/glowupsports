@@ -92,10 +92,14 @@ interface PaymentRowProps {
 }
 
 function PaymentRow({ playerName, amount, status, paymentMethod, date, currency }: PaymentRowProps) {
-  const isPaid = status === "paid";
-  const config = isPaid
-    ? { color: Colors.dark.primary, label: "Confirmed", icon: "checkmark-circle" as const }
-    : { color: Colors.dark.orange, label: "Pending", icon: "time" as const };
+  const statusConfig: Record<string, { color: string; label: string; icon: keyof typeof Ionicons.glyphMap }> = {
+    paid: { color: Colors.dark.primary, label: "Confirmed", icon: "checkmark-circle" },
+    confirmed: { color: Colors.dark.primary, label: "Confirmed", icon: "checkmark-circle" },
+    pending: { color: Colors.dark.orange, label: "Pending", icon: "time" },
+    overdue: { color: Colors.dark.error, label: "Overdue", icon: "alert-circle" },
+    rejected: { color: Colors.dark.error, label: "Rejected", icon: "close-circle" },
+  };
+  const config = statusConfig[status] || { color: Colors.dark.orange, label: "Pending", icon: "time" };
 
   return (
     <View style={styles.paymentRow}>
