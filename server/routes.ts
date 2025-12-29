@@ -1880,6 +1880,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get squad members (other players in same academy for private chat)
+  app.get("/api/players/squad-members", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      const playerId = req.user?.playerId;
+      
+      if (!academyId) {
+        return res.status(403).json({ error: "Academy membership required" });
+      }
+      
+      // Get all players in the same academy
+      const allPlayers = await storage.getPlayersByAcademy(academyId);
+      
+      // Filter out current player and return basic info
+      const squadMembers = allPlayers
+        .filter((p: any) => p.id !== playerId)
+        .map((p: any) => ({
+          id: p.id,
+          firstName: p.firstName || p.name?.split(' ')[0] || 'Player',
+          lastName: p.lastName || p.name?.split(' ').slice(1).join(' ') || '',
+        }));
+      
+      res.json(squadMembers);
+    } catch (error) {
+      console.error("Error fetching squad members:", error);
+      res.status(500).json({ error: "Failed to fetch squad members" });
+    }
+  });
+
   // Get single player
   app.get("/api/players/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
