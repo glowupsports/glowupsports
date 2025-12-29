@@ -9,6 +9,7 @@ export interface AuthUser {
   role: string;
   academyId: string | null;
   coachId: string | null;
+  playerId: string | null;
 }
 
 export interface AuthState {

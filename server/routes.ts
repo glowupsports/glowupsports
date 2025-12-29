@@ -1600,6 +1600,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           role: freshUser.role,
           academyId: freshUser.academyId,
           coachId: freshUser.coachId,
+          playerId: freshUser.playerId,
         },
         coach: coach ? {
           id: coach.id,
