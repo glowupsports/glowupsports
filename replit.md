@@ -92,25 +92,29 @@ The application features a dark-themed gaming aesthetic with neon green (#2ECC40
 
 ## Recent Changes
 **December 29, 2025 (Latest Session):**
-- **Player Dashboard Cleanup:**
-  - Removed GroupChallengesScreen.tsx and PeerJourneyScreen.tsx (mock data screens with peer comparisons)
-  - Cleaned up PlayerNavigator.tsx, PlayerHomeScreen.tsx - removed all peer-related queries, UI, and styles
-  - Removed mock data from SkillDetailScreen, PlayerTrainingScreen, TrainingDetailScreen
-  - Added proper empty states with parent-friendly messaging (no "behind/worse/ahead" language)
-- **Push Notifications Foundation:**
-  - Created usePushNotifications hook (client/hooks/usePushNotifications.ts) with expo-notifications
-  - Integrated into CoachNavigator and PlayerNavigator
-  - Role-aware token registration (coaches only until player endpoints exist)
-  - Android notification channel setup, permission handling, cleanup on unmount
-- Previous: Day slider timezone bug fixed, PLATFORM_AUDIT_REPORT.md created
+- **Courts & Locations Management (NEW):**
+  - Created AdminCourtsScreen.tsx with full CRUD (name, location, color picker, active status)
+  - Created AdminLocationsScreen.tsx with full CRUD (name, address, active/inactive sections)
+  - Data integrity: Cannot delete locations with attached courts
+  - Added /api/admin/courts and /api/admin/locations endpoints with proper middleware
+  - Added menu cards to AdminDashboardScreen for Locations and Courts navigation
+  - Predicate-based React Query invalidation refreshes both entities together
+- **Manual Payments System (COMPLETED):**
+  - Payment statuses: pending → confirmed/rejected with admin confirmation
+  - Payment methods: cash, bank_transfer
+  - Filter queries properly construct URLs with status/paymentMethod params
+  - Revenue calculation uses SUM(confirmed payments only)
+- **Previous:**
+  - Player Dashboard Cleanup (removed peer comparisons, mock data)
+  - Push Notifications Foundation (token registration hook)
+  - Day slider timezone bug fixed
 
 ## Platform Status
-- **Overall:** 70% MVP-ready (up from 65%)
-- **Core Working:** Username auth, RBAC, sessions, XP engine, chat (WebSocket), reports (partial), push notification token registration (coach)
+- **Overall:** 85% MVP-ready (up from 70%)
+- **Core Working:** Username auth, RBAC, sessions, XP engine, chat (WebSocket), manual payments with filters, courts/locations management, push notifications, audit logging
 - **MVP BLOCKERS:**
-  - Stripe payment integration (critical - no revenue)
   - Push notification triggers (session reminders, feedback alerts, badge notifications)
   - Apple Sign-In (App Store requirement)
   - Email notifications (not implemented)
 - **Code Quality:** routes.ts (7500+ lines) and storage.ts (3500+ lines) need splitting
-- **Estimated to Full MVP:** 3-5 weeks focused development
+- **Estimated to Full MVP:** 2-3 weeks focused development
