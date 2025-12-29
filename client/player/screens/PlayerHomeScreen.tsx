@@ -8,6 +8,7 @@ import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constan
 import { LinearGradient } from "expo-linear-gradient";
 import ModeSwitcher from "@/components/ModeSwitcher";
 import { useAuth } from "@/coach/context/AuthContext";
+import { useAppMode } from "@/context/AppModeContext";
 import { OwnerCard } from "@/player/components/OwnerCard";
 
 interface OwnerProfileData {
@@ -196,29 +197,36 @@ export default function PlayerHomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
+  const { mode } = useAppMode();
   
   const isPlayer = user?.role === "player";
-  const isOwner = user?.role === "owner" || user?.role === "academy_owner" || user?.role === "platform_owner";
-  const canAccessPlayerMode = isPlayer || isOwner;
+  const isOwnerRole = user?.role === "owner" || user?.role === "academy_owner" || user?.role === "platform_owner";
+  const canAccessPlayerMode = isPlayer || isOwnerRole;
+  
+  const hasPlayerProfile = !!user?.playerId;
+  const isInPlayerMode = mode === "player";
+  
+  const showPlayerDashboard = isInPlayerMode && hasPlayerProfile;
+  const showOwnerOverview = isOwnerRole && !showPlayerDashboard;
   
   const { data, isLoading, error } = useQuery<DashboardData>({
     queryKey: ["/api/player/me/dashboard"],
-    enabled: canAccessPlayerMode && !isOwner,
+    enabled: canAccessPlayerMode && showPlayerDashboard,
   });
   
   const { data: ownerStats, isLoading: ownerLoading, error: ownerError } = useQuery<OwnerAcademyStats>({
     queryKey: ["/api/owner/academy-stats"],
-    enabled: isOwner,
+    enabled: showOwnerOverview,
   });
   
   const { data: peersData } = useQuery<PeersData>({
     queryKey: ["/api/player/me/peers"],
-    enabled: canAccessPlayerMode && !isOwner,
+    enabled: canAccessPlayerMode && showPlayerDashboard,
   });
 
   const { data: ownerProfileData } = useQuery<OwnerProfileData>({
     queryKey: ["/api/player/academy-owner"],
-    enabled: canAccessPlayerMode && !isOwner,
+    enabled: canAccessPlayerMode && showPlayerDashboard,
   });
 
   const handlePeerPress = (peer: Peer) => {
@@ -236,7 +244,7 @@ export default function PlayerHomeScreen() {
     );
   }
 
-  if (isOwner && ownerLoading) {
+  if (showOwnerOverview && ownerLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={Colors.dark.gold} />
@@ -245,7 +253,7 @@ export default function PlayerHomeScreen() {
     );
   }
 
-  if (isOwner && ownerError) {
+  if (showOwnerOverview && ownerError) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <View style={styles.modeSwitcherContainer}>
@@ -258,7 +266,7 @@ export default function PlayerHomeScreen() {
     );
   }
 
-  if (isOwner && ownerStats) {
+  if (showOwnerOverview && ownerStats) {
     const { stats, topPerformers, levelDistribution, recentActivity, academy } = ownerStats;
     const totalDistribution = levelDistribution.beginner + levelDistribution.intermediate + levelDistribution.advanced;
     
