@@ -368,7 +368,7 @@ export default function LoginScreen() {
           <TextInput
             value={password}
             onChangeText={setPassword}
-            placeholder="Min 8 characters"
+            placeholder="Create a secure password"
             placeholderTextColor={Colors.dark.disabled}
             secureTextEntry={!showPassword}
             autoCapitalize="none"
@@ -384,6 +384,48 @@ export default function LoginScreen() {
               color={Colors.dark.tabIconDefault}
             />
           </Pressable>
+        </View>
+        <View style={styles.passwordRequirements}>
+          <View style={styles.requirementRow}>
+            <Ionicons
+              name={password.length >= 8 ? "checkmark-circle" : "ellipse-outline"}
+              size={14}
+              color={password.length >= 8 ? Colors.dark.primary : Colors.dark.disabled}
+            />
+            <Text style={[styles.requirementText, password.length >= 8 && styles.requirementMet]}>
+              At least 8 characters
+            </Text>
+          </View>
+          <View style={styles.requirementRow}>
+            <Ionicons
+              name={/[A-Z]/.test(password) ? "checkmark-circle" : "ellipse-outline"}
+              size={14}
+              color={/[A-Z]/.test(password) ? Colors.dark.primary : Colors.dark.disabled}
+            />
+            <Text style={[styles.requirementText, /[A-Z]/.test(password) && styles.requirementMet]}>
+              One uppercase letter
+            </Text>
+          </View>
+          <View style={styles.requirementRow}>
+            <Ionicons
+              name={/[a-z]/.test(password) ? "checkmark-circle" : "ellipse-outline"}
+              size={14}
+              color={/[a-z]/.test(password) ? Colors.dark.primary : Colors.dark.disabled}
+            />
+            <Text style={[styles.requirementText, /[a-z]/.test(password) && styles.requirementMet]}>
+              One lowercase letter
+            </Text>
+          </View>
+          <View style={styles.requirementRow}>
+            <Ionicons
+              name={/[0-9]/.test(password) ? "checkmark-circle" : "ellipse-outline"}
+              size={14}
+              color={/[0-9]/.test(password) ? Colors.dark.primary : Colors.dark.disabled}
+            />
+            <Text style={[styles.requirementText, /[0-9]/.test(password) && styles.requirementMet]}>
+              One number
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -714,6 +756,22 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     justifyContent: "center",
+  },
+  passwordRequirements: {
+    marginTop: Spacing.sm,
+    gap: 4,
+  },
+  requirementRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  requirementText: {
+    ...Typography.caption,
+    color: Colors.dark.disabled,
+  },
+  requirementMet: {
+    color: Colors.dark.primary,
   },
   submitButton: {
     borderRadius: BorderRadius.lg,

@@ -67,7 +67,11 @@ export const playerRegisterSchema = z.object({
   dateOfBirth: z.string().optional(),
   email: z.string().email("Valid email is required"),
   phone: z.string().min(5, "Phone number is required for WhatsApp communication"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number"),
   tshirtSize: z.enum(tshirtSizes).optional(),
   height: z.number().int().min(50).max(250).optional(), // height in cm
 });
