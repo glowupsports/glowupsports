@@ -7759,7 +7759,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       let playerId = req.user!.playerId;
       let newPlayerCreated = false;
-      const { motivationType, dateOfBirth, height, tshirtSize, dominantHand, backhandType, experienceLevel, enjoymentTags, focusGoals, selfConfidenceFlags } = req.body;
+      const { academyId, motivationType, dateOfBirth, height, tshirtSize, dominantHand, backhandType, experienceLevel, enjoymentTags, focusGoals, selfConfidenceFlags } = req.body;
+
+      // Validate academy selection - required for onboarding
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy selection is required" });
+      }
+
+      // Verify academy exists
+      const academy = await storage.getAcademy(academyId);
+      if (!academy) {
+        return res.status(400).json({ error: "Selected academy not found" });
+      }
 
       // If no player profile exists, create one during onboarding
       if (!playerId) {
@@ -7773,24 +7784,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ error: "User not found" });
         }
         
-        // Create player with minimal required fields (name is the only required field)
+        // Create player with the selected academy
         const newPlayer = await storage.createPlayer({
           name: user.email.split("@")[0] || "Player",
           email: user.email,
           ballLevel: "green",
-          academyId: null, // Will be assigned when they join an academy
+          academyId: academyId,
           coachId: null,
         });
         
         playerId = newPlayer.id;
         newPlayerCreated = true;
         
-        // Link the player to the user account
-        await storage.updateUser(user.id, { playerId: newPlayer.id });
+        // Link the player to the user account and update their academy
+        await storage.updateUser(user.id, { playerId: newPlayer.id, academyId: academyId });
       }
 
       const updatedPlayer = await storage.updatePlayer(playerId, {
         onboardingCompleted: true,
+        academyId: academyId,
         motivationType,
         dateOfBirth,
         height,

@@ -24,7 +24,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { saveAuthState, setAuthToken, AuthUser } from "@/lib/auth";
@@ -34,6 +34,8 @@ import { TshirtSize } from "@shared/schema";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface OnboardingData {
+  academyId: string | null;
+  academyName: string | null;
   motivationType: string | null;
   dateOfBirth: string | null;
   height: number | null;
@@ -44,6 +46,14 @@ interface OnboardingData {
   enjoymentTags: string[];
   focusGoals: string[];
   selfConfidenceFlags: string[];
+}
+
+interface Academy {
+  id: string;
+  name: string;
+  slug: string;
+  coachCount: number;
+  playerCount: number;
 }
 
 interface StepProps {
@@ -205,6 +215,140 @@ function SelectableCard({
         </View>
       ) : null}
     </Pressable>
+  );
+}
+
+function AcademySelectionStep({ data, setData, onNext }: StepProps) {
+  const { data: academiesData, isLoading, isError, refetch, isFetching } = useQuery<{ academies: Academy[] }>({
+    queryKey: ["/api/academies/browse"],
+  });
+
+  const academies = academiesData?.academies || [];
+
+  if (isLoading) {
+    return (
+      <View style={styles.stepContainer}>
+        <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+          <Text style={styles.stepTitle}>Select Your Academy</Text>
+          <Text style={styles.stepSubtitle}>
+            Loading available academies...
+          </Text>
+        </Animated.View>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Please wait...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (isError) {
+    return (
+      <View style={styles.stepContainer}>
+        <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+          <Text style={styles.stepTitle}>Connection Issue</Text>
+          <Text style={styles.stepSubtitle}>
+            We couldn't load the available academies. Please check your connection and try again.
+          </Text>
+        </Animated.View>
+        <View style={styles.errorContainer}>
+          <Ionicons name="cloud-offline-outline" size={48} color={Colors.dark.textMuted} />
+          <Pressable
+            style={styles.retryButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              refetch();
+            }}
+            disabled={isFetching}
+          >
+            <Ionicons name="refresh-outline" size={20} color={Colors.dark.backgroundRoot} />
+            <Text style={styles.retryButtonText}>
+              {isFetching ? "Retrying..." : "Try Again"}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.stepContainer}>
+      <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+        <Text style={styles.stepTitle}>Select Your Academy</Text>
+        <Text style={styles.stepSubtitle}>
+          Choose the tennis academy you're joining.
+        </Text>
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.optionsContainer}>
+        {academies.length === 0 ? (
+          <View style={styles.emptyAcademiesContainer}>
+            <Ionicons name="business-outline" size={48} color={Colors.dark.textMuted} />
+            <Text style={styles.emptyAcademiesText}>No academies available</Text>
+            <Text style={styles.emptyAcademiesSubtext}>
+              No academies are currently accepting new players. Please contact your coach to receive an invitation, or check back later.
+            </Text>
+            <Pressable
+              style={styles.retryButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                refetch();
+              }}
+              disabled={isFetching}
+            >
+              <Ionicons name="refresh-outline" size={20} color={Colors.dark.backgroundRoot} />
+              <Text style={styles.retryButtonText}>
+                {isFetching ? "Checking..." : "Refresh"}
+              </Text>
+            </Pressable>
+          </View>
+        ) : (
+          academies.map((academy) => (
+            <Pressable
+              key={academy.id}
+              style={[
+                styles.academyCard,
+                data.academyId === academy.id ? styles.academyCardActive : null,
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setData((prev) => ({ 
+                  ...prev, 
+                  academyId: academy.id,
+                  academyName: academy.name,
+                }));
+                setTimeout(onNext, 300);
+              }}
+            >
+              <View style={styles.academyIconContainer}>
+                <Ionicons 
+                  name="tennisball-outline" 
+                  size={28} 
+                  color={data.academyId === academy.id ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+                />
+              </View>
+              <View style={styles.academyInfo}>
+                <Text style={[
+                  styles.academyName,
+                  data.academyId === academy.id ? styles.academyNameActive : null,
+                ]}>
+                  {academy.name}
+                </Text>
+                <Text style={styles.academyStats}>
+                  {academy.coachCount} coaches · {academy.playerCount} players
+                </Text>
+              </View>
+              {data.academyId === academy.id ? (
+                <View style={styles.checkIcon}>
+                  <Ionicons name="checkmark" size={16} color={Colors.dark.backgroundRoot} />
+                </View>
+              ) : (
+                <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+              )}
+            </Pressable>
+          ))
+        )}
+      </Animated.View>
+    </View>
   );
 }
 
@@ -766,6 +910,8 @@ export default function PlayerOnboardingScreen({ onComplete }: Props) {
   const { user, refreshAuth } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [data, setData] = useState<OnboardingData>({
+    academyId: null,
+    academyName: null,
     motivationType: null,
     dateOfBirth: null,
     height: null,
@@ -805,7 +951,7 @@ export default function PlayerOnboardingScreen({ onComplete }: Props) {
   });
 
   const handleNext = () => {
-    if (currentStep < 4) {
+    if (currentStep < 5) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setCurrentStep((prev) => prev + 1);
     }
@@ -825,14 +971,16 @@ export default function PlayerOnboardingScreen({ onComplete }: Props) {
   const canProceed = () => {
     switch (currentStep) {
       case 0:
-        return !!data.motivationType;
+        return !!data.academyId;
       case 1:
-        return !!data.dateOfBirth && !!data.dominantHand && !!data.backhandType && !!data.experienceLevel;
+        return !!data.motivationType;
       case 2:
-        return data.enjoymentTags.length > 0;
+        return !!data.dateOfBirth && !!data.dominantHand && !!data.backhandType && !!data.experienceLevel;
       case 3:
-        return data.focusGoals.length > 0;
+        return data.enjoymentTags.length > 0;
       case 4:
+        return data.focusGoals.length > 0;
+      case 5:
         return true;
       default:
         return false;
@@ -842,14 +990,16 @@ export default function PlayerOnboardingScreen({ onComplete }: Props) {
   const renderStep = () => {
     switch (currentStep) {
       case 0:
-        return <WelcomeStep data={data} setData={setData} onNext={handleNext} />;
+        return <AcademySelectionStep data={data} setData={setData} onNext={handleNext} />;
       case 1:
-        return <ProfileStep data={data} setData={setData} onNext={handleNext} />;
+        return <WelcomeStep data={data} setData={setData} onNext={handleNext} />;
       case 2:
-        return <EnjoymentStep data={data} setData={setData} onNext={handleNext} />;
+        return <ProfileStep data={data} setData={setData} onNext={handleNext} />;
       case 3:
-        return <FocusStep data={data} setData={setData} onNext={handleNext} />;
+        return <EnjoymentStep data={data} setData={setData} onNext={handleNext} />;
       case 4:
+        return <FocusStep data={data} setData={setData} onNext={handleNext} />;
+      case 5:
         return <BaselineStep data={data} setData={setData} onNext={handleNext} />;
       default:
         return null;
@@ -863,7 +1013,7 @@ export default function PlayerOnboardingScreen({ onComplete }: Props) {
         style={styles.gradient}
       />
 
-      <ProgressBar currentStep={currentStep} totalSteps={5} />
+      <ProgressBar currentStep={currentStep} totalSteps={6} />
 
       <View style={styles.content}>
         {renderStep()}
@@ -879,7 +1029,7 @@ export default function PlayerOnboardingScreen({ onComplete }: Props) {
           <View style={styles.backButton} />
         )}
 
-        {currentStep === 4 ? (
+        {currentStep === 5 ? (
           <Pressable
             style={[styles.nextButton, !canProceed() ? styles.nextButtonDisabled : null]}
             onPress={handleComplete}
@@ -890,7 +1040,7 @@ export default function PlayerOnboardingScreen({ onComplete }: Props) {
             </Text>
             <Ionicons name="rocket-outline" size={20} color={Colors.dark.backgroundRoot} />
           </Pressable>
-        ) : currentStep === 0 ? null : (
+        ) : currentStep === 0 || currentStep === 1 ? null : (
           <Pressable
             style={[styles.nextButton, !canProceed() ? styles.nextButtonDisabled : null]}
             onPress={handleNext}
@@ -1368,6 +1518,88 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   datePickerConfirmText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+  },
+  emptyAcademiesContainer: {
+    alignItems: "center",
+    paddingVertical: Spacing.xxl,
+    gap: Spacing.md,
+  },
+  emptyAcademiesText: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  emptyAcademiesSubtext: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  academyCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  academyCardActive: {
+    borderColor: Colors.dark.xpCyan,
+    backgroundColor: `${Colors.dark.xpCyan}10`,
+  },
+  academyIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  academyInfo: {
+    flex: 1,
+    gap: Spacing.xs,
+  },
+  academyName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  academyNameActive: {
+    color: Colors.dark.xpCyan,
+  },
+  academyStats: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.lg,
+  },
+  retryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.dark.xpCyan,
+    borderRadius: BorderRadius.lg,
+    marginTop: Spacing.lg,
+  },
+  retryButtonText: {
     ...Typography.body,
     color: Colors.dark.backgroundRoot,
     fontWeight: "600",
