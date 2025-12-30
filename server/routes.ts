@@ -1983,6 +1983,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           level: coach.level,
           totalXp: coach.totalXp,
           academyId: coach.academyId,
+          onboardingCompleted: coach.onboardingCompleted,
         } : null,
         academy: academy ? {
           id: academy.id,
@@ -5833,6 +5834,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error saving owner profile:", error);
       res.status(500).json({ error: "Failed to save owner profile" });
+    }
+  });
+
+  // Complete academy owner onboarding
+  app.post("/api/owner/onboarding/complete", authMiddleware, requireRole("owner", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.userId;
+      const academyId = req.user?.academyId;
+      
+      if (!academyId) {
+        return res.status(400).json({ error: "No academy associated with this account" });
+      }
+
+      const { 
+        academyName, 
+        location, 
+        theme, 
+        accentColor, 
+        lessonTypes, 
+        targetAudience, 
+        focus, 
+        expectations, 
+        additionalFeedback 
+      } = req.body;
+
+      // Update academy with name if provided
+      if (academyName?.trim()) {
+        await storage.updateAcademy(academyId, { 
+          name: academyName.trim(),
+        });
+      }
+
+      // Map accent color to hex
+      const accentColorMap: Record<string, string> = {
+        green: "#2ECC40",
+        purple: "#9B59B6",
+        blue: "#3498DB",
+        cyan: "#00D4FF",
+        orange: "#FF851B",
+      };
+
+      // Store onboarding preferences in academy settings
+      await storage.upsertAcademySettings(academyId, {
+        city: location || null,
+        primaryColor: accentColorMap[accentColor] || "#2ECC40",
+      });
+
+      // Store extended onboarding data for reference
+      const onboardingData = {
+        location: location || "",
+        theme: theme || "dark",
+        accentColor: accentColor || "green",
+        lessonTypes: lessonTypes || [],
+        targetAudience: targetAudience || [],
+        focus: focus || [],
+        expectations: expectations || [],
+        additionalFeedback: additionalFeedback || "",
+        completedAt: new Date().toISOString(),
+      };
+
+      // Mark user as onboarding completed
+      await storage.updateCoach(userId, { 
+        onboardingCompleted: true,
+        onboardingCompletedAt: new Date(),
+      });
+
+      // Log the onboarding feedback for product improvement
+      console.log(`[Onboarding] Academy ${academyId} completed onboarding:`, {
+        expectations,
+        feedback: additionalFeedback,
+      });
+
+      res.json({ 
+        success: true, 
+        message: "Onboarding completed successfully",
+        onboardingData,
+      });
+    } catch (error) {
+      console.error("Error completing owner onboarding:", error);
+      res.status(500).json({ error: "Failed to complete onboarding" });
     }
   });
 

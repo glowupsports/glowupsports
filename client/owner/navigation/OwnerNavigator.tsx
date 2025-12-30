@@ -1,9 +1,10 @@
 import React from "react";
-import { StyleSheet, View, Platform } from "react-native";
+import { StyleSheet, View, Platform, ActivityIndicator } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
+import { useQuery } from "@tanstack/react-query";
 import OwnerDashboardScreen from "@/owner/screens/OwnerDashboardScreen";
 import AcademyScreen from "@/owner/screens/AcademyScreen";
 import PeopleScreen from "@/owner/screens/PeopleScreen";
@@ -13,6 +14,7 @@ import FinanceScreen from "@/owner/screens/FinanceScreen";
 import SettingsScreen from "@/owner/screens/SettingsScreen";
 import InviteManagementScreen from "@/owner/screens/InviteManagementScreen";
 import OwnerProfileScreen from "@/owner/screens/OwnerProfileScreen";
+import AcademyOnboardingScreen from "@/owner/screens/AcademyOnboardingScreen";
 import { Colors } from "@/constants/theme";
 
 export type OwnerTabParamList = {
@@ -29,6 +31,8 @@ export type OwnerStackParamList = {
   OwnerTabs: undefined;
   InviteManagement: undefined;
   OwnerProfile: undefined;
+  AcademyOnboarding: undefined;
+  OwnerMain: undefined;
 };
 
 const Tab = createBottomTabNavigator<OwnerTabParamList>();
@@ -133,9 +137,29 @@ function OwnerTabs() {
 }
 
 export default function OwnerNavigator() {
+  const { data: meData, isLoading } = useQuery<{ coach: { onboardingCompleted?: boolean } | null }>({
+    queryKey: ["/api/me"],
+  });
+  
+  if (isLoading || meData === undefined) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.dark.gold} />
+      </View>
+    );
+  }
+  
+  const onboardingCompleted = meData?.coach?.onboardingCompleted ?? false;
+  
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator 
+      key={onboardingCompleted ? "owner-main" : "owner-onboarding"}
+      screenOptions={{ headerShown: false }}
+      initialRouteName={onboardingCompleted ? "OwnerTabs" : "AcademyOnboarding"}
+    >
       <Stack.Screen name="OwnerTabs" component={OwnerTabs} />
+      <Stack.Screen name="OwnerMain" component={OwnerTabs} />
+      <Stack.Screen name="AcademyOnboarding" component={AcademyOnboardingScreen} />
       <Stack.Screen name="InviteManagement" component={InviteManagementScreen} />
       <Stack.Screen name="OwnerProfile" component={OwnerProfileScreen} />
     </Stack.Navigator>
@@ -143,6 +167,12 @@ export default function OwnerNavigator() {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
   tabBar: {
     position: "absolute",
     borderTopWidth: 0,
