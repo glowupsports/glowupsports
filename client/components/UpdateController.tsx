@@ -17,6 +17,7 @@ interface UpdateControllerProps {
 }
 
 const MAX_RETRY_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 3000;
 
 export function UpdateController({ children }: UpdateControllerProps) {
   const [showUpdateScreen, setShowUpdateScreen] = useState(false);
@@ -24,9 +25,37 @@ export function UpdateController({ children }: UpdateControllerProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isUpdateReady, setIsUpdateReady] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [technicalError, setTechnicalError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [showContinueOption, setShowContinueOption] = useState(false);
+  const [cdnStatus, setCdnStatus] = useState<string | null>(null);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const testCdnConnectivity = async (): Promise<boolean> => {
+    try {
+      console.log("[UpdateController] Testing CDN connectivity...");
+      const testUrl = "https://u.expo.dev/ce3ccb00-0553-4abc-a038-1a93b7483738";
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      const response = await fetch(testUrl, { 
+        method: 'HEAD',
+        signal: controller.signal 
+      });
+      clearTimeout(timeoutId);
+      
+      console.log("[UpdateController] CDN test response:", response.status);
+      setCdnStatus(`CDN: ${response.status}`);
+      return response.ok || response.status === 404;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.log("[UpdateController] CDN test failed:", errorMsg);
+      setCdnStatus(`CDN: ${errorMsg}`);
+      return false;
+    }
+  };
+
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
   useEffect(() => {
     if (__DEV__ || Platform.OS === "web") {
@@ -70,6 +99,9 @@ export function UpdateController({ children }: UpdateControllerProps) {
     try {
       setIsDownloading(true);
       setUpdateError(null);
+      setTechnicalError(null);
+
+      await testCdnConnectivity();
 
       const listener = Updates.addListener((event) => {
         if (event.type === Updates.UpdateEventType.UPDATE_AVAILABLE) {
@@ -77,8 +109,9 @@ export function UpdateController({ children }: UpdateControllerProps) {
           setIsDownloading(false);
         } else if (event.type === Updates.UpdateEventType.ERROR) {
           const eventError = (event as { error?: Error }).error;
-          console.error("[UpdateController] Listener error:", eventError?.message || "Unknown error");
-          handleDownloadError(eventError?.message || "Update download failed");
+          const errMsg = eventError?.message || "Unknown listener error";
+          console.error("[UpdateController] Listener error:", errMsg);
+          handleDownloadError(errMsg, "LISTENER_ERROR");
         }
       });
 
@@ -117,31 +150,38 @@ export function UpdateController({ children }: UpdateControllerProps) {
       }
       
       const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorCode = (error as { code?: string }).code;
+      const errorCode = (error as { code?: string }).code || "UNKNOWN";
+      const errorStack = error instanceof Error ? error.stack : undefined;
       
       console.error("[UpdateController] Download error:", {
         message: errorMessage,
         code: errorCode,
-        fullError: error,
+        stack: errorStack,
+        fullError: JSON.stringify(error, Object.getOwnPropertyNames(error)),
       });
       
-      handleDownloadError(errorMessage);
+      handleDownloadError(errorMessage, errorCode);
     }
   };
 
-  const handleDownloadError = (errorMessage: string) => {
+  const handleDownloadError = (errorMessage: string, errorCode: string) => {
     const newRetryCount = retryCount + 1;
     setRetryCount(newRetryCount);
     setIsDownloading(false);
+    setTechnicalError(`[${errorCode}] ${errorMessage}`);
     
     if (newRetryCount >= MAX_RETRY_ATTEMPTS) {
-      setUpdateError(`Download failed after ${MAX_RETRY_ATTEMPTS} attempts. You can continue without the update.`);
+      setUpdateError(`Download failed after ${MAX_RETRY_ATTEMPTS} attempts.`);
       setShowContinueOption(true);
     } else {
-      setUpdateError(`Download failed (attempt ${newRetryCount}/${MAX_RETRY_ATTEMPTS}). Check your network connection.`);
+      setUpdateError(`Download failed (attempt ${newRetryCount}/${MAX_RETRY_ATTEMPTS}). Retrying in ${RETRY_DELAY_MS / 1000}s...`);
+      delay(RETRY_DELAY_MS).then(() => {
+        setDownloadProgress(0);
+        downloadUpdate();
+      });
     }
     
-    console.log(`[UpdateController] Retry count: ${newRetryCount}/${MAX_RETRY_ATTEMPTS}`);
+    console.log(`[UpdateController] Retry count: ${newRetryCount}/${MAX_RETRY_ATTEMPTS}, error: ${errorCode} - ${errorMessage}`);
   };
 
   const retryDownload = () => {
@@ -227,6 +267,14 @@ export function UpdateController({ children }: UpdateControllerProps) {
         )}
 
         {updateError ? <Text style={styles.errorText}>{updateError}</Text> : null}
+        
+        {technicalError ? (
+          <Text style={styles.technicalErrorText}>{technicalError}</Text>
+        ) : null}
+        
+        {cdnStatus ? (
+          <Text style={styles.cdnStatusText}>{cdnStatus}</Text>
+        ) : null}
 
         {isDownloading ? (
           <ActivityIndicator
@@ -396,8 +444,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.dark.error,
     textAlign: "center",
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.sm,
     paddingHorizontal: Spacing.md,
+  },
+  technicalErrorText: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    marginBottom: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  cdnStatusText: {
+    fontSize: 10,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    marginBottom: Spacing.lg,
+    opacity: 0.7,
   },
   loader: {
     marginTop: Spacing.lg,
