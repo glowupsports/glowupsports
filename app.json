@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "Glow Up Tennis",
-    "slug": "glow-up-tennis",
+    "name": "Glow Up Sports",
+    "slug": "glow-up-sports",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "glowuptennis",
+    "scheme": "glowupsports",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.glowuptennis.app"
+      "bundleIdentifier": "com.glowupsports.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +21,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.glowuptennis.app"
+      "package": "com.glowupsports.app"
     },
     "web": {
       "output": "single",
@@ -44,6 +44,11 @@
     ],
     "experiments": {
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "ce3ccb00-0553-4abc-a038-1a93b7483738"
+      }
     }
   }
 }
