@@ -28,7 +28,6 @@ import { useWebSocket, type NewMessagePayload, type TypingPayload } from "@/lib/
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const FOOTER_COLLAPSED = 60;
 const FOOTER_EXPANDED = Math.min(SCREEN_HEIGHT * 0.5, 350);
-const FOOTER_FULLSCREEN = SCREEN_HEIGHT;
 
 interface Message {
   id: string;
@@ -219,13 +218,14 @@ export function PlayerChatFooter() {
   });
 
   useEffect(() => {
+    const safeFullscreenHeight = SCREEN_HEIGHT - insets.top - tabBarHeight;
     const targetHeight = isFullscreen 
-      ? FOOTER_FULLSCREEN 
+      ? safeFullscreenHeight 
       : isExpanded 
         ? FOOTER_EXPANDED 
         : FOOTER_COLLAPSED;
     height.value = withSpring(targetHeight, { damping: 20, stiffness: 200 });
-  }, [isExpanded, isFullscreen]);
+  }, [isExpanded, isFullscreen, insets.top, tabBarHeight]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     height: height.value,
