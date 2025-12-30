@@ -3420,8 +3420,8 @@ export const storage = {
     const result = await db
       .select({
         id: xpTransactions.id,
-        amount: xpTransactions.amount,
-        reason: xpTransactions.reason,
+        amount: xpTransactions.xpAmount,
+        reason: xpTransactions.description,
         createdAt: xpTransactions.createdAt,
       })
       .from(xpTransactions)
@@ -3468,14 +3468,14 @@ export const storage = {
     const xpMilestones = await db
       .select({
         id: xpTransactions.id,
-        amount: xpTransactions.amount,
-        reason: xpTransactions.reason,
+        amount: xpTransactions.xpAmount,
+        reason: xpTransactions.description,
         createdAt: xpTransactions.createdAt,
       })
       .from(xpTransactions)
       .where(and(
         eq(xpTransactions.playerId, playerId),
-        gte(xpTransactions.amount, 50)
+        gte(xpTransactions.xpAmount, 50)
       ))
       .orderBy(desc(xpTransactions.createdAt))
       .limit(10);
