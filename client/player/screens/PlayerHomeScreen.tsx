@@ -520,6 +520,17 @@ export default function PlayerHomeScreen() {
           lastFeedback={lastFeedback}
         />
         
+        <LinearGradient
+          colors={['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#4B0082', '#9400D3']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={{ padding: 16, marginHorizontal: 16, marginTop: 12, borderRadius: 12 }}
+        >
+          <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 18, textAlign: 'center', textShadowColor: '#000', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 2 }}>
+            OTA UPDATE TEST - RAINBOW BANNER v2
+          </Text>
+        </LinearGradient>
+        
         <View style={styles.xpSection}>
           <XPBar current={currentLevelXp} max={500} level={player.level} />
         </View>
