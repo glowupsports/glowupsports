@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { reloadAppAsync } from "expo";
 import {
   StyleSheet,
@@ -7,21 +7,36 @@ import {
   ScrollView,
   Text,
   Modal,
+  TextInput,
+  Platform,
+  ActivityIndicator,
 } from "react-native";
+import * as Device from "expo-device";
+import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Fonts, Colors } from "@/constants/theme";
+import { getApiUrl } from "@/lib/query-client";
+import { getAuthToken } from "@/lib/auth";
 
 export type ErrorFallbackProps = {
   error: Error;
   resetError: () => void;
 };
 
+function generateErrorId(): string {
+  return `err_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+}
+
 export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
   const { theme } = useTheme();
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [isSent, setIsSent] = useState(false);
+  const [userComment, setUserComment] = useState("");
+  const [errorId] = useState(() => generateErrorId());
 
   const handleRestart = async () => {
     try {
@@ -38,6 +53,59 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
       details += `Stack Trace:\n${error.stack}`;
     }
     return details;
+  };
+
+  const collectDiagnostics = () => {
+    return {
+      errorId,
+      message: error.message,
+      stack: error.stack,
+      severity: "error",
+      platform: Platform.OS,
+      appVersion: Constants.expoConfig?.version || "unknown",
+      deviceInfo: Device.modelName || "unknown",
+      context: {
+        platform: Platform.OS,
+        osVersion: Platform.Version,
+        deviceBrand: Device.brand,
+        deviceModel: Device.modelName,
+        isDevice: Device.isDevice,
+        expoVersion: Constants.expoConfig?.sdkVersion,
+        appVersion: Constants.expoConfig?.version,
+        timestamp: new Date().toISOString(),
+      },
+      userComment: userComment.trim() || undefined,
+    };
+  };
+
+  const handleSendDiagnostics = async () => {
+    if (isSending || isSent) return;
+
+    setIsSending(true);
+    try {
+      const diagnostics = collectDiagnostics();
+      const apiUrl = getApiUrl();
+      const token = getAuthToken();
+
+      const response = await fetch(new URL("/api/diagnostics/report", apiUrl).toString(), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(diagnostics),
+      });
+
+      if (response.ok) {
+        setIsSent(true);
+      } else {
+        console.error("Failed to send diagnostics:", await response.text());
+      }
+    } catch (sendError) {
+      console.error("Error sending diagnostics:", sendError);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -66,8 +134,59 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
         </ThemedText>
 
         <ThemedText type="body" style={styles.message}>
-          Glow Up Tennis hit an unexpected net. Let's get you back on the court!
+          Glow Up Sports hit an unexpected error. Our team can fix this faster if you send diagnostics.
         </ThemedText>
+
+        {!isSent ? (
+          <View style={styles.commentContainer}>
+            <TextInput
+              style={styles.commentInput}
+              placeholder="What were you doing? (optional)"
+              placeholderTextColor="rgba(255,255,255,0.4)"
+              value={userComment}
+              onChangeText={setUserComment}
+              multiline
+              maxLength={200}
+            />
+          </View>
+        ) : null}
+
+        {!isSent ? (
+          <Pressable
+            onPress={handleSendDiagnostics}
+            disabled={isSending}
+            style={({ pressed }) => [
+              styles.button,
+              styles.sendButton,
+              {
+                backgroundColor: Colors.dark.accentInfo,
+                opacity: isSending ? 0.6 : pressed ? 0.9 : 1,
+                transform: [{ scale: pressed ? 0.98 : 1 }],
+              },
+            ]}
+          >
+            {isSending ? (
+              <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+            ) : (
+              <>
+                <Ionicons name="send-outline" size={20} color={Colors.dark.backgroundRoot} />
+                <ThemedText
+                  type="body"
+                  style={[styles.buttonText, { color: Colors.dark.backgroundRoot }]}
+                >
+                  Send Diagnostics
+                </ThemedText>
+              </>
+            )}
+          </Pressable>
+        ) : (
+          <View style={styles.sentConfirmation}>
+            <Ionicons name="checkmark-circle" size={24} color={Colors.dark.primary} />
+            <ThemedText type="body" style={styles.sentText}>
+              Diagnostics sent. Thank you!
+            </ThemedText>
+          </View>
+        )}
 
         <Pressable
           onPress={handleRestart}
@@ -86,6 +205,18 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
             style={[styles.buttonText, { color: Colors.dark.buttonText }]}
           >
             Restart Match
+          </ThemedText>
+        </Pressable>
+
+        <Pressable
+          onPress={resetError}
+          style={({ pressed }) => [
+            styles.dismissButton,
+            { opacity: pressed ? 0.6 : 0.7 },
+          ]}
+        >
+          <ThemedText type="caption" style={styles.dismissText}>
+            Dismiss
           </ThemedText>
         </Pressable>
       </View>
@@ -188,6 +319,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     zIndex: 10,
   },
+  commentContainer: {
+    width: "100%",
+    paddingHorizontal: Spacing.md,
+  },
+  commentInput: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    color: Colors.dark.text,
+    fontSize: 14,
+    minHeight: 60,
+    textAlignVertical: "top",
+  },
   button: {
     flexDirection: "row",
     alignItems: "center",
@@ -198,10 +342,30 @@ const styles = StyleSheet.create({
     minWidth: 200,
     justifyContent: "center",
   },
+  sendButton: {
+    marginTop: Spacing.sm,
+  },
   buttonText: {
     fontWeight: "600",
     textAlign: "center",
     fontSize: 16,
+  },
+  sentConfirmation: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+  },
+  sentText: {
+    color: Colors.dark.primary,
+    fontWeight: "500",
+  },
+  dismissButton: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+  },
+  dismissText: {
+    color: Colors.dark.text,
   },
   modalOverlay: {
     flex: 1,

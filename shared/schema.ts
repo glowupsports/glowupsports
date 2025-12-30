@@ -1467,3 +1467,42 @@ export const coachPayouts = pgTable("coach_payouts", {
 export const insertCoachPayoutSchema = createInsertSchema(coachPayouts).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertCoachPayout = z.infer<typeof insertCoachPayoutSchema>;
 export type CoachPayout = typeof coachPayouts.$inferSelect;
+
+// ==================== DIAGNOSTICS ====================
+
+// Diagnostic Reports - Error reports from app crashes
+export const diagnosticReports = pgTable("diagnostic_reports", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  
+  errorId: text("error_id").notNull(), // Client-generated UUID for deduplication
+  
+  userId: varchar("user_id").references(() => users.id),
+  academyId: varchar("academy_id").references(() => academies.id),
+  userRole: text("user_role"), // platform_owner | academy_owner | coach | player
+  
+  severity: text("severity").default("error"), // error | warning | critical
+  
+  message: text("message").notNull(),
+  stack: text("stack"),
+  screen: text("screen"), // Current screen/route name
+  
+  context: jsonb("context"), // Device info, app version, etc.
+  userComment: text("user_comment"), // Optional comment from user
+  
+  platform: text("platform"), // ios | android | web
+  appVersion: text("app_version"),
+  deviceInfo: text("device_info"),
+  
+  status: text("status").default("new"), // new | investigating | resolved | ignored
+  resolvedBy: varchar("resolved_by").references(() => users.id),
+  resolvedAt: timestamp("resolved_at"),
+  resolutionNotes: text("resolution_notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertDiagnosticReportSchema = createInsertSchema(diagnosticReports).omit({ id: true, createdAt: true });
+export type InsertDiagnosticReport = z.infer<typeof insertDiagnosticReportSchema>;
+export type DiagnosticReport = typeof diagnosticReports.$inferSelect;

@@ -105,6 +105,150 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // 2. Platform owners can still access all routes during maintenance
   // 3. All other authenticated users get 503 when maintenance is enabled
 
+  // ==================== DIAGNOSTICS ENDPOINTS ====================
+  // Public endpoint - accepts error reports from any user (authenticated or not)
+  app.post("/api/diagnostics/report", async (req: Request, res: Response) => {
+    try {
+      const { errorId, severity, message, stack, screen, context, userComment, platform, appVersion, deviceInfo } = req.body;
+
+      if (!errorId || !message) {
+        return res.status(400).json({ error: "errorId and message are required" });
+      }
+
+      // Check for duplicate reports (same errorId)
+      const existing = await storage.getDiagnosticReportByErrorId(errorId);
+      if (existing) {
+        return res.json({ success: true, duplicate: true, id: existing.id });
+      }
+
+      // Extract user context from auth header if present
+      let userId: string | undefined;
+      let academyId: string | undefined;
+      let userRole: string | undefined;
+
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        try {
+          const token = authHeader.substring(7);
+          const jwt = require("jsonwebtoken");
+          const decoded = jwt.verify(token, process.env.SESSION_SECRET || "dev-secret") as any;
+          userId = decoded.userId;
+          academyId = decoded.academyId;
+          userRole = decoded.role;
+        } catch (e) {
+          // Token invalid, proceed without user context
+        }
+      }
+
+      const report = await storage.createDiagnosticReport({
+        errorId,
+        userId: userId || null,
+        academyId: academyId || null,
+        userRole: userRole || (context?.userRole || null),
+        severity: severity || "error",
+        message,
+        stack: stack || null,
+        screen: screen || (context?.screen || null),
+        context: context || null,
+        userComment: userComment || null,
+        platform: platform || (context?.platform || null),
+        appVersion: appVersion || (context?.appVersion || null),
+        deviceInfo: deviceInfo || (context?.deviceInfo || null),
+      });
+
+      console.log(`[Diagnostics] New error report: ${report.id} - ${message.slice(0, 50)}...`);
+
+      res.json({ success: true, id: report.id });
+    } catch (error) {
+      console.error("Error creating diagnostic report:", error);
+      res.status(500).json({ error: "Failed to submit report" });
+    }
+  });
+
+  // Platform Owner: Get all diagnostic reports
+  app.get("/api/platform/diagnostics", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { academyId, status, severity, userRole, limit } = req.query;
+
+      const reports = await storage.getDiagnosticReports({
+        academyId: academyId as string | undefined,
+        status: status as string | undefined,
+        severity: severity as string | undefined,
+        userRole: userRole as string | undefined,
+        limit: limit ? parseInt(limit as string) : 100,
+      });
+
+      const stats = await storage.getDiagnosticReportStats();
+
+      res.json({ reports, stats });
+    } catch (error) {
+      console.error("Error fetching diagnostic reports:", error);
+      res.status(500).json({ error: "Failed to fetch reports" });
+    }
+  });
+
+  // Platform Owner: Get single diagnostic report
+  app.get("/api/platform/diagnostics/:id", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const report = await storage.getDiagnosticReportById(req.params.id);
+      if (!report) {
+        return res.status(404).json({ error: "Report not found" });
+      }
+      res.json(report);
+    } catch (error) {
+      console.error("Error fetching diagnostic report:", error);
+      res.status(500).json({ error: "Failed to fetch report" });
+    }
+  });
+
+  // Platform Owner: Update diagnostic report status
+  app.put("/api/platform/diagnostics/:id", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { status, resolutionNotes } = req.body;
+
+      if (status === "resolved") {
+        const report = await storage.resolveDiagnosticReport(req.params.id, req.user!.id, resolutionNotes);
+        if (!report) {
+          return res.status(404).json({ error: "Report not found" });
+        }
+        res.json(report);
+      } else {
+        const report = await storage.updateDiagnosticReport(req.params.id, { status });
+        if (!report) {
+          return res.status(404).json({ error: "Report not found" });
+        }
+        res.json(report);
+      }
+    } catch (error) {
+      console.error("Error updating diagnostic report:", error);
+      res.status(500).json({ error: "Failed to update report" });
+    }
+  });
+
+  // Academy Owner: Get diagnostic reports for their academy
+  app.get("/api/owner/diagnostics", authMiddleware, requireRole("academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId && req.user!.role !== "platform_owner") {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const { status, severity, limit } = req.query;
+
+      const reports = await storage.getDiagnosticReports({
+        academyId: academyId || undefined,
+        status: status as string | undefined,
+        severity: severity as string | undefined,
+        limit: limit ? parseInt(limit as string) : 50,
+      });
+
+      res.json({ reports });
+    } catch (error) {
+      console.error("Error fetching academy diagnostic reports:", error);
+      res.status(500).json({ error: "Failed to fetch reports" });
+    }
+  });
+
   // ==================== AUTH ENDPOINTS ====================
   // Registration routes are role-specific:
   // - /auth/register/player - Open player self-registration

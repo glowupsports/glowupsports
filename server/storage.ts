@@ -176,6 +176,10 @@ import {
   platformConfig,
   type PlatformConfig,
   type InsertPlatformConfig,
+  // Diagnostics
+  diagnosticReports,
+  type DiagnosticReport,
+  type InsertDiagnosticReport,
 } from "@shared/schema";
 
 export const storage = {
@@ -3948,5 +3952,106 @@ export const storage = {
     weeklyCap: number;
   }, updatedBy?: string): Promise<PlatformConfig> {
     return this.setPlatformConfig("xp_engine", config, updatedBy);
+  },
+
+  // ==================== DIAGNOSTICS ====================
+
+  async createDiagnosticReport(data: InsertDiagnosticReport): Promise<DiagnosticReport> {
+    const result = await db.insert(diagnosticReports).values(data).returning();
+    return result[0];
+  },
+
+  async getDiagnosticReportByErrorId(errorId: string): Promise<DiagnosticReport | undefined> {
+    const result = await db.select().from(diagnosticReports)
+      .where(eq(diagnosticReports.errorId, errorId));
+    return result[0];
+  },
+
+  async getDiagnosticReports(filters?: {
+    academyId?: string;
+    status?: string;
+    severity?: string;
+    userRole?: string;
+    limit?: number;
+  }): Promise<DiagnosticReport[]> {
+    const conditions: any[] = [];
+    
+    if (filters?.academyId) {
+      conditions.push(eq(diagnosticReports.academyId, filters.academyId));
+    }
+    if (filters?.status) {
+      conditions.push(eq(diagnosticReports.status, filters.status));
+    }
+    if (filters?.severity) {
+      conditions.push(eq(diagnosticReports.severity, filters.severity));
+    }
+    if (filters?.userRole) {
+      conditions.push(eq(diagnosticReports.userRole, filters.userRole));
+    }
+    
+    const query = db.select().from(diagnosticReports)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(diagnosticReports.createdAt));
+    
+    if (filters?.limit) {
+      return query.limit(filters.limit);
+    }
+    return query;
+  },
+
+  async getDiagnosticReportById(id: string): Promise<DiagnosticReport | undefined> {
+    const result = await db.select().from(diagnosticReports)
+      .where(eq(diagnosticReports.id, id));
+    return result[0];
+  },
+
+  async updateDiagnosticReport(id: string, data: Partial<InsertDiagnosticReport>): Promise<DiagnosticReport | undefined> {
+    const result = await db.update(diagnosticReports)
+      .set(data)
+      .where(eq(diagnosticReports.id, id))
+      .returning();
+    return result[0];
+  },
+
+  async resolveDiagnosticReport(id: string, resolvedBy: string, notes?: string): Promise<DiagnosticReport | undefined> {
+    const result = await db.update(diagnosticReports)
+      .set({
+        status: "resolved",
+        resolvedBy,
+        resolvedAt: new Date(),
+        resolutionNotes: notes,
+      })
+      .where(eq(diagnosticReports.id, id))
+      .returning();
+    return result[0];
+  },
+
+  async getDiagnosticReportStats(): Promise<{
+    total: number;
+    new: number;
+    investigating: number;
+    resolved: number;
+    bySeverity: Record<string, number>;
+  }> {
+    const allReports = await db.select().from(diagnosticReports);
+    
+    const stats = {
+      total: allReports.length,
+      new: 0,
+      investigating: 0,
+      resolved: 0,
+      bySeverity: {} as Record<string, number>,
+    };
+    
+    for (const report of allReports) {
+      if (report.status === "new") stats.new++;
+      if (report.status === "investigating") stats.investigating++;
+      if (report.status === "resolved") stats.resolved++;
+      
+      const severity = report.severity || "error";
+      stats.bySeverity[severity] = (stats.bySeverity[severity] || 0) + 1;
+    }
+    
+    return stats;
   },
 };
