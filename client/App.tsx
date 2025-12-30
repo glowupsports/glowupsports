@@ -16,6 +16,7 @@ import { AppModeProvider } from "@/context/AppModeContext";
 import { NetworkProvider } from "@/context/NetworkContext";
 import { CoachProvider } from "@/coach/context/CoachContext";
 import { AuthProvider } from "@/coach/context/AuthContext";
+import { UIInteractionProvider } from "@/contexts/UIInteractionContext";
 
 export default function App() {
   return (
@@ -29,11 +30,13 @@ export default function App() {
                   <AuthProvider>
                     <PlayerProvider>
                       <CoachProvider>
-                        <View style={styles.root}>
-                          <NavigationContainer>
-                            <RootStackNavigator />
-                          </NavigationContainer>
-                        </View>
+                        <UIInteractionProvider>
+                          <View style={styles.root}>
+                            <NavigationContainer>
+                              <RootStackNavigator />
+                            </NavigationContainer>
+                          </View>
+                        </UIInteractionProvider>
                       </CoachProvider>
                     </PlayerProvider>
                   </AuthProvider>

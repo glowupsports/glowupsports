@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, StyleSheet, Pressable, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,9 +7,11 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { ReportIssueModal } from "@/components/ReportIssueModal";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { usePlayer } from "@/context/PlayerContext";
 import { useAuth } from "@/coach/context/AuthContext";
+import { useUIInteraction } from "@/contexts/UIInteractionContext";
 import { DRAWER_ITEMS } from "@/constants/playerData";
 
 export function DrawerContent({ navigation, state }: DrawerContentComponentProps) {
@@ -17,6 +19,8 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
   const { player } = usePlayer();
   const { logout } = useAuth();
 
+  const { trackInteraction } = useUIInteraction();
+  const [showReportModal, setShowReportModal] = useState(false);
   const currentRoute = state.routes[state.index]?.name;
 
   const handleLogout = () => {
@@ -104,6 +108,18 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
 
       <View style={styles.footer}>
         <Pressable
+          onPress={() => {
+            trackInteraction("button", "Report an Issue", currentRoute || "Drawer");
+            navigation.closeDrawer();
+            setShowReportModal(true);
+          }}
+          style={({ pressed }) => [styles.reportButton, { opacity: pressed ? 0.7 : 1 }]}
+        >
+          <Ionicons name="flag-outline" size={22} color={Colors.dark.orange} />
+          <ThemedText style={styles.reportText}>Report an Issue</ThemedText>
+        </Pressable>
+
+        <Pressable
           onPress={handleLogout}
           style={({ pressed }) => [styles.logoutButton, { opacity: pressed ? 0.7 : 1 }]}
         >
@@ -111,6 +127,12 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
           <ThemedText style={styles.logoutText}>Logout</ThemedText>
         </Pressable>
       </View>
+
+      <ReportIssueModal
+        visible={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        currentScreen={currentRoute}
+      />
     </View>
   );
 }
@@ -181,6 +203,19 @@ const styles = StyleSheet.create({
   logoutText: {
     fontSize: 16,
     color: Colors.dark.error,
+    fontWeight: "600",
+  },
+  reportButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  reportText: {
+    fontSize: 16,
+    color: Colors.dark.orange,
     fontWeight: "600",
   },
 });
