@@ -20,6 +20,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { ReportIssueModal } from "@/components/ReportIssueModal";
 
 interface Player {
   id: string;
@@ -119,6 +120,7 @@ export default function AdminPlayersScreen() {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showReportIssueModal, setShowReportIssueModal] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -341,6 +343,13 @@ export default function AdminPlayersScreen() {
               <Text style={styles.errorText}>Failed to load player details</Text>
               <Pressable style={styles.retryButton} onPress={() => refetchStats()}>
                 <Text style={styles.retryButtonText}>Try Again</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.retryButton, { backgroundColor: Colors.dark.surface, marginTop: Spacing.sm }]} 
+                onPress={() => setShowReportIssueModal(true)}
+              >
+                <Ionicons name="warning-outline" size={16} color={Colors.dark.text} style={{ marginRight: Spacing.xs }} />
+                <Text style={[styles.retryButtonText, { color: Colors.dark.text }]}>Report Issue</Text>
               </Pressable>
             </View>
           ) : stats ? (
@@ -731,6 +740,12 @@ export default function AdminPlayersScreen() {
           </KeyboardAwareScrollViewCompat>
         </View>
       </Modal>
+
+      <ReportIssueModal
+        visible={showReportIssueModal}
+        onClose={() => setShowReportIssueModal(false)}
+        currentScreen="AdminPlayersScreen - Player Details"
+      />
     </View>
   );
 }
@@ -887,6 +902,8 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   retryButton: {
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: Spacing.lg,
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.md,
