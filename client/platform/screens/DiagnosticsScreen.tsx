@@ -72,6 +72,7 @@ export default function DiagnosticsScreen() {
     critical: { color: "#FF3B30", icon: "flame" as const, label: "Critical" },
     error: { color: Colors.dark.error, icon: "alert-circle" as const, label: "Error" },
     warning: { color: Colors.dark.orange, icon: "warning" as const, label: "Warning" },
+    ui_issue: { color: "#9B59B6", icon: "flag" as const, label: "UI Issue" },
   };
 
   const statusConfig = {

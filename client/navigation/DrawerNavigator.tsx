@@ -13,7 +13,6 @@ import EventsScreen from "@/screens/EventsScreen";
 import PaymentsScreen from "@/screens/PaymentsScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
 import { DrawerContent } from "@/components/DrawerContent";
-import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { Colors } from "@/constants/theme";
 
 export type DrawerParamList = {
@@ -33,13 +32,17 @@ const Drawer = createDrawerNavigator<DrawerParamList>();
 const { width } = Dimensions.get("window");
 
 export default function DrawerNavigator() {
-  const screenOptions = useScreenOptions();
-
   return (
     <Drawer.Navigator
       drawerContent={(props) => <DrawerContent {...props} />}
       screenOptions={{
-        ...screenOptions,
+        headerTintColor: Colors.dark.text,
+        headerStyle: {
+          backgroundColor: Colors.dark.backgroundRoot,
+        },
+        sceneStyle: {
+          backgroundColor: Colors.dark.backgroundRoot,
+        },
         drawerStyle: {
           backgroundColor: Colors.dark.backgroundRoot,
           width: width * 0.75,
