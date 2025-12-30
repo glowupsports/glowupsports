@@ -36,6 +36,7 @@ import crypto from "crypto";
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "./utils/sanitize";
+import { sendFeedbackNotification, sendLevelUpNotification, sendBadgeEarnedNotification, sendXPGainNotification } from "./pushNotifications";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -1549,11 +1550,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
             sessionId: id,
           });
           
-          // Update player total XP
+          // Update player total XP and check for level up
           const player = await storage.getPlayer(sp.playerId);
           if (player) {
+            const oldLevel = player.level || 1;
             const newTotalXp = (player.totalXp || 0) + playerXp;
-            await storage.updatePlayer(sp.playerId, { totalXp: newTotalXp });
+            
+            // Calculate new level based on XP thresholds
+            const LEVEL_THRESHOLDS = [0, 100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500, 5500];
+            let newLevel = 1;
+            for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
+              if (newTotalXp >= LEVEL_THRESHOLDS[i]) {
+                newLevel = i + 1;
+                break;
+              }
+            }
+            
+            await storage.updatePlayer(sp.playerId, { totalXp: newTotalXp, level: newLevel });
+            
+            // Send level up notification if player leveled up
+            if (newLevel > oldLevel) {
+              const LEVEL_NAMES = ["Red", "Orange", "Green", "Yellow", "Glow", "Star", "Champion", "Legend", "Master", "Grand Master"];
+              const levelName = LEVEL_NAMES[Math.min(newLevel - 1, LEVEL_NAMES.length - 1)] || `Level ${newLevel}`;
+              sendLevelUpNotification(sp.playerId, newLevel, levelName).catch(err => 
+                console.error("Failed to send level up notification:", err)
+              );
+            }
           }
           
           // Auto-deduct credit from player's active package
@@ -1563,6 +1585,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             success: creditResult.success,
             reason: creditResult.reason,
           });
+        }
+      }
+
+      // Send feedback notifications to all attending players (non-blocking)
+      const coach = session.coachId ? await storage.getCoach(session.coachId) : null;
+      const coachName = coach?.name || "Your coach";
+      for (const sp of sessionPlayers) {
+        if (sp.playerId && sp.attendanceStatus === "present") {
+          sendFeedbackNotification(sp.playerId, coachName, session.name || "Training session").catch(err =>
+            console.error("Failed to send feedback notification:", err)
+          );
         }
       }
 
