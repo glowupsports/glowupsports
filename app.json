@@ -7,8 +7,12 @@
       "policy": "appVersion"
     },
     "updates": {
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0,
       "url": "https://u.expo.dev/ce3ccb00-0553-4abc-a038-1a93b7483738"
-    },
+    }
+
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "glowupsports",
