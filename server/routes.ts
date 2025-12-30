@@ -5759,6 +5759,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         count: allPlayers.filter((p: any) => (p.level || 1) === level).length,
       }));
 
+      // Calculate weekly activity heatmap
+      const dayNames = ["S", "M", "T", "W", "T", "F", "S"];
+      const weekActivity = await (async () => {
+        const activityByDay: number[] = [0, 0, 0, 0, 0, 0, 0];
+        const sevenDaysAgo = new Date(now);
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        
+        for (const academy of academies) {
+          const sessions = await storage.getSessionsByAcademy(academy.id);
+          for (const session of sessions) {
+            const sessionDate = new Date(session.startTime);
+            if (sessionDate >= sevenDaysAgo && sessionDate <= now) {
+              const dayIndex = sessionDate.getDay();
+              activityByDay[dayIndex]++;
+            }
+          }
+        }
+        
+        const maxActivity = Math.max(...activityByDay, 1);
+        return [1, 2, 3, 4, 5, 6, 0].map(dayIndex => ({
+          day: dayNames[dayIndex],
+          intensity: Math.round((activityByDay[dayIndex] / maxActivity) * 5),
+        }));
+      })();
+
       res.json({
         metrics: {
           activeAcademies: activeAcademies.length,
@@ -5788,10 +5813,184 @@ export async function registerRoutes(app: Express): Promise<Server> {
           { month: "Nov", amount: Math.round(totalMrr * 0.98) },
           { month: "Dec", amount: totalMrr },
         ],
+        weekActivity,
       });
     } catch (error) {
       console.error("Platform stats error:", error);
       res.status(500).json({ error: "Failed to fetch platform stats" });
+    }
+  });
+
+  // Platform Owner - Get player health metrics across all academies
+  app.get("/api/platform/player-health", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academies = await storage.getAllAcademies();
+      const allPlayers: any[] = [];
+      const academyMap = new Map<string, string>();
+      
+      for (const academy of academies) {
+        const players = await storage.getPlayersByAcademy(academy.id);
+        academyMap.set(academy.id, academy.name);
+        allPlayers.push(...players.map(p => ({ ...p, academyName: academy.name })));
+      }
+
+      const now = new Date();
+      const sevenDaysAgo = new Date(now);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      let totalSessions = 0;
+      let activePlayerIds = new Set<string>();
+      
+      for (const academy of academies) {
+        const sessions = await storage.getSessionsByAcademy(academy.id);
+        const recentSessions = sessions.filter(s => new Date(s.startTime) >= sevenDaysAgo);
+        totalSessions += recentSessions.length;
+        
+        for (const session of recentSessions) {
+          const sessionPlayersList = await storage.getSessionPlayers(session.id);
+          sessionPlayersList.forEach((sp: any) => {
+            if (sp.attendanceStatus === "present") {
+              activePlayerIds.add(sp.playerId);
+            }
+          });
+        }
+      }
+
+      const totalPlayers = allPlayers.length;
+      const activeThisWeek = activePlayerIds.size;
+      const atRisk = Math.max(0, totalPlayers - activeThisWeek);
+      
+      const totalXp = allPlayers.reduce((sum, p) => sum + (p.totalXp || 0), 0);
+      const totalLevel = allPlayers.reduce((sum, p) => sum + (p.level || 1), 0);
+      const totalStreak = allPlayers.reduce((sum, p) => sum + (p.streak || 0), 0);
+      
+      const avgXpPerPlayer = totalPlayers > 0 ? Math.round(totalXp / totalPlayers) : 0;
+      const avgLevel = totalPlayers > 0 ? Math.round((totalLevel / totalPlayers) * 10) / 10 : 1;
+      const avgStreak = totalPlayers > 0 ? Math.round((totalStreak / totalPlayers) * 10) / 10 : 0;
+
+      const levelDistribution = [1, 2, 3, 4, 5, 6, 7].map(level => ({
+        level,
+        count: allPlayers.filter((p: any) => (p.level || 1) === level).length,
+      }));
+
+      const getEngagement = (player: any): "high" | "medium" | "low" => {
+        const isActive = activePlayerIds.has(player.id);
+        const hasStreak = (player.streak || 0) >= 3;
+        if (isActive && hasStreak) return "high";
+        if (isActive || hasStreak) return "medium";
+        return "low";
+      };
+
+      const playersWithEngagement = allPlayers
+        .map(p => ({
+          name: p.name,
+          academy: p.academyName,
+          level: p.level || 1,
+          xp: p.totalXp || 0,
+          sessions: 0,
+          streak: p.streak || 0,
+          engagement: getEngagement(p),
+        }))
+        .sort((a, b) => b.xp - a.xp)
+        .slice(0, 20);
+
+      res.json({
+        healthStats: {
+          totalPlayers,
+          activeThisWeek,
+          atRisk,
+          avgLevel,
+          avgXpPerPlayer,
+          avgStreak,
+        },
+        levelDistribution,
+        players: playersWithEngagement,
+      });
+    } catch (error) {
+      console.error("Platform player health error:", error);
+      res.status(500).json({ error: "Failed to fetch player health data" });
+    }
+  });
+
+  // Platform Owner - Get coach health metrics across all academies
+  app.get("/api/platform/coach-health", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academies = await storage.getAllAcademies();
+      const allCoaches: any[] = [];
+      
+      for (const academy of academies) {
+        const coaches = await storage.getCoachesByAcademy(academy.id);
+        allCoaches.push(...coaches.map(c => ({ ...c, academyName: academy.name })));
+      }
+
+      const now = new Date();
+      const sevenDaysAgo = new Date(now);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const coachStats = await Promise.all(allCoaches.map(async (coach) => {
+        const sessions = await storage.getAllSessionsByCoach(coach.id);
+        const recentSessions = sessions.filter(s => new Date(s.startTime) >= sevenDaysAgo);
+        const sessionsCount = recentSessions.length;
+        
+        const players = await storage.getPlayersByCoach(coach.id);
+        const playersCount = players.length;
+        
+        // Estimate XP awarded based on sessions (approximate since we don't have per-session XP)
+        const totalXpAwarded = sessionsCount * 25; // Rough estimate per session
+
+        const lastSessionDate = sessions.length > 0 
+          ? new Date(Math.max(...sessions.map(s => new Date(s.startTime).getTime())))
+          : null;
+
+        const timeSinceLastSession = lastSessionDate 
+          ? Math.floor((now.getTime() - lastSessionDate.getTime()) / (1000 * 60))
+          : null;
+
+        let lastActive = "Never";
+        if (timeSinceLastSession !== null) {
+          if (timeSinceLastSession < 60) lastActive = `${timeSinceLastSession} min ago`;
+          else if (timeSinceLastSession < 1440) lastActive = `${Math.floor(timeSinceLastSession / 60)} hours ago`;
+          else lastActive = `${Math.floor(timeSinceLastSession / 1440)} days ago`;
+        }
+
+        let burnoutRisk: "high" | "medium" | "low" = "low";
+        if (sessionsCount >= 12) burnoutRisk = "high";
+        else if (sessionsCount >= 8) burnoutRisk = "medium";
+
+        return {
+          name: coach.name,
+          academy: coach.academyName,
+          sessions: sessionsCount,
+          players: playersCount,
+          xpAwarded: totalXpAwarded,
+          burnoutRisk,
+          lastActive,
+        };
+      }));
+
+      const totalCoaches = allCoaches.length;
+      const activeThisWeek = coachStats.filter(c => c.sessions > 0).length;
+      const atRisk = coachStats.filter(c => c.burnoutRisk === "high" || c.burnoutRisk === "medium").length;
+      
+      const totalSessions = coachStats.reduce((sum, c) => sum + c.sessions, 0);
+      const totalXp = coachStats.reduce((sum, c) => sum + c.xpAwarded, 0);
+      
+      const avgSessionsPerCoach = totalCoaches > 0 ? Math.round((totalSessions / totalCoaches) * 10) / 10 : 0;
+      const avgXpAwarded = totalCoaches > 0 ? Math.round(totalXp / totalCoaches) : 0;
+
+      res.json({
+        healthStats: {
+          totalCoaches,
+          activeThisWeek,
+          atRisk,
+          avgSessionsPerCoach,
+          avgXpAwarded,
+        },
+        coaches: coachStats.slice(0, 20),
+      });
+    } catch (error) {
+      console.error("Platform coach health error:", error);
+      res.status(500).json({ error: "Failed to fetch coach health data" });
     }
   });
 

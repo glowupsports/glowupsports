@@ -1,8 +1,9 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 
 const PLATFORM_COLOR = "#9B59B6";
@@ -15,6 +16,19 @@ interface PlayerRowProps {
   sessions: number;
   streak: number;
   engagement: "high" | "medium" | "low";
+}
+
+interface PlayerHealthData {
+  healthStats: {
+    totalPlayers: number;
+    activeThisWeek: number;
+    atRisk: number;
+    avgLevel: number;
+    avgXpPerPlayer: number;
+    avgStreak: number;
+  };
+  levelDistribution: { level: number; count: number }[];
+  players: PlayerRowProps[];
 }
 
 function PlayerRow({ name, academy, level, xp, sessions, streak, engagement }: PlayerRowProps) {
@@ -64,7 +78,7 @@ interface LevelDistributionProps {
 }
 
 function LevelDistribution({ levels }: LevelDistributionProps) {
-  const maxCount = Math.max(...levels.map(l => l.count));
+  const maxCount = Math.max(...levels.map(l => l.count), 1);
 
   return (
     <View style={[styles.distributionCard, CardStyles.elevated]}>
@@ -90,34 +104,42 @@ function LevelDistribution({ levels }: LevelDistributionProps) {
 export default function PlayerHealthScreen() {
   const insets = useSafeAreaInsets();
 
-  const healthStats = {
-    totalPlayers: 312,
-    activeThisWeek: 287,
-    atRisk: 25,
-    avgLevel: 4.2,
-    avgXpPerPlayer: 1250,
-    avgStreak: 3.8,
+  const { data, isLoading, error } = useQuery<PlayerHealthData>({
+    queryKey: ["/api/platform/player-health"],
+  });
+
+  const healthStats = data?.healthStats || {
+    totalPlayers: 0,
+    activeThisWeek: 0,
+    atRisk: 0,
+    avgLevel: 0,
+    avgXpPerPlayer: 0,
+    avgStreak: 0,
   };
 
-  const levelDistribution = [
-    { level: 1, count: 45 },
-    { level: 2, count: 62 },
-    { level: 3, count: 78 },
-    { level: 4, count: 55 },
-    { level: 5, count: 42 },
-    { level: 6, count: 20 },
-    { level: 7, count: 10 },
-  ];
-
-  const players: PlayerRowProps[] = [
-    { name: "Alex Thompson", academy: "Tennis Academy Pro", level: 6, xp: 4250, sessions: 48, streak: 12, engagement: "high" },
-    { name: "Maya Rodriguez", academy: "Elite Tennis Club", level: 5, xp: 3800, sessions: 42, streak: 8, engagement: "high" },
-    { name: "Jordan Lee", academy: "Junior Champions", level: 4, xp: 2100, sessions: 28, streak: 5, engagement: "medium" },
-    { name: "Sam Wilson", academy: "City Tennis Center", level: 3, xp: 1450, sessions: 22, streak: 2, engagement: "low" },
-    { name: "Taylor Kim", academy: "Tennis Academy Pro", level: 7, xp: 5600, sessions: 65, streak: 15, engagement: "high" },
-  ];
+  const levelDistribution = data?.levelDistribution || [];
+  const players = data?.players || [];
 
   const atRiskPlayers = players.filter(p => p.engagement === "low");
+  const topPerformers = players.filter(p => p.engagement === "high");
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={PLATFORM_COLOR} />
+        <Text style={styles.loadingText}>Loading player health data...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <Ionicons name="alert-circle" size={48} color={Colors.dark.error} />
+        <Text style={styles.errorText}>Failed to load player health data</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -177,7 +199,9 @@ export default function PlayerHealthScreen() {
           </View>
         </View>
 
-        <LevelDistribution levels={levelDistribution} />
+        {levelDistribution.length > 0 ? (
+          <LevelDistribution levels={levelDistribution} />
+        ) : null}
 
         {atRiskPlayers.length > 0 ? (
           <View style={styles.section}>
@@ -193,14 +217,24 @@ export default function PlayerHealthScreen() {
           </View>
         ) : null}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Top Performers</Text>
-          <View style={[styles.playersCard, CardStyles.elevated]}>
-            {players.filter(p => p.engagement === "high").map((player, index) => (
-              <PlayerRow key={index} {...player} />
-            ))}
+        {topPerformers.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Top Performers</Text>
+            <View style={[styles.playersCard, CardStyles.elevated]}>
+              {topPerformers.map((player, index) => (
+                <PlayerRow key={index} {...player} />
+              ))}
+            </View>
           </View>
-        </View>
+        ) : null}
+
+        {players.length === 0 ? (
+          <View style={[styles.emptyCard, CardStyles.elevated]}>
+            <Ionicons name="people-outline" size={48} color={Colors.dark.textMuted} />
+            <Text style={styles.emptyText}>No player data available</Text>
+            <Text style={styles.emptySubtext}>Player health data will appear once you have players</Text>
+          </View>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -210,6 +244,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  centered: {
+    justifyContent: "center",
+    alignItems: "center",
   },
   headerGradient: {
     position: "absolute",
@@ -234,6 +272,16 @@ const styles = StyleSheet.create({
   subtitle: {
     ...Typography.body,
     color: Colors.dark.textMuted,
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
+  },
+  errorText: {
+    ...Typography.body,
+    color: Colors.dark.error,
+    marginTop: Spacing.md,
   },
   statsGrid: {
     flexDirection: "row",
@@ -394,5 +442,22 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.text,
     fontWeight: "600",
+  },
+  emptyCard: {
+    padding: Spacing.xl,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+  },
+  emptyText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    marginTop: Spacing.md,
+  },
+  emptySubtext: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
+    textAlign: "center",
   },
 });

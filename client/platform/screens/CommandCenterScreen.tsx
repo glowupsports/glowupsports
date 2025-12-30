@@ -32,6 +32,10 @@ interface PlatformStats {
     month: string;
     amount: number;
   }>;
+  weekActivity?: Array<{
+    day: string;
+    intensity: number;
+  }>;
 }
 
 interface MetricCardProps {
@@ -123,14 +127,14 @@ export default function CommandCenterScreen() {
     queryKey: ["/api/platform/stats"],
   });
 
-  const weekActivity = [
-    { day: "M", intensity: 4 },
-    { day: "T", intensity: 3 },
-    { day: "W", intensity: 5 },
-    { day: "T", intensity: 4 },
-    { day: "F", intensity: 3 },
-    { day: "S", intensity: 2 },
-    { day: "S", intensity: 1 },
+  const weekActivity = stats?.weekActivity || [
+    { day: "M", intensity: 0 },
+    { day: "T", intensity: 0 },
+    { day: "W", intensity: 0 },
+    { day: "T", intensity: 0 },
+    { day: "F", intensity: 0 },
+    { day: "S", intensity: 0 },
+    { day: "S", intensity: 0 },
   ];
 
   const handleLogout = () => {

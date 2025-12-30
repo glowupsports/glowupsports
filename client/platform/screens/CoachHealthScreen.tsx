@@ -33,6 +33,27 @@ interface PendingOwnerProfile {
   createdAt?: string;
 }
 
+interface CoachRowProps {
+  name: string;
+  academy: string;
+  sessions: number;
+  players: number;
+  xpAwarded: number;
+  burnoutRisk: "low" | "medium" | "high";
+  lastActive: string;
+}
+
+interface CoachHealthData {
+  healthStats: {
+    totalCoaches: number;
+    activeThisWeek: number;
+    atRisk: number;
+    avgSessionsPerCoach: number;
+    avgXpAwarded: number;
+  };
+  coaches: CoachRowProps[];
+}
+
 interface PendingBioRowProps {
   bio: PendingBio;
   onApprove: (id: string) => void;
@@ -226,16 +247,6 @@ function PendingBioRow({ bio, onApprove, onReject, isLoading }: PendingBioRowPro
   );
 }
 
-interface CoachRowProps {
-  name: string;
-  academy: string;
-  sessions: number;
-  players: number;
-  xpAwarded: number;
-  burnoutRisk: "low" | "medium" | "high";
-  lastActive: string;
-}
-
 function CoachRow({ name, academy, sessions, players, xpAwarded, burnoutRisk, lastActive }: CoachRowProps) {
   const riskConfig = {
     low: { color: Colors.dark.primary, label: "Low Risk" },
@@ -283,6 +294,10 @@ function CoachRow({ name, academy, sessions, players, xpAwarded, burnoutRisk, la
 export default function CoachHealthScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+
+  const { data: coachHealthData, isLoading: loadingCoachHealth } = useQuery<CoachHealthData>({
+    queryKey: ["/api/platform/coach-health"],
+  });
 
   const { data: pendingBiosData, isLoading: loadingPendingBios } = useQuery<{ pendingBios: PendingBio[] }>({
     queryKey: ["/api/platform/pending-bios"],
@@ -358,25 +373,27 @@ export default function CoachHealthScreen() {
     showRejectDialog();
   };
 
-  const healthStats = {
-    totalCoaches: 47,
-    activeThisWeek: 42,
-    atRisk: 5,
-    avgSessionsPerCoach: 8.3,
-    avgXpAwarded: 245,
+  const healthStats = coachHealthData?.healthStats || {
+    totalCoaches: 0,
+    activeThisWeek: 0,
+    atRisk: 0,
+    avgSessionsPerCoach: 0,
+    avgXpAwarded: 0,
   };
 
-  const coaches: CoachRowProps[] = [
-    { name: "Sarah Johnson", academy: "Tennis Academy Pro", sessions: 12, players: 8, xpAwarded: 320, burnoutRisk: "high", lastActive: "2 hours ago" },
-    { name: "Mike Chen", academy: "Elite Tennis Club", sessions: 8, players: 6, xpAwarded: 245, burnoutRisk: "low", lastActive: "1 hour ago" },
-    { name: "Emma Davis", academy: "Junior Champions", sessions: 10, players: 7, xpAwarded: 280, burnoutRisk: "medium", lastActive: "30 min ago" },
-    { name: "James Wilson", academy: "City Tennis Center", sessions: 6, players: 5, xpAwarded: 180, burnoutRisk: "low", lastActive: "3 hours ago" },
-    { name: "Lisa Park", academy: "Tennis Academy Pro", sessions: 14, players: 10, xpAwarded: 380, burnoutRisk: "high", lastActive: "45 min ago" },
-  ];
-
+  const coaches = coachHealthData?.coaches || [];
   const atRiskCoaches = coaches.filter(c => c.burnoutRisk === "high" || c.burnoutRisk === "medium");
   const pendingBios = pendingBiosData?.pendingBios || [];
   const pendingOwnerProfiles = pendingOwnerProfilesData?.pendingProfiles || [];
+
+  if (loadingCoachHealth) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={PLATFORM_COLOR} />
+        <Text style={styles.loadingText}>Loading coach health data...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -497,14 +514,24 @@ export default function CoachHealthScreen() {
           </View>
         ) : null}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>All Coaches</Text>
-          <View style={[styles.coachesCard, CardStyles.elevated]}>
-            {coaches.map((coach, index) => (
-              <CoachRow key={index} {...coach} />
-            ))}
+        {coaches.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>All Coaches</Text>
+            <View style={[styles.coachesCard, CardStyles.elevated]}>
+              {coaches.map((coach, index) => (
+                <CoachRow key={index} {...coach} />
+              ))}
+            </View>
           </View>
-        </View>
+        ) : null}
+
+        {coaches.length === 0 ? (
+          <View style={[styles.emptyCard, CardStyles.elevated]}>
+            <Ionicons name="people-outline" size={48} color={Colors.dark.textMuted} />
+            <Text style={styles.emptyText}>No coach data available</Text>
+            <Text style={styles.emptySubtext}>Coach health data will appear once you have coaches</Text>
+          </View>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -514,6 +541,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  centered: {
+    justifyContent: "center",
+    alignItems: "center",
   },
   headerGradient: {
     position: "absolute",
@@ -538,6 +569,11 @@ const styles = StyleSheet.create({
   subtitle: {
     ...Typography.body,
     color: Colors.dark.textMuted,
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
   },
   loadingSection: {
     padding: Spacing.xl,
@@ -792,5 +828,22 @@ const styles = StyleSheet.create({
   actionButtonText: {
     ...Typography.small,
     fontWeight: "600",
+  },
+  emptyCard: {
+    padding: Spacing.xl,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+  },
+  emptyText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    marginTop: Spacing.md,
+  },
+  emptySubtext: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
+    textAlign: "center",
   },
 });
