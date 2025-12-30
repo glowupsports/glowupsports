@@ -1,8 +1,66 @@
 # EAS Build Ignore File
+# Only include Expo app source + assets
+
+# Node / package managers
 node_modules/
-.git/
-dist/
+npm-debug.log
+yarn-error.log
+pnpm-lock.yaml
+
+# Server / Backend (not needed for mobile build)
+server/
+
+# Expo / Metro
 .expo/
+.expo-shared/
+web-build/
+dist/
+
+# Git
+.git/
+.gitignore
+
+# Replit specific
+.replit
+replit.nix
+.cache/
+.local/
+.upm/
+.config/
+.env
+.env.*
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+logs/
 *.log
 *.hprof
+
+# Tests / Coverage
+__tests__/
+coverage/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+
+# Attachments / Assets not needed
 attached_assets/
+screenshots/
+docs/
+
+# Database / Migrations (handled server-side)
+drizzle/
+
+# Misc
+*.md
+!README.md
+.prettierrc
+.eslintrc*
+tsconfig*.json
+vitest.config.ts
