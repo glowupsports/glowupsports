@@ -7062,8 +7062,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin - Get detailed player stats with payments
-  app.get("/api/admin/players/:playerId/stats", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+  // Admin - Get detailed player stats with payments (also accessible by coaches for their assigned players)
+  app.get("/api/admin/players/:playerId/stats", authMiddleware, requireRole("admin", "academy_owner", "platform_owner", "coach"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { playerId } = req.params;
       const academyId = req.user?.academyId;
