@@ -33,13 +33,24 @@ export function UpdateController({ children }: UpdateControllerProps) {
 
   const checkForUpdates = async () => {
     try {
+      console.log("[UpdateController] Checking for updates...");
+      console.log("[UpdateController] Updates.isEnabled:", Updates.isEnabled);
+      console.log("[UpdateController] Updates.channel:", Updates.channel);
+      console.log("[UpdateController] Updates.runtimeVersion:", Updates.runtimeVersion);
+      console.log("[UpdateController] Updates.updateId:", Updates.updateId);
+      
       const update = await Updates.checkForUpdateAsync();
+      console.log("[UpdateController] Check result:", JSON.stringify(update));
+      
       if (update.isAvailable) {
+        console.log("[UpdateController] Update available! Showing update screen...");
         setShowUpdateScreen(true);
         downloadUpdate();
+      } else {
+        console.log("[UpdateController] No update available");
       }
     } catch (error) {
-      console.log("Error checking for updates:", error);
+      console.log("[UpdateController] Error checking for updates:", error);
     }
   };
 

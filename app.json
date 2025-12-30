@@ -46,7 +46,13 @@
           }
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-updates",
+        {
+          "username": "glow-up-sports"
+        }
+      ]
     ],
     "experiments": {
       "reactCompiler": true
