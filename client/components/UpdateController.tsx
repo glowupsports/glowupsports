@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -16,12 +16,17 @@ interface UpdateControllerProps {
   children: React.ReactNode;
 }
 
+const MAX_RETRY_ATTEMPTS = 3;
+
 export function UpdateController({ children }: UpdateControllerProps) {
   const [showUpdateScreen, setShowUpdateScreen] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isUpdateReady, setIsUpdateReady] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [showContinueOption, setShowContinueOption] = useState(false);
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (__DEV__ || Platform.OS === "web") {
@@ -29,6 +34,12 @@ export function UpdateController({ children }: UpdateControllerProps) {
     }
 
     checkForUpdates();
+
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
+    };
   }, []);
 
   const checkForUpdates = async () => {
@@ -49,8 +60,9 @@ export function UpdateController({ children }: UpdateControllerProps) {
       } else {
         console.log("[UpdateController] No update available");
       }
-    } catch (error) {
-      console.log("[UpdateController] Error checking for updates:", error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.log("[UpdateController] Error checking for updates:", errorMessage);
     }
   };
 
@@ -64,24 +76,31 @@ export function UpdateController({ children }: UpdateControllerProps) {
           setIsUpdateReady(true);
           setIsDownloading(false);
         } else if (event.type === Updates.UpdateEventType.ERROR) {
-          setUpdateError("Update download failed");
-          setIsDownloading(false);
+          const eventError = (event as { error?: Error }).error;
+          console.error("[UpdateController] Listener error:", eventError?.message || "Unknown error");
+          handleDownloadError(eventError?.message || "Update download failed");
         }
       });
 
       let progress = 0;
-      const progressInterval = setInterval(() => {
+      progressIntervalRef.current = setInterval(() => {
         progress += Math.random() * 15;
         if (progress >= 95) {
           progress = 95;
-          clearInterval(progressInterval);
+          if (progressIntervalRef.current) {
+            clearInterval(progressIntervalRef.current);
+          }
         }
         setDownloadProgress(progress);
       }, 200);
 
+      console.log("[UpdateController] Starting fetchUpdateAsync...");
       const result = await Updates.fetchUpdateAsync();
+      console.log("[UpdateController] fetchUpdateAsync result:", JSON.stringify(result));
 
-      clearInterval(progressInterval);
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
       setDownloadProgress(100);
 
       if (result.isNew) {
@@ -92,22 +111,60 @@ export function UpdateController({ children }: UpdateControllerProps) {
       }
 
       listener.remove();
-    } catch (error) {
-      console.error("Error downloading update:", error);
-      setUpdateError("Could not download update");
-      setIsDownloading(false);
+    } catch (error: unknown) {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
+      
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorCode = (error as { code?: string }).code;
+      
+      console.error("[UpdateController] Download error:", {
+        message: errorMessage,
+        code: errorCode,
+        fullError: error,
+      });
+      
+      handleDownloadError(errorMessage);
     }
+  };
+
+  const handleDownloadError = (errorMessage: string) => {
+    const newRetryCount = retryCount + 1;
+    setRetryCount(newRetryCount);
+    setIsDownloading(false);
+    
+    if (newRetryCount >= MAX_RETRY_ATTEMPTS) {
+      setUpdateError(`Download failed after ${MAX_RETRY_ATTEMPTS} attempts. You can continue without the update.`);
+      setShowContinueOption(true);
+    } else {
+      setUpdateError(`Download failed (attempt ${newRetryCount}/${MAX_RETRY_ATTEMPTS}). Check your network connection.`);
+    }
+    
+    console.log(`[UpdateController] Retry count: ${newRetryCount}/${MAX_RETRY_ATTEMPTS}`);
+  };
+
+  const retryDownload = () => {
+    setDownloadProgress(0);
+    downloadUpdate();
   };
 
   const applyUpdate = async () => {
     try {
       await Updates.reloadAsync();
-    } catch (error) {
-      console.error("Error applying update:", error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("[UpdateController] Error applying update:", errorMessage);
     }
   };
 
   const skipUpdate = () => {
+    console.log("[UpdateController] User skipped update");
+    setShowUpdateScreen(false);
+  };
+
+  const continueWithoutUpdate = () => {
+    console.log("[UpdateController] User continuing without update after failures");
     setShowUpdateScreen(false);
   };
 
@@ -135,7 +192,9 @@ export function UpdateController({ children }: UpdateControllerProps) {
             ? "Downloading Update"
             : isUpdateReady
               ? "Update Ready!"
-              : "New Update Available"}
+              : updateError
+                ? "Update Failed"
+                : "New Update Available"}
         </Text>
 
         <Text style={styles.subtitle}>
@@ -143,7 +202,9 @@ export function UpdateController({ children }: UpdateControllerProps) {
             ? "Please wait while we download the latest version..."
             : isUpdateReady
               ? "Tap the button below to apply the update"
-              : "A new version of Glow Up Sports is available"}
+              : updateError
+                ? "There was a problem downloading the update"
+                : "A new version of Glow Up Sports is available"}
         </Text>
 
         {(isDownloading || isUpdateReady) && (
@@ -165,17 +226,17 @@ export function UpdateController({ children }: UpdateControllerProps) {
           </View>
         )}
 
-        {updateError && <Text style={styles.errorText}>{updateError}</Text>}
+        {updateError ? <Text style={styles.errorText}>{updateError}</Text> : null}
 
-        {isDownloading && (
+        {isDownloading ? (
           <ActivityIndicator
             size="large"
             color={Colors.dark.primary}
             style={styles.loader}
           />
-        )}
+        ) : null}
 
-        {isUpdateReady && (
+        {isUpdateReady ? (
           <Pressable style={styles.applyButton} onPress={applyUpdate}>
             <LinearGradient
               colors={[Colors.dark.primary, Colors.dark.accent]}
@@ -192,9 +253,9 @@ export function UpdateController({ children }: UpdateControllerProps) {
               <Text style={styles.buttonText}>Restart App</Text>
             </LinearGradient>
           </Pressable>
-        )}
+        ) : null}
 
-        {!isDownloading && !isUpdateReady && (
+        {!isDownloading && !isUpdateReady && !updateError ? (
           <View style={styles.buttonRow}>
             <Pressable style={styles.skipButton} onPress={skipUpdate}>
               <Text style={styles.skipButtonText}>Later</Text>
@@ -216,13 +277,55 @@ export function UpdateController({ children }: UpdateControllerProps) {
               </LinearGradient>
             </Pressable>
           </View>
-        )}
+        ) : null}
 
-        {updateError && (
-          <Pressable style={styles.retryButton} onPress={downloadUpdate}>
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </Pressable>
-        )}
+        {updateError && !showContinueOption ? (
+          <View style={styles.errorButtonRow}>
+            <Pressable style={styles.skipButton} onPress={skipUpdate}>
+              <Text style={styles.skipButtonText}>Later</Text>
+            </Pressable>
+            <Pressable style={styles.retryButtonAlt} onPress={retryDownload}>
+              <LinearGradient
+                colors={[Colors.dark.primary, Colors.dark.accent]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.buttonGradient}
+              >
+                <Feather
+                  name="refresh-cw"
+                  size={20}
+                  color="#fff"
+                  style={styles.buttonIcon}
+                />
+                <Text style={styles.buttonText}>Try Again</Text>
+              </LinearGradient>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {showContinueOption ? (
+          <View style={styles.continueContainer}>
+            <Pressable style={styles.continueButton} onPress={continueWithoutUpdate}>
+              <LinearGradient
+                colors={["#444", "#333"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.buttonGradient}
+              >
+                <Feather
+                  name="arrow-right"
+                  size={20}
+                  color="#fff"
+                  style={styles.buttonIcon}
+                />
+                <Text style={styles.buttonText}>Continue Without Update</Text>
+              </LinearGradient>
+            </Pressable>
+            <Pressable style={styles.retryButton} onPress={retryDownload}>
+              <Text style={styles.retryButtonText}>Try Again Anyway</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.footer}>
@@ -293,12 +396,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.dark.error,
     textAlign: "center",
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.lg,
+    paddingHorizontal: Spacing.md,
   },
   loader: {
     marginTop: Spacing.lg,
   },
   buttonRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  errorButtonRow: {
     flexDirection: "row",
     gap: Spacing.md,
   },
@@ -341,10 +449,20 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.lg,
   },
+  retryButtonAlt: {
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
   retryButtonText: {
     fontSize: 14,
     color: Colors.dark.primary,
-    textDecoration: "underline",
+  },
+  continueContainer: {
+    alignItems: "center",
+  },
+  continueButton: {
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
   },
   footer: {
     position: "absolute",
