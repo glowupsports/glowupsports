@@ -6231,6 +6231,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Platform Owner - Create new academy
+  app.post("/api/platform/academies", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { name, ownerEmail, city } = req.body;
+
+      if (!name || typeof name !== "string" || name.trim().length === 0) {
+        return res.status(400).json({ error: "Academy name is required" });
+      }
+
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+
+      const existingAcademy = await storage.getAcademyBySlug(slug);
+      if (existingAcademy) {
+        return res.status(400).json({ error: "An academy with this name already exists" });
+      }
+
+      const newAcademy = await storage.createAcademy({
+        name: name.trim(),
+        slug,
+        isActive: true,
+        subscriptionStatus: "trial",
+        currency: "AED",
+      });
+
+      if (city) {
+        await storage.upsertAcademySettings(newAcademy.id, {
+          city,
+        });
+      }
+
+      if (ownerEmail && typeof ownerEmail === "string" && ownerEmail.includes("@")) {
+        await storage.createInvite({
+          academyId: newAcademy.id,
+          email: ownerEmail.trim().toLowerCase(),
+          role: "academy_owner",
+          status: "pending",
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        });
+      }
+
+      res.status(201).json({
+        success: true,
+        academy: newAcademy,
+      });
+    } catch (error) {
+      console.error("Create academy error:", error);
+      res.status(500).json({ error: "Failed to create academy" });
+    }
+  });
+
   // Platform Owner - Get player health metrics across all academies
   app.get("/api/platform/player-health", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {

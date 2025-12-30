@@ -1,13 +1,14 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Modal, Platform, KeyboardAvoidingView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { apiRequest } from "@/lib/query-client";
 import type { PlatformStackParamList } from "@/platform/navigation/PlatformNavigator";
 
 const PLATFORM_COLOR = "#9B59B6";
@@ -113,11 +114,157 @@ function AcademyCard({ name, coaches, players, mrr, status, lastActivity, onPres
 
 type NavigationProp = NativeStackNavigationProp<PlatformStackParamList>;
 
+interface CreateAcademyModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function CreateAcademyModal({ visible, onClose, onSuccess }: CreateAcademyModalProps) {
+  const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+  const [name, setName] = useState("");
+  const [ownerEmail, setOwnerEmail] = useState("");
+  const [city, setCity] = useState("");
+  const [error, setError] = useState("");
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/platform/academies", {
+        name,
+        ownerEmail: ownerEmail || undefined,
+        city: city || undefined,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/platform/stats"] });
+      setName("");
+      setOwnerEmail("");
+      setCity("");
+      setError("");
+      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onSuccess();
+    },
+    onError: (err: any) => {
+      setError(err?.message || "Failed to create academy");
+    },
+  });
+
+  const handleCreate = () => {
+    if (!name.trim()) {
+      setError("Academy name is required");
+      return;
+    }
+    if (ownerEmail && !ownerEmail.includes("@")) {
+      setError("Please enter a valid email address");
+      return;
+    }
+    setError("");
+    createMutation.mutate();
+  };
+
+  const handleClose = () => {
+    setName("");
+    setOwnerEmail("");
+    setCity("");
+    setError("");
+    onClose();
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={handleClose}
+    >
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.modalOverlay}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={handleClose} />
+        <View style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+          <View style={styles.modalHandle} />
+          
+          <Text style={styles.modalTitle}>Create New Academy</Text>
+          <Text style={styles.modalSubtitle}>Add a new academy to the platform</Text>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.formLabel}>Academy Name *</Text>
+            <TextInput
+              style={styles.formInput}
+              placeholder="Enter academy name"
+              placeholderTextColor={Colors.dark.textMuted}
+              value={name}
+              onChangeText={setName}
+              autoCapitalize="words"
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.formLabel}>Owner Email (optional)</Text>
+            <TextInput
+              style={styles.formInput}
+              placeholder="owner@example.com"
+              placeholderTextColor={Colors.dark.textMuted}
+              value={ownerEmail}
+              onChangeText={setOwnerEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            <Text style={styles.formHint}>An invitation will be sent to this email</Text>
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.formLabel}>City (optional)</Text>
+            <TextInput
+              style={styles.formInput}
+              placeholder="e.g. Dubai"
+              placeholderTextColor={Colors.dark.textMuted}
+              value={city}
+              onChangeText={setCity}
+              autoCapitalize="words"
+            />
+          </View>
+
+          {error ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle" size={16} color={Colors.dark.error} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
+
+          <View style={styles.modalActions}>
+            <Pressable style={styles.cancelButton} onPress={handleClose}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </Pressable>
+            <Pressable 
+              style={[styles.createButton, createMutation.isPending && styles.buttonDisabled]} 
+              onPress={handleCreate}
+              disabled={createMutation.isPending}
+            >
+              {createMutation.isPending ? (
+                <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+              ) : (
+                <>
+                  <Ionicons name="add-circle" size={20} color={Colors.dark.backgroundRoot} />
+                  <Text style={styles.createButtonText}>Create Academy</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
 export default function AcademiesScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const { data: stats, isLoading } = useQuery<PlatformStats>({
     queryKey: ["/api/platform/stats"],
@@ -221,6 +368,22 @@ export default function AcademiesScreen() {
           </View>
         ) : null}
       </ScrollView>
+
+      <Pressable 
+        style={[styles.fab, { bottom: insets.bottom + 100 }]}
+        onPress={() => {
+          if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          setShowCreateModal(true);
+        }}
+      >
+        <Ionicons name="add" size={28} color={Colors.dark.backgroundRoot} />
+      </Pressable>
+
+      <CreateAcademyModal
+        visible={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={() => setShowCreateModal(false)}
+      />
     </View>
   );
 }
@@ -376,5 +539,125 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.textMuted,
     marginTop: Spacing.md,
+  },
+  fab: {
+    position: "absolute",
+    right: Spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: PLATFORM_COLOR,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 4,
+    shadowColor: PLATFORM_COLOR,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.6)",
+  },
+  modalContent: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    paddingTop: Spacing.md,
+  },
+  modalHandle: {
+    width: 36,
+    height: 4,
+    backgroundColor: Colors.dark.textMuted,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: Spacing.lg,
+  },
+  modalTitle: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+    marginBottom: Spacing.xs,
+  },
+  modalSubtitle: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.lg,
+  },
+  formGroup: {
+    marginBottom: Spacing.md,
+  },
+  formLabel: {
+    ...Typography.small,
+    color: Colors.dark.textSecondary,
+    marginBottom: Spacing.xs,
+    fontWeight: "500",
+  },
+  formInput: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    color: Colors.dark.text,
+    ...Typography.body,
+  },
+  formHint: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
+    fontSize: 11,
+  },
+  errorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: `${Colors.dark.error}15`,
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+  },
+  errorText: {
+    ...Typography.small,
+    color: Colors.dark.error,
+    flex: 1,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginTop: Spacing.md,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundRoot,
+    alignItems: "center",
+  },
+  cancelButtonText: {
+    ...Typography.body,
+    color: Colors.dark.textSecondary,
+    fontWeight: "600",
+  },
+  createButton: {
+    flex: 2,
+    flexDirection: "row",
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: PLATFORM_COLOR,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+  },
+  createButtonText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
 });
