@@ -172,6 +172,7 @@ interface PlayerDashboard {
     id: string;
     name: string;
     onboardingCompleted?: boolean;
+    academyId?: string | null;
   };
 }
 
@@ -209,9 +210,9 @@ export default function PlayerNavigator() {
     );
   }
 
-  // Show onboarding only for new player users who haven't completed onboarding
-  // Use isOnboarding flag from server to detect new players needing onboarding
-  const needsOnboarding = dashboard?.isOnboarding === true && dashboard?.player?.onboardingCompleted === false;
+  // Show onboarding for player users who haven't completed onboarding OR don't have an academy
+  // The server's isOnboarding flag now checks both onboardingCompleted and academyId
+  const needsOnboarding = dashboard?.isOnboarding === true;
   const showOnboarding = user?.role === "player" && needsOnboarding && onboardingComplete !== true;
 
   if (showOnboarding) {

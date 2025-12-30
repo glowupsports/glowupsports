@@ -7332,8 +7332,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const glowScore = Math.min(100, Math.round((totalXp / (level * 500)) * 100));
       
       const onboardingCompleted = player.onboardingCompleted ?? false;
+      const hasAcademy = !!player.academyId;
+      const needsOnboarding = !onboardingCompleted || !hasAcademy;
+      
       res.json({
-        isOnboarding: !onboardingCompleted,
+        isOnboarding: needsOnboarding,
         player: {
           id: player.id,
           name: player.name,
@@ -7343,6 +7346,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ballLevel: player.ballLevel,
           streak,
           onboardingCompleted,
+          academyId: player.academyId,
         },
         coach: coach ? {
           id: coach.id,
