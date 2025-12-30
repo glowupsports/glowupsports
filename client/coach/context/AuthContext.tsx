@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { getApiUrl } from "@/lib/query-client";
 import { 
   loadAuthState, 
@@ -70,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { setMode, setAvailableModes } = useAppMode();
   const setAvailableModesRef = useRef(setAvailableModes);
   setAvailableModesRef.current = setAvailableModes;
+  const queryClient = useQueryClient();
 
   const fetchUserData = useCallback(async (token: string) => {
     try {
@@ -151,6 +153,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
+      queryClient.clear();
+      
       const apiUrl = getApiUrl();
       const response = await fetch(new URL("/auth/login", apiUrl).toString(), {
         method: "POST",
@@ -233,6 +237,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     console.log("[AuthContext] Logout called");
     try {
+      queryClient.clear();
       await clearAuthState();
       setAuthToken(null);
       setIsAuthenticated(false);

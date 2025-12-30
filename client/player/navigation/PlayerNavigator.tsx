@@ -189,6 +189,8 @@ export default function PlayerNavigator() {
   const { data: dashboard, isLoading } = useQuery<PlayerDashboard>({
     queryKey: ["/api/player/me/dashboard"],
     enabled: shouldFetchDashboard,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const handleOnboardingComplete = async () => {
