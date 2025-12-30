@@ -29,7 +29,7 @@ The application features a dark-themed gaming aesthetic, utilizing neon green an
     - **Offline Sync**: Queue processor with exponential backoff for data synchronization and conflict resolution.
     - **Platform Configuration**: Centralized key-value storage for platform-wide settings (XP multipliers, anti-abuse rules, level thresholds, badge definitions, academy defaults, billing config, notification templates).
     - **Maintenance Mode**: System-wide maintenance toggle with role-based bypass and status endpoints.
-    - **Diagnostics System**: Client-side error reporting with a dedicated inbox and resolution workflow for Platform Owners.
+    - **Diagnostics System**: Client-side error reporting with a dedicated inbox and resolution workflow for Platform Owners. Includes user-reported UI issues via "Report an Issue" in drawer menu (rate-limited to 3 reports/hour, tracks last interaction context).
 
 - **Role-Specific Applications**:
     - **Coach App**: Player and session management, feedback, progress tracking, notifications, dashboard with coach level/XP, and offline sync.
