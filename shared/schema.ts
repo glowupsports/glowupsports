@@ -427,6 +427,8 @@ export const sessions = pgTable("sessions", {
   
   status: text("status").default("scheduled"), // scheduled/cancelled/completed
   
+  googleCalendarEventId: text("google_calendar_event_id"), // External Google Calendar event ID for sync
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 

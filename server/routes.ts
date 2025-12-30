@@ -38,6 +38,7 @@ import { z } from "zod";
 import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "./utils/sanitize";
 import { sendFeedbackNotification, sendLevelUpNotification, sendBadgeEarnedNotification, sendXPGainNotification } from "./pushNotifications";
 import { sendFeedbackNotificationEmail, sendLevelUpEmail, sendWelcomeEmail, sendSessionReminderEmail, sendCoachInviteEmail } from "./emailService";
+import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, checkConnection as checkCalendarConnection, SessionEventData } from "./googleCalendarService";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -1321,14 +1322,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         // Add players if provided
+        let playerNames: string[] = [];
         if (playerIds && Array.isArray(playerIds)) {
           for (const playerId of playerIds) {
             await storage.addPlayerToSession({
               sessionId: session.id,
               playerId,
             });
+            const player = await storage.getPlayer(playerId, academyId!);
+            if (player) {
+              playerNames.push(player.name);
+            }
           }
         }
+
+        // Sync to Google Calendar (non-blocking)
+        const court = courtId ? await storage.getCourt(courtId, academyId!) : null;
+        const location = locationId ? await storage.getLocation(locationId, academyId!) : null;
+        const sessionTitle = `Tennis ${sessionType.charAt(0).toUpperCase() + sessionType.slice(1)} Session`;
+        
+        createCalendarEvent({
+          sessionId: session.id,
+          title: sessionTitle,
+          description: `Ball Level: ${ballLevel || 'Not specified'}\nSkill Level: ${skillLevel || 'Not specified'}`,
+          startTime: weekStart,
+          endTime: weekEnd,
+          location: location?.name || court?.name,
+          playerNames,
+        }).then(async (result) => {
+          if (result.success && result.eventId) {
+            await storage.updateSession(session.id, { googleCalendarEventId: result.eventId }, academyId!);
+          }
+        }).catch(err => console.error('[GoogleCalendar] Sync error:', err));
 
         createdSessions.push(session);
       }
@@ -1408,6 +1433,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updated = await storage.updateSession(id, updates);
 
+      // Sync to Google Calendar if event exists (non-blocking)
+      if (session.googleCalendarEventId) {
+        const sessionPlayers = await storage.getSessionPlayers(id);
+        const playerNames = sessionPlayers.map(sp => sp.player?.name).filter(Boolean) as string[];
+        
+        const updatedCourtId = updates.courtId || session.courtId;
+        const updatedLocationId = updates.locationId || session.locationId;
+        const court = updatedCourtId ? await storage.getCourt(updatedCourtId, academyId) : null;
+        const location = updatedLocationId ? await storage.getLocation(updatedLocationId, academyId) : null;
+        
+        const startTime = updates.startTime ? new Date(updates.startTime) : session.startTime;
+        const endTime = updated?.endTime || session.endTime;
+        
+        updateCalendarEvent(session.googleCalendarEventId, {
+          sessionId: id,
+          title: `Tennis ${(updates.sessionType || session.sessionType).charAt(0).toUpperCase() + (updates.sessionType || session.sessionType).slice(1)} Session`,
+          description: `Ball Level: ${updates.ballLevel || session.ballLevel || 'Not specified'}\nSkill Level: ${updates.skillLevel || session.skillLevel || 'Not specified'}`,
+          startTime,
+          endTime,
+          location: location?.name || court?.name,
+          playerNames,
+        }).catch(err => console.error('[GoogleCalendar] Update sync error:', err));
+      }
+
       await storage.createAuditLog({
         entityType: "session",
         entityId: id,
@@ -1440,6 +1489,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const cancelled = await storage.cancelSession(id);
+
+      // Remove from Google Calendar if event exists (non-blocking)
+      if (session.googleCalendarEventId) {
+        deleteCalendarEvent(session.googleCalendarEventId)
+          .catch(err => console.error('[GoogleCalendar] Delete sync error:', err));
+      }
 
       await storage.createAuditLog({
         entityType: "session",
@@ -3302,6 +3357,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching auto-renew alerts:", error);
       res.status(500).json({ error: "Failed to fetch auto-renew alerts" });
+    }
+  });
+
+  // ==================== GOOGLE CALENDAR API ====================
+
+  // Check Google Calendar connection status
+  app.get("/api/coach/calendar/status", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const result = await checkCalendarConnection();
+      res.json({
+        connected: result.connected,
+        email: result.email,
+        error: result.error,
+      });
+    } catch (error: any) {
+      res.json({
+        connected: false,
+        error: error.message || "Failed to check calendar connection",
+      });
     }
   });
 

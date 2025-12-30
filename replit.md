@@ -42,6 +42,7 @@ The application features a dark-themed gaming aesthetic, utilizing neon green an
 - **Deployment**: Replit
 - **Push Notifications**: Expo Push API
 - **Email Service**: Resend API
+- **Google Calendar**: Sync sessions to coach's Google Calendar (create/update/delete events)
 
 ### Key Libraries
 - **Server State Management**: TanStack Query
