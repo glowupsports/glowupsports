@@ -7067,9 +7067,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { playerId } = req.params;
       const academyId = req.user?.academyId;
+      const userRole = req.user?.role;
       
       const player = await storage.getPlayer(playerId);
-      if (!player || (academyId && player.academyId !== academyId)) {
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Platform owners can view any player; others must match academy
+      const isPlatformOwner = userRole === "platform_owner";
+      if (!isPlatformOwner && academyId && player.academyId && player.academyId !== academyId) {
         return res.status(404).json({ error: "Player not found" });
       }
 
