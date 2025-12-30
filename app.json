@@ -3,6 +3,12 @@
     "name": "Glow Up Sports",
     "slug": "glow-up-sports-qimo0pvm-ks03bklnmcri",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/ce3ccb00-0553-4abc-a038-1a93b7483738"
+    },
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "glowupsports",
