@@ -7323,7 +7323,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       let playerId = req.user!.playerId;
       let newPlayerCreated = false;
-      const { motivationType, dateOfBirth, dominantHand, backhandType, experienceLevel, enjoymentTags, focusGoals, selfConfidenceFlags } = req.body;
+      const { motivationType, dateOfBirth, height, tshirtSize, dominantHand, backhandType, experienceLevel, enjoymentTags, focusGoals, selfConfidenceFlags } = req.body;
 
       // If no player profile exists, create one during onboarding
       if (!playerId) {
@@ -7357,6 +7357,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         onboardingCompleted: true,
         motivationType,
         dateOfBirth,
+        height,
+        tshirtSize,
         dominantHand,
         backhandType,
         experienceLevel,

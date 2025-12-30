@@ -29,12 +29,15 @@ import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constan
 import { apiRequest } from "@/lib/query-client";
 import { saveAuthState, setAuthToken, AuthUser } from "@/lib/auth";
 import { useAuth } from "@/coach/context/AuthContext";
+import { TshirtSize } from "@shared/schema";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface OnboardingData {
   motivationType: string | null;
   dateOfBirth: string | null;
+  height: number | null;
+  tshirtSize: TshirtSize | null;
   dominantHand: string | null;
   backhandType: string | null;
   experienceLevel: string | null;
@@ -74,6 +77,24 @@ const BACKHAND_OPTIONS = [
 const HAND_OPTIONS = [
   { id: "right", label: "Right-handed", icon: "hand-right-outline" },
   { id: "left", label: "Left-handed", icon: "hand-left-outline" },
+];
+
+const TSHIRT_SIZE_OPTIONS: { id: TshirtSize; label: string; isKids?: boolean }[] = [
+  { id: "2T", label: "2T", isKids: true },
+  { id: "3T", label: "3T", isKids: true },
+  { id: "4T", label: "4T", isKids: true },
+  { id: "YXS", label: "Youth XS", isKids: true },
+  { id: "YS", label: "Youth S", isKids: true },
+  { id: "YM", label: "Youth M", isKids: true },
+  { id: "YL", label: "Youth L", isKids: true },
+  { id: "YXL", label: "Youth XL", isKids: true },
+  { id: "XS", label: "XS" },
+  { id: "S", label: "S" },
+  { id: "M", label: "M" },
+  { id: "L", label: "L" },
+  { id: "XL", label: "XL" },
+  { id: "XXL", label: "XXL" },
+  { id: "XXXL", label: "XXXL" },
 ];
 
 const ENJOYMENT_OPTIONS = [
@@ -430,6 +451,53 @@ function ProfileStep({ data, setData, onNext }: StepProps) {
           />
         </Animated.View>
 
+        <Animated.View entering={FadeInDown.delay(250).duration(500)} style={styles.sectionContainer}>
+          <Text style={styles.sectionLabel}>Height in cm (optional)</Text>
+          <TextInput
+            value={data.height ? String(data.height) : ""}
+            onChangeText={(text) => {
+              const num = parseInt(text, 10);
+              setData((prev) => ({ ...prev, height: isNaN(num) ? null : num }));
+            }}
+            placeholder="e.g. 165"
+            placeholderTextColor={Colors.dark.textMuted}
+            keyboardType="numeric"
+            style={styles.heightInput}
+          />
+          <Text style={styles.hintText}>Helps with merchandise sizing</Text>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(280).duration(500)} style={styles.sectionContainer}>
+          <Text style={styles.sectionLabel}>T-Shirt Size (optional)</Text>
+          <View style={styles.tshirtSizeGrid}>
+            {TSHIRT_SIZE_OPTIONS.map((option) => (
+              <Pressable
+                key={option.id}
+                style={[
+                  styles.tshirtSizeButton,
+                  data.tshirtSize === option.id ? styles.tshirtSizeButtonActive : null,
+                  option.isKids ? styles.tshirtSizeButtonKids : null,
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setData((prev) => ({ 
+                    ...prev, 
+                    tshirtSize: prev.tshirtSize === option.id ? null : option.id 
+                  }));
+                }}
+              >
+                <Text style={[
+                  styles.tshirtSizeButtonText,
+                  data.tshirtSize === option.id ? styles.tshirtSizeButtonTextActive : null,
+                ]}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={styles.hintText}>For academy merchandise and giveaways</Text>
+        </Animated.View>
+
         <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.sectionContainer}>
           <Text style={styles.sectionLabel}>Dominant hand</Text>
           <View style={styles.handSelector}>
@@ -700,6 +768,8 @@ export default function PlayerOnboardingScreen({ onComplete }: Props) {
   const [data, setData] = useState<OnboardingData>({
     motivationType: null,
     dateOfBirth: null,
+    height: null,
+    tshirtSize: null,
     dominantHand: null,
     backhandType: null,
     experienceLevel: null,
@@ -1001,6 +1071,50 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   experienceButtonTextActive: {
+    color: Colors.dark.xpCyan,
+  },
+  heightInput: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    color: Colors.dark.text,
+    ...Typography.body,
+    borderWidth: 2,
+    borderColor: Colors.dark.backgroundTertiary,
+  },
+  hintText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.sm,
+  },
+  tshirtSizeGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  tshirtSizeButton: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    borderWidth: 2,
+    borderColor: "transparent",
+    minWidth: 60,
+    alignItems: "center",
+  },
+  tshirtSizeButtonActive: {
+    borderColor: Colors.dark.xpCyan,
+    backgroundColor: `${Colors.dark.xpCyan}10`,
+  },
+  tshirtSizeButtonKids: {
+    borderColor: Colors.dark.orange + "30",
+  },
+  tshirtSizeButtonText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  tshirtSizeButtonTextActive: {
     color: Colors.dark.xpCyan,
   },
   optionsGrid: {

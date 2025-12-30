@@ -17,8 +17,6 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 import CountryCodePicker, { getDefaultCountry, CountryCode } from "@/components/CountryCodePicker";
-import { TshirtSizePicker } from "@/components/TshirtSizePicker";
-import { TshirtSize } from "@shared/schema";
 
 type AuthMode = "login" | "player_register" | "coach_info" | "academy_apply";
 
@@ -67,9 +65,6 @@ export default function LoginScreen() {
   const [country, setCountry] = useState("");
   const [contactPerson, setContactPerson] = useState("");
   const [description, setDescription] = useState("");
-  const [tshirtSize, setTshirtSize] = useState<TshirtSize | undefined>(undefined);
-  const [dateOfBirth, setDateOfBirth] = useState("");
-  const [height, setHeight] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [applicationSubmitted, setApplicationSubmitted] = useState(false);
@@ -86,9 +81,6 @@ export default function LoginScreen() {
     setCountry("");
     setContactPerson("");
     setDescription("");
-    setTshirtSize(undefined);
-    setDateOfBirth("");
-    setHeight("");
   };
 
   const handleLogin = async () => {
@@ -147,14 +139,6 @@ export default function LoginScreen() {
 
     // Combine country code with phone number (E.164 format, no spaces)
     const fullPhone = `${countryCode.dial}${phone.trim().replace(/\s/g, '')}`;
-    
-    // Parse height if provided
-    const heightNum = height ? parseInt(height, 10) : undefined;
-    if (height && (isNaN(heightNum!) || heightNum! < 50 || heightNum! > 250)) {
-      Alert.alert("Error", "Height must be between 50 and 250 cm");
-      setIsSubmitting(false);
-      return;
-    }
 
     try {
       const result = await registerPlayer({
@@ -164,9 +148,6 @@ export default function LoginScreen() {
         email,
         password,
         phone: fullPhone,
-        tshirtSize,
-        dateOfBirth: dateOfBirth || undefined,
-        height: heightNum,
       });
       if (!result.success) {
         Alert.alert("Registration Failed", result.error || "Please try again");
@@ -404,41 +385,6 @@ export default function LoginScreen() {
             />
           </Pressable>
         </View>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Date of Birth (optional)</Text>
-        <TextInput
-          value={dateOfBirth}
-          onChangeText={setDateOfBirth}
-          placeholder="YYYY-MM-DD"
-          placeholderTextColor={Colors.dark.disabled}
-          style={styles.input}
-        />
-        <Text style={styles.hintText}>Used for age-appropriate sizing</Text>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Height in cm (optional)</Text>
-        <TextInput
-          value={height}
-          onChangeText={setHeight}
-          placeholder="e.g. 165"
-          placeholderTextColor={Colors.dark.disabled}
-          keyboardType="numeric"
-          style={styles.input}
-        />
-        <Text style={styles.hintText}>Helps with merchandise sizing</Text>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>T-Shirt Size (optional)</Text>
-        <TshirtSizePicker 
-          value={tshirtSize} 
-          onChange={setTshirtSize}
-          age={dateOfBirth ? Math.floor((Date.now() - new Date(dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : undefined}
-        />
-        <Text style={styles.hintText}>For academy merchandise and giveaways</Text>
       </View>
 
       <Pressable
