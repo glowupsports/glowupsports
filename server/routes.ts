@@ -6827,8 +6827,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Check if this is a player role needing onboarding
         const isPlayerNeedingOnboarding = req.user!.role === "player";
         return res.json({
-          needsOnboarding: isPlayerNeedingOnboarding,
-          player: null,
+          isOnboarding: isPlayerNeedingOnboarding,
+          player: isPlayerNeedingOnboarding ? { onboardingCompleted: false } : null,
           coach: null,
           academy: null,
           nextSession: null,
@@ -6897,7 +6897,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const level = xpData.level || player.level || 1;
       const glowScore = Math.min(100, Math.round((totalXp / (level * 500)) * 100));
       
+      const onboardingCompleted = player.onboardingCompleted ?? false;
       res.json({
+        isOnboarding: !onboardingCompleted,
         player: {
           id: player.id,
           name: player.name,
@@ -6906,7 +6908,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           glowScore,
           ballLevel: player.ballLevel,
           streak,
-          onboardingCompleted: player.onboardingCompleted ?? false,
+          onboardingCompleted,
         },
         coach: coach ? {
           id: coach.id,
