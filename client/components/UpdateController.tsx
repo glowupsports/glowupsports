@@ -87,6 +87,8 @@ export function UpdateController({ children }: UpdateControllerProps) {
       if (result.isNew) {
         setIsUpdateReady(true);
         setIsDownloading(false);
+        console.log("[UpdateController] Update downloaded, auto-reloading...");
+        await Updates.reloadAsync();
       }
 
       listener.remove();
