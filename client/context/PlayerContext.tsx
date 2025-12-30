@@ -141,7 +141,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const loadConversationMessages = useCallback(async () => {
     if (!conversationId) return;
     try {
-      const url = new URL(`/api/conversations/${conversationId}/messages`, getApiUrl());
+      const url = new URL(`/api/player/me/conversations/${conversationId}/messages`, getApiUrl());
       const response = await fetch(url.toString());
       if (response.ok) {
         const apiMessages: ApiMessage[] = await response.json();
@@ -158,7 +158,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const initializeCoachConversation = useCallback(async () => {
     try {
-      const url = new URL(`/api/players/${player.id}/conversations`, getApiUrl());
+      const url = new URL(`/api/player/me/conversations`, getApiUrl());
       const response = await fetch(url.toString());
       if (response.ok) {
         const conversations = await response.json();
@@ -203,9 +203,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
     if (currentChannel === "coaches" && conversationId) {
       try {
-        await apiRequest("POST", `/api/conversations/${conversationId}/messages`, {
-          senderType: "player",
-          senderPlayerId: player.id,
+        await apiRequest("POST", `/api/player/me/conversations/${conversationId}/messages`, {
           body: messageText,
           messageType: "text",
         });
@@ -252,9 +250,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const targetMessage = messages.find((m) => m.id === messageId);
     if (targetMessage?.channel === "coaches" && conversationId) {
       try {
-        await apiRequest("POST", `/api/messages/${messageId}/reactions`, {
-          reactorType: "player",
-          reactorPlayerId: player.id,
+        await apiRequest("POST", `/api/player/me/messages/${messageId}/reactions`, {
           emoji,
         });
       } catch (error) {

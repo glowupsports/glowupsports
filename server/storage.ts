@@ -2408,6 +2408,194 @@ export const storage = {
     return unreadCount;
   },
 
+  // ==================== PLAYER CHAT STORAGE FUNCTIONS ====================
+
+  async getPlayerToPlayerConversation(playerId: string, otherPlayerId: string, academyId: string): Promise<Conversation | undefined> {
+    const playerConversations = await db
+      .select({ conversationId: conversationParticipants.conversationId })
+      .from(conversationParticipants)
+      .where(
+        and(
+          eq(conversationParticipants.playerId, playerId),
+          eq(conversationParticipants.participantType, "player")
+        )
+      );
+    
+    for (const pc of playerConversations) {
+      const otherParticipant = await db
+        .select()
+        .from(conversationParticipants)
+        .where(
+          and(
+            eq(conversationParticipants.conversationId, pc.conversationId),
+            eq(conversationParticipants.playerId, otherPlayerId),
+            eq(conversationParticipants.participantType, "player")
+          )
+        );
+      
+      if (otherParticipant.length > 0) {
+        const conv = await db
+          .select()
+          .from(conversations)
+          .where(
+            and(
+              eq(conversations.id, pc.conversationId),
+              eq(conversations.type, "player_player"),
+              eq(conversations.academyId, academyId)
+            )
+          );
+        if (conv.length > 0) return conv[0];
+      }
+    }
+    return undefined;
+  },
+
+  async getAcademyConversationForPlayer(playerId: string, academyId: string): Promise<Conversation | undefined> {
+    const result = await db
+      .select()
+      .from(conversations)
+      .where(
+        and(
+          eq(conversations.type, "academy"),
+          eq(conversations.playerId, playerId),
+          eq(conversations.academyId, academyId)
+        )
+      );
+    return result[0];
+  },
+
+  async getFirstCoachForAcademy(academyId: string): Promise<{ id: string; name: string } | undefined> {
+    const result = await db
+      .select()
+      .from(coaches)
+      .where(eq(coaches.academyId, academyId))
+      .limit(1);
+    return result[0];
+  },
+
+  async getConversationForPlayer(conversationId: string, playerId: string, academyId: string): Promise<Conversation | undefined> {
+    const participant = await db
+      .select()
+      .from(conversationParticipants)
+      .where(
+        and(
+          eq(conversationParticipants.conversationId, conversationId),
+          eq(conversationParticipants.playerId, playerId),
+          eq(conversationParticipants.participantType, "player")
+        )
+      );
+    
+    if (participant.length === 0) {
+      const conv = await db
+        .select()
+        .from(conversations)
+        .where(
+          and(
+            eq(conversations.id, conversationId),
+            eq(conversations.playerId, playerId),
+            eq(conversations.academyId, academyId)
+          )
+        );
+      return conv[0];
+    }
+    
+    const conv = await db
+      .select()
+      .from(conversations)
+      .where(
+        and(
+          eq(conversations.id, conversationId),
+          eq(conversations.academyId, academyId)
+        )
+      );
+    return conv[0];
+  },
+
+  async getMessagesForPlayer(conversationId: string, playerId: string, academyId: string, limit: number = 50): Promise<Message[]> {
+    const hasAccess = await this.getConversationForPlayer(conversationId, playerId, academyId);
+    if (!hasAccess) return [];
+    
+    return db
+      .select()
+      .from(messages)
+      .where(
+        and(
+          eq(messages.conversationId, conversationId),
+          eq(messages.isDeleted, false)
+        )
+      )
+      .orderBy(desc(messages.createdAt))
+      .limit(limit);
+  },
+
+  async getMessageReactionsForPlayer(messageId: string, playerId: string, academyId: string): Promise<MessageReaction[]> {
+    return db.select().from(messageReactions).where(eq(messageReactions.messageId, messageId));
+  },
+
+  async getMessage(messageId: string): Promise<Message | undefined> {
+    const result = await db.select().from(messages).where(eq(messages.id, messageId));
+    return result[0];
+  },
+
+  async markConversationRead(conversationId: string, participantId: string, participantType: "coach" | "player"): Promise<void> {
+    if (participantType === "coach") {
+      await db.update(conversationParticipants)
+        .set({ lastReadAt: new Date() })
+        .where(
+          and(
+            eq(conversationParticipants.conversationId, conversationId),
+            eq(conversationParticipants.coachId, participantId)
+          )
+        );
+    } else {
+      await db.update(conversationParticipants)
+        .set({ lastReadAt: new Date() })
+        .where(
+          and(
+            eq(conversationParticipants.conversationId, conversationId),
+            eq(conversationParticipants.playerId, participantId)
+          )
+        );
+    }
+  },
+
+  async addMessageReaction(data: InsertMessageReaction): Promise<MessageReaction> {
+    const result = await db.insert(messageReactions).values(data).returning();
+    return result[0];
+  },
+
+  async getPlayerUnreadCount(playerId: string, academyId: string): Promise<number> {
+    const participations = await db
+      .select()
+      .from(conversationParticipants)
+      .where(
+        and(
+          eq(conversationParticipants.playerId, playerId),
+          eq(conversationParticipants.participantType, "player")
+        )
+      );
+    
+    let unreadCount = 0;
+    
+    for (const p of participations) {
+      const lastRead = p.lastReadAt || new Date(0);
+      const unreadMessages = await db
+        .select()
+        .from(messages)
+        .where(
+          and(
+            eq(messages.conversationId, p.conversationId),
+            gte(messages.createdAt, lastRead),
+            ne(messages.senderPlayerId, playerId),
+            eq(messages.isDeleted, false)
+          )
+        );
+      unreadCount += unreadMessages.length;
+    }
+    
+    return unreadCount;
+  },
+
   // ==================== RECURRING SERIES ====================
   async getRecurringSeries(id: string, academyId?: string): Promise<RecurringSeries | undefined> {
     const conditions = [eq(recurringSeries.id, id)];

@@ -126,9 +126,15 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   const height = useSharedValue(FOOTER_COLLAPSED);
 
   const handleNewMessage = useCallback((payload: NewMessagePayload) => {
-    queryClient.invalidateQueries({ queryKey: ["/api/conversations", payload.conversationId, "messages"] });
-    const endpoint = isPlayerMode ? "/api/players" : "/api/coaches";
-    queryClient.invalidateQueries({ queryKey: [endpoint, userId, "conversations"] });
+    if (isPlayerMode) {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/conversations", payload.conversationId, "messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/unread-count"] });
+    } else {
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations", payload.conversationId, "messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coaches", userId, "conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coaches", userId, "unread-count"] });
+    }
     if (selectedConversation?.id === payload.conversationId) {
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
@@ -185,21 +191,31 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
     }
   };
 
-  const conversationsEndpoint = isPlayerMode ? "/api/players" : "/api/coaches";
+  const conversationsQueryKey = isPlayerMode 
+    ? ["/api/player/me/conversations"] 
+    : ["/api/coaches", userId, "conversations"];
   
   const { data: conversations = [], isLoading: loadingConversations } = useQuery<Conversation[]>({
-    queryKey: [conversationsEndpoint, userId, "conversations"],
+    queryKey: conversationsQueryKey,
     enabled: !!userId,
   });
 
+  const messagesQueryKey = isPlayerMode 
+    ? ["/api/player/me/conversations", selectedConversation?.id, "messages"]
+    : ["/api/conversations", selectedConversation?.id, "messages"];
+  
   const { data: messages = [], isLoading: loadingMessages } = useQuery<Message[]>({
-    queryKey: ["/api/conversations", selectedConversation?.id, "messages"],
+    queryKey: messagesQueryKey,
     enabled: !!selectedConversation?.id,
     refetchInterval: isConnected ? 30000 : 5000,
   });
 
+  const unreadQueryKey = isPlayerMode 
+    ? ["/api/player/me/unread-count"]
+    : ["/api/coaches", userId, "unread-count"];
+  
   const { data: unreadData } = useQuery<{ unreadCount: number }>({
-    queryKey: [conversationsEndpoint, userId, "unread-count"],
+    queryKey: unreadQueryKey,
     enabled: !!userId,
     refetchInterval: 30000,
   });
@@ -225,19 +241,18 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   const createConversationMutation = useMutation({
     mutationFn: async ({ type, playerId, otherPlayerId, title }: { type: string; playerId?: string; otherPlayerId?: string; title?: string }): Promise<Conversation> => {
       if (!userId) throw new Error("No user");
-      const payload: Record<string, string | undefined> = { type, title };
       if (isPlayerMode) {
-        payload.playerId = userId;
-        payload.otherPlayerId = otherPlayerId;
+        const payload: Record<string, string | undefined> = { type, title, otherPlayerId };
+        const response = await apiRequest("POST", "/api/player/me/conversations", payload);
+        return response.json();
       } else {
-        payload.coachId = userId;
-        payload.playerId = playerId;
+        const payload: Record<string, string | undefined> = { type, title, coachId: userId, playerId };
+        const response = await apiRequest("POST", "/api/conversations", payload);
+        return response.json();
       }
-      const response = await apiRequest("POST", "/api/conversations", payload);
-      return response.json();
     },
     onSuccess: (data: Conversation) => {
-      queryClient.invalidateQueries({ queryKey: [conversationsEndpoint, userId, "conversations"] });
+      queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
       setSelectedConversation(data);
       if (data.type === "academy") {
         setAcademyConvCreated(data);
@@ -251,41 +266,42 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   const sendMessageMutation = useMutation({
     mutationFn: async (body: string) => {
       if (!selectedConversation || !userId) return;
-      const payload: Record<string, string> = {
-        senderType: userType,
-        body,
-        messageType: "text",
-      };
       if (isPlayerMode) {
-        payload.senderPlayerId = userId;
+        return apiRequest("POST", `/api/player/me/conversations/${selectedConversation.id}/messages`, {
+          body,
+          messageType: "text",
+        });
       } else {
-        payload.senderCoachId = userId;
+        return apiRequest("POST", `/api/conversations/${selectedConversation.id}/messages`, {
+          senderType: userType,
+          senderCoachId: userId,
+          body,
+          messageType: "text",
+        });
       }
-      return apiRequest("POST", `/api/conversations/${selectedConversation.id}/messages`, payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/conversations", selectedConversation?.id, "messages"] });
-      queryClient.invalidateQueries({ queryKey: [conversationsEndpoint, userId, "conversations"] });
-      queryClient.invalidateQueries({ queryKey: [conversationsEndpoint, userId, "unread-count"] });
+      queryClient.invalidateQueries({ queryKey: messagesQueryKey });
+      queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
+      queryClient.invalidateQueries({ queryKey: unreadQueryKey });
     },
   });
 
   const addReactionMutation = useMutation({
     mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
       if (!userId) return;
-      const payload: Record<string, string> = {
-        reactorType: userType,
-        emoji,
-      };
       if (isPlayerMode) {
-        payload.reactorPlayerId = userId;
+        return apiRequest("POST", `/api/player/me/messages/${messageId}/reactions`, { emoji });
       } else {
-        payload.reactorCoachId = userId;
+        return apiRequest("POST", `/api/messages/${messageId}/reactions`, {
+          reactorType: userType,
+          reactorCoachId: userId,
+          emoji,
+        });
       }
-      return apiRequest("POST", `/api/messages/${messageId}/reactions`, payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/conversations", selectedConversation?.id, "messages"] });
+      queryClient.invalidateQueries({ queryKey: messagesQueryKey });
     },
   });
 

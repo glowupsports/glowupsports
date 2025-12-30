@@ -99,8 +99,9 @@ export function PlayerChatFooter() {
   const height = useSharedValue(FOOTER_COLLAPSED);
 
   const handleNewMessage = useCallback((payload: NewMessagePayload) => {
-    queryClient.invalidateQueries({ queryKey: ["/api/conversations", payload.conversationId, "messages"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/players", playerId, "conversations"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/player/me/conversations", payload.conversationId, "messages"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/player/me/conversations"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/player/me/unread-count"] });
     if (selectedConversation?.id === payload.conversationId) {
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
@@ -149,18 +150,18 @@ export function PlayerChatFooter() {
   const isOtherTyping = currentTypingUsers && currentTypingUsers.size > 0;
 
   const { data: conversations = [], isLoading: loadingConversations } = useQuery<Conversation[]>({
-    queryKey: ["/api/players", playerId, "conversations"],
+    queryKey: ["/api/player/me/conversations"],
     enabled: !!playerId,
   });
 
   const { data: messages = [], isLoading: loadingMessages } = useQuery<Message[]>({
-    queryKey: ["/api/conversations", selectedConversation?.id, "messages"],
+    queryKey: ["/api/player/me/conversations", selectedConversation?.id, "messages"],
     enabled: !!selectedConversation?.id,
     refetchInterval: isConnected ? 30000 : 5000,
   });
 
   const { data: unreadData } = useQuery<{ unreadCount: number }>({
-    queryKey: ["/api/players", playerId, "unread-count"],
+    queryKey: ["/api/player/me/unread-count"],
     enabled: !!playerId,
     refetchInterval: 30000,
   });
@@ -173,16 +174,15 @@ export function PlayerChatFooter() {
   const createConversationMutation = useMutation({
     mutationFn: async ({ type, otherPlayerId, title }: { type: string; otherPlayerId?: string; title?: string }): Promise<Conversation> => {
       if (!playerId) throw new Error("No player");
-      const response = await apiRequest("POST", "/api/conversations", {
+      const response = await apiRequest("POST", "/api/player/me/conversations", {
         type,
-        playerId,
         otherPlayerId,
         title,
       });
       return response.json();
     },
     onSuccess: (data: Conversation) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/players", playerId, "conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/conversations"] });
       setSelectedConversation(data);
       setShowNewPlayerChat(false);
       if (data.type === "academy") {
@@ -194,31 +194,27 @@ export function PlayerChatFooter() {
   const sendMessageMutation = useMutation({
     mutationFn: async (body: string) => {
       if (!selectedConversation || !playerId) return;
-      return apiRequest("POST", `/api/conversations/${selectedConversation.id}/messages`, {
-        senderType: "player",
-        senderPlayerId: playerId,
+      return apiRequest("POST", `/api/player/me/conversations/${selectedConversation.id}/messages`, {
         body,
         messageType: "text",
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/conversations", selectedConversation?.id, "messages"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/players", playerId, "conversations"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/players", playerId, "unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/conversations", selectedConversation?.id, "messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/unread-count"] });
     },
   });
 
   const addReactionMutation = useMutation({
     mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
       if (!playerId) return;
-      return apiRequest("POST", `/api/messages/${messageId}/reactions`, {
-        reactorType: "player",
-        reactorPlayerId: playerId,
+      return apiRequest("POST", `/api/player/me/messages/${messageId}/reactions`, {
         emoji,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/conversations", selectedConversation?.id, "messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/conversations", selectedConversation?.id, "messages"] });
     },
   });
 

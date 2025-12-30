@@ -91,8 +91,15 @@ The application features a dark-themed gaming aesthetic with neon green (#2ECC40
 - **Web**: Single-page application via Expo web build
 
 ## Recent Changes
-**December 30, 2025 (Latest Session - Push Notification Triggers + Automatic Reminders):**
-- **Push Notification Triggers (NEW):**
+**December 30, 2025 (Latest Session - Player Chat System Fix):**
+- **Player Chat Endpoint Fix (CRITICAL):**
+  - Created 7 new player-friendly API endpoints using `requirePlayerOrOwner` middleware
+  - New endpoints: GET/POST `/api/player/me/conversations`, GET/POST `/api/player/me/conversations/:id/messages`, POST `/api/player/me/conversations/:id/read`, GET `/api/player/me/unread-count`, POST `/api/player/me/messages/:messageId/reactions`
+  - Updated `client/context/PlayerContext.tsx` to use new endpoints
+  - Updated `client/player/components/PlayerChatFooter.tsx` to use new endpoints
+  - Fixed conversation creation bug - both participants now properly added (initiating player as owner, other player as member)
+  - Players without academy membership now receive empty responses instead of 403 errors
+- **Push Notification Triggers:**
   - Created `server/pushNotifications.ts` with Expo Push API integration
   - Feedback notifications: Players get notified when coach submits session feedback
   - Level up notifications: Players get notified when they reach a new level
