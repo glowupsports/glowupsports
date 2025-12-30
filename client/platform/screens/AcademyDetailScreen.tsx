@@ -9,7 +9,7 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
-import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import type { PlatformStackParamList } from "@/platform/navigation/PlatformNavigator";
 
 const PLATFORM_COLOR = "#9B59B6";
