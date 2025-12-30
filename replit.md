@@ -91,7 +91,16 @@ The application features a dark-themed gaming aesthetic with neon green (#2ECC40
 - **Web**: Single-page application via Expo web build
 
 ## Recent Changes
-**December 30, 2025 (Latest Session - Player Chat System Fix):**
+**December 30, 2025 (Latest Session - Diagnostics System & Chat Fixes):**
+- **Glow Diagnostics System (NEW):**
+  - Created `diagnostic_reports` database table for storing error reports
+  - Public endpoint `POST /api/diagnostics/report` accepts error reports from any user
+  - Platform Owner endpoints: `GET /api/platform/diagnostics`, `GET/PUT /api/platform/diagnostics/:id`
+  - Academy Owner endpoint: `GET /api/owner/diagnostics` (filtered to their academy)
+  - Updated `ErrorFallback.tsx` component with "Send Diagnostics" button
+  - Collects device info, app version, user role, screen, stack trace, and optional user comment
+  - Platform Owner Diagnostics Inbox screen (accessible from System > Diagnostics)
+  - Features: search, status filters (new/investigating/resolved), stats dashboard, detail modal with resolution workflow
 - **Player Chat Endpoint Fix (CRITICAL):**
   - Created 7 new player-friendly API endpoints using `requirePlayerOrOwner` middleware
   - New endpoints: GET/POST `/api/player/me/conversations`, GET/POST `/api/player/me/conversations/:id/messages`, POST `/api/player/me/conversations/:id/read`, GET `/api/player/me/unread-count`, POST `/api/player/me/messages/:messageId/reactions`
@@ -143,10 +152,10 @@ The application features a dark-themed gaming aesthetic with neon green (#2ECC40
   - Push Notifications Foundation
 
 ## Platform Status
-- **Overall:** 96% MVP-ready (up from 94%)
-- **Core Working:** Username auth, RBAC, sessions, XP engine, chat (WebSocket), manual payments with filters, player subscriptions, courts/locations management, push notifications with triggers (feedback, level up, automatic session reminders), audit logging, platform config, maintenance mode enforcement
+- **Overall:** 97% MVP-ready (up from 96%)
+- **Core Working:** Username auth, RBAC, sessions, XP engine, chat (WebSocket), manual payments with filters, player subscriptions, courts/locations management, push notifications with triggers (feedback, level up, automatic session reminders), audit logging, platform config, maintenance mode enforcement, diagnostics/error reporting system
 - **MVP BLOCKERS:**
   - Apple Sign-In (App Store requirement)
   - Email notifications (not implemented)
-- **Code Quality:** routes.ts (8600+ lines) and storage.ts (3780+ lines) need splitting
+- **Code Quality:** routes.ts (9300+ lines) and storage.ts (4060+ lines) need splitting
 - **Estimated to Full MVP:** 1-2 weeks focused development

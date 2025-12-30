@@ -19,6 +19,7 @@ import AcademyDefaultsScreen from "@/platform/screens/AcademyDefaultsScreen";
 import BillingConfigScreen from "@/platform/screens/BillingConfigScreen";
 import NotificationTemplatesScreen from "@/platform/screens/NotificationTemplatesScreen";
 import AuditLogsScreen from "@/platform/screens/AuditLogsScreen";
+import DiagnosticsScreen from "@/platform/screens/DiagnosticsScreen";
 import { Colors } from "@/constants/theme";
 
 export type PlatformTabParamList = {
@@ -41,6 +42,7 @@ export type PlatformStackParamList = {
   BillingConfig: undefined;
   NotificationTemplates: undefined;
   AuditLogs: undefined;
+  Diagnostics: undefined;
 };
 
 const Tab = createBottomTabNavigator<PlatformTabParamList>();
@@ -149,6 +151,7 @@ export default function PlatformNavigator() {
       <Stack.Screen name="BillingConfig" component={BillingConfigScreen} />
       <Stack.Screen name="NotificationTemplates" component={NotificationTemplatesScreen} />
       <Stack.Screen name="AuditLogs" component={AuditLogsScreen} />
+      <Stack.Screen name="Diagnostics" component={DiagnosticsScreen} />
     </Stack.Navigator>
   );
 }

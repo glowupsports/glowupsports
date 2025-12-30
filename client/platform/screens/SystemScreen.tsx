@@ -328,6 +328,12 @@ export default function SystemScreen() {
               onPress={() => navigation.navigate("AuditLogs")}
             />
             <SettingRow 
+              icon="bug" 
+              label="Diagnostics" 
+              description="Error reports from users"
+              onPress={() => navigation.navigate("Diagnostics")}
+            />
+            <SettingRow 
               icon="shield" 
               label="GDPR Tools" 
               description="Data privacy and compliance"
