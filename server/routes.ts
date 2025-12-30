@@ -167,6 +167,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // UI Issue Report endpoint - for user-reported UI problems
+  app.post("/api/diagnostics/ui-issue", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { severity, message, screen, context, userComment } = req.body;
+      const userId = req.user?.id;
+      const academyId = req.user?.academyId;
+      const userRole = req.user?.role;
+
+      if (!message) {
+        return res.status(400).json({ error: "Message is required" });
+      }
+
+      const errorId = `ui_issue_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+      const report = await storage.createDiagnosticReport({
+        errorId,
+        userId: userId || null,
+        academyId: academyId || null,
+        userRole: userRole || null,
+        severity: "ui_issue",
+        message: `[UI Issue] ${message}`,
+        stack: null,
+        screen: screen || null,
+        context: {
+          ...context,
+          type: "ui_issue",
+          reportedBy: userId,
+        },
+        userComment: userComment || null,
+        platform: context?.platform || null,
+        appVersion: context?.appVersion || "1.0.0",
+        deviceInfo: context?.deviceInfo || null,
+      });
+
+      console.log(`[Diagnostics] UI Issue report: ${report.id} from user ${userId} - ${message.slice(0, 50)}...`);
+
+      res.json({ success: true, id: report.id });
+    } catch (error) {
+      console.error("Error creating UI issue report:", error);
+      res.status(500).json({ error: "Failed to submit report" });
+    }
+  });
+
   // Platform Owner: Get all diagnostic reports
   app.get("/api/platform/diagnostics", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
