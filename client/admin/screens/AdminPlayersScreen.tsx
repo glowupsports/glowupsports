@@ -167,6 +167,13 @@ export default function AdminPlayersScreen() {
       closeDetailModal();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
+    onError: (err: Error) => {
+      if (Platform.OS === "web") {
+        window.alert(`Failed to delete player: ${err.message}`);
+      } else {
+        Alert.alert("Error", `Failed to delete player: ${err.message}`);
+      }
+    },
   });
 
   const resetForm = () => {
@@ -204,20 +211,22 @@ export default function AdminPlayersScreen() {
   };
 
   const handleDelete = () => {
-    if (!selectedPlayerId || !playerStats) return;
+    if (!selectedPlayerId) return;
+    
+    const playerName = playerStats?.player?.name || selectedPlayer?.name || "this player";
     
     const confirmDelete = () => {
       deletePlayerMutation.mutate(selectedPlayerId);
     };
 
     if (Platform.OS === "web") {
-      if (window.confirm(`Delete ${playerStats.player.name}? This action cannot be undone.`)) {
+      if (window.confirm(`Delete ${playerName}? This action cannot be undone.`)) {
         confirmDelete();
       }
     } else {
       Alert.alert(
         "Delete Player",
-        `Are you sure you want to delete ${playerStats.player.name}? This action cannot be undone.`,
+        `Are you sure you want to delete ${playerName}? This action cannot be undone.`,
         [
           { text: "Cancel", style: "cancel" },
           { text: "Delete", style: "destructive", onPress: confirmDelete },
@@ -516,6 +525,11 @@ export default function AdminPlayersScreen() {
                 <ActivityIndicator size="small" color={Colors.dark.orange} />
                 <Text style={styles.loadingText}>Loading full stats...</Text>
               </View>
+
+              <Pressable style={styles.deleteButton} onPress={handleDelete}>
+                <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+                <Text style={styles.deleteText}>Delete Player</Text>
+              </Pressable>
             </ScrollView>
           ) : (
             <View style={styles.loadingContainer}>
