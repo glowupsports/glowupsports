@@ -9400,6 +9400,353 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== PLAYER BOOKING SYSTEM ====================
+
+  // Get available time slots for booking
+  app.get("/api/player/availability", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+
+      const { coachId, locationId, startDate, endDate, duration } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ error: "startDate and endDate are required" });
+      }
+
+      const player = await storage.getPlayer(playerId, req.user?.academyId || "");
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      const slots = await storage.getAvailableSlots({
+        academyId: player.academyId || "",
+        coachId: coachId as string | undefined,
+        locationId: locationId as string | undefined,
+        startDate: new Date(startDate as string),
+        endDate: new Date(endDate as string),
+        duration: parseInt(duration as string) || 60,
+      });
+
+      res.json(slots);
+    } catch (error) {
+      console.error("Player availability error:", error);
+      res.status(500).json({ error: "Failed to fetch availability" });
+    }
+  });
+
+  // Get player's booking requests
+  app.get("/api/player/booking-requests", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+
+      const status = req.query.status as string | undefined;
+      const requests = await storage.getBookingRequests({ playerId, status });
+
+      res.json(requests);
+    } catch (error) {
+      console.error("Player booking requests error:", error);
+      res.status(500).json({ error: "Failed to fetch booking requests" });
+    }
+  });
+
+  // Create a booking request
+  app.post("/api/player/booking-requests", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+
+      const player = await storage.getPlayer(playerId, req.user?.academyId || "");
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      const { coachId, locationId, courtId, requestedStart, requestedEnd, duration, sessionType, playerNote } = req.body;
+
+      if (!requestedStart || !requestedEnd || !duration || !sessionType) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const request = await storage.createBookingRequest({
+        academyId: player.academyId,
+        playerId,
+        coachId: coachId || null,
+        locationId: locationId || null,
+        courtId: courtId || null,
+        requestedStart: new Date(requestedStart),
+        requestedEnd: new Date(requestedEnd),
+        duration,
+        sessionType,
+        playerNote: playerNote || null,
+        status: "pending",
+      });
+
+      await storage.createAuditLog({
+        academyId: player.academyId,
+        entityType: "booking_request",
+        entityId: request.id,
+        action: "create",
+        performedBy: playerId,
+        performedByRole: "player",
+      });
+
+      res.status(201).json(request);
+    } catch (error) {
+      console.error("Create booking request error:", error);
+      res.status(500).json({ error: "Failed to create booking request" });
+    }
+  });
+
+  // Cancel a booking request
+  app.post("/api/player/booking-requests/:id/cancel", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const { id } = req.params;
+      
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+
+      const request = await storage.getBookingRequest(id);
+      if (!request || request.playerId !== playerId) {
+        return res.status(404).json({ error: "Booking request not found" });
+      }
+
+      if (request.status !== "pending") {
+        return res.status(400).json({ error: "Only pending requests can be cancelled" });
+      }
+
+      const updated = await storage.updateBookingRequest(id, { status: "cancelled" });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Cancel booking request error:", error);
+      res.status(500).json({ error: "Failed to cancel booking request" });
+    }
+  });
+
+  // ==================== COACH BOOKING REQUESTS ====================
+
+  // Get coach's booking requests
+  app.get("/api/coach/booking-requests", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user?.coachId;
+      const academyId = req.user?.academyId;
+      
+      if (!coachId) {
+        return res.status(403).json({ error: "Coach access required" });
+      }
+
+      const status = req.query.status as string | undefined;
+      const requests = await storage.getBookingRequests({ coachId, academyId: academyId || undefined, status });
+
+      res.json(requests);
+    } catch (error) {
+      console.error("Coach booking requests error:", error);
+      res.status(500).json({ error: "Failed to fetch booking requests" });
+    }
+  });
+
+  // Approve a booking request
+  app.post("/api/coach/booking-requests/:id/approve", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user?.coachId;
+      const academyId = req.user?.academyId;
+      const { id } = req.params;
+      
+      if (!coachId || !academyId) {
+        return res.status(403).json({ error: "Coach access required" });
+      }
+
+      const request = await storage.getBookingRequest(id);
+      if (!request) {
+        return res.status(404).json({ error: "Booking request not found" });
+      }
+
+      if (request.academyId !== academyId) {
+        return res.status(403).json({ error: "Not authorized to access this request" });
+      }
+
+      if (request.coachId && request.coachId !== coachId) {
+        return res.status(403).json({ error: "Not authorized to approve this request" });
+      }
+
+      if (request.status !== "pending") {
+        return res.status(400).json({ error: "Only pending requests can be approved" });
+      }
+
+      const result = await storage.approveBookingRequest(id, coachId);
+
+      await storage.createAuditLog({
+        academyId: request.academyId,
+        entityType: "booking_request",
+        entityId: id,
+        action: "approve",
+        performedBy: coachId,
+        performedByRole: "coach",
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Approve booking request error:", error);
+      res.status(500).json({ error: "Failed to approve booking request" });
+    }
+  });
+
+  // Decline a booking request
+  app.post("/api/coach/booking-requests/:id/decline", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user?.coachId;
+      const academyId = req.user?.academyId;
+      const { id } = req.params;
+      const { reason } = req.body;
+      
+      if (!coachId || !academyId) {
+        return res.status(403).json({ error: "Coach access required" });
+      }
+
+      const request = await storage.getBookingRequest(id);
+      if (!request) {
+        return res.status(404).json({ error: "Booking request not found" });
+      }
+
+      if (request.academyId !== academyId) {
+        return res.status(403).json({ error: "Not authorized to access this request" });
+      }
+
+      if (request.coachId && request.coachId !== coachId) {
+        return res.status(403).json({ error: "Not authorized to decline this request" });
+      }
+
+      if (request.status !== "pending") {
+        return res.status(400).json({ error: "Only pending requests can be declined" });
+      }
+
+      const updated = await storage.updateBookingRequest(id, {
+        status: "declined",
+        respondedBy: coachId,
+        respondedAt: new Date(),
+        responseNote: reason || null,
+      });
+
+      await storage.createAuditLog({
+        academyId: request.academyId,
+        entityType: "booking_request",
+        entityId: id,
+        action: "decline",
+        performedBy: coachId,
+        performedByRole: "coach",
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Decline booking request error:", error);
+      res.status(500).json({ error: "Failed to decline booking request" });
+    }
+  });
+
+  // ==================== COACH AVAILABILITY MANAGEMENT ====================
+
+  // Get coach's availability
+  app.get("/api/coach/availability", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user?.coachId;
+      const academyId = req.user?.academyId;
+      
+      if (!coachId || !academyId) {
+        return res.status(403).json({ error: "Coach access required" });
+      }
+
+      const availability = await storage.getCoachAvailability(coachId, academyId);
+
+      res.json(availability);
+    } catch (error) {
+      console.error("Coach availability error:", error);
+      res.status(500).json({ error: "Failed to fetch availability" });
+    }
+  });
+
+  // Create availability slot
+  app.post("/api/coach/availability", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user?.coachId;
+      const academyId = req.user?.academyId;
+      
+      if (!coachId || !academyId) {
+        return res.status(403).json({ error: "Coach access required" });
+      }
+
+      const { weekday, startTime, endTime, locationId, courtId, sessionTypes, slotDuration } = req.body;
+
+      if (weekday === undefined || !startTime || !endTime) {
+        return res.status(400).json({ error: "weekday, startTime, and endTime are required" });
+      }
+
+      const slot = await storage.createCoachAvailability({
+        academyId,
+        coachId,
+        weekday,
+        startTime,
+        endTime,
+        locationId: locationId || null,
+        courtId: courtId || null,
+        sessionTypes: sessionTypes || null,
+        slotDuration: slotDuration || 60,
+        isActive: true,
+      });
+
+      res.status(201).json(slot);
+    } catch (error) {
+      console.error("Create availability error:", error);
+      res.status(500).json({ error: "Failed to create availability" });
+    }
+  });
+
+  // Update availability slot
+  app.patch("/api/coach/availability/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user?.coachId;
+      const { id } = req.params;
+      
+      if (!coachId) {
+        return res.status(403).json({ error: "Coach access required" });
+      }
+
+      const updated = await storage.updateCoachAvailability(id, req.body);
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Update availability error:", error);
+      res.status(500).json({ error: "Failed to update availability" });
+    }
+  });
+
+  // Delete availability slot
+  app.delete("/api/coach/availability/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user?.coachId;
+      const { id } = req.params;
+      
+      if (!coachId) {
+        return res.status(403).json({ error: "Coach access required" });
+      }
+
+      await storage.deleteCoachAvailability(id);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete availability error:", error);
+      res.status(500).json({ error: "Failed to delete availability" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat

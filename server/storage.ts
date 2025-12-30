@@ -53,6 +53,9 @@ import {
   // Court Preferences System
   coachCourtPreferences,
   coachCourtRules,
+  // Player Booking System
+  coachAvailability,
+  bookingRequests,
   // Phase 3: Academy Management
   academySettings,
   academyInvites,
@@ -139,6 +142,11 @@ import {
   type InsertCoachCourtPreference,
   type CoachCourtRules,
   type InsertCoachCourtRules,
+  // Player Booking System types
+  type CoachAvailability,
+  type InsertCoachAvailability,
+  type BookingRequest,
+  type InsertBookingRequest,
   // Phase 3 types
   type AcademySettings,
   type InsertAcademySettings,
@@ -4053,5 +4061,244 @@ export const storage = {
     }
     
     return stats;
+  },
+
+  // ==================== COACH AVAILABILITY ====================
+  async getCoachAvailability(coachId: string, academyId: string): Promise<CoachAvailability[]> {
+    return db.select().from(coachAvailability)
+      .where(and(
+        eq(coachAvailability.coachId, coachId),
+        eq(coachAvailability.academyId, academyId)
+      ))
+      .orderBy(asc(coachAvailability.weekday), asc(coachAvailability.startTime));
+  },
+
+  async createCoachAvailability(data: InsertCoachAvailability): Promise<CoachAvailability> {
+    const result = await db.insert(coachAvailability).values(data).returning();
+    return result[0];
+  },
+
+  async updateCoachAvailability(id: string, updates: Partial<CoachAvailability>): Promise<CoachAvailability | undefined> {
+    const result = await db.update(coachAvailability)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(coachAvailability.id, id))
+      .returning();
+    return result[0];
+  },
+
+  async deleteCoachAvailability(id: string): Promise<void> {
+    await db.delete(coachAvailability).where(eq(coachAvailability.id, id));
+  },
+
+  // ==================== BOOKING REQUESTS ====================
+  async getBookingRequests(filters: { 
+    coachId?: string; 
+    playerId?: string; 
+    academyId?: string; 
+    status?: string 
+  }): Promise<BookingRequest[]> {
+    const conditions: any[] = [];
+    
+    if (filters.coachId) {
+      conditions.push(eq(bookingRequests.coachId, filters.coachId));
+    }
+    if (filters.playerId) {
+      conditions.push(eq(bookingRequests.playerId, filters.playerId));
+    }
+    if (filters.academyId) {
+      conditions.push(eq(bookingRequests.academyId, filters.academyId));
+    }
+    if (filters.status) {
+      conditions.push(eq(bookingRequests.status, filters.status));
+    }
+    
+    return db.select().from(bookingRequests)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(bookingRequests.createdAt));
+  },
+
+  async getBookingRequest(id: string): Promise<BookingRequest | undefined> {
+    const result = await db.select().from(bookingRequests)
+      .where(eq(bookingRequests.id, id));
+    return result[0];
+  },
+
+  async createBookingRequest(data: InsertBookingRequest): Promise<BookingRequest> {
+    const result = await db.insert(bookingRequests).values(data).returning();
+    return result[0];
+  },
+
+  async updateBookingRequest(id: string, updates: Partial<BookingRequest>): Promise<BookingRequest | undefined> {
+    const result = await db.update(bookingRequests)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(bookingRequests.id, id))
+      .returning();
+    return result[0];
+  },
+
+  async approveBookingRequest(id: string, coachId: string): Promise<{ request: BookingRequest; session: Session } | undefined> {
+    return await db.transaction(async (tx) => {
+      const request = await tx.select().from(bookingRequests)
+        .where(and(eq(bookingRequests.id, id), eq(bookingRequests.status, "pending")));
+      
+      if (!request[0]) return undefined;
+      
+      const bookingData = request[0];
+      
+      const sessionData: InsertSession = {
+        academyId: bookingData.academyId,
+        coachId: bookingData.coachId || coachId,
+        locationId: bookingData.locationId,
+        courtId: bookingData.courtId,
+        startTime: bookingData.requestedStart,
+        endTime: bookingData.requestedEnd,
+        sessionType: bookingData.sessionType,
+        status: "scheduled",
+        notes: bookingData.playerNote,
+      };
+      
+      const sessionResult = await tx.insert(sessions).values(sessionData).returning();
+      const createdSession = sessionResult[0];
+      
+      if (bookingData.playerId) {
+        await tx.insert(sessionPlayers).values({
+          sessionId: createdSession.id,
+          playerId: bookingData.playerId,
+          status: "confirmed",
+        });
+      }
+      
+      const updatedRequest = await tx.update(bookingRequests)
+        .set({
+          status: "approved",
+          sessionId: createdSession.id,
+          respondedBy: coachId,
+          respondedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(bookingRequests.id, id))
+        .returning();
+      
+      return {
+        request: updatedRequest[0],
+        session: createdSession,
+      };
+    });
+  },
+
+  // ==================== SLOT COMPUTATION ====================
+  async getAvailableSlots(params: {
+    academyId: string;
+    coachId?: string;
+    locationId?: string;
+    startDate: Date;
+    endDate: Date;
+    duration: number;
+  }): Promise<Array<{
+    coachId: string;
+    locationId: string | null;
+    courtId: string | null;
+    startTime: Date;
+    endTime: Date;
+  }>> {
+    const conditions: any[] = [eq(coachAvailability.academyId, params.academyId), eq(coachAvailability.isActive, true)];
+    
+    if (params.coachId) {
+      conditions.push(eq(coachAvailability.coachId, params.coachId));
+    }
+    if (params.locationId) {
+      conditions.push(eq(coachAvailability.locationId, params.locationId));
+    }
+    
+    const availabilitySlots = await db.select().from(coachAvailability)
+      .where(and(...conditions));
+    
+    const sessionConditions: any[] = [
+      eq(sessions.academyId, params.academyId),
+      gte(sessions.startTime, params.startDate),
+      lte(sessions.endTime, params.endDate),
+      ne(sessions.status, "cancelled"),
+    ];
+    
+    if (params.coachId) {
+      sessionConditions.push(eq(sessions.coachId, params.coachId));
+    }
+    
+    const existingSessions = await db.select().from(sessions)
+      .where(and(...sessionConditions));
+    
+    const pendingConditions: any[] = [
+      eq(bookingRequests.academyId, params.academyId),
+      eq(bookingRequests.status, "pending"),
+      gte(bookingRequests.requestedStart, params.startDate),
+      lte(bookingRequests.requestedEnd, params.endDate),
+    ];
+    
+    if (params.coachId) {
+      pendingConditions.push(eq(bookingRequests.coachId, params.coachId));
+    }
+    
+    const pendingRequests = await db.select().from(bookingRequests)
+      .where(and(...pendingConditions));
+    
+    const availableSlots: Array<{
+      coachId: string;
+      locationId: string | null;
+      courtId: string | null;
+      startTime: Date;
+      endTime: Date;
+    }> = [];
+    
+    const currentDate = new Date(params.startDate);
+    while (currentDate <= params.endDate) {
+      const weekday = currentDate.getDay();
+      
+      const dayAvailability = availabilitySlots.filter(a => a.weekday === weekday);
+      
+      for (const availability of dayAvailability) {
+        const [startHour, startMin] = availability.startTime.split(':').map(Number);
+        const [endHour, endMin] = availability.endTime.split(':').map(Number);
+        
+        const slotStart = new Date(currentDate);
+        slotStart.setHours(startHour, startMin, 0, 0);
+        
+        const availabilityEnd = new Date(currentDate);
+        availabilityEnd.setHours(endHour, endMin, 0, 0);
+        
+        const slotDuration = availability.slotDuration || params.duration;
+        
+        while (slotStart.getTime() + slotDuration * 60000 <= availabilityEnd.getTime()) {
+          const slotEnd = new Date(slotStart.getTime() + slotDuration * 60000);
+          
+          const hasConflict = existingSessions.some(session => 
+            session.coachId === availability.coachId &&
+            session.startTime && session.endTime &&
+            slotStart < session.endTime && slotEnd > session.startTime
+          );
+          
+          const hasPendingConflict = pendingRequests.some(req =>
+            req.coachId === availability.coachId &&
+            req.requestedStart && req.requestedEnd &&
+            slotStart < req.requestedEnd && slotEnd > req.requestedStart
+          );
+          
+          if (!hasConflict && !hasPendingConflict) {
+            availableSlots.push({
+              coachId: availability.coachId,
+              locationId: availability.locationId,
+              courtId: availability.courtId,
+              startTime: new Date(slotStart),
+              endTime: new Date(slotEnd),
+            });
+          }
+          
+          slotStart.setTime(slotStart.getTime() + slotDuration * 60000);
+        }
+      }
+      
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    return availableSlots;
   },
 };

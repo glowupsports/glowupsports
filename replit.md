@@ -20,6 +20,7 @@ The application features a dark-themed gaming aesthetic, utilizing neon green an
 ### Feature Specifications
 - **Core Platform Features**:
     - **Player & Session Management**: Comprehensive profiles, progress tracking, scheduling, attendance, and recurring sessions with conflict detection.
+    - **Player Booking System**: Request-based lesson booking where players browse available slots based on coach availability, submit booking requests, and coaches approve/decline. Approved requests automatically create sessions. API: `/api/player/availability`, `/api/player/booking-requests`, `/api/coach/booking-requests/:id/approve|decline`, `/api/coach/availability` CRUD.
     - **Feedback & Progress Engine V2**: Detailed feedback, mood selectors, skill observations across five domains (Technical, Mental, Physical, Social, Tactical) with gamification (XP, levels) and anti-abuse rules.
     - **Real-time Communication**: WebSocket server for secure, multi-tenant chat with typing indicators.
     - **Security**: Robust authentication (login/register/logout/refresh), role-based access control (RBAC), multi-tenant isolation, input sanitization, and audit logging.

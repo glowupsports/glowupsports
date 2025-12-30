@@ -987,11 +987,18 @@ export const coachAvailability = pgTable("coach_availability", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
+  
+  academyId: varchar("academy_id").references(() => academies.id),
   coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  locationId: varchar("location_id").references(() => locations.id),
+  courtId: varchar("court_id").references(() => courts.id),
   
   weekday: integer("weekday").notNull(), // 0=Sunday, 1=Monday, etc.
   startTime: text("start_time").notNull(), // HH:MM format
   endTime: text("end_time").notNull(), // HH:MM format
+  slotDuration: integer("slot_duration").default(60), // minutes per booking slot
+  
+  sessionTypes: text("session_types"), // Comma-separated: "private,group,semi"
   
   isActive: boolean("is_active").default(true),
   
@@ -1508,3 +1515,41 @@ export const diagnosticReports = pgTable("diagnostic_reports", {
 export const insertDiagnosticReportSchema = createInsertSchema(diagnosticReports).omit({ id: true, createdAt: true });
 export type InsertDiagnosticReport = z.infer<typeof insertDiagnosticReportSchema>;
 export type DiagnosticReport = typeof diagnosticReports.$inferSelect;
+
+// ==================== PLAYER BOOKING SYSTEM ====================
+
+// Booking Requests - Player lesson requests (pending approval)
+export const bookingRequests = pgTable("booking_requests", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  
+  academyId: varchar("academy_id").references(() => academies.id),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  coachId: varchar("coach_id").references(() => coaches.id), // null = "any available coach"
+  locationId: varchar("location_id").references(() => locations.id),
+  courtId: varchar("court_id").references(() => courts.id),
+  
+  requestedStart: timestamp("requested_start").notNull(),
+  requestedEnd: timestamp("requested_end").notNull(),
+  duration: integer("duration").notNull(), // minutes
+  
+  sessionType: text("session_type").notNull(), // private | semi | group
+  
+  playerNote: text("player_note"), // Optional message from player
+  
+  status: text("status").default("pending"), // pending | approved | declined | cancelled
+  
+  respondedBy: varchar("responded_by").references(() => coaches.id),
+  respondedAt: timestamp("responded_at"),
+  responseNote: text("response_note"), // Reason for decline or alternative suggestion
+  
+  sessionId: varchar("session_id").references(() => sessions.id), // Set when approved
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBookingRequestSchema = createInsertSchema(bookingRequests).omit({ id: true, createdAt: true, updatedAt: true, sessionId: true, respondedBy: true, respondedAt: true });
+export type InsertBookingRequest = z.infer<typeof insertBookingRequestSchema>;
+export type BookingRequest = typeof bookingRequests.$inferSelect;
