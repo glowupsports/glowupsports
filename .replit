@@ -59,4 +59,4 @@ ensurePreviewReachable = "/status"
 [userenv]
 
 [userenv.shared]
-EXPO_PUBLIC_DOMAIN = "81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g.spock.replit.dev:5000"
+EXPO_PUBLIC_DOMAIN = "glow-up-sports--ltvjeugd.replit.app"
