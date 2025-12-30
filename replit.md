@@ -91,18 +91,24 @@ The application features a dark-themed gaming aesthetic with neon green (#2ECC40
 - **Web**: Single-page application via Expo web build
 
 ## Recent Changes
-**December 30, 2025 (Latest Session - Push Notification Triggers):**
+**December 30, 2025 (Latest Session - Push Notification Triggers + Automatic Reminders):**
 - **Push Notification Triggers (NEW):**
   - Created `server/pushNotifications.ts` with Expo Push API integration
   - Feedback notifications: Players get notified when coach submits session feedback
   - Level up notifications: Players get notified when they reach a new level
   - XP gain notifications: Function ready for use
   - Badge earned notifications: Function ready for badge system
-  - Session reminder notifications: Function ready for scheduled reminders
   - Coach notifications: Function ready for coach alerts
   - All notifications are non-blocking (fire-and-forget with error logging)
   - Integrated into `/api/coach/sessions/:id/feedback` endpoint
   - Level calculation now uses proper XP thresholds (0, 100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500, 5500)
+- **Automatic Session Reminders (NEW):**
+  - Scheduler runs every 5 minutes checking for upcoming sessions
+  - Sends reminders 30 minutes before session start time
+  - Both players and coaches receive push notifications
+  - Deduplication prevents duplicate reminders using in-memory Set
+  - Automatic cleanup of old reminder keys (max 1000 stored)
+  - Scheduler starts automatically when server boots
 
 **December 29, 2025 (Platform Config & Maintenance Mode):**
 - **Platform Configuration System (NEW):**
@@ -130,10 +136,9 @@ The application features a dark-themed gaming aesthetic with neon green (#2ECC40
   - Push Notifications Foundation
 
 ## Platform Status
-- **Overall:** 94% MVP-ready (up from 92%)
-- **Core Working:** Username auth, RBAC, sessions, XP engine, chat (WebSocket), manual payments with filters, player subscriptions, courts/locations management, push notifications with triggers (feedback, level up), audit logging, platform config, maintenance mode enforcement
+- **Overall:** 96% MVP-ready (up from 94%)
+- **Core Working:** Username auth, RBAC, sessions, XP engine, chat (WebSocket), manual payments with filters, player subscriptions, courts/locations management, push notifications with triggers (feedback, level up, automatic session reminders), audit logging, platform config, maintenance mode enforcement
 - **MVP BLOCKERS:**
-  - Session reminder notifications (scheduled cron job needed)
   - Apple Sign-In (App Store requirement)
   - Email notifications (not implemented)
 - **Code Quality:** routes.ts (8600+ lines) and storage.ts (3780+ lines) need splitting
