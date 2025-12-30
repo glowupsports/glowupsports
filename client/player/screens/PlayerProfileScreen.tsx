@@ -296,16 +296,27 @@ export default function PlayerProfileScreen() {
           </Pressable>
 
           <Pressable 
-            style={styles.settingsItem}
-            onPress={handleSwitchToCoach}
+            style={[styles.settingsItem, { opacity: 0.5 }]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              if (Platform.OS === "web") {
+                window.alert("Parent/Payment Mode is coming soon!");
+              } else {
+                Alert.alert(
+                  "Coming Soon",
+                  "Parent/Payment Mode will be available in a future update. Stay tuned!",
+                  [{ text: "OK", style: "default" }]
+                );
+              }
+            }}
           >
-            <View style={[styles.settingsIcon, { backgroundColor: "rgba(46, 204, 64, 0.15)" }]}>
-              <Ionicons name="swap-horizontal" size={20} color={Colors.dark.primary} />
+            <View style={[styles.settingsIcon, { backgroundColor: "rgba(138, 43, 226, 0.15)" }]}>
+              <Ionicons name="wallet-outline" size={20} color="#8A2BE2" />
             </View>
-            <Text style={[styles.settingsLabel, { color: Colors.dark.primary }]}>
-              Switch to Coach Mode
+            <Text style={[styles.settingsLabel, { color: Colors.dark.textMuted }]}>
+              Parent/Payment Mode (Coming Soon)
             </Text>
-            <Ionicons name="chevron-forward" size={20} color={Colors.dark.primary} />
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
           </Pressable>
         </View>
 
