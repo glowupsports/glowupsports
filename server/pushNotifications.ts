@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { eq, and, gte, lte, inArray, isNull } from "drizzle-orm";
 import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers } from "@shared/schema";
+import { sendSessionReminderEmail } from "./emailService";
 
 interface ExpoPushMessage {
   to: string;
@@ -268,15 +269,29 @@ export async function processScheduledReminders(): Promise<void> {
           const tokens = await getPlayerPushTokens(sp.playerId);
           if (tokens.length === 0) {
             playersWithNoTokens++;
-            continue;
+          } else {
+            sendSessionReminder(
+              sp.playerId,
+              sessionName,
+              session.startTime,
+              coachName
+            ).catch(err => console.error("[SessionReminders] Failed to send player reminder:", err));
+            playerNotificationsSent++;
           }
-          sendSessionReminder(
-            sp.playerId,
-            sessionName,
-            session.startTime,
-            coachName
-          ).catch(err => console.error("[SessionReminders] Failed to send player reminder:", err));
-          playerNotificationsSent++;
+          
+          // Always try to send email reminder regardless of push tokens
+          const player = await db.select().from(players).where(eq(players.id, sp.playerId)).limit(1);
+          if (player[0]?.email) {
+            const sessionDate = session.startTime.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+            const sessionTime = session.startTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+            sendSessionReminderEmail({
+              to: player[0].email,
+              playerName: player[0].name,
+              sessionDate,
+              sessionTime,
+              coachName,
+            }).catch(err => console.error("[SessionReminders] Failed to send player email reminder:", err));
+          }
         }
       }
 

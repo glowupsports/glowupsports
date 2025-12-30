@@ -3,6 +3,17 @@
 
 import { Resend } from 'resend';
 
+function escapeHtml(text: string): string {
+  const htmlEntities: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return text.replace(/[&<>"']/g, (char) => htmlEntities[char] || char);
+}
+
 let connectionSettings: any;
 
 async function getCredentials() {
@@ -241,7 +252,7 @@ export async function sendFeedbackNotificationEmail(params: {
         <p>Coach <strong>${coachName}</strong> has submitted feedback for your session on <strong>${sessionDate}</strong>.</p>
         ${feedbackSummary ? `
         <div class="feedback-card">
-          <p style="margin: 0; color: #ffffff;">"${feedbackSummary}"</p>
+          <p style="margin: 0; color: #ffffff;">"${escapeHtml(feedbackSummary)}"</p>
         </div>
         ` : ''}
         <p>Open the Glow Up Sports app to view your full feedback and track your progress!</p>

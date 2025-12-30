@@ -37,6 +37,7 @@ import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "./utils/sanitize";
 import { sendFeedbackNotification, sendLevelUpNotification, sendBadgeEarnedNotification, sendXPGainNotification } from "./pushNotifications";
+import { sendFeedbackNotificationEmail, sendLevelUpEmail, sendWelcomeEmail, sendSessionReminderEmail, sendCoachInviteEmail } from "./emailService";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -1719,6 +1720,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
               sendLevelUpNotification(sp.playerId, newLevel, levelName).catch(err => 
                 console.error("Failed to send level up notification:", err)
               );
+              // Send level up email if player has email
+              if (player.email) {
+                sendLevelUpEmail({
+                  to: player.email,
+                  playerName: player.name,
+                  newLevel: levelName,
+                  totalXP: newTotalXp,
+                }).catch(err => console.error("Failed to send level up email:", err));
+              }
             }
           }
           
@@ -1735,11 +1745,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Send feedback notifications to all attending players (non-blocking)
       const coach = session.coachId ? await storage.getCoach(session.coachId) : null;
       const coachName = coach?.name || "Your coach";
+      const sessionDate = new Date(session.startTime).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
       for (const sp of sessionPlayers) {
         if (sp.playerId && sp.attendanceStatus === "present") {
           sendFeedbackNotification(sp.playerId, coachName, session.name || "Training session").catch(err =>
             console.error("Failed to send feedback notification:", err)
           );
+          // Send feedback email if player has email
+          const feedbackPlayer = await storage.getPlayer(sp.playerId);
+          if (feedbackPlayer?.email) {
+            sendFeedbackNotificationEmail({
+              to: feedbackPlayer.email,
+              playerName: feedbackPlayer.name,
+              sessionDate,
+              coachName,
+              feedbackSummary: feedback?.coachNotes?.substring(0, 150),
+            }).catch(err => console.error("Failed to send feedback email:", err));
+          }
         }
       }
 
@@ -2070,6 +2092,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const academyId = req.user!.academyId;
       const player = await storage.createPlayer({ ...req.body, academyId });
+      
+      // Send welcome email if player has email (non-blocking)
+      if (player.email) {
+        const academy = academyId ? await storage.getAcademy(academyId) : null;
+        const coach = player.coachId ? await storage.getCoach(player.coachId) : null;
+        sendWelcomeEmail({
+          to: player.email,
+          playerName: player.name,
+          academyName: academy?.name || "your academy",
+          coachName: coach?.name,
+        }).catch(err => console.error("Failed to send welcome email:", err));
+      }
+      
       res.status(201).json(player);
     } catch (error) {
       console.error("Error creating player:", error);
