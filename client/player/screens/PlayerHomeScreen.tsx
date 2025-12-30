@@ -514,6 +514,20 @@ export default function PlayerHomeScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* RAINBOW TEST BANNER - REMOVE AFTER TESTING */}
+        <View style={styles.rainbowContainer}>
+          <LinearGradient
+            colors={['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#4B0082', '#9400D3']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.rainbowBanner}
+          >
+            <Text style={styles.rainbowText}>EAS UPDATE WORKS!</Text>
+            <Text style={styles.rainbowSubtext}>v2.0 - Academy Selection Update</Text>
+          </LinearGradient>
+        </View>
+        {/* END RAINBOW TEST */}
+        
         <PlayerStatusBar 
           player={player}
           coach={coach}
@@ -667,6 +681,35 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  rainbowContainer: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  rainbowBanner: {
+    padding: Spacing.xl,
+    borderRadius: BorderRadius.xl,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rainbowText: {
+    fontSize: 28,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    textShadowColor: "rgba(0, 0, 0, 0.8)",
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 4,
+    textAlign: "center",
+  },
+  rainbowSubtext: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    textShadowColor: "rgba(0, 0, 0, 0.8)",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+    marginTop: Spacing.sm,
+    textAlign: "center",
   },
   modeSwitcherContainer: {
     paddingHorizontal: Spacing.xl,
