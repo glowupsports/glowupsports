@@ -3,13 +3,11 @@
     "name": "Glow Up Sports",
     "slug": "glow-up-sports-qimo0pvm-ks03bklnmcri",
     "version": "1.0.0",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "updates": {
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 0,
+      "fallbackToCacheTimeout": 30000,
       "url": "https://u.expo.dev/ce3ccb00-0553-4abc-a038-1a93b7483738"
     },
     "orientation": "portrait",
