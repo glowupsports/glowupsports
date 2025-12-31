@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  withSequence,
+  Easing,
+} from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
@@ -201,82 +209,211 @@ export default function PlayersScreen() {
     );
   }
 
+  const pulseAnim = useSharedValue(1);
+  const glowAnim = useSharedValue(0.2);
+  const ringAnim = useSharedValue(0.3);
+  const cardGlowAnim = useSharedValue(0.4);
+
+  useEffect(() => {
+    pulseAnim.value = withRepeat(
+      withSequence(
+        withTiming(1.12, { duration: 600, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+    glowAnim.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.2, { duration: 1000, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+    ringAnim.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.3, { duration: 800, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+    cardGlowAnim.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.4, { duration: 1400, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseAnim.value }],
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowAnim.value,
+    transform: [{ scale: 0.95 + (glowAnim.value * 0.1) }],
+  }));
+
+  const ringPulseStyle = useAnimatedStyle(() => ({
+    opacity: ringAnim.value,
+    transform: [{ scale: 0.9 + (ringAnim.value * 0.15) }],
+  }));
+
+  const cardGlowStyle = useAnimatedStyle(() => ({
+    opacity: cardGlowAnim.value,
+    transform: [{ scale: 0.98 + (cardGlowAnim.value * 0.04) }],
+  }));
+
+  const totalXp = useMemo(() => {
+    return players.length * 250;
+  }, [players.length]);
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <LinearGradient
-        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        colors={["#0a0a0a", "#0f1a0f", "#0a0a0a"]}
         style={StyleSheet.absoluteFill}
       />
 
-      <View style={styles.header}>
-        <View style={styles.headerTitleRow}>
-          <View style={styles.headerIconWrapper}>
-            <Ionicons name="people" size={18} color={Colors.dark.primary} />
+      {/* === HUD COMMAND HEADER === */}
+      <View style={styles.hudHeader}>
+        <LinearGradient
+          colors={[Colors.dark.primary + "15", "transparent"]}
+          style={styles.hudHeaderBg}
+        />
+        
+        {/* Scanline overlay effect */}
+        <View style={styles.scanlineOverlay} />
+        
+        {/* Left: Squad Intel */}
+        <View style={styles.hudLeft}>
+          <View style={styles.hudLabelRow}>
+            <View style={styles.hudDot} />
+            <Text style={styles.hudLabel}>SQUAD INTEL</Text>
           </View>
-          <View>
-            <Text style={styles.title}>PLAYER ROSTER</Text>
-            <Text style={styles.subtitle}>{players.length} athletes</Text>
+          <Text style={styles.hudTitle}>PLAYER ROSTER</Text>
+          <View style={styles.hudStatRow}>
+            <Ionicons name="people" size={14} color={Colors.dark.primary} />
+            <Text style={styles.hudStatValue}>{players.length}</Text>
+            <Text style={styles.hudStatLabel}>ACTIVE</Text>
           </View>
         </View>
-        <Pressable
-          style={styles.addButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setShowAddModal(true);
-          }}
-        >
-          <Ionicons name="add" size={24} color={Colors.dark.backgroundDefault} />
-        </Pressable>
+
+        {/* Center: Animated Academy Icon */}
+        <View style={styles.hudCenter}>
+          <Animated.View style={[styles.hudIconOuter, glowStyle]}>
+            <View style={styles.hudIconGlow} />
+          </Animated.View>
+          <Animated.View style={[styles.hudIconInner, pulseStyle]}>
+            <Ionicons name="tennisball" size={28} color={Colors.dark.primary} />
+          </Animated.View>
+        </View>
+
+        {/* Right: XP Counter + Add */}
+        <View style={styles.hudRight}>
+          <View style={styles.hudXpBadge}>
+            <Ionicons name="flash" size={12} color={Colors.dark.gold} />
+            <Text style={styles.hudXpValue}>{totalXp.toLocaleString()}</Text>
+            <Text style={styles.hudXpLabel}>XP</Text>
+          </View>
+          <Pressable
+            style={styles.hudAddButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setShowAddModal(true);
+            }}
+          >
+            <LinearGradient
+              colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+              style={styles.hudAddButtonGradient}
+            >
+              <Ionicons name="add" size={22} color="#000" />
+            </LinearGradient>
+          </Pressable>
+        </View>
       </View>
 
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search-outline" size={20} color={Colors.dark.tabIconDefault} />
+      {/* === TACTICAL COMMAND STRIP === */}
+      <View style={styles.commandStrip}>
+        <LinearGradient
+          colors={["rgba(46,204,64,0.1)", "transparent"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.commandStripBg}
+        />
+        
+        {/* Search Section */}
+        <View style={styles.tacticalSearch}>
+          <View style={styles.tacticalSearchIcon}>
+            <Ionicons name="scan-outline" size={16} color={Colors.dark.primary} />
+          </View>
           <TextInput
-            style={styles.searchInput}
-            placeholder="Search players..."
+            style={styles.tacticalSearchInput}
+            placeholder="SCAN ROSTER..."
             placeholderTextColor={Colors.dark.tabIconDefault}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery ? (
-            <Pressable onPress={() => setSearchQuery("")}>
-              <Ionicons name="close-circle" size={20} color={Colors.dark.tabIconDefault} />
+            <Pressable onPress={() => setSearchQuery("")} style={styles.tacticalSearchClear}>
+              <Ionicons name="close" size={14} color={Colors.dark.error} />
             </Pressable>
           ) : null}
         </View>
       </View>
 
-      <View style={styles.filterContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      {/* === TACTICAL FILTER STRIP === */}
+      <View style={styles.filterStrip}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterStripContent}>
           <Pressable
-            style={[styles.filterChip, !filterLevel && styles.filterChipActive]}
+            style={[styles.tacticalChip, !filterLevel && styles.tacticalChipActive]}
             onPress={() => setFilterLevel(null)}
           >
-            <Text style={[styles.filterChipText, !filterLevel && styles.filterChipTextActive]}>
-              All
+            <View style={[styles.tacticalChipGlow, !filterLevel && styles.tacticalChipGlowActive]} />
+            <Text style={[styles.tacticalChipText, !filterLevel && styles.tacticalChipTextActive]}>
+              ALL
             </Text>
+            <View style={[styles.tacticalChipCount, !filterLevel && styles.tacticalChipCountActive]}>
+              <Text style={styles.tacticalChipCountText}>{players.length}</Text>
+            </View>
           </Pressable>
-          {ballLevels.map((level) => (
-            <Pressable
-              key={level}
-              style={[
-                styles.filterChip,
-                filterLevel === level && { backgroundColor: getPlayerLevelColor(level) + "30" },
-              ]}
-              onPress={() => setFilterLevel(filterLevel === level ? null : level)}
-            >
-              <View style={[styles.levelDot, { backgroundColor: getPlayerLevelColor(level) }]} />
-              <Text
+          {ballLevels.map((level) => {
+            const isActive = filterLevel === level;
+            const levelColor = getPlayerLevelColor(level);
+            const count = players.filter(p => p.ballLevel === level).length;
+            return (
+              <Pressable
+                key={level}
                 style={[
-                  styles.filterChipText,
-                  filterLevel === level && { color: getPlayerLevelColor(level) },
+                  styles.tacticalChip,
+                  isActive && { borderColor: levelColor + "80" },
                 ]}
+                onPress={() => setFilterLevel(filterLevel === level ? null : level)}
               >
-                {level.charAt(0).toUpperCase() + level.slice(1)}
-              </Text>
-            </Pressable>
-          ))}
+                <View style={[
+                  styles.tacticalChipGlow,
+                  isActive && { backgroundColor: levelColor + "30" },
+                ]} />
+                <View style={[styles.tacticalLevelIndicator, { backgroundColor: levelColor }]} />
+                <Text style={[
+                  styles.tacticalChipText,
+                  isActive && { color: levelColor },
+                ]}>
+                  {level.toUpperCase()}
+                </Text>
+                <View style={[
+                  styles.tacticalChipCount,
+                  isActive && { backgroundColor: levelColor + "40" },
+                ]}>
+                  <Text style={[styles.tacticalChipCountText, isActive && { color: levelColor }]}>{count}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
         </ScrollView>
       </View>
 
@@ -293,56 +430,116 @@ export default function PlayersScreen() {
         </View>
       ) : (
         <ScrollView style={styles.playerList} showsVerticalScrollIndicator={false}>
-          {filteredPlayers.map((player) => {
+          {filteredPlayers.map((player, index) => {
             const statusBadge = getStatusBadge(player.status);
             const levelColor = getPlayerLevelColor(player.ballLevel ?? "green");
+            const playerXp = 250 + (index * 75);
+            const xpProgress = Math.min(100, (playerXp % 500) / 500 * 100);
             return (
               <Pressable
                 key={player.id}
-                style={styles.playerCardContainer}
+                style={styles.loadoutCard}
                 onPress={() => handleSelectPlayer(player)}
               >
-                <View style={styles.playerCardGlow} />
+                {/* Animated breathing glow frame */}
+                <Animated.View style={[
+                  styles.loadoutGlowFrame, 
+                  { borderColor: levelColor },
+                  cardGlowStyle,
+                ]} />
+                
+                {/* Second glow layer for depth */}
+                <View style={[styles.loadoutGlowFrameInner, { borderColor: levelColor + "40" }]} />
+                
+                {/* Main card background */}
                 <LinearGradient
-                  colors={[levelColor + "80", Colors.dark.primary + "40"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.playerCardTopLine}
-                />
-                <View style={styles.playerCard}>
-                  <View style={[styles.playerAvatar, { backgroundColor: levelColor }]}>
-                    <Text style={styles.playerInitial}>
-                      {player.name.charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                  <View style={styles.playerInfo}>
-                    <View style={styles.playerNameRow}>
-                      <Text style={styles.playerName}>{player.name}</Text>
-                      {statusBadge ? (
-                        <View style={[styles.statusBadge, { backgroundColor: statusBadge.color + "20" }]}>
-                          <Ionicons name={statusBadge.icon} size={12} color={statusBadge.color} />
-                          <Text style={[styles.statusText, { color: statusBadge.color }]}>
-                            {statusBadge.label}
-                          </Text>
-                        </View>
-                      ) : null}
+                  colors={["rgba(20,25,20,0.98)", "rgba(15,20,15,0.95)", "rgba(10,15,10,0.98)"]}
+                  style={styles.loadoutCardBg}
+                >
+                  {/* Top accent strip */}
+                  <LinearGradient
+                    colors={[levelColor, Colors.dark.primary, levelColor + "60"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.loadoutTopStrip}
+                  />
+                  
+                  {/* Content */}
+                  <View style={styles.loadoutContent}>
+                    {/* Left: Holographic Avatar with animated glow */}
+                    <View style={styles.loadoutAvatarContainer}>
+                      {/* Outer glow pulse */}
+                      <Animated.View style={[styles.loadoutAvatarGlowOuter, { backgroundColor: levelColor + "20" }, ringPulseStyle]} />
+                      {/* Inner glow */}
+                      <Animated.View style={[styles.loadoutAvatarGlow, { backgroundColor: levelColor + "40" }, glowStyle]} />
+                      {/* Animated ring */}
+                      <Animated.View style={[styles.loadoutAvatarRing, { borderColor: levelColor }, ringPulseStyle]} />
+                      {/* Avatar with pulse */}
+                      <Animated.View style={[styles.loadoutAvatar, { backgroundColor: levelColor }, pulseStyle]}>
+                        <Text style={styles.loadoutAvatarText}>
+                          {player.name.charAt(0).toUpperCase()}
+                        </Text>
+                      </Animated.View>
+                      {/* Level tier indicator */}
+                      <View style={[styles.loadoutTierBadge, { backgroundColor: levelColor }]}>
+                        <Text style={styles.loadoutTierText}>
+                          {(player.ballLevel ?? "G").charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
                     </View>
-                    <View style={styles.playerDetails}>
-                      {player.ballLevel ? (
-                        <View style={styles.levelBadge}>
-                          <View
-                            style={[styles.levelDot, { backgroundColor: levelColor }]}
+
+                    {/* Center: Player Info */}
+                    <View style={styles.loadoutInfo}>
+                      <View style={styles.loadoutNameRow}>
+                        <Text style={styles.loadoutName} numberOfLines={1}>
+                          {player.name.toUpperCase()}
+                        </Text>
+                        {statusBadge ? (
+                          <View style={[styles.loadoutStatusBadge, { backgroundColor: statusBadge.color + "25", borderColor: statusBadge.color + "50" }]}>
+                            <Ionicons name={statusBadge.icon} size={10} color={statusBadge.color} />
+                          </View>
+                        ) : null}
+                      </View>
+                      
+                      {/* XP Bar */}
+                      <View style={styles.loadoutXpContainer}>
+                        <View style={styles.loadoutXpBar}>
+                          <LinearGradient
+                            colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={[styles.loadoutXpFill, { width: `${xpProgress}%` }]}
                           />
-                          <Text style={styles.levelText}>
-                            {player.ballLevel.charAt(0).toUpperCase() + player.ballLevel.slice(1)}
+                        </View>
+                        <Text style={styles.loadoutXpText}>{playerXp} XP</Text>
+                      </View>
+
+                      {/* Stats Row */}
+                      <View style={styles.loadoutStatsRow}>
+                        <View style={styles.loadoutStat}>
+                          <View style={[styles.loadoutStatDot, { backgroundColor: levelColor }]} />
+                          <Text style={[styles.loadoutStatText, { color: levelColor }]}>
+                            {(player.ballLevel ?? "green").toUpperCase()}
                           </Text>
                         </View>
-                      ) : null}
-                      <Text style={styles.lastLesson}>{formatDate(player.lastLessonDate)}</Text>
+                        <View style={styles.loadoutStatDivider} />
+                        <View style={styles.loadoutStat}>
+                          <Ionicons name="time-outline" size={10} color={Colors.dark.tabIconDefault} />
+                          <Text style={styles.loadoutStatText}>
+                            {formatDate(player.lastLessonDate)}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Right: Action Glyph */}
+                    <View style={styles.loadoutAction}>
+                      <View style={styles.loadoutActionButton}>
+                        <Ionicons name="chevron-forward" size={18} color={Colors.dark.primary} />
+                      </View>
                     </View>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color={Colors.dark.primary} />
-                </View>
+                </LinearGradient>
               </Pressable>
             );
           })}
@@ -976,6 +1173,477 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  
+  // === HUD COMMAND HEADER ===
+  hudHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.primary + "30",
+    position: "relative",
+    overflow: "hidden",
+  },
+  hudHeaderBg: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  scanlineOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.03,
+    backgroundColor: "transparent",
+  },
+  hudLeft: {
+    flex: 1,
+  },
+  hudLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 2,
+  },
+  hudDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.dark.primary,
+  },
+  hudLabel: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: Colors.dark.primary,
+    letterSpacing: 1.5,
+  },
+  hudTitle: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: Colors.dark.text,
+    letterSpacing: 2,
+  },
+  hudStatRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 2,
+  },
+  hudStatValue: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  hudStatLabel: {
+    fontSize: 9,
+    fontWeight: "500",
+    color: Colors.dark.tabIconDefault,
+    letterSpacing: 0.5,
+  },
+  hudCenter: {
+    width: 70,
+    height: 70,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  hudIconOuter: {
+    position: "absolute",
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    borderWidth: 3,
+    borderColor: Colors.dark.primary,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 20,
+      },
+      android: {},
+    }),
+  },
+  hudIconGlow: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    backgroundColor: Colors.dark.primary + "40",
+  },
+  hudIconInner: {
+    position: "absolute",
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: Colors.dark.primary + "25",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: Colors.dark.primary + "70",
+  },
+  hudRight: {
+    flex: 1,
+    alignItems: "flex-end",
+    gap: Spacing.sm,
+  },
+  hudXpBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.gold + "15",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "40",
+  },
+  hudXpValue: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.gold,
+  },
+  hudXpLabel: {
+    fontSize: 9,
+    fontWeight: "500",
+    color: Colors.dark.gold,
+    opacity: 0.7,
+  },
+  hudAddButton: {
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  hudAddButtonGradient: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  // === TACTICAL COMMAND STRIP ===
+  commandStrip: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    position: "relative",
+  },
+  commandStripBg: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  tacticalSearch: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+    overflow: "hidden",
+  },
+  tacticalSearchIcon: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.dark.primary + "15",
+    borderRightWidth: 1,
+    borderRightColor: Colors.dark.primary + "30",
+  },
+  tacticalSearchInput: {
+    flex: 1,
+    height: 40,
+    paddingHorizontal: Spacing.md,
+    fontSize: 12,
+    fontWeight: "500",
+    color: Colors.dark.text,
+    letterSpacing: 0.5,
+  },
+  tacticalSearchClear: {
+    width: 32,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  // === TACTICAL FILTER STRIP ===
+  filterStrip: {
+    paddingVertical: Spacing.sm,
+  },
+  filterStripContent: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  tacticalChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    borderRadius: 8,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    gap: 8,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    position: "relative",
+    overflow: "hidden",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.5,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  tacticalChipActive: {
+    borderColor: Colors.dark.primary,
+    borderWidth: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  tacticalChipGlow: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "transparent",
+  },
+  tacticalChipGlowActive: {
+    backgroundColor: Colors.dark.primary + "35",
+  },
+  tacticalChipText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: Colors.dark.tabIconDefault,
+    letterSpacing: 1.5,
+  },
+  tacticalChipTextActive: {
+    color: Colors.dark.primary,
+    textShadowColor: Colors.dark.primary,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 4,
+  },
+  tacticalChipCount: {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    minWidth: 20,
+    alignItems: "center",
+  },
+  tacticalChipCountActive: {
+    backgroundColor: Colors.dark.primary + "30",
+  },
+  tacticalChipCountText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: Colors.dark.tabIconDefault,
+  },
+  tacticalLevelIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+
+  // === LOADOUT CARDS ===
+  loadoutCard: {
+    marginBottom: Spacing.lg,
+    marginHorizontal: Spacing.md,
+    borderRadius: 16,
+    position: "relative",
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 12,
+      },
+    }),
+  },
+  loadoutGlowFrame: {
+    position: "absolute",
+    top: -3,
+    left: -3,
+    right: -3,
+    bottom: -3,
+    borderRadius: 19,
+    borderWidth: 3,
+  },
+  loadoutGlowFrameInner: {
+    position: "absolute",
+    top: -1,
+    left: -1,
+    right: -1,
+    bottom: -1,
+    borderRadius: 17,
+    borderWidth: 2,
+  },
+  loadoutCardBg: {
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: Colors.dark.primary + "50",
+    overflow: "hidden",
+  },
+  loadoutTopStrip: {
+    height: 5,
+    width: "100%",
+  },
+  loadoutContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  loadoutAvatarContainer: {
+    width: 64,
+    height: 64,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  loadoutAvatarGlowOuter: {
+    position: "absolute",
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+  },
+  loadoutAvatarGlow: {
+    position: "absolute",
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+  },
+  loadoutAvatarRing: {
+    position: "absolute",
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 3,
+  },
+  loadoutAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadoutAvatarText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#000",
+  },
+  loadoutTierBadge: {
+    position: "absolute",
+    bottom: -2,
+    right: -2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#0a0a0a",
+  },
+  loadoutTierText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#000",
+  },
+  loadoutInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  loadoutNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  loadoutName: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    letterSpacing: 0.5,
+    flex: 1,
+  },
+  loadoutStatusBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  loadoutXpContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  loadoutXpBar: {
+    flex: 1,
+    height: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  loadoutXpFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  loadoutXpText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan,
+    minWidth: 45,
+    textAlign: "right",
+  },
+  loadoutStatsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  loadoutStat: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  loadoutStatDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  loadoutStatText: {
+    fontSize: 9,
+    fontWeight: "500",
+    color: Colors.dark.tabIconDefault,
+    letterSpacing: 0.3,
+  },
+  loadoutStatDivider: {
+    width: 1,
+    height: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+  },
+  loadoutAction: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadoutActionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: Colors.dark.primary + "15",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+
+  // === LEGACY STYLES (keeping for compatibility) ===
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1121,7 +1789,6 @@ const styles = StyleSheet.create({
   },
   playerList: {
     flex: 1,
-    paddingHorizontal: Spacing.lg,
   },
   playerCardContainer: {
     marginBottom: Spacing.sm,
