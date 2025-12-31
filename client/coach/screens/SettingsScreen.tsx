@@ -217,7 +217,12 @@ export default function SettingsScreen() {
       />
 
       <View style={styles.header}>
-        <Text style={styles.title}>Settings</Text>
+        <View style={styles.headerTitleRow}>
+          <View style={styles.headerIconWrapper}>
+            <Ionicons name="settings" size={18} color={Colors.dark.primary} />
+          </View>
+          <Text style={styles.title}>COMMAND CENTER</Text>
+        </View>
       </View>
 
       <ScrollView
@@ -226,13 +231,21 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {coach ? (
-          <View style={styles.profileSection}>
-            <View style={styles.profileAvatar}>
-              <Text style={styles.profileInitial}>{coach.name.charAt(0).toUpperCase()}</Text>
-            </View>
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{coach.name}</Text>
-              {coach.email ? <Text style={styles.profileEmail}>{coach.email}</Text> : null}
+          <View style={styles.profileSectionContainer}>
+            <LinearGradient
+              colors={[Colors.dark.primary + "80", Colors.dark.xpCyan + "60"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.profileSectionTopLine}
+            />
+            <View style={styles.profileSection}>
+              <View style={styles.profileAvatar}>
+                <Text style={styles.profileInitial}>{coach.name.charAt(0).toUpperCase()}</Text>
+              </View>
+              <View style={styles.profileInfo}>
+                <Text style={styles.profileName}>{coach.name}</Text>
+                {coach.email ? <Text style={styles.profileEmail}>{coach.email}</Text> : null}
+              </View>
             </View>
           </View>
         ) : null}
@@ -610,35 +623,51 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.md,
   },
+  headerTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  headerIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.primary + "25",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "50",
+  },
   title: {
-    ...Typography.h1,
+    fontSize: 14,
+    fontWeight: "800",
     color: Colors.dark.text,
+    letterSpacing: 2,
   },
   content: {
     flex: 1,
     paddingHorizontal: Spacing.lg,
   },
+  profileSectionContainer: {
+    marginBottom: Spacing.xl,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  profileSectionTopLine: {
+    height: 3,
+    width: "100%",
+  },
   profileSection: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
+    backgroundColor: "rgba(20, 20, 20, 0.9)",
     padding: Spacing.lg,
-    marginBottom: Spacing.xl,
     gap: Spacing.md,
     borderWidth: 1,
+    borderTopWidth: 0,
     borderColor: Colors.dark.primary + "50",
-    ...Platform.select({
-      ios: {
-        shadowColor: Colors.dark.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
+    borderBottomLeftRadius: BorderRadius.lg,
+    borderBottomRightRadius: BorderRadius.lg,
   },
   profileAvatar: {
     width: 60,

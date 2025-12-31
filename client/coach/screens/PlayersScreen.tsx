@@ -209,9 +209,14 @@ export default function PlayersScreen() {
       />
 
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Players</Text>
-          <Text style={styles.subtitle}>{players.length} players</Text>
+        <View style={styles.headerTitleRow}>
+          <View style={styles.headerIconWrapper}>
+            <Ionicons name="people" size={18} color={Colors.dark.primary} />
+          </View>
+          <View>
+            <Text style={styles.title}>PLAYER ROSTER</Text>
+            <Text style={styles.subtitle}>{players.length} athletes</Text>
+          </View>
         </View>
         <Pressable
           style={styles.addButton}
@@ -290,44 +295,54 @@ export default function PlayersScreen() {
         <ScrollView style={styles.playerList} showsVerticalScrollIndicator={false}>
           {filteredPlayers.map((player) => {
             const statusBadge = getStatusBadge(player.status);
+            const levelColor = getPlayerLevelColor(player.ballLevel ?? "green");
             return (
               <Pressable
                 key={player.id}
-                style={styles.playerCard}
+                style={styles.playerCardContainer}
                 onPress={() => handleSelectPlayer(player)}
               >
-                <View style={[styles.playerAvatar, { backgroundColor: getPlayerLevelColor(player.ballLevel ?? "green") }]}>
-                  <Text style={styles.playerInitial}>
-                    {player.name.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-                <View style={styles.playerInfo}>
-                  <View style={styles.playerNameRow}>
-                    <Text style={styles.playerName}>{player.name}</Text>
-                    {statusBadge ? (
-                      <View style={[styles.statusBadge, { backgroundColor: statusBadge.color + "20" }]}>
-                        <Ionicons name={statusBadge.icon} size={12} color={statusBadge.color} />
-                        <Text style={[styles.statusText, { color: statusBadge.color }]}>
-                          {statusBadge.label}
-                        </Text>
-                      </View>
-                    ) : null}
+                <View style={styles.playerCardGlow} />
+                <LinearGradient
+                  colors={[levelColor + "80", Colors.dark.primary + "40"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.playerCardTopLine}
+                />
+                <View style={styles.playerCard}>
+                  <View style={[styles.playerAvatar, { backgroundColor: levelColor }]}>
+                    <Text style={styles.playerInitial}>
+                      {player.name.charAt(0).toUpperCase()}
+                    </Text>
                   </View>
-                  <View style={styles.playerDetails}>
-                    {player.ballLevel ? (
-                      <View style={styles.levelBadge}>
-                        <View
-                          style={[styles.levelDot, { backgroundColor: getPlayerLevelColor(player.ballLevel) }]}
-                        />
-                        <Text style={styles.levelText}>
-                          {player.ballLevel.charAt(0).toUpperCase() + player.ballLevel.slice(1)}
-                        </Text>
-                      </View>
-                    ) : null}
-                    <Text style={styles.lastLesson}>{formatDate(player.lastLessonDate)}</Text>
+                  <View style={styles.playerInfo}>
+                    <View style={styles.playerNameRow}>
+                      <Text style={styles.playerName}>{player.name}</Text>
+                      {statusBadge ? (
+                        <View style={[styles.statusBadge, { backgroundColor: statusBadge.color + "20" }]}>
+                          <Ionicons name={statusBadge.icon} size={12} color={statusBadge.color} />
+                          <Text style={[styles.statusText, { color: statusBadge.color }]}>
+                            {statusBadge.label}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <View style={styles.playerDetails}>
+                      {player.ballLevel ? (
+                        <View style={styles.levelBadge}>
+                          <View
+                            style={[styles.levelDot, { backgroundColor: levelColor }]}
+                          />
+                          <Text style={styles.levelText}>
+                            {player.ballLevel.charAt(0).toUpperCase() + player.ballLevel.slice(1)}
+                          </Text>
+                        </View>
+                      ) : null}
+                      <Text style={styles.lastLesson}>{formatDate(player.lastLessonDate)}</Text>
+                    </View>
                   </View>
+                  <Ionicons name="chevron-forward" size={20} color={Colors.dark.primary} />
                 </View>
-                <Ionicons name="chevron-forward" size={20} color={Colors.dark.tabIconDefault} />
               </Pressable>
             );
           })}
@@ -964,9 +979,24 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.md,
+  },
+  headerTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  headerIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.primary + "25",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "50",
   },
   addButton: {
     width: 40,
@@ -975,10 +1005,24 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.primary,
     justifyContent: "center",
     alignItems: "center",
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   title: {
-    ...Typography.h1,
+    fontSize: 14,
+    fontWeight: "800",
     color: Colors.dark.text,
+    letterSpacing: 2,
+    textTransform: "uppercase",
   },
   subtitle: {
     fontSize: Typography.small.fontSize,
@@ -991,13 +1035,24 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
-    height: 44,
+    height: 48,
     gap: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "40",
+    borderColor: Colors.dark.primary + "60",
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   searchInput: {
     flex: 1,
@@ -1011,26 +1066,38 @@ const styles = StyleSheet.create({
   filterChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
     borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
+    paddingVertical: Spacing.sm,
     marginRight: Spacing.sm,
     gap: Spacing.xs,
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "30",
+    borderColor: Colors.dark.primary + "50",
   },
   filterChipActive: {
-    backgroundColor: Colors.dark.primary + "40",
+    backgroundColor: Colors.dark.primary,
     borderColor: Colors.dark.primary,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.6,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   filterChipText: {
     fontSize: Typography.small.fontSize,
     color: Colors.dark.tabIconDefault,
+    fontWeight: "500",
   },
   filterChipTextActive: {
-    color: Colors.dark.primary,
-    fontWeight: "600",
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
   },
   levelDot: {
     width: 10,
@@ -1056,27 +1123,36 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: Spacing.lg,
   },
+  playerCardContainer: {
+    marginBottom: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  playerCardGlow: {
+    position: "absolute" as const,
+    top: -1,
+    left: -1,
+    right: -1,
+    bottom: -1,
+    borderRadius: BorderRadius.lg + 1,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "70",
+  },
+  playerCardTopLine: {
+    height: 2,
+    width: "100%",
+  },
   playerCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
+    backgroundColor: "rgba(20, 20, 20, 0.9)",
     padding: Spacing.md,
-    marginBottom: Spacing.sm,
     gap: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "45",
-    ...Platform.select({
-      ios: {
-        shadowColor: Colors.dark.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
+    borderTopWidth: 0,
+    borderColor: Colors.dark.primary + "50",
+    borderBottomLeftRadius: BorderRadius.lg,
+    borderBottomRightRadius: BorderRadius.lg,
   },
   playerAvatar: {
     width: 48,

@@ -127,7 +127,12 @@ export default function CoachingScreen() {
       />
 
       <View style={styles.header}>
-        <Text style={styles.title}>Coaching</Text>
+        <View style={styles.headerTitleRow}>
+          <View style={styles.headerIconWrapper}>
+            <Ionicons name="tennisball" size={18} color={Colors.dark.primary} />
+          </View>
+          <Text style={styles.title}>COACHING HQ</Text>
+        </View>
       </View>
 
       <View style={styles.tabBar}>
@@ -2286,10 +2291,26 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.lg,
     paddingTop: Spacing.sm,
   },
+  headerTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  headerIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.primary + "25",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "50",
+  },
   title: {
-    ...Typography.h1,
+    fontSize: 14,
+    fontWeight: "800",
     color: Colors.dark.text,
-    letterSpacing: 0.5,
+    letterSpacing: 2,
   },
   tabBar: {
     flexDirection: "row",
