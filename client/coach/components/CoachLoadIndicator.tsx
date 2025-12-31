@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 
@@ -46,10 +46,10 @@ export function CoachLoadIndicator({
   };
 
   const getLoadLabel = () => {
-    if (loadPercent >= 80) return "Heavy";
-    if (loadPercent >= 50) return "Moderate";
-    if (loadPercent > 0) return "Light";
-    return "Free";
+    if (loadPercent >= 80) return "HEAVY";
+    if (loadPercent >= 50) return "MODERATE";
+    if (loadPercent > 0) return "LIGHT";
+    return "FREE";
   };
 
   return (
@@ -79,9 +79,11 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(12, 12, 15, 0.98)",
     borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.headerBorder,
+    borderBottomColor: Colors.dark.primary + "20",
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.primary + "10",
   },
   labelRow: {
     flexDirection: "row",
@@ -90,27 +92,43 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   label: {
-    ...Typography.caption,
+    fontSize: 10,
+    fontWeight: "700",
     color: Colors.dark.tabIconDefault,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
   },
   loadText: {
-    ...Typography.caption,
-    fontWeight: "600",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.5,
   },
   hoursText: {
-    ...Typography.caption,
+    fontSize: 11,
+    fontWeight: "600",
     color: Colors.dark.tabIconDefault,
     marginLeft: "auto",
+    letterSpacing: 0.3,
   },
   barBackground: {
-    height: 6,
-    backgroundColor: Colors.dark.headerBorder,
-    borderRadius: BorderRadius.sm,
+    height: 8,
+    backgroundColor: "rgba(30, 30, 35, 0.95)",
+    borderRadius: 4,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "20",
   },
   barFill: {
     height: "100%",
-    borderRadius: BorderRadius.sm,
+    borderRadius: 4,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 6,
+      },
+    }),
   },
 });
 
