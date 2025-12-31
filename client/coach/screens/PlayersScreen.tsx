@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -16,14 +16,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  withSequence,
-  Easing,
-} from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
@@ -209,213 +201,84 @@ export default function PlayersScreen() {
     );
   }
 
-  const pulseAnim = useSharedValue(1);
-  const glowAnim = useSharedValue(0.2);
-  const ringAnim = useSharedValue(0.3);
-  const cardGlowAnim = useSharedValue(0.4);
-
-  useEffect(() => {
-    pulseAnim.value = withRepeat(
-      withSequence(
-        withTiming(1.12, { duration: 600, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
-    glowAnim.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.2, { duration: 1000, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
-    ringAnim.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.3, { duration: 800, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
-    cardGlowAnim.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.4, { duration: 1400, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
-  }, []);
-
-  const pulseStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulseAnim.value }],
-  }));
-
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: glowAnim.value,
-    transform: [{ scale: 0.95 + (glowAnim.value * 0.1) }],
-  }));
-
-  const ringPulseStyle = useAnimatedStyle(() => ({
-    opacity: ringAnim.value,
-    transform: [{ scale: 0.9 + (ringAnim.value * 0.15) }],
-  }));
-
-  const cardGlowStyle = useAnimatedStyle(() => ({
-    opacity: cardGlowAnim.value,
-    transform: [{ scale: 0.98 + (cardGlowAnim.value * 0.04) }],
-  }));
-
-  const totalXp = useMemo(() => {
-    return players.length * 250;
-  }, [players.length]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <LinearGradient
-        colors={["#0a0a0a", "#0f1a0f", "#0a0a0a"]}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* === HUD COMMAND HEADER === */}
-      <View style={styles.hudHeader}>
-        <LinearGradient
-          colors={[Colors.dark.primary + "15", "transparent"]}
-          style={styles.hudHeaderBg}
-        />
-        
-        {/* Scanline overlay effect */}
-        <View style={styles.scanlineOverlay} />
-        
-        {/* Left: Squad Intel */}
-        <View style={styles.hudLeft}>
-          <View style={styles.hudLabelRow}>
-            <View style={styles.hudDot} />
-            <Text style={styles.hudLabel}>SQUAD INTEL</Text>
-          </View>
-          <Text style={styles.hudTitle}>PLAYER ROSTER</Text>
-          <View style={styles.hudStatRow}>
-            <Ionicons name="people" size={14} color={Colors.dark.primary} />
-            <Text style={styles.hudStatValue}>{players.length}</Text>
-            <Text style={styles.hudStatLabel}>ACTIVE</Text>
-          </View>
+      {/* === CALM HEADER (like Calendar/Settings) === */}
+      <View style={styles.calmHeader}>
+        <View style={styles.calmHeaderLeft}>
+          <Text style={styles.calmTitle}>Players</Text>
+          <Text style={styles.calmSubtitle}>{players.length} active</Text>
         </View>
-
-        {/* Center: Animated Academy Icon */}
-        <View style={styles.hudCenter}>
-          <Animated.View style={[styles.hudIconOuter, glowStyle]}>
-            <View style={styles.hudIconGlow} />
-          </Animated.View>
-          <Animated.View style={[styles.hudIconInner, pulseStyle]}>
-            <Ionicons name="tennisball" size={28} color={Colors.dark.primary} />
-          </Animated.View>
-        </View>
-
-        {/* Right: XP Counter + Add */}
-        <View style={styles.hudRight}>
-          <View style={styles.hudXpBadge}>
-            <Ionicons name="flash" size={12} color={Colors.dark.gold} />
-            <Text style={styles.hudXpValue}>{totalXp.toLocaleString()}</Text>
-            <Text style={styles.hudXpLabel}>XP</Text>
-          </View>
-          <Pressable
-            style={styles.hudAddButton}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              setShowAddModal(true);
-            }}
-          >
-            <LinearGradient
-              colors={[Colors.dark.primary, Colors.dark.xpCyan]}
-              style={styles.hudAddButtonGradient}
-            >
-              <Ionicons name="add" size={22} color="#000" />
-            </LinearGradient>
-          </Pressable>
-        </View>
+        <Pressable
+          style={styles.calmAddButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setShowAddModal(true);
+          }}
+        >
+          <Ionicons name="add" size={22} color={Colors.dark.text} />
+        </Pressable>
       </View>
 
-      {/* === TACTICAL COMMAND STRIP === */}
-      <View style={styles.commandStrip}>
-        <LinearGradient
-          colors={["rgba(46,204,64,0.1)", "transparent"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.commandStripBg}
-        />
-        
-        {/* Search Section */}
-        <View style={styles.tacticalSearch}>
-          <View style={styles.tacticalSearchIcon}>
-            <Ionicons name="scan-outline" size={16} color={Colors.dark.primary} />
-          </View>
+      {/* === CALM SEARCH BAR === */}
+      <View style={styles.calmSearchContainer}>
+        <View style={styles.calmSearchBar}>
+          <Ionicons name="search" size={18} color={Colors.dark.tabIconDefault} />
           <TextInput
-            style={styles.tacticalSearchInput}
-            placeholder="SCAN ROSTER..."
+            style={styles.calmSearchInput}
+            placeholder="Search players..."
             placeholderTextColor={Colors.dark.tabIconDefault}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery ? (
-            <Pressable onPress={() => setSearchQuery("")} style={styles.tacticalSearchClear}>
-              <Ionicons name="close" size={14} color={Colors.dark.error} />
+            <Pressable onPress={() => setSearchQuery("")}>
+              <Ionicons name="close-circle" size={18} color={Colors.dark.tabIconDefault} />
             </Pressable>
           ) : null}
         </View>
       </View>
 
-      {/* === TACTICAL FILTER STRIP === */}
-      <View style={styles.filterStrip}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterStripContent}>
-          <Pressable
-            style={[styles.tacticalChip, !filterLevel && styles.tacticalChipActive]}
-            onPress={() => setFilterLevel(null)}
-          >
-            <View style={[styles.tacticalChipGlow, !filterLevel && styles.tacticalChipGlowActive]} />
-            <Text style={[styles.tacticalChipText, !filterLevel && styles.tacticalChipTextActive]}>
-              ALL
-            </Text>
-            <View style={[styles.tacticalChipCount, !filterLevel && styles.tacticalChipCountActive]}>
-              <Text style={styles.tacticalChipCountText}>{players.length}</Text>
-            </View>
-          </Pressable>
-          {ballLevels.map((level) => {
-            const isActive = filterLevel === level;
-            const levelColor = getPlayerLevelColor(level);
-            const count = players.filter(p => p.ballLevel === level).length;
-            return (
-              <Pressable
-                key={level}
-                style={[
-                  styles.tacticalChip,
-                  isActive && { borderColor: levelColor + "80" },
-                ]}
-                onPress={() => setFilterLevel(filterLevel === level ? null : level)}
-              >
-                <View style={[
-                  styles.tacticalChipGlow,
-                  isActive && { backgroundColor: levelColor + "30" },
-                ]} />
-                <View style={[styles.tacticalLevelIndicator, { backgroundColor: levelColor }]} />
-                <Text style={[
-                  styles.tacticalChipText,
-                  isActive && { color: levelColor },
-                ]}>
-                  {level.toUpperCase()}
-                </Text>
-                <View style={[
-                  styles.tacticalChipCount,
-                  isActive && { backgroundColor: levelColor + "40" },
-                ]}>
-                  <Text style={[styles.tacticalChipCountText, isActive && { color: levelColor }]}>{count}</Text>
-                </View>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
+      {/* === CALM FILTER PILLS === */}
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false} 
+        style={styles.calmFilterScroll}
+        contentContainerStyle={styles.calmFilterContent}
+      >
+        <Pressable
+          style={[styles.calmFilterPill, !filterLevel && styles.calmFilterPillActive]}
+          onPress={() => setFilterLevel(null)}
+        >
+          <Text style={[styles.calmFilterText, !filterLevel && styles.calmFilterTextActive]}>
+            All ({players.length})
+          </Text>
+        </Pressable>
+        {ballLevels.map((level) => {
+          const isActive = filterLevel === level;
+          const levelColor = getPlayerLevelColor(level);
+          const count = players.filter(p => p.ballLevel === level).length;
+          return (
+            <Pressable
+              key={level}
+              style={[
+                styles.calmFilterPill,
+                isActive && { backgroundColor: levelColor + "20", borderColor: levelColor },
+              ]}
+              onPress={() => setFilterLevel(filterLevel === level ? null : level)}
+            >
+              <View style={[styles.calmLevelDot, { backgroundColor: levelColor }]} />
+              <Text style={[
+                styles.calmFilterText,
+                isActive && { color: levelColor },
+              ]}>
+                {level.charAt(0).toUpperCase() + level.slice(1)} ({count})
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
@@ -423,123 +286,61 @@ export default function PlayersScreen() {
         </View>
       ) : filteredPlayers.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="people-outline" size={64} color={Colors.dark.disabled} />
+          <Ionicons name="people-outline" size={48} color={Colors.dark.disabled} />
           <Text style={styles.emptyText}>
-            {searchQuery ? "No players found" : "No players"}
+            {searchQuery ? "No players found" : "No players yet"}
+          </Text>
+          <Text style={styles.emptySubtext}>
+            {searchQuery ? "Try a different search" : "Add your first player to get started"}
           </Text>
         </View>
       ) : (
         <ScrollView style={styles.playerList} showsVerticalScrollIndicator={false}>
-          {filteredPlayers.map((player, index) => {
+          {filteredPlayers.map((player) => {
             const statusBadge = getStatusBadge(player.status);
             const levelColor = getPlayerLevelColor(player.ballLevel ?? "green");
-            const playerXp = 250 + (index * 75);
-            const xpProgress = Math.min(100, (playerXp % 500) / 500 * 100);
             return (
               <Pressable
                 key={player.id}
-                style={styles.loadoutCard}
+                style={styles.calmPlayerCard}
                 onPress={() => handleSelectPlayer(player)}
               >
-                {/* Animated breathing glow frame */}
-                <Animated.View style={[
-                  styles.loadoutGlowFrame, 
-                  { borderColor: levelColor },
-                  cardGlowStyle,
-                ]} />
-                
-                {/* Second glow layer for depth */}
-                <View style={[styles.loadoutGlowFrameInner, { borderColor: levelColor + "40" }]} />
-                
-                {/* Main card background */}
-                <LinearGradient
-                  colors={["rgba(20,25,20,0.98)", "rgba(15,20,15,0.95)", "rgba(10,15,10,0.98)"]}
-                  style={styles.loadoutCardBg}
-                >
-                  {/* Top accent strip */}
-                  <LinearGradient
-                    colors={[levelColor, Colors.dark.primary, levelColor + "60"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.loadoutTopStrip}
-                  />
-                  
-                  {/* Content */}
-                  <View style={styles.loadoutContent}>
-                    {/* Left: Holographic Avatar with animated glow */}
-                    <View style={styles.loadoutAvatarContainer}>
-                      {/* Outer glow pulse */}
-                      <Animated.View style={[styles.loadoutAvatarGlowOuter, { backgroundColor: levelColor + "20" }, ringPulseStyle]} />
-                      {/* Inner glow */}
-                      <Animated.View style={[styles.loadoutAvatarGlow, { backgroundColor: levelColor + "40" }, glowStyle]} />
-                      {/* Animated ring */}
-                      <Animated.View style={[styles.loadoutAvatarRing, { borderColor: levelColor }, ringPulseStyle]} />
-                      {/* Avatar with pulse */}
-                      <Animated.View style={[styles.loadoutAvatar, { backgroundColor: levelColor }, pulseStyle]}>
-                        <Text style={styles.loadoutAvatarText}>
-                          {player.name.charAt(0).toUpperCase()}
-                        </Text>
-                      </Animated.View>
-                      {/* Level tier indicator */}
-                      <View style={[styles.loadoutTierBadge, { backgroundColor: levelColor }]}>
-                        <Text style={styles.loadoutTierText}>
-                          {(player.ballLevel ?? "G").charAt(0).toUpperCase()}
+                {/* Simple Avatar */}
+                <View style={[styles.calmAvatar, { backgroundColor: levelColor + "20" }]}>
+                  <Text style={[styles.calmAvatarText, { color: levelColor }]}>
+                    {player.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+
+                {/* Player Info */}
+                <View style={styles.calmPlayerInfo}>
+                  <View style={styles.calmPlayerNameRow}>
+                    <Text style={styles.calmPlayerName} numberOfLines={1}>
+                      {player.name}
+                    </Text>
+                    {statusBadge ? (
+                      <View style={[styles.calmStatusBadge, { backgroundColor: statusBadge.color + "20" }]}>
+                        <Text style={[styles.calmStatusText, { color: statusBadge.color }]}>
+                          {statusBadge.label}
                         </Text>
                       </View>
-                    </View>
-
-                    {/* Center: Player Info */}
-                    <View style={styles.loadoutInfo}>
-                      <View style={styles.loadoutNameRow}>
-                        <Text style={styles.loadoutName} numberOfLines={1}>
-                          {player.name.toUpperCase()}
-                        </Text>
-                        {statusBadge ? (
-                          <View style={[styles.loadoutStatusBadge, { backgroundColor: statusBadge.color + "25", borderColor: statusBadge.color + "50" }]}>
-                            <Ionicons name={statusBadge.icon} size={10} color={statusBadge.color} />
-                          </View>
-                        ) : null}
-                      </View>
-                      
-                      {/* XP Bar */}
-                      <View style={styles.loadoutXpContainer}>
-                        <View style={styles.loadoutXpBar}>
-                          <LinearGradient
-                            colors={[Colors.dark.primary, Colors.dark.xpCyan]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={[styles.loadoutXpFill, { width: `${xpProgress}%` }]}
-                          />
-                        </View>
-                        <Text style={styles.loadoutXpText}>{playerXp} XP</Text>
-                      </View>
-
-                      {/* Stats Row */}
-                      <View style={styles.loadoutStatsRow}>
-                        <View style={styles.loadoutStat}>
-                          <View style={[styles.loadoutStatDot, { backgroundColor: levelColor }]} />
-                          <Text style={[styles.loadoutStatText, { color: levelColor }]}>
-                            {(player.ballLevel ?? "green").toUpperCase()}
-                          </Text>
-                        </View>
-                        <View style={styles.loadoutStatDivider} />
-                        <View style={styles.loadoutStat}>
-                          <Ionicons name="time-outline" size={10} color={Colors.dark.tabIconDefault} />
-                          <Text style={styles.loadoutStatText}>
-                            {formatDate(player.lastLessonDate)}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* Right: Action Glyph */}
-                    <View style={styles.loadoutAction}>
-                      <View style={styles.loadoutActionButton}>
-                        <Ionicons name="chevron-forward" size={18} color={Colors.dark.primary} />
-                      </View>
-                    </View>
+                    ) : null}
                   </View>
-                </LinearGradient>
+                  <View style={styles.calmPlayerMeta}>
+                    <View style={[styles.calmLevelBadge, { borderColor: levelColor }]}>
+                      <View style={[styles.calmLevelDotSmall, { backgroundColor: levelColor }]} />
+                      <Text style={[styles.calmLevelText, { color: levelColor }]}>
+                        {(player.ballLevel ?? "green").charAt(0).toUpperCase() + (player.ballLevel ?? "green").slice(1)}
+                      </Text>
+                    </View>
+                    <Text style={styles.calmMetaText}>
+                      {formatDate(player.lastLessonDate)}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Chevron */}
+                <Ionicons name="chevron-forward" size={20} color={Colors.dark.tabIconDefault} />
               </Pressable>
             );
           })}
@@ -1172,9 +973,177 @@ function PlayerDetailView({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+
+  // === CALM STYLES (60% - Gold Standard like Calendar/Settings) ===
+  calmHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.lg,
+  },
+  calmHeaderLeft: {
+    gap: 2,
+  },
+  calmTitle: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  calmSubtitle: {
+    fontSize: 14,
+    color: Colors.dark.tabIconDefault,
+  },
+  calmAddButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.headerBorder,
+  },
+  calmSearchContainer: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  calmSearchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    height: 44,
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.headerBorder,
+  },
+  calmSearchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: Colors.dark.text,
+  },
+  calmFilterScroll: {
+    marginBottom: Spacing.md,
+  },
+  calmFilterContent: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  calmFilterPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.dark.headerBorder,
+  },
+  calmFilterPillActive: {
+    backgroundColor: Colors.dark.primary + "20",
+    borderColor: Colors.dark.primary,
+  },
+  calmFilterText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: Colors.dark.tabIconDefault,
+  },
+  calmFilterTextActive: {
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  calmLevelDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: Colors.dark.disabled,
+    textAlign: "center",
+  },
+  calmPlayerCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.headerBorder,
+  },
+  calmAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  calmAvatarText: {
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  calmPlayerInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  calmPlayerNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  calmPlayerName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  calmStatusBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+  },
+  calmStatusText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  calmPlayerMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  calmLevelBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+    borderWidth: 1,
+  },
+  calmLevelDotSmall: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  calmLevelText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  calmMetaText: {
+    fontSize: 12,
+    color: Colors.dark.tabIconDefault,
   },
   
-  // === HUD COMMAND HEADER ===
+  // === HUD COMMAND HEADER (keeping for reference) ===
   hudHeader: {
     flexDirection: "row",
     alignItems: "center",

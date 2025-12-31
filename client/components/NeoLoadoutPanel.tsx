@@ -13,14 +13,28 @@ import Animated, {
 } from "react-native-reanimated";
 import { Colors, BorderRadius, Spacing } from "@/constants/theme";
 
+/**
+ * DESIGN HIERARCHY NOTES (20/60/20 Rule):
+ * - tone="epic" (20%): Command centers, dashboards - glow/sweep allowed
+ * - tone="calm" (60%): List screens, settings - glow disabled by default
+ * - tone="focused" (20%): Detail screens - minimal visual noise
+ * 
+ * Use tone prop to enforce design consistency. Default is "calm" to prevent
+ * accidental glow effects on majority of screens.
+ */
+type PanelTone = "epic" | "calm" | "focused";
+
 interface NeoLoadoutPanelProps {
   children: React.ReactNode;
   accentColor?: string;
   variant?: "card" | "header" | "chip" | "tab";
   style?: ViewStyle;
   animationDelay?: number;
+  /** Enable glow effect. For calm/focused tones, this defaults to false. */
   enableGlow?: boolean;
   enableSweep?: boolean;
+  /** Design tone: epic (glow allowed), calm (default, no glow), focused (minimal) */
+  tone?: PanelTone;
 }
 
 export function NeoLoadoutPanel({
@@ -29,37 +43,46 @@ export function NeoLoadoutPanel({
   variant = "card",
   style,
   animationDelay = 0,
-  enableGlow = true,
+  enableGlow,
   enableSweep = false,
+  tone = "calm",
 }: NeoLoadoutPanelProps) {
+  // Default enableGlow based on tone if not explicitly set
+  const shouldGlow = enableGlow !== undefined 
+    ? enableGlow 
+    : tone === "epic"; // Only epic tone gets glow by default
   const glowAnim = useSharedValue(0.3);
   const glowScaleAnim = useSharedValue(1);
   const sweepAnim = useSharedValue(-1);
 
   useEffect(() => {
-    glowAnim.value = withDelay(
-      animationDelay,
-      withRepeat(
-        withSequence(
-          withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0.3, { duration: 1400, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        true
-      )
-    );
-    glowScaleAnim.value = withDelay(
-      animationDelay,
-      withRepeat(
-        withSequence(
-          withTiming(1.02, { duration: 1400, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0.98, { duration: 1400, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        true
-      )
-    );
-    if (enableSweep) {
+    // Only run glow animations if shouldGlow is true
+    if (shouldGlow) {
+      glowAnim.value = withDelay(
+        animationDelay,
+        withRepeat(
+          withSequence(
+            withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.ease) }),
+            withTiming(0.3, { duration: 1400, easing: Easing.inOut(Easing.ease) })
+          ),
+          -1,
+          true
+        )
+      );
+      glowScaleAnim.value = withDelay(
+        animationDelay,
+        withRepeat(
+          withSequence(
+            withTiming(1.02, { duration: 1400, easing: Easing.inOut(Easing.ease) }),
+            withTiming(0.98, { duration: 1400, easing: Easing.inOut(Easing.ease) })
+          ),
+          -1,
+          true
+        )
+      );
+    }
+    // Only run sweep animation if enabled (typically epic tone)
+    if (enableSweep && tone === "epic") {
       sweepAnim.value = withDelay(
         animationDelay,
         withRepeat(
@@ -69,7 +92,7 @@ export function NeoLoadoutPanel({
         )
       );
     }
-  }, [animationDelay, enableSweep]);
+  }, [animationDelay, enableSweep, shouldGlow, tone]);
 
   const glowStyle = useAnimatedStyle(() => ({
     opacity: glowAnim.value,
@@ -104,7 +127,7 @@ export function NeoLoadoutPanel({
 
   return (
     <View style={[styles.container, { borderRadius }, style]}>
-      {enableGlow && (
+      {shouldGlow && (
         <Animated.View
           style={[
             styles.glowFrame,

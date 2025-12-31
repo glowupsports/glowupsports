@@ -165,11 +165,13 @@ export default function CoachingScreen() {
         style={StyleSheet.absoluteFill}
       />
 
-      {/* HUD Command Header */}
+      {/* HUD Command Header - EPIC tier (only this section has glow) */}
       <View style={styles.hudHeader}>
         <NeoLoadoutPanel 
           variant="header" 
           accentColor={Colors.dark.primary}
+          tone="epic"
+          enableGlow={true}
           enableSweep={true}
           style={styles.headerPanel}
         >
@@ -199,44 +201,31 @@ export default function CoachingScreen() {
         </NeoLoadoutPanel>
       </View>
 
-      {/* Angular Tab Bar with Underglow */}
-      <View style={styles.neoTabBar}>
+      {/* Calm Tab Bar (simplified - no glow) */}
+      <View style={styles.calmTabBar}>
         {([
           { id: "today", label: "Today", icon: "today-outline" },
           { id: "progress", label: "Progress", icon: "trending-up-outline" },
           { id: "plans", label: "Plans", icon: "document-text-outline" },
-        ] as const).map((tab, index) => {
+        ] as const).map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <Pressable
               key={tab.id}
-              style={styles.neoTabWrapper}
+              style={[styles.calmTab, isActive && styles.calmTabActive]}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setActiveTab(tab.id);
               }}
             >
-              {isActive && (
-                <Animated.View style={[styles.neoTabUnderglow, headerGlowStyle]} />
-              )}
-              <NeoLoadoutPanel
-                variant="tab"
-                accentColor={isActive ? Colors.dark.primary : Colors.dark.backgroundTertiary}
-                enableGlow={isActive}
-                animationDelay={index * 100}
-                style={styles.neoTab}
-              >
-                <View style={styles.neoTabContent}>
-                  <Ionicons
-                    name={tab.icon as keyof typeof Ionicons.glyphMap}
-                    size={18}
-                    color={isActive ? Colors.dark.primary : Colors.dark.tabIconDefault}
-                  />
-                  <Text style={[styles.neoTabText, isActive && styles.neoTabTextActive]}>
-                    {tab.label}
-                  </Text>
-                </View>
-              </NeoLoadoutPanel>
+              <Ionicons
+                name={tab.icon as keyof typeof Ionicons.glyphMap}
+                size={18}
+                color={isActive ? Colors.dark.primary : Colors.dark.tabIconDefault}
+              />
+              <Text style={[styles.calmTabText, isActive && styles.calmTabTextActive]}>
+                {tab.label}
+              </Text>
             </Pressable>
           );
         })}
@@ -1332,88 +1321,72 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
       contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
       showsVerticalScrollIndicator={false}
     >
-      {/* HUD Time Period Filter - Holographic Cards */}
+      {/* Calm Period Filter Pills */}
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false}
-        style={styles.periodFilterContainer}
-        contentContainerStyle={styles.periodFilterContent}
+        style={styles.calmPeriodScroll}
+        contentContainerStyle={styles.calmPeriodContent}
       >
-        {FEEDBACK_PERIODS.map((period, index) => {
+        {FEEDBACK_PERIODS.map((period) => {
           const isActive = feedbackPeriod === period.id;
           return (
             <Pressable
               key={period.id}
+              style={[styles.calmPeriodPill, isActive && styles.calmPeriodPillActive]}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setFeedbackPeriod(period.id);
               }}
             >
-              <NeoLoadoutPanel
-                variant="chip"
-                accentColor={isActive ? Colors.dark.primary : Colors.dark.backgroundTertiary}
-                enableGlow={isActive}
-                animationDelay={index * 50}
-                style={styles.neoPeriodTab}
-              >
-                <View style={styles.neoPeriodContent}>
-                  <Text style={[styles.neoPeriodText, isActive && styles.neoPeriodTextActive]}>
-                    {period.label}
-                  </Text>
-                </View>
-              </NeoLoadoutPanel>
+              <Text style={[styles.calmPeriodText, isActive && styles.calmPeriodTextActive]}>
+                {period.label}
+              </Text>
             </Pressable>
           );
         })}
       </ScrollView>
 
-      {/* HUD Status Filter Chips - Tactical Command Strip */}
-      <View style={styles.neoStatusRow}>
+      {/* Calm Status Filter Row */}
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        style={styles.calmStatusScroll}
+        contentContainerStyle={styles.calmStatusContent}
+      >
         {([
           { id: "all" as const, label: "All", count: statusCounts.all, icon: null, color: Colors.dark.primary },
-          { id: "complete" as const, label: "Complete", count: statusCounts.complete, icon: "checkmark-circle" as const, color: Colors.dark.primary },
+          { id: "complete" as const, label: "Done", count: statusCounts.complete, icon: "checkmark-circle" as const, color: Colors.dark.primary },
           { id: "open" as const, label: "Open", count: statusCounts.open, icon: "alert-circle" as const, color: "#F39C12" },
           { id: "pending" as const, label: "Pending", count: statusCounts.pending, icon: "time" as const, color: Colors.dark.xpCyan },
-        ]).map((status, index) => {
+        ]).map((status) => {
           const isActive = statusFilter === status.id;
           return (
             <Pressable
               key={status.id}
+              style={[
+                styles.calmStatusPill,
+                isActive && { backgroundColor: status.color + "20", borderColor: status.color },
+              ]}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setStatusFilter(status.id);
               }}
-              style={styles.neoStatusWrapper}
             >
-              <NeoLoadoutPanel
-                variant="chip"
-                accentColor={isActive ? status.color : Colors.dark.backgroundTertiary}
-                enableGlow={isActive}
-                animationDelay={index * 80}
-                style={styles.neoStatusChip}
-              >
-                <View style={styles.neoStatusContent}>
-                  {status.icon ? (
-                    <Ionicons 
-                      name={status.icon} 
-                      size={14} 
-                      color={isActive ? status.color : Colors.dark.tabIconDefault}
-                    />
-                  ) : null}
-                  <Text style={[styles.neoStatusText, isActive && { color: status.color }]}>
-                    {status.label}
-                  </Text>
-                  <View style={[styles.neoStatusBadge, isActive && { borderColor: status.color }]}>
-                    <Text style={[styles.neoStatusBadgeText, isActive && { color: status.color }]}>
-                      {status.count}
-                    </Text>
-                  </View>
-                </View>
-              </NeoLoadoutPanel>
+              {status.icon ? (
+                <Ionicons 
+                  name={status.icon} 
+                  size={14} 
+                  color={isActive ? status.color : Colors.dark.tabIconDefault}
+                />
+              ) : null}
+              <Text style={[styles.calmStatusText, isActive && { color: status.color }]}>
+                {status.label} ({status.count})
+              </Text>
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
 
       {/* XP Reward Banner - only show if pending feedback exists */}
       {pendingFeedbackStats.count > 0 ? (
@@ -1442,32 +1415,25 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
       </View>
       
       {statusFilteredSessions.length === 0 ? (
-        <NeoLoadoutPanel
-          variant="card"
-          accentColor={Colors.dark.primary}
-          enableGlow={true}
-          style={styles.neoEmptyCard}
-        >
-          <View style={styles.neoEmptyContent}>
-            <NeoGlowBadge size={48} accentColor={Colors.dark.primary}>
-              <Ionicons name="checkmark-done" size={26} color={Colors.dark.backgroundRoot} />
-            </NeoGlowBadge>
-            <Text style={styles.neoEmptyText}>
-              {filteredSessions.length === 0 
-                ? `No completed lessons ${feedbackPeriod === "today" ? "today" : "in this period"}`
-                : `No ${statusFilter === "complete" ? "completed" : statusFilter} lessons`
-              }
-            </Text>
-            <Text style={styles.neoEmptySubtext}>
-              {filteredSessions.length === 0 
-                ? "Feedback will appear here after each lesson"
-                : "Try selecting a different filter"
-              }
-            </Text>
+        <View style={styles.calmEmptyCard}>
+          <View style={styles.calmEmptyIcon}>
+            <Ionicons name="checkmark-done" size={26} color={Colors.dark.tabIconDefault} />
           </View>
-        </NeoLoadoutPanel>
+          <Text style={styles.calmEmptyText}>
+            {filteredSessions.length === 0 
+              ? `No completed lessons ${feedbackPeriod === "today" ? "today" : "in this period"}`
+              : `No ${statusFilter === "complete" ? "completed" : statusFilter} lessons`
+            }
+          </Text>
+          <Text style={styles.calmEmptySubtext}>
+            {filteredSessions.length === 0 
+              ? "Feedback will appear here after each lesson"
+              : "Try selecting a different filter"
+            }
+          </Text>
+        </View>
       ) : (
-        statusFilteredSessions.map((session, index) => {
+        statusFilteredSessions.map((session) => {
           const needsFeedback = session.status !== "completed";
           const sessionXp = getSessionXp(session.sessionType);
           const sessionDate = new Date(session.startTime);
@@ -1477,67 +1443,55 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
             <Pressable
               key={session.id}
               onPress={() => needsFeedback && setSelectedSession(session)}
-              style={styles.neoSessionWrapper}
+              style={[
+                styles.calmSessionCard,
+                needsFeedback && styles.calmSessionCardNeedsFeedback,
+              ]}
             >
-              <NeoLoadoutPanel
-                variant="card"
-                accentColor={accentColor}
-                enableGlow={needsFeedback}
-                animationDelay={index * 100}
-                style={styles.neoSessionCard}
-              >
-                <View style={styles.neoSessionContent}>
-                  {/* Left: Time Badge */}
-                  <View style={[styles.neoSessionTimeBadge, { borderColor: accentColor + "60" }]}>
-                    <Text style={styles.neoSessionTimeText}>{formatTime(session.startTime)}</Text>
-                    <Text style={styles.neoSessionDuration}>{session.duration}m</Text>
-                  </View>
-                  
-                  {/* Center: Session Info */}
-                  <View style={styles.neoSessionInfo}>
-                    <Text style={styles.neoSessionType}>
-                      {session.sessionType === "private"
-                        ? "PRIVATE SESSION"
-                        : session.sessionType === "semi_private"
-                        ? "SEMI-PRIVATE"
-                        : session.sessionType === "group"
-                        ? "GROUP SESSION"
-                        : session.sessionType.toUpperCase()}
-                    </Text>
-                    {showDate ? (
-                      <Text style={styles.neoSessionDate}>
-                        {sessionDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-                      </Text>
-                    ) : null}
-                    {needsFeedback ? (
-                      <View style={styles.neoSessionBadgeRow}>
-                        <View style={[styles.neoPendingBadge, { borderColor: Colors.dark.gold }]}>
-                          <Ionicons name="alert-circle" size={12} color={Colors.dark.gold} />
-                          <Text style={[styles.neoPendingText, { color: Colors.dark.gold }]}>Needs Feedback</Text>
-                        </View>
-                        <View style={styles.neoXpBadge}>
-                          <Ionicons name="star" size={12} color={Colors.dark.gold} />
-                          <Text style={styles.neoXpText}>+{sessionXp}</Text>
-                        </View>
-                      </View>
-                    ) : (
-                      <View style={styles.neoSessionBadgeRow}>
-                        <View style={[styles.neoDoneBadge, { borderColor: Colors.dark.primary }]}>
-                          <Ionicons name="checkmark-circle" size={12} color={Colors.dark.primary} />
-                          <Text style={styles.neoDoneText}>Complete</Text>
-                        </View>
-                      </View>
-                    )}
-                  </View>
-                  
-                  {/* Right: Arrow */}
-                  {needsFeedback ? (
-                    <View style={styles.neoSessionArrow}>
-                      <Ionicons name="chevron-forward" size={22} color={accentColor} />
+              {/* Left: Time Badge */}
+              <View style={styles.calmSessionTimeBadge}>
+                <Text style={styles.calmSessionTimeText}>{formatTime(session.startTime)}</Text>
+                <Text style={styles.calmSessionDuration}>{session.duration}m</Text>
+              </View>
+              
+              {/* Center: Session Info */}
+              <View style={styles.calmSessionInfo}>
+                <Text style={styles.calmSessionType}>
+                  {session.sessionType === "private"
+                    ? "Private Session"
+                    : session.sessionType === "semi_private"
+                    ? "Semi-Private"
+                    : session.sessionType === "group"
+                    ? "Group Session"
+                    : session.sessionType}
+                </Text>
+                {showDate ? (
+                  <Text style={styles.calmSessionDate}>
+                    {sessionDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                  </Text>
+                ) : null}
+                {needsFeedback ? (
+                  <View style={styles.calmSessionBadgeRow}>
+                    <View style={styles.calmPendingBadge}>
+                      <Ionicons name="alert-circle" size={12} color={Colors.dark.gold} />
+                      <Text style={styles.calmPendingText}>Needs Feedback</Text>
                     </View>
-                  ) : null}
-                </View>
-              </NeoLoadoutPanel>
+                    <Text style={styles.calmXpText}>+{sessionXp} XP</Text>
+                  </View>
+                ) : (
+                  <View style={styles.calmSessionBadgeRow}>
+                    <View style={styles.calmDoneBadge}>
+                      <Ionicons name="checkmark-circle" size={12} color={Colors.dark.primary} />
+                      <Text style={styles.calmDoneText}>Complete</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+              
+              {/* Right: Arrow */}
+              {needsFeedback ? (
+                <Ionicons name="chevron-forward" size={22} color={accentColor} />
+              ) : null}
             </Pressable>
           );
         })
@@ -4217,5 +4171,191 @@ const styles = StyleSheet.create({
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
     color: "#FFF",
+  },
+
+  // ============== CALM DESIGN STYLES ==============
+  // Tab bar - simple pills
+  calmTabBar: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  calmTab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  calmTabActive: {
+    backgroundColor: Colors.dark.primary + "20",
+  },
+  calmTabText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+    fontWeight: "500",
+  },
+  calmTabTextActive: {
+    color: Colors.dark.primary,
+  },
+
+  // Period filter pills
+  calmPeriodScroll: {
+    flexGrow: 0,
+    marginBottom: Spacing.sm,
+  },
+  calmPeriodContent: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.xs,
+  },
+  calmPeriodPill: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    marginRight: Spacing.xs,
+  },
+  calmPeriodPillActive: {
+    backgroundColor: Colors.dark.primary + "20",
+  },
+  calmPeriodText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+  },
+  calmPeriodTextActive: {
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+
+  // Status filter pills
+  calmStatusScroll: {
+    flexGrow: 0,
+    marginBottom: Spacing.md,
+  },
+  calmStatusContent: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.xs,
+  },
+  calmStatusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: "transparent",
+    marginRight: Spacing.xs,
+  },
+  calmStatusText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+  },
+
+  // Empty state
+  calmEmptyCard: {
+    alignItems: "center",
+    padding: Spacing.xl,
+    marginHorizontal: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+  },
+  calmEmptyIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.dark.backgroundRoot,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.md,
+  },
+  calmEmptyText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    textAlign: "center",
+  },
+  calmEmptySubtext: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+    textAlign: "center",
+    marginTop: Spacing.xs,
+  },
+
+  // Session cards
+  calmSessionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+  },
+  calmSessionCardNeedsFeedback: {
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "40",
+  },
+  calmSessionTimeBadge: {
+    alignItems: "center",
+    minWidth: 50,
+  },
+  calmSessionTimeText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  calmSessionDuration: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.tabIconDefault,
+  },
+  calmSessionInfo: {
+    flex: 1,
+  },
+  calmSessionType: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "500",
+    color: Colors.dark.text,
+    marginBottom: 2,
+  },
+  calmSessionDate: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+    marginBottom: 4,
+  },
+  calmSessionBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: 4,
+  },
+  calmPendingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  calmPendingText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.gold,
+  },
+  calmXpText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.gold,
+    fontWeight: "600",
+  },
+  calmDoneBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  calmDoneText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.primary,
   },
 });

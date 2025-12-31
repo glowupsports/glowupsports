@@ -268,3 +268,87 @@
 - Chat footer: Max 60% screen height when expanded
 - Card grid: Switches to single column on very small screens (<350px width)
 - Typography scales down 10% on small screens
+
+---
+
+## Screen Hierarchy (20/60/20 Rule)
+
+**CRITICAL: Not every page can be "epic". Distribute visual intensity:**
+
+### 20% Epic (Command Center / Home Only)
+- Dashboard/Home screens with hero headers
+- One animated glow element maximum
+- Dramatic typography and status indicators
+- Reserved for: Main dashboard, command centers, onboarding
+
+### 60% Calm (Lists, Calendar, Settings)
+**This is the GOLD STANDARD. Most screens should look like this.**
+- Clean hierarchy: Title → filters → content
+- **Zero animated glows** - glow is functional only (status/selection)
+- Flat cards with clear sections
+- Green used only for action/selection, never decorative
+- Professional, task-driven layouts
+- Examples: Calendar (gold standard), Settings, Player lists, Session lists
+
+### 20% Focused (Detail Screens)
+- Single-purpose screens with one primary action
+- Depth only on the main content card
+- Minimal distractions
+- Examples: Player detail, Session feedback, Profile edit
+
+---
+
+## Visual Rules Checklist
+
+### Glow Rules
+- **Maximum 1 glow element per screen**
+- Glow = status indicator or selection state ONLY
+- Glow is NEVER purely decorative
+- Calm screens: No animated glows at all
+- Epic screens: One controlled glow effect maximum
+
+### Green Usage
+- Green = Action button or selection state
+- Green = Active/selected filter or tab
+- Green ≠ Background fill
+- Green ≠ Decorative accent on every element
+- Use sparingly: if everything is green, nothing stands out
+
+### Card Depth Policy
+- **List items = Flat** (no elevation, minimal border)
+- **Detail views = Depth** (subtle elevation, focus on content)
+- **Problem indicators = Accent** (colored border or badge only)
+- Never: Every card with glow/gradient/animation
+
+### Typography Hierarchy
+- **Title = White** (#FFFFFF or light text)
+- **Meta/Labels = Grey** (muted, secondary)
+- **Status = Color** (green for success, gold for pending, red for error)
+- Uppercase + letter-spacing = Reserved for epic headers only
+
+---
+
+## Component Usage by Screen Type
+
+### For CALM Screens (Calendar, Settings, Lists)
+```
+NeoLoadoutPanel: tone="calm" (glow disabled, flat background)
+Cards: Simple background, 1px border, no animation
+Filters: Pill buttons without glow, color on active only
+Lists: FlatList with minimal styling per row
+```
+
+### For EPIC Screens (Dashboard, Command Center)
+```
+NeoLoadoutPanel: tone="epic" (single glow allowed, animations OK)
+Header: Can have sweep animation, status badges
+Cards: One card with glow effect maximum
+Status: Animated indicators allowed
+```
+
+### For FOCUSED Screens (Details, Forms)
+```
+NeoLoadoutPanel: tone="focused" (depth on main card only)
+Content: Single scrollable area with clear CTA
+Navigation: Simple back button, no complex tabs
+```
