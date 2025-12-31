@@ -2565,22 +2565,22 @@ const styles = StyleSheet.create({
   sessionCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(20, 20, 20, 0.95)",
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     gap: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.dark.primary + "45",
+    borderWidth: 2,
+    borderColor: Colors.dark.primary + "60",
     ...Platform.select({
       ios: {
         shadowColor: Colors.dark.primary,
         shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
+        shadowOpacity: 0.5,
+        shadowRadius: 12,
       },
       android: {
-        elevation: 6,
+        elevation: 8,
       },
     }),
   },
