@@ -180,13 +180,14 @@ export default function DashboardScreen() {
       .reduce((acc, s) => acc + s.duration, 0);
     const remainingMinutes = totalMinutes - completedMinutes;
     
-    const staminaPercent = Math.min(100, Math.round((totalMinutes / maxDailyMinutes) * 100));
+    const loadPercent = Math.min(100, Math.round((totalMinutes / maxDailyMinutes) * 100));
+    const staminaPercent = Math.max(0, 100 - loadPercent);
     const impactPercent = totalMinutes > 0 ? Math.round((completedMinutes / totalMinutes) * 100) : 0;
     
-    let energyState: "rested" | "active" | "focused" | "intense" = "rested";
-    if (totalMinutes >= 300) energyState = "intense";
-    else if (totalMinutes >= 240) energyState = "focused";
-    else if (totalMinutes >= 120) energyState = "active";
+    let energyState: "fullpower" | "charged" | "draining" | "depleted" = "fullpower";
+    if (staminaPercent <= 20) energyState = "depleted";
+    else if (staminaPercent <= 50) energyState = "draining";
+    else if (staminaPercent < 100) energyState = "charged";
     
     // Day intensity for personality
     let dayIntensity: "rest" | "light" | "normal" | "heavy" = "rest";
@@ -790,13 +791,11 @@ export default function DashboardScreen() {
                     styles.gamingStateBadge,
                     {
                       borderColor:
-                        todaysSessions.length === 0
-                          ? Colors.dark.xpCyan
-                          : coachStats.energyState === "intense"
+                        coachStats.energyState === "depleted"
                           ? Colors.dark.error
-                          : coachStats.energyState === "focused"
+                          : coachStats.energyState === "draining"
                           ? Colors.dark.orange
-                          : coachStats.energyState === "active"
+                          : coachStats.energyState === "charged"
                           ? Colors.dark.gold
                           : Colors.dark.primary,
                     },
@@ -807,20 +806,18 @@ export default function DashboardScreen() {
                       styles.gamingStateText,
                       {
                         color:
-                          todaysSessions.length === 0
-                            ? Colors.dark.xpCyan
-                            : coachStats.energyState === "intense"
+                          coachStats.energyState === "depleted"
                             ? Colors.dark.error
-                            : coachStats.energyState === "focused"
+                            : coachStats.energyState === "draining"
                             ? Colors.dark.orange
-                            : coachStats.energyState === "active"
+                            : coachStats.energyState === "charged"
                             ? Colors.dark.gold
                             : Colors.dark.primary,
                       },
                     ]}
                   >
-                    {todaysSessions.length === 0 
-                      ? "CHARGED" 
+                    {coachStats.energyState === "fullpower" 
+                      ? "FULL POWER" 
                       : coachStats.energyState.toUpperCase()}
                   </Text>
                 </View>
@@ -852,11 +849,9 @@ export default function DashboardScreen() {
                     <View style={styles.gamingBarTrack}>
                       <LinearGradient
                         colors={
-                          todaysSessions.length === 0
-                            ? [Colors.dark.xpCyan, Colors.dark.primary]
-                            : coachStats.energyState === "intense"
+                          coachStats.energyState === "depleted"
                             ? [Colors.dark.error, Colors.dark.orange]
-                            : coachStats.energyState === "focused"
+                            : coachStats.energyState === "draining"
                             ? [Colors.dark.orange, Colors.dark.gold]
                             : [Colors.dark.primary, Colors.dark.xpCyan]
                         }
