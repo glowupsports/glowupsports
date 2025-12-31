@@ -394,9 +394,9 @@ export default function DashboardScreen() {
       if (pendingFeedbackCount > 0) {
         return { primary: "XP Available", secondary: `Complete ${pendingFeedbackCount} feedback to earn XP` };
       }
-      return { primary: "Rest Day", secondary: "Good day to review player progress" };
+      return { primary: "Off Court", secondary: "Perfect time to review player progress" };
     }
-    return { primary: "Day Complete", secondary: "All sessions finished" };
+    return { primary: "Match Point", secondary: "All sessions complete" };
   };
 
   if (!coach) {
@@ -544,7 +544,7 @@ export default function DashboardScreen() {
           </LinearGradient>
         </View>
 
-        {/* === MISSION CONSOLE - Gaming Style Overview === */}
+        {/* === COURT COMMAND - Tennis Control Centre === */}
         <View style={styles.missionConsole}>
           {/* Neon frame */}
           <View style={styles.missionFrame}>
@@ -560,13 +560,13 @@ export default function DashboardScreen() {
             colors={["rgba(0, 0, 0, 0.6)", "rgba(45, 45, 45, 0.8)"]}
             style={styles.missionGradient}
           >
-            {/* Mission Header */}
+            {/* Court Command Header */}
             <View style={styles.missionHeader}>
               <View style={styles.missionTitleSection}>
                 <View style={styles.missionIconWrapper}>
-                  <Ionicons name="game-controller" size={16} color={Colors.dark.xpCyan} />
+                  <Ionicons name="tennisball" size={16} color={Colors.dark.xpCyan} />
                 </View>
-                <Text style={styles.missionTitle}>MISSION CONTROL</Text>
+                <Text style={styles.missionTitle}>COURT COMMAND</Text>
               </View>
               
               {/* Day Navigation Pills + Collapse Toggle */}
