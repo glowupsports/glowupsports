@@ -997,7 +997,7 @@ const styles = StyleSheet.create({
     height: 44,
     gap: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "30",
+    borderColor: Colors.dark.primary + "40",
   },
   searchInput: {
     flex: 1,
@@ -1018,11 +1018,11 @@ const styles = StyleSheet.create({
     marginRight: Spacing.sm,
     gap: Spacing.xs,
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "20",
+    borderColor: Colors.dark.primary + "30",
   },
   filterChipActive: {
-    backgroundColor: Colors.dark.primary + "30",
-    borderColor: Colors.dark.primary + "60",
+    backgroundColor: Colors.dark.primary + "40",
+    borderColor: Colors.dark.primary,
   },
   filterChipText: {
     fontSize: Typography.small.fontSize,
@@ -1065,16 +1065,16 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     gap: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "25",
+    borderColor: Colors.dark.primary + "45",
     ...Platform.select({
       ios: {
         shadowColor: Colors.dark.primary,
         shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.15,
-        shadowRadius: 4,
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 2,
+        elevation: 6,
       },
     }),
   },

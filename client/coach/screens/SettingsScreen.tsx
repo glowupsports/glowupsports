@@ -627,16 +627,16 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
     gap: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "30",
+    borderColor: Colors.dark.primary + "50",
     ...Platform.select({
       ios: {
         shadowColor: Colors.dark.primary,
         shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.15,
-        shadowRadius: 4,
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 2,
+        elevation: 6,
       },
     }),
   },
@@ -697,6 +697,9 @@ const styles = StyleSheet.create({
     ...Typography.h4,
     color: Colors.dark.text,
     marginBottom: Spacing.md,
+    textTransform: "uppercase",
+    letterSpacing: 1.5,
+    fontWeight: "700",
   },
   settingRow: {
     flexDirection: "row",
@@ -708,16 +711,16 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     gap: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "20",
+    borderColor: Colors.dark.primary + "40",
     ...Platform.select({
       ios: {
         shadowColor: Colors.dark.primary,
         shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
       },
       android: {
-        elevation: 1,
+        elevation: 5,
       },
     }),
   },
@@ -749,8 +752,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.primary + "20",
   },
   durationButtonActive: {
-    backgroundColor: Colors.dark.primary + "30",
-    borderColor: Colors.dark.primary + "60",
+    backgroundColor: Colors.dark.primary + "40",
+    borderColor: Colors.dark.primary,
   },
   durationButtonText: {
     fontSize: Typography.body.fontSize,
@@ -775,8 +778,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.primary + "20",
   },
   weekButtonActive: {
-    backgroundColor: Colors.dark.primary + "30",
-    borderColor: Colors.dark.primary + "60",
+    backgroundColor: Colors.dark.primary + "40",
+    borderColor: Colors.dark.primary,
   },
   weekButtonText: {
     fontSize: Typography.body.fontSize,
@@ -801,8 +804,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.primary + "20",
   },
   travelButtonActive: {
-    backgroundColor: Colors.dark.primary + "30",
-    borderColor: Colors.dark.primary + "60",
+    backgroundColor: Colors.dark.primary + "40",
+    borderColor: Colors.dark.primary,
   },
   travelButtonText: {
     fontSize: Typography.small.fontSize,

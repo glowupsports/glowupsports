@@ -2350,7 +2350,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: Colors.dark.backgroundSecondary,
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "25",
+    borderColor: Colors.dark.primary + "40",
   },
   periodTabActive: {
     backgroundColor: Colors.dark.primary,
@@ -2359,11 +2359,11 @@ const styles = StyleSheet.create({
       ios: {
         shadowColor: Colors.dark.primary,
         shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.4,
-        shadowRadius: 6,
+        shadowOpacity: 0.5,
+        shadowRadius: 10,
       },
       android: {
-        elevation: 4,
+        elevation: 6,
       },
     }),
   },
@@ -2506,6 +2506,9 @@ const styles = StyleSheet.create({
     ...Typography.h3,
     color: Colors.dark.text,
     marginBottom: Spacing.md,
+    textTransform: "uppercase",
+    letterSpacing: 1.5,
+    fontWeight: "700",
   },
   emptyCard: {
     flex: 1,
@@ -2516,16 +2519,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "25",
+    borderColor: Colors.dark.primary + "45",
     ...Platform.select({
       ios: {
         shadowColor: Colors.dark.primary,
         shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
       },
       android: {
-        elevation: 2,
+        elevation: 6,
       },
     }),
   },
@@ -2547,16 +2550,16 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     gap: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "25",
+    borderColor: Colors.dark.primary + "45",
     ...Platform.select({
       ios: {
         shadowColor: Colors.dark.primary,
         shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.15,
-        shadowRadius: 4,
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 2,
+        elevation: 6,
       },
     }),
   },
