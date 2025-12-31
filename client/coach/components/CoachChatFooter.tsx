@@ -763,7 +763,10 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
         >
           <View style={styles.headerLeft}>
             <View style={styles.chatIconContainer}>
-              <Ionicons name="chatbubble-outline" size={20} color={Colors.dark.primary} />
+              <Ionicons name="chatbubble" size={18} color={Colors.dark.primary} />
+              <View style={styles.connectionIndicator}>
+                <View style={[styles.connectionDot, !isConnected && { backgroundColor: Colors.dark.disabled }]} />
+              </View>
               {unreadCount > 0 ? (
                 <View style={styles.unreadBadge}>
                   <ThemedText style={styles.unreadText}>{unreadCount}</ThemedText>
@@ -908,21 +911,19 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: Colors.dark.backgroundDefault,
-    borderTopWidth: 1,
-    borderTopColor: `${Colors.dark.primary}40`,
+    backgroundColor: "rgba(12, 12, 12, 0.98)",
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
     zIndex: 100,
     ...Platform.select({
       ios: {
         shadowColor: Colors.dark.primary,
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
+        shadowOffset: { width: 0, height: -6 },
+        shadowOpacity: 0.25,
+        shadowRadius: 16,
       },
       android: {
-        elevation: 8,
+        elevation: 12,
       },
     }),
   },
@@ -934,7 +935,9 @@ const styles = StyleSheet.create({
     height: FOOTER_COLLAPSED,
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
-    backgroundColor: `${Colors.dark.primary}08`,
+    backgroundColor: "rgba(15, 15, 15, 0.98)",
+    borderTopWidth: 2,
+    borderTopColor: Colors.dark.primary + "50",
   },
   headerTouchable: {
     flex: 1,
@@ -951,6 +954,14 @@ const styles = StyleSheet.create({
   },
   chevronButton: {
     padding: Spacing.xs,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: Colors.dark.primary + "15",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
   },
   headerLeft: {
     flexDirection: "row",
@@ -960,17 +971,19 @@ const styles = StyleSheet.create({
   },
   chatIconContainer: {
     position: "relative",
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: `${Colors.dark.primary}20`,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: Colors.dark.primary + "20",
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "50",
   },
   unreadBadge: {
     position: "absolute",
-    top: -4,
-    right: -4,
+    top: -5,
+    right: -5,
     backgroundColor: Colors.dark.error,
     borderRadius: 10,
     minWidth: 18,
@@ -979,27 +992,31 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 4,
     borderWidth: 2,
-    borderColor: Colors.dark.backgroundDefault,
+    borderColor: "rgba(15, 15, 15, 0.98)",
   },
   unreadText: {
-    fontSize: 10,
-    fontWeight: "700",
+    fontSize: 9,
+    fontWeight: "800",
     color: Colors.dark.text,
+    letterSpacing: 0.5,
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "800",
     color: Colors.dark.text,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
   },
   previewText: {
-    fontSize: 14,
-    color: Colors.dark.text,
-    opacity: 0.7,
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
     flex: 1,
+    fontWeight: "500",
   },
   previewSender: {
-    fontWeight: "600",
-    color: Colors.dark.text,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+    letterSpacing: 0.5,
   },
   expandedContent: {
     flex: 1,
@@ -1232,16 +1249,29 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
   },
   connectionIndicator: {
-    width: 8,
-    height: 8,
+    width: 12,
+    height: 12,
     justifyContent: "center",
     alignItems: "center",
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    borderRadius: 6,
+    backgroundColor: "rgba(12, 12, 12, 0.98)",
   },
   connectionDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: Colors.dark.successNeon,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.successNeon,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 4,
+      },
+    }),
   },
   inputContainer: {
     flexDirection: "row",
