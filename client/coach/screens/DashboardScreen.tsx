@@ -757,366 +757,464 @@ export default function DashboardScreen() {
           </LinearGradient>
         </View>
 
-        {/* Stamina & Impact Card */}
-        <View style={styles.energyCard}>
-          <Pressable 
-            style={styles.energyHeader}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setEnergyCollapsed(!energyCollapsed);
-            }}
+        {/* === POWER GAUGE - Gaming Energy HUD === */}
+        <View style={styles.gamingCard}>
+          {/* Neon top accent */}
+          <LinearGradient
+            colors={[Colors.dark.primary + "60", "transparent", Colors.dark.xpCyan + "60"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.gamingCardTopLine}
+          />
+          
+          <LinearGradient
+            colors={["rgba(0, 0, 0, 0.7)", "rgba(35, 35, 35, 0.9)"]}
+            style={styles.gamingCardGradient}
           >
-            <View style={styles.energyTitleRow}>
-              <Ionicons name="flash-outline" size={18} color={Colors.dark.primary} />
-              <Text style={styles.energyTitle}>Energy</Text>
-            </View>
-            <View
-              style={[
-                styles.energyStateBadge,
-                {
-                  backgroundColor:
-                    todaysSessions.length === 0
-                      ? Colors.dark.xpCyan + "15"
-                      : coachStats.energyState === "intense"
-                      ? Colors.dark.error + "15"
-                      : coachStats.energyState === "focused"
-                      ? Colors.dark.orange + "15"
-                      : coachStats.energyState === "active"
-                      ? Colors.dark.gold + "15"
-                      : Colors.dark.primary + "15",
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.energyStateText,
-                  {
-                    color:
-                      todaysSessions.length === 0
-                        ? Colors.dark.xpCyan
-                        : coachStats.energyState === "intense"
-                        ? Colors.dark.error
-                        : coachStats.energyState === "focused"
-                        ? Colors.dark.orange
-                        : coachStats.energyState === "active"
-                        ? Colors.dark.gold
-                        : Colors.dark.primary,
-                  },
-                ]}
-              >
-                {todaysSessions.length === 0 
-                  ? "Rested" 
-                  : coachStats.energyState.charAt(0).toUpperCase() + coachStats.energyState.slice(1)}
-              </Text>
-            </View>
-            <Ionicons 
-              name={energyCollapsed ? "chevron-down" : "chevron-up"} 
-              size={18} 
-              color={Colors.dark.tabIconDefault} 
-            />
-          </Pressable>
-
-          {energyCollapsed ? (
-            <View style={styles.collapsedPreview}>
-              <Text style={styles.collapsedPreviewText}>
-                Stamina {todaysSessions.length === 0 ? "100" : coachStats.staminaPercent}% · Impact {todaysSessions.length === 0 ? "100" : coachStats.impactPercent}%
-              </Text>
-            </View>
-          ) : (
-          <>
-          <View style={styles.energyBarsContainer}>
-            {/* Stamina Bar */}
-            <View style={styles.energyBarRow}>
-              <Text style={styles.energyBarLabel}>Stamina</Text>
-              <View style={styles.energyBarBackground}>
-                <LinearGradient
-                  colors={
-                    todaysSessions.length === 0
-                      ? [Colors.dark.xpCyan + "80", Colors.dark.xpCyan + "40"]
-                      : coachStats.energyState === "intense"
-                      ? [Colors.dark.error + "80", Colors.dark.error + "40"]
-                      : coachStats.energyState === "focused"
-                      ? [Colors.dark.orange + "80", Colors.dark.orange + "40"]
-                      : [Colors.dark.primary + "80", Colors.dark.primary + "40"]
-                  }
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={[styles.energyBarFill, { width: todaysSessions.length === 0 ? "100%" : `${coachStats.staminaPercent}%` }]}
-                />
-              </View>
-              <Text style={styles.energyBarValue}>{todaysSessions.length === 0 ? "100" : coachStats.staminaPercent}%</Text>
-            </View>
-
-            {/* Impact Bar */}
-            <View style={styles.energyBarRow}>
-              <Text style={styles.energyBarLabel}>Impact</Text>
-              <View style={styles.energyBarBackground}>
-                {todaysSessions.length > 0 && coachStats.completedMinutes === 0 ? (
-                  <View style={[styles.energyBarFill, { width: "100%", backgroundColor: Colors.dark.disabled + "30" }]} />
-                ) : (
-                  <LinearGradient
-                    colors={[Colors.dark.xpCyan + "80", Colors.dark.xpCyan + "40"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={[styles.energyBarFill, { width: todaysSessions.length === 0 ? "100%" : `${coachStats.impactPercent}%` }]}
-                  />
-                )}
-              </View>
-              <Text style={styles.energyBarValue}>
-                {todaysSessions.length === 0 
-                  ? "100%" 
-                  : coachStats.completedMinutes === 0 
-                    ? "Pending" 
-                    : `${coachStats.impactPercent}%`}
-              </Text>
-            </View>
-          </View>
-
-          <Text style={styles.energySubtext}>
-            {todaysSessions.length === 0
-              ? "Fully recharged and ready"
-              : coachStats.impactPercent === 100
-              ? "High impact sessions give bonus XP"
-              : coachStats.completedMinutes > 0
-              ? `${coachStats.completedMinutes}m coached, ${coachStats.remainingMinutes}m remaining`
-              : coachStats.totalMinutes > 0
-              ? `Impact updates after sessions · ${coachStats.totalMinutes}m scheduled`
-              : "Ready for action"}
-          </Text>
-          </>
-          )}
-        </View>
-
-        {/* Burnout Risk & Load Forecast */}
-        <View style={styles.collapsibleCard}>
-          <Pressable 
-            style={styles.collapsibleHeader}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setInsightsCollapsed(!insightsCollapsed);
-            }}
-          >
-            <View style={styles.collapsibleTitleRow}>
-              <Ionicons name="analytics-outline" size={18} color={Colors.dark.xpCyan} />
-              <Text style={styles.collapsibleTitle}>Insights</Text>
-            </View>
-            <Ionicons 
-              name={insightsCollapsed ? "chevron-down" : "chevron-up"} 
-              size={18} 
-              color={Colors.dark.tabIconDefault} 
-            />
-          </Pressable>
-          {insightsCollapsed ? (
-            <View style={styles.collapsedPreview}>
-              <Text style={styles.collapsedPreviewText}>
-                Load forecast and burnout risk
-              </Text>
-            </View>
-          ) : (
-            <>
-              <BurnoutRiskCard />
-              <LoadForecastCard 
-                onDayPress={(date) => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  handleNavigate("Calendar");
-                }}
-              />
-            </>
-          )}
-        </View>
-
-        {/* Alerts */}
-        {alerts.length > 0 ? (
-          <View style={styles.collapsibleCard}>
             <Pressable 
-              style={styles.collapsibleHeader}
+              style={styles.gamingCardHeader}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setAlertsCollapsed(!alertsCollapsed);
+                setEnergyCollapsed(!energyCollapsed);
               }}
             >
-              <View style={styles.collapsibleTitleRow}>
-                <Ionicons name="notifications-outline" size={18} color={Colors.dark.orange} />
-                <Text style={styles.collapsibleTitle}>Alerts</Text>
-              </View>
-              <View style={styles.collapsibleToggle}>
-                <View style={styles.collapsibleBadge}>
-                  <Text style={styles.collapsibleBadgeText}>{alerts.length}</Text>
+              <View style={styles.gamingCardTitleRow}>
+                <View style={styles.gamingIconWrapper}>
+                  <Ionicons name="flash" size={14} color={Colors.dark.primary} />
                 </View>
-                <Ionicons 
-                  name={alertsCollapsed ? "chevron-down" : "chevron-up"} 
-                  size={18} 
-                  color={Colors.dark.tabIconDefault} 
-                />
+                <Text style={styles.gamingCardTitle}>POWER GAUGE</Text>
               </View>
-            </Pressable>
-            {alertsCollapsed ? null : alerts.map((alert) => (
-              <Pressable 
-                key={alert.id} 
-                style={styles.alertCard}
-                onPress={() => handleNavigate("Coaching")}
-              >
+              <View style={styles.gamingCardControls}>
                 <View
                   style={[
-                    styles.alertIcon,
+                    styles.gamingStateBadge,
                     {
-                      backgroundColor:
-                        alert.priority === "high"
-                          ? Colors.dark.error + "15"
-                          : Colors.dark.orange + "15",
+                      borderColor:
+                        todaysSessions.length === 0
+                          ? Colors.dark.xpCyan
+                          : coachStats.energyState === "intense"
+                          ? Colors.dark.error
+                          : coachStats.energyState === "focused"
+                          ? Colors.dark.orange
+                          : coachStats.energyState === "active"
+                          ? Colors.dark.gold
+                          : Colors.dark.primary,
                     },
                   ]}
                 >
-                  <Ionicons
-                    name={
-                      alert.type === "feedback"
-                        ? "document-text-outline"
-                        : alert.type === "holiday"
-                        ? "airplane-outline"
-                        : "alert-circle-outline"
-                    }
-                    size={20}
-                    color={alert.priority === "high" ? Colors.dark.error : Colors.dark.orange}
-                  />
+                  <Text
+                    style={[
+                      styles.gamingStateText,
+                      {
+                        color:
+                          todaysSessions.length === 0
+                            ? Colors.dark.xpCyan
+                            : coachStats.energyState === "intense"
+                            ? Colors.dark.error
+                            : coachStats.energyState === "focused"
+                            ? Colors.dark.orange
+                            : coachStats.energyState === "active"
+                            ? Colors.dark.gold
+                            : Colors.dark.primary,
+                      },
+                    ]}
+                  >
+                    {todaysSessions.length === 0 
+                      ? "CHARGED" 
+                      : coachStats.energyState.toUpperCase()}
+                  </Text>
                 </View>
-                <Text style={styles.alertText}>{alert.message}</Text>
-                <Text style={styles.alertXP}>+{pendingFeedbackCount * 15} XP</Text>
-                <Ionicons name="chevron-forward" size={20} color={Colors.dark.tabIconDefault} />
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
-
-        {/* Today's Timeline */}
-        {todaysSessions.length > 0 ? (
-          <View style={styles.collapsibleCard}>
-            <Pressable 
-              style={styles.collapsibleHeader}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setTimelineCollapsed(!timelineCollapsed);
-              }}
-            >
-              <View style={styles.collapsibleTitleRow}>
-                <Ionicons name="time-outline" size={18} color={Colors.dark.primary} />
-                <Text style={styles.collapsibleTitle}>Today's Timeline</Text>
+                <Pressable style={styles.gamingCollapseBtn}>
+                  <Ionicons 
+                    name={energyCollapsed ? "chevron-down" : "chevron-up"} 
+                    size={16} 
+                    color={Colors.dark.textSecondary} 
+                  />
+                </Pressable>
               </View>
-              <Ionicons 
-                name={timelineCollapsed ? "chevron-down" : "chevron-up"} 
-                size={18} 
-                color={Colors.dark.tabIconDefault} 
-              />
             </Pressable>
-            {timelineCollapsed ? (
-              <View style={styles.collapsedPreview}>
-                <Text style={styles.collapsedPreviewText}>
-                  {(() => {
-                    const now = new Date();
-                    const nextSession = todaysSessions.find(s => new Date(s.startTime) > now);
-                    const currentSession = todaysSessions.find(s => 
-                      new Date(s.startTime) <= now && new Date(s.endTime) > now
-                    );
-                    if (currentSession) return "In session now";
-                    if (nextSession) return `Next: ${formatTime(nextSession.startTime)}`;
-                    return "All sessions complete";
-                  })()}
+
+            {energyCollapsed ? (
+              <View style={styles.gamingCollapsedPreview}>
+                <Text style={styles.gamingCollapsedText}>
+                  STM {todaysSessions.length === 0 ? "100" : coachStats.staminaPercent}% | IMP {todaysSessions.length === 0 ? "100" : coachStats.impactPercent}%
                 </Text>
               </View>
             ) : (
-              <View style={styles.timelineCard}>
-                <MiniTimeline
-                  sessions={todaysSessions.map(s => ({
-                    ...s,
-                    players: (s as any).players || [],
-                  }))}
+              <>
+                <View style={styles.gamingBarsContainer}>
+                  {/* Stamina Power Bar */}
+                  <View style={styles.gamingBarRow}>
+                    <View style={styles.gamingBarLabelRow}>
+                      <Text style={styles.gamingBarLabel}>STAMINA</Text>
+                      <Text style={styles.gamingBarValue}>{todaysSessions.length === 0 ? "100" : coachStats.staminaPercent}%</Text>
+                    </View>
+                    <View style={styles.gamingBarTrack}>
+                      <LinearGradient
+                        colors={
+                          todaysSessions.length === 0
+                            ? [Colors.dark.xpCyan, Colors.dark.primary]
+                            : coachStats.energyState === "intense"
+                            ? [Colors.dark.error, Colors.dark.orange]
+                            : coachStats.energyState === "focused"
+                            ? [Colors.dark.orange, Colors.dark.gold]
+                            : [Colors.dark.primary, Colors.dark.xpCyan]
+                        }
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[styles.gamingBarFill, { width: todaysSessions.length === 0 ? "100%" : `${coachStats.staminaPercent}%` }]}
+                      />
+                      <View style={styles.gamingBarGlow} />
+                    </View>
+                  </View>
+
+                  {/* Impact Power Bar */}
+                  <View style={styles.gamingBarRow}>
+                    <View style={styles.gamingBarLabelRow}>
+                      <Text style={styles.gamingBarLabel}>IMPACT</Text>
+                      <Text style={styles.gamingBarValue}>
+                        {todaysSessions.length === 0 
+                          ? "100%" 
+                          : coachStats.completedMinutes === 0 
+                            ? "---" 
+                            : `${coachStats.impactPercent}%`}
+                      </Text>
+                    </View>
+                    <View style={styles.gamingBarTrack}>
+                      {todaysSessions.length > 0 && coachStats.completedMinutes === 0 ? (
+                        <View style={[styles.gamingBarFill, { width: "100%", backgroundColor: Colors.dark.disabled + "40" }]} />
+                      ) : (
+                        <LinearGradient
+                          colors={[Colors.dark.xpCyan, Colors.dark.primary]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={[styles.gamingBarFill, { width: todaysSessions.length === 0 ? "100%" : `${coachStats.impactPercent}%` }]}
+                        />
+                      )}
+                      <View style={styles.gamingBarGlow} />
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.gamingSubtextRow}>
+                  <Ionicons name="information-circle" size={12} color={Colors.dark.textSecondary} />
+                  <Text style={styles.gamingSubtext}>
+                    {todaysSessions.length === 0
+                      ? "Fully recharged - ready for court"
+                      : coachStats.impactPercent === 100
+                      ? "Max impact unlocks bonus XP"
+                      : coachStats.completedMinutes > 0
+                      ? `${coachStats.completedMinutes}m played | ${coachStats.remainingMinutes}m remaining`
+                      : coachStats.totalMinutes > 0
+                      ? `${coachStats.totalMinutes}m scheduled today`
+                      : "Ready for action"}
+                  </Text>
+                </View>
+              </>
+            )}
+          </LinearGradient>
+        </View>
+
+        {/* === COACH ANALYTICS - Gaming Insights HUD === */}
+        <View style={styles.gamingCard}>
+          <LinearGradient
+            colors={[Colors.dark.xpCyan + "60", "transparent", Colors.dark.primary + "60"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.gamingCardTopLine}
+          />
+          
+          <LinearGradient
+            colors={["rgba(0, 0, 0, 0.7)", "rgba(35, 35, 35, 0.9)"]}
+            style={styles.gamingCardGradient}
+          >
+            <Pressable 
+              style={styles.gamingCardHeader}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setInsightsCollapsed(!insightsCollapsed);
+              }}
+            >
+              <View style={styles.gamingCardTitleRow}>
+                <View style={[styles.gamingIconWrapper, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
+                  <Ionicons name="stats-chart" size={14} color={Colors.dark.xpCyan} />
+                </View>
+                <Text style={styles.gamingCardTitle}>COACH ANALYTICS</Text>
+              </View>
+              <Pressable style={styles.gamingCollapseBtn}>
+                <Ionicons 
+                  name={insightsCollapsed ? "chevron-down" : "chevron-up"} 
+                  size={16} 
+                  color={Colors.dark.textSecondary} 
+                />
+              </Pressable>
+            </Pressable>
+            
+            {insightsCollapsed ? (
+              <View style={styles.gamingCollapsedPreview}>
+                <Text style={styles.gamingCollapsedText}>
+                  Load forecast & performance metrics
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.gamingInsightsContent}>
+                <BurnoutRiskCard />
+                <LoadForecastCard 
+                  onDayPress={(date) => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    handleNavigate("Calendar");
+                  }}
                 />
               </View>
             )}
+          </LinearGradient>
+        </View>
+
+        {/* === ACTION QUEUE - Gaming Alerts HUD === */}
+        {alerts.length > 0 ? (
+          <View style={styles.gamingCard}>
+            <LinearGradient
+              colors={[Colors.dark.orange + "60", "transparent", Colors.dark.gold + "60"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gamingCardTopLine}
+            />
+            
+            <LinearGradient
+              colors={["rgba(0, 0, 0, 0.7)", "rgba(35, 35, 35, 0.9)"]}
+              style={styles.gamingCardGradient}
+            >
+              <Pressable 
+                style={styles.gamingCardHeader}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setAlertsCollapsed(!alertsCollapsed);
+                }}
+              >
+                <View style={styles.gamingCardTitleRow}>
+                  <View style={[styles.gamingIconWrapper, { backgroundColor: Colors.dark.orange + "20" }]}>
+                    <Ionicons name="warning" size={14} color={Colors.dark.orange} />
+                  </View>
+                  <Text style={styles.gamingCardTitle}>ACTION QUEUE</Text>
+                </View>
+                <View style={styles.gamingCardControls}>
+                  <View style={styles.gamingAlertBadge}>
+                    <Text style={styles.gamingAlertBadgeText}>{alerts.length}</Text>
+                  </View>
+                  <Pressable style={styles.gamingCollapseBtn}>
+                    <Ionicons 
+                      name={alertsCollapsed ? "chevron-down" : "chevron-up"} 
+                      size={16} 
+                      color={Colors.dark.textSecondary} 
+                    />
+                  </Pressable>
+                </View>
+              </Pressable>
+              
+              {alertsCollapsed ? null : alerts.map((alert) => (
+                <Pressable 
+                  key={alert.id} 
+                  style={styles.gamingAlertCard}
+                  onPress={() => handleNavigate("Coaching")}
+                >
+                  <View
+                    style={[
+                      styles.gamingAlertIcon,
+                      {
+                        borderColor:
+                          alert.priority === "high"
+                            ? Colors.dark.error
+                            : Colors.dark.orange,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name={
+                        alert.type === "feedback"
+                          ? "document-text"
+                          : alert.type === "holiday"
+                          ? "airplane"
+                          : "alert-circle"
+                      }
+                      size={18}
+                      color={alert.priority === "high" ? Colors.dark.error : Colors.dark.orange}
+                    />
+                  </View>
+                  <Text style={styles.gamingAlertText}>{alert.message}</Text>
+                  <View style={styles.gamingXpBadge}>
+                    <Text style={styles.gamingXpText}>+{pendingFeedbackCount * 15} XP</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={Colors.dark.primary} />
+                </Pressable>
+              ))}
+            </LinearGradient>
           </View>
         ) : null}
 
-        {/* Today's Lessons - Collapsible */}
+        {/* === MATCH SCHEDULE - Gaming Timeline HUD === */}
         {todaysSessions.length > 0 ? (
-          <View style={styles.collapsibleCard}>
-            <Pressable 
-              style={styles.collapsibleHeader}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setSessionsCollapsed(!sessionsCollapsed);
-              }}
+          <View style={styles.gamingCard}>
+            <LinearGradient
+              colors={[Colors.dark.primary + "60", "transparent", Colors.dark.xpCyan + "60"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gamingCardTopLine}
+            />
+            
+            <LinearGradient
+              colors={["rgba(0, 0, 0, 0.7)", "rgba(35, 35, 35, 0.9)"]}
+              style={styles.gamingCardGradient}
             >
-              <View style={styles.collapsibleTitleRow}>
-                <Ionicons name="tennisball-outline" size={18} color={Colors.dark.gold} />
-                <Text style={styles.collapsibleTitle}>Sessions</Text>
-              </View>
-              <View style={styles.collapsibleToggle}>
-                <View style={styles.collapsibleBadge}>
-                  <Text style={styles.collapsibleBadgeText}>{todaysSessions.length}</Text>
+              <Pressable 
+                style={styles.gamingCardHeader}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setTimelineCollapsed(!timelineCollapsed);
+                }}
+              >
+                <View style={styles.gamingCardTitleRow}>
+                  <View style={styles.gamingIconWrapper}>
+                    <Ionicons name="time" size={14} color={Colors.dark.primary} />
+                  </View>
+                  <Text style={styles.gamingCardTitle}>COURT SCHEDULE</Text>
                 </View>
-                <Ionicons 
-                  name={sessionsCollapsed ? "chevron-down" : "chevron-up"} 
-                  size={18} 
-                  color={Colors.dark.tabIconDefault} 
-                />
-              </View>
-            </Pressable>
-            {sessionsCollapsed ? (
-              <View style={styles.collapsedPreview}>
-                <Text style={styles.collapsedPreviewText}>
-                  {(() => {
-                    const totalDuration = todaysSessions.reduce((sum, s) => sum + (s.duration || 0), 0);
-                    const playerCount = todaysSessions.reduce((sum, s) => sum + ((s as any).players?.length || 0), 0);
-                    return `${totalDuration}m total · ${playerCount} player${playerCount !== 1 ? 's' : ''}`;
-                  })()}
-                </Text>
-              </View>
-            ) : todaysSessions.map((session) => {
-              const isPast = new Date(session.endTime) < new Date();
-              const isCurrent =
-                new Date(session.startTime) <= new Date() && new Date(session.endTime) > new Date();
-              return (
-                <Pressable
-                  key={session.id}
-                  style={[
-                    styles.sessionCard,
-                    isPast && styles.sessionCardPast,
-                    isCurrent && styles.sessionCardCurrent,
-                  ]}
-                >
-                  <View style={styles.sessionTime}>
-                    <Text style={[styles.sessionTimeText, isPast && styles.sessionTimePast]}>
-                      {formatTime(session.startTime)}
-                    </Text>
-                    <Text style={styles.sessionDuration}>{session.duration}m</Text>
-                  </View>
-                  <View style={styles.sessionInfo}>
-                    <Text style={[styles.sessionType, isPast && styles.sessionTypePast]}>
-                      {session.sessionType === "private"
-                        ? "Private"
-                        : session.sessionType === "semi_private"
-                        ? "Semi-Private"
-                        : session.sessionType === "group"
-                        ? "Group"
-                        : session.sessionType}
-                    </Text>
-                    {isCurrent ? (
-                      <View style={styles.currentBadge}>
-                        <Text style={styles.currentBadgeText}>NOW</Text>
-                      </View>
-                    ) : isPast ? (
-                      <View style={styles.pastBadge}>
-                        <Text style={styles.pastBadgeText}>Done</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={20}
-                    color={isPast ? Colors.dark.disabled : Colors.dark.tabIconDefault}
+                <Pressable style={styles.gamingCollapseBtn}>
+                  <Ionicons 
+                    name={timelineCollapsed ? "chevron-down" : "chevron-up"} 
+                    size={16} 
+                    color={Colors.dark.textSecondary} 
                   />
                 </Pressable>
-              );
-            })}
+              </Pressable>
+              
+              {timelineCollapsed ? (
+                <View style={styles.gamingCollapsedPreview}>
+                  <Text style={styles.gamingCollapsedText}>
+                    {(() => {
+                      const now = new Date();
+                      const nextSession = todaysSessions.find(s => new Date(s.startTime) > now);
+                      const currentSession = todaysSessions.find(s => 
+                        new Date(s.startTime) <= now && new Date(s.endTime) > now
+                      );
+                      if (currentSession) return "LIVE ON COURT";
+                      if (nextSession) return `Next: ${formatTime(nextSession.startTime)}`;
+                      return "All matches complete";
+                    })()}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.gamingTimelineContent}>
+                  <MiniTimeline
+                    sessions={todaysSessions.map(s => ({
+                      ...s,
+                      players: (s as any).players || [],
+                    }))}
+                  />
+                </View>
+              )}
+            </LinearGradient>
+          </View>
+        ) : null}
+
+        {/* === LESSON ROSTER - Gaming Sessions HUD === */}
+        {todaysSessions.length > 0 ? (
+          <View style={styles.gamingCard}>
+            <LinearGradient
+              colors={[Colors.dark.gold + "60", "transparent", Colors.dark.orange + "60"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gamingCardTopLine}
+            />
+            
+            <LinearGradient
+              colors={["rgba(0, 0, 0, 0.7)", "rgba(35, 35, 35, 0.9)"]}
+              style={styles.gamingCardGradient}
+            >
+              <Pressable 
+                style={styles.gamingCardHeader}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSessionsCollapsed(!sessionsCollapsed);
+                }}
+              >
+                <View style={styles.gamingCardTitleRow}>
+                  <View style={[styles.gamingIconWrapper, { backgroundColor: Colors.dark.gold + "20" }]}>
+                    <Ionicons name="tennisball" size={14} color={Colors.dark.gold} />
+                  </View>
+                  <Text style={styles.gamingCardTitle}>LESSON ROSTER</Text>
+                </View>
+                <View style={styles.gamingCardControls}>
+                  <View style={[styles.gamingAlertBadge, { backgroundColor: Colors.dark.gold + "20", borderColor: Colors.dark.gold }]}>
+                    <Text style={[styles.gamingAlertBadgeText, { color: Colors.dark.gold }]}>{todaysSessions.length}</Text>
+                  </View>
+                  <Pressable style={styles.gamingCollapseBtn}>
+                    <Ionicons 
+                      name={sessionsCollapsed ? "chevron-down" : "chevron-up"} 
+                      size={16} 
+                      color={Colors.dark.textSecondary} 
+                    />
+                  </Pressable>
+                </View>
+              </Pressable>
+              
+              {sessionsCollapsed ? (
+                <View style={styles.gamingCollapsedPreview}>
+                  <Text style={styles.gamingCollapsedText}>
+                    {(() => {
+                      const totalDuration = todaysSessions.reduce((sum, s) => sum + (s.duration || 0), 0);
+                      const playerCount = todaysSessions.reduce((sum, s) => sum + ((s as any).players?.length || 0), 0);
+                      return `${totalDuration}m court time | ${playerCount} player${playerCount !== 1 ? 's' : ''}`;
+                    })()}
+                  </Text>
+                </View>
+              ) : todaysSessions.map((session) => {
+                const isPast = new Date(session.endTime) < new Date();
+                const isCurrent =
+                  new Date(session.startTime) <= new Date() && new Date(session.endTime) > new Date();
+                return (
+                  <Pressable
+                    key={session.id}
+                    style={[
+                      styles.gamingSessionCard,
+                      isCurrent && styles.gamingSessionCardLive,
+                    ]}
+                  >
+                    <View style={styles.gamingSessionTime}>
+                      <Text style={[styles.gamingSessionTimeText, isPast && styles.gamingSessionTimePast]}>
+                        {formatTime(session.startTime)}
+                      </Text>
+                      <Text style={styles.gamingSessionDuration}>{session.duration}m</Text>
+                    </View>
+                    <View style={styles.gamingSessionInfo}>
+                      <Text style={[styles.gamingSessionType, isPast && styles.gamingSessionTypePast]}>
+                        {session.sessionType === "private"
+                          ? "1v1 Private"
+                          : session.sessionType === "semi_private"
+                          ? "Semi-Private"
+                          : session.sessionType === "group"
+                          ? "Group Rally"
+                          : session.sessionType}
+                      </Text>
+                      {isCurrent ? (
+                        <View style={styles.gamingLiveBadge}>
+                          <View style={styles.gamingLiveDot} />
+                          <Text style={styles.gamingLiveText}>LIVE</Text>
+                        </View>
+                      ) : isPast ? (
+                        <View style={styles.gamingDoneBadge}>
+                          <Text style={styles.gamingDoneText}>DONE</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color={isPast ? Colors.dark.disabled : Colors.dark.primary}
+                    />
+                  </Pressable>
+                );
+              })}
+            </LinearGradient>
           </View>
         ) : null}
       </ScrollView>
@@ -2303,5 +2401,302 @@ const styles = StyleSheet.create({
   pastBadgeText: {
     fontSize: Typography.caption.fontSize,
     color: Colors.dark.tabIconDefault,
+  },
+  
+  // === GAMING CARD STYLES ===
+  gamingCard: {
+    position: "relative" as const,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  gamingCardTopLine: {
+    position: "absolute" as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    zIndex: 1,
+  },
+  gamingCardGradient: {
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  gamingCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  gamingCardTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  gamingIconWrapper: {
+    width: 28,
+    height: 28,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.primary + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  gamingCardTitle: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    letterSpacing: 2,
+  },
+  gamingCardControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  gamingStateBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    backgroundColor: "transparent",
+  },
+  gamingStateText: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  gamingCollapseBtn: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: BorderRadius.sm,
+  },
+  gamingCollapsedPreview: {
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.06)",
+    marginTop: Spacing.sm,
+  },
+  gamingCollapsedText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
+    letterSpacing: 0.5,
+  },
+  
+  // Gaming Power Bars
+  gamingBarsContainer: {
+    gap: Spacing.md,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.06)",
+  },
+  gamingBarRow: {
+    gap: 6,
+  },
+  gamingBarLabelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  gamingBarLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.textSecondary,
+    letterSpacing: 1,
+  },
+  gamingBarValue: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  gamingBarTrack: {
+    height: 8,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: 4,
+    overflow: "hidden",
+    position: "relative" as const,
+  },
+  gamingBarFill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  gamingBarGlow: {
+    position: "absolute" as const,
+    top: 0,
+    right: 0,
+    width: 20,
+    height: "100%",
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+  },
+  gamingSubtextRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.06)",
+  },
+  gamingSubtext: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+  },
+  gamingInsightsContent: {
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.06)",
+  },
+  
+  // Gaming Alerts
+  gamingAlertBadge: {
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.dark.orange + "20",
+    borderWidth: 1,
+    borderColor: Colors.dark.orange,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  gamingAlertBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.orange,
+  },
+  gamingAlertCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    marginTop: Spacing.sm,
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+  },
+  gamingAlertIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  gamingAlertText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "500",
+    color: Colors.dark.text,
+  },
+  gamingXpBadge: {
+    backgroundColor: Colors.dark.primary + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  gamingXpText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+    letterSpacing: 0.5,
+  },
+  gamingTimelineContent: {
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.06)",
+  },
+  
+  // Gaming Session Cards
+  gamingSessionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    marginTop: Spacing.sm,
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+  },
+  gamingSessionCardLive: {
+    borderColor: Colors.dark.primary + "60",
+    backgroundColor: Colors.dark.primary + "08",
+  },
+  gamingSessionTime: {
+    alignItems: "center",
+    minWidth: 50,
+  },
+  gamingSessionTimeText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  gamingSessionTimePast: {
+    color: Colors.dark.disabled,
+  },
+  gamingSessionDuration: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
+    letterSpacing: 0.5,
+  },
+  gamingSessionInfo: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  gamingSessionType: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  gamingSessionTypePast: {
+    color: Colors.dark.disabled,
+  },
+  gamingLiveBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.primary + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  gamingLiveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.dark.primary,
+  },
+  gamingLiveText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+    letterSpacing: 1,
+  },
+  gamingDoneBadge: {
+    backgroundColor: Colors.dark.disabled + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+  },
+  gamingDoneText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.disabled,
+    letterSpacing: 0.5,
   },
 });

@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { StyleSheet, View, Platform, ActivityIndicator } from "react-native";
+import { StyleSheet, View, Platform, ActivityIndicator, Text } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import DashboardScreen from "@/coach/screens/DashboardScreen";
 import CalendarScreen from "@/coach/screens/CalendarScreen";
 import PlayersScreen from "@/coach/screens/PlayersScreen";
@@ -23,7 +24,20 @@ import CoachOnboardingScreen from "@/coach/screens/CoachOnboardingScreen";
 import OfflineBanner from "@/components/OfflineBanner";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { Colors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+
+function GamingTabIcon({ name, focused, size }: { name: keyof typeof Ionicons.glyphMap; focused: boolean; size: number }) {
+  return (
+    <View style={styles.tabIconContainer}>
+      {focused && <View style={styles.tabIconGlow} />}
+      <Ionicons 
+        name={focused ? name.replace("-outline", "") as keyof typeof Ionicons.glyphMap : name} 
+        size={size} 
+        color={focused ? Colors.dark.primary : Colors.dark.tabIconDefault} 
+      />
+    </View>
+  );
+}
 
 export type CoachTabParamList = {
   Dashboard: undefined;
@@ -57,9 +71,15 @@ function CoachTabs() {
         tabBarStyle: styles.tabBar,
         tabBarBackground: () => (
           <View style={styles.tabBarBackground}>
+            <LinearGradient
+              colors={[Colors.dark.primary + "40", "transparent", Colors.dark.xpCyan + "40"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.tabBarTopLine}
+            />
             {Platform.OS === "ios" ? (
               <BlurView
-                intensity={80}
+                intensity={90}
                 tint="dark"
                 style={StyleSheet.absoluteFill}
               />
@@ -78,8 +98,8 @@ function CoachTabs() {
         component={DashboardScreen}
         options={{
           tabBarLabel: "Home",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+          tabBarIcon: ({ focused, size }) => (
+            <GamingTabIcon name="home-outline" focused={focused} size={size} />
           ),
         }}
       />
@@ -88,8 +108,8 @@ function CoachTabs() {
         component={CalendarScreen}
         options={{
           tabBarLabel: "Calendar",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar-outline" size={size} color={color} />
+          tabBarIcon: ({ focused, size }) => (
+            <GamingTabIcon name="calendar-outline" focused={focused} size={size} />
           ),
         }}
       />
@@ -98,8 +118,8 @@ function CoachTabs() {
         component={PlayersScreen}
         options={{
           tabBarLabel: "Players",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people-outline" size={size} color={color} />
+          tabBarIcon: ({ focused, size }) => (
+            <GamingTabIcon name="people-outline" focused={focused} size={size} />
           ),
         }}
       />
@@ -108,8 +128,8 @@ function CoachTabs() {
         component={CoachingScreen}
         options={{
           tabBarLabel: "Coaching",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="clipboard-outline" size={size} color={color} />
+          tabBarIcon: ({ focused, size }) => (
+            <GamingTabIcon name="clipboard-outline" focused={focused} size={size} />
           ),
         }}
       />
@@ -118,8 +138,8 @@ function CoachTabs() {
         component={SettingsScreen}
         options={{
           tabBarLabel: "Settings",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" size={size} color={color} />
+          tabBarIcon: ({ focused, size }) => (
+            <GamingTabIcon name="settings-outline" focused={focused} size={size} />
           ),
         }}
       />
@@ -263,11 +283,36 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     overflow: "hidden",
   },
+  tabBarTopLine: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    zIndex: 10,
+  },
   androidTabBackground: {
-    backgroundColor: "rgba(18, 18, 18, 0.95)",
+    backgroundColor: "rgba(12, 12, 12, 0.98)",
   },
   tabLabel: {
-    fontSize: 11,
-    fontWeight: "500",
+    fontSize: 10,
+    fontWeight: "600",
+    letterSpacing: 0.5,
+    marginTop: 2,
+  },
+  tabIconContainer: {
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 32,
+    height: 32,
+  },
+  tabIconGlow: {
+    position: "absolute",
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.dark.primary,
+    opacity: 0.2,
   },
 });
