@@ -38,37 +38,38 @@ export function CoachLoadIndicator({
   }, 0);
   const totalHours = totalMinutes / 60;
   const loadPercent = Math.min(100, (totalHours / maxHoursPerDay) * 100);
+  const staminaPercent = Math.max(0, 100 - loadPercent);
 
-  const getLoadColor = (): readonly [string, string] => {
-    if (loadPercent >= 80) return [Colors.dark.error, Colors.dark.error] as const;
-    if (loadPercent >= 50) return [Colors.dark.orange, Colors.dark.gold] as const;
+  const getStaminaColor = (): readonly [string, string] => {
+    if (staminaPercent <= 20) return [Colors.dark.error, Colors.dark.error] as const;
+    if (staminaPercent <= 50) return [Colors.dark.orange, Colors.dark.gold] as const;
     return [Colors.dark.primary, Colors.dark.xpCyan] as const;
   };
 
-  const getLoadLabel = () => {
-    if (loadPercent >= 80) return "HEAVY";
-    if (loadPercent >= 50) return "MODERATE";
-    if (loadPercent > 0) return "LIGHT";
-    return "FREE";
+  const getStaminaLabel = () => {
+    if (staminaPercent <= 20) return "DEPLETED";
+    if (staminaPercent <= 50) return "DRAINING";
+    if (staminaPercent < 100) return "CHARGED";
+    return "FULL POWER";
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.labelRow}>
-        <Text style={styles.label}>Load</Text>
-        <Text style={[styles.loadText, { color: getLoadColor()[0] }]}>
-          {getLoadLabel()}
+        <Text style={styles.label}>Stamina</Text>
+        <Text style={[styles.loadText, { color: getStaminaColor()[0] }]}>
+          {getStaminaLabel()}
         </Text>
         <Text style={styles.hoursText}>
-          {totalHours.toFixed(1)}h / {maxHoursPerDay}h
+          {Math.round(staminaPercent)}%
         </Text>
       </View>
       <View style={styles.barBackground}>
         <LinearGradient
-          colors={getLoadColor()}
+          colors={getStaminaColor()}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
-          style={[styles.barFill, { width: `${Math.max(2, loadPercent)}%` }]}
+          style={[styles.barFill, { width: `${Math.max(2, staminaPercent)}%` }]}
         />
       </View>
     </View>
