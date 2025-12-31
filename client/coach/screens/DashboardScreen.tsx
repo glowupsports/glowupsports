@@ -14,6 +14,9 @@ import Animated, {
   useAnimatedStyle,
   withRepeat,
   withTiming,
+  withSequence,
+  withDelay,
+  interpolate,
   Easing,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -84,6 +87,10 @@ export default function DashboardScreen() {
   // Pulse animation for live indicator
   const pulseScale = useSharedValue(1);
   const pulseOpacity = useSharedValue(0.3);
+  
+  // Gaming animations
+  const glowPulse = useSharedValue(0);
+  const avatarGlow = useSharedValue(0.5);
 
   useEffect(() => {
     pulseScale.value = withRepeat(
@@ -96,11 +103,42 @@ export default function DashboardScreen() {
       -1,
       false
     );
+    
+    // Continuous glow pulse
+    glowPulse.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 2000, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      false
+    );
+    
+    // Avatar glow breathing
+    avatarGlow.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.5, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      false
+    );
+    
   }, []);
 
   const pulseAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulseScale.value }],
     opacity: pulseOpacity.value,
+  }));
+  
+  const glowAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(glowPulse.value, [0, 1], [0.3, 0.8]),
+    transform: [{ scale: interpolate(glowPulse.value, [0, 1], [1, 1.05]) }],
+  }));
+  
+  const avatarGlowStyle = useAnimatedStyle(() => ({
+    opacity: avatarGlow.value,
+    transform: [{ scale: interpolate(avatarGlow.value, [0.5, 1], [1, 1.1]) }],
   }));
   const [insightsCollapsed, setInsightsCollapsed] = useState(false);
   const [timelineCollapsed, setTimelineCollapsed] = useState(false);
@@ -395,231 +433,323 @@ export default function DashboardScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.footerCollapsed + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header with Coach Level + XP */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.greeting}>{getGreeting()}</Text>
-            <Text style={styles.coachName}>{coach.name}</Text>
-            <AcademySwitcher />
-            
-            {/* Coach Level + XP Bar */}
-            <View style={styles.xpContainer}>
-              <View style={styles.levelBadgeContainer}>
-                <LinearGradient
-                  colors={[Colors.dark.primary, Colors.dark.xpCyan]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.levelBadgeGradient}
-                >
-                  <Text style={styles.levelBadge}>Lv {coachXP.level}</Text>
-                </LinearGradient>
-              </View>
-              <View style={styles.xpBarContainer}>
-                <LinearGradient
-                  colors={[Colors.dark.primary, Colors.dark.xpCyan]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={[styles.xpBarFill, { width: `${coachXP.xpPercent}%` }]}
-                />
-                <View style={styles.xpBarGlow} />
-              </View>
-              <Text style={styles.xpText}>{coachXP.currentXP}/{coachXP.requiredXP}</Text>
-            </View>
-          </View>
+        {/* === GAMING PLAYER CARD HEADER === */}
+        <View style={styles.playerCard}>
+          {/* Neon border glow effect */}
+          <Animated.View style={[styles.playerCardGlow, glowAnimatedStyle]} />
           
-          <View style={styles.headerActions}>
-            <Pressable
-              style={styles.headerButton}
-              onPress={() => handleNavigate("Notifications")}
-            >
-              <Ionicons name="notifications-outline" size={24} color={Colors.dark.text} />
-            </Pressable>
-            <Pressable
-              style={styles.headerButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setShowStatusPanel(true);
-              }}
-            >
-              {/* Avatar with Glow Ring */}
-              <View style={styles.avatarGlowRing}>
-                <View style={styles.avatarInner}>
-                  <Ionicons name="person" size={18} color={Colors.dark.primary} />
-                </View>
-              </View>
-            </Pressable>
-          </View>
-        </View>
-
-        {/* FOCUS Card (formerly TODAY Card) with Day Slider */}
-        <View style={styles.focusCard}>
+          {/* Glass panel background */}
           <LinearGradient
-            colors={["rgba(46, 204, 64, 0.12)", "rgba(46, 204, 64, 0.03)"]}
-            style={styles.focusGradient}
+            colors={["rgba(46, 204, 64, 0.08)", "rgba(0, 212, 255, 0.04)", "rgba(26, 26, 26, 0.95)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.playerCardGradient}
           >
-            {/* Day Navigation Header */}
-            <View style={styles.dayNavHeader}>
-              <Pressable 
-                style={styles.dayNavArrow}
+            {/* Top accent line */}
+            <LinearGradient
+              colors={[Colors.dark.primary, Colors.dark.xpCyan, Colors.dark.primary]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.playerCardTopLine}
+            />
+            
+            {/* Main content row */}
+            <View style={styles.playerCardContent}>
+              {/* Left: Holographic Avatar */}
+              <Pressable
+                style={styles.holoAvatarContainer}
                 onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setSelectedDayOffset(prev => prev - 1);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  setShowStatusPanel(true);
                 }}
               >
-                <Ionicons name="chevron-back" size={20} color={Colors.dark.primary} />
+                {/* Outer glow ring */}
+                <Animated.View style={[styles.avatarOuterGlow, avatarGlowStyle]}>
+                  <LinearGradient
+                    colors={[Colors.dark.primary + "60", Colors.dark.xpCyan + "40", Colors.dark.primary + "60"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.avatarGlowGradient}
+                  />
+                </Animated.View>
+                
+                {/* Avatar frame */}
+                <View style={styles.avatarFrame}>
+                  <LinearGradient
+                    colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.avatarBorder}
+                  >
+                    <View style={styles.avatarInnerBg}>
+                      <Ionicons name="person" size={28} color={Colors.dark.primary} />
+                    </View>
+                  </LinearGradient>
+                </View>
+                
+                {/* Level emblem - uses theme gold colors */}
+                <Animated.View style={[styles.levelEmblem, avatarGlowStyle]}>
+                  <LinearGradient
+                    colors={[Colors.dark.gold, Colors.dark.orange, Colors.dark.gold]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.levelEmblemGradient}
+                  >
+                    <Text style={styles.levelEmblemText}>{coachXP.level}</Text>
+                  </LinearGradient>
+                </Animated.View>
               </Pressable>
               
-              <Pressable 
-                style={styles.focusHeaderCenter}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setFocusCollapsed(!focusCollapsed);
-                }}
-              >
-                <View style={styles.focusTitleRow}>
-                  <Text style={styles.focusLabel}>{getDayLabel(selectedDayOffset)}</Text>
-                  <View style={[styles.dayIntensityBadge, { backgroundColor: selectedDayPersonality.color + "20" }]}>
-                    <Text style={[styles.dayIntensityText, { color: selectedDayPersonality.color }]}>
-                      {selectedDayPersonality.label}
-                    </Text>
+              {/* Center: Player Info */}
+              <View style={styles.playerInfo}>
+                <Text style={styles.playerRank}>COACH</Text>
+                <Text style={styles.playerName}>{coach.name}</Text>
+                <View style={styles.academyRow}>
+                  <Ionicons name="shield" size={12} color={Colors.dark.xpCyan} />
+                  <Text style={styles.academyName}>{academy?.name || "Academy"}</Text>
+                </View>
+                
+                {/* XP Progress Ring */}
+                <View style={styles.xpProgressSection}>
+                  <View style={styles.xpBarWrapper}>
+                    <View style={styles.xpBarTrack}>
+                      <LinearGradient
+                        colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[styles.xpBarProgress, { width: `${coachXP.xpPercent}%` }]}
+                      />
+                      <Animated.View style={[styles.xpBarShine, glowAnimatedStyle]} />
+                    </View>
+                    <View style={styles.xpLabels}>
+                      <Text style={styles.xpCurrent}>{coachXP.currentXP} XP</Text>
+                      <Text style={styles.xpRequired}>/ {coachXP.requiredXP}</Text>
+                    </View>
                   </View>
                 </View>
-                <Text style={styles.focusDate}>
-                  {selectedDate.toLocaleDateString("en-US", {
-                    weekday: "long",
-                    day: "numeric",
-                    month: "long",
-                  })}
-                </Text>
-              </Pressable>
+              </View>
               
-              <Pressable 
-                style={styles.dayNavArrow}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setSelectedDayOffset(prev => Math.min(prev + 1, 7));
-                }}
-              >
-                <Ionicons name="chevron-forward" size={20} color={selectedDayOffset >= 7 ? Colors.dark.tabIconDefault : Colors.dark.primary} />
-              </Pressable>
+              {/* Right: Quick Actions */}
+              <View style={styles.playerActions}>
+                <Pressable
+                  style={styles.actionBtnGlow}
+                  onPress={() => handleNavigate("Notifications")}
+                >
+                  <View style={styles.actionBtnInner}>
+                    <Ionicons name="notifications" size={20} color={Colors.dark.xpCyan} />
+                  </View>
+                </Pressable>
+              </View>
+            </View>
+          </LinearGradient>
+        </View>
+
+        {/* === MISSION CONSOLE - Gaming Style Overview === */}
+        <View style={styles.missionConsole}>
+          {/* Neon frame */}
+          <View style={styles.missionFrame}>
+            <LinearGradient
+              colors={[Colors.dark.primary + "40", "transparent", Colors.dark.xpCyan + "40"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.missionFrameTop}
+            />
+          </View>
+          
+          <LinearGradient
+            colors={["rgba(0, 0, 0, 0.6)", "rgba(45, 45, 45, 0.8)"]}
+            style={styles.missionGradient}
+          >
+            {/* Mission Header */}
+            <View style={styles.missionHeader}>
+              <View style={styles.missionTitleSection}>
+                <View style={styles.missionIconWrapper}>
+                  <Ionicons name="game-controller" size={16} color={Colors.dark.xpCyan} />
+                </View>
+                <Text style={styles.missionTitle}>MISSION CONTROL</Text>
+              </View>
               
-              <Pressable 
-                style={styles.dayNavCollapseBtn}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setFocusCollapsed(!focusCollapsed);
-                }}
-              >
-                <Ionicons 
-                  name={focusCollapsed ? "chevron-down" : "chevron-up"} 
-                  size={18} 
-                  color={Colors.dark.tabIconDefault} 
-                />
-              </Pressable>
+              {/* Day Navigation Pills + Collapse Toggle */}
+              <View style={styles.missionControls}>
+                <View style={styles.dayPills}>
+                  <Pressable 
+                    style={styles.dayPillArrow}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSelectedDayOffset(prev => Math.max(prev - 1, -7));
+                    }}
+                  >
+                    <Ionicons name="caret-back" size={14} color={selectedDayOffset <= -7 ? Colors.dark.tabIconDefault : Colors.dark.primary} />
+                  </Pressable>
+                  
+                  <View style={styles.dayPillCenter}>
+                    <Text style={styles.dayPillLabel}>{getDayLabel(selectedDayOffset)}</Text>
+                  </View>
+                  
+                  <Pressable 
+                    style={styles.dayPillArrow}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSelectedDayOffset(prev => Math.min(prev + 1, 7));
+                    }}
+                  >
+                    <Ionicons name="caret-forward" size={14} color={selectedDayOffset >= 7 ? Colors.dark.tabIconDefault : Colors.dark.primary} />
+                  </Pressable>
+                </View>
+                
+                <Pressable 
+                  style={styles.collapseToggle}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setFocusCollapsed(!focusCollapsed);
+                  }}
+                >
+                  <Ionicons 
+                    name={focusCollapsed ? "chevron-down" : "chevron-up"} 
+                    size={16} 
+                    color={Colors.dark.tabIconDefault} 
+                  />
+                </Pressable>
+              </View>
             </View>
             
-            {/* Today indicator dot when viewing other days */}
+            {/* Date Row */}
+            <View style={styles.dateRow}>
+              <Text style={styles.dateText}>
+                {selectedDate.toLocaleDateString("en-US", {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                })}
+              </Text>
+              <View style={[styles.intensityChip, { backgroundColor: selectedDayPersonality.color + "25" }]}>
+                <View style={[styles.intensityDot, { backgroundColor: selectedDayPersonality.color }]} />
+                <Text style={[styles.intensityLabel, { color: selectedDayPersonality.color }]}>
+                  {selectedDayPersonality.label.toUpperCase()}
+                </Text>
+              </View>
+            </View>
+            
+            {/* Back to Today */}
             {selectedDayOffset !== 0 ? (
               <Pressable 
-                style={styles.backToTodayBtn}
+                style={styles.backToTodayChip}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setSelectedDayOffset(0);
                 }}
               >
-                <Ionicons name="today-outline" size={14} color={Colors.dark.primary} />
-                <Text style={styles.backToTodayText}>Back to Today</Text>
+                <Ionicons name="return-down-back" size={12} color={Colors.dark.primary} />
+                <Text style={styles.backToTodayLabel}>RETURN TO TODAY</Text>
               </Pressable>
             ) : null}
 
             {focusCollapsed ? null : (
               <>
-                {/* Main Focus State */}
-                <View style={styles.focusMain}>
+                {/* Main Mission Display */}
+                <View style={styles.missionDisplay}>
                   {selectedDayOffset === 0 && currentSession ? (
-                    <>
-                      <View style={styles.liveIndicator}>
-                        <Animated.View style={[styles.liveDotPulse, pulseAnimatedStyle]} />
-                        <View style={styles.liveDot} />
-                        <Text style={styles.liveText}>IN PROGRESS</Text>
-                      </View>
-                      <Text style={styles.focusPrimaryLarge}>{sessionTimeRemaining}</Text>
-                      <Text style={styles.focusSecondaryMuted}>remaining</Text>
-                      <Text style={styles.focusContext}>
-                        {getSessionTypeLabel(currentSession.sessionType)} · {calendarData?.courts?.find(c => c.id === currentSession.courtId)?.name || "Court"}
-                      </Text>
-                    </>
+                    <View style={styles.liveHud}>
+                      <Animated.View style={[styles.liveHudGlow, pulseAnimatedStyle]} />
+                      <LinearGradient
+                        colors={[Colors.dark.primary + "30", Colors.dark.primary + "10"]}
+                        style={styles.liveHudBg}
+                      >
+                        <View style={styles.liveHudHeader}>
+                          <View style={styles.liveIndicatorNew}>
+                            <Animated.View style={[styles.livePulseRing, pulseAnimatedStyle]} />
+                            <View style={styles.liveDotCore} />
+                          </View>
+                          <Text style={styles.liveStatusText}>LIVE SESSION</Text>
+                        </View>
+                        
+                        <Text style={styles.countdownTimer}>{sessionTimeRemaining}</Text>
+                        <Text style={styles.countdownLabel}>REMAINING</Text>
+                        
+                        <View style={styles.sessionMeta}>
+                          <Text style={styles.sessionMetaText}>
+                            {getSessionTypeLabel(currentSession.sessionType)} · {calendarData?.courts?.find(c => c.id === currentSession.courtId)?.name || "Court"}
+                          </Text>
+                        </View>
+                      </LinearGradient>
+                    </View>
                   ) : selectedDayOffset === 0 ? (
-                    <>
-                      <Text style={styles.focusPrimary}>{focusMessage.primary}</Text>
-                      <Text style={styles.focusSecondary}>{focusMessage.secondary}</Text>
-                    </>
+                    <View style={styles.missionContent}>
+                      <Text style={styles.missionPrimary}>{focusMessage.primary}</Text>
+                      <Text style={styles.missionSecondary}>{focusMessage.secondary}</Text>
+                    </View>
                   ) : (
-                    <>
-                      <Text style={styles.focusPrimary}>{getSelectedDayFocusMessage().primary}</Text>
-                      <Text style={styles.focusSecondary}>{getSelectedDayFocusMessage().secondary}</Text>
-                    </>
+                    <View style={styles.missionContent}>
+                      <Text style={styles.missionPrimary}>{getSelectedDayFocusMessage().primary}</Text>
+                      <Text style={styles.missionSecondary}>{getSelectedDayFocusMessage().secondary}</Text>
+                    </View>
                   )}
                 </View>
 
-                {/* Quick Actions when In Session (only for today) */}
+                {/* Action Bar */}
                 {selectedDayOffset === 0 && currentSession ? (
-                  <View style={styles.sessionActions}>
+                  <View style={styles.actionBar}>
                     <Pressable
-                      style={styles.sessionActionButton}
+                      style={styles.actionBarBtn}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                         (navigation as any).navigate("Calendar", { openSessionId: currentSession.id, action: "attendance" });
                       }}
                     >
-                      <Ionicons name="checkmark-circle-outline" size={20} color={Colors.dark.primary} />
-                      <Text style={styles.sessionActionText}>Attendance</Text>
+                      <View style={[styles.actionBtnIcon, { backgroundColor: Colors.dark.primary + "20" }]}>
+                        <Ionicons name="checkmark-circle" size={18} color={Colors.dark.primary} />
+                      </View>
+                      <Text style={styles.actionBtnLabel}>ATTEND</Text>
                     </Pressable>
                     <Pressable
-                      style={styles.sessionActionButton}
+                      style={styles.actionBarBtn}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                         (navigation as any).navigate("Calendar", { openSessionId: currentSession.id, action: "extend" });
                       }}
                     >
-                      <Ionicons name="time-outline" size={20} color={Colors.dark.xpCyan} />
-                      <Text style={[styles.sessionActionText, { color: Colors.dark.xpCyan }]}>Extend</Text>
+                      <View style={[styles.actionBtnIcon, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
+                        <Ionicons name="time" size={18} color={Colors.dark.xpCyan} />
+                      </View>
+                      <Text style={[styles.actionBtnLabel, { color: Colors.dark.xpCyan }]}>EXTEND</Text>
                     </Pressable>
                     <Pressable
-                      style={styles.sessionActionButton}
+                      style={styles.actionBarBtn}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                         (navigation as any).navigate("Calendar", { openSessionId: currentSession.id, action: "end" });
                       }}
                     >
-                      <Ionicons name="stop-circle-outline" size={20} color={Colors.dark.orange} />
-                      <Text style={[styles.sessionActionText, { color: Colors.dark.orange }]}>End</Text>
+                      <View style={[styles.actionBtnIcon, { backgroundColor: Colors.dark.orange + "20" }]}>
+                        <Ionicons name="stop-circle" size={18} color={Colors.dark.orange} />
+                      </View>
+                      <Text style={[styles.actionBtnLabel, { color: Colors.dark.orange }]}>END</Text>
                     </Pressable>
                   </View>
                 ) : selectedDaySessions.length > 0 ? (
-                  <View style={styles.focusStats}>
-                    <View style={styles.focusStatItem}>
-                      <Text style={styles.focusStatNumber}>{selectedDaySessions.length}</Text>
-                      <Text style={styles.focusStatLabel}>Sessions</Text>
+                  <View style={styles.statsBar}>
+                    <View style={styles.statBlock}>
+                      <Text style={styles.statValue}>{selectedDaySessions.length}</Text>
+                      <Text style={styles.statLabel}>SESSIONS</Text>
                     </View>
-                    <View style={styles.focusStatDivider} />
-                    <View style={styles.focusStatItem}>
-                      <Text style={styles.focusStatNumber}>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statBlock}>
+                      <Text style={styles.statValue}>
                         {selectedDaySessions.reduce((acc, s) => acc + s.duration, 0)}
                       </Text>
-                      <Text style={styles.focusStatLabel}>Minutes</Text>
+                      <Text style={styles.statLabel}>MINUTES</Text>
                     </View>
                   </View>
                 ) : (
                   <Pressable
-                    style={styles.focusCta}
+                    style={styles.missionCta}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       handleNavigate("Players");
                     }}
                   >
-                    <Ionicons name="trending-up-outline" size={16} color={Colors.dark.primary} />
-                    <Text style={styles.focusCtaText}>Review player progress</Text>
+                    <Ionicons name="arrow-forward-circle" size={18} color={Colors.dark.primary} />
+                    <Text style={styles.missionCtaText}>REVIEW PLAYER PROGRESS</Text>
                   </Pressable>
                 )}
               </>
@@ -1146,7 +1276,485 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   
-  // Avatar with Glow Ring
+  // === GAMING PLAYER CARD STYLES ===
+  playerCard: {
+    position: "relative" as const,
+    marginBottom: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  playerCardGlow: {
+    position: "absolute" as const,
+    top: -2,
+    left: -2,
+    right: -2,
+    bottom: -2,
+    borderRadius: BorderRadius.lg + 2,
+    borderWidth: 2,
+    borderColor: Colors.dark.primary,
+    opacity: 0.5,
+  },
+  playerCardGradient: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+    overflow: "hidden",
+  },
+  playerCardTopLine: {
+    height: 3,
+    width: "100%",
+  },
+  playerCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  holoAvatarContainer: {
+    position: "relative" as const,
+    width: 70,
+    height: 70,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarOuterGlow: {
+    position: "absolute" as const,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    overflow: "hidden",
+  },
+  avatarGlowGradient: {
+    width: "100%",
+    height: "100%",
+  },
+  avatarFrame: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    overflow: "hidden",
+  },
+  avatarBorder: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    padding: 3,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarInnerBg: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: Colors.dark.backgroundRoot,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  levelEmblem: {
+    position: "absolute" as const,
+    bottom: -4,
+    right: -4,
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: Colors.dark.backgroundRoot,
+  },
+  levelEmblemGradient: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  levelEmblemText: {
+    fontSize: 12,
+    fontWeight: "900",
+    color: Colors.dark.backgroundRoot,
+    textShadowColor: "rgba(0,0,0,0.3)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  playerInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  playerRank: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.xpCyan,
+    letterSpacing: 2,
+  },
+  playerName: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    letterSpacing: -0.5,
+  },
+  academyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  xpProgressSection: {
+    marginTop: Spacing.sm,
+  },
+  xpBarWrapper: {
+    gap: 4,
+  },
+  xpBarTrack: {
+    height: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 4,
+    overflow: "hidden",
+    position: "relative" as const,
+  },
+  xpBarProgress: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  xpBarShine: {
+    position: "absolute" as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 4,
+  },
+  xpLabels: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  xpCurrent: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  xpRequired: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
+  },
+  playerActions: {
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  actionBtnGlow: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+  },
+  actionBtnInner: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  
+  // === MISSION CONSOLE STYLES ===
+  missionConsole: {
+    position: "relative" as const,
+    marginBottom: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  missionFrame: {
+    position: "absolute" as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1,
+  },
+  missionFrameTop: {
+    height: 2,
+  },
+  missionGradient: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    padding: Spacing.md,
+  },
+  missionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  missionTitleSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  missionIconWrapper: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  missionTitle: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: Colors.dark.xpCyan,
+    letterSpacing: 2,
+  },
+  missionControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  collapseToggle: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: BorderRadius.sm,
+  },
+  dayPills: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+  },
+  dayPillArrow: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dayPillCenter: {
+    paddingHorizontal: Spacing.md,
+  },
+  dayPillLabel: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: Colors.dark.primary,
+    letterSpacing: 1,
+  },
+  dateRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  dateText: {
+    fontSize: 14,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
+  },
+  intensityChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+  },
+  intensityDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  intensityLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  backToTodayChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  backToTodayLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+    letterSpacing: 1,
+  },
+  missionDisplay: {
+    alignItems: "center",
+    paddingVertical: Spacing.md,
+  },
+  missionContent: {
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  missionPrimary: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    textAlign: "center",
+    letterSpacing: -1,
+  },
+  missionSecondary: {
+    fontSize: 14,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  liveHud: {
+    position: "relative" as const,
+    width: "100%",
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  liveHudGlow: {
+    position: "absolute" as const,
+    top: -4,
+    left: -4,
+    right: -4,
+    bottom: -4,
+    backgroundColor: Colors.dark.primary,
+    opacity: 0.2,
+    borderRadius: BorderRadius.md + 4,
+  },
+  liveHudBg: {
+    padding: Spacing.lg,
+    alignItems: "center",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  liveHudHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  liveIndicatorNew: {
+    position: "relative" as const,
+    width: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  livePulseRing: {
+    position: "absolute" as const,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.dark.primary,
+  },
+  liveDotCore: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.dark.primary,
+  },
+  liveStatusText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: Colors.dark.primary,
+    letterSpacing: 2,
+  },
+  countdownTimer: {
+    fontSize: 56,
+    fontWeight: "900",
+    color: Colors.dark.text,
+    letterSpacing: -2,
+    textShadowColor: Colors.dark.primary + "40",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 20,
+  },
+  countdownLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    letterSpacing: 2,
+    marginTop: -4,
+  },
+  sessionMeta: {
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.primary + "20",
+  },
+  sessionMetaText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.primary,
+    textAlign: "center",
+  },
+  actionBar: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: Spacing.lg,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.08)",
+    marginTop: Spacing.sm,
+  },
+  actionBarBtn: {
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  actionBtnIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  actionBtnLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+    letterSpacing: 1,
+  },
+  statsBar: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.xl,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.08)",
+    marginTop: Spacing.sm,
+  },
+  statBlock: {
+    alignItems: "center",
+  },
+  statValue: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: Colors.dark.text,
+  },
+  statLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    letterSpacing: 1,
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  missionCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.08)",
+    marginTop: Spacing.sm,
+  },
+  missionCtaText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+    letterSpacing: 1,
+  },
+  
+  // Avatar with Glow Ring (legacy)
   avatarGlowRing: {
     width: 44,
     height: 44,
