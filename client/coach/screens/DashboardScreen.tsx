@@ -32,6 +32,7 @@ import { BurnoutRiskCard } from "@/coach/components/BurnoutRiskCard";
 import { LoadForecastCard } from "@/coach/components/LoadForecastCard";
 import { AcademySwitcher } from "@/coach/components/AcademySwitcher";
 import ModeSwitcher from "@/components/ModeSwitcher";
+import { filterSessionsByDate } from "@/lib/dateUtils";
 
 interface Session {
   id: string;
@@ -115,22 +116,8 @@ export default function DashboardScreen() {
   
   const selectedDate = getDateForOffset(selectedDayOffset);
   
-  const getSessionsForDate = (date: Date) => {
-    if (!allSessions || allSessions.length === 0) return [];
-    return allSessions.filter((session) => {
-      const sessionDate = new Date(session.startTime);
-      // Compare using UTC to avoid timezone issues
-      return (
-        sessionDate.getUTCFullYear() === date.getFullYear() &&
-        sessionDate.getUTCMonth() === date.getMonth() &&
-        sessionDate.getUTCDate() === date.getDate() &&
-        session.status !== "cancelled"
-      );
-    });
-  };
-  
-  const todaysSessions = useMemo(() => getSessionsForDate(today), [allSessions]);
-  const selectedDaySessions = useMemo(() => getSessionsForDate(selectedDate), [allSessions, selectedDayOffset]);
+  const todaysSessions = useMemo(() => filterSessionsByDate(allSessions, today), [allSessions]);
+  const selectedDaySessions = useMemo(() => filterSessionsByDate(allSessions, selectedDate), [allSessions, selectedDayOffset]);
   
   const getDayLabel = (offset: number) => {
     if (offset === 0) return "TODAY";
@@ -463,57 +450,6 @@ export default function DashboardScreen() {
             </Pressable>
           </View>
         </View>
-
-        {/* Horizontal Quick Nav Menu */}
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          style={styles.quickNavScroll}
-          contentContainerStyle={styles.quickNavContent}
-        >
-          <Pressable 
-            style={[styles.quickNavChip, styles.quickNavChipActive]}
-            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-          >
-            <Ionicons name="sunny-outline" size={16} color={Colors.dark.backgroundRoot} />
-            <Text style={[styles.quickNavChipText, styles.quickNavChipTextActive]}>Today</Text>
-          </Pressable>
-          <Pressable 
-            style={styles.quickNavChip}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              handleNavigate("Calendar");
-            }}
-          >
-            <Ionicons name="calendar-outline" size={16} color={Colors.dark.text} />
-            <Text style={styles.quickNavChipText}>Week</Text>
-          </Pressable>
-          <Pressable 
-            style={styles.quickNavChip}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              handleNavigate("Coaching");
-            }}
-          >
-            <Ionicons name="chatbox-outline" size={16} color={Colors.dark.text} />
-            <Text style={styles.quickNavChipText}>Feedback</Text>
-            {pendingFeedbackCount > 0 ? (
-              <View style={styles.quickNavBadge}>
-                <Text style={styles.quickNavBadgeText}>{pendingFeedbackCount}</Text>
-              </View>
-            ) : null}
-          </Pressable>
-          <Pressable 
-            style={styles.quickNavChip}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              handleNavigate("Players");
-            }}
-          >
-            <Ionicons name="people-outline" size={16} color={Colors.dark.text} />
-            <Text style={styles.quickNavChipText}>Players</Text>
-          </Pressable>
-        </ScrollView>
 
         {/* FOCUS Card (formerly TODAY Card) with Day Slider */}
         <View style={styles.focusCard}>

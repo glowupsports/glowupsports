@@ -237,24 +237,6 @@ export default function SettingsScreen() {
           </View>
         ) : null}
 
-        {/* Switch to Player App */}
-        <Pressable
-          style={styles.switchAppButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            setMode("player");
-          }}
-        >
-          <View style={styles.switchAppContent}>
-            <Ionicons name="swap-horizontal" size={24} color={Colors.dark.primary} />
-            <View>
-              <Text style={styles.switchAppTitle}>Switch to Player App</Text>
-              <Text style={styles.switchAppDescription}>View as a player</Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={Colors.dark.tabIconDefault} />
-        </Pressable>
-
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Default Settings</Text>
 
