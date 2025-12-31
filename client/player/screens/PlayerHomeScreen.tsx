@@ -514,6 +514,18 @@ export default function PlayerHomeScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Rainbow test banner for OTA verification */}
+        <LinearGradient
+          colors={['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#4B0082', '#9400D3']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={{ padding: 12, marginHorizontal: 16, marginBottom: 12, borderRadius: 8 }}
+        >
+          <Text style={{ color: '#FFFFFF', fontWeight: 'bold', textAlign: 'center', textShadowColor: '#000', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 2 }}>
+            OTA TEST BUILD - v2.1 Rainbow
+          </Text>
+        </LinearGradient>
+
         <PlayerStatusBar 
           player={player}
           coach={coach}
