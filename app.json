@@ -3,7 +3,9 @@
     "name": "Glow Up Sports",
     "slug": "glow-up-sports-qimo0pvm-ks03bklnmcri",
     "version": "1.0.0",
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "updates": {
       "enabled": false
     },
@@ -47,12 +49,6 @@
         }
       ],
       "expo-web-browser",
-      [
-        "expo-updates",
-        {
-          "username": "glow-up-sports"
-        }
-      ],
       [
         "expo-build-properties",
         {
