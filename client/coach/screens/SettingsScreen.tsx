@@ -626,6 +626,19 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     marginBottom: Spacing.xl,
     gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   profileAvatar: {
     width: 60,
@@ -694,6 +707,19 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "20",
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
   },
   settingInfo: {
     flex: 1,
@@ -719,9 +745,12 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
     backgroundColor: Colors.dark.backgroundTertiary,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "20",
   },
   durationButtonActive: {
     backgroundColor: Colors.dark.primary + "30",
+    borderColor: Colors.dark.primary + "60",
   },
   durationButtonText: {
     fontSize: Typography.body.fontSize,
@@ -742,9 +771,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundTertiary,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "20",
   },
   weekButtonActive: {
     backgroundColor: Colors.dark.primary + "30",
+    borderColor: Colors.dark.primary + "60",
   },
   weekButtonText: {
     fontSize: Typography.body.fontSize,
@@ -765,9 +797,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundTertiary,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "20",
   },
   travelButtonActive: {
     backgroundColor: Colors.dark.primary + "30",
+    borderColor: Colors.dark.primary + "60",
   },
   travelButtonText: {
     fontSize: Typography.small.fontSize,

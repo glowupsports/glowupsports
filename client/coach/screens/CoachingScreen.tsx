@@ -8,6 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -2347,13 +2348,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: "transparent",
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderWidth: 1,
-    borderColor: Colors.dark.borderColor,
+    borderColor: Colors.dark.primary + "25",
   },
   periodTabActive: {
     backgroundColor: Colors.dark.primary,
     borderColor: Colors.dark.primary,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.4,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   periodTabText: {
     fontSize: 12,
@@ -2380,10 +2392,10 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     backgroundColor: Colors.dark.backgroundSecondary,
     borderWidth: 1,
-    borderColor: "transparent",
+    borderColor: Colors.dark.primary + "20",
   },
   statusChipActive: {
-    borderColor: Colors.dark.tabIconDefault,
+    borderColor: Colors.dark.primary + "50",
   },
   statusChipComplete: {
     backgroundColor: Colors.dark.primary + "15",
@@ -2503,6 +2515,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "25",
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   emptyText: {
     ...Typography.h4,
@@ -2521,6 +2546,19 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "25",
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   sessionTime: {
     alignItems: "center",

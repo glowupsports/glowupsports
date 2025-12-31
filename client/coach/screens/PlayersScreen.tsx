@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -995,6 +996,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     height: 44,
     gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
   },
   searchInput: {
     flex: 1,
@@ -1014,9 +1017,12 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xs,
     marginRight: Spacing.sm,
     gap: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "20",
   },
   filterChipActive: {
     backgroundColor: Colors.dark.primary + "30",
+    borderColor: Colors.dark.primary + "60",
   },
   filterChipText: {
     fontSize: Typography.small.fontSize,
@@ -1058,6 +1064,19 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "25",
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   playerAvatar: {
     width: 48,
