@@ -333,7 +333,7 @@ export default function PlayerJourneyScreen() {
           )}
           contentContainerStyle={[
             styles.timelineContent,
-            { paddingBottom: insets.bottom + 100 },
+            { paddingBottom: insets.bottom + 200 },
           ]}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
@@ -353,7 +353,7 @@ export default function PlayerJourneyScreen() {
           renderItem={({ item }) => <AchievementCard achievement={item} />}
           contentContainerStyle={[
             styles.achievementsContent,
-            { paddingBottom: insets.bottom + 100 },
+            { paddingBottom: insets.bottom + 200 },
           ]}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
@@ -375,7 +375,7 @@ export default function PlayerJourneyScreen() {
           renderItem={({ item }) => <DomainBadgeCard badge={item} />}
           contentContainerStyle={[
             styles.badgesContent,
-            { paddingBottom: insets.bottom + 100 },
+            { paddingBottom: insets.bottom + 200 },
           ]}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={

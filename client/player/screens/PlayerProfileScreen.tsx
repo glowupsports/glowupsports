@@ -142,7 +142,7 @@ export default function PlayerProfileScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>

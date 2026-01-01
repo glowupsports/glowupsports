@@ -346,7 +346,7 @@ export default function PlayerHomeScreen() {
         </View>
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
           showsVerticalScrollIndicator={false}
         >
           <View style={ownerStyles.header}>
@@ -512,7 +512,7 @@ export default function PlayerHomeScreen() {
       </View>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
         showsVerticalScrollIndicator={false}
       >
         <PlayerStatusBar 

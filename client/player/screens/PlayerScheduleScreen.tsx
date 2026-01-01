@@ -235,7 +235,7 @@ export default function PlayerScheduleScreen() {
 
       <ScrollView
         style={styles.sessionsContainer}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.sectionTitle}>

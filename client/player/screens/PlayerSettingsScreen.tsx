@@ -147,7 +147,7 @@ export default function PlayerSettingsScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 200 }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.section}>
