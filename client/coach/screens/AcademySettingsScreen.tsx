@@ -7,16 +7,24 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Share,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import * as Clipboard from "expo-clipboard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+
+interface JoinCodeData {
+  joinCode: string | null;
+  academyName: string;
+}
 
 interface AcademySettings {
   id: string;
@@ -100,6 +108,59 @@ export default function AcademySettingsScreen() {
   const { data: invites = [], isLoading: invitesLoading } = useQuery<AcademyInvite[]>({
     queryKey: ["/api/academy/invites"],
   });
+
+  const { data: joinCodeData, isLoading: joinCodeLoading } = useQuery<JoinCodeData>({
+    queryKey: ["/api/academy/join-code"],
+  });
+
+  const regenerateJoinCodeMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/academy/join-code/regenerate");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/academy/join-code"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Success", "New join code generated!");
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to generate new join code");
+    },
+  });
+
+  const handleCopyJoinCode = async () => {
+    if (joinCodeData?.joinCode) {
+      await Clipboard.setStringAsync(joinCodeData.joinCode);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Copied", "Join code copied to clipboard!");
+    }
+  };
+
+  const handleShareJoinCode = async () => {
+    if (joinCodeData?.joinCode) {
+      if (Platform.OS === "web") {
+        handleCopyJoinCode();
+        return;
+      }
+      try {
+        await Share.share({
+          message: `Join ${joinCodeData.academyName} on Glow Up Sports! Use code: ${joinCodeData.joinCode}`,
+        });
+      } catch (error) {
+        handleCopyJoinCode();
+      }
+    }
+  };
+
+  const handleRegenerateJoinCode = () => {
+    Alert.alert(
+      "Regenerate Code",
+      "This will create a new join code. The old code will stop working. Continue?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Regenerate", onPress: () => regenerateJoinCodeMutation.mutate() },
+      ]
+    );
+  };
 
   useEffect(() => {
     if (settings) {
@@ -223,6 +284,66 @@ export default function AcademySettingsScreen() {
 
   const renderSettingsTab = () => (
     <View style={styles.tabContent}>
+      <View style={styles.joinCodeSection}>
+        <View style={styles.joinCodeHeader}>
+          <View style={styles.joinCodeIconContainer}>
+            <Ionicons name="qr-code" size={24} color={Colors.dark.primary} />
+          </View>
+          <View style={styles.joinCodeHeaderText}>
+            <Text style={styles.joinCodeTitle}>Player Join Code</Text>
+            <Text style={styles.joinCodeSubtitle}>Share this code with players to let them join your academy</Text>
+          </View>
+        </View>
+        
+        {joinCodeLoading ? (
+          <View style={styles.joinCodeLoadingContainer}>
+            <ActivityIndicator size="small" color={Colors.dark.primary} />
+          </View>
+        ) : joinCodeData?.joinCode ? (
+          <>
+            <View style={styles.joinCodeDisplay}>
+              <Text style={styles.joinCodeText}>{joinCodeData.joinCode}</Text>
+            </View>
+            <View style={styles.joinCodeActions}>
+              <Pressable style={styles.joinCodeActionButton} onPress={handleCopyJoinCode}>
+                <Ionicons name="copy-outline" size={20} color={Colors.dark.primary} />
+                <Text style={styles.joinCodeActionText}>Copy</Text>
+              </Pressable>
+              <Pressable style={styles.joinCodeActionButton} onPress={handleShareJoinCode}>
+                <Ionicons name="share-outline" size={20} color={Colors.dark.primary} />
+                <Text style={styles.joinCodeActionText}>Share</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.joinCodeActionButton, regenerateJoinCodeMutation.isPending && styles.buttonDisabled]} 
+                onPress={handleRegenerateJoinCode}
+                disabled={regenerateJoinCodeMutation.isPending}
+              >
+                <Ionicons name="refresh-outline" size={20} color={Colors.dark.textMuted} />
+                <Text style={[styles.joinCodeActionText, { color: Colors.dark.textMuted }]}>New Code</Text>
+              </Pressable>
+            </View>
+          </>
+        ) : (
+          <View style={styles.noJoinCodeContainer}>
+            <Text style={styles.noJoinCodeText}>No join code yet</Text>
+            <Pressable 
+              style={[styles.generateCodeButton, regenerateJoinCodeMutation.isPending && styles.buttonDisabled]}
+              onPress={() => regenerateJoinCodeMutation.mutate()}
+              disabled={regenerateJoinCodeMutation.isPending}
+            >
+              {regenerateJoinCodeMutation.isPending ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="add" size={20} color="#fff" />
+                  <Text style={styles.generateCodeButtonText}>Generate Code</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        )}
+      </View>
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Business Information</Text>
         
@@ -774,5 +895,99 @@ const styles = StyleSheet.create({
     color: Colors.dark.disabled,
     textAlign: "center",
     paddingVertical: Spacing.xl,
+  },
+  joinCodeSection: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.xl,
+    borderWidth: 1,
+    borderColor: Colors.dark.backgroundTertiary,
+  },
+  joinCodeHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  joinCodeIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: "rgba(46, 204, 64, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  joinCodeHeaderText: {
+    flex: 1,
+  },
+  joinCodeTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  joinCodeSubtitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  joinCodeLoadingContainer: {
+    paddingVertical: Spacing.lg,
+    alignItems: "center",
+  },
+  joinCodeDisplay: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
+    alignItems: "center",
+    marginBottom: Spacing.md,
+    borderWidth: 2,
+    borderColor: Colors.dark.primary,
+    borderStyle: "dashed",
+  },
+  joinCodeText: {
+    ...Typography.h1,
+    color: Colors.dark.primary,
+    letterSpacing: 4,
+    fontWeight: "700",
+  },
+  joinCodeActions: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: Spacing.lg,
+  },
+  joinCodeActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+  },
+  joinCodeActionText: {
+    ...Typography.small,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  noJoinCodeContainer: {
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  noJoinCodeText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+  },
+  generateCodeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.lg,
+  },
+  generateCodeButtonText: {
+    ...Typography.body,
+    color: "#fff",
+    fontWeight: "600",
   },
 });

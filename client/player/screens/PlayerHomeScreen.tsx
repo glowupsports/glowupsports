@@ -11,6 +11,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { useAppMode } from "@/context/AppModeContext";
 import { OwnerCard } from "@/player/components/OwnerCard";
 import { PlayerStatusBar } from "@/player/components/PlayerStatusBar";
+import { AcademyHubCard } from "@/player/components/AcademyHubCard";
 
 interface OwnerProfileData {
   profile: {
@@ -582,6 +583,13 @@ export default function PlayerHomeScreen() {
             color={Colors.dark.xpCyan} 
           />
         </View>
+
+        {!academy ? (
+          <AcademyHubCard 
+            hasAcademy={false} 
+            onBrowsePress={() => navigation.navigate("AcademyBrowser")}
+          />
+        ) : null}
 
         {academy ? (
           <View style={styles.academyCard}>
