@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -9,6 +9,7 @@ import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constan
 import { LinearGradient } from "expo-linear-gradient";
 import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
+import PinEntryModal from "@/components/PinEntryModal";
 
 interface ProfileData {
   player: {
@@ -77,6 +78,7 @@ export default function PlayerProfileScreen() {
   const navigation = useNavigation<any>();
   const { setMode } = useAppMode();
   const { logout } = useAuth();
+  const [showPinModal, setShowPinModal] = useState(false);
 
   const { data, isLoading, error } = useQuery<ProfileData>({
     queryKey: ["/api/player/me/profile"],
@@ -301,7 +303,7 @@ export default function PlayerProfileScreen() {
             style={styles.settingsItem}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("ParentDashboard");
+              setShowPinModal(true);
             }}
           >
             <View style={[styles.settingsIcon, { backgroundColor: "rgba(138, 43, 226, 0.15)" }]}>
@@ -311,6 +313,7 @@ export default function PlayerProfileScreen() {
             <View style={styles.newBadge}>
               <Text style={styles.newBadgeText}>NEW</Text>
             </View>
+            <Ionicons name="lock-closed" size={16} color={Colors.dark.textMuted} style={{ marginRight: Spacing.xs }} />
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
           </Pressable>
         </View>
@@ -366,6 +369,16 @@ export default function PlayerProfileScreen() {
           <Text style={styles.logoutText}>Sign Out</Text>
         </Pressable>
       </ScrollView>
+
+      <PinEntryModal
+        visible={showPinModal}
+        onClose={() => setShowPinModal(false)}
+        onSuccess={() => {
+          setShowPinModal(false);
+          navigation.navigate("ParentDashboard");
+        }}
+        title="Parent Dashboard"
+      />
     </View>
   );
 }
