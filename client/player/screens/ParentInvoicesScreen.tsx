@@ -33,7 +33,8 @@ export default function ParentInvoicesScreen() {
   const { playerId } = route.params;
 
   const { data, isLoading } = useQuery<{ invoices: Invoice[] }>({
-    queryKey: ["/api/parent/invoices", playerId],
+    queryKey: [`/api/parent/invoices/${playerId}`],
+    enabled: !!playerId,
   });
 
   const invoices = data?.invoices || [];

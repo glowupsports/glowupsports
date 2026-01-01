@@ -28,7 +28,8 @@ export default function ParentPaymentsScreen() {
   const { playerId } = route.params;
 
   const { data, isLoading } = useQuery<{ payments: Payment[] }>({
-    queryKey: ["/api/parent/payments", playerId],
+    queryKey: [`/api/parent/payments/${playerId}`],
+    enabled: !!playerId,
   });
 
   const payments = data?.payments || [];

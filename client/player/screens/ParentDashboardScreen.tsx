@@ -7,13 +7,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 
-interface Child {
-  id: string;
-  name: string;
-  academyId: string | null;
-  relationship: string;
-}
-
 interface DashboardData {
   player: { id: string; name: string };
   academy: { id: string; name: string } | null;
@@ -25,42 +18,49 @@ export default function ParentDashboardScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { user } = useAuth();
-  const [selectedChildId, setSelectedChildId] = React.useState<string | null>(null);
+  
+  const playerId = user?.playerId || "";
 
-  const { data: childrenData, isLoading: childrenLoading } = useQuery<{ children: Child[] }>({
-    queryKey: ["/api/parent/children"],
-  });
-
-  const children = childrenData?.children || [];
-
-  React.useEffect(() => {
-    if (children.length > 0 && !selectedChildId) {
-      setSelectedChildId(children[0].id);
-    }
-  }, [children, selectedChildId]);
-
-  const { data: dashboardData, isLoading: dashboardLoading } = useQuery<DashboardData>({
-    queryKey: ["/api/parent/dashboard", selectedChildId],
-    enabled: !!selectedChildId,
+  const { data: dashboardData, isLoading, error } = useQuery<DashboardData>({
+    queryKey: [`/api/parent/dashboard/${playerId}`],
+    enabled: !!playerId,
   });
 
   const navigateToInvoices = () => {
-    (navigation as any).navigate("ParentInvoices", { playerId: selectedChildId });
+    if (playerId) {
+      (navigation as any).navigate("ParentInvoices", { playerId });
+    }
   };
 
   const navigateToPayments = () => {
-    (navigation as any).navigate("ParentPayments", { playerId: selectedChildId });
+    if (playerId) {
+      (navigation as any).navigate("ParentPayments", { playerId });
+    }
   };
 
   const navigateToLessons = () => {
-    (navigation as any).navigate("ParentLessons", { playerId: selectedChildId });
+    if (playerId) {
+      (navigation as any).navigate("ParentLessons", { playerId });
+    }
   };
 
   const navigateToSettings = () => {
     (navigation as any).navigate("ParentSettings");
   };
 
-  if (childrenLoading) {
+  if (!playerId) {
+    return (
+      <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
+        <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.textMuted} />
+        <Text style={styles.emptyText}>Player profile not found</Text>
+        <Pressable style={styles.backButtonLarge} onPress={() => navigation.goBack()}>
+          <Text style={styles.backButtonText}>Go Back</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (isLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
         <ActivityIndicator size="large" color={Colors.dark.text} />
@@ -84,38 +84,7 @@ export default function ParentDashboardScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        {children.length > 1 ? (
-          <View style={styles.childSelector}>
-            <Text style={styles.sectionLabel}>Select Child</Text>
-            <View style={styles.childPills}>
-              {children.map((child) => (
-                <Pressable
-                  key={child.id}
-                  style={[
-                    styles.childPill,
-                    selectedChildId === child.id && styles.childPillSelected,
-                  ]}
-                  onPress={() => setSelectedChildId(child.id)}
-                >
-                  <Text
-                    style={[
-                      styles.childPillText,
-                      selectedChildId === child.id && styles.childPillTextSelected,
-                    ]}
-                  >
-                    {child.name}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        {dashboardLoading ? (
-          <View style={styles.loadingSection}>
-            <ActivityIndicator size="small" color={Colors.dark.textMuted} />
-          </View>
-        ) : dashboardData ? (
+        {dashboardData ? (
           <>
             <View style={styles.playerCard}>
               <View style={styles.playerAvatar}>
@@ -251,6 +220,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  backButtonLarge: {
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    marginTop: Spacing.lg,
+  },
+  backButtonText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
   settingsButton: {
     width: 40,
     height: 40,
@@ -265,42 +245,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,
-  },
-  childSelector: {
-    marginBottom: Spacing.xl,
-  },
-  sectionLabel: {
-    ...Typography.caption,
-    color: Colors.dark.textMuted,
-    marginBottom: Spacing.sm,
-  },
-  childPills: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.sm,
-  },
-  childPill: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-  },
-  childPillSelected: {
-    backgroundColor: Colors.dark.text,
-    borderColor: Colors.dark.text,
-  },
-  childPillText: {
-    ...Typography.body,
-    color: Colors.dark.text,
-  },
-  childPillTextSelected: {
-    color: Colors.dark.background,
-  },
-  loadingSection: {
-    paddingVertical: Spacing.xxl,
-    alignItems: "center",
   },
   playerCard: {
     flexDirection: "row",

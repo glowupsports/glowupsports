@@ -5,6 +5,7 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
+import { getApiUrl } from "@/lib/query-client";
 
 interface LessonSummary {
   scheduled: number;
@@ -34,7 +35,16 @@ export default function ParentLessonsScreen() {
   const [selectedYear, setSelectedYear] = React.useState(now.getFullYear());
 
   const { data, isLoading } = useQuery<{ summary: LessonSummary }>({
-    queryKey: ["/api/parent/lessons", playerId, `?month=${selectedMonth}&year=${selectedYear}`],
+    queryKey: ["/api/parent/lessons", playerId, selectedMonth, selectedYear],
+    queryFn: async () => {
+      const url = new URL(`/api/parent/lessons/${playerId}`, getApiUrl());
+      url.searchParams.set("month", String(selectedMonth));
+      url.searchParams.set("year", String(selectedYear));
+      const response = await fetch(url.toString(), { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to fetch lessons");
+      return response.json();
+    },
+    enabled: !!playerId,
   });
 
   const summary = data?.summary || { scheduled: 0, attended: 0, missed: 0, cancelled: 0, makeUps: 0 };
