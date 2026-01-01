@@ -911,7 +911,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "rgba(12, 12, 12, 0.98)",
+    backgroundColor: "#0C0C0C",
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
     zIndex: 100,
@@ -1020,6 +1020,7 @@ const styles = StyleSheet.create({
   },
   expandedContent: {
     flex: 1,
+    backgroundColor: "#0C0C0C",
   },
   tabBarContainer: {
     flexDirection: "row",
@@ -1257,7 +1258,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     right: 0,
     borderRadius: 6,
-    backgroundColor: "rgba(12, 12, 12, 0.98)",
+    backgroundColor: "#0C0C0C",
   },
   connectionDot: {
     width: 8,
