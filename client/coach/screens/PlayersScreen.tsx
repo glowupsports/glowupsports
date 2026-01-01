@@ -142,6 +142,8 @@ export default function PlayersScreen() {
     },
   });
 
+  const getEffectiveBallLevel = (level: string | null) => level || "green";
+
   const filteredPlayers = useMemo(() => {
     let result = players;
     if (searchQuery) {
@@ -153,7 +155,7 @@ export default function PlayersScreen() {
       );
     }
     if (filterLevel) {
-      result = result.filter((p) => p.ballLevel === filterLevel);
+      result = result.filter((p) => getEffectiveBallLevel(p.ballLevel) === filterLevel);
     }
     return result.sort((a, b) => a.name.localeCompare(b.name));
   }, [players, searchQuery, filterLevel]);
@@ -259,7 +261,7 @@ export default function PlayersScreen() {
         {ballLevels.map((level) => {
           const isActive = filterLevel === level;
           const levelColor = getPlayerLevelColor(level);
-          const count = players.filter(p => p.ballLevel === level).length;
+          const count = players.filter(p => getEffectiveBallLevel(p.ballLevel) === level).length;
           return (
             <Pressable
               key={level}
