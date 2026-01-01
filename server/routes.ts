@@ -2453,6 +2453,230 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== LAST-MINUTE CANCELLATION ====================
+  
+  // Mark session as last-minute cancelled with policy enforcement
+  app.post("/api/coach/sessions/:id/last-minute-cancel", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      
+      // Validate session ownership
+      const { valid, session } = await validateSessionOwnership(id, academyId, storage);
+      if (!valid || !session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      // Check if session is already cancelled or completed
+      if (session.status === "cancelled" || session.status === "completed") {
+        return res.status(400).json({ error: `Session is already ${session.status}` });
+      }
+      
+      // Get academy cancellation policy settings
+      const settings = await storage.getAcademySettings(academyId!);
+      const policyEnabled = settings?.cancellationPolicyEnabled !== false;
+      const windowHours = settings?.cancellationWindowHours || 24;
+      const chargePercent = settings?.cancellationChargePercent || 100;
+      
+      // Calculate hours until session
+      const now = new Date();
+      const sessionStart = new Date(session.startTime);
+      const hoursUntilSession = (sessionStart.getTime() - now.getTime()) / (1000 * 60 * 60);
+      
+      // Determine if this is a chargeable last-minute cancellation
+      const isLastMinute = hoursUntilSession <= windowHours;
+      const shouldCharge = policyEnabled && isLastMinute && chargePercent > 0;
+      
+      // Calculate charge amount
+      let chargeAmount = 0;
+      if (shouldCharge && session.price) {
+        const sessionPrice = parseFloat(session.price.toString());
+        chargeAmount = (sessionPrice * chargePercent) / 100;
+      }
+      
+      // Update session with cancellation details
+      const updates: Record<string, unknown> = {
+        status: "cancelled",
+        cancelledAt: now,
+        cancelledBy: coachId,
+        isLastMinuteCancellation: isLastMinute,
+        cancellationCharged: shouldCharge,
+        cancellationChargeAmount: shouldCharge ? chargeAmount.toString() : null,
+      };
+      
+      await storage.updateSession(id, updates);
+      
+      // If charged, create an invoice for the cancellation fee
+      if (shouldCharge && chargeAmount > 0) {
+        const sessionPlayers = await storage.getSessionPlayers(id);
+        for (const sp of sessionPlayers) {
+          if (sp.playerId) {
+            const player = await storage.getPlayer(sp.playerId);
+            if (player) {
+              await storage.createInvoice({
+                academyId: academyId!,
+                playerId: sp.playerId,
+                invoiceNumber: `CANCEL-${Date.now()}-${sp.playerId.slice(-4)}`,
+                amount: chargeAmount.toString(),
+                currency: settings?.currency || "AED",
+                status: "pending",
+                dueDate: new Date(Date.now() + (settings?.invoiceDueDays || 14) * 24 * 60 * 60 * 1000).toISOString(),
+                notes: `Late cancellation fee for session on ${sessionStart.toLocaleDateString()}`,
+                lineItems: JSON.stringify([{
+                  description: `Late Cancellation Fee (${chargePercent}% of lesson)`,
+                  quantity: 1,
+                  unitPrice: chargeAmount,
+                  total: chargeAmount,
+                }]),
+              });
+            }
+          }
+        }
+      }
+      
+      // Audit log
+      await storage.createAuditLog({
+        entityType: "session",
+        entityId: id,
+        action: isLastMinute ? "last_minute_cancel" : "cancel",
+        performedBy: coachId || undefined,
+        metadata: JSON.stringify({ 
+          hoursUntilSession: hoursUntilSession.toFixed(1),
+          charged: shouldCharge,
+          chargeAmount,
+        }),
+      });
+      
+      res.json({
+        success: true,
+        isLastMinute,
+        charged: shouldCharge,
+        chargeAmount,
+        chargePercent: shouldCharge ? chargePercent : 0,
+        message: shouldCharge 
+          ? `Session cancelled. ${chargePercent}% cancellation fee applied.`
+          : isLastMinute 
+            ? "Session cancelled (no charge - policy disabled)"
+            : "Session cancelled within policy window (no charge)",
+      });
+    } catch (error) {
+      console.error("Error cancelling session:", error);
+      res.status(500).json({ error: "Failed to cancel session" });
+    }
+  });
+
+  // ==================== COACH PIN PROTECTION ====================
+  
+  // Verify PIN for Parent Dashboard access
+  app.post("/api/coach/pin/verify", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      const { pin } = req.body;
+      
+      if (!coachId) {
+        return res.status(400).json({ error: "Coach ID required" });
+      }
+      
+      if (!pin || typeof pin !== "string" || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+        return res.status(400).json({ error: "PIN must be exactly 4 digits" });
+      }
+      
+      const coach = await storage.getCoach(coachId);
+      if (!coach) {
+        return res.status(404).json({ error: "Coach not found" });
+      }
+      
+      const storedPin = coach.parentDashboardPin || "1234";
+      const isValid = pin === storedPin;
+      const requiresChange = !coach.pinChangedAt; // Never changed from default
+      
+      res.json({
+        valid: isValid,
+        requiresChange: isValid ? requiresChange : false,
+      });
+    } catch (error) {
+      console.error("Error verifying PIN:", error);
+      res.status(500).json({ error: "Failed to verify PIN" });
+    }
+  });
+  
+  // Change PIN
+  app.post("/api/coach/pin/change", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      const { currentPin, newPin } = req.body;
+      
+      if (!coachId) {
+        return res.status(400).json({ error: "Coach ID required" });
+      }
+      
+      if (!newPin || typeof newPin !== "string" || newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
+        return res.status(400).json({ error: "New PIN must be exactly 4 digits" });
+      }
+      
+      const coach = await storage.getCoach(coachId);
+      if (!coach) {
+        return res.status(404).json({ error: "Coach not found" });
+      }
+      
+      const storedPin = coach.parentDashboardPin || "1234";
+      
+      // If PIN was never changed, allow any currentPin (first-time setup)
+      if (coach.pinChangedAt && currentPin !== storedPin) {
+        return res.status(401).json({ error: "Current PIN is incorrect" });
+      }
+      
+      await storage.updateCoach(coachId, {
+        parentDashboardPin: newPin,
+        pinChangedAt: new Date(),
+      });
+      
+      res.json({ success: true, message: "PIN changed successfully" });
+    } catch (error) {
+      console.error("Error changing PIN:", error);
+      res.status(500).json({ error: "Failed to change PIN" });
+    }
+  });
+  
+  // Platform Owner: Reset coach PIN to default
+  app.post("/api/platform/coaches/:coachId/reset-pin", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      
+      // Only platform owners can reset PINs
+      if (user.role !== "platform_owner") {
+        return res.status(403).json({ error: "Only platform owners can reset PINs" });
+      }
+      
+      const { coachId } = req.params;
+      
+      const coach = await storage.getCoach(coachId);
+      if (!coach) {
+        return res.status(404).json({ error: "Coach not found" });
+      }
+      
+      await storage.updateCoach(coachId, {
+        parentDashboardPin: "1234",
+        pinChangedAt: null,
+      });
+      
+      // Audit log
+      await storage.createAuditLog({
+        entityType: "coach",
+        entityId: coachId,
+        action: "pin_reset",
+        performedBy: user.coachId || undefined,
+        metadata: JSON.stringify({ resetTo: "default" }),
+      });
+      
+      res.json({ success: true, message: `PIN for ${coach.name} reset to 1234` });
+    } catch (error) {
+      console.error("Error resetting PIN:", error);
+      res.status(500).json({ error: "Failed to reset PIN" });
+    }
+  });
+
   // Offline sync
   app.post("/api/coach/offline/sync", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {

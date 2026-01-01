@@ -570,6 +570,13 @@ export const sessions = pgTable("sessions", {
   
   status: text("status").default("scheduled"), // scheduled/cancelled/completed
   
+  // Cancellation tracking
+  cancelledAt: timestamp("cancelled_at"),
+  cancelledBy: varchar("cancelled_by"), // coach_id who marked the cancellation
+  isLastMinuteCancellation: boolean("is_last_minute_cancellation").default(false),
+  cancellationCharged: boolean("cancellation_charged").default(false),
+  cancellationChargeAmount: numeric("cancellation_charge_amount"),
+  
   googleCalendarEventId: text("google_calendar_event_id"), // External Google Calendar event ID for sync
   
   createdAt: timestamp("created_at").defaultNow(),
