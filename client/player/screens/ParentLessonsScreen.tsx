@@ -201,7 +201,7 @@ export default function ParentLessonsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: Colors.dark.backgroundRoot,
   },
   header: {
     flexDirection: "row",
