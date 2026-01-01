@@ -218,18 +218,75 @@ function SelectableCard({
   );
 }
 
+interface JoinCodeAcademy {
+  id: string;
+  name: string;
+  slug: string;
+  city?: string;
+  country?: string;
+  description?: string;
+  coachCount: number;
+  playerCount: number;
+}
+
 function AcademySelectionStep({ data, setData, onNext }: StepProps) {
+  const [joinCode, setJoinCode] = useState("");
+  const [joinCodeError, setJoinCodeError] = useState<string | null>(null);
+  const [foundAcademy, setFoundAcademy] = useState<JoinCodeAcademy | null>(null);
+  const [isLookingUp, setIsLookingUp] = useState(false);
+  const [showBrowse, setShowBrowse] = useState(false);
+
   const { data: academiesData, isLoading, isError, refetch, isFetching } = useQuery<{ academies: Academy[] }>({
     queryKey: ["/api/academies/browse"],
+    enabled: showBrowse,
   });
 
   const academies = academiesData?.academies || [];
 
-  if (isLoading) {
+  const handleJoinCodeLookup = async () => {
+    if (joinCode.length < 4) {
+      setJoinCodeError("Please enter at least 4 characters");
+      return;
+    }
+    
+    setIsLookingUp(true);
+    setJoinCodeError(null);
+    setFoundAcademy(null);
+    
+    try {
+      const response = await fetch(`/api/academies/join-code/${joinCode.toUpperCase()}`);
+      const result = await response.json();
+      
+      if (!response.ok) {
+        setJoinCodeError(result.error || "Academy not found");
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } else {
+        setFoundAcademy(result.academy);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (error) {
+      setJoinCodeError("Connection error. Please try again.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setIsLookingUp(false);
+    }
+  };
+
+  const handleSelectAcademy = (academy: { id: string; name: string }) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setData((prev) => ({ 
+      ...prev, 
+      academyId: academy.id,
+      academyName: academy.name,
+    }));
+    setTimeout(onNext, 300);
+  };
+
+  if (isLoading && showBrowse) {
     return (
       <View style={styles.stepContainer}>
         <Animated.View entering={FadeInDown.delay(100).duration(500)}>
-          <Text style={styles.stepTitle}>Select Your Academy</Text>
+          <Text style={styles.stepTitle}>Find Your Academy</Text>
           <Text style={styles.stepSubtitle}>
             Loading available academies...
           </Text>
@@ -241,114 +298,167 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
     );
   }
 
-  if (isError) {
-    return (
-      <View style={styles.stepContainer}>
-        <Animated.View entering={FadeInDown.delay(100).duration(500)}>
-          <Text style={styles.stepTitle}>Connection Issue</Text>
-          <Text style={styles.stepSubtitle}>
-            We couldn't load the available academies. Please check your connection and try again.
-          </Text>
-        </Animated.View>
-        <View style={styles.errorContainer}>
-          <Ionicons name="cloud-offline-outline" size={48} color={Colors.dark.textMuted} />
-          <Pressable
-            style={styles.retryButton}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              refetch();
-            }}
-            disabled={isFetching}
-          >
-            <Ionicons name="refresh-outline" size={20} color={Colors.dark.backgroundRoot} />
-            <Text style={styles.retryButtonText}>
-              {isFetching ? "Retrying..." : "Try Again"}
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.stepContainer}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
       <Animated.View entering={FadeInDown.delay(100).duration(500)}>
-        <Text style={styles.stepTitle}>Select Your Academy</Text>
+        <Text style={styles.stepTitle}>Find Your Academy</Text>
         <Text style={styles.stepSubtitle}>
-          Choose the tennis academy you're joining.
+          Enter the code your coach gave you, or browse available academies.
         </Text>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.optionsContainer}>
-        {academies.length === 0 ? (
-          <View style={styles.emptyAcademiesContainer}>
-            <Ionicons name="business-outline" size={48} color={Colors.dark.textMuted} />
-            <Text style={styles.emptyAcademiesText}>No academies available</Text>
-            <Text style={styles.emptyAcademiesSubtext}>
-              No academies are currently accepting new players. Please contact your coach to receive an invitation, or check back later.
-            </Text>
-            <Pressable
-              style={styles.retryButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                refetch();
-              }}
-              disabled={isFetching}
-            >
-              <Ionicons name="refresh-outline" size={20} color={Colors.dark.backgroundRoot} />
-              <Text style={styles.retryButtonText}>
-                {isFetching ? "Checking..." : "Refresh"}
-              </Text>
-            </Pressable>
-          </View>
-        ) : (
-          academies.map((academy) => (
-            <Pressable
-              key={academy.id}
-              style={[
-                styles.academyCard,
-                data.academyId === academy.id ? styles.academyCardActive : null,
-              ]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setData((prev) => ({ 
-                  ...prev, 
-                  academyId: academy.id,
-                  academyName: academy.name,
-                }));
-                setTimeout(onNext, 300);
-              }}
-            >
+      <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.joinCodeSection}>
+        <View style={styles.joinCodeInputRow}>
+          <TextInput
+            style={styles.joinCodeInput}
+            value={joinCode}
+            onChangeText={(text) => {
+              setJoinCode(text.toUpperCase());
+              setJoinCodeError(null);
+              setFoundAcademy(null);
+            }}
+            placeholder="Enter join code (e.g. ABC123)"
+            placeholderTextColor={Colors.dark.disabled}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={8}
+          />
+          <Pressable
+            style={[styles.lookupButton, isLookingUp && styles.buttonDisabled]}
+            onPress={handleJoinCodeLookup}
+            disabled={isLookingUp || joinCode.length < 4}
+          >
+            {isLookingUp ? (
+              <Text style={styles.lookupButtonText}>...</Text>
+            ) : (
+              <Ionicons name="search" size={20} color={Colors.dark.backgroundRoot} />
+            )}
+          </Pressable>
+        </View>
+        
+        {joinCodeError ? (
+          <Text style={styles.joinCodeError}>{joinCodeError}</Text>
+        ) : null}
+        
+        {foundAcademy ? (
+          <Animated.View entering={FadeIn.duration(300)} style={styles.foundAcademyCard}>
+            <View style={styles.foundAcademyHeader}>
               <View style={styles.academyIconContainer}>
-                <Ionicons 
-                  name="tennisball-outline" 
-                  size={28} 
-                  color={data.academyId === academy.id ? Colors.dark.xpCyan : Colors.dark.textMuted} 
-                />
+                <Ionicons name="checkmark-circle" size={28} color={Colors.dark.primary} />
               </View>
               <View style={styles.academyInfo}>
-                <Text style={[
-                  styles.academyName,
-                  data.academyId === academy.id ? styles.academyNameActive : null,
-                ]}>
-                  {academy.name}
-                </Text>
+                <Text style={[styles.academyName, styles.academyNameActive]}>{foundAcademy.name}</Text>
+                {foundAcademy.city || foundAcademy.country ? (
+                  <Text style={styles.academyLocation}>
+                    {[foundAcademy.city, foundAcademy.country].filter(Boolean).join(", ")}
+                  </Text>
+                ) : null}
                 <Text style={styles.academyStats}>
-                  {academy.coachCount} coaches · {academy.playerCount} players
+                  {foundAcademy.coachCount} coach{foundAcademy.coachCount !== 1 ? "es" : ""} · {foundAcademy.playerCount} player{foundAcademy.playerCount !== 1 ? "s" : ""}
                 </Text>
               </View>
-              {data.academyId === academy.id ? (
-                <View style={styles.checkIcon}>
-                  <Ionicons name="checkmark" size={16} color={Colors.dark.backgroundRoot} />
-                </View>
-              ) : (
-                <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
-              )}
+            </View>
+            {foundAcademy.description ? (
+              <Text style={styles.academyDescription}>{foundAcademy.description}</Text>
+            ) : null}
+            <Pressable
+              style={styles.joinFoundAcademyButton}
+              onPress={() => handleSelectAcademy(foundAcademy)}
+            >
+              <Ionicons name="arrow-forward" size={18} color={Colors.dark.backgroundRoot} />
+              <Text style={styles.joinFoundAcademyText}>Join {foundAcademy.name}</Text>
             </Pressable>
-          ))
-        )}
+          </Animated.View>
+        ) : null}
       </Animated.View>
-    </View>
+
+      <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.dividerRow}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>or</Text>
+        <View style={styles.dividerLine} />
+      </Animated.View>
+
+      {!showBrowse ? (
+        <Animated.View entering={FadeInDown.delay(400).duration(500)}>
+          <Pressable
+            style={styles.browseButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowBrowse(true);
+            }}
+          >
+            <Ionicons name="globe-outline" size={20} color={Colors.dark.xpCyan} />
+            <Text style={styles.browseButtonText}>Browse All Academies</Text>
+          </Pressable>
+        </Animated.View>
+      ) : (
+        <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.optionsContainer}>
+          {isError ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="cloud-offline-outline" size={48} color={Colors.dark.textMuted} />
+              <Pressable
+                style={styles.retryButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  refetch();
+                }}
+                disabled={isFetching}
+              >
+                <Ionicons name="refresh-outline" size={20} color={Colors.dark.backgroundRoot} />
+                <Text style={styles.retryButtonText}>
+                  {isFetching ? "Retrying..." : "Try Again"}
+                </Text>
+              </Pressable>
+            </View>
+          ) : academies.length === 0 ? (
+            <View style={styles.emptyAcademiesContainer}>
+              <Ionicons name="business-outline" size={48} color={Colors.dark.textMuted} />
+              <Text style={styles.emptyAcademiesText}>No academies available</Text>
+              <Text style={styles.emptyAcademiesSubtext}>
+                Ask your coach for a join code to get started.
+              </Text>
+            </View>
+          ) : (
+            academies.map((academy) => (
+              <Pressable
+                key={academy.id}
+                style={[
+                  styles.academyCard,
+                  data.academyId === academy.id ? styles.academyCardActive : null,
+                ]}
+                onPress={() => handleSelectAcademy(academy)}
+              >
+                <View style={styles.academyIconContainer}>
+                  <Ionicons 
+                    name="tennisball-outline" 
+                    size={28} 
+                    color={data.academyId === academy.id ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+                  />
+                </View>
+                <View style={styles.academyInfo}>
+                  <Text style={[
+                    styles.academyName,
+                    data.academyId === academy.id ? styles.academyNameActive : null,
+                  ]}>
+                    {academy.name}
+                  </Text>
+                  <Text style={styles.academyStats}>
+                    {academy.coachCount} coaches · {academy.playerCount} players
+                  </Text>
+                </View>
+                {data.academyId === academy.id ? (
+                  <View style={styles.checkIcon}>
+                    <Ionicons name="checkmark" size={16} color={Colors.dark.backgroundRoot} />
+                  </View>
+                ) : (
+                  <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+                )}
+              </Pressable>
+            ))
+          )}
+        </Animated.View>
+      )}
+    </ScrollView>
   );
 }
 
@@ -1533,7 +1643,7 @@ const styles = StyleSheet.create({
   },
   emptyAcademiesContainer: {
     alignItems: "center",
-    paddingVertical: Spacing.xxl,
+    paddingVertical: Spacing["2xl"],
     gap: Spacing.md,
   },
   emptyAcademiesText: {
@@ -1602,6 +1712,121 @@ const styles = StyleSheet.create({
   retryButtonText: {
     ...Typography.body,
     color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  joinCodeSection: {
+    marginBottom: Spacing.lg,
+  },
+  joinCodeInputRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  joinCodeInput: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    color: Colors.dark.text,
+    ...Typography.body,
+    borderWidth: 2,
+    borderColor: Colors.dark.backgroundTertiary,
+    letterSpacing: 2,
+    textAlign: "center",
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  lookupButton: {
+    width: 52,
+    height: 52,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.dark.xpCyan,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  lookupButtonText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  joinCodeError: {
+    ...Typography.small,
+    color: Colors.dark.error,
+    marginTop: Spacing.sm,
+    textAlign: "center",
+  },
+  foundAcademyCard: {
+    marginTop: Spacing.lg,
+    padding: Spacing.lg,
+    backgroundColor: `${Colors.dark.primary}15`,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
+    borderColor: Colors.dark.primary,
+    gap: Spacing.md,
+  },
+  foundAcademyHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  academyLocation: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  academyDescription: {
+    ...Typography.small,
+    color: Colors.dark.textSecondary,
+    lineHeight: 18,
+  },
+  joinFoundAcademyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.lg,
+    marginTop: Spacing.sm,
+  },
+  joinFoundAcademyText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginVertical: Spacing.lg,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.dark.backgroundTertiary,
+  },
+  dividerText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  browseButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
+    borderColor: Colors.dark.xpCyan,
+  },
+  browseButtonText: {
+    ...Typography.body,
+    color: Colors.dark.xpCyan,
     fontWeight: "600",
   },
 });
