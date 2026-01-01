@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -73,6 +74,7 @@ function getBallLevelColor(ballLevel: string): string {
 
 export default function PlayerProfileScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const { setMode } = useAppMode();
   const { logout } = useAuth();
 
@@ -316,6 +318,52 @@ export default function PlayerProfileScreen() {
             <Text style={[styles.settingsLabel, { color: Colors.dark.textMuted }]}>
               Parent/Payment Mode (Coming Soon)
             </Text>
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+          </Pressable>
+        </View>
+
+        <View style={styles.settingsSection}>
+          <Text style={styles.sectionTitle}>Discover</Text>
+          
+          <Pressable 
+            style={styles.settingsItem}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("CoachDirectory");
+            }}
+          >
+            <View style={[styles.settingsIcon, { backgroundColor: "rgba(0, 212, 255, 0.15)" }]}>
+              <Ionicons name="people-outline" size={20} color={Colors.dark.xpCyan} />
+            </View>
+            <Text style={styles.settingsLabel}>Find Coaches</Text>
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+          </Pressable>
+
+          <Pressable 
+            style={styles.settingsItem}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("AcademyBrowser");
+            }}
+          >
+            <View style={[styles.settingsIcon, { backgroundColor: "rgba(46, 204, 64, 0.15)" }]}>
+              <Ionicons name="school-outline" size={20} color={Colors.dark.primary} />
+            </View>
+            <Text style={styles.settingsLabel}>Browse Academies</Text>
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+          </Pressable>
+
+          <Pressable 
+            style={styles.settingsItem}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("TransferRequest");
+            }}
+          >
+            <View style={[styles.settingsIcon, { backgroundColor: "rgba(255, 165, 0, 0.15)" }]}>
+              <Ionicons name="swap-horizontal-outline" size={20} color={Colors.dark.orange} />
+            </View>
+            <Text style={styles.settingsLabel}>Transfer Academy</Text>
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
           </Pressable>
         </View>
