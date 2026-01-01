@@ -10757,7 +10757,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get parent's linked children
   app.get("/api/parent/children", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.userId;
       const playerId = req.user?.playerId;
       
       if (!userId) {
@@ -10792,7 +10792,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get invoices for a player (parent view)
   app.get("/api/parent/invoices/:playerId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.userId;
       const userPlayerId = req.user?.playerId;
       const { playerId } = req.params;
       
@@ -10827,7 +10827,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get single invoice with details (parent view)
   app.get("/api/parent/invoices/:playerId/:invoiceId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.userId;
       const userPlayerId = req.user?.playerId;
       const { playerId, invoiceId } = req.params;
       
@@ -10865,7 +10865,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get payments for a player (parent view)
   app.get("/api/parent/payments/:playerId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.userId;
       const userPlayerId = req.user?.playerId;
       const { playerId } = req.params;
       
@@ -10892,7 +10892,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get lesson overview for a player (parent view)
   app.get("/api/parent/lessons/:playerId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.userId;
       const userPlayerId = req.user?.playerId;
       const { playerId } = req.params;
       const { month, year } = req.query;
@@ -10923,7 +10923,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get parent settings
   app.get("/api/parent/settings", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.userId;
       
       if (!userId) {
         return res.status(401).json({ error: "User not authenticated" });
@@ -10946,7 +10946,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update parent settings
   app.patch("/api/parent/settings", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.userId;
       
       if (!userId) {
         return res.status(401).json({ error: "User not authenticated" });
@@ -10965,7 +10965,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get parent dashboard summary
   app.get("/api/parent/dashboard/:playerId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.userId;
       const userPlayerId = req.user?.playerId;
       const { playerId } = req.params;
       
