@@ -897,6 +897,468 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== ACADEMY PUBLIC PROFILE ====================
+
+  // Get academy public profile (detailed view with coaches)
+  app.get("/api/academies/:id/profile", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const profile = await storage.getAcademyPublicProfile(id);
+      
+      if (!profile) {
+        return res.status(404).json({ error: "Academy not found" });
+      }
+      
+      res.json({ profile });
+    } catch (error) {
+      console.error("Get academy profile error:", error);
+      res.status(500).json({ error: "Failed to get academy profile" });
+    }
+  });
+
+  // Update academy public profile (owner only)
+  app.put("/api/academy/profile", authMiddleware, requireRole("academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy not found" });
+      }
+
+      const { website, phone, email, facilities, courtCount, ageGroups, programs, priceRange, profileVisibility } = req.body;
+      
+      const updated = await storage.updateAcademy(academyId, {
+        website,
+        phone,
+        email,
+        facilities,
+        courtCount,
+        ageGroups,
+        programs,
+        priceRange,
+        profileVisibility,
+      });
+
+      res.json({ academy: updated });
+    } catch (error) {
+      console.error("Update academy profile error:", error);
+      res.status(500).json({ error: "Failed to update academy profile" });
+    }
+  });
+
+  // ==================== COACH DIRECTORY ====================
+
+  // Browse coaches across the platform
+  app.get("/api/coaches/directory", async (req: Request, res: Response) => {
+    try {
+      const { search, specialization, openToOpportunities } = req.query;
+      
+      const coaches = await storage.getCoachesForDirectory({
+        search: search as string,
+        specialization: specialization as string,
+        openToOpportunities: openToOpportunities === "true",
+      });
+      
+      res.json({ coaches });
+    } catch (error) {
+      console.error("Coach directory error:", error);
+      res.status(500).json({ error: "Failed to browse coaches" });
+    }
+  });
+
+  // Get coach public profile
+  app.get("/api/coaches/:id/profile", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const profile = await storage.getCoachPublicProfile(id);
+      
+      if (!profile) {
+        return res.status(404).json({ error: "Coach not found" });
+      }
+      
+      res.json({ profile });
+    } catch (error) {
+      console.error("Get coach profile error:", error);
+      res.status(500).json({ error: "Failed to get coach profile" });
+    }
+  });
+
+  // Update coach directory settings
+  app.put("/api/coach/directory-settings", authMiddleware, requireRole("coach", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      if (!coachId) {
+        return res.status(400).json({ error: "Coach profile not found" });
+      }
+
+      const { showInDirectory, openToOpportunities, specializations, languages } = req.body;
+      
+      const updated = await storage.updateCoach(coachId, {
+        showInDirectory,
+        openToOpportunities,
+        specializations,
+        languages,
+      });
+
+      res.json({ coach: updated });
+    } catch (error) {
+      console.error("Update directory settings error:", error);
+      res.status(500).json({ error: "Failed to update directory settings" });
+    }
+  });
+
+  // ==================== ACADEMY TRANSFER REQUESTS ====================
+
+  // Player requests to transfer to another academy
+  app.post("/api/player/transfer-request", authMiddleware, requireRole("player"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      const fromAcademyId = req.user!.academyId;
+      
+      if (!playerId) {
+        return res.status(400).json({ error: "Player profile not found" });
+      }
+      
+      if (!fromAcademyId) {
+        return res.status(400).json({ error: "You must be a member of an academy to request a transfer" });
+      }
+
+      const { toAcademyId, reason } = req.body;
+      
+      if (!toAcademyId) {
+        return res.status(400).json({ error: "Destination academy is required" });
+      }
+
+      if (toAcademyId === fromAcademyId) {
+        return res.status(400).json({ error: "You are already a member of this academy" });
+      }
+
+      // Check if there's already a pending transfer
+      const existing = await storage.getPlayerTransferRequests(playerId);
+      const hasPending = existing.some(r => r.status === "pending");
+      if (hasPending) {
+        return res.status(400).json({ error: "You already have a pending transfer request" });
+      }
+
+      const request = await storage.createTransferRequest({
+        playerId,
+        fromAcademyId,
+        toAcademyId,
+        reason,
+        status: "pending",
+        fromAcademyStatus: "pending",
+        toAcademyStatus: "pending",
+      });
+
+      res.status(201).json({ request });
+    } catch (error) {
+      console.error("Create transfer request error:", error);
+      res.status(500).json({ error: "Failed to create transfer request" });
+    }
+  });
+
+  // Get player's transfer requests
+  app.get("/api/player/transfer-requests", authMiddleware, requireRole("player"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) {
+        return res.status(400).json({ error: "Player profile not found" });
+      }
+
+      const requests = await storage.getPlayerTransferRequests(playerId);
+      res.json({ requests });
+    } catch (error) {
+      console.error("Get transfer requests error:", error);
+      res.status(500).json({ error: "Failed to get transfer requests" });
+    }
+  });
+
+  // Coach/Owner: Get incoming transfer requests (players wanting to join)
+  app.get("/api/coach/transfer-requests/incoming", authMiddleware, requireRole("coach", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy not found" });
+      }
+
+      const requests = await storage.getAcademyIncomingTransfers(academyId);
+      
+      // Enrich with player and academy names
+      const enriched = await Promise.all(requests.map(async (r) => {
+        const player = await storage.getPlayer(r.playerId);
+        const fromAcademy = await storage.getAcademy(r.fromAcademyId);
+        return {
+          ...r,
+          playerName: player?.name,
+          fromAcademyName: fromAcademy?.name,
+        };
+      }));
+
+      res.json({ requests: enriched });
+    } catch (error) {
+      console.error("Get incoming transfers error:", error);
+      res.status(500).json({ error: "Failed to get transfer requests" });
+    }
+  });
+
+  // Coach/Owner: Get outgoing transfer requests (players wanting to leave)
+  app.get("/api/coach/transfer-requests/outgoing", authMiddleware, requireRole("coach", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy not found" });
+      }
+
+      const requests = await storage.getAcademyOutgoingTransfers(academyId);
+      
+      // Enrich with player and academy names
+      const enriched = await Promise.all(requests.map(async (r) => {
+        const player = await storage.getPlayer(r.playerId);
+        const toAcademy = await storage.getAcademy(r.toAcademyId);
+        return {
+          ...r,
+          playerName: player?.name,
+          toAcademyName: toAcademy?.name,
+        };
+      }));
+
+      res.json({ requests: enriched });
+    } catch (error) {
+      console.error("Get outgoing transfers error:", error);
+      res.status(500).json({ error: "Failed to get transfer requests" });
+    }
+  });
+
+  // Coach/Owner: Approve or reject transfer request (from their side)
+  app.post("/api/coach/transfer-requests/:id/respond", authMiddleware, requireRole("coach", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { decision, note } = req.body; // decision: "approve" | "reject"
+      const academyId = req.user!.academyId;
+      const coachId = req.user!.coachId;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy not found" });
+      }
+
+      const request = await storage.getTransferRequest(id);
+      if (!request) {
+        return res.status(404).json({ error: "Transfer request not found" });
+      }
+
+      // Determine which side we're responding for
+      const isFromAcademy = request.fromAcademyId === academyId;
+      const isToAcademy = request.toAcademyId === academyId;
+
+      if (!isFromAcademy && !isToAcademy) {
+        return res.status(403).json({ error: "You are not authorized to respond to this request" });
+      }
+
+      const updateData: Record<string, any> = {};
+      const now = new Date();
+
+      if (isFromAcademy) {
+        updateData.fromAcademyStatus = decision === "approve" ? "approved" : "rejected";
+        updateData.fromAcademyReviewedBy = coachId;
+        updateData.fromAcademyReviewedAt = now;
+        updateData.fromAcademyNote = note;
+      } else {
+        updateData.toAcademyStatus = decision === "approve" ? "approved" : "rejected";
+        updateData.toAcademyReviewedBy = coachId;
+        updateData.toAcademyReviewedAt = now;
+        updateData.toAcademyNote = note;
+      }
+
+      // Get updated request to check if both sides have approved
+      const updatedRequest = await storage.updateTransferRequest(id, updateData);
+      
+      // If either side rejected, mark overall as rejected
+      if (updatedRequest?.fromAcademyStatus === "rejected" || updatedRequest?.toAcademyStatus === "rejected") {
+        await storage.updateTransferRequest(id, { status: "rejected" });
+      }
+      // If both sides approved, complete the transfer
+      else if (updatedRequest?.fromAcademyStatus === "approved" && updatedRequest?.toAcademyStatus === "approved") {
+        // Execute the transfer
+        await storage.updatePlayer(request.playerId, { academyId: request.toAcademyId });
+        await storage.updateTransferRequest(id, { status: "approved", completedAt: now });
+      }
+
+      res.json({ request: updatedRequest });
+    } catch (error) {
+      console.error("Respond to transfer error:", error);
+      res.status(500).json({ error: "Failed to respond to transfer request" });
+    }
+  });
+
+  // ==================== COACH INVITATIONS ====================
+
+  // Academy owner invites a coach
+  app.post("/api/coach-invitations", authMiddleware, requireRole("academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId;
+      const invitedBy = req.user!.coachId;
+
+      if (!academyId || !invitedBy) {
+        return res.status(400).json({ error: "Academy not found" });
+      }
+
+      const { email, role, message } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+
+      // Check if already invited
+      const existing = await storage.getCoachInvitationByEmail(email, academyId);
+      if (existing) {
+        return res.status(400).json({ error: "This email has already been invited" });
+      }
+
+      // Check if the coach already exists on the platform (via user table)
+      const existingUser = await storage.getUserByEmail(email);
+      const existingCoach = existingUser?.coachId ? await storage.getCoach(existingUser.coachId) : null;
+      
+      // Generate unique token
+      const token = `ci_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+      
+      const invitation = await storage.createCoachInvitation({
+        academyId,
+        email: email.toLowerCase(),
+        role: role || "coach",
+        invitedBy,
+        coachId: existingCoach?.id || null,
+        message,
+        token,
+        status: "pending",
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      });
+
+      res.status(201).json({ invitation });
+    } catch (error) {
+      console.error("Create coach invitation error:", error);
+      res.status(500).json({ error: "Failed to create invitation" });
+    }
+  });
+
+  // Get academy's coach invitations
+  app.get("/api/coach-invitations", authMiddleware, requireRole("academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy not found" });
+      }
+
+      const invitations = await storage.getAcademyCoachInvitations(academyId);
+      res.json({ invitations });
+    } catch (error) {
+      console.error("Get coach invitations error:", error);
+      res.status(500).json({ error: "Failed to get invitations" });
+    }
+  });
+
+  // Get coach's pending invitations (from other academies)
+  app.get("/api/coach/pending-invitations", authMiddleware, requireRole("coach", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      if (!coachId) {
+        return res.status(400).json({ error: "Coach profile not found" });
+      }
+
+      const invitations = await storage.getCoachPendingInvitations(coachId);
+      
+      // Enrich with academy names
+      const enriched = await Promise.all(invitations.map(async (inv) => {
+        const academy = await storage.getAcademy(inv.academyId);
+        return {
+          ...inv,
+          academyName: academy?.name,
+          academyCity: academy?.city,
+        };
+      }));
+
+      res.json({ invitations: enriched });
+    } catch (error) {
+      console.error("Get pending invitations error:", error);
+      res.status(500).json({ error: "Failed to get invitations" });
+    }
+  });
+
+  // Coach accepts or declines invitation
+  app.post("/api/coach-invitations/:id/respond", authMiddleware, requireRole("coach", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { decision } = req.body; // "accept" | "decline"
+      const coachId = req.user!.coachId;
+
+      if (!coachId) {
+        return res.status(400).json({ error: "Coach profile not found" });
+      }
+
+      const invitation = await storage.getCoachInvitation(id);
+      if (!invitation) {
+        return res.status(404).json({ error: "Invitation not found" });
+      }
+
+      if (invitation.coachId !== coachId) {
+        return res.status(403).json({ error: "This invitation is not for you" });
+      }
+
+      if (invitation.status !== "pending") {
+        return res.status(400).json({ error: "This invitation has already been responded to" });
+      }
+
+      const now = new Date();
+      
+      if (decision === "accept") {
+        // Create coach-academy membership
+        await storage.createCoachMembership({
+          coachId,
+          academyId: invitation.academyId,
+          role: invitation.role || "coach",
+          isActive: true,
+          isPrimary: false,
+        });
+        
+        await storage.updateCoachInvitation(id, { 
+          status: "accepted", 
+          acceptedAt: now 
+        });
+      } else {
+        await storage.updateCoachInvitation(id, { 
+          status: "declined", 
+          declinedAt: now 
+        });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Respond to invitation error:", error);
+      res.status(500).json({ error: "Failed to respond to invitation" });
+    }
+  });
+
+  // Delete coach invitation
+  app.delete("/api/coach-invitations/:id", authMiddleware, requireRole("academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+
+      const invitation = await storage.getCoachInvitation(id);
+      if (!invitation) {
+        return res.status(404).json({ error: "Invitation not found" });
+      }
+
+      if (invitation.academyId !== academyId) {
+        return res.status(403).json({ error: "You can only delete invitations from your academy" });
+      }
+
+      await storage.deleteCoachInvitation(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete invitation error:", error);
+      res.status(500).json({ error: "Failed to delete invitation" });
+    }
+  });
+
   // ==================== PLAYER JOIN REQUESTS ====================
 
   // Submit join request (player)

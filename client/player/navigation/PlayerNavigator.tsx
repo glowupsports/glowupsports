@@ -15,6 +15,9 @@ import TrainingDetailScreen from "@/player/screens/TrainingDetailScreen";
 import SkillDetailScreen from "@/player/screens/SkillDetailScreen";
 import PlayerSettingsScreen from "@/player/screens/PlayerSettingsScreen";
 import AcademyBrowserScreen from "@/player/screens/AcademyBrowserScreen";
+import AcademyProfileScreen from "@/player/screens/AcademyProfileScreen";
+import CoachDirectoryScreen from "@/player/screens/CoachDirectoryScreen";
+import TransferRequestScreen from "@/player/screens/TransferRequestScreen";
 import PlayerOnboardingScreen from "@/player/screens/PlayerOnboardingScreen";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { Colors } from "@/constants/theme";
@@ -36,6 +39,9 @@ export type PlayerStackParamList = {
   SkillDetail: { domain: string };
   Settings: undefined;
   AcademyBrowser: undefined;
+  AcademyProfile: { academyId: string };
+  CoachDirectory: undefined;
+  TransferRequest: { academyId?: string; academyName?: string } | undefined;
 };
 
 const Tab = createBottomTabNavigator<PlayerTabParamList>();
@@ -159,6 +165,27 @@ function PlayerStackNavigator() {
         component={AcademyBrowserScreen}
         options={{
           presentation: "modal",
+        }}
+      />
+      <Stack.Screen 
+        name="AcademyProfile" 
+        component={AcademyProfileScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="CoachDirectory" 
+        component={CoachDirectoryScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="TransferRequest" 
+        component={TransferRequestScreen}
+        options={{
+          presentation: "card",
         }}
       />
     </Stack.Navigator>

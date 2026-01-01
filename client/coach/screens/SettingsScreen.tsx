@@ -22,6 +22,7 @@ import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { useNavigation } from "@react-navigation/native";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
 
@@ -73,6 +74,7 @@ const defaultSettings: CoachSettings = {
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const navigation = useNavigation<any>();
   const { coach, focusMode, setFocusMode } = useCoach();
   const { setMode } = useAppMode();
   const { logout } = useAuth();
@@ -510,6 +512,23 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Team & Invitations</Text>
+          <Pressable 
+            style={styles.linkRow}
+            onPress={() => (navigation.getParent() as any)?.navigate("CoachInvitations")}
+          >
+            <View style={styles.settingInfo}>
+              <Ionicons name="mail-outline" size={24} color={Colors.dark.tabIconDefault} />
+              <View>
+                <Text style={styles.settingLabel}>Coach Invitations</Text>
+                <Text style={styles.settingDescription}>Manage invitations to/from academies</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+          </Pressable>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>App Info</Text>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Version</Text>
@@ -763,6 +782,18 @@ const styles = StyleSheet.create({
         elevation: 6,
       },
     }),
+  },
+  linkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "rgba(20, 20, 20, 0.95)",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(46, 204, 64, 0.3)",
   },
   settingInfo: {
     flex: 1,

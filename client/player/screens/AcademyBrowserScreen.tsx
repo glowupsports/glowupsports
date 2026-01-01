@@ -10,6 +10,7 @@ import {
   Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -36,10 +37,11 @@ interface AcademyCardProps {
   academy: Academy;
   pendingRequest: JoinRequest | null;
   onJoin: (academyId: string, message: string) => void;
+  onViewProfile: (academyId: string) => void;
   isSubmitting: boolean;
 }
 
-function AcademyCard({ academy, pendingRequest, onJoin, isSubmitting }: AcademyCardProps) {
+function AcademyCard({ academy, pendingRequest, onJoin, onViewProfile, isSubmitting }: AcademyCardProps) {
   const [showMessageInput, setShowMessageInput] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -79,7 +81,13 @@ function AcademyCard({ academy, pendingRequest, onJoin, isSubmitting }: AcademyC
   };
 
   return (
-    <View style={[styles.academyCard, CardStyles.elevated]}>
+    <Pressable 
+      style={[styles.academyCard, CardStyles.elevated]}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onViewProfile(academy.id);
+      }}
+    >
       <View style={styles.academyHeader}>
         <View style={[styles.academyIcon, { backgroundColor: `${Colors.dark.xpCyan}20` }]}>
           <Ionicons name="business" size={24} color={Colors.dark.xpCyan} />
@@ -89,6 +97,7 @@ function AcademyCard({ academy, pendingRequest, onJoin, isSubmitting }: AcademyC
           <Text style={styles.academySlug}>@{academy.slug}</Text>
         </View>
         {getStatusBadge()}
+        <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
       </View>
 
       {academy.coachCount !== undefined || academy.playerCount !== undefined ? (
@@ -137,7 +146,10 @@ function AcademyCard({ academy, pendingRequest, onJoin, isSubmitting }: AcademyC
           ) : null}
           <Pressable
             style={[styles.joinButton, isSubmitting && styles.buttonDisabled]}
-            onPress={handleJoinPress}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleJoinPress();
+            }}
             disabled={isSubmitting}
           >
             {isSubmitting ? (
@@ -157,12 +169,13 @@ function AcademyCard({ academy, pendingRequest, onJoin, isSubmitting }: AcademyC
           </Pressable>
         </View>
       ) : null}
-    </View>
+    </Pressable>
   );
 }
 
 export default function AcademyBrowserScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
@@ -266,6 +279,9 @@ export default function AcademyBrowserScreen() {
                 pendingRequest={getPendingRequest(academy.id)}
                 onJoin={(academyId, message) =>
                   joinMutation.mutate({ academyId, message })
+                }
+                onViewProfile={(academyId) => 
+                  navigation.navigate("AcademyProfile", { academyId })
                 }
                 isSubmitting={joinMutation.isPending}
               />

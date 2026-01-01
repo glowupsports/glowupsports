@@ -11,12 +11,19 @@ import {
   academyApplications,
   invites,
   joinRequests,
+  academyTransferRequests,
+  coachInvitations,
+  type Academy,
   type AcademyApplication,
   type InsertAcademyApplication,
   type Invite,
   type InsertInvite,
   type JoinRequest,
   type InsertJoinRequest,
+  type AcademyTransferRequest,
+  type InsertAcademyTransferRequest,
+  type CoachInvitation,
+  type InsertCoachInvitation,
   // Core tables
   coaches,
   locations,
@@ -296,6 +303,205 @@ export const storage = {
 
   async deleteAcademy(id: string): Promise<void> {
     await db.delete(academies).where(eq(academies.id, id));
+  },
+
+  // Get academy public profile with coach count and player count
+  async getAcademyPublicProfile(academyId: string) {
+    const academy = await db.select().from(academies).where(eq(academies.id, academyId));
+    if (!academy[0]) return null;
+    
+    const coachResult = await db.select({ count: count() }).from(coaches).where(eq(coaches.academyId, academyId));
+    const playerResult = await db.select({ count: count() }).from(players).where(eq(players.academyId, academyId));
+    const coachList = await db.select({
+      id: coaches.id,
+      name: coaches.name,
+      specialty: coaches.specialty,
+      photoUrl: coaches.photoUrl,
+      publicQuote: coaches.publicQuote,
+      yearsExperience: coaches.yearsExperience,
+      specializations: coaches.specializations,
+      level: coaches.level,
+      bioStatus: coaches.bioStatus,
+      showProfileToPlayers: coaches.showProfileToPlayers,
+    }).from(coaches).where(and(
+      eq(coaches.academyId, academyId),
+      eq(coaches.showProfileToPlayers, true),
+      eq(coaches.bioStatus, "approved")
+    ));
+    
+    return {
+      ...academy[0],
+      coachCount: coachResult[0]?.count || 0,
+      playerCount: playerResult[0]?.count || 0,
+      coaches: coachList,
+    };
+  },
+
+  // ==================== COACH DIRECTORY ====================
+  async getCoachesForDirectory(filters?: {
+    search?: string;
+    specialization?: string;
+    city?: string;
+    country?: string;
+    openToOpportunities?: boolean;
+  }) {
+    let query = db.select({
+      id: coaches.id,
+      name: coaches.name,
+      specialty: coaches.specialty,
+      photoUrl: coaches.photoUrl,
+      publicQuote: coaches.publicQuote,
+      yearsExperience: coaches.yearsExperience,
+      specializations: coaches.specializations,
+      languages: coaches.languages,
+      level: coaches.level,
+      openToOpportunities: coaches.openToOpportunities,
+      academyId: coaches.academyId,
+    }).from(coaches).where(and(
+      eq(coaches.showInDirectory, true),
+      eq(coaches.bioStatus, "approved")
+    ));
+    
+    const results = await query;
+    
+    // Get academy info for each coach
+    const coachesWithAcademy = await Promise.all(results.map(async (coach) => {
+      if (!coach.academyId) return { ...coach, academyName: null, academyCity: null };
+      const academy = await db.select({ name: academies.name, city: academies.city, country: academies.country })
+        .from(academies).where(eq(academies.id, coach.academyId));
+      return {
+        ...coach,
+        academyName: academy[0]?.name || null,
+        academyCity: academy[0]?.city || null,
+        academyCountry: academy[0]?.country || null,
+      };
+    }));
+    
+    // Apply filters in memory for simplicity
+    let filtered = coachesWithAcademy;
+    if (filters?.search) {
+      const search = filters.search.toLowerCase();
+      filtered = filtered.filter(c => 
+        c.name.toLowerCase().includes(search) ||
+        c.specialty?.toLowerCase().includes(search) ||
+        c.academyName?.toLowerCase().includes(search)
+      );
+    }
+    if (filters?.openToOpportunities) {
+      filtered = filtered.filter(c => c.openToOpportunities === true);
+    }
+    
+    return filtered;
+  },
+
+  async getCoachPublicProfile(coachId: string) {
+    const coach = await db.select().from(coaches).where(and(
+      eq(coaches.id, coachId),
+      eq(coaches.showInDirectory, true)
+    ));
+    if (!coach[0]) return null;
+    
+    // Get academy info
+    let academyInfo = null;
+    if (coach[0].academyId) {
+      const academy = await db.select({ id: academies.id, name: academies.name, city: academies.city, country: academies.country })
+        .from(academies).where(eq(academies.id, coach[0].academyId));
+      academyInfo = academy[0] || null;
+    }
+    
+    return {
+      ...coach[0],
+      academy: academyInfo,
+    };
+  },
+
+  // ==================== ACADEMY TRANSFER REQUESTS ====================
+  async createTransferRequest(data: InsertAcademyTransferRequest): Promise<AcademyTransferRequest> {
+    const result = await db.insert(academyTransferRequests).values(data).returning();
+    return result[0];
+  },
+
+  async getTransferRequest(id: string): Promise<AcademyTransferRequest | undefined> {
+    const result = await db.select().from(academyTransferRequests).where(eq(academyTransferRequests.id, id));
+    return result[0];
+  },
+
+  async getPlayerTransferRequests(playerId: string): Promise<AcademyTransferRequest[]> {
+    return db.select().from(academyTransferRequests)
+      .where(eq(academyTransferRequests.playerId, playerId))
+      .orderBy(desc(academyTransferRequests.createdAt));
+  },
+
+  async getAcademyIncomingTransfers(academyId: string): Promise<AcademyTransferRequest[]> {
+    return db.select().from(academyTransferRequests)
+      .where(and(
+        eq(academyTransferRequests.toAcademyId, academyId),
+        eq(academyTransferRequests.status, "pending")
+      ))
+      .orderBy(desc(academyTransferRequests.createdAt));
+  },
+
+  async getAcademyOutgoingTransfers(academyId: string): Promise<AcademyTransferRequest[]> {
+    return db.select().from(academyTransferRequests)
+      .where(and(
+        eq(academyTransferRequests.fromAcademyId, academyId),
+        eq(academyTransferRequests.status, "pending")
+      ))
+      .orderBy(desc(academyTransferRequests.createdAt));
+  },
+
+  async updateTransferRequest(id: string, data: Partial<AcademyTransferRequest>): Promise<AcademyTransferRequest | undefined> {
+    const result = await db.update(academyTransferRequests).set(data).where(eq(academyTransferRequests.id, id)).returning();
+    return result[0];
+  },
+
+  // ==================== COACH INVITATIONS ====================
+  async createCoachInvitation(data: InsertCoachInvitation & { token: string }): Promise<CoachInvitation> {
+    const result = await db.insert(coachInvitations).values(data).returning();
+    return result[0];
+  },
+
+  async getCoachInvitation(id: string): Promise<CoachInvitation | undefined> {
+    const result = await db.select().from(coachInvitations).where(eq(coachInvitations.id, id));
+    return result[0];
+  },
+
+  async getCoachInvitationByToken(token: string): Promise<CoachInvitation | undefined> {
+    const result = await db.select().from(coachInvitations).where(eq(coachInvitations.token, token));
+    return result[0];
+  },
+
+  async getCoachInvitationByEmail(email: string, academyId: string): Promise<CoachInvitation | undefined> {
+    const result = await db.select().from(coachInvitations).where(and(
+      eq(coachInvitations.email, email.toLowerCase()),
+      eq(coachInvitations.academyId, academyId),
+      eq(coachInvitations.status, "pending")
+    ));
+    return result[0];
+  },
+
+  async getAcademyCoachInvitations(academyId: string): Promise<CoachInvitation[]> {
+    return db.select().from(coachInvitations)
+      .where(eq(coachInvitations.academyId, academyId))
+      .orderBy(desc(coachInvitations.createdAt));
+  },
+
+  async getCoachPendingInvitations(coachId: string): Promise<CoachInvitation[]> {
+    return db.select().from(coachInvitations)
+      .where(and(
+        eq(coachInvitations.coachId, coachId),
+        eq(coachInvitations.status, "pending")
+      ))
+      .orderBy(desc(coachInvitations.createdAt));
+  },
+
+  async updateCoachInvitation(id: string, data: Partial<CoachInvitation>): Promise<CoachInvitation | undefined> {
+    const result = await db.update(coachInvitations).set(data).where(eq(coachInvitations.id, id)).returning();
+    return result[0];
+  },
+
+  async deleteCoachInvitation(id: string): Promise<void> {
+    await db.delete(coachInvitations).where(eq(coachInvitations.id, id));
   },
 
   // ==================== ACADEMY APPLICATIONS ====================

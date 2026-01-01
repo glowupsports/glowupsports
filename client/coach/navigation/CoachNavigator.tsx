@@ -20,6 +20,7 @@ import CourtPreferencesScreen from "@/coach/screens/CourtPreferencesScreen";
 import TemplatesScreen from "@/coach/screens/TemplatesScreen";
 import AcademySettingsScreen from "@/coach/screens/AcademySettingsScreen";
 import BillingScreen from "@/coach/screens/BillingScreen";
+import CoachInvitationsScreen from "@/coach/screens/CoachInvitationsScreen";
 import CoachOnboardingScreen from "@/coach/screens/CoachOnboardingScreen";
 import OfflineBanner from "@/components/OfflineBanner";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -58,6 +59,7 @@ export type CoachStackParamList = {
   Templates: undefined;
   AcademySettings: undefined;
   Billing: undefined;
+  CoachInvitations: undefined;
 };
 
 const Tab = createBottomTabNavigator<CoachTabParamList>();
@@ -207,6 +209,10 @@ function CoachStackNavigator() {
       <Stack.Screen 
         name="Billing" 
         component={BillingScreen}
+      />
+      <Stack.Screen 
+        name="CoachInvitations" 
+        component={CoachInvitationsScreen}
       />
     </Stack.Navigator>
   );

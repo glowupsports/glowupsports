@@ -61,6 +61,30 @@ export default function PlayerSettingsScreen() {
     },
   ];
 
+  const discoverySettings: SettingItem[] = [
+    {
+      id: "coach-directory",
+      icon: "people",
+      label: "Find Coaches",
+      type: "link",
+      onPress: () => (navigation.getParent() as any)?.navigate("CoachDirectory"),
+    },
+    {
+      id: "academy-browser",
+      icon: "school",
+      label: "Browse Academies",
+      type: "link",
+      onPress: () => (navigation.getParent() as any)?.navigate("AcademyBrowser"),
+    },
+    {
+      id: "transfer-request",
+      icon: "swap-horizontal",
+      label: "Transfer Academy",
+      type: "link",
+      onPress: () => (navigation.getParent() as any)?.navigate("TransferRequest"),
+    },
+  ];
+
   const accountSettings: SettingItem[] = [
     {
       id: "edit-profile",
@@ -130,6 +154,13 @@ export default function PlayerSettingsScreen() {
           <Text style={styles.sectionTitle}>Notifications</Text>
           <View style={styles.sectionCard}>
             {notificationSettings.map(renderSettingItem)}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Discover</Text>
+          <View style={styles.sectionCard}>
+            {discoverySettings.map(renderSettingItem)}
           </View>
         </View>
 

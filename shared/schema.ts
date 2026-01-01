@@ -127,6 +127,20 @@ export const academies = pgTable("academies", {
   country: text("country"), // for search/discovery
   description: text("description"), // short public description
   ownerId: varchar("owner_id"), // references coaches.id (set after coach creation)
+  
+  // Public Profile Fields (Academy Directory)
+  website: text("website"),
+  phone: text("phone"),
+  email: text("email"),
+  logoUrl: text("logo_url"),
+  coverImageUrl: text("cover_image_url"),
+  facilities: jsonb("facilities").$type<string[]>(), // indoor_courts, outdoor_courts, gym, shop, cafe, parking, etc.
+  courtCount: integer("court_count"),
+  ageGroups: jsonb("age_groups").$type<string[]>(), // kids, juniors, teens, adults, seniors
+  programs: jsonb("programs").$type<string[]>(), // beginner, intermediate, advanced, competitive, private
+  priceRange: text("price_range"), // $ | $$ | $$$ | $$$$
+  profileVisibility: text("profile_visibility").default("public"), // public | members_only | private
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -241,6 +255,79 @@ export type InsertJoinRequest = z.infer<typeof insertJoinRequestSchema>;
 export type JoinRequest = typeof joinRequests.$inferSelect;
 export type JoinRequestInput = z.infer<typeof joinRequestInputSchema>;
 
+// Academy Transfer Requests (player wants to switch academies)
+export const academyTransferRequests = pgTable("academy_transfer_requests", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  fromAcademyId: varchar("from_academy_id").references(() => academies.id).notNull(),
+  toAcademyId: varchar("to_academy_id").references(() => academies.id).notNull(),
+  status: text("status").default("pending").notNull(), // pending | approved | rejected | cancelled
+  reason: text("reason"), // player's reason for transfer
+  
+  // From academy response
+  fromAcademyStatus: text("from_academy_status").default("pending"), // pending | approved | rejected
+  fromAcademyReviewedBy: varchar("from_academy_reviewed_by"),
+  fromAcademyReviewedAt: timestamp("from_academy_reviewed_at"),
+  fromAcademyNote: text("from_academy_note"),
+  
+  // To academy response
+  toAcademyStatus: text("to_academy_status").default("pending"), // pending | approved | rejected
+  toAcademyReviewedBy: varchar("to_academy_reviewed_by"),
+  toAcademyReviewedAt: timestamp("to_academy_reviewed_at"),
+  toAcademyNote: text("to_academy_note"),
+  
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAcademyTransferRequestSchema = createInsertSchema(academyTransferRequests).omit({ 
+  id: true, createdAt: true, completedAt: true,
+  fromAcademyReviewedBy: true, fromAcademyReviewedAt: true,
+  toAcademyReviewedBy: true, toAcademyReviewedAt: true,
+});
+export const transferRequestInputSchema = z.object({
+  toAcademyId: z.string().min(1, "Destination academy is required"),
+  reason: z.string().optional(),
+});
+export type InsertAcademyTransferRequest = z.infer<typeof insertAcademyTransferRequestSchema>;
+export type AcademyTransferRequest = typeof academyTransferRequests.$inferSelect;
+export type TransferRequestInput = z.infer<typeof transferRequestInputSchema>;
+
+// Coach Invitations (academy invites coach to join)
+export const coachInvitations = pgTable("coach_invitations", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  coachId: varchar("coach_id").references(() => coaches.id), // null if new coach, set if existing coach
+  email: text("email").notNull(), // email to send invitation to
+  role: text("role").default("coach"), // coach | assistant | head_coach
+  
+  status: text("status").default("pending").notNull(), // pending | accepted | declined | expired
+  invitedBy: varchar("invited_by").references(() => coaches.id).notNull(),
+  token: text("token").notNull().unique(), // unique invite token
+  
+  message: text("message"), // optional welcome message
+  expiresAt: timestamp("expires_at"),
+  acceptedAt: timestamp("accepted_at"),
+  declinedAt: timestamp("declined_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCoachInvitationSchema = createInsertSchema(coachInvitations).omit({ 
+  id: true, createdAt: true, acceptedAt: true, declinedAt: true, token: true 
+});
+export const coachInvitationInputSchema = z.object({
+  email: z.string().email("Valid email is required"),
+  role: z.enum(["coach", "assistant", "head_coach"]).default("coach"),
+  message: z.string().optional(),
+});
+export type InsertCoachInvitation = z.infer<typeof insertCoachInvitationSchema>;
+export type CoachInvitation = typeof coachInvitations.$inferSelect;
+export type CoachInvitationInput = z.infer<typeof coachInvitationInputSchema>;
+
 // ==================== COACH APP TABLES ====================
 
 // Coaches
@@ -286,6 +373,12 @@ export const coaches = pgTable("coaches", {
   bioApprovedAt: timestamp("bio_approved_at"),
   bioRejectionReason: text("bio_rejection_reason"),
   showProfileToPlayers: boolean("show_profile_to_players").default(true),
+  
+  // Coach Directory Settings
+  showInDirectory: boolean("show_in_directory").default(true), // visible in platform-wide coach directory
+  openToOpportunities: boolean("open_to_opportunities").default(false), // accepting invites from other academies
+  specializations: jsonb("specializations").$type<string[]>(), // technique, footwork, mental, fitness, competition, etc.
+  languages: jsonb("languages").$type<string[]>(), // en, nl, es, fr, ar, etc.
   
   createdAt: timestamp("created_at").defaultNow(),
 });
