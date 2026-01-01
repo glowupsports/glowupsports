@@ -380,6 +380,10 @@ export const coaches = pgTable("coaches", {
   specializations: jsonb("specializations").$type<string[]>(), // technique, footwork, mental, fitness, competition, etc.
   languages: jsonb("languages").$type<string[]>(), // en, nl, es, fr, ar, etc.
   
+  // Parent Dashboard PIN Protection
+  parentDashboardPin: text("parent_dashboard_pin").default("1234"), // 4-digit PIN, default 1234
+  pinChangedAt: timestamp("pin_changed_at"), // When PIN was last changed (null = never changed, must change on first use)
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -1254,6 +1258,11 @@ export const academySettings = pgTable("academy_settings", {
   
   defaultLessonPrice: numeric("default_lesson_price").default("100"), // Default price for pay-per-lesson
   invoiceDueDays: integer("invoice_due_days").default(14), // Days until invoice is due
+  
+  // Cancellation Policy
+  cancellationPolicyEnabled: boolean("cancellation_policy_enabled").default(true),
+  cancellationWindowHours: integer("cancellation_window_hours").default(24), // Hours before session when policy kicks in
+  cancellationChargePercent: integer("cancellation_charge_percent").default(100), // Percentage charged for late cancellation (0-100)
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
