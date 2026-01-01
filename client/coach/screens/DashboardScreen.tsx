@@ -221,6 +221,27 @@ export default function DashboardScreen() {
     return { totalMinutes, completedMinutes, remainingMinutes, staminaPercent, impactPercent, energyState, dayIntensity };
   }, [todaysSessions]);
 
+  // Fetch burnout risk for recovery-aware stamina calculation
+  const { data: burnoutRiskData } = useQuery<{
+    riskScore: number;
+    riskLevel: string;
+    metrics: {
+      restDaysLastWeek: number;
+      avgDailyMinutesPast: number;
+    };
+  }>({
+    queryKey: ["/api/coaches", coach?.id, "burnout-risk"],
+    enabled: !!coach?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Calculate recovery-aware stamina: uses burnout risk which accounts for rest days
+  const recoveryAwareStamina = useMemo(() => {
+    if (!burnoutRiskData) return null;
+    // Stamina = 100 - burnout risk (so more rest = higher stamina)
+    return Math.max(0, 100 - burnoutRiskData.riskScore);
+  }, [burnoutRiskData]);
+
   // Fetch coach XP from API
   const { data: coachXpData } = useQuery<{
     level: number;
@@ -864,7 +885,7 @@ export default function DashboardScreen() {
             {energyCollapsed ? (
               <View style={styles.gamingCollapsedPreview}>
                 <Text style={styles.gamingCollapsedText}>
-                  STM {todaysSessions.length === 0 ? "100" : coachStats.staminaPercent}% | IMP {todaysSessions.length === 0 ? "100" : coachStats.impactPercent}%
+                  STM {recoveryAwareStamina !== null ? recoveryAwareStamina : (todaysSessions.length === 0 ? "100" : coachStats.staminaPercent)}% | IMP {todaysSessions.length === 0 ? "100" : coachStats.impactPercent}%
                 </Text>
               </View>
             ) : (
@@ -874,7 +895,7 @@ export default function DashboardScreen() {
                   <View style={styles.gamingBarRow}>
                     <View style={styles.gamingBarLabelRow}>
                       <Text style={styles.gamingBarLabel}>STAMINA</Text>
-                      <Text style={styles.gamingBarValue}>{todaysSessions.length === 0 ? "100" : coachStats.staminaPercent}%</Text>
+                      <Text style={styles.gamingBarValue}>{recoveryAwareStamina !== null ? recoveryAwareStamina : (todaysSessions.length === 0 ? "100" : coachStats.staminaPercent)}%</Text>
                     </View>
                     <View style={styles.gamingBarTrack}>
                       <LinearGradient
@@ -887,7 +908,7 @@ export default function DashboardScreen() {
                         }
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
-                        style={[styles.gamingBarFill, { width: todaysSessions.length === 0 ? "100%" : `${coachStats.staminaPercent}%` }]}
+                        style={[styles.gamingBarFill, { width: recoveryAwareStamina !== null ? `${recoveryAwareStamina}%` : (todaysSessions.length === 0 ? "100%" : `${coachStats.staminaPercent}%`) }]}
                       />
                       <View style={styles.gamingBarGlow} />
                     </View>
