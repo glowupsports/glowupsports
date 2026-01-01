@@ -82,6 +82,14 @@ export default function SessionDetailDrawer({
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [showExtendOptions, setShowExtendOptions] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelResult, setCancelResult] = useState<{
+    success: boolean;
+    isLastMinute: boolean;
+    charged: boolean;
+    chargeAmount: number;
+    message: string;
+  } | null>(null);
 
   // Handle initial action from deep linking and reset when drawer closes
   useEffect(() => {
@@ -102,6 +110,8 @@ export default function SessionDetailDrawer({
       setShowExtendOptions(false);
       setShowEndConfirm(false);
       setShowAddPlayer(false);
+      setShowCancelConfirm(false);
+      setCancelResult(null);
     }
   }, [visible, initialAction]);
   const [selectedPlayer, setSelectedPlayer] = useState<AvailablePlayer | null>(null);
@@ -285,6 +295,24 @@ export default function SessionDetailDrawer({
     },
     onError: (error: Error) => {
       Alert.alert("Error", error.message || "Failed to end session");
+    },
+  });
+
+  // Last-minute cancellation mutation
+  const lastMinuteCancelMutation = useMutation({
+    mutationFn: async () => {
+      if (!session) throw new Error("No session selected");
+      const response = await apiRequest("POST", `/api/coach/sessions/${session.id}/last-minute-cancel`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      setCancelResult(data);
+    },
+    onError: (error: Error) => {
+      Alert.alert("Error", error.message || "Failed to cancel session");
+      setShowCancelConfirm(false);
     },
   });
 
@@ -838,6 +866,14 @@ export default function SessionDetailDrawer({
           <Ionicons name="stop-circle-outline" size={20} color={Colors.dark.error} />
           <Text style={[styles.actionButtonText, { color: Colors.dark.error }]}>End Session Now</Text>
         </Pressable>
+
+        <Pressable 
+          style={[styles.actionButton, styles.warningActionButton]} 
+          onPress={() => setShowCancelConfirm(true)}
+        >
+          <Ionicons name="close-circle-outline" size={20} color={Colors.dark.orange} />
+          <Text style={[styles.actionButtonText, { color: Colors.dark.orange }]}>Last-Minute Cancel</Text>
+        </Pressable>
       </View>
     </>
   );
@@ -918,6 +954,87 @@ export default function SessionDetailDrawer({
             )}
           </Pressable>
         </View>
+      </View>
+    </>
+  );
+
+  const renderCancelConfirm = () => (
+    <>
+      <View style={styles.stepHeader}>
+        <Pressable onPress={() => { setShowCancelConfirm(false); setCancelResult(null); }}>
+          <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+        </Pressable>
+        <Text style={styles.stepTitle}>Cancel Session</Text>
+        <View style={{ width: 24 }} />
+      </View>
+      <View style={styles.endConfirmContent}>
+        {!cancelResult ? (
+          <>
+            <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.orange} />
+            <Text style={styles.endConfirmText}>
+              Mark this session as cancelled?{"\n\n"}
+              If this is a last-minute cancellation (within the cancellation window), 
+              the lesson may still be charged according to your academy's policy.
+            </Text>
+            <View style={styles.endConfirmButtons}>
+              <Pressable
+                style={styles.endCancelButton}
+                onPress={() => setShowCancelConfirm(false)}
+              >
+                <Text style={styles.endCancelButtonText}>Go Back</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.cancelConfirmButton, isOffline && { opacity: 0.5 }]}
+                onPress={async () => {
+                  if (isOffline) {
+                    await logOfflineAttempt({ screen: "SessionDetailDrawer", action: "last_minute_cancel" });
+                    showOfflineAlert();
+                    return;
+                  }
+                  lastMinuteCancelMutation.mutate();
+                }}
+                disabled={lastMinuteCancelMutation.isPending || isOffline}
+              >
+                {lastMinuteCancelMutation.isPending ? (
+                  <ActivityIndicator size="small" color={Colors.dark.text} />
+                ) : (
+                  <Text style={styles.cancelConfirmButtonText}>Confirm Cancel</Text>
+                )}
+              </Pressable>
+            </View>
+          </>
+        ) : (
+          <>
+            <Ionicons 
+              name={cancelResult.charged ? "warning-outline" : "checkmark-circle-outline"} 
+              size={48} 
+              color={cancelResult.charged ? Colors.dark.orange : Colors.dark.primary} 
+            />
+            <Text style={styles.endConfirmText}>
+              {cancelResult.message}
+            </Text>
+            {cancelResult.charged && cancelResult.chargeAmount > 0 && (
+              <View style={styles.chargeInfo}>
+                <Text style={styles.chargeAmount}>
+                  Cancellation Fee: AED {Number(cancelResult.chargeAmount).toFixed(2)}
+                </Text>
+                <Text style={styles.chargeNote}>
+                  An invoice has been generated for the cancellation fee.
+                </Text>
+              </View>
+            )}
+            <Pressable
+              style={styles.cancelDoneButton}
+              onPress={() => {
+                setShowCancelConfirm(false);
+                setCancelResult(null);
+                onClose();
+              }}
+            >
+              <Text style={styles.cancelDoneButtonText}>Done</Text>
+            </Pressable>
+          </>
+        )}
       </View>
     </>
   );
@@ -1195,6 +1312,7 @@ export default function SessionDetailDrawer({
            showAddPlayer ? renderAddPlayerContent() :
            showExtendOptions ? renderExtendOptions() :
            showEndConfirm ? renderEndConfirm() :
+           showCancelConfirm ? renderCancelConfirm() :
            renderMainContent()}
         </ScrollView>
       </View>
@@ -1608,6 +1726,52 @@ const styles = StyleSheet.create({
   dangerActionButton: {
     borderWidth: 1,
     borderColor: Colors.dark.error + "40",
+  },
+  warningActionButton: {
+    borderWidth: 1,
+    borderColor: Colors.dark.orange + "40",
+  },
+  cancelConfirmButton: {
+    flex: 1,
+    backgroundColor: Colors.dark.orange,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelConfirmButtonText: {
+    ...Typography.body,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  chargeInfo: {
+    backgroundColor: Colors.dark.orange + "20",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginTop: Spacing.md,
+    alignItems: "center",
+  },
+  chargeAmount: {
+    ...Typography.h3,
+    color: Colors.dark.orange,
+    marginBottom: Spacing.xs,
+  },
+  chargeNote: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  cancelDoneButton: {
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    marginTop: Spacing.lg,
+  },
+  cancelDoneButtonText: {
+    ...Typography.body,
+    fontWeight: "600",
+    color: Colors.dark.text,
   },
   extendOptionsGrid: {
     flexDirection: "row",
