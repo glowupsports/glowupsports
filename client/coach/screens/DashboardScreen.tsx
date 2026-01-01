@@ -34,6 +34,7 @@ import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { CoachStatusPanel } from "@/coach/components/CoachStatusPanel";
 import { BurnoutRiskCard } from "@/coach/components/BurnoutRiskCard";
 import { LoadForecastCard } from "@/coach/components/LoadForecastCard";
+import { CoachEarningsCard } from "@/coach/components/CoachEarningsCard";
 import { AcademySwitcher } from "@/coach/components/AcademySwitcher";
 import ModeSwitcher from "@/components/ModeSwitcher";
 import { filterSessionsByDate } from "@/lib/dateUtils";
@@ -982,6 +983,12 @@ export default function DashboardScreen() {
               </View>
             ) : (
               <View style={styles.gamingInsightsContent}>
+                <CoachEarningsCard 
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    navigation.navigate("CoachEarnings" as never);
+                  }}
+                />
                 <BurnoutRiskCard />
                 <LoadForecastCard 
                   onDayPress={(date) => {

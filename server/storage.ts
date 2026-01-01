@@ -199,6 +199,8 @@ import {
   parentPlayerRelations,
   parentSettings,
   paymentReminders,
+  coachPaymentRules,
+  coachEarnings,
   type ParentPlayerRelation,
   type InsertParentPlayerRelation,
   type ParentSettings,
@@ -4693,6 +4695,63 @@ export const storage = {
     const result = await db.update(paymentReminders)
       .set(updates)
       .where(eq(paymentReminders.id, id))
+      .returning();
+    return result[0];
+  },
+
+  // ==================== COACH EARNINGS ====================
+
+  // Get coach payment rule
+  async getCoachPaymentRule(coachId: string): Promise<any | undefined> {
+    const result = await db.select().from(coachPaymentRules)
+      .where(and(
+        eq(coachPaymentRules.coachId, coachId),
+        eq(coachPaymentRules.isActive, true)
+      ));
+    return result[0];
+  },
+
+  // Get coach's completed sessions for a specific month
+  async getCoachCompletedSessionsForMonth(coachId: string, month: number, year: number): Promise<Session[]> {
+    const startOfMonth = new Date(year, month - 1, 1);
+    const endOfMonth = new Date(year, month, 0, 23, 59, 59);
+    
+    return db.select().from(sessions)
+      .where(and(
+        eq(sessions.coachId, coachId),
+        eq(sessions.status, "completed"),
+        gte(sessions.startTime, startOfMonth),
+        lte(sessions.startTime, endOfMonth)
+      ))
+      .orderBy(desc(sessions.startTime));
+  },
+
+  // Get coach's upcoming sessions for current month (scheduled but not completed)
+  async getCoachUpcomingSessionsForMonth(coachId: string, month: number, year: number): Promise<Session[]> {
+    const now = new Date();
+    const endOfMonth = new Date(year, month, 0, 23, 59, 59);
+    
+    return db.select().from(sessions)
+      .where(and(
+        eq(sessions.coachId, coachId),
+        eq(sessions.status, "scheduled"),
+        gte(sessions.startTime, now),
+        lte(sessions.startTime, endOfMonth)
+      ))
+      .orderBy(asc(sessions.startTime));
+  },
+
+  // Create coach payment rule (for academy owners)
+  async createCoachPaymentRule(data: any): Promise<any> {
+    const result = await db.insert(coachPaymentRules).values(data).returning();
+    return result[0];
+  },
+
+  // Update coach payment rule
+  async updateCoachPaymentRule(coachId: string, updates: any): Promise<any | undefined> {
+    const result = await db.update(coachPaymentRules)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(coachPaymentRules.coachId, coachId))
       .returning();
     return result[0];
   },

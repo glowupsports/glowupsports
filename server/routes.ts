@@ -4052,6 +4052,236 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== COACH EARNINGS API ====================
+
+  // Get coach earnings summary (this month + projected)
+  app.get("/api/coach/earnings/summary", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      if (!coachId) {
+        return res.status(400).json({ error: "Coach ID required" });
+      }
+      
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      const currentYear = now.getFullYear();
+      
+      // Get payment rule for this coach
+      const paymentRule = await storage.getCoachPaymentRule(coachId);
+      
+      // Get completed sessions this month (realized earnings)
+      const completedSessions = await storage.getCoachCompletedSessionsForMonth(coachId, currentMonth, currentYear);
+      
+      // Get upcoming sessions this month (projected earnings)
+      const upcomingSessions = await storage.getCoachUpcomingSessionsForMonth(coachId, currentMonth, currentYear);
+      
+      // Calculate earnings based on payment rule
+      const hourlyRate = paymentRule?.hourlyRate 
+        ? parseFloat(paymentRule.hourlyRate) 
+        : (req.user!.coachId ? 150 : 0); // Default 150 AED/hour
+      
+      const currency = paymentRule?.currency || "AED";
+      
+      let realizedEarnings = 0;
+      let projectedEarnings = 0;
+      
+      // Calculate realized from completed sessions
+      for (const session of completedSessions) {
+        const duration = session.duration || 60;
+        const sessionEarning = (duration / 60) * hourlyRate;
+        realizedEarnings += sessionEarning;
+      }
+      
+      // Calculate projected from upcoming sessions
+      for (const session of upcomingSessions) {
+        const duration = session.duration || 60;
+        const sessionEarning = (duration / 60) * hourlyRate;
+        projectedEarnings += sessionEarning;
+      }
+      
+      res.json({
+        realized: {
+          amount: realizedEarnings.toFixed(2),
+          currency,
+          sessionsCount: completedSessions.length,
+          status: "confirmed",
+        },
+        projected: {
+          amount: projectedEarnings.toFixed(2),
+          currency,
+          sessionsCount: upcomingSessions.length,
+          status: "pending",
+        },
+        total: {
+          amount: (realizedEarnings + projectedEarnings).toFixed(2),
+          currency,
+        },
+        paymentRule: paymentRule ? {
+          type: paymentRule.paymentType,
+          hourlyRate: paymentRule.hourlyRate,
+          currency: paymentRule.currency,
+        } : {
+          type: "hourly",
+          hourlyRate: String(hourlyRate),
+          currency,
+        },
+        period: {
+          month: currentMonth,
+          year: currentYear,
+          monthName: now.toLocaleString("en-US", { month: "long" }),
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching coach earnings summary:", error);
+      res.status(500).json({ error: "Failed to fetch earnings summary" });
+    }
+  });
+
+  // Get coach earnings breakdown (detailed list of sessions)
+  app.get("/api/coach/earnings/breakdown", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      if (!coachId) {
+        return res.status(400).json({ error: "Coach ID required" });
+      }
+      
+      const month = parseInt(req.query.month as string) || new Date().getMonth() + 1;
+      const year = parseInt(req.query.year as string) || new Date().getFullYear();
+      
+      const paymentRule = await storage.getCoachPaymentRule(coachId);
+      const hourlyRate = paymentRule?.hourlyRate 
+        ? parseFloat(paymentRule.hourlyRate) 
+        : 150;
+      const currency = paymentRule?.currency || "AED";
+      
+      // Get all sessions for the month
+      const completedSessions = await storage.getCoachCompletedSessionsForMonth(coachId, month, year);
+      
+      const breakdown = completedSessions.map(session => {
+        const duration = session.duration || 60;
+        const amount = (duration / 60) * hourlyRate;
+        
+        return {
+          id: session.id,
+          date: session.startTime,
+          sessionType: session.sessionType,
+          duration,
+          amount: amount.toFixed(2),
+          currency,
+          status: "confirmed",
+        };
+      });
+      
+      const totalEarned = breakdown.reduce((sum, item) => sum + parseFloat(item.amount), 0);
+      const avgPerLesson = breakdown.length > 0 ? totalEarned / breakdown.length : 0;
+      
+      res.json({
+        breakdown,
+        summary: {
+          totalEarned: totalEarned.toFixed(2),
+          totalSessions: breakdown.length,
+          avgPerLesson: avgPerLesson.toFixed(2),
+          currency,
+        },
+        period: {
+          month,
+          year,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching coach earnings breakdown:", error);
+      res.status(500).json({ error: "Failed to fetch earnings breakdown" });
+    }
+  });
+
+  // Get coach earnings history (past months)
+  app.get("/api/coach/earnings/history", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      if (!coachId) {
+        return res.status(400).json({ error: "Coach ID required" });
+      }
+      
+      const paymentRule = await storage.getCoachPaymentRule(coachId);
+      const hourlyRate = paymentRule?.hourlyRate 
+        ? parseFloat(paymentRule.hourlyRate) 
+        : 150;
+      const currency = paymentRule?.currency || "AED";
+      
+      // Get last 6 months of history
+      const history = [];
+      const now = new Date();
+      
+      for (let i = 0; i < 6; i++) {
+        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const month = date.getMonth() + 1;
+        const year = date.getFullYear();
+        
+        const sessions = await storage.getCoachCompletedSessionsForMonth(coachId, month, year);
+        
+        let totalEarned = 0;
+        for (const session of sessions) {
+          const duration = session.duration || 60;
+          totalEarned += (duration / 60) * hourlyRate;
+        }
+        
+        const avgPerLesson = sessions.length > 0 ? totalEarned / sessions.length : 0;
+        
+        history.push({
+          month,
+          year,
+          monthName: date.toLocaleString("en-US", { month: "long" }),
+          totalEarned: totalEarned.toFixed(2),
+          totalSessions: sessions.length,
+          avgPerLesson: avgPerLesson.toFixed(2),
+          currency,
+        });
+      }
+      
+      res.json({ history });
+    } catch (error) {
+      console.error("Error fetching coach earnings history:", error);
+      res.status(500).json({ error: "Failed to fetch earnings history" });
+    }
+  });
+
+  // Get coach payment rule (view only for coach)
+  app.get("/api/coach/payment-rule", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      if (!coachId) {
+        return res.status(400).json({ error: "Coach ID required" });
+      }
+      
+      const paymentRule = await storage.getCoachPaymentRule(coachId);
+      
+      if (!paymentRule) {
+        // Return default hourly rule
+        return res.json({
+          type: "hourly",
+          hourlyRate: "150",
+          currency: "AED",
+          isDefault: true,
+        });
+      }
+      
+      res.json({
+        type: paymentRule.paymentType,
+        hourlyRate: paymentRule.hourlyRate,
+        privateSessionRate: paymentRule.privateSessionRate,
+        groupSessionRate: paymentRule.groupSessionRate,
+        commissionPercentage: paymentRule.commissionPercentage,
+        hybridBaseRate: paymentRule.hybridBaseRate,
+        hybridCommissionPercentage: paymentRule.hybridCommissionPercentage,
+        currency: paymentRule.currency,
+        isDefault: false,
+      });
+    } catch (error) {
+      console.error("Error fetching coach payment rule:", error);
+      res.status(500).json({ error: "Failed to fetch payment rule" });
+    }
+  });
+
   // ==================== COACH XP SYSTEM ====================
 
   // Get coach XP and level

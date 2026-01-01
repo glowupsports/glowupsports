@@ -1727,3 +1727,76 @@ export const paymentReminders = pgTable("payment_reminders", {
 export const insertPaymentReminderSchema = createInsertSchema(paymentReminders).omit({ id: true, createdAt: true, sentAt: true });
 export type InsertPaymentReminder = z.infer<typeof insertPaymentReminderSchema>;
 export type PaymentReminder = typeof paymentReminders.$inferSelect;
+
+// Coach Payment Rules - How coaches get paid
+export const coachPaymentRules = pgTable("coach_payment_rules", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  
+  coachId: varchar("coach_id").references(() => coaches.id).notNull().unique(),
+  academyId: varchar("academy_id").references(() => academies.id),
+  
+  paymentType: text("payment_type").notNull().default("hourly"), // hourly | commission | hybrid
+  
+  // Hourly rate settings
+  hourlyRate: numeric("hourly_rate"), // Base hourly rate
+  privateSessionRate: numeric("private_session_rate"), // Rate for private lessons
+  groupSessionRate: numeric("group_session_rate"), // Rate for group lessons
+  
+  // Commission settings  
+  commissionPercentage: numeric("commission_percentage"), // % of session price
+  
+  // Hybrid settings (fixed + commission)
+  hybridBaseRate: numeric("hybrid_base_rate"), // Fixed base per session
+  hybridCommissionPercentage: numeric("hybrid_commission_percentage"), // Additional % on top
+  
+  currency: text("currency").default("AED"),
+  
+  isActive: boolean("is_active").default(true),
+  effectiveFrom: timestamp("effective_from").defaultNow(),
+  effectiveTo: timestamp("effective_to"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCoachPaymentRuleSchema = createInsertSchema(coachPaymentRules).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCoachPaymentRule = z.infer<typeof insertCoachPaymentRuleSchema>;
+export type CoachPaymentRule = typeof coachPaymentRules.$inferSelect;
+
+// Coach Earnings - Calculated earnings per session
+export const coachEarnings = pgTable("coach_earnings", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  academyId: varchar("academy_id").references(() => academies.id),
+  sessionId: varchar("session_id").references(() => sessions.id),
+  
+  amount: numeric("amount").notNull(),
+  currency: text("currency").default("AED"),
+  
+  // Calculation details
+  calculationType: text("calculation_type").notNull(), // hourly | commission | hybrid | manual
+  sessionDuration: integer("session_duration"), // minutes
+  sessionPrice: numeric("session_price"), // original session price
+  
+  // Status
+  status: text("status").default("pending"), // pending | confirmed | paid
+  confirmedAt: timestamp("confirmed_at"),
+  paidAt: timestamp("paid_at"),
+  
+  // Period tracking
+  earningMonth: integer("earning_month").notNull(), // 1-12
+  earningYear: integer("earning_year").notNull(),
+  
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCoachEarningSchema = createInsertSchema(coachEarnings).omit({ id: true, createdAt: true });
+export type InsertCoachEarning = z.infer<typeof insertCoachEarningSchema>;
+export type CoachEarning = typeof coachEarnings.$inferSelect;
