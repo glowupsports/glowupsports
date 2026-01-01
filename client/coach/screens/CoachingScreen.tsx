@@ -617,18 +617,23 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()); // Chronological order
   }, [calendarData?.ownSessions, feedbackPeriod]);
 
+  // Helper to check if a session has feedback submitted (status is "completed")
+  const hasSessionFeedback = (session: any) => session.status === "completed";
+
   // Apply status filter
+  // "Done" = sessions with feedback submitted (status = "completed")
+  // "Open" = past sessions awaiting feedback (status = "scheduled" but end time passed)
   const statusFilteredSessions = useMemo(() => {
     if (statusFilter === "all") return filteredSessions;
     return filteredSessions.filter((session) => {
-      const isComplete = session.status === "completed";
+      const hasFeedback = hasSessionFeedback(session);
       switch (statusFilter) {
         case "complete":
-          return isComplete;
+          return hasFeedback;
         case "open":
-          return !isComplete;
+          return !hasFeedback;
         case "pending":
-          return !isComplete;
+          return !hasFeedback;
         default:
           return true;
       }
@@ -637,14 +642,14 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
 
   // Get counts for each status
   const statusCounts = useMemo(() => {
-    const complete = filteredSessions.filter(s => s.status === "completed").length;
-    const open = filteredSessions.filter(s => s.status !== "completed").length;
+    const complete = filteredSessions.filter(s => hasSessionFeedback(s)).length;
+    const open = filteredSessions.filter(s => !hasSessionFeedback(s)).length;
     return { complete, open, pending: open, all: filteredSessions.length };
   }, [filteredSessions]);
 
   // Calculate pending feedback count and total XP
   const pendingFeedbackStats = useMemo(() => {
-    const pendingSessions = filteredSessions.filter(s => s.status !== "completed");
+    const pendingSessions = filteredSessions.filter(s => !hasSessionFeedback(s));
     const totalXp = pendingSessions.reduce((sum, session) => {
       return sum + (FEEDBACK_XP_REWARDS[session.sessionType] || FEEDBACK_XP_REWARDS.default);
     }, 0);

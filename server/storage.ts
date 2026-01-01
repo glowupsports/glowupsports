@@ -4712,21 +4712,28 @@ export const storage = {
   },
 
   // Get coach's completed sessions for a specific month
+  // A session is considered "completed" if:
+  // 1. Its status is explicitly "completed", OR
+  // 2. It's a past session (end time has passed) regardless of status
   async getCoachCompletedSessionsForMonth(coachId: string, month: number, year: number): Promise<Session[]> {
     const startOfMonth = new Date(year, month - 1, 1);
     const endOfMonth = new Date(year, month, 0, 23, 59, 59);
+    const now = new Date();
     
     return db.select().from(sessions)
       .where(and(
         eq(sessions.coachId, coachId),
-        eq(sessions.status, "completed"),
         gte(sessions.startTime, startOfMonth),
-        lte(sessions.startTime, endOfMonth)
+        lte(sessions.startTime, endOfMonth),
+        or(
+          eq(sessions.status, "completed"),
+          lte(sessions.endTime, now) // Past sessions count as completed
+        )
       ))
       .orderBy(desc(sessions.startTime));
   },
 
-  // Get coach's upcoming sessions for current month (scheduled but not completed)
+  // Get coach's upcoming sessions for current month (scheduled and in the future)
   async getCoachUpcomingSessionsForMonth(coachId: string, month: number, year: number): Promise<Session[]> {
     const now = new Date();
     const endOfMonth = new Date(year, month, 0, 23, 59, 59);
@@ -4735,7 +4742,7 @@ export const storage = {
       .where(and(
         eq(sessions.coachId, coachId),
         eq(sessions.status, "scheduled"),
-        gte(sessions.startTime, now),
+        gte(sessions.endTime, now), // Session hasn't ended yet
         lte(sessions.startTime, endOfMonth)
       ))
       .orderBy(asc(sessions.startTime));
