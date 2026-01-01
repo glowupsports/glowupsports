@@ -76,7 +76,11 @@ export default function ParentLessonsScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+        <Pressable 
+          onPress={() => navigation.goBack()} 
+          style={({ pressed }) => [styles.backButton, pressed && styles.buttonPressed]}
+          android_ripple={{ color: 'rgba(255, 255, 255, 0.2)' }}
+        >
           <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Lesson Overview</Text>
@@ -84,7 +88,11 @@ export default function ParentLessonsScreen() {
       </View>
 
       <View style={styles.monthSelector}>
-        <Pressable onPress={goToPreviousMonth} style={styles.monthButton}>
+        <Pressable 
+          onPress={goToPreviousMonth} 
+          style={({ pressed }) => [styles.monthButton, pressed && styles.buttonPressed]}
+          android_ripple={{ color: 'rgba(255, 255, 255, 0.2)' }}
+        >
           <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
         </Pressable>
         <View style={styles.monthDisplay}>
@@ -93,8 +101,9 @@ export default function ParentLessonsScreen() {
         </View>
         <Pressable 
           onPress={goToNextMonth} 
-          style={[styles.monthButton, isCurrentMonth && styles.monthButtonDisabled]}
+          style={({ pressed }) => [styles.monthButton, isCurrentMonth && styles.monthButtonDisabled, pressed && !isCurrentMonth && styles.buttonPressed]}
           disabled={isCurrentMonth}
+          android_ripple={{ color: 'rgba(255, 255, 255, 0.2)' }}
         >
           <Ionicons 
             name="chevron-forward" 
@@ -234,6 +243,10 @@ const styles = StyleSheet.create({
   },
   monthButtonDisabled: {
     opacity: 0.5,
+  },
+  buttonPressed: {
+    opacity: 0.7,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
   },
   monthDisplay: {
     alignItems: "center",

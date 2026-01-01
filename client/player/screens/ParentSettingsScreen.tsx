@@ -79,7 +79,11 @@ export default function ParentSettingsScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+        <Pressable 
+          onPress={() => navigation.goBack()} 
+          style={({ pressed }) => [styles.backButton, pressed && styles.buttonPressed]}
+          android_ripple={{ color: 'rgba(255, 255, 255, 0.2)' }}
+        >
           <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Payment Settings</Text>
@@ -198,6 +202,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     justifyContent: "center",
     alignItems: "center",
+  },
+  buttonPressed: {
+    opacity: 0.7,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
   },
   headerTitle: {
     ...Typography.h3,

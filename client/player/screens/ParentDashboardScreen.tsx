@@ -53,7 +53,11 @@ export default function ParentDashboardScreen() {
       <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
         <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.textMuted} />
         <Text style={styles.emptyText}>Player profile not found</Text>
-        <Pressable style={styles.backButtonLarge} onPress={() => navigation.goBack()}>
+        <Pressable 
+          style={({ pressed }) => [styles.backButtonLarge, pressed && styles.buttonPressed]} 
+          onPress={() => navigation.goBack()}
+          android_ripple={{ color: 'rgba(255, 255, 255, 0.2)' }}
+        >
           <Text style={styles.backButtonText}>Go Back</Text>
         </Pressable>
       </View>
@@ -72,7 +76,11 @@ export default function ParentDashboardScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Pressable 
+            onPress={() => navigation.goBack()} 
+            style={({ pressed }) => [styles.backButton, pressed && styles.buttonPressed]}
+            android_ripple={{ color: 'rgba(255, 255, 255, 0.2)' }}
+          >
             <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Parent Dashboard</Text>
@@ -90,11 +98,19 @@ export default function ParentDashboardScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+        <Pressable 
+          onPress={() => navigation.goBack()} 
+          style={({ pressed }) => [styles.backButton, pressed && styles.buttonPressed]}
+          android_ripple={{ color: 'rgba(255, 255, 255, 0.2)' }}
+        >
           <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Parent Dashboard</Text>
-        <Pressable onPress={navigateToSettings} style={styles.settingsButton}>
+        <Pressable 
+          onPress={navigateToSettings} 
+          style={({ pressed }) => [styles.settingsButton, pressed && styles.buttonPressed]}
+          android_ripple={{ color: 'rgba(255, 255, 255, 0.2)' }}
+        >
           <Ionicons name="settings-outline" size={24} color={Colors.dark.text} />
         </Pressable>
       </View>
@@ -120,7 +136,11 @@ export default function ParentDashboardScreen() {
             <View style={styles.summarySection}>
               <Text style={styles.sectionTitle}>Payment Overview</Text>
               <View style={styles.summaryCards}>
-                <Pressable style={styles.summaryCard} onPress={navigateToInvoices}>
+                <Pressable 
+                  style={({ pressed }) => [styles.summaryCard, pressed && styles.cardPressed]} 
+                  onPress={navigateToInvoices}
+                  android_ripple={{ color: 'rgba(255, 255, 255, 0.1)' }}
+                >
                   <View style={styles.summaryIconContainer}>
                     <Ionicons name="document-text-outline" size={24} color="#FBBF24" />
                   </View>
@@ -128,7 +148,11 @@ export default function ParentDashboardScreen() {
                   <Text style={styles.summaryLabel}>Pending</Text>
                 </Pressable>
 
-                <Pressable style={styles.summaryCard} onPress={navigateToInvoices}>
+                <Pressable 
+                  style={({ pressed }) => [styles.summaryCard, pressed && styles.cardPressed]} 
+                  onPress={navigateToInvoices}
+                  android_ripple={{ color: 'rgba(255, 255, 255, 0.1)' }}
+                >
                   <View style={[styles.summaryIconContainer, { backgroundColor: "rgba(239, 68, 68, 0.15)" }]}>
                     <Ionicons name="alert-circle-outline" size={24} color="#EF4444" />
                   </View>
@@ -177,7 +201,11 @@ export default function ParentDashboardScreen() {
                     <Text style={styles.lessonStatLabel}>Cancelled</Text>
                   </View>
                 </View>
-                <Pressable style={styles.viewDetailsButton} onPress={navigateToLessons}>
+                <Pressable 
+                  style={({ pressed }) => [styles.viewDetailsButton, pressed && styles.buttonPressed]} 
+                  onPress={navigateToLessons}
+                  android_ripple={{ color: 'rgba(255, 255, 255, 0.1)' }}
+                >
                   <Text style={styles.viewDetailsText}>View Full History</Text>
                   <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
                 </Pressable>
@@ -187,15 +215,27 @@ export default function ParentDashboardScreen() {
             <View style={styles.quickActions}>
               <Text style={styles.sectionTitle}>Quick Actions</Text>
               <View style={styles.actionButtons}>
-                <Pressable style={styles.actionButton} onPress={navigateToInvoices}>
+                <Pressable 
+                  style={({ pressed }) => [styles.actionButton, pressed && styles.cardPressed]} 
+                  onPress={navigateToInvoices}
+                  android_ripple={{ color: 'rgba(255, 255, 255, 0.1)' }}
+                >
                   <Ionicons name="receipt-outline" size={24} color={Colors.dark.text} />
                   <Text style={styles.actionButtonText}>Invoices</Text>
                 </Pressable>
-                <Pressable style={styles.actionButton} onPress={navigateToPayments}>
+                <Pressable 
+                  style={({ pressed }) => [styles.actionButton, pressed && styles.cardPressed]} 
+                  onPress={navigateToPayments}
+                  android_ripple={{ color: 'rgba(255, 255, 255, 0.1)' }}
+                >
                   <Ionicons name="card-outline" size={24} color={Colors.dark.text} />
                   <Text style={styles.actionButtonText}>Payments</Text>
                 </Pressable>
-                <Pressable style={styles.actionButton} onPress={navigateToLessons}>
+                <Pressable 
+                  style={({ pressed }) => [styles.actionButton, pressed && styles.cardPressed]} 
+                  onPress={navigateToLessons}
+                  android_ripple={{ color: 'rgba(255, 255, 255, 0.1)' }}
+                >
                   <Ionicons name="calendar-outline" size={24} color={Colors.dark.text} />
                   <Text style={styles.actionButtonText}>Lessons</Text>
                 </Pressable>
@@ -238,6 +278,13 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     justifyContent: "center",
     alignItems: "center",
+  },
+  buttonPressed: {
+    opacity: 0.7,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+  },
+  cardPressed: {
+    opacity: 0.8,
   },
   backButtonLarge: {
     paddingHorizontal: Spacing.xl,
