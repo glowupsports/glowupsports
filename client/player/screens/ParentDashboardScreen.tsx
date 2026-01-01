@@ -68,6 +68,25 @@ export default function ParentDashboardScreen() {
     );
   }
 
+  if (error) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Parent Dashboard</Text>
+          <View style={styles.settingsButton} />
+        </View>
+        <View style={styles.emptyState}>
+          <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.error} />
+          <Text style={styles.emptyText}>Unable to load dashboard</Text>
+          <Text style={[styles.emptyText, { fontSize: 12, marginTop: 4 }]}>Please try again later</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
@@ -197,7 +216,7 @@ export default function ParentDashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: Colors.dark.backgroundRoot,
   },
   loadingContainer: {
     justifyContent: "center",
@@ -279,7 +298,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   sectionTitle: {
-    ...Typography.subtitle,
+    ...Typography.body,
+    fontWeight: "600",
     color: Colors.dark.text,
     marginBottom: Spacing.md,
   },
@@ -367,7 +387,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   emptyState: {
-    paddingVertical: Spacing.xxl * 2,
+    paddingVertical: Spacing["2xl"] * 2,
     alignItems: "center",
     gap: Spacing.md,
   },
