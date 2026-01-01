@@ -754,10 +754,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== ACADEMY BROWSING (Public/Player) ====================
 
+  // Look up academy by join code (for quick onboarding)
+  app.get("/api/academies/join-code/:code", async (req: Request, res: Response) => {
+    try {
+      const { code } = req.params;
+      
+      if (!code || code.length < 4) {
+        return res.status(400).json({ error: "Invalid join code" });
+      }
+
+      const academy = await storage.getAcademyByJoinCode(code.toUpperCase());
+      
+      if (!academy) {
+        return res.status(404).json({ error: "Academy not found. Please check the code and try again." });
+      }
+
+      const coaches = await storage.getCoachesByAcademy(academy.id);
+      const players = await storage.getPlayersByAcademy(academy.id);
+
+      res.json({
+        academy: {
+          id: academy.id,
+          name: academy.name,
+          slug: academy.slug,
+          city: academy.city,
+          country: academy.country,
+          description: academy.description,
+          coachCount: coaches.length,
+          playerCount: players.length,
+        }
+      });
+    } catch (error) {
+      console.error("Join code lookup error:", error);
+      res.status(500).json({ error: "Failed to look up academy" });
+    }
+  });
+
   // Browse available academies (for players to find and join)
   app.get("/api/academies/browse", async (req: Request, res: Response) => {
     try {
-      const academies = await storage.getAllAcademies();
+      const { search, city, country } = req.query;
+      let academies = await storage.getAllAcademies();
+      
+      // Filter by search term
+      if (search && typeof search === "string") {
+        const searchLower = search.toLowerCase();
+        academies = academies.filter(a => 
+          a.name.toLowerCase().includes(searchLower) ||
+          a.city?.toLowerCase().includes(searchLower) ||
+          a.country?.toLowerCase().includes(searchLower)
+        );
+      }
+      
+      // Filter by city
+      if (city && typeof city === "string") {
+        academies = academies.filter(a => 
+          a.city?.toLowerCase() === city.toLowerCase()
+        );
+      }
+      
+      // Filter by country
+      if (country && typeof country === "string") {
+        academies = academies.filter(a => 
+          a.country?.toLowerCase() === country.toLowerCase()
+        );
+      }
       
       // Return public info only
       const publicAcademies = await Promise.all(
@@ -768,6 +829,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             id: academy.id,
             name: academy.name,
             slug: academy.slug,
+            city: academy.city,
+            country: academy.country,
+            description: academy.description,
             coachCount: coaches.length,
             playerCount: players.length,
           };
@@ -778,6 +842,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Browse academies error:", error);
       res.status(500).json({ error: "Failed to browse academies" });
+    }
+  });
+
+  // Get academy join code (for coaches/owners to share with players)
+  app.get("/api/academy/join-code", authMiddleware, requireRole("academy_owner", "coach"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy not found" });
+      }
+
+      const academy = await storage.getAcademy(academyId);
+      if (!academy) {
+        return res.status(404).json({ error: "Academy not found" });
+      }
+
+      let joinCode = academy.joinCode;
+      
+      // If no join code exists, generate one
+      if (!joinCode) {
+        joinCode = await storage.generateJoinCode(academyId);
+      }
+
+      res.json({ 
+        joinCode,
+        academyName: academy.name
+      });
+    } catch (error) {
+      console.error("Get join code error:", error);
+      res.status(500).json({ error: "Failed to get join code" });
+    }
+  });
+
+  // Regenerate academy join code (for coaches/owners)
+  app.post("/api/academy/join-code/regenerate", authMiddleware, requireRole("academy_owner", "coach"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy not found" });
+      }
+
+      const joinCode = await storage.generateJoinCode(academyId);
+      const academy = await storage.getAcademy(academyId);
+
+      res.json({ 
+        joinCode,
+        academyName: academy?.name,
+        message: "Join code regenerated successfully"
+      });
+    } catch (error) {
+      console.error("Regenerate join code error:", error);
+      res.status(500).json({ error: "Failed to regenerate join code" });
     }
   });
 

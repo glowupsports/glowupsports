@@ -256,6 +256,30 @@ export const storage = {
     return result[0];
   },
 
+  async getAcademyByJoinCode(joinCode: string): Promise<Academy | undefined> {
+    const result = await db.select().from(academies).where(eq(academies.joinCode, joinCode.toUpperCase()));
+    return result[0];
+  },
+
+  async generateJoinCode(academyId: string): Promise<string> {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let code: string;
+    let attempts = 0;
+    
+    do {
+      code = "";
+      for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      const existing = await this.getAcademyByJoinCode(code);
+      if (!existing) break;
+      attempts++;
+    } while (attempts < 10);
+    
+    await db.update(academies).set({ joinCode: code }).where(eq(academies.id, academyId));
+    return code;
+  },
+
   async getAllAcademies(): Promise<Academy[]> {
     return db.select().from(academies);
   },

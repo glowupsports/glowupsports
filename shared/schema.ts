@@ -122,6 +122,10 @@ export const academies = pgTable("academies", {
     .default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(), // e.g., "alex-tennis-academy"
+  joinCode: text("join_code").unique(), // 6-char code for players to join (e.g., "ABC123")
+  city: text("city"), // for search/discovery
+  country: text("country"), // for search/discovery
+  description: text("description"), // short public description
   ownerId: varchar("owner_id"), // references coaches.id (set after coach creation)
   createdAt: timestamp("created_at").defaultNow(),
 });
