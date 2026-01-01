@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
 import { LinearGradient } from "expo-linear-gradient";
-import ModeSwitcher from "@/components/ModeSwitcher";
+import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useAppMode } from "@/context/AppModeContext";
 import { OwnerCard } from "@/player/components/OwnerCard";
@@ -305,10 +305,10 @@ export default function PlayerHomeScreen() {
   if (!canAccessPlayerMode) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <CollapsibleModeSwitcher />
         <Ionicons name="tennisball" size={48} color={Colors.dark.xpCyan} />
         <Text style={styles.errorText}>Player Mode</Text>
         <Text style={styles.errorSubtext}>Sign in with a player or owner account to view this dashboard</Text>
-        <ModeSwitcher />
       </View>
     );
   }
@@ -325,9 +325,7 @@ export default function PlayerHomeScreen() {
   if (showOwnerOverview && ownerError) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <View style={styles.modeSwitcherContainer}>
-          <ModeSwitcher />
-        </View>
+        <CollapsibleModeSwitcher />
         <Ionicons name="alert-circle" size={48} color={Colors.dark.error} />
         <Text style={styles.errorText}>Unable to load academy stats</Text>
         <Text style={styles.errorSubtext}>Please try again later</Text>
@@ -341,9 +339,7 @@ export default function PlayerHomeScreen() {
     
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.modeSwitcherContainer}>
-          <ModeSwitcher />
-        </View>
+        <CollapsibleModeSwitcher />
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
@@ -479,9 +475,7 @@ export default function PlayerHomeScreen() {
   if (error || !data || !data.player) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <View style={styles.modeSwitcherContainer}>
-          <ModeSwitcher />
-        </View>
+        <CollapsibleModeSwitcher />
         <Ionicons name="alert-circle" size={48} color={Colors.dark.error} />
         <Text style={styles.errorText}>No player profile found</Text>
         <Text style={styles.errorSubtext}>Please set up your player profile or switch to another mode</Text>
@@ -507,9 +501,7 @@ export default function PlayerHomeScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.modeSwitcherContainer}>
-        <ModeSwitcher />
-      </View>
+      <CollapsibleModeSwitcher />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}

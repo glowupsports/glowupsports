@@ -16,7 +16,7 @@ import * as Haptics from "expo-haptics";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
-import ModeSwitcher from "@/components/ModeSwitcher";
+import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import type { OwnerTabParamList } from "@/owner/navigation/OwnerNavigator";
 
 type NavigationProp = NativeStackNavigationProp<OwnerTabParamList>;
@@ -217,6 +217,8 @@ export default function OwnerDashboardScreen() {
         style={styles.headerGradient}
       />
 
+      <CollapsibleModeSwitcher />
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
@@ -239,7 +241,6 @@ export default function OwnerDashboardScreen() {
             </Pressable>
           </View>
 
-          <ModeSwitcher />
         </View>
 
         <View style={styles.statsGrid}>

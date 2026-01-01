@@ -19,7 +19,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
-import ModeSwitcher from "@/components/ModeSwitcher";
+import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import type { AdminTabParamList, AdminStackParamList } from "@/admin/navigation/AdminNavigator";
 
 type AdminNavProp = CompositeNavigationProp<
@@ -222,6 +222,8 @@ export default function AdminDashboardScreen() {
         style={styles.headerGradient}
       />
 
+      <CollapsibleModeSwitcher />
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
@@ -249,7 +251,6 @@ export default function AdminDashboardScreen() {
             </Pressable>
           </View>
 
-          <ModeSwitcher />
         </View>
 
         <View style={styles.kpisGrid}>

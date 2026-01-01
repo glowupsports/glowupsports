@@ -7,7 +7,7 @@ import * as Haptics from "expo-haptics";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
-import ModeSwitcher from "@/components/ModeSwitcher";
+import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 
 const PLATFORM_COLOR = "#9B59B6";
 
@@ -190,6 +190,8 @@ export default function CommandCenterScreen() {
         style={styles.headerGradient}
       />
 
+      <CollapsibleModeSwitcher />
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
@@ -214,7 +216,6 @@ export default function CommandCenterScreen() {
             </View>
           </View>
 
-          <ModeSwitcher />
         </View>
 
         <View style={styles.metricsGrid}>

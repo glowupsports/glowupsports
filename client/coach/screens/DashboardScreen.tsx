@@ -36,7 +36,7 @@ import { BurnoutRiskCard } from "@/coach/components/BurnoutRiskCard";
 import { LoadForecastCard } from "@/coach/components/LoadForecastCard";
 import { CoachEarningsCard } from "@/coach/components/CoachEarningsCard";
 import { AcademySwitcher } from "@/coach/components/AcademySwitcher";
-import ModeSwitcher from "@/components/ModeSwitcher";
+import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import { filterSessionsByDate } from "@/lib/dateUtils";
 
 interface Session {
@@ -467,10 +467,8 @@ export default function DashboardScreen() {
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Mode Switcher - always visible at top */}
-      <View style={styles.modeSwitcherContainer}>
-        <ModeSwitcher />
-      </View>
+      {/* Collapsible Mode Switcher */}
+      <CollapsibleModeSwitcher />
 
       <ScrollView
         style={styles.scrollView}
