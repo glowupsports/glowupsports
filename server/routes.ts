@@ -10522,6 +10522,270 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== PARENT PORTAL API ====================
+
+  // Get parent's linked children
+  app.get("/api/parent/children", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      const playerId = req.user?.playerId;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      // If user is a player, return their own info as a single child
+      if (playerId) {
+        const player = await storage.getPlayer(playerId);
+        if (!player) {
+          return res.status(404).json({ error: "Player not found" });
+        }
+        return res.json({ 
+          children: [{
+            id: player.id,
+            name: player.name,
+            academyId: player.academyId,
+            relationship: "self",
+          }]
+        });
+      }
+
+      // Otherwise fetch linked children
+      const children = await storage.getParentChildren(userId);
+      res.json({ children });
+    } catch (error) {
+      console.error("Get parent children error:", error);
+      res.status(500).json({ error: "Failed to get children" });
+    }
+  });
+
+  // Get invoices for a player (parent view)
+  app.get("/api/parent/invoices/:playerId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      const userPlayerId = req.user?.playerId;
+      const { playerId } = req.params;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      // Check access: either the player themselves or a linked parent
+      if (userPlayerId !== playerId) {
+        const hasAccess = await storage.checkParentPlayerAccess(userId, playerId);
+        if (!hasAccess) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+
+      const invoices = await storage.getPlayerInvoices(playerId);
+      
+      // Get academy names for each invoice
+      const invoicesWithAcademy = await Promise.all(invoices.map(async (inv) => {
+        if (!inv.academyId) return { ...inv, academyName: null };
+        const academy = await storage.getAcademy(inv.academyId);
+        return { ...inv, academyName: academy?.name || null };
+      }));
+
+      res.json({ invoices: invoicesWithAcademy });
+    } catch (error) {
+      console.error("Get player invoices error:", error);
+      res.status(500).json({ error: "Failed to get invoices" });
+    }
+  });
+
+  // Get single invoice with details (parent view)
+  app.get("/api/parent/invoices/:playerId/:invoiceId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      const userPlayerId = req.user?.playerId;
+      const { playerId, invoiceId } = req.params;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      // Check access
+      if (userPlayerId !== playerId) {
+        const hasAccess = await storage.checkParentPlayerAccess(userId, playerId);
+        if (!hasAccess) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+
+      const invoice = await storage.getInvoice(invoiceId);
+      if (!invoice || invoice.playerId !== playerId) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+
+      const academy = invoice.academyId ? await storage.getAcademy(invoice.academyId) : null;
+      
+      res.json({ 
+        invoice: { 
+          ...invoice, 
+          academyName: academy?.name || null 
+        } 
+      });
+    } catch (error) {
+      console.error("Get invoice error:", error);
+      res.status(500).json({ error: "Failed to get invoice" });
+    }
+  });
+
+  // Get payments for a player (parent view)
+  app.get("/api/parent/payments/:playerId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      const userPlayerId = req.user?.playerId;
+      const { playerId } = req.params;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      // Check access
+      if (userPlayerId !== playerId) {
+        const hasAccess = await storage.checkParentPlayerAccess(userId, playerId);
+        if (!hasAccess) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+
+      const payments = await storage.getPlayerPayments(playerId);
+      res.json({ payments });
+    } catch (error) {
+      console.error("Get player payments error:", error);
+      res.status(500).json({ error: "Failed to get payments" });
+    }
+  });
+
+  // Get lesson overview for a player (parent view)
+  app.get("/api/parent/lessons/:playerId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      const userPlayerId = req.user?.playerId;
+      const { playerId } = req.params;
+      const { month, year } = req.query;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      // Check access
+      if (userPlayerId !== playerId) {
+        const hasAccess = await storage.checkParentPlayerAccess(userId, playerId);
+        if (!hasAccess) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+
+      const targetMonth = month ? parseInt(month as string) : new Date().getMonth() + 1;
+      const targetYear = year ? parseInt(year as string) : new Date().getFullYear();
+
+      const lessonSummary = await storage.getPlayerLessonSummary(playerId, targetMonth, targetYear);
+      res.json({ summary: lessonSummary });
+    } catch (error) {
+      console.error("Get lesson summary error:", error);
+      res.status(500).json({ error: "Failed to get lesson summary" });
+    }
+  });
+
+  // Get parent settings
+  app.get("/api/parent/settings", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      let settings = await storage.getParentSettings(userId);
+      
+      // Create default settings if not exists
+      if (!settings) {
+        settings = await storage.createParentSettings({ userId });
+      }
+
+      res.json({ settings });
+    } catch (error) {
+      console.error("Get parent settings error:", error);
+      res.status(500).json({ error: "Failed to get settings" });
+    }
+  });
+
+  // Update parent settings
+  app.patch("/api/parent/settings", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const updates = req.body;
+      const settings = await storage.updateParentSettings(userId, updates);
+
+      res.json({ settings });
+    } catch (error) {
+      console.error("Update parent settings error:", error);
+      res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
+
+  // Get parent dashboard summary
+  app.get("/api/parent/dashboard/:playerId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      const userPlayerId = req.user?.playerId;
+      const { playerId } = req.params;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      // Check access
+      if (userPlayerId !== playerId) {
+        const hasAccess = await storage.checkParentPlayerAccess(userId, playerId);
+        if (!hasAccess) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      const academy = player.academyId ? await storage.getAcademy(player.academyId) : null;
+      
+      // Get pending and overdue invoices
+      const invoices = await storage.getPlayerInvoices(playerId);
+      const pendingInvoices = invoices.filter(inv => inv.status === "pending");
+      const overdueInvoices = invoices.filter(inv => inv.status === "pending" && inv.dueDate && new Date(inv.dueDate) < new Date());
+      
+      // Get current month lesson summary
+      const now = new Date();
+      const lessonSummary = await storage.getPlayerLessonSummary(playerId, now.getMonth() + 1, now.getFullYear());
+
+      res.json({
+        player: {
+          id: player.id,
+          name: player.name,
+        },
+        academy: academy ? { id: academy.id, name: academy.name } : null,
+        invoiceSummary: {
+          pending: pendingInvoices.length,
+          overdue: overdueInvoices.length,
+          totalPending: pendingInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount || "0"), 0),
+        },
+        lessonSummary,
+      });
+    } catch (error) {
+      console.error("Get parent dashboard error:", error);
+      res.status(500).json({ error: "Failed to get dashboard" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat

@@ -19,6 +19,11 @@ import AcademyProfileScreen from "@/player/screens/AcademyProfileScreen";
 import CoachDirectoryScreen from "@/player/screens/CoachDirectoryScreen";
 import TransferRequestScreen from "@/player/screens/TransferRequestScreen";
 import PlayerOnboardingScreen from "@/player/screens/PlayerOnboardingScreen";
+import ParentDashboardScreen from "@/player/screens/ParentDashboardScreen";
+import ParentInvoicesScreen from "@/player/screens/ParentInvoicesScreen";
+import ParentPaymentsScreen from "@/player/screens/ParentPaymentsScreen";
+import ParentLessonsScreen from "@/player/screens/ParentLessonsScreen";
+import ParentSettingsScreen from "@/player/screens/ParentSettingsScreen";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -42,6 +47,11 @@ export type PlayerStackParamList = {
   AcademyProfile: { academyId: string };
   CoachDirectory: undefined;
   TransferRequest: { academyId?: string; academyName?: string } | undefined;
+  ParentDashboard: undefined;
+  ParentInvoices: { playerId: string };
+  ParentPayments: { playerId: string };
+  ParentLessons: { playerId: string };
+  ParentSettings: undefined;
 };
 
 const Tab = createBottomTabNavigator<PlayerTabParamList>();
@@ -184,6 +194,41 @@ function PlayerStackNavigator() {
       <Stack.Screen 
         name="TransferRequest" 
         component={TransferRequestScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="ParentDashboard" 
+        component={ParentDashboardScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="ParentInvoices" 
+        component={ParentInvoicesScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="ParentPayments" 
+        component={ParentPaymentsScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="ParentLessons" 
+        component={ParentLessonsScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="ParentSettings" 
+        component={ParentSettingsScreen}
         options={{
           presentation: "card",
         }}

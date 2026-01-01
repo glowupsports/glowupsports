@@ -1650,3 +1650,80 @@ export const bookingRequests = pgTable("booking_requests", {
 export const insertBookingRequestSchema = createInsertSchema(bookingRequests).omit({ id: true, createdAt: true, updatedAt: true, sessionId: true, respondedBy: true, respondedAt: true });
 export type InsertBookingRequest = z.infer<typeof insertBookingRequestSchema>;
 export type BookingRequest = typeof bookingRequests.$inferSelect;
+
+// ==================== PARENT PORTAL ====================
+
+// Parent-Player Relationships - Links parents to their children
+export const parentPlayerRelations = pgTable("parent_player_relations", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  
+  parentUserId: varchar("parent_user_id").references(() => users.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  
+  relationship: text("relationship").default("parent"), // parent | guardian | sponsor
+  isPrimary: boolean("is_primary").default(true), // Primary contact for this player
+  
+  canViewInvoices: boolean("can_view_invoices").default(true),
+  canViewProgress: boolean("can_view_progress").default(true),
+  canReceiveNotifications: boolean("can_receive_notifications").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertParentPlayerRelationSchema = createInsertSchema(parentPlayerRelations).omit({ id: true, createdAt: true });
+export type InsertParentPlayerRelation = z.infer<typeof insertParentPlayerRelationSchema>;
+export type ParentPlayerRelation = typeof parentPlayerRelations.$inferSelect;
+
+// Parent Settings - Parent-specific preferences
+export const parentSettings = pgTable("parent_settings", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  
+  invoiceEmail: text("invoice_email"), // Separate email for invoices (optional)
+  preferredLanguage: text("preferred_language").default("en"),
+  
+  // Payment Notification Preferences
+  notifyInvoiceCreated: boolean("notify_invoice_created").default(true),
+  notifyPaymentReminder: boolean("notify_payment_reminder").default(true),
+  notifyPaymentOverdue: boolean("notify_payment_overdue").default(true),
+  notifyPaymentConfirmed: boolean("notify_payment_confirmed").default(true),
+  
+  // Reminder Settings
+  reminderDaysBefore: integer("reminder_days_before").default(3), // Days before due date
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertParentSettingsSchema = createInsertSchema(parentSettings).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertParentSettings = z.infer<typeof insertParentSettingsSchema>;
+export type ParentSettings = typeof parentSettings.$inferSelect;
+
+// Payment Reminders - Scheduled payment reminder notifications
+export const paymentReminders = pgTable("payment_reminders", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  
+  invoiceId: varchar("invoice_id").references(() => invoices.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  
+  reminderType: text("reminder_type").notNull(), // created | reminder | overdue | confirmed
+  scheduledFor: timestamp("scheduled_for").notNull(),
+  
+  status: text("status").default("pending"), // pending | sent | cancelled
+  sentAt: timestamp("sent_at"),
+  
+  notificationId: varchar("notification_id"), // Reference to push notification sent
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPaymentReminderSchema = createInsertSchema(paymentReminders).omit({ id: true, createdAt: true, sentAt: true });
+export type InsertPaymentReminder = z.infer<typeof insertPaymentReminderSchema>;
+export type PaymentReminder = typeof paymentReminders.$inferSelect;

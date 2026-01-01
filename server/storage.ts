@@ -195,6 +195,16 @@ import {
   diagnosticReports,
   type DiagnosticReport,
   type InsertDiagnosticReport,
+  // Parent Portal
+  parentPlayerRelations,
+  parentSettings,
+  paymentReminders,
+  type ParentPlayerRelation,
+  type InsertParentPlayerRelation,
+  type ParentSettings,
+  type InsertParentSettings,
+  type PaymentReminder,
+  type InsertPaymentReminder,
 } from "@shared/schema";
 
 export const storage = {
@@ -4530,5 +4540,160 @@ export const storage = {
     }
     
     return availableSlots;
+  },
+
+  // ==================== PARENT PORTAL ====================
+
+  // Get children linked to a parent user
+  async getParentChildren(parentUserId: string): Promise<Array<{
+    id: string;
+    name: string;
+    academyId: string | null;
+    relationship: string;
+  }>> {
+    const relations = await db.select({
+      playerId: parentPlayerRelations.playerId,
+      relationship: parentPlayerRelations.relationship,
+    }).from(parentPlayerRelations)
+      .where(eq(parentPlayerRelations.parentUserId, parentUserId));
+    
+    const children = await Promise.all(relations.map(async (rel) => {
+      const player = await db.select({ id: players.id, name: players.name, academyId: players.academyId })
+        .from(players).where(eq(players.id, rel.playerId));
+      return {
+        id: rel.playerId,
+        name: player[0]?.name || "Unknown",
+        academyId: player[0]?.academyId || null,
+        relationship: rel.relationship || "parent",
+      };
+    }));
+    
+    return children;
+  },
+
+  // Check if a parent has access to a player
+  async checkParentPlayerAccess(parentUserId: string, playerId: string): Promise<boolean> {
+    const result = await db.select({ id: parentPlayerRelations.id })
+      .from(parentPlayerRelations)
+      .where(and(
+        eq(parentPlayerRelations.parentUserId, parentUserId),
+        eq(parentPlayerRelations.playerId, playerId),
+        eq(parentPlayerRelations.canViewInvoices, true)
+      ));
+    return result.length > 0;
+  },
+
+  // Get invoices for a specific player
+  async getPlayerInvoices(playerId: string): Promise<Invoice[]> {
+    return db.select().from(invoices)
+      .where(eq(invoices.playerId, playerId))
+      .orderBy(desc(invoices.createdAt));
+  },
+
+  // Get payments for a specific player
+  async getPlayerPayments(playerId: string): Promise<Payment[]> {
+    return db.select().from(payments)
+      .where(eq(payments.playerId, playerId))
+      .orderBy(desc(payments.createdAt));
+  },
+
+  // Get lesson summary for a player in a specific month/year
+  async getPlayerLessonSummary(playerId: string, month: number, year: number): Promise<{
+    scheduled: number;
+    attended: number;
+    missed: number;
+    cancelled: number;
+    makeUps: number;
+  }> {
+    // Get all session_players for this player in the given month
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0);
+    
+    const sessionData = await db.select({
+      sessionId: sessionPlayers.sessionId,
+      attendanceStatus: sessionPlayers.attendanceStatus,
+    }).from(sessionPlayers)
+      .where(eq(sessionPlayers.playerId, playerId));
+    
+    // Get session dates to filter by month
+    const sessionsInMonth = await db.select({
+      id: sessions.id,
+      startTime: sessions.startTime,
+      status: sessions.status,
+    }).from(sessions)
+      .where(and(
+        gte(sessions.startTime, startDate),
+        lte(sessions.startTime, endDate)
+      ));
+    
+    const sessionIdsInMonth = new Set(sessionsInMonth.map(s => s.id));
+    const relevantData = sessionData.filter(sp => sp.sessionId && sessionIdsInMonth.has(sp.sessionId));
+    
+    // Count by attendance status
+    const attended = relevantData.filter(d => d.attendanceStatus === "present" || d.attendanceStatus === "late").length;
+    const missed = relevantData.filter(d => d.attendanceStatus === "absent").length;
+    const cancelled = sessionsInMonth.filter(s => s.status === "cancelled").length;
+    
+    return {
+      scheduled: sessionsInMonth.length,
+      attended,
+      missed,
+      cancelled,
+      makeUps: 0, // TODO: Track make-up sessions separately if needed
+    };
+  },
+
+  // Get parent settings
+  async getParentSettings(userId: string): Promise<ParentSettings | undefined> {
+    const result = await db.select().from(parentSettings)
+      .where(eq(parentSettings.userId, userId));
+    return result[0];
+  },
+
+  // Create parent settings with defaults
+  async createParentSettings(data: { userId: string }): Promise<ParentSettings> {
+    const result = await db.insert(parentSettings).values({
+      userId: data.userId,
+    }).returning();
+    return result[0];
+  },
+
+  // Update parent settings
+  async updateParentSettings(userId: string, updates: Partial<InsertParentSettings>): Promise<ParentSettings | undefined> {
+    const result = await db.update(parentSettings)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(parentSettings.userId, userId))
+      .returning();
+    return result[0];
+  },
+
+  // Create a parent-player relationship
+  async createParentPlayerRelation(data: InsertParentPlayerRelation): Promise<ParentPlayerRelation> {
+    const result = await db.insert(parentPlayerRelations).values(data).returning();
+    return result[0];
+  },
+
+  // Create a payment reminder
+  async createPaymentReminder(data: InsertPaymentReminder): Promise<PaymentReminder> {
+    const result = await db.insert(paymentReminders).values(data).returning();
+    return result[0];
+  },
+
+  // Get pending payment reminders
+  async getPendingPaymentReminders(): Promise<PaymentReminder[]> {
+    return db.select().from(paymentReminders)
+      .where(and(
+        eq(paymentReminders.status, "pending"),
+        lte(paymentReminders.scheduledFor, new Date())
+      ));
+  },
+
+  // Update payment reminder status
+  async updatePaymentReminder(id: string, updates: Partial<InsertPaymentReminder>): Promise<PaymentReminder | undefined> {
+    const result = await db.update(paymentReminders)
+      .set(updates)
+      .where(eq(paymentReminders.id, id))
+      .returning();
+    return result[0];
   },
 };

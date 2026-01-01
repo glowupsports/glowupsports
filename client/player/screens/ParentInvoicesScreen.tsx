@@ -1,0 +1,366 @@
+import React from "react";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useQuery } from "@tanstack/react-query";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
+import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
+
+interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  amount: string;
+  currency: string;
+  status: string;
+  dueDate: string | null;
+  paidAt: string | null;
+  createdAt: string;
+  academyName: string | null;
+  lineItems: any;
+  notes: string | null;
+}
+
+type RouteParams = {
+  ParentInvoices: { playerId: string };
+};
+
+export default function ParentInvoicesScreen() {
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
+  const route = useRoute<RouteProp<RouteParams, "ParentInvoices">>();
+  const { playerId } = route.params;
+
+  const { data, isLoading } = useQuery<{ invoices: Invoice[] }>({
+    queryKey: ["/api/parent/invoices", playerId],
+  });
+
+  const invoices = data?.invoices || [];
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "paid":
+        return "#22C55E";
+      case "pending":
+        return "#FBBF24";
+      case "void":
+      case "uncollectible":
+        return "#EF4444";
+      default:
+        return Colors.dark.textMuted;
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "paid":
+        return "checkmark-circle";
+      case "pending":
+        return "time";
+      case "void":
+      case "uncollectible":
+        return "close-circle";
+      default:
+        return "ellipse";
+    }
+  };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "—";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
+
+  const isOverdue = (invoice: Invoice) => {
+    if (invoice.status !== "pending" || !invoice.dueDate) return false;
+    return new Date(invoice.dueDate) < new Date();
+  };
+
+  const downloadInvoicePDF = async (invoice: Invoice) => {
+    try {
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; padding: 40px; color: #333; }
+            .header { text-align: center; margin-bottom: 40px; }
+            .invoice-title { font-size: 28px; font-weight: bold; color: #1a1a1a; }
+            .invoice-number { font-size: 14px; color: #666; margin-top: 8px; }
+            .details { margin-bottom: 30px; }
+            .details-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+            .label { color: #666; }
+            .value { font-weight: 500; }
+            .amount { font-size: 24px; font-weight: bold; text-align: center; margin: 30px 0; }
+            .status { text-align: center; padding: 12px; border-radius: 8px; margin-top: 20px; }
+            .status-paid { background: #dcfce7; color: #16a34a; }
+            .status-pending { background: #fef3c7; color: #d97706; }
+            .footer { margin-top: 40px; text-align: center; color: #999; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="invoice-title">Invoice</div>
+            <div class="invoice-number">${invoice.invoiceNumber}</div>
+          </div>
+          <div class="details">
+            <div class="details-row">
+              <span class="label">Academy</span>
+              <span class="value">${invoice.academyName || "—"}</span>
+            </div>
+            <div class="details-row">
+              <span class="label">Issue Date</span>
+              <span class="value">${formatDate(invoice.createdAt)}</span>
+            </div>
+            <div class="details-row">
+              <span class="label">Due Date</span>
+              <span class="value">${formatDate(invoice.dueDate)}</span>
+            </div>
+            ${invoice.paidAt ? `
+            <div class="details-row">
+              <span class="label">Paid On</span>
+              <span class="value">${formatDate(invoice.paidAt)}</span>
+            </div>
+            ` : ""}
+          </div>
+          <div class="amount">${invoice.currency} ${parseFloat(invoice.amount).toFixed(2)}</div>
+          <div class="status ${invoice.status === "paid" ? "status-paid" : "status-pending"}">
+            ${invoice.status.toUpperCase()}
+          </div>
+          ${invoice.notes ? `<p style="margin-top: 20px; color: #666;">${invoice.notes}</p>` : ""}
+          <div class="footer">Generated by Glow Up Sports</div>
+        </body>
+        </html>
+      `;
+
+      const { uri } = await Print.printToFileAsync({ html });
+      
+      if (Platform.OS === "web") {
+        Alert.alert("PDF Generated", "PDF download is not supported on web.");
+      } else {
+        await Sharing.shareAsync(uri, { UTI: ".pdf", mimeType: "application/pdf" });
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to generate PDF");
+    }
+  };
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.header}>
+        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
+        </Pressable>
+        <Text style={styles.headerTitle}>Invoices</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.dark.text} />
+        </View>
+      ) : invoices.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Ionicons name="document-text-outline" size={64} color={Colors.dark.textMuted} />
+          <Text style={styles.emptyTitle}>No Invoices</Text>
+          <Text style={styles.emptySubtitle}>You don't have any invoices yet</Text>
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          {invoices.map((invoice) => (
+            <View key={invoice.id} style={styles.invoiceCard}>
+              <View style={styles.invoiceHeader}>
+                <View>
+                  <Text style={styles.invoiceNumber}>{invoice.invoiceNumber}</Text>
+                  <Text style={styles.academyText}>{invoice.academyName || "—"}</Text>
+                </View>
+                <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(invoice.status)}20` }]}>
+                  <Ionicons 
+                    name={getStatusIcon(invoice.status) as any} 
+                    size={14} 
+                    color={getStatusColor(invoice.status)} 
+                  />
+                  <Text style={[styles.statusText, { color: getStatusColor(invoice.status) }]}>
+                    {isOverdue(invoice) ? "Overdue" : invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.invoiceBody}>
+                <View style={styles.invoiceAmount}>
+                  <Text style={styles.currency}>{invoice.currency}</Text>
+                  <Text style={styles.amount}>{parseFloat(invoice.amount).toFixed(2)}</Text>
+                </View>
+
+                <View style={styles.invoiceDates}>
+                  <View style={styles.dateRow}>
+                    <Text style={styles.dateLabel}>Issued</Text>
+                    <Text style={styles.dateValue}>{formatDate(invoice.createdAt)}</Text>
+                  </View>
+                  <View style={styles.dateRow}>
+                    <Text style={styles.dateLabel}>Due</Text>
+                    <Text style={[styles.dateValue, isOverdue(invoice) && { color: "#EF4444" }]}>
+                      {formatDate(invoice.dueDate)}
+                    </Text>
+                  </View>
+                  {invoice.paidAt ? (
+                    <View style={styles.dateRow}>
+                      <Text style={styles.dateLabel}>Paid</Text>
+                      <Text style={[styles.dateValue, { color: "#22C55E" }]}>{formatDate(invoice.paidAt)}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+
+              <Pressable style={styles.downloadButton} onPress={() => downloadInvoicePDF(invoice)}>
+                <Ionicons name="download-outline" size={18} color={Colors.dark.text} />
+                <Text style={styles.downloadText}>Download PDF</Text>
+              </Pressable>
+            </View>
+          ))}
+        </ScrollView>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.background,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  scrollContent: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: Spacing.xl,
+  },
+  emptyTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    marginTop: Spacing.lg,
+  },
+  emptySubtitle: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.sm,
+    textAlign: "center",
+  },
+  invoiceCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  invoiceHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: Spacing.lg,
+  },
+  invoiceNumber: {
+    ...Typography.subtitle,
+    color: Colors.dark.text,
+  },
+  academyText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+  },
+  statusText: {
+    ...Typography.caption,
+    fontWeight: "600",
+  },
+  invoiceBody: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+    paddingBottom: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  invoiceAmount: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 4,
+  },
+  currency: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+  },
+  amount: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+  },
+  invoiceDates: {
+    gap: 4,
+  },
+  dateRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  dateLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    width: 45,
+  },
+  dateValue: {
+    ...Typography.caption,
+    color: Colors.dark.text,
+  },
+  downloadButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+  },
+  downloadText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+});

@@ -298,26 +298,19 @@ export default function PlayerProfileScreen() {
           </Pressable>
 
           <Pressable 
-            style={[styles.settingsItem, { opacity: 0.5 }]}
+            style={styles.settingsItem}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              if (Platform.OS === "web") {
-                window.alert("Parent/Payment Mode is coming soon!");
-              } else {
-                Alert.alert(
-                  "Coming Soon",
-                  "Parent/Payment Mode will be available in a future update. Stay tuned!",
-                  [{ text: "OK", style: "default" }]
-                );
-              }
+              navigation.navigate("ParentDashboard");
             }}
           >
             <View style={[styles.settingsIcon, { backgroundColor: "rgba(138, 43, 226, 0.15)" }]}>
               <Ionicons name="wallet-outline" size={20} color="#8A2BE2" />
             </View>
-            <Text style={[styles.settingsLabel, { color: Colors.dark.textMuted }]}>
-              Parent/Payment Mode (Coming Soon)
-            </Text>
+            <Text style={styles.settingsLabel}>Parent Dashboard</Text>
+            <View style={styles.newBadge}>
+              <Text style={styles.newBadgeText}>NEW</Text>
+            </View>
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
           </Pressable>
         </View>
@@ -671,6 +664,19 @@ const styles = StyleSheet.create({
     flex: 1,
     ...Typography.body,
     color: Colors.dark.text,
+  },
+  newBadge: {
+    backgroundColor: "#8A2BE2",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginRight: Spacing.sm,
+  },
+  newBadgeText: {
+    ...Typography.small,
+    color: Colors.dark.text,
+    fontWeight: "700",
+    fontSize: 10,
   },
   logoutButton: {
     flexDirection: "row",

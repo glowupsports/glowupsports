@@ -1,0 +1,434 @@
+import React from "react";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useQuery } from "@tanstack/react-query";
+import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
+import { useAuth } from "@/coach/context/AuthContext";
+
+interface Child {
+  id: string;
+  name: string;
+  academyId: string | null;
+  relationship: string;
+}
+
+interface DashboardData {
+  player: { id: string; name: string };
+  academy: { id: string; name: string } | null;
+  invoiceSummary: { pending: number; overdue: number; totalPending: number };
+  lessonSummary: { scheduled: number; attended: number; missed: number; cancelled: number; makeUps: number };
+}
+
+export default function ParentDashboardScreen() {
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
+  const { user } = useAuth();
+  const [selectedChildId, setSelectedChildId] = React.useState<string | null>(null);
+
+  const { data: childrenData, isLoading: childrenLoading } = useQuery<{ children: Child[] }>({
+    queryKey: ["/api/parent/children"],
+  });
+
+  const children = childrenData?.children || [];
+
+  React.useEffect(() => {
+    if (children.length > 0 && !selectedChildId) {
+      setSelectedChildId(children[0].id);
+    }
+  }, [children, selectedChildId]);
+
+  const { data: dashboardData, isLoading: dashboardLoading } = useQuery<DashboardData>({
+    queryKey: ["/api/parent/dashboard", selectedChildId],
+    enabled: !!selectedChildId,
+  });
+
+  const navigateToInvoices = () => {
+    (navigation as any).navigate("ParentInvoices", { playerId: selectedChildId });
+  };
+
+  const navigateToPayments = () => {
+    (navigation as any).navigate("ParentPayments", { playerId: selectedChildId });
+  };
+
+  const navigateToLessons = () => {
+    (navigation as any).navigate("ParentLessons", { playerId: selectedChildId });
+  };
+
+  const navigateToSettings = () => {
+    (navigation as any).navigate("ParentSettings");
+  };
+
+  if (childrenLoading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color={Colors.dark.text} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.header}>
+        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
+        </Pressable>
+        <Text style={styles.headerTitle}>Parent Dashboard</Text>
+        <Pressable onPress={navigateToSettings} style={styles.settingsButton}>
+          <Ionicons name="settings-outline" size={24} color={Colors.dark.text} />
+        </Pressable>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {children.length > 1 ? (
+          <View style={styles.childSelector}>
+            <Text style={styles.sectionLabel}>Select Child</Text>
+            <View style={styles.childPills}>
+              {children.map((child) => (
+                <Pressable
+                  key={child.id}
+                  style={[
+                    styles.childPill,
+                    selectedChildId === child.id && styles.childPillSelected,
+                  ]}
+                  onPress={() => setSelectedChildId(child.id)}
+                >
+                  <Text
+                    style={[
+                      styles.childPillText,
+                      selectedChildId === child.id && styles.childPillTextSelected,
+                    ]}
+                  >
+                    {child.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        {dashboardLoading ? (
+          <View style={styles.loadingSection}>
+            <ActivityIndicator size="small" color={Colors.dark.textMuted} />
+          </View>
+        ) : dashboardData ? (
+          <>
+            <View style={styles.playerCard}>
+              <View style={styles.playerAvatar}>
+                <Ionicons name="person" size={32} color={Colors.dark.text} />
+              </View>
+              <View style={styles.playerInfo}>
+                <Text style={styles.playerName}>{dashboardData.player.name}</Text>
+                {dashboardData.academy ? (
+                  <Text style={styles.academyName}>{dashboardData.academy.name}</Text>
+                ) : null}
+              </View>
+            </View>
+
+            <View style={styles.summarySection}>
+              <Text style={styles.sectionTitle}>Payment Overview</Text>
+              <View style={styles.summaryCards}>
+                <Pressable style={styles.summaryCard} onPress={navigateToInvoices}>
+                  <View style={styles.summaryIconContainer}>
+                    <Ionicons name="document-text-outline" size={24} color="#FBBF24" />
+                  </View>
+                  <Text style={styles.summaryValue}>{dashboardData.invoiceSummary.pending}</Text>
+                  <Text style={styles.summaryLabel}>Pending</Text>
+                </Pressable>
+
+                <Pressable style={styles.summaryCard} onPress={navigateToInvoices}>
+                  <View style={[styles.summaryIconContainer, { backgroundColor: "rgba(239, 68, 68, 0.15)" }]}>
+                    <Ionicons name="alert-circle-outline" size={24} color="#EF4444" />
+                  </View>
+                  <Text style={[styles.summaryValue, dashboardData.invoiceSummary.overdue > 0 && { color: "#EF4444" }]}>
+                    {dashboardData.invoiceSummary.overdue}
+                  </Text>
+                  <Text style={styles.summaryLabel}>Overdue</Text>
+                </Pressable>
+
+                <View style={styles.summaryCard}>
+                  <View style={[styles.summaryIconContainer, { backgroundColor: "rgba(59, 130, 246, 0.15)" }]}>
+                    <Ionicons name="wallet-outline" size={24} color="#3B82F6" />
+                  </View>
+                  <Text style={styles.summaryValue}>
+                    {dashboardData.invoiceSummary.totalPending.toFixed(0)}
+                  </Text>
+                  <Text style={styles.summaryLabel}>AED Due</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.summarySection}>
+              <Text style={styles.sectionTitle}>This Month's Lessons</Text>
+              <View style={styles.lessonSummaryCard}>
+                <View style={styles.lessonRow}>
+                  <View style={styles.lessonStat}>
+                    <Text style={styles.lessonStatValue}>{dashboardData.lessonSummary.scheduled}</Text>
+                    <Text style={styles.lessonStatLabel}>Scheduled</Text>
+                  </View>
+                  <View style={styles.lessonStat}>
+                    <Text style={[styles.lessonStatValue, { color: "#22C55E" }]}>
+                      {dashboardData.lessonSummary.attended}
+                    </Text>
+                    <Text style={styles.lessonStatLabel}>Attended</Text>
+                  </View>
+                  <View style={styles.lessonStat}>
+                    <Text style={[styles.lessonStatValue, { color: "#EF4444" }]}>
+                      {dashboardData.lessonSummary.missed}
+                    </Text>
+                    <Text style={styles.lessonStatLabel}>Missed</Text>
+                  </View>
+                  <View style={styles.lessonStat}>
+                    <Text style={[styles.lessonStatValue, { color: "#F59E0B" }]}>
+                      {dashboardData.lessonSummary.cancelled}
+                    </Text>
+                    <Text style={styles.lessonStatLabel}>Cancelled</Text>
+                  </View>
+                </View>
+                <Pressable style={styles.viewDetailsButton} onPress={navigateToLessons}>
+                  <Text style={styles.viewDetailsText}>View Full History</Text>
+                  <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+                </Pressable>
+              </View>
+            </View>
+
+            <View style={styles.quickActions}>
+              <Text style={styles.sectionTitle}>Quick Actions</Text>
+              <View style={styles.actionButtons}>
+                <Pressable style={styles.actionButton} onPress={navigateToInvoices}>
+                  <Ionicons name="receipt-outline" size={24} color={Colors.dark.text} />
+                  <Text style={styles.actionButtonText}>Invoices</Text>
+                </Pressable>
+                <Pressable style={styles.actionButton} onPress={navigateToPayments}>
+                  <Ionicons name="card-outline" size={24} color={Colors.dark.text} />
+                  <Text style={styles.actionButtonText}>Payments</Text>
+                </Pressable>
+                <Pressable style={styles.actionButton} onPress={navigateToLessons}>
+                  <Ionicons name="calendar-outline" size={24} color={Colors.dark.text} />
+                  <Text style={styles.actionButtonText}>Lessons</Text>
+                </Pressable>
+              </View>
+            </View>
+          </>
+        ) : (
+          <View style={styles.emptyState}>
+            <Ionicons name="folder-open-outline" size={48} color={Colors.dark.textMuted} />
+            <Text style={styles.emptyText}>No data available</Text>
+          </View>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.background,
+  },
+  loadingContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  settingsButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  scrollContent: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+  },
+  childSelector: {
+    marginBottom: Spacing.xl,
+  },
+  sectionLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+  },
+  childPills: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  childPill: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  childPillSelected: {
+    backgroundColor: Colors.dark.text,
+    borderColor: Colors.dark.text,
+  },
+  childPillText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  childPillTextSelected: {
+    color: Colors.dark.background,
+  },
+  loadingSection: {
+    paddingVertical: Spacing.xxl,
+    alignItems: "center",
+  },
+  playerCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.xl,
+  },
+  playerAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: Spacing.md,
+  },
+  playerInfo: {
+    flex: 1,
+  },
+  playerName: {
+    ...Typography.h4,
+    color: Colors.dark.text,
+  },
+  academyName: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  summarySection: {
+    marginBottom: Spacing.xl,
+  },
+  sectionTitle: {
+    ...Typography.subtitle,
+    color: Colors.dark.text,
+    marginBottom: Spacing.md,
+  },
+  summaryCards: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  summaryCard: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    alignItems: "center",
+  },
+  summaryIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(251, 191, 36, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  summaryValue: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  summaryLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  lessonSummaryCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+  },
+  lessonRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: Spacing.lg,
+  },
+  lessonStat: {
+    alignItems: "center",
+  },
+  lessonStatValue: {
+    ...Typography.h4,
+    color: Colors.dark.text,
+  },
+  lessonStatLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  viewDetailsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  viewDetailsText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginRight: Spacing.xs,
+  },
+  quickActions: {
+    marginBottom: Spacing.xl,
+  },
+  actionButtons: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  actionButton: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  actionButtonText: {
+    ...Typography.caption,
+    color: Colors.dark.text,
+  },
+  emptyState: {
+    paddingVertical: Spacing.xxl * 2,
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  emptyText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+  },
+});
