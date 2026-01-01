@@ -12,6 +12,7 @@ import {
   Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -470,6 +471,8 @@ function PlayerDetailView({
 }) {
   const { coach } = useCoach();
   const queryClient = useQueryClient();
+  
+  const tabBarHeight = useBottomTabBarHeight();
   const [showAddNote, setShowAddNote] = useState(false);
   const [newNoteContent, setNewNoteContent] = useState("");
   const [newNoteCategory, setNewNoteCategory] = useState("general");
@@ -570,7 +573,7 @@ function PlayerDetailView({
 
       <ScrollView
         style={styles.detailContent}
-        contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
+        contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.profileHeader}>
