@@ -184,7 +184,13 @@ export default function CreateSessionDrawer({
     },
     onSuccess: (data: any) => {
       refetchCalendar();
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      // Invalidate all calendar queries (including ones with query params in the key)
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/coach/calendar');
+        }
+      });
       onClose();
       resetForm();
       

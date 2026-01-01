@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert as RNAlert,
   Platform,
+  RefreshControl,
 } from "react-native";
 import Animated, {
   useSharedValue,
@@ -22,7 +23,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { useCoach } from "@/coach/context/CoachContext";
@@ -65,22 +66,42 @@ interface WeeklyCalendarData {
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { coach, academy, calendarData, isLoading } = useCoach();
+  const queryClient = useQueryClient();
+  const { coach, academy, calendarData, isLoading, refetchCalendar } = useCoach();
   const { logout } = useAuth();
   const [showStatusPanel, setShowStatusPanel] = useState(false);
   const [sessionsCollapsed, setSessionsCollapsed] = useState(true);
   const [focusCollapsed, setFocusCollapsed] = useState(false);
   const [energyCollapsed, setEnergyCollapsed] = useState(false);
   const [selectedDayOffset, setSelectedDayOffset] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const todayDateStr = new Date().toISOString().split("T")[0];
   const weeklyCalendarPath = coach?.id 
     ? `/api/coach/calendar?coachId=${coach.id}&date=${todayDateStr}&view=week` 
     : null;
-  const { data: weeklyCalendarData } = useQuery<WeeklyCalendarData>({
+  const { data: weeklyCalendarData, refetch: refetchWeeklyCalendar } = useQuery<WeeklyCalendarData>({
     queryKey: [weeklyCalendarPath],
     enabled: !!coach?.id && !!weeklyCalendarPath,
   });
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        refetchCalendar(),
+        refetchWeeklyCalendar(),
+        queryClient.invalidateQueries({
+          predicate: (query) => {
+            const key = query.queryKey[0];
+            return typeof key === 'string' && key.startsWith('/api/coach');
+          }
+        }),
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetchCalendar, refetchWeeklyCalendar, queryClient]);
   
   const allSessions = weeklyCalendarData?.ownSessions || calendarData?.ownSessions || [];
 
@@ -433,6 +454,14 @@ export default function DashboardScreen() {
         style={styles.scrollView}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.footerCollapsed + 100 }]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.dark.primary}
+            colors={[Colors.dark.primary]}
+          />
+        }
       >
         {/* === GAMING PLAYER CARD HEADER === */}
         <View style={styles.playerCard}>
