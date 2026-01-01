@@ -39,6 +39,7 @@ import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateCo
 import { sendFeedbackNotification, sendLevelUpNotification, sendBadgeEarnedNotification, sendXPGainNotification } from "./pushNotifications";
 import { sendFeedbackNotificationEmail, sendLevelUpEmail, sendWelcomeEmail, sendSessionReminderEmail, sendCoachInviteEmail } from "./emailService";
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, checkConnection as checkCalendarConnection, SessionEventData } from "./googleCalendarService";
+import { generateInvoiceHtml, parseLineItems } from "./services/invoicePdf";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -6347,6 +6348,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== PACKAGE TEMPLATES ====================
+  
+  app.get("/api/billing/package-templates", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const templates = await storage.getPackageTemplates(academyId);
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching package templates:", error);
+      res.status(500).json({ error: "Failed to fetch package templates" });
+    }
+  });
+
+  app.post("/api/billing/package-templates", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const { name, description, credits, price, currency, validityDays, sessionType } = req.body;
+      
+      if (!name || typeof credits !== 'number' || credits <= 0) {
+        return res.status(400).json({ error: "Name and positive credits required" });
+      }
+      if (typeof price !== 'number' || price <= 0) {
+        return res.status(400).json({ error: "Price must be a positive number" });
+      }
+      
+      const template = await storage.createPackageTemplate({
+        academyId,
+        name,
+        description,
+        credits,
+        price: String(price),
+        currency: currency || 'AED',
+        validityDays: validityDays || 90,
+        sessionType,
+      });
+      
+      res.status(201).json(template);
+    } catch (error) {
+      console.error("Error creating package template:", error);
+      res.status(500).json({ error: "Failed to create package template" });
+    }
+  });
+
+  app.patch("/api/billing/package-templates/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const { id } = req.params;
+      
+      const template = await storage.updatePackageTemplate(id, req.body, academyId);
+      if (!template) {
+        return res.status(404).json({ error: "Package template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      console.error("Error updating package template:", error);
+      res.status(500).json({ error: "Failed to update package template" });
+    }
+  });
+
+  app.delete("/api/billing/package-templates/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const { id } = req.params;
+      
+      const deleted = await storage.deletePackageTemplate(id, academyId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Package template not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting package template:", error);
+      res.status(500).json({ error: "Failed to delete package template" });
+    }
+  });
+
+  // Assign package to player (creates package instance + invoice)
+  app.post("/api/billing/assign-package", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const { playerId, templateId, customPrice, notes } = req.body;
+      
+      // Validate player
+      const player = await storage.getPlayer(playerId);
+      if (!player || player.academyId !== academyId) {
+        return res.status(400).json({ error: "Player not found in this academy" });
+      }
+      
+      // Validate template
+      const template = await storage.getPackageTemplate(templateId, academyId);
+      if (!template) {
+        return res.status(400).json({ error: "Package template not found" });
+      }
+      
+      // Calculate expiry date
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + (template.validityDays || 90));
+      
+      // Create package for player
+      const pkg = await storage.createPackage({
+        academyId,
+        playerId,
+        templateId,
+        name: template.name,
+        totalCredits: template.credits,
+        remainingCredits: template.credits,
+        price: customPrice ? String(customPrice) : template.price,
+        currency: template.currency || 'AED',
+        expiryDate: expiryDate.toISOString().split('T')[0],
+        status: 'active',
+      });
+      
+      // Generate invoice for the package
+      const invoiceNumber = await storage.generateInvoiceNumber(academyId);
+      const settings = await storage.getAcademySettings(academyId);
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + (settings?.invoiceDueDays || 14));
+      
+      const invoice = await storage.createInvoice({
+        academyId,
+        playerId,
+        packageId: pkg.id,
+        invoiceNumber,
+        invoiceType: 'package',
+        amount: customPrice ? String(customPrice) : template.price,
+        currency: template.currency || 'AED',
+        dueDate: dueDate.toISOString().split('T')[0],
+        lineItems: JSON.stringify([{
+          description: template.name,
+          quantity: 1,
+          unitPrice: customPrice || parseFloat(template.price),
+          total: customPrice || parseFloat(template.price),
+        }]),
+        notes,
+        status: 'pending',
+      });
+      
+      res.status(201).json({ package: pkg, invoice });
+    } catch (error) {
+      console.error("Error assigning package:", error);
+      res.status(500).json({ error: "Failed to assign package" });
+    }
+  });
+
   app.get("/api/billing/invoices", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId!;
@@ -6424,6 +6568,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating invoice:", error);
       res.status(500).json({ error: "Failed to update invoice" });
+    }
+  });
+
+  app.get("/api/billing/invoices/:id/html", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const { id } = req.params;
+      
+      const invoice = await storage.getInvoice(id);
+      if (!invoice || invoice.academyId !== academyId) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+      
+      const academy = await storage.getAcademy(academyId);
+      const settings = await storage.getAcademySettings(academyId);
+      const player = invoice.playerId ? await storage.getPlayer(invoice.playerId) : null;
+      
+      const lineItems = parseLineItems(invoice.lineItems);
+      const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
+      
+      const invoiceData = {
+        invoiceNumber: invoice.invoiceNumber,
+        issueDate: invoice.createdAt?.toISOString() || new Date().toISOString(),
+        dueDate: invoice.dueDate || new Date().toISOString(),
+        academy: {
+          name: academy?.name || 'Academy',
+          email: settings?.contactEmail || undefined,
+          phone: settings?.contactPhone || undefined,
+        },
+        player: {
+          name: player?.name || 'Customer',
+          email: player?.email || undefined,
+          phone: player?.phone || undefined,
+        },
+        lineItems: lineItems.length > 0 ? lineItems : [{
+          description: 'Tennis Lessons',
+          quantity: 1,
+          unitPrice: parseFloat(invoice.amount || '0'),
+          total: parseFloat(invoice.amount || '0'),
+        }],
+        subtotal: subtotal || parseFloat(invoice.amount || '0'),
+        total: parseFloat(invoice.amount || '0'),
+        currency: invoice.currency || 'AED',
+        notes: invoice.notes || undefined,
+        status: invoice.status as 'pending' | 'paid' | 'overdue' | 'cancelled',
+        paidAt: invoice.paidAt?.toISOString(),
+      };
+      
+      const html = generateInvoiceHtml(invoiceData);
+      res.setHeader('Content-Type', 'text/html');
+      res.send(html);
+    } catch (error) {
+      console.error("Error generating invoice HTML:", error);
+      res.status(500).json({ error: "Failed to generate invoice" });
     }
   });
 
@@ -11013,6 +11211,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Get parent dashboard error:", error);
       res.status(500).json({ error: "Failed to get dashboard" });
+    }
+  });
+
+  app.get("/api/parent/packages/:playerId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      const userPlayerId = req.user?.playerId;
+      const { playerId } = req.params;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      if (userPlayerId !== playerId) {
+        const hasAccess = await storage.checkParentPlayerAccess(userId, playerId);
+        if (!hasAccess) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+
+      const packages = await storage.getPlayerPackages(playerId);
+      const activePackages = packages.filter(pkg => 
+        pkg.status === 'active' && pkg.remainingCredits > 0
+      );
+      
+      const totalCredits = activePackages.reduce((sum, pkg) => sum + pkg.remainingCredits, 0);
+      
+      res.json({
+        packages: packages.map(pkg => ({
+          id: pkg.id,
+          name: pkg.name || 'Package',
+          totalCredits: pkg.totalCredits,
+          remainingCredits: pkg.remainingCredits,
+          expiryDate: pkg.expiryDate,
+          status: pkg.status,
+          purchaseDate: pkg.purchaseDate,
+        })),
+        summary: {
+          activePackages: activePackages.length,
+          totalCreditsRemaining: totalCredits,
+        },
+      });
+    } catch (error) {
+      console.error("Get parent packages error:", error);
+      res.status(500).json({ error: "Failed to get packages" });
+    }
+  });
+
+  app.get("/api/parent/invoices/:playerId/:invoiceId/html", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      const userPlayerId = req.user?.playerId;
+      const { playerId, invoiceId } = req.params;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      if (userPlayerId !== playerId) {
+        const hasAccess = await storage.checkParentPlayerAccess(userId, playerId);
+        if (!hasAccess) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+
+      const invoice = await storage.getInvoice(invoiceId);
+      if (!invoice || invoice.playerId !== playerId) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+
+      const player = await storage.getPlayer(playerId);
+      const academy = invoice.academyId ? await storage.getAcademy(invoice.academyId) : null;
+      const settings = invoice.academyId ? await storage.getAcademySettings(invoice.academyId) : null;
+      
+      const lineItems = parseLineItems(invoice.lineItems);
+      const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
+      
+      const invoiceData = {
+        invoiceNumber: invoice.invoiceNumber,
+        issueDate: invoice.createdAt?.toISOString() || new Date().toISOString(),
+        dueDate: invoice.dueDate || new Date().toISOString(),
+        academy: {
+          name: academy?.name || 'Academy',
+          email: settings?.contactEmail || undefined,
+          phone: settings?.contactPhone || undefined,
+        },
+        player: {
+          name: player?.name || 'Customer',
+          email: player?.email || undefined,
+          phone: player?.phone || undefined,
+        },
+        lineItems: lineItems.length > 0 ? lineItems : [{
+          description: 'Tennis Lessons',
+          quantity: 1,
+          unitPrice: parseFloat(invoice.amount || '0'),
+          total: parseFloat(invoice.amount || '0'),
+        }],
+        subtotal: subtotal || parseFloat(invoice.amount || '0'),
+        total: parseFloat(invoice.amount || '0'),
+        currency: invoice.currency || 'AED',
+        notes: invoice.notes || undefined,
+        status: invoice.status as 'pending' | 'paid' | 'overdue' | 'cancelled',
+        paidAt: invoice.paidAt?.toISOString(),
+      };
+      
+      const html = generateInvoiceHtml(invoiceData);
+      res.setHeader('Content-Type', 'text/html');
+      res.send(html);
+    } catch (error) {
+      console.error("Get parent invoice HTML error:", error);
+      res.status(500).json({ error: "Failed to generate invoice" });
     }
   });
 

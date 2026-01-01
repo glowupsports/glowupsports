@@ -26,6 +26,7 @@ The application features a dark-themed gaming aesthetic, utilizing neon green an
     - **Security**: Robust authentication (login/register/logout/refresh), role-based access control (RBAC), multi-tenant isolation, input sanitization, and audit logging.
     - **Notifications**: In-app alerts, push notifications (feedback, level-up, XP gain, session reminders), and email notifications (welcome, session reminders, feedback, level-up, coach invites) via Resend API.
     - **Business Readiness**: Database schema and API routes for academy management, billing, and payments, including screens for academy settings, billing overview, and a multi-academy switcher.
+    - **Billing System V2**: Configurable billing modes (per_lesson, package, monthly, hybrid) per academy. Package templates for reusable credit packages (e.g., "10 Lesson Pack"). Auto-invoice generation on package assignment. Professional PDF invoices via HTML template. API: `/api/billing/package-templates` CRUD, `/api/billing/assign-package`, `/api/billing/invoices/:id/html`, `/api/parent/packages/:playerId`, `/api/parent/invoices/:playerId/:invoiceId/html`.
     - **Offline Sync**: Queue processor with exponential backoff for data synchronization and conflict resolution.
     - **Platform Configuration**: Centralized key-value storage for platform-wide settings (XP multipliers, anti-abuse rules, level thresholds, badge definitions, academy defaults, billing config, notification templates).
     - **Maintenance Mode**: System-wide maintenance toggle with role-based bypass and status endpoints.

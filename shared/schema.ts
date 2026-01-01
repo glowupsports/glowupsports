@@ -477,18 +477,60 @@ export type InsertPlayer = z.infer<typeof insertPlayerSchema>;
 export type UpdatePlayer = z.infer<typeof updatePlayerSchema>;
 export type Player = typeof players.$inferSelect;
 
-// Packages (Credits)
+// Package Templates - Reusable package definitions (defined by academy owner)
+export const packageTemplates = pgTable("package_templates", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  
+  name: text("name").notNull(), // e.g., "10 Lesson Pack", "Monthly Unlimited"
+  description: text("description"),
+  
+  credits: integer("credits").notNull(), // Number of lessons included
+  price: numeric("price").notNull(), // Price in academy currency
+  currency: text("currency").default("AED"),
+  
+  validityDays: integer("validity_days").default(90), // How long until credits expire
+  sessionType: text("session_type"), // private | semi | group | null (any)
+  
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPackageTemplateSchema = createInsertSchema(packageTemplates).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertPackageTemplate = z.infer<typeof insertPackageTemplateSchema>;
+export type PackageTemplate = typeof packageTemplates.$inferSelect;
+
+// Packages (Credits) - Assigned to players
 export const packages = pgTable("packages", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id),
   playerId: varchar("player_id").references(() => players.id),
+  templateId: varchar("template_id").references(() => packageTemplates.id),
+  
+  name: text("name"), // Copy from template or custom name
+  
   totalCredits: integer("total_credits").notNull(),
   remainingCredits: integer("remaining_credits").notNull(),
+  
+  price: numeric("price"), // Price paid for this package
+  currency: text("currency").default("AED"),
+  
+  purchaseDate: timestamp("purchase_date").defaultNow(),
   expiryDate: date("expiry_date"),
+  
+  status: text("status").default("active"), // active | expired | depleted
+  
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertPackageSchema = createInsertSchema(packages).omit({ id: true });
+export const insertPackageSchema = createInsertSchema(packages).omit({ id: true, createdAt: true });
 export type InsertPackage = z.infer<typeof insertPackageSchema>;
 export type Package = typeof packages.$inferSelect;
 
@@ -1208,6 +1250,10 @@ export const academySettings = pgTable("academy_settings", {
   workingHoursEnd: integer("working_hours_end").default(22), // 10 PM
   
   billingEnabled: boolean("billing_enabled").default(false),
+  billingMode: text("billing_mode").default("hybrid"), // per_lesson | package | monthly | hybrid
+  
+  defaultLessonPrice: numeric("default_lesson_price").default("100"), // Default price for pay-per-lesson
+  invoiceDueDays: integer("invoice_due_days").default(14), // Days until invoice is due
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -1417,7 +1463,7 @@ export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({
 export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
 export type Subscription = typeof subscriptions.$inferSelect;
 
-// Invoices - Generated invoices for packages
+// Invoices - Generated invoices for packages or sessions
 export const invoices = pgTable("invoices", {
   id: varchar("id")
     .primaryKey()
@@ -1425,14 +1471,17 @@ export const invoices = pgTable("invoices", {
   academyId: varchar("academy_id").references(() => academies.id).notNull(),
   playerId: varchar("player_id").references(() => players.id),
   packageId: varchar("package_id").references(() => packages.id),
+  sessionId: varchar("session_id").references(() => sessions.id), // For pay-per-lesson invoices
   
   invoiceNumber: text("invoice_number").notNull(),
   stripeInvoiceId: text("stripe_invoice_id"),
   
+  invoiceType: text("invoice_type").default("manual"), // manual | session | package | monthly
+  
   amount: numeric("amount").notNull(),
   currency: text("currency").default("AED"),
   
-  status: text("status").default("draft"), // draft | pending | paid | void | uncollectible
+  status: text("status").default("pending"), // draft | pending | paid | void | uncollectible
   dueDate: date("due_date"),
   paidAt: timestamp("paid_at"),
   

@@ -80,6 +80,9 @@ import {
   payments,
   refunds,
   playerSubscriptions,
+  packageTemplates,
+  type PackageTemplate,
+  type InsertPackageTemplate,
   // Academy types
   type Academy,
   type InsertAcademy,
@@ -938,6 +941,42 @@ export const storage = {
       return { success: true, package: updatedPackage };
     }
     return { success: false, reason: "credit_deduction_failed" };
+  },
+
+  // ==================== PACKAGE TEMPLATES ====================
+  async getPackageTemplates(academyId: string): Promise<PackageTemplate[]> {
+    return db.select().from(packageTemplates)
+      .where(eq(packageTemplates.academyId, academyId))
+      .orderBy(asc(packageTemplates.sortOrder), asc(packageTemplates.name));
+  },
+
+  async getPackageTemplate(id: string, academyId?: string): Promise<PackageTemplate | undefined> {
+    const conditions = [eq(packageTemplates.id, id)];
+    if (academyId) {
+      conditions.push(eq(packageTemplates.academyId, academyId));
+    }
+    const result = await db.select().from(packageTemplates).where(and(...conditions));
+    return result[0];
+  },
+
+  async createPackageTemplate(data: InsertPackageTemplate): Promise<PackageTemplate> {
+    const result = await db.insert(packageTemplates).values(data).returning();
+    return result[0];
+  },
+
+  async updatePackageTemplate(id: string, data: Partial<InsertPackageTemplate>, academyId: string): Promise<PackageTemplate | undefined> {
+    const result = await db.update(packageTemplates)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(packageTemplates.id, id), eq(packageTemplates.academyId, academyId)))
+      .returning();
+    return result[0];
+  },
+
+  async deletePackageTemplate(id: string, academyId: string): Promise<boolean> {
+    const result = await db.delete(packageTemplates)
+      .where(and(eq(packageTemplates.id, id), eq(packageTemplates.academyId, academyId)))
+      .returning();
+    return result.length > 0;
   },
 
   // ==================== SESSIONS ====================
