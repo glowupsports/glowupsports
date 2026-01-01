@@ -383,7 +383,7 @@ export default function AdminDashboardScreen() {
                 <Text style={styles.seeAllText}>See All</Text>
               </Pressable>
             </View>
-            {upcomingSessions.slice(0, 5).map((session) => (
+            {upcomingSessions.slice(0, 3).map((session) => (
               <SessionCard key={session.id} session={session} />
             ))}
           </View>
