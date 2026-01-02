@@ -45,7 +45,7 @@ interface NextSessionCountdownProps {
   onEnd?: () => void;
 }
 
-type SessionState = "upcoming" | "live";
+type SessionState = "upcoming" | "live" | "ended";
 
 export function NextSessionCountdown({
   session,
@@ -96,6 +96,13 @@ export function NextSessionCountdown({
     const start = new Date(session.startTime);
     const end = new Date(session.endTime);
     
+    if (now >= end) {
+      return { 
+        state: "ended" as SessionState, 
+        time: { minutes: 0, seconds: 0, totalSeconds: 0 } 
+      };
+    }
+    
     if (now >= start && now < end) {
       const diffMs = end.getTime() - now.getTime();
       const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
@@ -105,20 +112,15 @@ export function NextSessionCountdown({
         state: "live" as SessionState, 
         time: { minutes, seconds, totalSeconds } 
       };
-    } else if (now < start) {
-      const diffMs = start.getTime() - now.getTime();
-      const totalSeconds = Math.floor(diffMs / 1000);
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-      return { 
-        state: "upcoming" as SessionState, 
-        time: { minutes, seconds, totalSeconds } 
-      };
     }
     
+    const diffMs = start.getTime() - now.getTime();
+    const totalSeconds = Math.floor(diffMs / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
     return { 
       state: "upcoming" as SessionState, 
-      time: { minutes: 0, seconds: 0, totalSeconds: 0 } 
+      time: { minutes, seconds, totalSeconds } 
     };
   }, [session.startTime, session.endTime]);
 
@@ -185,7 +187,8 @@ export function NextSessionCountdown({
 
   const sessionColor = getSessionTypeColor();
   const isLive = sessionState === "live";
-  const isUrgent = !isLive && timeLeft.totalSeconds <= 300;
+  const isEnded = sessionState === "ended";
+  const isUrgent = !isLive && !isEnded && timeLeft.totalSeconds <= 300;
   
   const circleSize = 100;
   const strokeWidth = 6;
@@ -196,6 +199,7 @@ export function NextSessionCountdown({
     if (isLive) {
       const sessionDurationMs = new Date(session.endTime).getTime() - new Date(session.startTime).getTime();
       const sessionDurationSeconds = sessionDurationMs / 1000;
+      if (sessionDurationSeconds <= 0) return 0;
       return Math.min(timeLeft.totalSeconds / sessionDurationSeconds, 1);
     }
     const maxSeconds = 1800;
@@ -204,6 +208,10 @@ export function NextSessionCountdown({
   
   const progress = getProgress();
   const strokeDashoffset = circumference * (1 - progress);
+  
+  if (isEnded) {
+    return null;
+  }
 
   const handleCancel = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
