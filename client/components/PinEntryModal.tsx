@@ -105,8 +105,25 @@ export default function PinEntryModal({
         setPin(["", "", "", ""]);
         inputRefs.current[0]?.focus();
       }
-    } catch (err) {
-      setError("Failed to verify PIN");
+    } catch (err: any) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      const errorMessage = err?.message || "";
+      const statusMatch = errorMessage.match(/^(\d{3}):/);
+      const httpStatus = statusMatch ? parseInt(statusMatch[1], 10) : 0;
+
+      if (httpStatus === 401) {
+        setError("Session expired - please log in again");
+      } else if (httpStatus >= 400 && httpStatus < 500) {
+        setError("Incorrect PIN");
+      } else if (httpStatus >= 500) {
+        setError("Server error - please try again");
+      } else if (err?.name === "TypeError" || errorMessage.toLowerCase().includes("network")) {
+        setError("No connection - check your internet");
+      } else {
+        setError("Connection error - tap to retry");
+      }
+      setPin(["", "", "", ""]);
+      inputRefs.current[0]?.focus();
     } finally {
       setIsVerifying(false);
     }

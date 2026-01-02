@@ -1034,18 +1034,21 @@ const styles = StyleSheet.create({
   },
   calmFilterScroll: {
     marginBottom: Spacing.md,
+    maxHeight: 50,
   },
   calmFilterContent: {
     paddingHorizontal: Spacing.lg,
     gap: Spacing.sm,
+    alignItems: "flex-start",
   },
   calmFilterPill: {
     flexDirection: "row",
     alignItems: "center",
+    alignSelf: "flex-start",
+    height: 36,
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
     gap: Spacing.xs,
     borderWidth: 1,
     borderColor: Colors.dark.headerBorder,

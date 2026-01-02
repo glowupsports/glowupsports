@@ -43,11 +43,32 @@ interface Props {
 export function CoachEarningsCard({ onPress }: Props) {
   const { coach } = useCoach();
 
-  const { data, isLoading } = useQuery<EarningsSummary>({
+  const { data, isLoading, isError, refetch } = useQuery<EarningsSummary>({
     queryKey: ["/api/coach/earnings/summary"],
     enabled: !!coach?.id,
     staleTime: 5 * 60 * 1000,
+    retry: 1,
   });
+
+  const handleRetry = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    refetch();
+  };
+
+  if (isError) {
+    return (
+      <View style={styles.container}>
+        <Pressable style={styles.errorCard} onPress={handleRetry}>
+          <Ionicons name="alert-circle-outline" size={24} color={Colors.dark.error} />
+          <View style={styles.errorContent}>
+            <Text style={styles.errorTitle}>Could not load earnings</Text>
+            <Text style={styles.errorText}>Tap to retry</Text>
+          </View>
+          <Ionicons name="refresh" size={20} color={Colors.dark.textMuted} />
+        </Pressable>
+      </View>
+    );
+  }
 
   if (isLoading || !data) {
     return (
@@ -153,6 +174,29 @@ const styles = StyleSheet.create({
   loadingText: {
     color: Colors.dark.textMuted,
     ...Typography.small,
+  },
+  errorCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.error + "30",
+  },
+  errorContent: {
+    flex: 1,
+  },
+  errorTitle: {
+    color: Colors.dark.text,
+    ...Typography.body,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  errorText: {
+    color: Colors.dark.textMuted,
+    ...Typography.caption,
   },
   card: {
     borderRadius: BorderRadius.md,

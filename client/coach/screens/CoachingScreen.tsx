@@ -11,6 +11,7 @@ import {
   Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -126,6 +127,7 @@ interface ObservationTrend {
 
 export default function CoachingScreen() {
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const [activeTab, setActiveTab] = useState<TabType>("today");
 
   const headerPulse = useSharedValue(0.4);
@@ -232,11 +234,11 @@ export default function CoachingScreen() {
       </View>
 
       {activeTab === "today" ? (
-        <TodayFeedbackTab insets={insets} />
+        <TodayFeedbackTab insets={insets} tabBarHeight={tabBarHeight} />
       ) : activeTab === "progress" ? (
-        <ProgressTab insets={insets} />
+        <ProgressTab insets={insets} tabBarHeight={tabBarHeight} />
       ) : (
-        <PlansTab insets={insets} />
+        <PlansTab insets={insets} tabBarHeight={tabBarHeight} />
       )}
     </View>
   );
@@ -301,7 +303,7 @@ const FEEDBACK_XP_REWARDS: Record<string, number> = {
   default: 20,
 };
 
-function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
+function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }; tabBarHeight: number }) {
   const { calendarData, isLoading } = useCoach();
   const queryClient = useQueryClient();
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
@@ -823,7 +825,7 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
         ) : null}
         <ScrollView
           style={styles.feedbackForm}
-          contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
+          contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
           showsVerticalScrollIndicator={false}
         >
           <Pressable style={styles.backRow} onPress={() => setSelectedSession(null)}>
@@ -1323,7 +1325,7 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
   return (
     <ScrollView
       style={styles.content}
-      contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
+      contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
       showsVerticalScrollIndicator={false}
     >
       {/* Calm Period Filter Pills */}
@@ -1507,7 +1509,7 @@ function TodayFeedbackTab({ insets }: { insets: { bottom: number } }) {
 
 type AssessmentStatus = "not_yet" | "developing" | "meets" | "above";
 
-function ProgressTab({ insets }: { insets: { bottom: number } }) {
+function ProgressTab({ insets, tabBarHeight }: { insets: { bottom: number }; tabBarHeight: number }) {
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerWithProgress | null>(null);
   const [assessmentMode, setAssessmentMode] = useState(false);
   const [pendingAssessments, setPendingAssessments] = useState<Record<string, AssessmentStatus>>({});
@@ -1659,7 +1661,7 @@ function ProgressTab({ insets }: { insets: { bottom: number } }) {
     return (
       <ScrollView
         style={styles.content}
-        contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
+        contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
         showsVerticalScrollIndicator={false}
       >
         <Pressable
@@ -1897,7 +1899,7 @@ function ProgressTab({ insets }: { insets: { bottom: number } }) {
     return (
       <ScrollView
         style={styles.content}
-        contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
+        contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.sectionTitle}>Player Progress</Text>
@@ -1915,7 +1917,7 @@ function ProgressTab({ insets }: { insets: { bottom: number } }) {
   return (
     <ScrollView
       style={styles.content}
-      contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
+      contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
       showsVerticalScrollIndicator={false}
     >
       <Text style={styles.sectionTitle}>Player Progress</Text>
@@ -1978,7 +1980,7 @@ interface SessionTemplate {
   createdAt: string | null;
 }
 
-function PlansTab({ insets }: { insets: { bottom: number } }) {
+function PlansTab({ insets, tabBarHeight }: { insets: { bottom: number }; tabBarHeight: number }) {
   const { coach, calendarData } = useCoach();
   const queryClient = useQueryClient();
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -2112,7 +2114,7 @@ function PlansTab({ insets }: { insets: { bottom: number } }) {
   return (
     <ScrollView
       style={styles.content}
-      contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + Spacing.xl }}
+      contentContainerStyle={{ flexGrow: 1, paddingBottom: tabBarHeight + Spacing.xl }}
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.plansHeader}>
