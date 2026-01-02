@@ -27,7 +27,7 @@ import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const DRAWER_WIDTH = SCREEN_WIDTH * 0.78;
+const DRAWER_WIDTH = SCREEN_WIDTH * 0.85;
 
 interface PlayerIdentityDrawerProps {
   visible: boolean;
@@ -44,17 +44,24 @@ interface PlayerData {
   streak: number;
 }
 
-function getPlayerTitle(level: number, xp: number): string {
+function getPlayerTitle(level: number): string {
   if (level >= 30) return "Legend";
   if (level >= 25) return "Champion";
   if (level >= 20) return "Elite Competitor";
-  if (level >= 15) return "Court Master";
+  if (level >= 15) return "Rising Star";
   if (level >= 10) return "Rising Force";
   if (level >= 7) return "Contender";
   if (level >= 5) return "Challenger";
   if (level >= 3) return "Rising Player";
   if (level >= 2) return "New Challenger";
   return "Just Started";
+}
+
+function getXpForLevel(level: number): { current: number; required: number } {
+  const xpPerLevel = 100;
+  const currentLevelXp = (level - 1) * xpPerLevel;
+  const nextLevelXp = level * xpPerLevel;
+  return { current: currentLevelXp, required: nextLevelXp };
 }
 
 function getLevelProgress(xp: number, level: number): number {
@@ -85,8 +92,8 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
       backdropOpacity.value = withTiming(1, { duration: 250 });
       glowPulse.value = withRepeat(
         withSequence(
-          withTiming(1.08, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+          withTiming(1.05, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) })
         ),
         -1,
         true
@@ -128,6 +135,12 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
   const xp = player?.xp || 0;
   const levelProgress = getLevelProgress(xp, level);
   const glowScore = player?.glowScore || 0;
+  const streak = player?.streak || 0;
+  
+  const xpPerLevel = 100;
+  const xpInCurrentLevel = xp % xpPerLevel;
+  const xpNeededForNextLevel = xpPerLevel;
+  const xpDisplay = `${xpInCurrentLevel} / ${xpNeededForNextLevel} XP`;
 
   if (!visible) return null;
 
@@ -139,7 +152,7 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
 
       <Animated.View style={[styles.drawer, drawerStyle, { paddingTop: insets.top }]}>
         <LinearGradient
-          colors={["#0D0D0D", "#151515", "#0A0A0A"]}
+          colors={["#0A0F0A", "#0D120D", "#080A08"]}
           style={styles.drawerGradient}
         >
           <ScrollView 
@@ -148,51 +161,47 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
             showsVerticalScrollIndicator={false}
           >
             {/* ═══════════════════════════════════════════════════════════ */}
-            {/* HERO IDENTITY SECTION - Top 30% */}
+            {/* LAAG 1: PLAYER IDENTITY HEADER */}
             {/* ═══════════════════════════════════════════════════════════ */}
-            <View style={styles.heroSection}>
-              <Pressable 
-                style={styles.characterCard}
-                onPress={() => navigateAndClose("PlayerProfile")}
-              >
-                {/* Animated Glow Ring */}
-                <Animated.View style={[styles.glowRingOuter, glowRingStyle]}>
-                  <View style={styles.glowRingGradient}>
-                    <Svg width={120} height={120} viewBox="0 0 120 120">
+            <View style={styles.identityHeader}>
+              <View style={styles.identityRow}>
+                <Pressable 
+                  style={styles.avatarWrapper}
+                  onPress={() => navigateAndClose("PlayerProfile")}
+                >
+                  <Animated.View style={[styles.glowRingOuter, glowRingStyle]}>
+                    <Svg width={100} height={100} viewBox="0 0 100 100">
                       <Defs>
                         <SvgGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                           <Stop offset="0%" stopColor={Colors.dark.primary} stopOpacity="1" />
-                          <Stop offset="50%" stopColor={Colors.dark.xpCyan} stopOpacity="1" />
+                          <Stop offset="50%" stopColor={Colors.dark.xpCyan} stopOpacity="0.8" />
                           <Stop offset="100%" stopColor={Colors.dark.primary} stopOpacity="1" />
                         </SvgGradient>
                       </Defs>
-                      {/* Background ring */}
                       <Circle
-                        cx="60"
-                        cy="60"
-                        r="54"
-                        stroke="rgba(255,255,255,0.08)"
-                        strokeWidth="6"
+                        cx="50"
+                        cy="50"
+                        r="46"
+                        stroke="rgba(255,255,255,0.06)"
+                        strokeWidth="5"
                         fill="none"
                       />
-                      {/* Level progress ring */}
                       <Circle
-                        cx="60"
-                        cy="60"
-                        r="54"
+                        cx="50"
+                        cy="50"
+                        r="46"
                         stroke="url(#ringGrad)"
-                        strokeWidth="6"
+                        strokeWidth="5"
                         fill="none"
                         strokeLinecap="round"
-                        strokeDasharray={`${levelProgress * 339} 339`}
-                        transform="rotate(-90 60 60)"
+                        strokeDasharray={`${levelProgress * 289} 289`}
+                        transform="rotate(-90 50 50)"
                       />
                     </Svg>
                     
-                    {/* Avatar Center */}
-                    <View style={styles.avatarCenter}>
+                    <View style={styles.avatarInner}>
                       <LinearGradient
-                        colors={[Colors.dark.backgroundSecondary, Colors.dark.backgroundDefault]}
+                        colors={["#1A2A1A", "#0D150D"]}
                         style={styles.avatarGradient}
                       >
                         <Text style={styles.avatarInitial}>
@@ -200,75 +209,86 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
                         </Text>
                       </LinearGradient>
                     </View>
-                  </View>
-                </Animated.View>
+                  </Animated.View>
 
-                {/* Level Badge - Prominent */}
-                <View style={styles.levelBadge}>
-                  <LinearGradient
-                    colors={[Colors.dark.primary, "#1A9E2E"]}
-                    style={styles.levelBadgeGradient}
-                  >
-                    <Text style={styles.levelNumber}>{level}</Text>
-                  </LinearGradient>
-                </View>
-              </Pressable>
-
-              {/* Player Name */}
-              <Text style={styles.playerName}>{player?.name || "Player"}</Text>
-              
-              {/* Title - Motivating */}
-              <View style={styles.titleBadge}>
-                <Ionicons name="star" size={12} color={Colors.dark.gold} style={{ marginRight: 4 }} />
-                <Text style={styles.titleText}>{getPlayerTitle(level, xp)}</Text>
-              </View>
-
-              {/* XP Progress - Subtle */}
-              <View style={styles.xpRow}>
-                <Text style={styles.xpLabel}>Next Level</Text>
-                <View style={styles.xpBarWrapper}>
-                  <View style={styles.xpBarBg}>
+                  <View style={styles.levelBadge}>
                     <LinearGradient
-                      colors={[Colors.dark.xpCyan, Colors.dark.primary]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={[styles.xpBarFill, { width: `${levelProgress * 100}%` }]}
-                    />
+                      colors={[Colors.dark.primary, "#1A8E2A"]}
+                      style={styles.levelBadgeGradient}
+                    >
+                      <Text style={styles.levelNumber}>{level}</Text>
+                    </LinearGradient>
+                  </View>
+                </Pressable>
+
+                <View style={styles.identityInfo}>
+                  <Text style={styles.playerName}>{player?.name || "Player"}</Text>
+                  
+                  <View style={styles.titleRow}>
+                    <Text style={styles.titleText}>{getPlayerTitle(level)}</Text>
+                  </View>
+                  
+                  <View style={styles.levelRow}>
+                    <Text style={styles.lvLabel}>LV</Text>
+                    <Text style={styles.lvNumber}>{level}</Text>
+                  </View>
+
+                  <View style={styles.xpSection}>
+                    <View style={styles.xpBarContainer}>
+                      <View style={styles.xpBarBg}>
+                        <LinearGradient
+                          colors={[Colors.dark.xpCyan, Colors.dark.primary]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={[styles.xpBarFill, { width: `${levelProgress * 100}%` }]}
+                        />
+                      </View>
+                    </View>
+                    <Text style={styles.xpText}>{xpDisplay}</Text>
+                    <View style={styles.xpBatteryIcon}>
+                      <Ionicons name="battery-half-outline" size={16} color={Colors.dark.xpCyan} />
+                    </View>
                   </View>
                 </View>
-                <Text style={styles.xpValue}>{Math.round(levelProgress * 100)}%</Text>
               </View>
 
-              {/* Glow Sparks */}
-              {glowScore > 0 ? (
-                <View style={styles.glowSparkRow}>
-                  {[...Array(Math.min(glowScore, 5))].map((_, i) => (
-                    <Ionicons key={i} name="flash" size={14} color={Colors.dark.xpCyan} />
-                  ))}
-                  {glowScore > 5 ? (
-                    <Text style={styles.glowMoreText}>+{glowScore - 5}</Text>
-                  ) : null}
+              <View style={styles.badgesRow}>
+                <View style={styles.glowBadge}>
+                  <Ionicons name="flash" size={14} color={Colors.dark.xpCyan} />
+                  <Text style={styles.glowBadgeText}>{glowScore} Glow</Text>
                 </View>
-              ) : null}
+                
+                {streak > 0 ? (
+                  <View style={styles.streakBadge}>
+                    <Ionicons name="flame" size={14} color={Colors.dark.orange} />
+                    <Text style={styles.streakBadgeText}>{streak} day streak</Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
 
             {/* ═══════════════════════════════════════════════════════════ */}
-            {/* HERO ACTIONS - 2 Primary Buttons */}
+            {/* LAAG 2: PRIMARY HERO ACTIONS */}
             {/* ═══════════════════════════════════════════════════════════ */}
             <View style={styles.heroActions}>
               <Pressable
-                style={({ pressed }) => [styles.heroButton, styles.heroButtonPrimary, pressed && styles.heroButtonPressed]}
+                style={({ pressed }) => [styles.heroButton, pressed && styles.heroButtonPressed]}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                   navigateAndClose("CourtBooking");
                 }}
               >
                 <LinearGradient
-                  colors={[Colors.dark.primary, "#1A9E2E"]}
+                  colors={[Colors.dark.primary, "#1A8E28"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
                   style={styles.heroButtonGradient}
                 >
-                  <Ionicons name="tennisball" size={24} color="#fff" />
-                  <Text style={styles.heroButtonText}>Play Now</Text>
+                  <View style={styles.heroButtonIconWrapper}>
+                    <Ionicons name="tennisball" size={22} color="#fff" />
+                  </View>
+                  <Text style={styles.heroButtonText}>Find Match</Text>
+                  <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
                 </LinearGradient>
               </Pressable>
 
@@ -280,73 +300,104 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
                 }}
               >
                 <View style={styles.heroButtonOutline}>
-                  <Ionicons name="flash" size={22} color={Colors.dark.xpCyan} />
-                  <Text style={styles.heroButtonTextSecondary}>Challenge</Text>
+                  <View style={styles.heroButtonIconWrapperSecondary}>
+                    <Ionicons name="git-compare-outline" size={20} color={Colors.dark.orange} />
+                  </View>
+                  <Text style={styles.heroButtonTextSecondary}>Challenge Player</Text>
+                  <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.4)" />
                 </View>
               </Pressable>
             </View>
 
             {/* ═══════════════════════════════════════════════════════════ */}
-            {/* SECONDARY NAVIGATION - Icon First, More Space */}
+            {/* LAAG 3: PLAYER WORLD - SECTIES */}
             {/* ═══════════════════════════════════════════════════════════ */}
-            <View style={styles.navSection}>
-              <NavItem 
-                icon="trophy" 
-                label="My Matches" 
-                color={Colors.dark.gold}
-                onPress={() => navigateAndClose("MyCourtBookings")} 
+            
+            {/* MY MATCHES Section */}
+            <View style={styles.worldSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>MY MATCHES</Text>
+                <Ionicons name="chevron-forward" size={14} color={Colors.dark.textMuted} />
+              </View>
+              
+              <WorldMenuItem 
+                icon="trophy"
+                iconColor={Colors.dark.gold}
+                title="My Matches"
+                subtitle="Your games & challenges"
+                onPress={() => navigateAndClose("MyCourtBookings")}
               />
-              <NavItem 
-                icon="calendar" 
-                label="Schedule" 
-                color={Colors.dark.primary}
-                onPress={() => { handleClose(); navigation.navigate("Schedule"); }} 
-              />
-              <NavItem 
-                icon="location" 
-                label="Nearby" 
-                color={Colors.dark.xpCyan}
-                onPress={() => navigateAndClose("PlayerFinder")} 
-              />
-              <NavItem 
-                icon="flame" 
-                label="Glow Rank" 
-                color={Colors.dark.orange}
-                onPress={() => navigateAndClose("GlowLeaderboard")} 
+              <WorldMenuItem 
+                icon="calendar"
+                iconColor={Colors.dark.primary}
+                title="My Schedule"
+                subtitle="Training & games timeline"
+                onPress={() => { handleClose(); navigation.navigate("Schedule"); }}
               />
             </View>
 
-            <View style={styles.navSection}>
-              <NavItem 
-                icon="stats-chart" 
-                label="Progress" 
-                color={Colors.dark.xpCyan}
-                onPress={() => { handleClose(); navigation.navigate("Progress"); }} 
+            {/* SOCIAL WORLD Section */}
+            <View style={styles.worldSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>SOCIAL WORLD</Text>
+                <Ionicons name="chevron-forward" size={14} color={Colors.dark.textMuted} />
+              </View>
+              
+              <WorldMenuItem 
+                icon="location"
+                iconColor={Colors.dark.xpCyan}
+                title="Nearby Players"
+                subtitle="12 players within 5km"
+                onPress={() => navigateAndClose("PlayerFinder")}
               />
-              <NavItem 
-                icon="map" 
-                label="Journey" 
-                color={Colors.dark.primary}
-                onPress={() => { handleClose(); navigation.navigate("Journey"); }} 
+              <WorldMenuItem 
+                icon="grid"
+                iconColor={Colors.dark.primary}
+                title="Public Courts"
+                subtitle="Find courts near you"
+                onPress={() => navigateAndClose("PublicCourts")}
               />
-              <NavItem 
-                icon="school" 
-                label="Training" 
-                color={Colors.dark.gold}
-                onPress={() => navigateAndClose("Training")} 
+              <WorldMenuItem 
+                icon="flame"
+                iconColor={Colors.dark.orange}
+                title="Glow Rank"
+                subtitle="You are #48 this week"
+                onPress={() => navigateAndClose("GlowLeaderboard")}
               />
-              <NavItem 
-                icon="chatbubbles" 
-                label="Messages" 
-                color={Colors.dark.primary}
+            </View>
+
+            {/* MY PROGRESS Section */}
+            <View style={styles.worldSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>MY PROGRESS</Text>
+                <Ionicons name="chevron-forward" size={14} color={Colors.dark.textMuted} />
+              </View>
+              
+              <WorldMenuItem 
+                icon="bar-chart"
+                iconColor={Colors.dark.xpCyan}
+                title="Progress Overview"
+                subtitle="Technique, Mental, Physical"
+                onPress={() => { handleClose(); navigation.navigate("Progress"); }}
+              />
+              <WorldMenuItem 
+                icon="map"
+                iconColor={Colors.dark.primary}
+                title="My Journey"
+                subtitle="Your tennis story"
+                onPress={() => { handleClose(); navigation.navigate("Journey"); }}
+              />
+              <WorldMenuItem 
+                icon="chatbubbles"
+                iconColor={Colors.dark.primary}
+                title="Messages"
+                subtitle="Chat with coaches & players"
                 badge={unreadCount}
-                onPress={() => navigateAndClose("PlayerMessages")} 
+                onPress={() => navigateAndClose("PlayerMessages")}
               />
             </View>
 
-            {/* ═══════════════════════════════════════════════════════════ */}
-            {/* SYSTEM - Minimal */}
-            {/* ═══════════════════════════════════════════════════════════ */}
+            {/* SYSTEM Section */}
             <View style={styles.systemSection}>
               <Pressable 
                 style={styles.systemItem}
@@ -379,32 +430,37 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
   );
 }
 
-interface NavItemProps {
+interface WorldMenuItemProps {
   icon: string;
-  label: string;
-  color: string;
+  iconColor: string;
+  title: string;
+  subtitle: string;
   badge?: number;
   onPress: () => void;
 }
 
-function NavItem({ icon, label, color, badge, onPress }: NavItemProps) {
+function WorldMenuItem({ icon, iconColor, title, subtitle, badge, onPress }: WorldMenuItemProps) {
   return (
     <Pressable
-      style={({ pressed }) => [styles.navItem, pressed && styles.navItemPressed]}
+      style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         onPress();
       }}
     >
-      <View style={[styles.navIconCircle, { backgroundColor: color + "18" }]}>
-        <Ionicons name={icon as any} size={20} color={color} />
+      <View style={[styles.menuIconWrapper, { backgroundColor: iconColor + "15" }]}>
+        <Ionicons name={icon as any} size={20} color={iconColor} />
         {badge && badge > 0 ? (
-          <View style={styles.navBadge}>
-            <Text style={styles.navBadgeText}>{badge > 9 ? "9+" : badge}</Text>
+          <View style={styles.menuBadge}>
+            <Text style={styles.menuBadgeText}>{badge > 9 ? "9+" : badge}</Text>
           </View>
         ) : null}
       </View>
-      <Text style={styles.navLabel}>{label}</Text>
+      <View style={styles.menuContent}>
+        <Text style={styles.menuTitle}>{title}</Text>
+        <Text style={styles.menuSubtitle}>{subtitle}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
     </Pressable>
   );
 }
@@ -412,7 +468,7 @@ function NavItem({ icon, label, color, badge, onPress }: NavItemProps) {
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
   },
   drawer: {
     position: "absolute",
@@ -420,9 +476,9 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: DRAWER_WIDTH,
-    backgroundColor: "#0D0D0D",
+    backgroundColor: "#0A0F0A",
     borderRightWidth: 1,
-    borderRightColor: "rgba(46, 204, 64, 0.15)",
+    borderRightColor: "rgba(46, 204, 64, 0.12)",
   },
   drawerGradient: {
     flex: 1,
@@ -432,63 +488,59 @@ const styles = StyleSheet.create({
   },
 
   /* ══════════════════════════════════════════════════════════════════ */
-  /* HERO SECTION */
+  /* LAAG 1: IDENTITY HEADER */
   /* ══════════════════════════════════════════════════════════════════ */
-  heroSection: {
-    alignItems: "center",
-    paddingTop: Spacing["2xl"],
-    paddingBottom: Spacing.xl,
+  identityHeader: {
     paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.04)",
+    borderBottomColor: "rgba(255, 255, 255, 0.05)",
   },
-  characterCard: {
+  identityRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  avatarWrapper: {
     position: "relative",
-    marginBottom: Spacing.md,
+    marginRight: Spacing.md,
   },
   glowRingOuter: {
-    width: 120,
-    height: 120,
-  },
-  glowRingGradient: {
-    width: 120,
-    height: 120,
+    width: 100,
+    height: 100,
     justifyContent: "center",
     alignItems: "center",
   },
-  avatarCenter: {
+  avatarInner: {
     position: "absolute",
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    justifyContent: "center",
-    alignItems: "center",
-    left: 12,
-    top: 12,
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    overflow: "hidden",
+    left: 9,
+    top: 9,
   },
   avatarGradient: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
   avatarInitial: {
-    fontSize: 38,
+    fontSize: 34,
     fontWeight: "800",
     color: Colors.dark.text,
     letterSpacing: -1,
   },
   levelBadge: {
     position: "absolute",
-    bottom: -4,
-    right: -4,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    bottom: 0,
+    left: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     overflow: "hidden",
-    borderWidth: 3,
-    borderColor: "#0D0D0D",
+    borderWidth: 2,
+    borderColor: "#0A0F0A",
   },
   levelBadgeGradient: {
     flex: 1,
@@ -496,159 +548,219 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   levelNumber: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: "800",
     color: "#fff",
   },
+  identityInfo: {
+    flex: 1,
+    paddingTop: 4,
+  },
   playerName: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "700",
     color: Colors.dark.text,
-    marginBottom: 4,
+    marginBottom: 2,
   },
-  titleBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 215, 0, 0.12)",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: Spacing.md,
+  titleRow: {
+    marginBottom: 4,
   },
   titleText: {
     fontSize: 13,
-    fontWeight: "600",
-    color: Colors.dark.gold,
+    fontWeight: "500",
+    color: Colors.dark.orange,
     letterSpacing: 0.3,
   },
-  xpRow: {
+  levelRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    marginBottom: 8,
+  },
+  lvLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    marginRight: 4,
+  },
+  lvNumber: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  xpSection: {
     flexDirection: "row",
     alignItems: "center",
-    width: "100%",
     gap: 8,
   },
-  xpLabel: {
-    fontSize: 11,
-    color: Colors.dark.textMuted,
-    width: 60,
-  },
-  xpBarWrapper: {
+  xpBarContainer: {
     flex: 1,
+    maxWidth: 80,
   },
   xpBarBg: {
-    height: 4,
+    height: 6,
     backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 2,
+    borderRadius: 3,
     overflow: "hidden",
   },
   xpBarFill: {
     height: "100%",
-    borderRadius: 2,
+    borderRadius: 3,
   },
-  xpValue: {
+  xpText: {
     fontSize: 11,
-    color: Colors.dark.xpCyan,
     fontWeight: "600",
-    width: 32,
-    textAlign: "right",
+    color: Colors.dark.textMuted,
   },
-  glowSparkRow: {
+  xpBatteryIcon: {
+    marginLeft: 2,
+  },
+  badgesRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: Spacing.sm,
-    gap: 2,
+    gap: 10,
+    marginTop: Spacing.md,
+    flexWrap: "wrap",
   },
-  glowMoreText: {
-    fontSize: 11,
-    color: Colors.dark.xpCyan,
-    marginLeft: 4,
+  glowBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 212, 255, 0.1)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6,
+  },
+  glowBadgeText: {
+    fontSize: 13,
     fontWeight: "600",
+    color: Colors.dark.xpCyan,
+  },
+  streakBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 170, 0, 0.12)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6,
+  },
+  streakBadgeText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.orange,
   },
 
   /* ══════════════════════════════════════════════════════════════════ */
-  /* HERO ACTIONS */
+  /* LAAG 2: HERO ACTIONS */
   /* ══════════════════════════════════════════════════════════════════ */
   heroActions: {
-    flexDirection: "row",
-    gap: 12,
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.xl,
+    paddingVertical: Spacing.lg,
+    gap: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.04)",
+    borderBottomColor: "rgba(255, 255, 255, 0.05)",
   },
   heroButton: {
-    flex: 1,
-    height: 56,
+    height: 52,
     borderRadius: BorderRadius.md,
     overflow: "hidden",
   },
-  heroButtonPrimary: {},
   heroButtonSecondary: {
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "40",
+    borderColor: "rgba(255, 170, 0, 0.25)",
+    backgroundColor: "rgba(255, 170, 0, 0.05)",
   },
   heroButtonPressed: {
     opacity: 0.85,
-    transform: [{ scale: 0.98 }],
+    transform: [{ scale: 0.99 }],
   },
   heroButtonGradient: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    gap: 12,
+  },
+  heroButtonIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.15)",
     justifyContent: "center",
-    gap: 8,
+    alignItems: "center",
+  },
+  heroButtonIconWrapperSecondary: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 170, 0, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   heroButtonOutline: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: "rgba(0, 212, 255, 0.08)",
+    paddingHorizontal: Spacing.md,
+    gap: 12,
   },
   heroButtonText: {
-    fontSize: 16,
+    flex: 1,
+    fontSize: 15,
     fontWeight: "700",
     color: "#fff",
   },
   heroButtonTextSecondary: {
-    fontSize: 16,
+    flex: 1,
+    fontSize: 15,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.text,
   },
 
   /* ══════════════════════════════════════════════════════════════════ */
-  /* NAVIGATION GRID */
+  /* LAAG 3: WORLD SECTIONS */
   /* ══════════════════════════════════════════════════════════════════ */
-  navSection: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.lg,
+  worldSection: {
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.04)",
   },
-  navItem: {
-    width: "25%",
+  sectionHeader: {
+    flexDirection: "row",
     alignItems: "center",
-    paddingVertical: Spacing.sm,
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
   },
-  navItemPressed: {
-    opacity: 0.7,
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+    letterSpacing: 1.2,
   },
-  navIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: Spacing.lg,
+    gap: 12,
+  },
+  menuItemPressed: {
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
+  },
+  menuIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 6,
     position: "relative",
   },
-  navBadge: {
+  menuBadge: {
     position: "absolute",
-    top: -2,
-    right: -2,
+    top: -4,
+    right: -4,
     minWidth: 18,
     height: 18,
     borderRadius: 9,
@@ -657,16 +769,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 4,
   },
-  navBadgeText: {
+  menuBadgeText: {
     fontSize: 10,
     fontWeight: "700",
     color: "#fff",
   },
-  navLabel: {
-    fontSize: 11,
-    fontWeight: "500",
+  menuContent: {
+    flex: 1,
+  },
+  menuTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    marginBottom: 2,
+  },
+  menuSubtitle: {
+    fontSize: 12,
     color: Colors.dark.textMuted,
-    textAlign: "center",
   },
 
   /* ══════════════════════════════════════════════════════════════════ */
@@ -674,18 +793,18 @@ const styles = StyleSheet.create({
   /* ══════════════════════════════════════════════════════════════════ */
   systemSection: {
     flexDirection: "row",
-    justifyContent: "center",
     alignItems: "center",
-    paddingVertical: Spacing.xl,
+    justifyContent: "center",
+    paddingVertical: Spacing.lg,
     paddingHorizontal: Spacing.lg,
-    gap: Spacing.md,
+    marginTop: Spacing.md,
   },
   systemItem: {
     flexDirection: "row",
     alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
     gap: 6,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
   },
   systemLabel: {
     fontSize: 13,
