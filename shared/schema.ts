@@ -141,6 +141,13 @@ export const academies = pgTable("academies", {
   priceRange: text("price_range"), // $ | $$ | $$$ | $$$$
   profileVisibility: text("profile_visibility").default("public"), // public | members_only | private
   
+  // Cancellation Policy Settings
+  cancelHoursBeforeFree: integer("cancel_hours_before_free").default(24), // Hours before session for free cancellation
+  chargeLatePrivateCancellations: boolean("charge_late_private_cancellations").default(true),
+  chargeLateGroupCancellations: boolean("charge_late_group_cancellations").default(true), // Group always counts, but this controls billing
+  semiPrivateUpgradeBilling: text("semi_private_upgrade_billing").default("premium"), // premium | goodwill - how to bill remaining player
+  allowMakeUpForTimelyCancels: boolean("allow_make_up_for_timely_cancels").default(true), // Academy discretion for make-ups
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -740,6 +747,43 @@ export const sessionPlayers = pgTable("session_players", {
 export const insertSessionPlayerSchema = createInsertSchema(sessionPlayers).omit({ id: true });
 export type InsertSessionPlayer = z.infer<typeof insertSessionPlayerSchema>;
 export type SessionPlayer = typeof sessionPlayers.$inferSelect;
+
+// Player Session Cancellations - Detailed tracking for cancellations/unavailability
+export const playerSessionCancellations = pgTable("player_session_cancellations", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => sessions.id),
+  playerId: varchar("player_id").references(() => players.id),
+  academyId: varchar("academy_id").references(() => academies.id),
+  
+  sessionType: text("session_type").notNull(), // private/semi/group - original type at time of cancellation
+  cancellationType: text("cancellation_type").notNull(), // cancel/unavailable/no_show
+  
+  reason: text("reason").notNull(), // sick/schedule_conflict/weather/vacation/other
+  reasonText: text("reason_text"), // Custom explanation for "other"
+  
+  cancelledAt: timestamp("cancelled_at").defaultNow(),
+  sessionDate: timestamp("session_date").notNull(), // Original session date for timing calculations
+  hoursBeforeSession: integer("hours_before_session"), // Calculated hours before session
+  
+  isLateCancel: boolean("is_late_cancel").default(false), // Within policy window
+  billingStatus: text("billing_status").default("pending"), // pending/charged/not_charged/waived
+  
+  makeUpEligibility: text("make_up_eligibility").default("not_eligible"), // eligible/not_eligible/granted/used
+  makeUpSessionId: varchar("make_up_session_id"), // If make-up was granted, link to replacement session
+  makeUpGrantedBy: varchar("make_up_granted_by"), // coach/owner who approved
+  makeUpGrantedAt: timestamp("make_up_granted_at"),
+  
+  notifiedCoach: boolean("notified_coach").default(false),
+  coachNotifiedAt: timestamp("coach_notified_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPlayerSessionCancellationSchema = createInsertSchema(playerSessionCancellations).omit({ id: true, createdAt: true });
+export type InsertPlayerSessionCancellation = z.infer<typeof insertPlayerSessionCancellationSchema>;
+export type PlayerSessionCancellation = typeof playerSessionCancellations.$inferSelect;
 
 // Player Holidays
 export const playerHolidays = pgTable("player_holidays", {

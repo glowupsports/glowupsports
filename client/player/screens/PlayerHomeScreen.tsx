@@ -350,8 +350,10 @@ function MissionCard({ session, coach, isVacationActive, upcomingOverlapsSession
   const statusColor = getStatusColor(status);
   const shouldHideActions = isVacationActive || upcomingOverlapsSession;
   
+  const isGroupSession = session.type === "group";
   const sessionTypeLabel = session.type === "private" ? "PRIVATE" : 
-                           session.type === "group" ? "GROUP" : "TRAINING";
+                           session.type === "group" ? "GROUP" : 
+                           session.type === "semi" ? "SEMI-PRIVATE" : "TRAINING";
   
   return (
     <Animated.View entering={FadeIn.duration(400)} style={missionStyles.card}>
@@ -403,10 +405,12 @@ function MissionCard({ session, coach, isVacationActive, upcomingOverlapsSession
         ) : (
           <View style={missionStyles.actionRow}>
             <Pressable style={missionStyles.actionToggle} onPress={onCancel}>
-              <View style={[missionStyles.actionGlow, { backgroundColor: Colors.dark.error + "15" }]}>
-                <Ionicons name="close" size={20} color={Colors.dark.error} />
+              <View style={[missionStyles.actionGlow, { backgroundColor: isGroupSession ? Colors.dark.orange + "15" : Colors.dark.error + "15" }]}>
+                <Ionicons name={isGroupSession ? "hand-left" : "close"} size={20} color={isGroupSession ? Colors.dark.orange : Colors.dark.error} />
               </View>
-              <Text style={[missionStyles.actionLabel, { color: Colors.dark.error }]}>ABORT</Text>
+              <Text style={[missionStyles.actionLabel, { color: isGroupSession ? Colors.dark.orange : Colors.dark.error }]}>
+                {isGroupSession ? "CAN'T ATTEND" : "CANCEL"}
+              </Text>
             </Pressable>
             <View style={missionStyles.actionDivider} />
             <Pressable style={missionStyles.actionToggle} onPress={onLate}>
@@ -658,6 +662,7 @@ export default function PlayerHomeScreen() {
   const [showLateModal, setShowLateModal] = useState(false);
   const [showVacationModal, setShowVacationModal] = useState(false);
   const [cancelReason, setCancelReason] = useState<string | null>(null);
+  const [cancelReasonText, setCancelReasonText] = useState("");
   const [lateMinutes, setLateMinutes] = useState(10);
   const [lateMessage, setLateMessage] = useState("");
   const [vacationStartDate, setVacationStartDate] = useState("");
@@ -665,21 +670,30 @@ export default function PlayerHomeScreen() {
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   
   const cancelSessionMutation = useMutation({
-    mutationFn: async ({ sessionId, reason }: { sessionId: string; reason: string }) => {
-      return apiRequest("POST", `/api/player/me/sessions/${sessionId}/cancel`, { reason });
+    mutationFn: async ({ sessionId, reason, reasonText, sessionType }: { sessionId: string; reason: string; reasonText?: string; sessionType: string }) => {
+      const endpoint = sessionType === "group" 
+        ? `/api/player/me/sessions/${sessionId}/mark-unavailable`
+        : `/api/player/me/sessions/${sessionId}/cancel`;
+      return apiRequest("POST", endpoint, { reason, reasonText });
     },
-    onSuccess: (response: any) => {
+    onSuccess: (response: any, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/sessions"] });
       setShowCancelModal(false);
       setCancelReason(null);
-      setActionSuccess(response.isLateCancellation 
-        ? "Session cancelled. This counts as a late cancellation."
-        : "Session cancelled successfully.");
+      setCancelReasonText("");
+      
+      if (variables.sessionType === "group") {
+        setActionSuccess("Marked as unavailable. Your coach has been notified.");
+      } else {
+        setActionSuccess(response.isLateCancellation 
+          ? "Session cancelled. This counts as a late cancellation."
+          : "Session cancelled successfully.");
+      }
       setTimeout(() => setActionSuccess(null), 4000);
     },
     onError: (error: any) => {
-      Alert.alert("Error", error?.message || "Failed to cancel session");
+      Alert.alert("Error", error?.message || "Failed to process request");
     },
   });
   
@@ -1128,79 +1142,190 @@ export default function PlayerHomeScreen() {
           onPress={() => setShowCancelModal(false)}
         >
           <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalHeader}>
-              <Ionicons name="close-circle" size={28} color={Colors.dark.error} />
-              <Text style={styles.modalTitle}>Cancel Session</Text>
-            </View>
-            
-            <Text style={styles.modalDescription}>
-              Are you sure you want to cancel your upcoming training? Please select a reason:
-            </Text>
-            
-            <View style={styles.cancelReasonsList}>
-              {[
-                { id: "sick", label: "Feeling unwell", icon: "medkit" },
-                { id: "busy", label: "Schedule conflict", icon: "calendar" },
-                { id: "weather", label: "Bad weather", icon: "rainy" },
-                { id: "other", label: "Other reason", icon: "ellipsis-horizontal" },
-              ].map((reason) => (
-                <Pressable
-                  key={reason.id}
-                  style={[
-                    styles.cancelReasonItem,
-                    cancelReason === reason.id && styles.cancelReasonItemSelected,
-                  ]}
-                  onPress={() => setCancelReason(reason.id)}
-                >
-                  <Ionicons 
-                    name={reason.icon as any} 
-                    size={20} 
-                    color={cancelReason === reason.id ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+            {nextSession?.type === "group" ? (
+              <>
+                <View style={styles.modalHeader}>
+                  <Ionicons name="hand-left" size={28} color={Colors.dark.orange} />
+                  <Text style={styles.modalTitle}>Mark as Unavailable</Text>
+                </View>
+                
+                <View style={[styles.cancelNotice, { marginBottom: Spacing.md, backgroundColor: Colors.dark.orange + "15" }]}>
+                  <Ionicons name="information-circle" size={16} color={Colors.dark.orange} />
+                  <Text style={styles.cancelNoticeText}>
+                    This group session will still be counted. Please let us know the reason for your absence.
+                  </Text>
+                </View>
+                
+                <View style={styles.cancelReasonsList}>
+                  {[
+                    { id: "sick", label: "Feeling unwell", icon: "medkit" },
+                    { id: "schedule_conflict", label: "Schedule conflict", icon: "calendar" },
+                    { id: "vacation", label: "On vacation", icon: "airplane" },
+                    { id: "other", label: "Other (required explanation)", icon: "create" },
+                  ].map((reason) => (
+                    <Pressable
+                      key={reason.id}
+                      style={[
+                        styles.cancelReasonItem,
+                        cancelReason === reason.id && styles.cancelReasonItemSelected,
+                      ]}
+                      onPress={() => setCancelReason(reason.id)}
+                    >
+                      <Ionicons 
+                        name={reason.icon as any} 
+                        size={20} 
+                        color={cancelReason === reason.id ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+                      />
+                      <Text style={[
+                        styles.cancelReasonText,
+                        cancelReason === reason.id && styles.cancelReasonTextSelected,
+                      ]}>{reason.label}</Text>
+                      {cancelReason === reason.id ? (
+                        <Ionicons name="checkmark-circle" size={20} color={Colors.dark.xpCyan} />
+                      ) : null}
+                    </Pressable>
+                  ))}
+                </View>
+                
+                {cancelReason === "other" ? (
+                  <TextInput
+                    style={styles.lateMessageInput}
+                    placeholder="Please explain why you can't attend (required)"
+                    placeholderTextColor={Colors.dark.textMuted}
+                    value={cancelReasonText}
+                    onChangeText={setCancelReasonText}
+                    multiline
+                    maxLength={200}
                   />
-                  <Text style={[
-                    styles.cancelReasonText,
-                    cancelReason === reason.id && styles.cancelReasonTextSelected,
-                  ]}>{reason.label}</Text>
-                  {cancelReason === reason.id ? (
-                    <Ionicons name="checkmark-circle" size={20} color={Colors.dark.xpCyan} />
-                  ) : null}
-                </Pressable>
-              ))}
-            </View>
-            
-            <View style={styles.cancelNotice}>
-              <Ionicons name="information-circle" size={16} color={Colors.dark.orange} />
-              <Text style={styles.cancelNoticeText}>
-                Cancellations within 24 hours may be counted as a used lesson.
-              </Text>
-            </View>
-            
-            <View style={styles.modalActions}>
-              <Pressable 
-                style={styles.modalCancelButton}
-                onPress={() => setShowCancelModal(false)}
-              >
-                <Text style={styles.modalCancelButtonText}>Never Mind</Text>
-              </Pressable>
-              <Pressable 
-                style={[
-                  styles.modalConfirmButton,
-                  !cancelReason && styles.modalConfirmButtonDisabled,
-                ]}
-                onPress={() => {
-                  if (cancelReason && nextSession) {
-                    cancelSessionMutation.mutate({ sessionId: nextSession.id, reason: cancelReason });
-                  }
-                }}
-                disabled={!cancelReason || cancelSessionMutation.isPending}
-              >
-                {cancelSessionMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.text} />
-                ) : (
-                  <Text style={styles.modalConfirmButtonText}>Confirm Cancel</Text>
-                )}
-              </Pressable>
-            </View>
+                ) : null}
+                
+                <View style={styles.modalActions}>
+                  <Pressable 
+                    style={styles.modalCancelButton}
+                    onPress={() => { setShowCancelModal(false); setCancelReason(null); setCancelReasonText(""); }}
+                  >
+                    <Text style={styles.modalCancelButtonText}>Never Mind</Text>
+                  </Pressable>
+                  <Pressable 
+                    style={[
+                      styles.modalConfirmButton,
+                      { backgroundColor: Colors.dark.orange },
+                      (!cancelReason || (cancelReason === "other" && !cancelReasonText.trim())) && styles.modalConfirmButtonDisabled,
+                    ]}
+                    onPress={() => {
+                      if (cancelReason && nextSession && (cancelReason !== "other" || cancelReasonText.trim())) {
+                        cancelSessionMutation.mutate({ 
+                          sessionId: nextSession.id, 
+                          reason: cancelReason, 
+                          reasonText: cancelReasonText,
+                          sessionType: "group" 
+                        });
+                      }
+                    }}
+                    disabled={!cancelReason || (cancelReason === "other" && !cancelReasonText.trim()) || cancelSessionMutation.isPending}
+                  >
+                    {cancelSessionMutation.isPending ? (
+                      <ActivityIndicator size="small" color={Colors.dark.text} />
+                    ) : (
+                      <Text style={styles.modalConfirmButtonText}>Confirm</Text>
+                    )}
+                  </Pressable>
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={styles.modalHeader}>
+                  <Ionicons name="close-circle" size={28} color={Colors.dark.error} />
+                  <Text style={styles.modalTitle}>Cancel Session</Text>
+                </View>
+                
+                <Text style={styles.modalDescription}>
+                  Are you sure you want to cancel this {nextSession?.type === "semi" ? "semi-private" : "private"} session? Please select a reason:
+                </Text>
+                
+                <View style={styles.cancelReasonsList}>
+                  {[
+                    { id: "sick", label: "Feeling unwell", icon: "medkit" },
+                    { id: "schedule_conflict", label: "Schedule conflict", icon: "calendar" },
+                    { id: "weather", label: "Bad weather", icon: "rainy" },
+                    { id: "other", label: "Other reason", icon: "ellipsis-horizontal" },
+                  ].map((reason) => (
+                    <Pressable
+                      key={reason.id}
+                      style={[
+                        styles.cancelReasonItem,
+                        cancelReason === reason.id && styles.cancelReasonItemSelected,
+                      ]}
+                      onPress={() => setCancelReason(reason.id)}
+                    >
+                      <Ionicons 
+                        name={reason.icon as any} 
+                        size={20} 
+                        color={cancelReason === reason.id ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+                      />
+                      <Text style={[
+                        styles.cancelReasonText,
+                        cancelReason === reason.id && styles.cancelReasonTextSelected,
+                      ]}>{reason.label}</Text>
+                      {cancelReason === reason.id ? (
+                        <Ionicons name="checkmark-circle" size={20} color={Colors.dark.xpCyan} />
+                      ) : null}
+                    </Pressable>
+                  ))}
+                </View>
+                
+                {cancelReason === "other" ? (
+                  <TextInput
+                    style={styles.lateMessageInput}
+                    placeholder="Optional: Tell us more"
+                    placeholderTextColor={Colors.dark.textMuted}
+                    value={cancelReasonText}
+                    onChangeText={setCancelReasonText}
+                    multiline
+                    maxLength={200}
+                  />
+                ) : null}
+                
+                <View style={styles.cancelNotice}>
+                  <Ionicons name="information-circle" size={16} color={Colors.dark.orange} />
+                  <Text style={styles.cancelNoticeText}>
+                    Cancellation policy applies. Late cancellations ({"\u003C"}24h) may still be charged.
+                  </Text>
+                </View>
+                
+                <View style={styles.modalActions}>
+                  <Pressable 
+                    style={styles.modalCancelButton}
+                    onPress={() => { setShowCancelModal(false); setCancelReason(null); setCancelReasonText(""); }}
+                  >
+                    <Text style={styles.modalCancelButtonText}>Never Mind</Text>
+                  </Pressable>
+                  <Pressable 
+                    style={[
+                      styles.modalConfirmButton,
+                      !cancelReason && styles.modalConfirmButtonDisabled,
+                    ]}
+                    onPress={() => {
+                      if (cancelReason && nextSession) {
+                        cancelSessionMutation.mutate({ 
+                          sessionId: nextSession.id, 
+                          reason: cancelReason, 
+                          reasonText: cancelReasonText,
+                          sessionType: nextSession.type 
+                        });
+                      }
+                    }}
+                    disabled={!cancelReason || cancelSessionMutation.isPending}
+                  >
+                    {cancelSessionMutation.isPending ? (
+                      <ActivityIndicator size="small" color={Colors.dark.text} />
+                    ) : (
+                      <Text style={styles.modalConfirmButtonText}>Confirm Cancel</Text>
+                    )}
+                  </Pressable>
+                </View>
+              </>
+            )}
           </Pressable>
         </Pressable>
       </Modal>

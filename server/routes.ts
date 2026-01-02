@@ -3,7 +3,7 @@ import { createServer, type Server } from "node:http";
 import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { db } from "./db";
-import { playerHolidays } from "@shared/schema";
+import { playerHolidays, playerSessionCancellations } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { setupWebSocket, broadcastNewMessage } from "./websocket";
 import { 
@@ -8713,21 +8713,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== PLAYER SESSION ACTIONS ====================
   
-  // Cancel session as player
+  // Cancel session as player (private/semi-private only)
   app.post("/api/player/me/sessions/:sessionId/cancel", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { sessionId } = req.params;
-      const { reason } = req.body; // sick, busy, other
+      const { reason, reasonText } = req.body; // sick/schedule_conflict/weather/other
       const playerId = req.user!.playerId;
       
       if (!playerId) {
         return res.status(400).json({ error: "Player profile required" });
       }
       
+      if (!reason) {
+        return res.status(400).json({ error: "Reason is required" });
+      }
+      
       // Get the session
       const session = await storage.getSession(sessionId);
       if (!session) {
         return res.status(404).json({ error: "Session not found" });
+      }
+      
+      // Block group sessions - they should use mark-unavailable
+      if (session.sessionType === "group") {
+        return res.status(400).json({ error: "Group sessions cannot be cancelled. Use 'Mark as unavailable' instead." });
       }
       
       // Verify player is part of this session
@@ -8743,36 +8752,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Cannot cancel a past session" });
       }
       
-      // Get academy settings for cancellation policy
+      // Get player and academy info
       const player = await storage.getPlayer(playerId);
-      const academySettings = player?.academyId ? await storage.getAcademySettings(player.academyId) : null;
-      const cancellationWindowHours = academySettings?.cancellationWindowHours || 24;
+      const academy = player?.academyId ? await storage.getAcademy(player.academyId) : null;
+      const cancellationWindowHours = academy?.cancelHoursBeforeFree || 24;
       
       // Calculate if this is a late cancellation
       const hoursUntilSession = (sessionTime.getTime() - now.getTime()) / (1000 * 60 * 60);
       const isLateCancellation = hoursUntilSession < cancellationWindowHours;
       
+      // Determine billing status based on timing
+      const billingStatus = isLateCancellation ? "charged" : "not_charged";
+      const makeUpEligibility = isLateCancellation ? "not_eligible" : "eligible";
+      
       // Update session player to cancelled/absent
       await storage.updateSessionPlayer(sessionPlayer.id, {
         attendanceStatus: "absent",
-        absenceReason: reason || "cancelled_by_player",
-        notes: isLateCancellation ? `Late cancellation (${Math.round(hoursUntilSession)}h notice)` : `Cancelled by player`,
+        absenceReason: reason,
+        notes: `Cancelled: ${reason}${reasonText ? ` - ${reasonText}` : ""} (${Math.round(hoursUntilSession)}h notice)`,
       });
+      
+      // Create cancellation record
+      await storage.db.insert(playerSessionCancellations).values({
+        sessionId,
+        playerId,
+        academyId: player?.academyId,
+        sessionType: session.sessionType,
+        cancellationType: "cancel",
+        reason,
+        reasonText: reasonText || null,
+        sessionDate: sessionTime,
+        hoursBeforeSession: Math.round(hoursUntilSession),
+        isLateCancel: isLateCancellation,
+        billingStatus,
+        makeUpEligibility,
+        notifiedCoach: true,
+        coachNotifiedAt: new Date(),
+      });
+      
+      // Handle semi-private auto-transformation
+      let semiPrivateUpgraded = false;
+      let remainingPlayerId: string | null = null;
+      
+      if (session.sessionType === "semi") {
+        // Get all players in this session (fresh query to get updated status)
+        const allPlayers = await storage.getSessionPlayers(sessionId);
+        // Filter out the cancelling player and any already absent players
+        // Note: The cancelling player was just marked absent, so we exclude by playerId explicitly
+        const remainingPlayers = allPlayers.filter(p => 
+          p.playerId !== playerId && 
+          p.playerId !== null &&
+          (p.attendanceStatus === null || p.attendanceStatus === "present" || p.attendanceStatus === "late")
+        );
+        
+        // If exactly 1 active player remains, upgrade session to private_adjusted
+        if (remainingPlayers.length === 1 && remainingPlayers[0].playerId) {
+          remainingPlayerId = remainingPlayers[0].playerId;
+          semiPrivateUpgraded = true;
+          
+          // Update session type to private_adjusted
+          await storage.updateSession(sessionId, {
+            sessionType: "private_adjusted",
+          });
+          
+          // Notify the remaining player about the upgrade
+          const remainingPlayer = await storage.getPlayer(remainingPlayerId);
+          
+          if (remainingPlayer) {
+            await storage.createNotification({
+              playerId: remainingPlayerId,
+              type: "session_upgraded",
+              title: "Session Upgraded",
+              message: "Your semi-private session has been upgraded to a private lesson because the other player is unavailable.",
+              metadata: JSON.stringify({
+                sessionId,
+                originalType: "semi",
+                newType: "private_adjusted",
+                cancelledBy: player?.name,
+              }),
+            });
+          }
+        }
+      }
       
       // Send notification to coach
       if (session.coachId) {
         await storage.createNotification({
           coachId: session.coachId,
           type: "session_cancelled",
-          title: "Session Cancelled",
-          message: `${player?.name || "A player"} has cancelled their ${session.sessionType} session${isLateCancellation ? " (late cancellation)" : ""}`,
+          title: semiPrivateUpgraded ? "Semi-Private Upgraded" : "Session Cancelled",
+          message: semiPrivateUpgraded 
+            ? `${player?.name || "A player"} cancelled. Session upgraded to private for remaining player.`
+            : `${player?.name || "A player"} has cancelled their ${session.sessionType} session${isLateCancellation ? " (late cancellation)" : ""}`,
           metadata: JSON.stringify({
             sessionId,
             playerId,
             playerName: player?.name,
             reason,
+            reasonText,
             isLateCancellation,
             hoursNotice: Math.round(hoursUntilSession),
+            semiPrivateUpgraded,
+            remainingPlayerId,
           }),
         });
       }
@@ -8784,10 +8865,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
           : "Session cancelled successfully.",
         isLateCancellation,
         hoursNotice: Math.round(hoursUntilSession),
+        billingStatus,
+        semiPrivateUpgraded,
       });
     } catch (error) {
       console.error("Error cancelling session:", error);
       res.status(500).json({ error: "Failed to cancel session" });
+    }
+  });
+  
+  // Mark as unavailable for group sessions (lesson still counts)
+  app.post("/api/player/me/sessions/:sessionId/mark-unavailable", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+      const { reason, reasonText } = req.body; // sick/schedule_conflict/vacation/other
+      const playerId = req.user!.playerId;
+      
+      if (!playerId) {
+        return res.status(400).json({ error: "Player profile required" });
+      }
+      
+      if (!reason) {
+        return res.status(400).json({ error: "Reason is required" });
+      }
+      
+      // Validate reason for "other" requires text
+      if (reason === "other" && (!reasonText || !reasonText.trim())) {
+        return res.status(400).json({ error: "Please provide an explanation for your absence" });
+      }
+      
+      // Get the session
+      const session = await storage.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      // Verify this is a group session
+      if (session.sessionType !== "group") {
+        return res.status(400).json({ error: "Mark as unavailable is only for group sessions. Use cancel for private/semi-private." });
+      }
+      
+      // Verify player is part of this session
+      const sessionPlayer = await storage.getSessionPlayer(sessionId, playerId);
+      if (!sessionPlayer) {
+        return res.status(403).json({ error: "You are not part of this session" });
+      }
+      
+      // Check if session is in the future
+      const sessionTime = new Date(session.startTime);
+      const now = new Date();
+      if (sessionTime < now) {
+        return res.status(400).json({ error: "Cannot mark unavailable for a past session" });
+      }
+      
+      // Calculate hours before session
+      const hoursBeforeSession = Math.round((sessionTime.getTime() - now.getTime()) / (1000 * 60 * 60));
+      
+      // Get player and academy info
+      const player = await storage.getPlayer(playerId);
+      const academy = player?.academyId ? await storage.getAcademy(player.academyId) : null;
+      const cancelHoursBeforeFree = academy?.cancelHoursBeforeFree || 24;
+      const isLateNotice = hoursBeforeSession < cancelHoursBeforeFree;
+      
+      // Update session player to unavailable
+      await storage.updateSessionPlayer(sessionPlayer.id, {
+        attendanceStatus: "absent",
+        absenceReason: reason,
+        notes: `Marked unavailable: ${reason}${reasonText ? ` - ${reasonText}` : ""} (${hoursBeforeSession}h notice)`,
+      });
+      
+      // Create cancellation record for tracking
+      await storage.db.insert(playerSessionCancellations).values({
+        sessionId,
+        playerId,
+        academyId: player?.academyId,
+        sessionType: "group",
+        cancellationType: "unavailable",
+        reason,
+        reasonText: reasonText || null,
+        sessionDate: sessionTime,
+        hoursBeforeSession,
+        isLateCancel: isLateNotice,
+        billingStatus: "charged", // Group always counts
+        makeUpEligibility: isLateNotice ? "not_eligible" : "eligible", // Academy can grant make-up for timely notices
+        notifiedCoach: true,
+        coachNotifiedAt: new Date(),
+      });
+      
+      // Send notification to coach
+      if (session.coachId) {
+        await storage.createNotification({
+          coachId: session.coachId,
+          type: "player_unavailable",
+          title: "Player Unavailable",
+          message: `${player?.name || "A player"} won't be attending the group session${isLateNotice ? " (late notice)" : ""}`,
+          metadata: JSON.stringify({
+            sessionId,
+            playerId,
+            playerName: player?.name,
+            reason,
+            reasonText,
+            hoursBeforeSession,
+            isLateNotice,
+          }),
+        });
+      }
+      
+      res.json({
+        success: true,
+        message: "Marked as unavailable. Your coach has been notified.",
+        hoursBeforeSession,
+        isLateNotice,
+        makeUpEligibility: isLateNotice ? "not_eligible" : "eligible",
+      });
+    } catch (error) {
+      console.error("Error marking unavailable:", error);
+      res.status(500).json({ error: "Failed to mark as unavailable" });
     }
   });
   
