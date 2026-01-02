@@ -13,6 +13,7 @@ import { OwnerCard } from "@/player/components/OwnerCard";
 import { PlayerStatusBar } from "@/player/components/PlayerStatusBar";
 import { AcademyHubCard } from "@/player/components/AcademyHubCard";
 import { ReviewPromptBanner } from "@/player/components/ReviewPromptBanner";
+import { usePlayerDrawer } from "@/player/navigation/PlayerNavigator";
 import { apiRequest } from "@/lib/query-client";
 import Animated, { FadeIn, FadeOut, SlideInUp, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, withRepeat } from "react-native-reanimated";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -668,6 +669,7 @@ export default function PlayerHomeScreen() {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
   const { mode } = useAppMode();
+  const { openDrawer } = usePlayerDrawer();
   
   const isPlayer = user?.role === "player";
   const isOwnerRole = user?.role === "owner" || user?.role === "academy_owner" || user?.role === "platform_owner";
@@ -1059,6 +1061,7 @@ export default function PlayerHomeScreen() {
           player={player}
           coach={coach}
           lastFeedback={lastFeedback}
+          onAvatarPress={openDrawer}
         />
 
         <ReviewPromptBanner />

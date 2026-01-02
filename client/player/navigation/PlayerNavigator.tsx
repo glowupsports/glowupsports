@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, createContext, useContext } from "react";
 import { StyleSheet, View, Platform, ActivityIndicator } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -27,10 +27,19 @@ import ParentSettingsScreen from "@/player/screens/ParentSettingsScreen";
 import CourtBookingScreen from "@/player/screens/CourtBookingScreen";
 import CourtDetailScreen from "@/player/screens/CourtDetailScreen";
 import MyCourtBookingsScreen from "@/player/screens/MyCourtBookingsScreen";
+import PlayerFinderScreen from "@/player/screens/PlayerFinderScreen";
+import GlowLeaderboardScreen from "@/player/screens/GlowLeaderboardScreen";
+import PlayerMessagesScreen from "@/player/screens/PlayerMessagesScreen";
+import PlayerNotificationsScreen from "@/player/screens/PlayerNotificationsScreen";
+import PlayerHelpScreen from "@/player/screens/PlayerHelpScreen";
+import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+
+const DrawerContext = createContext<{ openDrawer: () => void }>({ openDrawer: () => {} });
+export const usePlayerDrawer = () => useContext(DrawerContext);
 
 export type PlayerTabParamList = {
   Home: undefined;
@@ -58,12 +67,17 @@ export type PlayerStackParamList = {
   CourtBooking: undefined;
   CourtDetail: { courtId: string; date: string };
   MyCourtBookings: undefined;
+  PlayerFinder: undefined;
+  GlowLeaderboard: undefined;
+  PlayerMessages: undefined;
+  PlayerNotifications: undefined;
+  PlayerHelp: undefined;
 };
 
 const Tab = createBottomTabNavigator<PlayerTabParamList>();
 const Stack = createNativeStackNavigator<PlayerStackParamList>();
 
-function PlayerTabs() {
+function PlayerTabsContent() {
   return (
     <View style={styles.tabsContainer}>
       <Tab.Navigator
@@ -141,6 +155,22 @@ function PlayerTabs() {
       </Tab.Navigator>
       <CoachChatFooter mode="player" />
     </View>
+  );
+}
+
+function PlayerTabs() {
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  
+  return (
+    <DrawerContext.Provider value={{ openDrawer: () => setDrawerVisible(true) }}>
+      <View style={{ flex: 1 }}>
+        <PlayerTabsContent />
+        <PlayerIdentityDrawer 
+          visible={drawerVisible} 
+          onClose={() => setDrawerVisible(false)} 
+        />
+      </View>
+    </DrawerContext.Provider>
   );
 }
 
@@ -256,6 +286,41 @@ function PlayerStackNavigator() {
       <Stack.Screen 
         name="MyCourtBookings" 
         component={MyCourtBookingsScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="PlayerFinder" 
+        component={PlayerFinderScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="GlowLeaderboard" 
+        component={GlowLeaderboardScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="PlayerMessages" 
+        component={PlayerMessagesScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="PlayerNotifications" 
+        component={PlayerNotificationsScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="PlayerHelp" 
+        component={PlayerHelpScreen}
         options={{
           presentation: "card",
         }}

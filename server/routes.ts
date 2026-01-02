@@ -4,7 +4,7 @@ import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { db } from "./db";
 import { playerHolidays, playerSessionCancellations } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { setupWebSocket, broadcastNewMessage } from "./websocket";
 import { 
   hashPassword, 
