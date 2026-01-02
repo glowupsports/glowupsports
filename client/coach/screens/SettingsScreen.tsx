@@ -512,6 +512,23 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Feedback & Reputation</Text>
+          <Pressable 
+            style={styles.linkRow}
+            onPress={() => (navigation.getParent() as any)?.navigate("MyReviews")}
+          >
+            <View style={styles.settingInfo}>
+              <Ionicons name="star-outline" size={24} color={Colors.dark.gold} />
+              <View>
+                <Text style={styles.settingLabel}>My Reviews</Text>
+                <Text style={styles.settingDescription}>View and respond to player feedback</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+          </Pressable>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Team & Invitations</Text>
           <Pressable 
             style={styles.linkRow}

@@ -23,6 +23,7 @@ import BillingScreen from "@/coach/screens/BillingScreen";
 import CoachInvitationsScreen from "@/coach/screens/CoachInvitationsScreen";
 import CoachOnboardingScreen from "@/coach/screens/CoachOnboardingScreen";
 import CoachEarningsScreen from "@/coach/screens/CoachEarningsScreen";
+import MyReviewsScreen from "@/coach/screens/MyReviewsScreen";
 import OfflineBanner from "@/components/OfflineBanner";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
@@ -62,6 +63,7 @@ export type CoachStackParamList = {
   Billing: undefined;
   CoachInvitations: undefined;
   CoachEarnings: undefined;
+  MyReviews: undefined;
 };
 
 const Tab = createBottomTabNavigator<CoachTabParamList>();
@@ -219,6 +221,14 @@ function CoachStackNavigator() {
       <Stack.Screen 
         name="CoachEarnings" 
         component={CoachEarningsScreen}
+      />
+      <Stack.Screen 
+        name="MyReviews" 
+        component={MyReviewsScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "My Reviews",
+        }}
       />
     </Stack.Navigator>
   );

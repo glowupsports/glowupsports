@@ -12,6 +12,7 @@ import { useAppMode } from "@/context/AppModeContext";
 import { OwnerCard } from "@/player/components/OwnerCard";
 import { PlayerStatusBar } from "@/player/components/PlayerStatusBar";
 import { AcademyHubCard } from "@/player/components/AcademyHubCard";
+import { ReviewPromptBanner } from "@/player/components/ReviewPromptBanner";
 
 interface OwnerProfileData {
   profile: {
@@ -516,6 +517,8 @@ export default function PlayerHomeScreen() {
         <View style={styles.xpSection}>
           <XPBar current={currentLevelXp} max={500} level={player.level} />
         </View>
+
+        <ReviewPromptBanner />
 
         {nextSession ? (
           <View style={styles.nextSessionCard}>
