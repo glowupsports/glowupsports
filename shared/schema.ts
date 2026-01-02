@@ -1865,3 +1865,231 @@ export const coachEarnings = pgTable("coach_earnings", {
 export const insertCoachEarningSchema = createInsertSchema(coachEarnings).omit({ id: true, createdAt: true });
 export type InsertCoachEarning = z.infer<typeof insertCoachEarningSchema>;
 export type CoachEarning = typeof coachEarnings.$inferSelect;
+
+// ==================== COACH REVIEW SYSTEM ====================
+
+// Review Categories (1-5 rating each)
+export const reviewCategories = ["coachingQuality", "communication", "withKidsBeginners", "reliability", "feedbackMotivation"] as const;
+export type ReviewCategory = typeof reviewCategories[number];
+
+// Player age categories for semi-anonymous display
+export const reviewerAgeCategories = ["kid", "teen", "adult"] as const;
+export type ReviewerAgeCategory = typeof reviewerAgeCategories[number];
+
+// Coach Reviews - Player reviews of coaches (only after 3+ sessions)
+export const coachReviews = pgTable("coach_reviews", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  academyId: varchar("academy_id").references(() => academies.id),
+  
+  // Category ratings (1-5)
+  coachingQuality: integer("coaching_quality").notNull(),
+  communication: integer("communication").notNull(),
+  withKidsBeginners: integer("with_kids_beginners").notNull(),
+  reliability: integer("reliability").notNull(),
+  feedbackMotivation: integer("feedback_motivation").notNull(),
+  
+  // Calculated overall score (average of 5 categories)
+  overallScore: numeric("overall_score").notNull(),
+  
+  // Guided text responses (optional)
+  whatDoesWell: text("what_does_well"),
+  bestForPlayerType: text("best_for_player_type"),
+  
+  // Semi-anonymous reviewer info (visible to public)
+  reviewerAgeCategory: text("reviewer_age_category"), // kid | teen | adult
+  reviewerLevel: text("reviewer_level"), // red | orange | green | yellow
+  
+  // Validation metadata
+  sessionCountAtReview: integer("session_count_at_review").notNull(), // How many sessions player had with coach
+  
+  // Visibility & moderation
+  isVisible: boolean("is_visible").default(false), // Only visible after 3+ reviews exist
+  isHidden: boolean("is_hidden").default(false), // Hidden by moderation
+  hiddenReason: text("hidden_reason"),
+  hiddenBy: varchar("hidden_by"),
+  hiddenAt: timestamp("hidden_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  coachIdx: index("coach_reviews_coach_idx").on(table.coachId),
+  playerIdx: index("coach_reviews_player_idx").on(table.playerId),
+  visibleIdx: index("coach_reviews_visible_idx").on(table.isVisible, table.isHidden),
+}));
+
+export const insertCoachReviewSchema = createInsertSchema(coachReviews).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true,
+  isVisible: true,
+  isHidden: true,
+  hiddenReason: true,
+  hiddenBy: true,
+  hiddenAt: true,
+});
+
+export const submitReviewSchema = z.object({
+  coachId: z.string().min(1),
+  coachingQuality: z.number().int().min(1).max(5),
+  communication: z.number().int().min(1).max(5),
+  withKidsBeginners: z.number().int().min(1).max(5),
+  reliability: z.number().int().min(1).max(5),
+  feedbackMotivation: z.number().int().min(1).max(5),
+  whatDoesWell: z.string().max(500).optional(),
+  bestForPlayerType: z.string().max(200).optional(),
+});
+
+export type InsertCoachReview = z.infer<typeof insertCoachReviewSchema>;
+export type CoachReview = typeof coachReviews.$inferSelect;
+export type SubmitReviewInput = z.infer<typeof submitReviewSchema>;
+
+// Review Responses - Coach replies to reviews
+export const reviewResponses = pgTable("review_responses", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  
+  reviewId: varchar("review_id").references(() => coachReviews.id).notNull().unique(),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  
+  responseText: text("response_text").notNull(),
+  
+  // Moderation
+  isHidden: boolean("is_hidden").default(false),
+  hiddenReason: text("hidden_reason"),
+  hiddenBy: varchar("hidden_by"),
+  hiddenAt: timestamp("hidden_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertReviewResponseSchema = createInsertSchema(reviewResponses).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true,
+  isHidden: true,
+  hiddenReason: true,
+  hiddenBy: true,
+  hiddenAt: true,
+});
+export type InsertReviewResponse = z.infer<typeof insertReviewResponseSchema>;
+export type ReviewResponse = typeof reviewResponses.$inferSelect;
+
+// Review Flags - Moderation flags for reviews
+export const reviewFlags = pgTable("review_flags", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  
+  reviewId: varchar("review_id").references(() => coachReviews.id).notNull(),
+  flaggedBy: varchar("flagged_by").references(() => users.id).notNull(),
+  
+  reason: text("reason").notNull(), // inappropriate | fake | spam | other
+  details: text("details"),
+  
+  status: text("status").default("pending"), // pending | reviewed | dismissed | action_taken
+  reviewedBy: varchar("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
+  actionTaken: text("action_taken"),
+  internalNote: text("internal_note"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertReviewFlagSchema = createInsertSchema(reviewFlags).omit({ 
+  id: true, 
+  createdAt: true,
+  status: true,
+  reviewedBy: true,
+  reviewedAt: true,
+  actionTaken: true,
+  internalNote: true,
+});
+export type InsertReviewFlag = z.infer<typeof insertReviewFlagSchema>;
+export type ReviewFlag = typeof reviewFlags.$inferSelect;
+
+// Review Prompts - Track when to show review prompts to players
+export const reviewPrompts = pgTable("review_prompts", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  
+  // Trigger info
+  triggerType: text("trigger_type").notNull(), // session_threshold | package_complete | month_milestone
+  triggerAt: timestamp("trigger_at").notNull(), // When to show prompt
+  
+  // Status
+  status: text("status").default("pending"), // pending | shown | completed | dismissed | expired
+  shownAt: timestamp("shown_at"),
+  completedAt: timestamp("completed_at"),
+  dismissedAt: timestamp("dismissed_at"),
+  
+  // Link to resulting review
+  reviewId: varchar("review_id").references(() => coachReviews.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  playerCoachIdx: index("review_prompts_player_coach_idx").on(table.playerId, table.coachId),
+  statusIdx: index("review_prompts_status_idx").on(table.status),
+}));
+
+export const insertReviewPromptSchema = createInsertSchema(reviewPrompts).omit({ 
+  id: true, 
+  createdAt: true,
+  shownAt: true,
+  completedAt: true,
+  dismissedAt: true,
+  reviewId: true,
+});
+export type InsertReviewPrompt = z.infer<typeof insertReviewPromptSchema>;
+export type ReviewPrompt = typeof reviewPrompts.$inferSelect;
+
+// Aggregated Coach Review Stats (for quick display on coach profiles)
+export const coachReviewStats = pgTable("coach_review_stats", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  
+  coachId: varchar("coach_id").references(() => coaches.id).notNull().unique(),
+  
+  // Overall stats
+  totalReviews: integer("total_reviews").default(0),
+  visibleReviews: integer("visible_reviews").default(0), // Reviews meeting visibility threshold
+  averageOverall: numeric("average_overall"),
+  
+  // Category averages
+  avgCoachingQuality: numeric("avg_coaching_quality"),
+  avgCommunication: numeric("avg_communication"),
+  avgWithKidsBeginners: numeric("avg_with_kids_beginners"),
+  avgReliability: numeric("avg_reliability"),
+  avgFeedbackMotivation: numeric("avg_feedback_motivation"),
+  
+  // Breakdown by reviewer type
+  kidReviewCount: integer("kid_review_count").default(0),
+  teenReviewCount: integer("teen_review_count").default(0),
+  adultReviewCount: integer("adult_review_count").default(0),
+  
+  // Level breakdown
+  redLevelCount: integer("red_level_count").default(0),
+  orangeLevelCount: integer("orange_level_count").default(0),
+  greenLevelCount: integer("green_level_count").default(0),
+  yellowLevelCount: integer("yellow_level_count").default(0),
+  
+  // Best-for tags (calculated from reviews)
+  bestForTags: jsonb("best_for_tags").$type<string[]>().default([]), // e.g., ["kids", "beginners", "red level"]
+  
+  lastUpdated: timestamp("last_updated").defaultNow(),
+});
+
+export const insertCoachReviewStatsSchema = createInsertSchema(coachReviewStats).omit({ id: true, lastUpdated: true });
+export type InsertCoachReviewStats = z.infer<typeof insertCoachReviewStatsSchema>;
+export type CoachReviewStats = typeof coachReviewStats.$inferSelect;
