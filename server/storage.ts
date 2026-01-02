@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, and, gte, lte, ne, or, inArray, ilike, sql, count } from "drizzle-orm";
+import { eq, and, gte, lte, ne, or, inArray, ilike, sql, count, gt } from "drizzle-orm";
 import { desc, asc } from "drizzle-orm";
 import {
   // Auth tables
@@ -63,6 +63,10 @@ import {
   // Player Booking System
   coachAvailability,
   bookingRequests,
+  // Player Social & Matches
+  playerMatches,
+  playerConnections,
+  type PlayerConnection,
   // Phase 3: Academy Management
   academySettings,
   academyInvites,
@@ -5608,5 +5612,167 @@ export const storage = {
       .returning();
 
     return result[0];
+  },
+
+  // ==================== PUBLIC PLAYER PROFILE FUNCTIONS ====================
+
+  // Get all skill domains
+  async getSkillDomains(): Promise<SkillDomain[]> {
+    return db.select().from(skillDomains).orderBy(skillDomains.sortOrder);
+  },
+
+  // Get player match stats
+  async getPlayerMatchStats(playerId: string): Promise<{
+    totalMatches: number;
+    wins: number;
+    losses: number;
+    sessionsAttended: number;
+  }> {
+    // Get all completed matches for this player
+    const allMatches = await db.select()
+      .from(playerMatches)
+      .where(and(
+        or(
+          eq(playerMatches.initiatorId, playerId),
+          eq(playerMatches.receiverId, playerId)
+        ),
+        eq(playerMatches.status, "completed")
+      ));
+
+    const totalMatches = allMatches.length;
+    
+    // Calculate wins/losses based on resultNotes which contains score like "6-3, 6-4"
+    // If resultNotes contains "win" or if we can parse the score, determine winner
+    // Convention: resultNotes format could be "initiator_win", "receiver_win", or scores
+    let wins = 0;
+    let losses = 0;
+    
+    for (const match of allMatches) {
+      const isInitiator = match.initiatorId === playerId;
+      const resultNotes = match.resultNotes?.toLowerCase() || "";
+      
+      // Check for explicit win/loss markers
+      if (resultNotes.includes("initiator_win") || resultNotes.includes("initiator won")) {
+        if (isInitiator) wins++;
+        else losses++;
+      } else if (resultNotes.includes("receiver_win") || resultNotes.includes("receiver won")) {
+        if (!isInitiator) wins++;
+        else losses++;
+      } else if (match.resultStatus === "played") {
+        // If no explicit winner but match was played, count as a completed match
+        // For now, assume even split if no winner data (this is realistic for friendly matches)
+        // TODO: Add proper win/loss tracking to match schema
+      }
+    }
+
+    // Count sessions attended (using sessionPlayers for attendance)
+    const sessionsResult = await db.select({ count: sql<number>`count(*)` })
+      .from(sessionPlayers)
+      .where(and(
+        eq(sessionPlayers.playerId, playerId),
+        eq(sessionPlayers.attendanceStatus, "present")
+      ));
+
+    return {
+      totalMatches,
+      wins,
+      losses,
+      sessionsAttended: Number(sessionsResult[0]?.count || 0),
+    };
+  },
+
+  // Get recent matches for a player
+  async getPlayerRecentMatches(playerId: string, limit: number = 5): Promise<any[]> {
+    const matches = await db.select()
+      .from(playerMatches)
+      .where(and(
+        or(
+          eq(playerMatches.initiatorId, playerId),
+          eq(playerMatches.receiverId, playerId)
+        ),
+        eq(playerMatches.status, "completed")
+      ))
+      .orderBy(desc(playerMatches.proposedDate))
+      .limit(limit);
+
+    // Enrich with opponent data
+    const enrichedMatches = await Promise.all(matches.map(async (match) => {
+      const opponentId = match.initiatorId === playerId ? match.receiverId : match.initiatorId;
+      let opponentData = null;
+      if (opponentId) {
+        const opponent = await db.select().from(players).where(eq(players.id, opponentId));
+        opponentData = opponent[0];
+      }
+      return {
+        ...match,
+        opponentName: opponentData?.displayName || opponentData?.name || "Unknown",
+        opponentPhotoUrl: opponentData?.profilePhotoUrl,
+        opponentLevel: opponentData?.level || 1,
+        score: match.resultNotes, // Use resultNotes for score display
+      };
+    }));
+
+    return enrichedMatches;
+  },
+
+  // Get upcoming matches for a player
+  async getPlayerUpcomingMatches(playerId: string, limit: number = 3): Promise<any[]> {
+    const now = new Date();
+    const matches = await db.select()
+      .from(playerMatches)
+      .where(and(
+        or(
+          eq(playerMatches.initiatorId, playerId),
+          eq(playerMatches.receiverId, playerId)
+        ),
+        eq(playerMatches.status, "accepted"),
+        gte(playerMatches.proposedDate, now)
+      ))
+      .orderBy(playerMatches.proposedDate)
+      .limit(limit);
+
+    // Enrich with opponent data
+    const enrichedMatches = await Promise.all(matches.map(async (match) => {
+      const opponentId = match.initiatorId === playerId ? match.receiverId : match.initiatorId;
+      let opponentData = null;
+      if (opponentId) {
+        const opponent = await db.select().from(players).where(eq(players.id, opponentId));
+        opponentData = opponent[0];
+      }
+      return {
+        ...match,
+        opponentName: opponentData?.displayName || opponentData?.name || "Unknown",
+        opponentPhotoUrl: opponentData?.profilePhotoUrl,
+        opponentLevel: opponentData?.level || 1,
+      };
+    }));
+
+    return enrichedMatches;
+  },
+
+  // Get player connections
+  async getPlayerConnections(playerId: string): Promise<PlayerConnection[]> {
+    return db.select()
+      .from(playerConnections)
+      .where(or(
+        eq(playerConnections.player1Id, playerId),
+        eq(playerConnections.player2Id, playerId)
+      ))
+      .orderBy(desc(playerConnections.lastPlayedAt));
+  },
+
+  // Get player weekly ranking (position based on XP)
+  async getPlayerWeeklyRanking(playerId: string): Promise<number> {
+    const player = await db.select().from(players).where(eq(players.id, playerId));
+    if (!player[0]) return 0;
+
+    const playerXp = player[0].totalXp || 0;
+    
+    // Count how many players have more XP
+    const higherRanked = await db.select({ count: sql<number>`count(*)` })
+      .from(players)
+      .where(gt(players.totalXp, playerXp));
+
+    return Number(higherRanked[0]?.count || 0) + 1;
   },
 };

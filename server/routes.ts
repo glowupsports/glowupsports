@@ -13043,6 +13043,195 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== PUBLIC PLAYER PROFILE ====================
+  
+  // Get public player profile (viewable by other players)
+  app.get("/api/player/public-profile/:playerId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { playerId } = req.params;
+      const viewerId = req.user?.playerId;
+      
+      // Get player basic info
+      const player = await storage.getPlayerById(playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const isOwnProfile = viewerId === playerId;
+      
+      // Calculate level title based on XP
+      const getLevelTitle = (level: number): string => {
+        if (level <= 2) return "Just Started";
+        if (level <= 5) return "Rising Force";
+        if (level <= 10) return "Committed Player";
+        if (level <= 20) return "Dedicated Athlete";
+        if (level <= 35) return "Tennis Warrior";
+        if (level <= 50) return "Court Master";
+        if (level <= 75) return "Elite Competitor";
+        return "Legend";
+      };
+      
+      // Get 5-pillar skill states
+      const skillStates = await storage.getPlayerSkillStates(playerId);
+      const domains = await storage.getSkillDomains();
+      
+      const pillars = domains.map(domain => {
+        const state = skillStates.find(s => s.domainId === domain.id);
+        // Calculate pillar level from progress (0-100 maps to level 1-20)
+        const pillarLevel = state ? Math.floor((state.progressValue || 0) / 5) + 1 : 1;
+        return {
+          id: domain.id,
+          name: domain.name,
+          displayName: domain.displayName,
+          icon: domain.icon,
+          color: domain.color,
+          level: Math.min(pillarLevel, 20),
+          progress: state?.progressValue || 0,
+          trend: state?.trend || "stable",
+        };
+      });
+      
+      // Get match stats
+      const matchStats = await storage.getPlayerMatchStats(playerId);
+      
+      // Get recent matches (last 5)
+      const recentMatches = await storage.getPlayerRecentMatches(playerId, 5);
+      
+      // Get upcoming matches
+      const upcomingMatches = await storage.getPlayerUpcomingMatches(playerId, 3);
+      
+      // Get connections count and preview
+      const connections = await storage.getPlayerConnections(playerId);
+      const connectionPreviews = await Promise.all(
+        connections.slice(0, 5).map(async (conn) => {
+          const connectedPlayerId = conn.player1Id === playerId ? conn.player2Id : conn.player1Id;
+          const connectedPlayer = await storage.getPlayerById(connectedPlayerId);
+          return connectedPlayer ? {
+            id: connectedPlayer.id,
+            name: connectedPlayer.displayName || connectedPlayer.name,
+            photoUrl: connectedPlayer.profilePhotoUrl,
+            level: connectedPlayer.level || 1,
+          } : null;
+        })
+      );
+      
+      // Get weekly ranking (simplified - count players with higher XP)
+      const weeklyRanking = await storage.getPlayerWeeklyRanking(playerId);
+      
+      // Build response
+      const profile = {
+        // Layer 1: Hero Header
+        id: player.id,
+        name: player.displayName || player.name,
+        photoUrl: player.profilePhotoUrl,
+        level: player.level || 1,
+        levelTitle: getLevelTitle(player.level || 1),
+        ballLevel: player.ballLevel || "green",
+        glowScore: player.glowScore || 0,
+        totalXp: player.totalXp || 0,
+        xpToNextLevel: 100 - ((player.totalXp || 0) % 100),
+        xpProgress: ((player.totalXp || 0) % 100) / 100,
+        streak: player.streak || 0,
+        openToPlay: player.openToPlay || false,
+        weeklyRanking,
+        
+        // Quick stats
+        stats: {
+          matchesPlayed: matchStats.totalMatches || 0,
+          wins: matchStats.wins || 0,
+          losses: matchStats.losses || 0,
+          sessionsAttended: matchStats.sessionsAttended || 0,
+          connectionsCount: connections.length,
+        },
+        
+        // Layer 2: Player DNA
+        dna: {
+          dominantHand: player.dominantHand || "right",
+          backhandType: player.backhandType || "double",
+          preferredPlayType: player.preferredPlayType || "both",
+          matchPreference: player.matchPreference || "casual",
+          experienceLevel: player.experienceLevel,
+          motivationType: player.motivationType,
+          focusGoals: player.focusGoals || [],
+        },
+        
+        // Layer 3: Glow Stats (5 Pillars)
+        pillars,
+        
+        // Layer 4: Match History
+        recentMatches: recentMatches.map(m => ({
+          id: m.id,
+          opponentId: m.initiatorId === playerId ? m.receiverId : m.initiatorId,
+          opponentName: m.opponentName,
+          opponentPhotoUrl: m.opponentPhotoUrl,
+          opponentLevel: m.opponentLevel,
+          matchType: m.matchType,
+          playType: m.playType,
+          result: m.resultStatus,
+          score: m.score,
+          date: m.proposedDate,
+          xpAwarded: m.xpAwarded,
+        })),
+        upcomingMatches: upcomingMatches.map(m => ({
+          id: m.id,
+          opponentId: m.initiatorId === playerId ? m.receiverId : m.initiatorId,
+          opponentName: m.opponentName,
+          opponentPhotoUrl: m.opponentPhotoUrl,
+          opponentLevel: m.opponentLevel,
+          matchType: m.matchType,
+          playType: m.playType,
+          date: m.proposedDate,
+          locationCity: m.locationCity,
+        })),
+        
+        // Layer 5: Connections
+        connections: {
+          total: connections.length,
+          previews: connectionPreviews.filter(Boolean),
+        },
+        
+        // Layer 6: Availability (only for own profile or if public)
+        availability: isOwnProfile || player.privacyLevel === "public" ? {
+          typicalPlayTimes: player.typicalPlayTimes || [],
+          preferredCities: player.preferredCities || [],
+        } : null,
+        
+        // Metadata
+        isOwnProfile,
+        lastActiveAt: player.lastActiveAt,
+        bio: player.bio,
+        academyId: player.academyId,
+      };
+      
+      res.json(profile);
+    } catch (error) {
+      console.error("Get public player profile error:", error);
+      res.status(500).json({ error: "Failed to get player profile" });
+    }
+  });
+  
+  // Toggle open to play status
+  app.patch("/api/player/me/open-to-play", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      if (!playerId) {
+        return res.status(403).json({ error: "Player profile required" });
+      }
+      
+      const { openToPlay } = req.body;
+      if (typeof openToPlay !== "boolean") {
+        return res.status(400).json({ error: "openToPlay must be a boolean" });
+      }
+      
+      await storage.updatePlayer(playerId, { openToPlay });
+      
+      res.json({ success: true, openToPlay });
+    } catch (error) {
+      console.error("Toggle open to play error:", error);
+      res.status(500).json({ error: "Failed to update status" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat

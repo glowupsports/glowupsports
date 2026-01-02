@@ -33,6 +33,7 @@ import GlowLeaderboardScreen from "@/player/screens/GlowLeaderboardScreen";
 import PlayerMessagesScreen from "@/player/screens/PlayerMessagesScreen";
 import PlayerNotificationsScreen from "@/player/screens/PlayerNotificationsScreen";
 import PlayerHelpScreen from "@/player/screens/PlayerHelpScreen";
+import PlayerPublicProfileScreen from "@/player/screens/PlayerPublicProfileScreen";
 import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { Colors } from "@/constants/theme";
@@ -73,6 +74,7 @@ export type PlayerStackParamList = {
   PlayerMessages: undefined;
   PlayerNotifications: undefined;
   PlayerHelp: undefined;
+  PublicProfile: { playerId?: string };
 };
 
 const Tab = createBottomTabNavigator<PlayerTabParamList>();
@@ -333,6 +335,14 @@ function PlayerStackNavigator() {
         component={PlayerHelpScreen}
         options={{
           presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="PublicProfile" 
+        component={PlayerPublicProfileScreen}
+        options={{
+          presentation: "card",
+          headerTitle: "Player Profile",
         }}
       />
     </Stack.Navigator>

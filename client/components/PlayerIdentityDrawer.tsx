@@ -170,11 +170,7 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigateToPro
                   style={styles.avatarWrapper}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    if (onNavigateToProfile) {
-                      onNavigateToProfile();
-                    } else {
-                      navigateAndClose("Profile");
-                    }
+                    navigateAndClose("PublicProfile");
                   }}
                 >
                   <Animated.View style={[styles.glowRingOuter, glowRingStyle]}>
@@ -376,15 +372,9 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigateToPro
               <WorldMenuItem 
                 icon="person-circle"
                 iconColor={Colors.dark.xpCyan}
-                title="My Profile"
-                subtitle="Edit photo, name & what others see"
-                onPress={() => {
-                  if (onNavigateToProfile) {
-                    onNavigateToProfile();
-                  } else {
-                    navigateAndClose("Profile");
-                  }
-                }}
+                title="My Game Profile"
+                subtitle="View your public tennis identity"
+                onPress={() => navigateAndClose("PublicProfile")}
               />
               <WorldMenuItem 
                 icon="bar-chart"
