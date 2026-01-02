@@ -801,7 +801,7 @@ export default function DashboardScreen() {
                       <View style={[styles.gameActionIcon, { backgroundColor: Colors.dark.xpCyan }]}>
                         <Ionicons name="add" size={24} color="#000" />
                       </View>
-                      <Text style={[styles.actionBtnLabel, { color: Colors.dark.xpCyan }]}>EXTEND</Text>
+                      <Text style={styles.actionBtnLabel}>EXTEND</Text>
                     </Pressable>
                     <Pressable
                       style={styles.actionBarBtn}
@@ -813,7 +813,7 @@ export default function DashboardScreen() {
                       <View style={[styles.gameActionIcon, { backgroundColor: Colors.dark.orange }]}>
                         <Ionicons name="stop" size={20} color="#000" />
                       </View>
-                      <Text style={[styles.actionBtnLabel, { color: Colors.dark.orange }]}>END</Text>
+                      <Text style={styles.actionBtnLabel}>END</Text>
                     </Pressable>
                   </View>
                 ) : selectedDaySessions.length > 0 ? (
@@ -1832,27 +1832,33 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.error,
   },
   liveCircleBadge: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: Colors.dark.error,
+    width: 85,
+    height: 85,
+    borderRadius: 43,
+    backgroundColor: "#FF3333",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 3,
-    borderColor: "#ff6666",
+    borderWidth: 4,
+    borderColor: "#ffffff",
   },
   liveCircleText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "900",
     color: "#fff",
     letterSpacing: 2,
+    textShadowColor: "#000",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   liveCircleSubtext: {
-    fontSize: 8,
-    fontWeight: "700",
-    color: "rgba(255, 255, 255, 0.9)",
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#fff",
     letterSpacing: 0.5,
-    marginTop: 1,
+    marginTop: 2,
+    textShadowColor: "#000",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   liveHudHeader: {
     flexDirection: "row",
@@ -1935,17 +1941,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   gameActionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   actionBtnLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: Colors.dark.primary,
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#fff",
     letterSpacing: 1,
+    textShadowColor: "#000",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   statsBar: {
     flexDirection: "row",
