@@ -145,6 +145,14 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
     }
   };
 
+  const xpForCurrentLevel = 500 + (player.level - 1) * 100;
+  let accumulatedXp = 0;
+  for (let lvl = 1; lvl < player.level; lvl++) {
+    accumulatedXp += 500 + (lvl - 1) * 100;
+  }
+  const currentLevelXp = Math.max(0, player.xp - accumulatedXp);
+  const streakColor = player.streak >= 6 ? "#FF4136" : player.streak >= 3 ? Colors.dark.orange : Colors.dark.xpCyan;
+
   return (
     <View style={styles.container}>
       <View style={styles.mainRow}>
@@ -154,16 +162,6 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
         >
           <View style={styles.avatarWrapper}>
             <Animated.View style={[styles.glowRing, glowRingStyle]} />
-            <View style={styles.progressRing}>
-              <View 
-                style={[
-                  styles.progressFill, 
-                  { 
-                    width: `${xpProgress * 100}%`,
-                  }
-                ]} 
-              />
-            </View>
             <LinearGradient
               colors={[Colors.dark.xpCyan, Colors.dark.primary]}
               style={styles.avatarGradient}
@@ -186,36 +184,34 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
             <Ionicons name="ribbon-outline" size={12} color={Colors.dark.xpCyan} />
             <Text style={styles.earnedTitle}>{earnedTitle}</Text>
           </View>
+          
+          <View style={styles.xpBarContainer}>
+            <View style={styles.xpBarTrack}>
+              <Animated.View 
+                style={[
+                  styles.xpBarFill, 
+                  { width: `${xpProgress * 100}%` }
+                ]} 
+              />
+              <View style={styles.xpBarGlow} />
+            </View>
+            <View style={styles.xpLabels}>
+              <Text style={styles.xpLevelLabel}>LVL {player.level}</Text>
+              <Text style={styles.xpValueLabel}>{currentLevelXp}/{xpForCurrentLevel} XP</Text>
+            </View>
+          </View>
         </View>
 
-        <View style={styles.statsSection}>
-          <View style={styles.statItem}>
-            <Ionicons name="flash" size={14} color={Colors.dark.xpCyan} />
-            <Text style={styles.statValue}>{player.glowScore}</Text>
+        <View style={styles.streakSection}>
+          <View style={[styles.streakBadge, { borderColor: streakColor }]}>
+            <Ionicons name="flame" size={20} color={streakColor} />
+            <Text style={[styles.streakValue, { color: streakColor }]}>{player.streak}</Text>
           </View>
-          <View style={styles.statItem}>
-            <Ionicons name="flame" size={14} color={Colors.dark.orange} />
-            <Text style={styles.statValue}>{player.streak}</Text>
-          </View>
-          {player.ballLevel ? (
-            <View style={styles.statItem}>
-              <Ionicons name="tennisball" size={14} color={ballLevelColor} />
-              <Text style={[styles.statValue, { color: ballLevelColor }]}>
-                {player.ballLevel.charAt(0)}
-              </Text>
-            </View>
-          ) : null}
+          <Text style={styles.streakLabel}>streak</Text>
         </View>
       </View>
 
       <View style={styles.bottomRow}>
-        {currentFocus ? (
-          <View style={styles.focusChip}>
-            <Ionicons name="locate" size={12} color={Colors.dark.primary} />
-            <Text style={styles.focusText}>Focus: {currentFocus}</Text>
-          </View>
-        ) : null}
-        
         {coach ? (
           <Pressable style={styles.coachChip} onPress={handleCoachPress}>
             <View style={styles.coachAvatar}>
@@ -224,6 +220,12 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
             <Text style={styles.coachName}>{coach.name}</Text>
             <Ionicons name="chevron-forward" size={12} color={Colors.dark.textMuted} />
           </Pressable>
+        ) : null}
+        {currentFocus ? (
+          <View style={styles.focusChip}>
+            <Ionicons name="locate" size={12} color={Colors.dark.primary} />
+            <Text style={styles.focusText}>{currentFocus}</Text>
+          </View>
         ) : null}
       </View>
 
@@ -407,21 +409,6 @@ const styles = StyleSheet.create({
     borderRadius: 31,
     backgroundColor: Colors.dark.xpCyan,
   },
-  progressRing: {
-    position: "absolute",
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: Colors.dark.backgroundRoot,
-    overflow: "hidden",
-  },
-  progressFill: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    height: "100%",
-    backgroundColor: `${Colors.dark.primary}40`,
-  },
   avatarGradient: {
     width: 50,
     height: 50,
@@ -484,23 +471,73 @@ const styles = StyleSheet.create({
     color: Colors.dark.xpCyan,
     fontWeight: "500",
   },
-  statsSection: {
-    flexDirection: "row",
-    gap: Spacing.sm,
+  xpBarContainer: {
+    marginTop: 6,
   },
-  statItem: {
+  xpBarTrack: {
+    height: 6,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: 3,
+    overflow: "hidden",
+    position: "relative",
+  },
+  xpBarFill: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: Colors.dark.xpCyan,
+    borderRadius: 3,
+  },
+  xpBarGlow: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 8,
+    backgroundColor: "transparent",
+  },
+  xpLabels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 3,
+  },
+  xpLevelLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.gold,
+  },
+  xpValueLabel: {
+    fontSize: 10,
+    fontWeight: "500",
+    color: Colors.dark.xpCyan,
+  },
+  streakSection: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingLeft: Spacing.sm,
+  },
+  streakBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
+    gap: 4,
     backgroundColor: Colors.dark.backgroundRoot,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.md,
+    borderWidth: 2,
   },
-  statValue: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: Colors.dark.text,
+  streakValue: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  streakLabel: {
+    fontSize: 9,
+    fontWeight: "500",
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginTop: 2,
   },
   bottomRow: {
     flexDirection: "row",

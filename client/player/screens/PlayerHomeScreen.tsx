@@ -200,75 +200,6 @@ function CircularGauge({
   );
 }
 
-function GameHUD({ player }: { player: { level: number; xp: number; streak: number; glowScore: number } }) {
-  const currentLevelXp = player.xp % 500;
-  const xpProgress = currentLevelXp / 500;
-  const streak = getStreakLevel(player.streak);
-  
-  return (
-    <View style={gameHudStyles.container}>
-      <LinearGradient
-        colors={[Colors.dark.backgroundSecondary + "CC", Colors.dark.backgroundDefault + "99"]}
-        style={gameHudStyles.glassPanel}
-      >
-        <View style={gameHudStyles.decorLine} />
-        
-        <View style={gameHudStyles.gaugesRow}>
-          <View style={gameHudStyles.gaugeContainer}>
-            <CircularGauge 
-              progress={xpProgress} 
-              size={72} 
-              strokeWidth={5} 
-              color={Colors.dark.xpCyan}
-            >
-              <Ionicons name="flash" size={20} color={Colors.dark.xpCyan} />
-            </CircularGauge>
-            <View style={gameHudStyles.gaugeInfo}>
-              <Text style={[gameHudStyles.gaugeLabel, { color: Colors.dark.xpCyan }]}>XP</Text>
-              <Text style={gameHudStyles.gaugeValue}>{currentLevelXp}/{500}</Text>
-            </View>
-          </View>
-          
-          <View style={gameHudStyles.levelCore}>
-            <View style={gameHudStyles.levelHex}>
-              <LinearGradient
-                colors={[Colors.dark.gold + "40", Colors.dark.gold + "20"]}
-                style={gameHudStyles.levelHexInner}
-              >
-                <Text style={gameHudStyles.levelNumber}>{player.level}</Text>
-              </LinearGradient>
-            </View>
-            <Text style={gameHudStyles.levelLabel}>LEVEL</Text>
-            <View style={gameHudStyles.glowBadge}>
-              <Ionicons name="sparkles" size={12} color={Colors.dark.gold} />
-              <Text style={gameHudStyles.glowValue}>{player.glowScore}</Text>
-            </View>
-          </View>
-          
-          <View style={gameHudStyles.gaugeContainer}>
-            <CircularGauge 
-              progress={streak.progress} 
-              size={72} 
-              strokeWidth={5} 
-              color={streak.color}
-            >
-              <Ionicons name={streak.icon as any} size={20} color={streak.color} />
-            </CircularGauge>
-            <View style={gameHudStyles.gaugeInfo}>
-              <Text style={[gameHudStyles.gaugeLabel, { color: streak.color }]}>{streak.name}</Text>
-              <Text style={[gameHudStyles.streakBadge, { color: streak.color, borderColor: streak.color }]}>
-                {player.streak} DAY{player.streak !== 1 ? "S" : ""}
-              </Text>
-            </View>
-          </View>
-        </View>
-        
-        <View style={gameHudStyles.decorLineBottom} />
-      </LinearGradient>
-    </View>
-  );
-}
-
 function GameCountdown({ targetDate }: { targetDate: Date }) {
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
   
@@ -1069,8 +1000,6 @@ export default function PlayerHomeScreen() {
           coach={coach}
           lastFeedback={lastFeedback}
         />
-        
-        <GameHUD player={player} />
 
         <ReviewPromptBanner />
 
@@ -2645,115 +2574,6 @@ const hudStyles = StyleSheet.create({
   },
   glowText: {
     ...Typography.caption,
-    color: Colors.dark.gold,
-    fontWeight: "700",
-  },
-});
-
-const gameHudStyles = StyleSheet.create({
-  container: {
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.lg,
-  },
-  glassPanel: {
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-    position: "relative",
-    overflow: "hidden",
-  },
-  decorLine: {
-    position: "absolute",
-    top: 0,
-    left: 20,
-    right: 20,
-    height: 2,
-    backgroundColor: Colors.dark.primary + "40",
-  },
-  decorLineBottom: {
-    position: "absolute",
-    bottom: 0,
-    left: 40,
-    right: 40,
-    height: 1,
-    backgroundColor: Colors.dark.xpCyan + "30",
-  },
-  gaugesRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  gaugeContainer: {
-    alignItems: "center",
-    gap: Spacing.xs,
-  },
-  gaugeInfo: {
-    alignItems: "center",
-    marginTop: 4,
-  },
-  gaugeLabel: {
-    ...Typography.caption,
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1,
-  },
-  gaugeValue: {
-    ...Typography.caption,
-    fontSize: 10,
-    color: Colors.dark.textMuted,
-    fontVariant: ["tabular-nums"],
-  },
-  streakBadge: {
-    ...Typography.caption,
-    fontSize: 9,
-    fontWeight: "600",
-    borderWidth: 1,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
-  },
-  levelCore: {
-    alignItems: "center",
-    gap: 4,
-  },
-  levelHex: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: Colors.dark.gold + "60",
-    overflow: "hidden",
-  },
-  levelHexInner: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  levelNumber: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: Colors.dark.gold,
-  },
-  levelLabel: {
-    ...Typography.caption,
-    fontSize: 9,
-    color: Colors.dark.gold,
-    fontWeight: "600",
-    letterSpacing: 1,
-  },
-  glowBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    backgroundColor: Colors.dark.gold + "15",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: BorderRadius.sm,
-  },
-  glowValue: {
-    ...Typography.caption,
-    fontSize: 11,
     color: Colors.dark.gold,
     fontWeight: "700",
   },
