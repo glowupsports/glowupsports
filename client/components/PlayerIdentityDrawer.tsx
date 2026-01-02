@@ -32,6 +32,7 @@ const DRAWER_WIDTH = SCREEN_WIDTH * 0.85;
 interface PlayerIdentityDrawerProps {
   visible: boolean;
   onClose: () => void;
+  onNavigateToProfile?: () => void;
 }
 
 interface PlayerData {
@@ -69,7 +70,7 @@ function getLevelProgress(xp: number, level: number): number {
   return xpInCurrentLevel / 100;
 }
 
-export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentityDrawerProps) {
+export default function PlayerIdentityDrawer({ visible, onClose, onNavigateToProfile }: PlayerIdentityDrawerProps) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { logout } = useAuth();
@@ -167,7 +168,14 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
               <View style={styles.identityRow}>
                 <Pressable 
                   style={styles.avatarWrapper}
-                  onPress={() => navigateAndClose("Profile")}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    if (onNavigateToProfile) {
+                      onNavigateToProfile();
+                    } else {
+                      navigateAndClose("Profile");
+                    }
+                  }}
                 >
                   <Animated.View style={[styles.glowRingOuter, glowRingStyle]}>
                     <Svg width={100} height={100} viewBox="0 0 100 100">
@@ -370,7 +378,13 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
                 iconColor={Colors.dark.xpCyan}
                 title="My Profile"
                 subtitle="Edit photo, name & what others see"
-                onPress={() => navigateAndClose("Profile")}
+                onPress={() => {
+                  if (onNavigateToProfile) {
+                    onNavigateToProfile();
+                  } else {
+                    navigateAndClose("Profile");
+                  }
+                }}
               />
               <WorldMenuItem 
                 icon="bar-chart"

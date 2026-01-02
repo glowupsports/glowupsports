@@ -1,4 +1,5 @@
 import React, { useState, createContext, useContext } from "react";
+import { useNavigation } from "@react-navigation/native";
 import { StyleSheet, View, Platform, ActivityIndicator } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -160,6 +161,14 @@ function PlayerTabsContent() {
 
 function PlayerTabs() {
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const navigation = useNavigation<any>();
+  
+  const navigateToProfile = () => {
+    setDrawerVisible(false);
+    setTimeout(() => {
+      navigation.navigate("PlayerTabs", { screen: "Profile" });
+    }, 100);
+  };
   
   return (
     <DrawerContext.Provider value={{ openDrawer: () => setDrawerVisible(true) }}>
@@ -167,7 +176,8 @@ function PlayerTabs() {
         <PlayerTabsContent />
         <PlayerIdentityDrawer 
           visible={drawerVisible} 
-          onClose={() => setDrawerVisible(false)} 
+          onClose={() => setDrawerVisible(false)}
+          onNavigateToProfile={navigateToProfile}
         />
       </View>
     </DrawerContext.Provider>
