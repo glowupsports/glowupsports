@@ -1245,6 +1245,28 @@ export const storage = {
     return db.select().from(sessionPlayers).where(eq(sessionPlayers.sessionId, sessionId));
   },
 
+  async getSessionPlayer(sessionId: string, playerId: string): Promise<SessionPlayer | null> {
+    const result = await db
+      .select()
+      .from(sessionPlayers)
+      .where(
+        and(
+          eq(sessionPlayers.sessionId, sessionId),
+          eq(sessionPlayers.playerId, playerId)
+        )
+      );
+    return result[0] || null;
+  },
+
+  async updateSessionPlayer(id: string, data: Partial<InsertSessionPlayer>): Promise<SessionPlayer | null> {
+    const result = await db
+      .update(sessionPlayers)
+      .set(data)
+      .where(eq(sessionPlayers.id, id))
+      .returning();
+    return result[0] || null;
+  },
+
   async getSessionPlayersWithPlayerInfo(sessionId: string): Promise<Array<SessionPlayer & { player: { id: string; name: string; ballLevel: string | null } | null }>> {
     const result = await db
       .select({

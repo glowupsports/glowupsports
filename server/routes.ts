@@ -2,6 +2,9 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "node:http";
 import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
+import { db } from "./db";
+import { playerHolidays } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { setupWebSocket, broadcastNewMessage } from "./websocket";
 import { 
   hashPassword, 
@@ -8688,6 +8691,299 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching player sessions:", error);
       res.status(500).json({ error: "Failed to fetch player sessions" });
+    }
+  });
+
+  // ==================== PLAYER SESSION ACTIONS ====================
+  
+  // Cancel session as player
+  app.post("/api/player/me/sessions/:sessionId/cancel", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+      const { reason } = req.body; // sick, busy, other
+      const playerId = req.user!.playerId;
+      
+      if (!playerId) {
+        return res.status(400).json({ error: "Player profile required" });
+      }
+      
+      // Get the session
+      const session = await storage.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      // Verify player is part of this session
+      const sessionPlayer = await storage.getSessionPlayer(sessionId, playerId);
+      if (!sessionPlayer) {
+        return res.status(403).json({ error: "You are not part of this session" });
+      }
+      
+      // Check if session is in the future
+      const sessionTime = new Date(session.startTime);
+      const now = new Date();
+      if (sessionTime < now) {
+        return res.status(400).json({ error: "Cannot cancel a past session" });
+      }
+      
+      // Get academy settings for cancellation policy
+      const player = await storage.getPlayer(playerId);
+      const academySettings = player?.academyId ? await storage.getAcademySettings(player.academyId) : null;
+      const cancellationWindowHours = academySettings?.cancellationWindowHours || 24;
+      
+      // Calculate if this is a late cancellation
+      const hoursUntilSession = (sessionTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+      const isLateCancellation = hoursUntilSession < cancellationWindowHours;
+      
+      // Update session player to cancelled/absent
+      await storage.updateSessionPlayer(sessionPlayer.id, {
+        attendanceStatus: "absent",
+        absenceReason: reason || "cancelled_by_player",
+        notes: isLateCancellation ? `Late cancellation (${Math.round(hoursUntilSession)}h notice)` : `Cancelled by player`,
+      });
+      
+      // Send notification to coach
+      if (session.coachId) {
+        await storage.createNotification({
+          coachId: session.coachId,
+          type: "session_cancelled",
+          title: "Session Cancelled",
+          message: `${player?.name || "A player"} has cancelled their ${session.sessionType} session${isLateCancellation ? " (late cancellation)" : ""}`,
+          metadata: JSON.stringify({
+            sessionId,
+            playerId,
+            playerName: player?.name,
+            reason,
+            isLateCancellation,
+            hoursNotice: Math.round(hoursUntilSession),
+          }),
+        });
+      }
+      
+      res.json({
+        success: true,
+        message: isLateCancellation 
+          ? `Session cancelled. Note: This is a late cancellation (less than ${cancellationWindowHours}h notice).`
+          : "Session cancelled successfully.",
+        isLateCancellation,
+        hoursNotice: Math.round(hoursUntilSession),
+      });
+    } catch (error) {
+      console.error("Error cancelling session:", error);
+      res.status(500).json({ error: "Failed to cancel session" });
+    }
+  });
+  
+  // Notify coach that player is running late
+  app.post("/api/player/me/sessions/:sessionId/late", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+      const { minutes, message } = req.body; // 5, 10, 15, 20, 30
+      const playerId = req.user!.playerId;
+      
+      if (!playerId) {
+        return res.status(400).json({ error: "Player profile required" });
+      }
+      
+      if (!minutes || minutes < 1 || minutes > 60) {
+        return res.status(400).json({ error: "Please specify valid delay in minutes (1-60)" });
+      }
+      
+      // Get the session
+      const session = await storage.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      // Verify player is part of this session
+      const sessionPlayer = await storage.getSessionPlayer(sessionId, playerId);
+      if (!sessionPlayer) {
+        return res.status(403).json({ error: "You are not part of this session" });
+      }
+      
+      // Check if session is today or in the near future
+      const sessionTime = new Date(session.startTime);
+      const now = new Date();
+      const hoursUntilSession = (sessionTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+      
+      if (hoursUntilSession < -2) {
+        return res.status(400).json({ error: "Session has already passed" });
+      }
+      
+      if (hoursUntilSession > 24) {
+        return res.status(400).json({ error: "You can only send late notifications within 24 hours of the session" });
+      }
+      
+      // Update session player with late status
+      await storage.updateSessionPlayer(sessionPlayer.id, {
+        attendanceStatus: "late",
+        lateMinutes: minutes,
+        notes: message || `Running ${minutes} min late`,
+      });
+      
+      const player = await storage.getPlayer(playerId);
+      
+      // Send notification to coach
+      if (session.coachId) {
+        await storage.createNotification({
+          coachId: session.coachId,
+          type: "player_running_late",
+          title: "Player Running Late",
+          message: `${player?.name || "A player"} is running ${minutes} min late${message ? `: "${message}"` : ""}`,
+          metadata: JSON.stringify({
+            sessionId,
+            playerId,
+            playerName: player?.name,
+            lateMinutes: minutes,
+            message,
+          }),
+        });
+        
+        // Also try to send push notification
+        const coachTokens = await storage.getCoachPushTokens(session.coachId);
+        if (coachTokens.length > 0) {
+          // Push notification would be sent here through expo-notifications
+          console.log(`[Late] Push notification to coach ${session.coachId}: ${player?.name} is ${minutes} min late`);
+        }
+      }
+      
+      res.json({
+        success: true,
+        message: "Coach has been notified that you're running late.",
+        coachNotified: true,
+      });
+    } catch (error) {
+      console.error("Error notifying late:", error);
+      res.status(500).json({ error: "Failed to send late notification" });
+    }
+  });
+  
+  // Get player vacation status
+  app.get("/api/player/me/vacation", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      
+      if (!playerId) {
+        return res.json({ active: false, holidays: [] });
+      }
+      
+      const holidays = await storage.getPlayerHolidays(playerId);
+      const now = new Date();
+      
+      // Find active vacation
+      const activeVacation = holidays.find(h => {
+        const start = new Date(h.startDate);
+        const end = new Date(h.endDate);
+        return now >= start && now <= end;
+      });
+      
+      // Find upcoming vacation
+      const upcomingVacation = holidays.find(h => {
+        const start = new Date(h.startDate);
+        return start > now;
+      });
+      
+      res.json({
+        active: !!activeVacation,
+        currentVacation: activeVacation ? {
+          id: activeVacation.id,
+          startDate: activeVacation.startDate,
+          endDate: activeVacation.endDate,
+        } : null,
+        upcomingVacation: upcomingVacation ? {
+          id: upcomingVacation.id,
+          startDate: upcomingVacation.startDate,
+          endDate: upcomingVacation.endDate,
+        } : null,
+        holidays: holidays.map(h => ({
+          id: h.id,
+          startDate: h.startDate,
+          endDate: h.endDate,
+        })),
+      });
+    } catch (error) {
+      console.error("Error fetching vacation status:", error);
+      res.status(500).json({ error: "Failed to fetch vacation status" });
+    }
+  });
+  
+  // Set player vacation
+  app.post("/api/player/me/vacation", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { startDate, endDate } = req.body;
+      const playerId = req.user!.playerId;
+      
+      if (!playerId) {
+        return res.status(400).json({ error: "Player profile required" });
+      }
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ error: "Start and end dates are required" });
+      }
+      
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      if (end < start) {
+        return res.status(400).json({ error: "End date must be after start date" });
+      }
+      
+      // Check for maximum vacation length (e.g., 90 days)
+      const daysDiff = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+      if (daysDiff > 90) {
+        return res.status(400).json({ error: "Vacation cannot exceed 90 days" });
+      }
+      
+      // Create the holiday
+      const holiday = await storage.createPlayerHoliday({
+        playerId,
+        startDate: startDate,
+        endDate: endDate,
+      });
+      
+      res.json({
+        success: true,
+        message: "Vacation set successfully. Enjoy your break!",
+        vacation: {
+          id: holiday.id,
+          startDate: holiday.startDate,
+          endDate: holiday.endDate,
+        },
+      });
+    } catch (error) {
+      console.error("Error setting vacation:", error);
+      res.status(500).json({ error: "Failed to set vacation" });
+    }
+  });
+  
+  // Cancel/delete player vacation
+  app.delete("/api/player/me/vacation/:id", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const playerId = req.user!.playerId;
+      
+      if (!playerId) {
+        return res.status(400).json({ error: "Player profile required" });
+      }
+      
+      // Verify this vacation belongs to the player
+      const holidays = await storage.getPlayerHolidays(playerId);
+      const holiday = holidays.find(h => h.id === id);
+      
+      if (!holiday) {
+        return res.status(404).json({ error: "Vacation not found" });
+      }
+      
+      // Delete the holiday using direct database operation
+      await db.delete(playerHolidays).where(eq(playerHolidays.id, id));
+      
+      res.json({
+        success: true,
+        message: "Vacation cancelled. Welcome back!",
+      });
+    } catch (error) {
+      console.error("Error cancelling vacation:", error);
+      res.status(500).json({ error: "Failed to cancel vacation" });
     }
   });
   

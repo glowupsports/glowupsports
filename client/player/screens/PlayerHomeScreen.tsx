@@ -1,8 +1,8 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Modal, Platform } from "react-native";
+import React, { useState, useCallback } from "react";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Modal, Platform, TextInput, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
 import { LinearGradient } from "expo-linear-gradient";
@@ -13,6 +13,16 @@ import { OwnerCard } from "@/player/components/OwnerCard";
 import { PlayerStatusBar } from "@/player/components/PlayerStatusBar";
 import { AcademyHubCard } from "@/player/components/AcademyHubCard";
 import { ReviewPromptBanner } from "@/player/components/ReviewPromptBanner";
+import { apiRequest } from "@/lib/queryClient";
+import Animated, { FadeIn, FadeOut, SlideInUp, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming } from "react-native-reanimated";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+
+interface VacationData {
+  active: boolean;
+  currentVacation: { id: string; startDate: string; endDate: string } | null;
+  upcomingVacation: { id: string; startDate: string; endDate: string } | null;
+  holidays: Array<{ id: string; startDate: string; endDate: string }>;
+}
 
 interface OwnerProfileData {
   profile: {
@@ -303,6 +313,102 @@ export default function PlayerHomeScreen() {
     enabled: canAccessPlayerMode && showPlayerDashboard,
   });
 
+  const queryClient = useQueryClient();
+  
+  const { data: vacationData } = useQuery<VacationData>({
+    queryKey: ["/api/player/me/vacation"],
+    enabled: canAccessPlayerMode && showPlayerDashboard,
+  });
+  
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showLateModal, setShowLateModal] = useState(false);
+  const [showVacationModal, setShowVacationModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState<string | null>(null);
+  const [lateMinutes, setLateMinutes] = useState(10);
+  const [lateMessage, setLateMessage] = useState("");
+  const [vacationStartDate, setVacationStartDate] = useState("");
+  const [vacationEndDate, setVacationEndDate] = useState("");
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  
+  const cancelSessionMutation = useMutation({
+    mutationFn: async ({ sessionId, reason }: { sessionId: string; reason: string }) => {
+      return apiRequest("POST", `/api/player/me/sessions/${sessionId}/cancel`, { reason });
+    },
+    onSuccess: (response: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/sessions"] });
+      setShowCancelModal(false);
+      setCancelReason(null);
+      setActionSuccess(response.isLateCancellation 
+        ? "Session cancelled. This counts as a late cancellation."
+        : "Session cancelled successfully.");
+      setTimeout(() => setActionSuccess(null), 4000);
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error?.message || "Failed to cancel session");
+    },
+  });
+  
+  const notifyLateMutation = useMutation({
+    mutationFn: async ({ sessionId, minutes, message }: { sessionId: string; minutes: number; message: string }) => {
+      return apiRequest("POST", `/api/player/me/sessions/${sessionId}/late`, { minutes, message });
+    },
+    onSuccess: () => {
+      setShowLateModal(false);
+      setLateMinutes(10);
+      setLateMessage("");
+      setActionSuccess("Coach has been notified that you're running late.");
+      setTimeout(() => setActionSuccess(null), 4000);
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error?.message || "Failed to notify coach");
+    },
+  });
+  
+  const setVacationMutation = useMutation({
+    mutationFn: async ({ startDate, endDate }: { startDate: string; endDate: string }) => {
+      return apiRequest("POST", "/api/player/me/vacation", { startDate, endDate });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/vacation"] });
+      setShowVacationModal(false);
+      setVacationStartDate("");
+      setVacationEndDate("");
+      setActionSuccess("Vacation set! Enjoy your break.");
+      setTimeout(() => setActionSuccess(null), 4000);
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error?.message || "Failed to set vacation");
+    },
+  });
+  
+  const cancelVacationMutation = useMutation({
+    mutationFn: async (vacationId: string) => {
+      return apiRequest("DELETE", `/api/player/me/vacation/${vacationId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/vacation"] });
+      setActionSuccess("Vacation cancelled. Welcome back!");
+      setTimeout(() => setActionSuccess(null), 4000);
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error?.message || "Failed to cancel vacation");
+    },
+  });
+  
+  const formatVacationDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+  
+  const getVacationDaysRemaining = () => {
+    if (!vacationData?.currentVacation) return 0;
+    const end = new Date(vacationData.currentVacation.endDate);
+    const now = new Date();
+    const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.max(0, diff);
+  };
+
   if (!canAccessPlayerMode) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
@@ -503,11 +609,65 @@ export default function PlayerHomeScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <CollapsibleModeSwitcher />
+      
+      {actionSuccess ? (
+        <Animated.View 
+          entering={SlideInUp.duration(300)} 
+          exiting={FadeOut.duration(200)}
+          style={styles.successBanner}
+        >
+          <Ionicons name="checkmark-circle" size={18} color={Colors.dark.backgroundRoot} />
+          <Text style={styles.successBannerText}>{actionSuccess}</Text>
+        </Animated.View>
+      ) : null}
+      
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
         showsVerticalScrollIndicator={false}
       >
+        {vacationData?.active && vacationData.currentVacation ? (
+          <Animated.View entering={FadeIn.duration(400)} style={styles.vacationBadge}>
+            <LinearGradient
+              colors={[Colors.dark.xpCyan + "30", Colors.dark.primary + "20"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.vacationBadgeGradient}
+            >
+              <View style={styles.vacationBadgeContent}>
+                <View style={styles.vacationBadgeLeft}>
+                  <Ionicons name="airplane" size={18} color={Colors.dark.xpCyan} />
+                  <View>
+                    <Text style={styles.vacationBadgeTitle}>Vacation Mode</Text>
+                    <Text style={styles.vacationBadgeSubtitle}>
+                      {getVacationDaysRemaining()} days remaining
+                    </Text>
+                  </View>
+                </View>
+                <Pressable 
+                  style={styles.vacationEndButton}
+                  onPress={() => {
+                    Alert.alert(
+                      "End Vacation Early?",
+                      "You'll be available for sessions again. This cannot be undone.",
+                      [
+                        { text: "Stay on Vacation", style: "cancel" },
+                        { 
+                          text: "End Vacation", 
+                          style: "destructive",
+                          onPress: () => cancelVacationMutation.mutate(vacationData.currentVacation!.id)
+                        }
+                      ]
+                    );
+                  }}
+                >
+                  <Text style={styles.vacationEndButtonText}>End Early</Text>
+                </Pressable>
+              </View>
+            </LinearGradient>
+          </Animated.View>
+        ) : null}
+        
         <PlayerStatusBar 
           player={player}
           coach={coach}
@@ -541,9 +701,86 @@ export default function PlayerHomeScreen() {
                 <Text style={styles.sessionCoach}>with {coach.name}</Text>
               ) : null}
             </View>
+            
+            {(() => {
+              const isVacationActive = vacationData?.active;
+              const upcomingVacation = vacationData?.upcomingVacation;
+              const sessionDate = nextSession?.date ? new Date(nextSession.date) : null;
+              const upcomingOverlapsSession = upcomingVacation && sessionDate && 
+                new Date(upcomingVacation.startDate) <= sessionDate && 
+                new Date(upcomingVacation.endDate) >= sessionDate;
+              const shouldHideActions = isVacationActive || upcomingOverlapsSession;
+              
+              return shouldHideActions ? (
+                <View style={styles.vacationSessionNote}>
+                  <Ionicons name="information-circle" size={16} color={Colors.dark.xpCyan} />
+                  <Text style={styles.vacationSessionNoteText}>
+                    {isVacationActive 
+                      ? "You're on vacation - session actions paused"
+                      : "This session falls during your planned vacation"}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.sessionActionStrip}>
+                  <Pressable 
+                    style={[styles.sessionActionButton, styles.sessionActionCancel]}
+                    onPress={() => setShowCancelModal(true)}
+                  >
+                    <Ionicons name="close-circle" size={16} color={Colors.dark.error} />
+                    <Text style={[styles.sessionActionText, { color: Colors.dark.error }]}>Cancel</Text>
+                  </Pressable>
+                  
+                  <Pressable 
+                    style={[styles.sessionActionButton, styles.sessionActionLate]}
+                    onPress={() => setShowLateModal(true)}
+                  >
+                    <Ionicons name="time" size={16} color={Colors.dark.orange} />
+                    <Text style={[styles.sessionActionText, { color: Colors.dark.orange }]}>Running Late</Text>
+                  </Pressable>
+                </View>
+              );
+            })()}
           </View>
         ) : null}
-
+        
+        {!vacationData?.active && !vacationData?.upcomingVacation ? (
+          <Pressable 
+            style={styles.vacationModeCard}
+            onPress={() => setShowVacationModal(true)}
+          >
+            <View style={styles.vacationModeContent}>
+              <View style={styles.vacationModeIcon}>
+                <Ionicons name="airplane" size={24} color={Colors.dark.xpCyan} />
+              </View>
+              <View style={styles.vacationModeText}>
+                <Text style={styles.vacationModeTitle}>Going on vacation?</Text>
+                <Text style={styles.vacationModeSubtitle}>Set your dates and we'll pause lessons</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+            </View>
+          </Pressable>
+        ) : null}
+        
+        {vacationData?.upcomingVacation && !vacationData.active ? (
+          <View style={styles.upcomingVacationCard}>
+            <View style={styles.upcomingVacationContent}>
+              <Ionicons name="calendar" size={20} color={Colors.dark.xpCyan} />
+              <View style={styles.upcomingVacationText}>
+                <Text style={styles.upcomingVacationTitle}>Vacation Planned</Text>
+                <Text style={styles.upcomingVacationDates}>
+                  {formatVacationDate(vacationData.upcomingVacation.startDate)} - {formatVacationDate(vacationData.upcomingVacation.endDate)}
+                </Text>
+              </View>
+              <Pressable 
+                style={styles.upcomingVacationCancel}
+                onPress={() => cancelVacationMutation.mutate(vacationData.upcomingVacation!.id)}
+              >
+                <Ionicons name="close" size={18} color={Colors.dark.textMuted} />
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+        
         {lastFeedback ? (
           <Pressable 
             style={styles.feedbackCard}
@@ -641,6 +878,308 @@ export default function PlayerHomeScreen() {
           </View>
         ) : null}
       </ScrollView>
+      
+      <Modal
+        visible={showCancelModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCancelModal(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setShowCancelModal(false)}
+        >
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="close-circle" size={28} color={Colors.dark.error} />
+              <Text style={styles.modalTitle}>Cancel Session</Text>
+            </View>
+            
+            <Text style={styles.modalDescription}>
+              Are you sure you want to cancel your upcoming training? Please select a reason:
+            </Text>
+            
+            <View style={styles.cancelReasonsList}>
+              {[
+                { id: "sick", label: "Feeling unwell", icon: "medkit" },
+                { id: "busy", label: "Schedule conflict", icon: "calendar" },
+                { id: "weather", label: "Bad weather", icon: "rainy" },
+                { id: "other", label: "Other reason", icon: "ellipsis-horizontal" },
+              ].map((reason) => (
+                <Pressable
+                  key={reason.id}
+                  style={[
+                    styles.cancelReasonItem,
+                    cancelReason === reason.id && styles.cancelReasonItemSelected,
+                  ]}
+                  onPress={() => setCancelReason(reason.id)}
+                >
+                  <Ionicons 
+                    name={reason.icon as any} 
+                    size={20} 
+                    color={cancelReason === reason.id ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+                  />
+                  <Text style={[
+                    styles.cancelReasonText,
+                    cancelReason === reason.id && styles.cancelReasonTextSelected,
+                  ]}>{reason.label}</Text>
+                  {cancelReason === reason.id ? (
+                    <Ionicons name="checkmark-circle" size={20} color={Colors.dark.xpCyan} />
+                  ) : null}
+                </Pressable>
+              ))}
+            </View>
+            
+            <View style={styles.cancelNotice}>
+              <Ionicons name="information-circle" size={16} color={Colors.dark.orange} />
+              <Text style={styles.cancelNoticeText}>
+                Cancellations within 24 hours may be counted as a used lesson.
+              </Text>
+            </View>
+            
+            <View style={styles.modalActions}>
+              <Pressable 
+                style={styles.modalCancelButton}
+                onPress={() => setShowCancelModal(false)}
+              >
+                <Text style={styles.modalCancelButtonText}>Never Mind</Text>
+              </Pressable>
+              <Pressable 
+                style={[
+                  styles.modalConfirmButton,
+                  !cancelReason && styles.modalConfirmButtonDisabled,
+                ]}
+                onPress={() => {
+                  if (cancelReason && nextSession) {
+                    cancelSessionMutation.mutate({ sessionId: nextSession.id, reason: cancelReason });
+                  }
+                }}
+                disabled={!cancelReason || cancelSessionMutation.isPending}
+              >
+                {cancelSessionMutation.isPending ? (
+                  <ActivityIndicator size="small" color={Colors.dark.text} />
+                ) : (
+                  <Text style={styles.modalConfirmButtonText}>Confirm Cancel</Text>
+                )}
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+      
+      <Modal
+        visible={showLateModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLateModal(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setShowLateModal(false)}
+        >
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="time" size={28} color={Colors.dark.orange} />
+              <Text style={styles.modalTitle}>Running Late?</Text>
+            </View>
+            
+            <Text style={styles.modalDescription}>
+              Let your coach know you're on the way. How late will you be?
+            </Text>
+            
+            <View style={styles.lateMinutesPicker}>
+              {[5, 10, 15, 20, 30].map((mins) => (
+                <Pressable
+                  key={mins}
+                  style={[
+                    styles.lateMinutesOption,
+                    lateMinutes === mins && styles.lateMinutesOptionSelected,
+                  ]}
+                  onPress={() => setLateMinutes(mins)}
+                >
+                  <Text style={[
+                    styles.lateMinutesText,
+                    lateMinutes === mins && styles.lateMinutesTextSelected,
+                  ]}>{mins} min</Text>
+                </Pressable>
+              ))}
+            </View>
+            
+            <TextInput
+              style={styles.lateMessageInput}
+              placeholder="Optional message (e.g., 'Stuck in traffic')"
+              placeholderTextColor={Colors.dark.textMuted}
+              value={lateMessage}
+              onChangeText={setLateMessage}
+              multiline
+              maxLength={100}
+            />
+            
+            <View style={styles.modalActions}>
+              <Pressable 
+                style={styles.modalCancelButton}
+                onPress={() => setShowLateModal(false)}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable 
+                style={styles.modalConfirmButton}
+                onPress={() => {
+                  if (nextSession) {
+                    notifyLateMutation.mutate({ 
+                      sessionId: nextSession.id, 
+                      minutes: lateMinutes,
+                      message: lateMessage,
+                    });
+                  }
+                }}
+                disabled={notifyLateMutation.isPending}
+              >
+                {notifyLateMutation.isPending ? (
+                  <ActivityIndicator size="small" color={Colors.dark.text} />
+                ) : (
+                  <Text style={styles.modalConfirmButtonText}>Notify Coach</Text>
+                )}
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+      
+      <Modal
+        visible={showVacationModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowVacationModal(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setShowVacationModal(false)}
+        >
+          <KeyboardAwareScrollViewCompat 
+            contentContainerStyle={styles.vacationModalScrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.modalHeader}>
+                <Ionicons name="airplane" size={28} color={Colors.dark.xpCyan} />
+                <Text style={styles.modalTitle}>Set Vacation</Text>
+              </View>
+              
+              <Text style={styles.modalDescription}>
+                Taking a break? Let us know when you'll be away.
+              </Text>
+              
+              <View style={styles.vacationDateInputs}>
+                <View style={styles.vacationDateField}>
+                  <Text style={styles.vacationDateLabel}>Start Date</Text>
+                  <TextInput
+                    style={styles.vacationDateInput}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={Colors.dark.textMuted}
+                    value={vacationStartDate}
+                    onChangeText={setVacationStartDate}
+                    keyboardType="numbers-and-punctuation"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+                <View style={styles.vacationDateField}>
+                  <Text style={styles.vacationDateLabel}>End Date</Text>
+                  <TextInput
+                    style={styles.vacationDateInput}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={Colors.dark.textMuted}
+                    value={vacationEndDate}
+                    onChangeText={setVacationEndDate}
+                    keyboardType="numbers-and-punctuation"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+              </View>
+              
+              {(() => {
+                const isValidDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && !isNaN(new Date(d).getTime());
+                const startValid = isValidDate(vacationStartDate);
+                const endValid = isValidDate(vacationEndDate);
+                const startDate = new Date(vacationStartDate);
+                const endDate = new Date(vacationEndDate);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                const errorMessage = 
+                  (vacationStartDate && !startValid) ? "Start date format should be YYYY-MM-DD" :
+                  (vacationEndDate && !endValid) ? "End date format should be YYYY-MM-DD" :
+                  (startValid && startDate < today) ? "Start date must be today or later" :
+                  (startValid && endValid && endDate < startDate) ? "End date must be after start date" :
+                  null;
+                
+                return errorMessage ? (
+                  <View style={styles.vacationError}>
+                    <Ionicons name="alert-circle" size={16} color={Colors.dark.error} />
+                    <Text style={styles.vacationErrorText}>{errorMessage}</Text>
+                  </View>
+                ) : null;
+              })()}
+              
+              <View style={styles.vacationTip}>
+                <Ionicons name="information-circle" size={16} color={Colors.dark.xpCyan} />
+                <Text style={styles.vacationTipText}>
+                  Sessions during this period won't be scheduled.
+                </Text>
+              </View>
+              
+              <View style={styles.modalActions}>
+                <Pressable 
+                  style={styles.modalCancelButton}
+                  onPress={() => setShowVacationModal(false)}
+                >
+                  <Text style={styles.modalCancelButtonText}>Cancel</Text>
+                </Pressable>
+                <Pressable 
+                  style={[
+                    styles.modalConfirmButton,
+                    (!vacationStartDate || !vacationEndDate) && styles.modalConfirmButtonDisabled,
+                  ]}
+                  onPress={() => {
+                    const isValidDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && !isNaN(new Date(d).getTime());
+                    if (!isValidDate(vacationStartDate) || !isValidDate(vacationEndDate)) {
+                      Alert.alert("Invalid Date", "Please enter dates in YYYY-MM-DD format");
+                      return;
+                    }
+                    const startDate = new Date(vacationStartDate);
+                    const endDate = new Date(vacationEndDate);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    
+                    if (startDate < today) {
+                      Alert.alert("Invalid Date", "Start date must be today or later");
+                      return;
+                    }
+                    if (endDate < startDate) {
+                      Alert.alert("Invalid Date", "End date must be after start date");
+                      return;
+                    }
+                    
+                    setVacationMutation.mutate({ 
+                      startDate: vacationStartDate, 
+                      endDate: vacationEndDate,
+                    });
+                  }}
+                  disabled={!vacationStartDate || !vacationEndDate || setVacationMutation.isPending}
+                >
+                  {setVacationMutation.isPending ? (
+                    <ActivityIndicator size="small" color={Colors.dark.text} />
+                  ) : (
+                    <Text style={styles.modalConfirmButtonText}>Set Vacation</Text>
+                  )}
+                </Pressable>
+              </View>
+            </Pressable>
+          </KeyboardAwareScrollViewCompat>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -992,6 +1531,354 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.gold,
     fontWeight: "600",
+  },
+  successBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.primary,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  successBannerText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+    flex: 1,
+  },
+  vacationBadge: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  vacationBadgeGradient: {
+    padding: Spacing.md,
+  },
+  vacationBadgeContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  vacationBadgeLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  vacationBadgeTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  vacationBadgeSubtitle: {
+    ...Typography.small,
+    color: Colors.dark.xpCyan,
+  },
+  vacationEndButton: {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  vacationEndButtonText: {
+    ...Typography.small,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  sessionActionStrip: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  sessionActionButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  sessionActionCancel: {
+    backgroundColor: "rgba(255, 71, 87, 0.1)",
+  },
+  sessionActionLate: {
+    backgroundColor: "rgba(255, 165, 0, 0.1)",
+  },
+  sessionActionText: {
+    ...Typography.small,
+    fontWeight: "600",
+  },
+  vacationModeCard: {
+    ...CardStyles.glowCard,
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+    borderStyle: "dashed",
+  },
+  vacationModeContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  vacationModeIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  vacationModeText: {
+    flex: 1,
+  },
+  vacationModeTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  vacationModeSubtitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  modalContent: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    width: "100%",
+    maxWidth: 400,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  modalTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  modalDescription: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.lg,
+  },
+  cancelReasonsList: {
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  cancelReasonItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  cancelReasonItemSelected: {
+    borderColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.xpCyan + "10",
+  },
+  cancelReasonText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    flex: 1,
+  },
+  cancelReasonTextSelected: {
+    color: Colors.dark.text,
+  },
+  cancelNotice: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.orange + "15",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    marginBottom: Spacing.lg,
+  },
+  cancelNoticeText: {
+    ...Typography.small,
+    color: Colors.dark.orange,
+    flex: 1,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    alignItems: "center",
+  },
+  modalCancelButtonText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  modalConfirmButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+  },
+  modalConfirmButtonDisabled: {
+    opacity: 0.5,
+  },
+  modalConfirmButtonText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  lateMinutesPicker: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  lateMinutesOption: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  lateMinutesOptionSelected: {
+    borderColor: Colors.dark.orange,
+    backgroundColor: Colors.dark.orange + "15",
+  },
+  lateMinutesText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  lateMinutesTextSelected: {
+    color: Colors.dark.orange,
+  },
+  lateMessageInput: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.lg,
+    minHeight: 60,
+    textAlignVertical: "top",
+  },
+  vacationDateInputs: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  vacationDateField: {
+    flex: 1,
+  },
+  vacationDateLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.xs,
+  },
+  vacationDateInput: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    textAlign: "center",
+  },
+  vacationTip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    marginBottom: Spacing.lg,
+  },
+  vacationTipText: {
+    ...Typography.small,
+    color: Colors.dark.xpCyan,
+    flex: 1,
+  },
+  vacationError: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.error + "15",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    marginBottom: Spacing.md,
+  },
+  vacationErrorText: {
+    ...Typography.small,
+    color: Colors.dark.error,
+    flex: 1,
+  },
+  vacationModalScrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+  },
+  upcomingVacationCard: {
+    ...CardStyles.glowCard,
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+  },
+  upcomingVacationContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  upcomingVacationText: {
+    flex: 1,
+  },
+  upcomingVacationTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  upcomingVacationDates: {
+    ...Typography.small,
+    color: Colors.dark.xpCyan,
+  },
+  upcomingVacationCancel: {
+    padding: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.sm,
+  },
+  vacationSessionNote: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  vacationSessionNoteText: {
+    ...Typography.small,
+    color: Colors.dark.xpCyan,
+    fontStyle: "italic",
   },
 });
 
