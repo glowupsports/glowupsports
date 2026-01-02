@@ -12,15 +12,18 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
+      "android": {
+        "autoIncrement": true
+      },
       "env": {
         "EXPO_PUBLIC_DOMAIN": "glow-up-sports--ltvjeugd.replit.app"
       }
     },
     "production": {
-      "autoIncrement": true,
       "channel": "production",
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "app-bundle",
+        "autoIncrement": true
       },
       "env": {
         "EXPO_PUBLIC_DOMAIN": "glow-up-sports--ltvjeugd.replit.app"

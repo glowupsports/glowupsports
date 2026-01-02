@@ -28,7 +28,6 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.glowupsports.app",
-      "versionCode": 2,
       "permissions": ["INTERNET", "ACCESS_NETWORK_STATE"]
     },
     "web": {
@@ -48,15 +47,7 @@
           }
         }
       ],
-      "expo-web-browser",
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "usesCleartextTraffic": true
-          }
-        }
-      ]
+      "expo-web-browser"
     ],
     "experiments": {
       "reactCompiler": true
