@@ -9453,14 +9453,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get social data (matches and connections)
       const matchesResult = await db.execute(sql`
         SELECT COUNT(*) as count FROM player_matches 
-        WHERE (player1_id = ${playerId} OR player2_id = ${playerId})
+        WHERE (initiator_id = ${playerId} OR receiver_id = ${playerId})
         AND status = 'completed'
       `);
       const matchesPlayed = Number(matchesResult.rows[0]?.count || 0);
 
       const connectionsResult = await db.execute(sql`
         SELECT COUNT(*) as count FROM player_connections 
-        WHERE (player_id = ${playerId} OR connected_player_id = ${playerId})
+        WHERE (player1_id = ${playerId} OR player2_id = ${playerId})
       `);
       const connectionsCount = Number(connectionsResult.rows[0]?.count || 0);
 
@@ -9472,16 +9472,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           last_played_at
         FROM (
           SELECT 
-            CASE WHEN player1_id = ${playerId} THEN player2_id ELSE player1_id END as partner_id,
-            CASE WHEN player1_id = ${playerId} 
-              THEN (SELECT name FROM players WHERE id = player2_id)
-              ELSE (SELECT name FROM players WHERE id = player1_id)
+            CASE WHEN initiator_id = ${playerId} THEN receiver_id ELSE initiator_id END as partner_id,
+            CASE WHEN initiator_id = ${playerId} 
+              THEN (SELECT name FROM players WHERE id = receiver_id)
+              ELSE (SELECT name FROM players WHERE id = initiator_id)
             END as partner_name,
-            scheduled_date as last_played_at
+            proposed_date as last_played_at
           FROM player_matches
-          WHERE (player1_id = ${playerId} OR player2_id = ${playerId})
+          WHERE (initiator_id = ${playerId} OR receiver_id = ${playerId})
           AND status = 'completed'
-          ORDER BY scheduled_date DESC
+          ORDER BY proposed_date DESC
         ) sub
         ORDER BY partner_id, last_played_at DESC
         LIMIT 5
