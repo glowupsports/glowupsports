@@ -498,44 +498,6 @@ export default function DashboardScreen() {
       {/* Collapsible Mode Switcher */}
       <CollapsibleModeSwitcher />
 
-      {/* Session Countdown - shows for live sessions or sessions starting within 30 minutes */}
-      {sessionForCountdown ? (
-        <NextSessionCountdown
-          session={{
-            id: sessionForCountdown.id,
-            sessionType: sessionForCountdown.sessionType,
-            startTime: sessionForCountdown.startTime,
-            endTime: sessionForCountdown.endTime,
-            courtName: (calendarData?.courts || []).find(
-              (c: any) => c.id === sessionForCountdown.courtId
-            )?.name,
-          }}
-          onCancel={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            RNAlert.alert("Cancel Session", "Navigate to session details to cancel");
-          }}
-          onDelay={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            RNAlert.alert("Delay Session", "Session delay feature coming soon");
-          }}
-          onAttend={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            RNAlert.alert("Attendance", "Mark attendance feature coming soon");
-          }}
-          onExtend={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            RNAlert.alert("Extend Session", "Session extension feature coming soon");
-          }}
-          onEnd={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            RNAlert.alert("End Session", "End session early feature coming soon");
-          }}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          }}
-        />
-      ) : null}
-
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.footerCollapsed + 100 }]}
@@ -771,21 +733,33 @@ export default function DashboardScreen() {
                         colors={[Colors.dark.primary + "30", Colors.dark.primary + "10"]}
                         style={styles.liveHudBg}
                       >
-                        <View style={styles.liveHudHeader}>
-                          <View style={styles.liveIndicatorNew}>
-                            <Animated.View style={[styles.livePulseRing, pulseAnimatedStyle]} />
-                            <View style={styles.liveDotCore} />
+                        <View style={styles.liveHudContent}>
+                          <View style={styles.liveHudLeft}>
+                            <View style={styles.liveHudHeader}>
+                              <View style={styles.liveIndicatorNew}>
+                                <Animated.View style={[styles.livePulseRing, pulseAnimatedStyle]} />
+                                <View style={styles.liveDotCore} />
+                              </View>
+                              <Text style={styles.liveStatusText}>LIVE SESSION</Text>
+                            </View>
+                            
+                            <Text style={styles.countdownTimer}>{sessionTimeRemaining}</Text>
+                            <Text style={styles.countdownLabel}>REMAINING</Text>
+                            
+                            <View style={styles.sessionMeta}>
+                              <Text style={styles.sessionMetaText}>
+                                {getSessionTypeLabel(currentSession.sessionType)} {calendarData?.courts?.find(c => c.id === currentSession.courtId)?.name ? `· ${calendarData?.courts?.find(c => c.id === currentSession.courtId)?.name}` : ""}
+                              </Text>
+                            </View>
                           </View>
-                          <Text style={styles.liveStatusText}>LIVE SESSION</Text>
-                        </View>
-                        
-                        <Text style={styles.countdownTimer}>{sessionTimeRemaining}</Text>
-                        <Text style={styles.countdownLabel}>REMAINING</Text>
-                        
-                        <View style={styles.sessionMeta}>
-                          <Text style={styles.sessionMetaText}>
-                            {getSessionTypeLabel(currentSession.sessionType)} · {calendarData?.courts?.find(c => c.id === currentSession.courtId)?.name || "Court"}
-                          </Text>
+                          
+                          <View style={styles.liveHudRight}>
+                            <Animated.View style={[styles.liveCircleGlow, pulseAnimatedStyle]} />
+                            <View style={styles.liveCircleBadge}>
+                              <Text style={styles.liveCircleText}>LIVE</Text>
+                              <Text style={styles.liveCircleSubtext}>IN SESSION</Text>
+                            </View>
+                          </View>
                         </View>
                       </LinearGradient>
                     </View>
@@ -812,8 +786,8 @@ export default function DashboardScreen() {
                         (navigation as any).navigate("Calendar", { openSessionId: currentSession.id, action: "attendance" });
                       }}
                     >
-                      <View style={[styles.actionBtnIcon, { backgroundColor: Colors.dark.primary + "20" }]}>
-                        <Ionicons name="checkmark-circle" size={18} color={Colors.dark.primary} />
+                      <View style={[styles.gameActionIcon, { backgroundColor: Colors.dark.primary }]}>
+                        <Ionicons name="checkmark" size={22} color="#000" />
                       </View>
                       <Text style={styles.actionBtnLabel}>ATTEND</Text>
                     </Pressable>
@@ -824,8 +798,8 @@ export default function DashboardScreen() {
                         (navigation as any).navigate("Calendar", { openSessionId: currentSession.id, action: "extend" });
                       }}
                     >
-                      <View style={[styles.actionBtnIcon, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
-                        <Ionicons name="time" size={18} color={Colors.dark.xpCyan} />
+                      <View style={[styles.gameActionIcon, { backgroundColor: Colors.dark.xpCyan }]}>
+                        <Ionicons name="add" size={24} color="#000" />
                       </View>
                       <Text style={[styles.actionBtnLabel, { color: Colors.dark.xpCyan }]}>EXTEND</Text>
                     </Pressable>
@@ -836,8 +810,8 @@ export default function DashboardScreen() {
                         (navigation as any).navigate("Calendar", { openSessionId: currentSession.id, action: "end" });
                       }}
                     >
-                      <View style={[styles.actionBtnIcon, { backgroundColor: Colors.dark.orange + "20" }]}>
-                        <Ionicons name="stop-circle" size={18} color={Colors.dark.orange} />
+                      <View style={[styles.gameActionIcon, { backgroundColor: Colors.dark.orange }]}>
+                        <Ionicons name="stop" size={20} color="#000" />
                       </View>
                       <Text style={[styles.actionBtnLabel, { color: Colors.dark.orange }]}>END</Text>
                     </Pressable>
@@ -1831,10 +1805,54 @@ const styles = StyleSheet.create({
   },
   liveHudBg: {
     padding: Spacing.lg,
-    alignItems: "center",
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: Colors.dark.primary + "40",
+  },
+  liveHudContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+  },
+  liveHudLeft: {
+    flex: 1,
+  },
+  liveHudRight: {
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative" as const,
+    marginLeft: Spacing.md,
+  },
+  liveCircleGlow: {
+    position: "absolute" as const,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: Colors.dark.error,
+  },
+  liveCircleBadge: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.dark.error,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 3,
+    borderColor: "#ff6666",
+  },
+  liveCircleText: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#fff",
+    letterSpacing: 2,
+  },
+  liveCircleSubtext: {
+    fontSize: 8,
+    fontWeight: "700",
+    color: "rgba(255, 255, 255, 0.9)",
+    letterSpacing: 0.5,
+    marginTop: 1,
   },
   liveHudHeader: {
     flexDirection: "row",
@@ -1913,6 +1931,13 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  gameActionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
   },
