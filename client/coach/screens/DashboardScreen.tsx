@@ -203,16 +203,24 @@ export default function DashboardScreen() {
     return upcoming[0] || null;
   }, [todaysSessions]);
 
-  const upcomingSessionForCountdown = useMemo(() => {
-    if (!nextSession) return null;
+  const sessionForCountdown = useMemo(() => {
     const now = new Date();
+    
+    const liveSession = todaysSessions.find((s) => {
+      const start = new Date(s.startTime);
+      const end = new Date(s.endTime);
+      return now >= start && now < end;
+    });
+    if (liveSession) return liveSession;
+    
+    if (!nextSession) return null;
     const sessionStart = new Date(nextSession.startTime);
     const minutesUntil = (sessionStart.getTime() - now.getTime()) / (1000 * 60);
     if (minutesUntil <= 30 && minutesUntil > 0) {
       return nextSession;
     }
     return null;
-  }, [nextSession, currentMinute]);
+  }, [todaysSessions, nextSession, currentMinute]);
 
   const coachStats = useMemo(() => {
     const maxDailyMinutes = 360;
@@ -490,16 +498,16 @@ export default function DashboardScreen() {
       {/* Collapsible Mode Switcher */}
       <CollapsibleModeSwitcher />
 
-      {/* Next Session Countdown - shows when session starts within 30 minutes */}
-      {upcomingSessionForCountdown ? (
+      {/* Session Countdown - shows for live sessions or sessions starting within 30 minutes */}
+      {sessionForCountdown ? (
         <NextSessionCountdown
           session={{
-            id: upcomingSessionForCountdown.id,
-            sessionType: upcomingSessionForCountdown.sessionType,
-            startTime: upcomingSessionForCountdown.startTime,
-            endTime: upcomingSessionForCountdown.endTime,
+            id: sessionForCountdown.id,
+            sessionType: sessionForCountdown.sessionType,
+            startTime: sessionForCountdown.startTime,
+            endTime: sessionForCountdown.endTime,
             courtName: (calendarData?.courts || []).find(
-              (c: any) => c.id === upcomingSessionForCountdown.courtId
+              (c: any) => c.id === sessionForCountdown.courtId
             )?.name,
           }}
           onCancel={() => {
@@ -509,6 +517,18 @@ export default function DashboardScreen() {
           onDelay={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             RNAlert.alert("Delay Session", "Session delay feature coming soon");
+          }}
+          onAttend={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            RNAlert.alert("Attendance", "Mark attendance feature coming soon");
+          }}
+          onExtend={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            RNAlert.alert("Extend Session", "Session extension feature coming soon");
+          }}
+          onEnd={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            RNAlert.alert("End Session", "End session early feature coming soon");
           }}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

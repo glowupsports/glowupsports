@@ -40,17 +40,27 @@ interface NextSessionCountdownProps {
   onCancel?: () => void;
   onDelay?: () => void;
   onPress?: () => void;
+  onAttend?: () => void;
+  onExtend?: () => void;
+  onEnd?: () => void;
 }
+
+type SessionState = "upcoming" | "live";
 
 export function NextSessionCountdown({
   session,
   onCancel,
   onDelay,
   onPress,
+  onAttend,
+  onExtend,
+  onEnd,
 }: NextSessionCountdownProps) {
   const [timeLeft, setTimeLeft] = useState({ minutes: 0, seconds: 0, totalSeconds: 0 });
+  const [sessionState, setSessionState] = useState<SessionState>("upcoming");
   const pulseAnim = useSharedValue(0);
   const ringGlow = useSharedValue(0);
+  const liveGlow = useSharedValue(0);
 
   useEffect(() => {
     pulseAnim.value = withRepeat(
@@ -70,34 +80,60 @@ export function NextSessionCountdown({
       -1,
       false
     );
+
+    liveGlow.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.4, { duration: 800, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      false
+    );
   }, []);
 
-  const calculateTimeLeft = useCallback(() => {
+  const calculateTimeAndState = useCallback(() => {
     const now = new Date();
     const start = new Date(session.startTime);
-    const diffMs = start.getTime() - now.getTime();
+    const end = new Date(session.endTime);
     
-    if (diffMs <= 0) {
-      return { minutes: 0, seconds: 0, totalSeconds: 0 };
+    if (now >= start && now < end) {
+      const diffMs = end.getTime() - now.getTime();
+      const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return { 
+        state: "live" as SessionState, 
+        time: { minutes, seconds, totalSeconds } 
+      };
+    } else if (now < start) {
+      const diffMs = start.getTime() - now.getTime();
+      const totalSeconds = Math.floor(diffMs / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return { 
+        state: "upcoming" as SessionState, 
+        time: { minutes, seconds, totalSeconds } 
+      };
     }
-
-    const totalSeconds = Math.floor(diffMs / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
     
-    return { minutes, seconds, totalSeconds };
-  }, [session.startTime]);
+    return { 
+      state: "upcoming" as SessionState, 
+      time: { minutes: 0, seconds: 0, totalSeconds: 0 } 
+    };
+  }, [session.startTime, session.endTime]);
 
   useEffect(() => {
     const updateTime = () => {
-      setTimeLeft(calculateTimeLeft());
+      const result = calculateTimeAndState();
+      setSessionState(result.state);
+      setTimeLeft(result.time);
     };
     
     updateTime();
     const interval = setInterval(updateTime, 1000);
     
     return () => clearInterval(interval);
-  }, [calculateTimeLeft]);
+  }, [calculateTimeAndState]);
 
   const pulseStyle = useAnimatedStyle(() => ({
     opacity: interpolate(pulseAnim.value, [0, 1], [0.3, 0.8]),
@@ -106,6 +142,11 @@ export function NextSessionCountdown({
 
   const glowStyle = useAnimatedStyle(() => ({
     opacity: ringGlow.value,
+  }));
+
+  const liveGlowStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(liveGlow.value, [0, 1], [0.5, 1]),
+    transform: [{ scale: interpolate(liveGlow.value, [0, 1], [0.98, 1.02]) }],
   }));
 
   const formatTime = (mins: number, secs: number) => {
@@ -143,15 +184,25 @@ export function NextSessionCountdown({
   };
 
   const sessionColor = getSessionTypeColor();
-  const isUrgent = timeLeft.totalSeconds <= 300;
-  const isStartingSoon = timeLeft.totalSeconds <= 1800;
+  const isLive = sessionState === "live";
+  const isUrgent = !isLive && timeLeft.totalSeconds <= 300;
   
   const circleSize = 100;
   const strokeWidth = 6;
   const radius = (circleSize - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const maxSeconds = 1800;
-  const progress = Math.min(timeLeft.totalSeconds / maxSeconds, 1);
+  
+  const getProgress = () => {
+    if (isLive) {
+      const sessionDurationMs = new Date(session.endTime).getTime() - new Date(session.startTime).getTime();
+      const sessionDurationSeconds = sessionDurationMs / 1000;
+      return Math.min(timeLeft.totalSeconds / sessionDurationSeconds, 1);
+    }
+    const maxSeconds = 1800;
+    return Math.min(timeLeft.totalSeconds / maxSeconds, 1);
+  };
+  
+  const progress = getProgress();
   const strokeDashoffset = circumference * (1 - progress);
 
   const handleCancel = () => {
@@ -163,6 +214,87 @@ export function NextSessionCountdown({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onDelay?.();
   };
+
+  const handleAttend = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onAttend?.();
+  };
+
+  const handleExtend = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onExtend?.();
+  };
+
+  const handleEnd = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onEnd?.();
+  };
+
+  if (isLive) {
+    return (
+      <Pressable
+        style={styles.container}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onPress?.();
+        }}
+      >
+        <View style={[styles.liveGradient, { backgroundColor: "rgba(255, 68, 68, 0.08)" }]} />
+        
+        <View style={styles.content}>
+          <View style={styles.liveHeader}>
+            <View style={styles.liveIndicatorRow}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveSessionTitle}>LIVE SESSION</Text>
+            </View>
+          </View>
+
+          <View style={styles.liveMainContent}>
+            <View style={styles.liveTimerSection}>
+              <Text style={styles.liveTimerText}>
+                {formatTime(timeLeft.minutes, timeLeft.seconds)}
+              </Text>
+              <Text style={styles.liveRemainingLabel}>REMAINING</Text>
+              <Text style={styles.liveSessionInfo}>
+                {getSessionTypeLabel()} {session.courtName ? `\u00B7 ${session.courtName}` : ""}
+              </Text>
+            </View>
+
+            <View style={styles.liveCircleSection}>
+              <Animated.View style={[styles.liveCircleGlow, liveGlowStyle]} />
+              <View style={styles.liveCircle}>
+                <Text style={styles.liveCircleText}>LIVE</Text>
+                <Text style={styles.liveCircleSubtext}>IN SESSION</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.liveActions}>
+            <Pressable style={styles.liveActionButton} onPress={handleAttend}>
+              <View style={[styles.liveActionIcon, styles.attendIcon]}>
+                <Ionicons name="checkmark" size={20} color={Colors.dark.primary} />
+              </View>
+              <Text style={styles.liveActionText}>ATTEND</Text>
+            </Pressable>
+
+            <Pressable style={styles.liveActionButton} onPress={handleExtend}>
+              <View style={[styles.liveActionIcon, styles.extendIcon]}>
+                <Ionicons name="add" size={20} color={Colors.dark.xpCyan} />
+              </View>
+              <Text style={styles.liveActionText}>EXTEND</Text>
+            </Pressable>
+
+            <Pressable style={styles.liveActionButton} onPress={handleEnd}>
+              <View style={[styles.liveActionIcon, styles.endIcon]}>
+                <Ionicons name="stop" size={18} color={Colors.dark.orange} />
+              </View>
+              <Text style={styles.liveActionText}>END</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Pressable>
+    );
+  }
 
   return (
     <Pressable
@@ -303,6 +435,13 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderRadius: BorderRadius.lg,
   },
+  liveGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   content: {
     padding: Spacing.lg,
   },
@@ -311,6 +450,132 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: Spacing.md,
+  },
+  liveHeader: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  liveIndicatorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 68, 68, 0.15)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    gap: 8,
+  },
+  liveDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.dark.error,
+  },
+  liveSessionTitle: {
+    color: Colors.dark.error,
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+  liveMainContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  liveTimerSection: {
+    flex: 1,
+    alignItems: "flex-start",
+  },
+  liveTimerText: {
+    color: Colors.dark.text,
+    fontSize: 48,
+    fontWeight: "800",
+    fontVariant: ["tabular-nums"],
+    letterSpacing: 2,
+  },
+  liveRemainingLabel: {
+    color: Colors.dark.textMuted,
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 1,
+    marginTop: -4,
+  },
+  liveSessionInfo: {
+    color: Colors.dark.xpCyan,
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: Spacing.sm,
+  },
+  liveCircleSection: {
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  liveCircleGlow: {
+    position: "absolute",
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: "rgba(255, 68, 68, 0.3)",
+  },
+  liveCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: "rgba(255, 68, 68, 0.9)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 3,
+    borderColor: Colors.dark.error,
+  },
+  liveCircleText: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "900",
+    letterSpacing: 2,
+  },
+  liveCircleSubtext: {
+    color: "rgba(255, 255, 255, 0.8)",
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    marginTop: 2,
+  },
+  liveActions: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: Spacing.xl,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.backgroundTertiary,
+  },
+  liveActionButton: {
+    alignItems: "center",
+    gap: 4,
+  },
+  liveActionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attendIcon: {
+    backgroundColor: Colors.dark.primary,
+  },
+  extendIcon: {
+    backgroundColor: Colors.dark.xpCyan,
+  },
+  endIcon: {
+    backgroundColor: Colors.dark.orange,
+  },
+  liveActionText: {
+    color: Colors.dark.textMuted,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
   badges: {
     flexDirection: "row",
