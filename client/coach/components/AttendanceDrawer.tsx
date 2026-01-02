@@ -163,8 +163,11 @@ export default function AttendanceDrawer({
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
-      onSave();
-      onClose();
+      Alert.alert(
+        "Saved",
+        "Attendance has been recorded successfully.",
+        [{ text: "OK", onPress: () => { onSave(); onClose(); } }]
+      );
     },
     onError: (error: Error) => {
       Alert.alert("Error", error.message || "Failed to save attendance");

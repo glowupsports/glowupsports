@@ -2260,11 +2260,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Save attendance (offline-safe)
+  // Save attendance (offline-safe) - supports single or batch
   app.post("/api/coach/sessions/:id/attendance", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const { playerId, status, lateMinutes, absenceReason } = req.body;
       const academyId = req.user!.academyId;
 
       const { valid } = await validateSessionOwnership(id, academyId, storage);
@@ -2272,6 +2271,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Session not found" });
       }
 
+      // Handle batch attendance (array of records)
+      if (req.body.attendance && Array.isArray(req.body.attendance)) {
+        const results = [];
+        for (const record of req.body.attendance) {
+          const updated = await storage.updateAttendance(
+            id,
+            record.playerId,
+            record.status,
+            record.lateMinutes,
+            record.absentReason
+          );
+          results.push(updated);
+        }
+        return res.json({ success: true, updated: results.length, message: "Attendance saved" });
+      }
+
+      // Handle single player attendance (legacy)
+      const { playerId, status, lateMinutes, absenceReason } = req.body;
       const updated = await storage.updateAttendance(
         id,
         playerId,
