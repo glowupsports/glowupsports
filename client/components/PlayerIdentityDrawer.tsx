@@ -223,17 +223,10 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
 
                 <View style={styles.identityInfo}>
                   <Text style={styles.playerName}>{player?.name || "Player"}</Text>
+                  <Text style={styles.titleText}>{getPlayerTitle(level)}</Text>
                   
-                  <View style={styles.titleRow}>
-                    <Text style={styles.titleText}>{getPlayerTitle(level)}</Text>
-                  </View>
-                  
-                  <View style={styles.levelRow}>
-                    <Text style={styles.lvLabel}>LV</Text>
-                    <Text style={styles.lvNumber}>{level}</Text>
-                  </View>
-
-                  <View style={styles.xpSection}>
+                  <View style={styles.levelXpRow}>
+                    <Text style={styles.lvLabel}>LV {level}</Text>
                     <View style={styles.xpBarContainer}>
                       <View style={styles.xpBarBg}>
                         <LinearGradient
@@ -244,26 +237,23 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
                         />
                       </View>
                     </View>
-                    <Text style={styles.xpText}>{xpDisplay}</Text>
-                    <View style={styles.xpBatteryIcon}>
-                      <Ionicons name="battery-half-outline" size={16} color={Colors.dark.xpCyan} />
-                    </View>
+                  </View>
+                  
+                  <View style={styles.chipRow}>
+                    {glowScore > 0 ? (
+                      <View style={styles.glowChip}>
+                        <Ionicons name="flash" size={12} color={Colors.dark.xpCyan} />
+                        <Text style={styles.glowChipText}>{glowScore}</Text>
+                      </View>
+                    ) : null}
+                    {streak > 0 ? (
+                      <View style={styles.streakChip}>
+                        <Ionicons name="flame" size={12} color={Colors.dark.orange} />
+                        <Text style={styles.streakChipText}>{streak}d</Text>
+                      </View>
+                    ) : null}
                   </View>
                 </View>
-              </View>
-
-              <View style={styles.badgesRow}>
-                <View style={styles.glowBadge}>
-                  <Ionicons name="flash" size={14} color={Colors.dark.xpCyan} />
-                  <Text style={styles.glowBadgeText}>{glowScore} Glow</Text>
-                </View>
-                
-                {streak > 0 ? (
-                  <View style={styles.streakBadge}>
-                    <Ionicons name="flame" size={14} color={Colors.dark.orange} />
-                    <Text style={styles.streakBadgeText}>{streak} day streak</Text>
-                  </View>
-                ) : null}
               </View>
             </View>
 
@@ -272,39 +262,37 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
             {/* ═══════════════════════════════════════════════════════════ */}
             <View style={styles.heroActions}>
               <Pressable
-                style={({ pressed }) => [styles.heroButton, pressed && styles.heroButtonPressed]}
+                style={({ pressed }) => [styles.heroButtonPrimary, pressed && styles.heroButtonPressed]}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                   navigateAndClose("CourtBooking");
                 }}
               >
                 <LinearGradient
-                  colors={[Colors.dark.primary, "#1A8E28"]}
+                  colors={["#22C55E", "#16A34A"]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
-                  style={styles.heroButtonGradient}
+                  style={styles.heroButtonPrimaryGradient}
                 >
-                  <View style={styles.heroButtonIconWrapper}>
-                    <Ionicons name="tennisball" size={22} color="#fff" />
+                  <Ionicons name="tennisball" size={24} color="#fff" />
+                  <Text style={styles.heroButtonPrimaryText}>Find Match</Text>
+                  <View style={styles.heroArrow}>
+                    <Ionicons name="chevron-forward" size={22} color="#fff" />
                   </View>
-                  <Text style={styles.heroButtonText}>Find Match</Text>
-                  <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
                 </LinearGradient>
               </Pressable>
 
               <Pressable
-                style={({ pressed }) => [styles.heroButton, styles.heroButtonSecondary, pressed && styles.heroButtonPressed]}
+                style={({ pressed }) => [styles.heroButtonSecondary, pressed && styles.heroButtonPressed]}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                   navigateAndClose("PlayerFinder");
                 }}
               >
-                <View style={styles.heroButtonOutline}>
-                  <View style={styles.heroButtonIconWrapperSecondary}>
-                    <Ionicons name="git-compare-outline" size={20} color={Colors.dark.orange} />
-                  </View>
-                  <Text style={styles.heroButtonTextSecondary}>Challenge Player</Text>
-                  <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.4)" />
+                <View style={styles.heroButtonSecondaryInner}>
+                  <Ionicons name="git-compare-outline" size={20} color={Colors.dark.orange} />
+                  <Text style={styles.heroButtonSecondaryText}>Challenge Player</Text>
+                  <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
                 </View>
               </Pressable>
             </View>
@@ -361,7 +349,7 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
                 icon="flame"
                 iconColor={Colors.dark.orange}
                 title="Glow Rank"
-                subtitle="You are #48 this week"
+                subtitle="Based on activity & matches"
                 onPress={() => navigateAndClose("GlowLeaderboard")}
               />
             </View>
@@ -562,43 +550,30 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     marginBottom: 2,
   },
-  titleRow: {
-    marginBottom: 4,
-  },
   titleText: {
     fontSize: 13,
     fontWeight: "500",
     color: Colors.dark.orange,
     letterSpacing: 0.3,
+    marginBottom: 6,
   },
-  levelRow: {
+  levelXpRow: {
     flexDirection: "row",
-    alignItems: "baseline",
+    alignItems: "center",
+    gap: 10,
     marginBottom: 8,
   },
   lvLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: Colors.dark.textMuted,
-    marginRight: 4,
-  },
-  lvNumber: {
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: "700",
     color: Colors.dark.text,
   },
-  xpSection: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
   xpBarContainer: {
     flex: 1,
-    maxWidth: 80,
   },
   xpBarBg: {
     height: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 3,
     overflow: "hidden",
   },
@@ -606,46 +581,36 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 3,
   },
-  xpText: {
+  chipRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  glowChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 212, 255, 0.12)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    gap: 4,
+  },
+  glowChipText: {
     fontSize: 11,
-    fontWeight: "600",
-    color: Colors.dark.textMuted,
-  },
-  xpBatteryIcon: {
-    marginLeft: 2,
-  },
-  badgesRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginTop: Spacing.md,
-    flexWrap: "wrap",
-  },
-  glowBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 212, 255, 0.1)",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    gap: 6,
-  },
-  glowBadgeText: {
-    fontSize: 13,
     fontWeight: "600",
     color: Colors.dark.xpCyan,
   },
-  streakBadge: {
+  streakChip: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(255, 170, 0, 0.12)",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    gap: 4,
   },
-  streakBadgeText: {
-    fontSize: 13,
+  streakChipText: {
+    fontSize: 11,
     fontWeight: "600",
     color: Colors.dark.orange,
   },
@@ -656,61 +621,55 @@ const styles = StyleSheet.create({
   heroActions: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.lg,
-    gap: 10,
+    gap: 12,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.05)",
   },
-  heroButton: {
-    height: 52,
-    borderRadius: BorderRadius.md,
+  heroButtonPrimary: {
+    height: 58,
+    borderRadius: BorderRadius.lg,
     overflow: "hidden",
   },
   heroButtonSecondary: {
+    height: 48,
+    borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(255, 170, 0, 0.25)",
+    borderColor: "rgba(255, 170, 0, 0.2)",
     backgroundColor: "rgba(255, 170, 0, 0.05)",
   },
   heroButtonPressed: {
     opacity: 0.85,
-    transform: [{ scale: 0.99 }],
+    transform: [{ scale: 0.98 }],
   },
-  heroButtonGradient: {
+  heroButtonPrimaryGradient: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: Spacing.md,
-    gap: 12,
+    paddingHorizontal: Spacing.lg,
+    gap: 14,
   },
-  heroButtonIconWrapper: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  heroButtonIconWrapperSecondary: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255, 170, 0, 0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  heroButtonOutline: {
+  heroButtonPrimaryText: {
     flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: Spacing.md,
-    gap: 12,
-  },
-  heroButtonText: {
-    flex: 1,
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: "700",
     color: "#fff",
   },
-  heroButtonTextSecondary: {
+  heroArrow: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  heroButtonSecondaryInner: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    gap: 12,
+  },
+  heroButtonSecondaryText: {
     flex: 1,
     fontSize: 15,
     fontWeight: "600",
