@@ -16,6 +16,7 @@ import { ReviewPromptBanner } from "@/player/components/ReviewPromptBanner";
 import { apiRequest } from "@/lib/query-client";
 import Animated, { FadeIn, FadeOut, SlideInUp, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, withRepeat } from "react-native-reanimated";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
 
 interface VacationData {
   active: boolean;
@@ -142,79 +143,128 @@ function getStatusLabel(status: SessionStatus): string {
   }
 }
 
-function getMomentumLevel(streak: number): { label: string; color: string; progress: number } {
-  if (streak >= 7) return { label: "HOT", color: Colors.dark.error, progress: 1.0 };
-  if (streak >= 3) return { label: "BUILDING", color: Colors.dark.orange, progress: 0.6 };
-  return { label: "LOW", color: Colors.dark.textMuted, progress: 0.25 };
+type StreakLevel = { name: string; label: string; color: string; progress: number; icon: string };
+
+function getStreakLevel(streak: number): StreakLevel {
+  if (streak >= 6) return { name: "INFERNO", label: "ON FIRE", color: "#FF4136", progress: 1.0, icon: "flame" };
+  if (streak >= 3) return { name: "SURGE", label: "RISING", color: Colors.dark.orange, progress: 0.65, icon: "flash" };
+  return { name: "SPARK", label: "WARMING UP", color: Colors.dark.xpCyan, progress: 0.3, icon: "flash-outline" };
 }
 
-function HUDBar({ 
-  icon, 
-  label, 
-  value, 
+function CircularGauge({ 
   progress, 
+  size = 80, 
+  strokeWidth = 6,
   color,
-  showValue = true,
+  glowColor,
+  children 
 }: { 
-  icon: string; 
-  label: string; 
-  value?: string | number; 
   progress: number; 
+  size?: number; 
+  strokeWidth?: number;
   color: string;
-  showValue?: boolean;
+  glowColor?: string;
+  children?: React.ReactNode;
 }) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference * (1 - Math.min(1, Math.max(0, progress)));
+  
   return (
-    <View style={hudStyles.barContainer}>
-      <View style={hudStyles.barHeader}>
-        <View style={hudStyles.barLabelRow}>
-          <Ionicons name={icon as any} size={14} color={color} />
-          <Text style={[hudStyles.barLabel, { color }]}>{label}</Text>
-        </View>
-        {showValue && value !== undefined ? (
-          <Text style={[hudStyles.barValue, { color }]}>{value}</Text>
-        ) : null}
-      </View>
-      <View style={hudStyles.barTrack}>
-        <Animated.View style={[hudStyles.barFill, { width: `${progress * 100}%`, backgroundColor: color }]} />
-      </View>
+    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+      <Svg width={size} height={size} style={{ position: "absolute" }}>
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={Colors.dark.backgroundSecondary}
+          strokeWidth={strokeWidth}
+          fill="transparent"
+        />
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          fill="transparent"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          rotation="-90"
+          origin={`${size / 2}, ${size / 2}`}
+        />
+      </Svg>
+      {children}
     </View>
   );
 }
 
-function PlayerHUD({ player }: { player: { level: number; xp: number; streak: number; glowScore: number } }) {
-  const xpForNextLevel = (player.level + 1) * 500;
+function GameHUD({ player }: { player: { level: number; xp: number; streak: number; glowScore: number } }) {
   const currentLevelXp = player.xp % 500;
   const xpProgress = currentLevelXp / 500;
-  const momentum = getMomentumLevel(player.streak);
+  const streak = getStreakLevel(player.streak);
   
   return (
-    <View style={hudStyles.container}>
-      <View style={hudStyles.levelBadge}>
-        <Ionicons name="star" size={16} color={Colors.dark.gold} />
-        <Text style={hudStyles.levelText}>LV.{player.level}</Text>
-      </View>
-      
-      <View style={hudStyles.barsContainer}>
-        <HUDBar 
-          icon="flash" 
-          label="XP" 
-          value={`${currentLevelXp}/${500}`}
-          progress={xpProgress} 
-          color={Colors.dark.xpCyan} 
-        />
-        <HUDBar 
-          icon="flame" 
-          label="MOMENTUM" 
-          value={momentum.label}
-          progress={momentum.progress} 
-          color={momentum.color} 
-        />
-      </View>
-      
-      <View style={hudStyles.glowBadge}>
-        <Ionicons name="sparkles" size={14} color={Colors.dark.gold} />
-        <Text style={hudStyles.glowText}>{player.glowScore}</Text>
-      </View>
+    <View style={gameHudStyles.container}>
+      <LinearGradient
+        colors={[Colors.dark.backgroundSecondary + "CC", Colors.dark.backgroundDefault + "99"]}
+        style={gameHudStyles.glassPanel}
+      >
+        <View style={gameHudStyles.decorLine} />
+        
+        <View style={gameHudStyles.gaugesRow}>
+          <View style={gameHudStyles.gaugeContainer}>
+            <CircularGauge 
+              progress={xpProgress} 
+              size={72} 
+              strokeWidth={5} 
+              color={Colors.dark.xpCyan}
+            >
+              <Ionicons name="flash" size={20} color={Colors.dark.xpCyan} />
+            </CircularGauge>
+            <View style={gameHudStyles.gaugeInfo}>
+              <Text style={[gameHudStyles.gaugeLabel, { color: Colors.dark.xpCyan }]}>XP</Text>
+              <Text style={gameHudStyles.gaugeValue}>{currentLevelXp}/{500}</Text>
+            </View>
+          </View>
+          
+          <View style={gameHudStyles.levelCore}>
+            <View style={gameHudStyles.levelHex}>
+              <LinearGradient
+                colors={[Colors.dark.gold + "40", Colors.dark.gold + "20"]}
+                style={gameHudStyles.levelHexInner}
+              >
+                <Text style={gameHudStyles.levelNumber}>{player.level}</Text>
+              </LinearGradient>
+            </View>
+            <Text style={gameHudStyles.levelLabel}>LEVEL</Text>
+            <View style={gameHudStyles.glowBadge}>
+              <Ionicons name="sparkles" size={12} color={Colors.dark.gold} />
+              <Text style={gameHudStyles.glowValue}>{player.glowScore}</Text>
+            </View>
+          </View>
+          
+          <View style={gameHudStyles.gaugeContainer}>
+            <CircularGauge 
+              progress={streak.progress} 
+              size={72} 
+              strokeWidth={5} 
+              color={streak.color}
+            >
+              <Ionicons name={streak.icon as any} size={20} color={streak.color} />
+            </CircularGauge>
+            <View style={gameHudStyles.gaugeInfo}>
+              <Text style={[gameHudStyles.gaugeLabel, { color: streak.color }]}>{streak.name}</Text>
+              <Text style={[gameHudStyles.streakBadge, { color: streak.color, borderColor: streak.color }]}>
+                {player.streak} DAY{player.streak !== 1 ? "S" : ""}
+              </Text>
+            </View>
+          </View>
+        </View>
+        
+        <View style={gameHudStyles.decorLineBottom} />
+      </LinearGradient>
     </View>
   );
 }
@@ -271,7 +321,7 @@ function GameCountdown({ targetDate }: { targetDate: Date }) {
   );
 }
 
-interface GameTrainingCardProps {
+interface MissionCardProps {
   session: { id: string; date: string; type: string; courtName?: string };
   coach: { name: string } | null;
   isVacationActive: boolean;
@@ -280,71 +330,179 @@ interface GameTrainingCardProps {
   onLate: () => void;
 }
 
-function GameTrainingCard({ session, coach, isVacationActive, upcomingOverlapsSession, onCancel, onLate }: GameTrainingCardProps) {
+function MissionCountdownRing({ targetDate, size = 140 }: { targetDate: Date; size?: number }) {
+  const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
+  
+  useEffect(() => {
+    const updateCountdown = () => {
+      const now = new Date();
+      const diff = Math.max(0, targetDate.getTime() - now.getTime());
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      setTimeLeft({ hours, minutes, seconds });
+    };
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [targetDate]);
+  
+  const status = getSessionStatus(targetDate);
+  const statusColor = getStatusColor(status);
+  const formatNum = (n: number) => n.toString().padStart(2, "0");
+  
+  const hoursProgress = Math.min(1, timeLeft.hours / 24);
+  const minutesProgress = timeLeft.minutes / 60;
+  const secondsProgress = timeLeft.seconds / 60;
+  
+  const outerRadius = (size - 8) / 2;
+  const middleRadius = (size - 24) / 2;
+  const innerRadius = (size - 40) / 2;
+  
+  if (status === "LIVE") {
+    return (
+      <View style={missionStyles.liveRing}>
+        <LinearGradient
+          colors={[Colors.dark.error + "40", Colors.dark.error + "10"]}
+          style={missionStyles.liveRingGradient}
+        >
+          <Animated.View entering={FadeIn.duration(500)}>
+            <Text style={missionStyles.liveText}>LIVE</Text>
+            <Text style={missionStyles.liveSubtext}>IN SESSION</Text>
+          </Animated.View>
+        </LinearGradient>
+      </View>
+    );
+  }
+  
+  return (
+    <View style={[missionStyles.countdownRing, { width: size, height: size }]}>
+      <Svg width={size} height={size} style={{ position: "absolute" }}>
+        <Circle cx={size/2} cy={size/2} r={outerRadius} stroke={Colors.dark.backgroundSecondary} strokeWidth={4} fill="transparent" />
+        <Circle 
+          cx={size/2} cy={size/2} r={outerRadius} 
+          stroke={statusColor + "60"} strokeWidth={4} fill="transparent"
+          strokeDasharray={2 * Math.PI * outerRadius}
+          strokeDashoffset={2 * Math.PI * outerRadius * (1 - hoursProgress)}
+          strokeLinecap="round" rotation="-90" origin={`${size/2}, ${size/2}`}
+        />
+        <Circle cx={size/2} cy={size/2} r={middleRadius} stroke={Colors.dark.backgroundSecondary} strokeWidth={3} fill="transparent" />
+        <Circle 
+          cx={size/2} cy={size/2} r={middleRadius} 
+          stroke={statusColor + "80"} strokeWidth={3} fill="transparent"
+          strokeDasharray={2 * Math.PI * middleRadius}
+          strokeDashoffset={2 * Math.PI * middleRadius * (1 - minutesProgress)}
+          strokeLinecap="round" rotation="-90" origin={`${size/2}, ${size/2}`}
+        />
+        <Circle cx={size/2} cy={size/2} r={innerRadius} stroke={Colors.dark.backgroundSecondary} strokeWidth={2} fill="transparent" />
+        <Circle 
+          cx={size/2} cy={size/2} r={innerRadius} 
+          stroke={statusColor} strokeWidth={2} fill="transparent"
+          strokeDasharray={2 * Math.PI * innerRadius}
+          strokeDashoffset={2 * Math.PI * innerRadius * (1 - secondsProgress)}
+          strokeLinecap="round" rotation="-90" origin={`${size/2}, ${size/2}`}
+        />
+      </Svg>
+      <View style={missionStyles.countdownCenter}>
+        <Text style={[missionStyles.countdownTime, { color: statusColor }]}>
+          {formatNum(timeLeft.hours)}:{formatNum(timeLeft.minutes)}
+        </Text>
+        <Text style={missionStyles.countdownSeconds}>{formatNum(timeLeft.seconds)}</Text>
+      </View>
+    </View>
+  );
+}
+
+function MissionCard({ session, coach, isVacationActive, upcomingOverlapsSession, onCancel, onLate }: MissionCardProps) {
   const sessionDate = new Date(session.date);
   const status = getSessionStatus(sessionDate);
   const statusColor = getStatusColor(status);
   const shouldHideActions = isVacationActive || upcomingOverlapsSession;
   
-  const sessionTypeLabel = session.type === "private" ? "Private Session" : 
-                           session.type === "group" ? "Group Training" : "Training";
+  const sessionTypeLabel = session.type === "private" ? "PRIVATE" : 
+                           session.type === "group" ? "GROUP" : "TRAINING";
   
   return (
-    <Animated.View entering={FadeIn.duration(400)} style={gameStyles.trainingCard}>
+    <Animated.View entering={FadeIn.duration(400)} style={missionStyles.card}>
       <LinearGradient
-        colors={[Colors.dark.backgroundSecondary, Colors.dark.backgroundDefault]}
-        style={gameStyles.trainingCardGradient}
+        colors={[Colors.dark.backgroundSecondary, Colors.dark.backgroundDefault + "E0"]}
+        style={missionStyles.cardGradient}
       >
-        <View style={gameStyles.trainingHeader}>
-          <View style={[gameStyles.statusChip, { backgroundColor: statusColor + "25", borderColor: statusColor }]}>
-            {status === "LIVE" ? (
-              <View style={[gameStyles.statusDot, { backgroundColor: statusColor }]} />
-            ) : null}
-            <Text style={[gameStyles.statusText, { color: statusColor }]}>{getStatusLabel(status)}</Text>
+        <View style={missionStyles.headerRow}>
+          <View style={[missionStyles.missionBadge, { borderColor: statusColor }]}>
+            <Ionicons name="navigate" size={12} color={statusColor} />
+            <Text style={[missionStyles.missionBadgeText, { color: statusColor }]}>NEXT MISSION</Text>
+          </View>
+          <View style={[missionStyles.statusPill, { backgroundColor: statusColor + "20", borderColor: statusColor }]}>
+            {status === "LIVE" ? <View style={[missionStyles.statusDot, { backgroundColor: statusColor }]} /> : null}
+            <Text style={[missionStyles.statusText, { color: statusColor }]}>{getStatusLabel(status)}</Text>
           </View>
         </View>
         
-        <GameCountdown targetDate={sessionDate} />
-        
-        <View style={gameStyles.sessionInfo}>
-          <Text style={gameStyles.sessionType}>{sessionTypeLabel}</Text>
-          {session.courtName ? (
-            <View style={gameStyles.sessionDetail}>
-              <Ionicons name="location" size={14} color={Colors.dark.textMuted} />
-              <Text style={gameStyles.sessionDetailText}>{session.courtName}</Text>
+        <View style={missionStyles.contentRow}>
+          <View style={missionStyles.infoPanel}>
+            <View style={missionStyles.typeTag}>
+              <Ionicons name="tennisball" size={14} color={Colors.dark.primary} />
+              <Text style={missionStyles.typeText}>{sessionTypeLabel}</Text>
             </View>
-          ) : null}
-          {coach ? (
-            <View style={gameStyles.sessionDetail}>
-              <Ionicons name="person" size={14} color={Colors.dark.xpCyan} />
-              <Text style={[gameStyles.sessionDetailText, { color: Colors.dark.xpCyan }]}>with {coach.name}</Text>
-            </View>
-          ) : null}
+            {session.courtName ? (
+              <View style={missionStyles.detailRow}>
+                <Ionicons name="location" size={14} color={Colors.dark.textMuted} />
+                <Text style={missionStyles.detailText}>{session.courtName}</Text>
+              </View>
+            ) : null}
+            {coach ? (
+              <View style={missionStyles.detailRow}>
+                <View style={missionStyles.coachDot} />
+                <Text style={missionStyles.detailText}>{coach.name}</Text>
+              </View>
+            ) : null}
+          </View>
+          
+          <MissionCountdownRing targetDate={sessionDate} size={130} />
         </View>
         
         {shouldHideActions ? (
-          <View style={gameStyles.vacationNote}>
-            <Ionicons name="airplane" size={16} color={Colors.dark.xpCyan} />
-            <Text style={gameStyles.vacationNoteText}>
-              {isVacationActive 
-                ? "On vacation - actions paused"
-                : "Falls during planned vacation"}
+          <View style={missionStyles.lockedActions}>
+            <Ionicons name="lock-closed" size={16} color={Colors.dark.textMuted} />
+            <Text style={missionStyles.lockedText}>
+              {isVacationActive ? "Vacation Mode Active" : "During Vacation"}
             </Text>
           </View>
         ) : (
-          <View style={gameStyles.actionButtons}>
-            <Pressable style={gameStyles.cancelButton} onPress={onCancel}>
-              <Ionicons name="close-circle" size={18} color={Colors.dark.error} />
-              <Text style={[gameStyles.actionButtonText, { color: Colors.dark.error }]}>Cancel</Text>
+          <View style={missionStyles.actionRow}>
+            <Pressable style={missionStyles.actionToggle} onPress={onCancel}>
+              <View style={[missionStyles.actionGlow, { backgroundColor: Colors.dark.error + "15" }]}>
+                <Ionicons name="close" size={20} color={Colors.dark.error} />
+              </View>
+              <Text style={[missionStyles.actionLabel, { color: Colors.dark.error }]}>ABORT</Text>
             </Pressable>
-            <Pressable style={gameStyles.lateButton} onPress={onLate}>
-              <Ionicons name="time" size={18} color={Colors.dark.orange} />
-              <Text style={[gameStyles.actionButtonText, { color: Colors.dark.orange }]}>Running Late</Text>
+            <View style={missionStyles.actionDivider} />
+            <Pressable style={missionStyles.actionToggle} onPress={onLate}>
+              <View style={[missionStyles.actionGlow, { backgroundColor: Colors.dark.orange + "15" }]}>
+                <Ionicons name="time" size={20} color={Colors.dark.orange} />
+              </View>
+              <Text style={[missionStyles.actionLabel, { color: Colors.dark.orange }]}>DELAY</Text>
             </Pressable>
           </View>
         )}
+        
+        <View style={missionStyles.cornerAccent} />
+        <View style={missionStyles.cornerAccentBR} />
       </LinearGradient>
     </Animated.View>
+  );
+}
+
+function NoMissionCard() {
+  return (
+    <View style={missionStyles.noMissionCard}>
+      <View style={missionStyles.noMissionRing}>
+        <Ionicons name="radio-button-off" size={48} color={Colors.dark.textMuted} />
+      </View>
+      <Text style={missionStyles.noMissionTitle}>STANDBY</Text>
+      <Text style={missionStyles.noMissionSubtitle}>No active missions</Text>
+    </View>
   );
 }
 
@@ -912,12 +1070,12 @@ export default function PlayerHomeScreen() {
           lastFeedback={lastFeedback}
         />
         
-        <PlayerHUD player={player} />
+        <GameHUD player={player} />
 
         <ReviewPromptBanner />
 
         {nextSession ? (
-          <GameTrainingCard
+          <MissionCard
             session={nextSession}
             coach={coach}
             isVacationActive={isVacationActive}
@@ -926,7 +1084,7 @@ export default function PlayerHomeScreen() {
             onLate={() => setShowLateModal(true)}
           />
         ) : (
-          <NoSessionCard />
+          <NoMissionCard />
         )}
         
         {!vacationData?.active && !vacationData?.upcomingVacation ? (
@@ -2430,6 +2588,358 @@ const hudStyles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.gold,
     fontWeight: "700",
+  },
+});
+
+const gameHudStyles = StyleSheet.create({
+  container: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  glassPanel: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    position: "relative",
+    overflow: "hidden",
+  },
+  decorLine: {
+    position: "absolute",
+    top: 0,
+    left: 20,
+    right: 20,
+    height: 2,
+    backgroundColor: Colors.dark.primary + "40",
+  },
+  decorLineBottom: {
+    position: "absolute",
+    bottom: 0,
+    left: 40,
+    right: 40,
+    height: 1,
+    backgroundColor: Colors.dark.xpCyan + "30",
+  },
+  gaugesRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  gaugeContainer: {
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  gaugeInfo: {
+    alignItems: "center",
+    marginTop: 4,
+  },
+  gaugeLabel: {
+    ...Typography.caption,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  gaugeValue: {
+    ...Typography.caption,
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+    fontVariant: ["tabular-nums"],
+  },
+  streakBadge: {
+    ...Typography.caption,
+    fontSize: 9,
+    fontWeight: "600",
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  levelCore: {
+    alignItems: "center",
+    gap: 4,
+  },
+  levelHex: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: Colors.dark.gold + "60",
+    overflow: "hidden",
+  },
+  levelHexInner: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  levelNumber: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: Colors.dark.gold,
+  },
+  levelLabel: {
+    ...Typography.caption,
+    fontSize: 9,
+    color: Colors.dark.gold,
+    fontWeight: "600",
+    letterSpacing: 1,
+  },
+  glowBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: Colors.dark.gold + "15",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+  },
+  glowValue: {
+    ...Typography.caption,
+    fontSize: 11,
+    color: Colors.dark.gold,
+    fontWeight: "700",
+  },
+});
+
+const missionStyles = StyleSheet.create({
+  card: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  cardGradient: {
+    padding: Spacing.lg,
+    position: "relative",
+  },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  missionBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderRadius: BorderRadius.sm,
+  },
+  missionBadgeText: {
+    ...Typography.caption,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  statusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusText: {
+    ...Typography.caption,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  contentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+  },
+  infoPanel: {
+    flex: 1,
+    gap: Spacing.sm,
+  },
+  typeTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Colors.dark.primary + "20",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.sm,
+    alignSelf: "flex-start",
+  },
+  typeText: {
+    ...Typography.caption,
+    color: Colors.dark.primary,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  coachDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.dark.xpCyan,
+  },
+  detailText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+  },
+  countdownRing: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  countdownCenter: {
+    alignItems: "center",
+  },
+  countdownTime: {
+    fontSize: 24,
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"],
+  },
+  countdownSeconds: {
+    ...Typography.caption,
+    fontSize: 14,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+    fontVariant: ["tabular-nums"],
+  },
+  liveRing: {
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    overflow: "hidden",
+  },
+  liveRingGradient: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 3,
+    borderColor: Colors.dark.error,
+    borderRadius: 65,
+  },
+  liveText: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: Colors.dark.error,
+    textAlign: "center",
+  },
+  liveSubtext: {
+    ...Typography.caption,
+    fontSize: 10,
+    color: Colors.dark.error,
+    fontWeight: "600",
+    letterSpacing: 1,
+  },
+  actionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xl,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  actionToggle: {
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+  },
+  actionGlow: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  actionLabel: {
+    ...Typography.caption,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  actionDivider: {
+    width: 1,
+    height: 50,
+    backgroundColor: Colors.dark.border,
+  },
+  lockedActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  lockedText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  cornerAccent: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: 20,
+    height: 20,
+    borderTopWidth: 2,
+    borderLeftWidth: 2,
+    borderColor: Colors.dark.primary + "40",
+    borderTopLeftRadius: BorderRadius.lg,
+  },
+  cornerAccentBR: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 20,
+    height: 20,
+    borderBottomWidth: 2,
+    borderRightWidth: 2,
+    borderColor: Colors.dark.xpCyan + "40",
+    borderBottomRightRadius: BorderRadius.lg,
+  },
+  noMissionCard: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+    padding: Spacing.xl,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    borderStyle: "dashed",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  noMissionRing: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2,
+    borderColor: Colors.dark.border,
+    borderStyle: "dashed",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  noMissionTitle: {
+    ...Typography.h4,
+    color: Colors.dark.textMuted,
+    letterSpacing: 2,
+  },
+  noMissionSubtitle: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
   },
 });
 
