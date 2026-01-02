@@ -2803,6 +2803,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== ADMIN/SETUP ENDPOINTS ====================
 
+  // Get all sessions for admin schedule
+  app.get("/api/sessions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const role = req.user?.role;
+      const academyId = req.user?.academyId;
+      
+      if (!academyId && role !== "platform_owner") {
+        return res.status(403).json({ error: "Academy membership required" });
+      }
+      
+      let allSessions;
+      if (academyId) {
+        allSessions = await storage.getSessionsByAcademy(academyId);
+      } else {
+        // Platform owner viewing default academy
+        const defaultAcademy = await storage.getAcademyBySlug("default");
+        if (defaultAcademy) {
+          allSessions = await storage.getSessionsByAcademy(defaultAcademy.id);
+        } else {
+          allSessions = [];
+        }
+      }
+      
+      const sessionsWithPlayers = await Promise.all(
+        allSessions.map(async (session) => {
+          const players = await storage.getSessionPlayers(session.id);
+          return {
+            ...session,
+            players: players.map((p: any) => ({ id: p.id, name: p.name })),
+          };
+        })
+      );
+      
+      res.json(sessionsWithPlayers);
+    } catch (error) {
+      console.error("Error fetching sessions:", error);
+      res.status(500).json({ error: "Failed to fetch sessions" });
+    }
+  });
+
   // Get all coaches
   app.get("/api/coaches", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -8031,15 +8071,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       });
 
-      const upcomingSessions = sessionsThisWeek.slice(0, 10).map((s: any) => ({
-        id: s.id,
-        title: s.title || "Session",
-        startTime: s.startTime,
-        endTime: s.endTime,
-        coachId: s.coachId,
-        coachName: coaches.find((c: any) => c.id === s.coachId)?.name || "Unassigned",
-        status: s.status,
-      }));
+      const upcomingSessions = sessionsThisWeek
+        .filter((s: any) => new Date(s.startTime) >= now)
+        .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+        .slice(0, 10)
+        .map((s: any) => ({
+          id: s.id,
+          title: s.title || "Session",
+          startTime: s.startTime,
+          endTime: s.endTime,
+          coachId: s.coachId,
+          coachName: coaches.find((c: any) => c.id === s.coachId)?.name || "Unassigned",
+          status: s.status,
+        }));
 
       res.json({
         academy: academy ? {
