@@ -167,7 +167,7 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
               <View style={styles.identityRow}>
                 <Pressable 
                   style={styles.avatarWrapper}
-                  onPress={() => navigateAndClose("PlayerProfile")}
+                  onPress={() => navigateAndClose("Profile")}
                 >
                   <Animated.View style={[styles.glowRingOuter, glowRingStyle]}>
                     <Svg width={100} height={100} viewBox="0 0 100 100">
@@ -218,6 +218,10 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
                     >
                       <Text style={styles.levelNumber}>{level}</Text>
                     </LinearGradient>
+                  </View>
+                  
+                  <View style={styles.editBadge}>
+                    <Ionicons name="camera" size={12} color="#fff" />
                   </View>
                 </Pressable>
 
@@ -362,8 +366,15 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
               </View>
               
               <WorldMenuItem 
-                icon="bar-chart"
+                icon="person-circle"
                 iconColor={Colors.dark.xpCyan}
+                title="My Profile"
+                subtitle="Edit photo, name & what others see"
+                onPress={() => navigateAndClose("Profile")}
+              />
+              <WorldMenuItem 
+                icon="bar-chart"
+                iconColor={Colors.dark.primary}
                 title="Progress Overview"
                 subtitle="Technique, Mental, Physical"
                 onPress={() => { handleClose(); navigation.navigate("Progress"); }}
@@ -539,6 +550,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "800",
     color: "#fff",
+  },
+  editBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: Colors.dark.xpCyan,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#0A0F0A",
   },
   identityInfo: {
     flex: 1,
