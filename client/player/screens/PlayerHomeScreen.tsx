@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Modal, Platform, TextInput, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -14,7 +14,7 @@ import { PlayerStatusBar } from "@/player/components/PlayerStatusBar";
 import { AcademyHubCard } from "@/player/components/AcademyHubCard";
 import { ReviewPromptBanner } from "@/player/components/ReviewPromptBanner";
 import { apiRequest } from "@/lib/query-client";
-import Animated, { FadeIn, FadeOut, SlideInUp, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming } from "react-native-reanimated";
+import Animated, { FadeIn, FadeOut, SlideInUp, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, withRepeat } from "react-native-reanimated";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 interface VacationData {
@@ -111,24 +111,269 @@ interface OwnerAcademyStats {
   }>;
 }
 
-function XPBar({ current, max, level }: { current: number; max: number; level: number }) {
-  const progress = Math.min(current / max, 1);
+type SessionStatus = "UPCOMING" | "STARTING_SOON" | "LIVE" | "ENDED";
+
+function getSessionStatus(sessionDate: Date): SessionStatus {
+  const now = new Date();
+  const diff = sessionDate.getTime() - now.getTime();
+  const minutesUntil = diff / (1000 * 60);
   
+  if (minutesUntil < -60) return "ENDED";
+  if (minutesUntil <= 0) return "LIVE";
+  if (minutesUntil <= 60) return "STARTING_SOON";
+  return "UPCOMING";
+}
+
+function getStatusColor(status: SessionStatus): string {
+  switch (status) {
+    case "LIVE": return Colors.dark.error;
+    case "STARTING_SOON": return Colors.dark.orange;
+    case "UPCOMING": return Colors.dark.primary;
+    case "ENDED": return Colors.dark.textMuted;
+  }
+}
+
+function getStatusLabel(status: SessionStatus): string {
+  switch (status) {
+    case "LIVE": return "LIVE NOW";
+    case "STARTING_SOON": return "STARTING SOON";
+    case "UPCOMING": return "UPCOMING";
+    case "ENDED": return "ENDED";
+  }
+}
+
+function getMomentumLevel(streak: number): { label: string; color: string; progress: number } {
+  if (streak >= 7) return { label: "HOT", color: Colors.dark.error, progress: 1.0 };
+  if (streak >= 3) return { label: "BUILDING", color: Colors.dark.orange, progress: 0.6 };
+  return { label: "LOW", color: Colors.dark.textMuted, progress: 0.25 };
+}
+
+function HUDBar({ 
+  icon, 
+  label, 
+  value, 
+  progress, 
+  color,
+  showValue = true,
+}: { 
+  icon: string; 
+  label: string; 
+  value?: string | number; 
+  progress: number; 
+  color: string;
+  showValue?: boolean;
+}) {
   return (
-    <View style={styles.xpBarContainer}>
-      <View style={styles.xpBarTrack}>
-        <LinearGradient
-          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={[styles.xpBarFill, { width: `${progress * 100}%` }]}
-        />
+    <View style={hudStyles.barContainer}>
+      <View style={hudStyles.barHeader}>
+        <View style={hudStyles.barLabelRow}>
+          <Ionicons name={icon as any} size={14} color={color} />
+          <Text style={[hudStyles.barLabel, { color }]}>{label}</Text>
+        </View>
+        {showValue && value !== undefined ? (
+          <Text style={[hudStyles.barValue, { color }]}>{value}</Text>
+        ) : null}
       </View>
-      <View style={styles.xpLabels}>
-        <Text style={styles.xpText}>Level {level}</Text>
-        <Text style={styles.xpText}>{current} / {max} XP</Text>
+      <View style={hudStyles.barTrack}>
+        <Animated.View style={[hudStyles.barFill, { width: `${progress * 100}%`, backgroundColor: color }]} />
       </View>
     </View>
+  );
+}
+
+function PlayerHUD({ player }: { player: { level: number; xp: number; streak: number; glowScore: number } }) {
+  const xpForNextLevel = (player.level + 1) * 500;
+  const currentLevelXp = player.xp % 500;
+  const xpProgress = currentLevelXp / 500;
+  const momentum = getMomentumLevel(player.streak);
+  
+  return (
+    <View style={hudStyles.container}>
+      <View style={hudStyles.levelBadge}>
+        <Ionicons name="star" size={16} color={Colors.dark.gold} />
+        <Text style={hudStyles.levelText}>LV.{player.level}</Text>
+      </View>
+      
+      <View style={hudStyles.barsContainer}>
+        <HUDBar 
+          icon="flash" 
+          label="XP" 
+          value={`${currentLevelXp}/${500}`}
+          progress={xpProgress} 
+          color={Colors.dark.xpCyan} 
+        />
+        <HUDBar 
+          icon="flame" 
+          label="MOMENTUM" 
+          value={momentum.label}
+          progress={momentum.progress} 
+          color={momentum.color} 
+        />
+      </View>
+      
+      <View style={hudStyles.glowBadge}>
+        <Ionicons name="sparkles" size={14} color={Colors.dark.gold} />
+        <Text style={hudStyles.glowText}>{player.glowScore}</Text>
+      </View>
+    </View>
+  );
+}
+
+function GameCountdown({ targetDate }: { targetDate: Date }) {
+  const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
+  
+  useEffect(() => {
+    const updateCountdown = () => {
+      const now = new Date();
+      const diff = Math.max(0, targetDate.getTime() - now.getTime());
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      setTimeLeft({ hours, minutes, seconds });
+    };
+    
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [targetDate]);
+  
+  const status = getSessionStatus(targetDate);
+  const statusColor = getStatusColor(status);
+  
+  if (status === "LIVE") {
+    return (
+      <View style={gameStyles.liveContainer}>
+        <View style={[gameStyles.liveDot, { backgroundColor: Colors.dark.error }]} />
+        <Text style={gameStyles.liveText}>LIVE</Text>
+      </View>
+    );
+  }
+  
+  const formatNum = (n: number) => n.toString().padStart(2, "0");
+  
+  return (
+    <View style={gameStyles.countdownContainer}>
+      <View style={gameStyles.countdownBlock}>
+        <Text style={[gameStyles.countdownNumber, { color: statusColor }]}>{formatNum(timeLeft.hours)}</Text>
+        <Text style={gameStyles.countdownLabel}>HRS</Text>
+      </View>
+      <Text style={[gameStyles.countdownSeparator, { color: statusColor }]}>:</Text>
+      <View style={gameStyles.countdownBlock}>
+        <Text style={[gameStyles.countdownNumber, { color: statusColor }]}>{formatNum(timeLeft.minutes)}</Text>
+        <Text style={gameStyles.countdownLabel}>MIN</Text>
+      </View>
+      <Text style={[gameStyles.countdownSeparator, { color: statusColor }]}>:</Text>
+      <View style={gameStyles.countdownBlock}>
+        <Text style={[gameStyles.countdownNumber, { color: statusColor }]}>{formatNum(timeLeft.seconds)}</Text>
+        <Text style={gameStyles.countdownLabel}>SEC</Text>
+      </View>
+    </View>
+  );
+}
+
+interface GameTrainingCardProps {
+  session: { id: string; date: string; type: string; courtName?: string };
+  coach: { name: string } | null;
+  isVacationActive: boolean;
+  upcomingOverlapsSession: boolean;
+  onCancel: () => void;
+  onLate: () => void;
+}
+
+function GameTrainingCard({ session, coach, isVacationActive, upcomingOverlapsSession, onCancel, onLate }: GameTrainingCardProps) {
+  const sessionDate = new Date(session.date);
+  const status = getSessionStatus(sessionDate);
+  const statusColor = getStatusColor(status);
+  const shouldHideActions = isVacationActive || upcomingOverlapsSession;
+  
+  const sessionTypeLabel = session.type === "private" ? "Private Session" : 
+                           session.type === "group" ? "Group Training" : "Training";
+  
+  return (
+    <Animated.View entering={FadeIn.duration(400)} style={gameStyles.trainingCard}>
+      <LinearGradient
+        colors={[Colors.dark.backgroundSecondary, Colors.dark.backgroundDefault]}
+        style={gameStyles.trainingCardGradient}
+      >
+        <View style={gameStyles.trainingHeader}>
+          <View style={[gameStyles.statusChip, { backgroundColor: statusColor + "25", borderColor: statusColor }]}>
+            {status === "LIVE" ? (
+              <View style={[gameStyles.statusDot, { backgroundColor: statusColor }]} />
+            ) : null}
+            <Text style={[gameStyles.statusText, { color: statusColor }]}>{getStatusLabel(status)}</Text>
+          </View>
+        </View>
+        
+        <GameCountdown targetDate={sessionDate} />
+        
+        <View style={gameStyles.sessionInfo}>
+          <Text style={gameStyles.sessionType}>{sessionTypeLabel}</Text>
+          {session.courtName ? (
+            <View style={gameStyles.sessionDetail}>
+              <Ionicons name="location" size={14} color={Colors.dark.textMuted} />
+              <Text style={gameStyles.sessionDetailText}>{session.courtName}</Text>
+            </View>
+          ) : null}
+          {coach ? (
+            <View style={gameStyles.sessionDetail}>
+              <Ionicons name="person" size={14} color={Colors.dark.xpCyan} />
+              <Text style={[gameStyles.sessionDetailText, { color: Colors.dark.xpCyan }]}>with {coach.name}</Text>
+            </View>
+          ) : null}
+        </View>
+        
+        {shouldHideActions ? (
+          <View style={gameStyles.vacationNote}>
+            <Ionicons name="airplane" size={16} color={Colors.dark.xpCyan} />
+            <Text style={gameStyles.vacationNoteText}>
+              {isVacationActive 
+                ? "On vacation - actions paused"
+                : "Falls during planned vacation"}
+            </Text>
+          </View>
+        ) : (
+          <View style={gameStyles.actionButtons}>
+            <Pressable style={gameStyles.cancelButton} onPress={onCancel}>
+              <Ionicons name="close-circle" size={18} color={Colors.dark.error} />
+              <Text style={[gameStyles.actionButtonText, { color: Colors.dark.error }]}>Cancel</Text>
+            </Pressable>
+            <Pressable style={gameStyles.lateButton} onPress={onLate}>
+              <Ionicons name="time" size={18} color={Colors.dark.orange} />
+              <Text style={[gameStyles.actionButtonText, { color: Colors.dark.orange }]}>Running Late</Text>
+            </Pressable>
+          </View>
+        )}
+      </LinearGradient>
+    </Animated.View>
+  );
+}
+
+function NoSessionCard() {
+  return (
+    <View style={gameStyles.noSessionCard}>
+      <Ionicons name="tennisball-outline" size={40} color={Colors.dark.textMuted} />
+      <Text style={gameStyles.noSessionTitle}>No Active Training</Text>
+      <Text style={gameStyles.noSessionSubtitle}>Your next session will appear here</Text>
+    </View>
+  );
+}
+
+function MentorCard({ coach, onPress }: { coach: { id: string; name: string; yearsExperience?: number }; onPress: () => void }) {
+  return (
+    <Pressable style={mentorStyles.card} onPress={onPress}>
+      <View style={mentorStyles.avatar}>
+        <Text style={mentorStyles.avatarText}>{coach.name.charAt(0)}</Text>
+      </View>
+      <View style={mentorStyles.info}>
+        <Text style={mentorStyles.label}>Your Coach</Text>
+        <Text style={mentorStyles.name}>{coach.name}</Text>
+      </View>
+      <View style={mentorStyles.badge}>
+        <Ionicons name="ribbon" size={14} color={Colors.dark.primary} />
+        <Text style={mentorStyles.badgeText}>PRO</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+    </Pressable>
   );
 }
 
@@ -591,20 +836,13 @@ export default function PlayerHomeScreen() {
   }
 
   const { player, coach, academy, nextSession, lastFeedback } = data;
-  const xpForNextLevel = (player.level + 1) * 500;
-  const currentLevelXp = player.xp % 500;
 
-  const getTimeUntilSession = () => {
-    if (!nextSession) return null;
-    const sessionDate = new Date(nextSession.date);
-    const now = new Date();
-    const diff = sessionDate.getTime() - now.getTime();
-    if (diff < 0) return "Now";
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(hours / 24);
-    if (days > 0) return `${days}d ${hours % 24}h`;
-    return `${hours}h`;
-  };
+  const isVacationActive = vacationData?.active || false;
+  const upcomingVacation = vacationData?.upcomingVacation;
+  const sessionDate = nextSession?.date ? new Date(nextSession.date) : null;
+  const upcomingOverlapsSession = !!(upcomingVacation && sessionDate && 
+    new Date(upcomingVacation.startDate) <= sessionDate && 
+    new Date(upcomingVacation.endDate) >= sessionDate);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -674,74 +912,22 @@ export default function PlayerHomeScreen() {
           lastFeedback={lastFeedback}
         />
         
-        <View style={styles.xpSection}>
-          <XPBar current={currentLevelXp} max={500} level={player.level} />
-        </View>
+        <PlayerHUD player={player} />
 
         <ReviewPromptBanner />
 
         {nextSession ? (
-          <View style={styles.nextSessionCard}>
-            <View style={styles.nextSessionHeader}>
-              <Ionicons name="calendar" size={20} color={Colors.dark.primary} />
-              <Text style={styles.nextSessionTitle}>Next Training</Text>
-              <View style={styles.countdownBadge}>
-                <Text style={styles.countdownText}>{getTimeUntilSession()}</Text>
-              </View>
-            </View>
-            <View style={styles.nextSessionDetails}>
-              <Text style={styles.sessionType}>
-                {nextSession.type === "private" ? "Private Session" : 
-                 nextSession.type === "group" ? "Group Training" : "Training"}
-              </Text>
-              {nextSession.courtName ? (
-                <Text style={styles.sessionCourt}>{nextSession.courtName}</Text>
-              ) : null}
-              {coach ? (
-                <Text style={styles.sessionCoach}>with {coach.name}</Text>
-              ) : null}
-            </View>
-            
-            {(() => {
-              const isVacationActive = vacationData?.active;
-              const upcomingVacation = vacationData?.upcomingVacation;
-              const sessionDate = nextSession?.date ? new Date(nextSession.date) : null;
-              const upcomingOverlapsSession = upcomingVacation && sessionDate && 
-                new Date(upcomingVacation.startDate) <= sessionDate && 
-                new Date(upcomingVacation.endDate) >= sessionDate;
-              const shouldHideActions = isVacationActive || upcomingOverlapsSession;
-              
-              return shouldHideActions ? (
-                <View style={styles.vacationSessionNote}>
-                  <Ionicons name="information-circle" size={16} color={Colors.dark.xpCyan} />
-                  <Text style={styles.vacationSessionNoteText}>
-                    {isVacationActive 
-                      ? "You're on vacation - session actions paused"
-                      : "This session falls during your planned vacation"}
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.sessionActionStrip}>
-                  <Pressable 
-                    style={[styles.sessionActionButton, styles.sessionActionCancel]}
-                    onPress={() => setShowCancelModal(true)}
-                  >
-                    <Ionicons name="close-circle" size={16} color={Colors.dark.error} />
-                    <Text style={[styles.sessionActionText, { color: Colors.dark.error }]}>Cancel</Text>
-                  </Pressable>
-                  
-                  <Pressable 
-                    style={[styles.sessionActionButton, styles.sessionActionLate]}
-                    onPress={() => setShowLateModal(true)}
-                  >
-                    <Ionicons name="time" size={16} color={Colors.dark.orange} />
-                    <Text style={[styles.sessionActionText, { color: Colors.dark.orange }]}>Running Late</Text>
-                  </Pressable>
-                </View>
-              );
-            })()}
-          </View>
-        ) : null}
+          <GameTrainingCard
+            session={nextSession}
+            coach={coach}
+            isVacationActive={isVacationActive}
+            upcomingOverlapsSession={upcomingOverlapsSession}
+            onCancel={() => setShowCancelModal(true)}
+            onLate={() => setShowLateModal(true)}
+          />
+        ) : (
+          <NoSessionCard />
+        )}
         
         {!vacationData?.active && !vacationData?.upcomingVacation ? (
           <Pressable 
@@ -801,21 +987,6 @@ export default function PlayerHomeScreen() {
           </Pressable>
         ) : null}
 
-        <View style={styles.statsGrid}>
-          <StatCard 
-            label="Streak" 
-            value={`${player.streak} days`} 
-            icon="flame" 
-            color={Colors.dark.orange} 
-          />
-          <StatCard 
-            label="Total XP" 
-            value={player.xp.toLocaleString()} 
-            icon="trending-up" 
-            color={Colors.dark.xpCyan} 
-          />
-        </View>
-
         {!academy ? (
           <AcademyHubCard 
             hasAcademy={false} 
@@ -824,58 +995,17 @@ export default function PlayerHomeScreen() {
         ) : null}
 
         {academy ? (
-          <View style={styles.academyCard}>
-            <View style={styles.academyHeader}>
-              <Ionicons name="school" size={20} color={Colors.dark.primary} />
-              <Text style={styles.academyName}>{academy.name}</Text>
-            </View>
-            {coach ? (
-              <View style={styles.coachSection}>
-                <View style={styles.coachInfo}>
-                  <View style={styles.coachAvatar}>
-                    <Text style={styles.coachAvatarText}>{coach.name.charAt(0)}</Text>
-                  </View>
-                  <View style={styles.coachDetails}>
-                    <Text style={styles.coachLabel}>Your Coach</Text>
-                    <Text style={styles.coachName}>{coach.name}</Text>
-                    {coach.yearsExperience ? (
-                      <Text style={styles.coachExperience}>
-                        {coach.yearsExperience} experience
-                      </Text>
-                    ) : null}
-                  </View>
-                </View>
-                {coach.philosophyTags && coach.philosophyTags.length > 0 ? (
-                  <View style={styles.coachPhilosophy}>
-                    {coach.philosophyTags.slice(0, 3).map((tag, i) => (
-                      <View key={i} style={styles.philosophyTag}>
-                        <Text style={styles.philosophyTagText}>{tag}</Text>
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
-                {coach.publicQuote && coach.bioApproved ? (
-                  <View style={styles.coachQuote}>
-                    <Ionicons name="chatbubble-ellipses" size={14} color={Colors.dark.textMuted} />
-                    <Text style={styles.coachQuoteText}>"{coach.publicQuote}"</Text>
-                  </View>
-                ) : null}
-              </View>
-            ) : null}
-            
-            {ownerProfileData?.profile && ownerProfileData.profile.approved ? (
-              <View style={styles.ownerCardSection}>
-                <OwnerCard
-                  ownerName={ownerProfileData.profile.ownerName}
-                  academyName={ownerProfileData.profile.academyName}
-                  role={ownerProfileData.profile.role}
-                  visionTags={ownerProfileData.profile.visionTags}
-                  publicMessage={ownerProfileData.profile.publicMessage}
-                  compact
-                />
-              </View>
-            ) : null}
+          <View style={styles.academyContextRow}>
+            <Ionicons name="location" size={14} color={Colors.dark.textMuted} />
+            <Text style={styles.academyContextText}>Training at {academy.name}</Text>
           </View>
+        ) : null}
+
+        {coach ? (
+          <MentorCard 
+            coach={coach} 
+            onPress={() => navigation.navigate("CoachProfile", { coachId: coach.id })}
+          />
         ) : null}
       </ScrollView>
       
@@ -1440,6 +1570,19 @@ const styles = StyleSheet.create({
   academyName: {
     ...Typography.h4,
     color: Colors.dark.text,
+  },
+  academyContextRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  academyContextText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
   },
   coachInfo: {
     flexDirection: "row",
@@ -2209,5 +2352,313 @@ const statusStyles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.backgroundRoot,
     fontWeight: "600",
+  },
+});
+
+const hudStyles = StyleSheet.create({
+  container: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    gap: Spacing.md,
+  },
+  levelBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.gold + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "40",
+  },
+  levelText: {
+    ...Typography.caption,
+    color: Colors.dark.gold,
+    fontWeight: "700",
+  },
+  barsContainer: {
+    flex: 1,
+    gap: Spacing.xs,
+  },
+  barContainer: {
+    gap: 2,
+  },
+  barHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  barLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  barLabel: {
+    ...Typography.caption,
+    fontSize: 10,
+    fontWeight: "600",
+    textTransform: "uppercase" as const,
+  },
+  barValue: {
+    ...Typography.caption,
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  barTrack: {
+    height: 6,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  barFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  glowBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.gold + "15",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+  },
+  glowText: {
+    ...Typography.caption,
+    color: Colors.dark.gold,
+    fontWeight: "700",
+  },
+});
+
+const gameStyles = StyleSheet.create({
+  trainingCard: {
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  trainingCardGradient: {
+    padding: Spacing.lg,
+  },
+  trainingHeader: {
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  statusChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusText: {
+    ...Typography.caption,
+    fontWeight: "700",
+    textTransform: "uppercase" as const,
+    letterSpacing: 1,
+  },
+  countdownContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginVertical: Spacing.lg,
+    gap: Spacing.xs,
+  },
+  countdownBlock: {
+    alignItems: "center",
+    minWidth: 50,
+  },
+  countdownNumber: {
+    fontSize: 36,
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"],
+  },
+  countdownLabel: {
+    ...Typography.caption,
+    fontSize: 9,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+    textTransform: "uppercase" as const,
+    letterSpacing: 1,
+  },
+  countdownSeparator: {
+    fontSize: 28,
+    fontWeight: "300",
+    marginBottom: 16,
+  },
+  liveContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    marginVertical: Spacing.xl,
+  },
+  liveDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  liveText: {
+    fontSize: 40,
+    fontWeight: "800",
+    color: Colors.dark.error,
+    letterSpacing: 4,
+  },
+  sessionInfo: {
+    alignItems: "center",
+    gap: 4,
+    marginBottom: Spacing.md,
+  },
+  sessionType: {
+    ...Typography.h4,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  sessionDetail: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  sessionDetailText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  actionButtons: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  cancelButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.dark.error + "15",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.error + "30",
+  },
+  lateButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.dark.orange + "15",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.orange + "30",
+  },
+  actionButtonText: {
+    ...Typography.body,
+    fontWeight: "600",
+  },
+  vacationNote: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  vacationNoteText: {
+    ...Typography.small,
+    color: Colors.dark.xpCyan,
+    fontStyle: "italic",
+  },
+  noSessionCard: {
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    padding: Spacing.xl,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    borderStyle: "dashed",
+  },
+  noSessionTitle: {
+    ...Typography.h4,
+    color: Colors.dark.textMuted,
+  },
+  noSessionSubtitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+});
+
+const mentorStyles = StyleSheet.create({
+  card: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.dark.primary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarText: {
+    ...Typography.h4,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  info: {
+    flex: 1,
+  },
+  label: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  name: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.primary + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  badgeText: {
+    ...Typography.caption,
+    color: Colors.dark.primary,
+    fontWeight: "700",
+    fontSize: 10,
   },
 });
