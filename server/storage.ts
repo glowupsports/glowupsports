@@ -1307,8 +1307,12 @@ export const storage = {
     
     if (sessionIds.length === 0) return null;
     
-    // Find the most recent session
-    const conditions = [inArray(sessions.id, sessionIds)];
+    // Find the most recent PAST session (not future scheduled sessions)
+    const now = new Date();
+    const conditions = [
+      inArray(sessions.id, sessionIds),
+      lte(sessions.startTime, now),
+    ];
     if (academyId) {
       conditions.push(eq(sessions.academyId, academyId));
     }
