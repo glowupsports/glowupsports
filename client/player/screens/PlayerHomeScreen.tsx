@@ -13,7 +13,7 @@ import { OwnerCard } from "@/player/components/OwnerCard";
 import { PlayerStatusBar } from "@/player/components/PlayerStatusBar";
 import { AcademyHubCard } from "@/player/components/AcademyHubCard";
 import { ReviewPromptBanner } from "@/player/components/ReviewPromptBanner";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/query-client";
 import Animated, { FadeIn, FadeOut, SlideInUp, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming } from "react-native-reanimated";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
