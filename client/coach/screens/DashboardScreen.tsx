@@ -728,21 +728,9 @@ export default function DashboardScreen() {
                 <View style={styles.missionDisplay}>
                   {selectedDayOffset === 0 && currentSession ? (
                     <View style={styles.liveHud}>
-                      <Animated.View style={[styles.liveHudGlow, pulseAnimatedStyle]} />
-                      <LinearGradient
-                        colors={[Colors.dark.primary + "30", Colors.dark.primary + "10"]}
-                        style={styles.liveHudBg}
-                      >
+                      <View style={styles.liveHudBgClean}>
                         <View style={styles.liveHudContent}>
                           <View style={styles.liveHudLeft}>
-                            <View style={styles.liveHudHeader}>
-                              <View style={styles.liveIndicatorNew}>
-                                <Animated.View style={[styles.livePulseRing, pulseAnimatedStyle]} />
-                                <View style={styles.liveDotCore} />
-                              </View>
-                              <Text style={styles.liveStatusText}>LIVE SESSION</Text>
-                            </View>
-                            
                             <Text style={styles.countdownTimer}>{sessionTimeRemaining}</Text>
                             <Text style={styles.countdownLabel}>REMAINING</Text>
                             
@@ -761,7 +749,7 @@ export default function DashboardScreen() {
                             </View>
                           </View>
                         </View>
-                      </LinearGradient>
+                      </View>
                     </View>
                   ) : selectedDayOffset === 0 ? (
                     <View style={styles.missionContent}>
@@ -787,7 +775,7 @@ export default function DashboardScreen() {
                       }}
                     >
                       <View style={[styles.gameActionIcon, { backgroundColor: Colors.dark.primary }]}>
-                        <Ionicons name="checkmark" size={22} color="#000" />
+                        <Ionicons name="checkmark-circle" size={24} color="#000" />
                       </View>
                       <Text style={styles.actionBtnLabel}>ATTEND</Text>
                     </Pressable>
@@ -799,7 +787,7 @@ export default function DashboardScreen() {
                       }}
                     >
                       <View style={[styles.gameActionIcon, { backgroundColor: Colors.dark.xpCyan }]}>
-                        <Ionicons name="add" size={24} color="#000" />
+                        <Ionicons name="time" size={24} color="#000" />
                       </View>
                       <Text style={styles.actionBtnLabel}>EXTEND</Text>
                     </Pressable>
@@ -811,7 +799,7 @@ export default function DashboardScreen() {
                       }}
                     >
                       <View style={[styles.gameActionIcon, { backgroundColor: Colors.dark.orange }]}>
-                        <Ionicons name="stop" size={20} color="#000" />
+                        <Ionicons name="stop-circle" size={24} color="#000" />
                       </View>
                       <Text style={styles.actionBtnLabel}>END</Text>
                     </Pressable>
@@ -1809,6 +1797,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.dark.primary + "40",
   },
+  liveHudBgClean: {
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.md,
+  },
   liveHudContent: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1826,15 +1818,15 @@ const styles = StyleSheet.create({
   },
   liveCircleGlow: {
     position: "absolute" as const,
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: Colors.dark.error,
   },
   liveCircleBadge: {
-    width: 85,
-    height: 85,
-    borderRadius: 43,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     backgroundColor: "#FF3333",
     alignItems: "center",
     justifyContent: "center",
@@ -1842,7 +1834,7 @@ const styles = StyleSheet.create({
     borderColor: "#ffffff",
   },
   liveCircleText: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: "900",
     color: "#fff",
     letterSpacing: 2,
@@ -1851,7 +1843,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   liveCircleSubtext: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "800",
     color: "#fff",
     letterSpacing: 0.5,
