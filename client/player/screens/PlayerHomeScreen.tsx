@@ -1159,6 +1159,27 @@ export default function PlayerHomeScreen() {
           </View>
         ) : null}
 
+        <Pressable 
+          style={styles.courtBookingCard}
+          onPress={() => navigation.navigate("CourtBooking")}
+        >
+          <LinearGradient
+            colors={[Colors.dark.xpCyan + "15", Colors.dark.backgroundSecondary]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.courtBookingGradient}
+          >
+            <View style={styles.courtBookingIcon}>
+              <Ionicons name="tennisball" size={24} color={Colors.dark.xpCyan} />
+            </View>
+            <View style={styles.courtBookingContent}>
+              <Text style={styles.courtBookingTitle}>Book a Court</Text>
+              <Text style={styles.courtBookingSubtitle}>Find and reserve courts near you</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.xpCyan} />
+          </LinearGradient>
+        </Pressable>
+
         {coach ? (
           <MentorCard 
             coach={coach} 
@@ -1739,6 +1760,41 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
   },
   academyContextText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  courtBookingCard: {
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  courtBookingGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+    borderRadius: BorderRadius.lg,
+  },
+  courtBookingIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  courtBookingContent: {
+    flex: 1,
+  },
+  courtBookingTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  courtBookingSubtitle: {
     ...Typography.small,
     color: Colors.dark.textMuted,
   },

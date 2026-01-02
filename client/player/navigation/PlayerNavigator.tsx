@@ -24,6 +24,9 @@ import ParentInvoicesScreen from "@/player/screens/ParentInvoicesScreen";
 import ParentPaymentsScreen from "@/player/screens/ParentPaymentsScreen";
 import ParentLessonsScreen from "@/player/screens/ParentLessonsScreen";
 import ParentSettingsScreen from "@/player/screens/ParentSettingsScreen";
+import CourtBookingScreen from "@/player/screens/CourtBookingScreen";
+import CourtDetailScreen from "@/player/screens/CourtDetailScreen";
+import MyCourtBookingsScreen from "@/player/screens/MyCourtBookingsScreen";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -52,6 +55,9 @@ export type PlayerStackParamList = {
   ParentPayments: { playerId: string };
   ParentLessons: { playerId: string };
   ParentSettings: undefined;
+  CourtBooking: undefined;
+  CourtDetail: { courtId: string; date: string };
+  MyCourtBookings: undefined;
 };
 
 const Tab = createBottomTabNavigator<PlayerTabParamList>();
@@ -229,6 +235,27 @@ function PlayerStackNavigator() {
       <Stack.Screen 
         name="ParentSettings" 
         component={ParentSettingsScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="CourtBooking" 
+        component={CourtBookingScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="CourtDetail" 
+        component={CourtDetailScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="MyCourtBookings" 
+        component={MyCourtBookingsScreen}
         options={{
           presentation: "card",
         }}
