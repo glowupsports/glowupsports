@@ -8791,14 +8791,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Handle semi-private auto-transformation
+      // Business rule: When 1 player cancels a semi-private session, upgrade to private for remaining player
       let semiPrivateUpgraded = false;
       let remainingPlayerId: string | null = null;
       
       if (session.sessionType === "semi") {
         // Get all players in this session (fresh query to get updated status)
         const allPlayers = await storage.getSessionPlayers(sessionId);
-        // Filter out the cancelling player and any already absent players
-        // Note: The cancelling player was just marked absent, so we exclude by playerId explicitly
+        // "Active participant" definition: Players planning to attend (not yet marked absent)
+        // - null: Future session, attendance not yet taken (assumed attending)
+        // - present/late: Already confirmed attending
+        // - absent/holiday: Not attending, excluded from count
         const remainingPlayers = allPlayers.filter(p => 
           p.playerId !== playerId && 
           p.playerId !== null &&
