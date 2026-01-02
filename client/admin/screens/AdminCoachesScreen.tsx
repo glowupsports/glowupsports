@@ -41,6 +41,8 @@ interface MonthlyPayment {
   grossAmount: number;
   status: "pending" | "approved" | "paid" | "declined";
   paidAt: string | null;
+  paymentMethod: string | null;
+  paymentReference: string | null;
   declineReason: string | null;
   payoutId: string | null;
 }
@@ -93,13 +95,26 @@ function StatItem({ icon, label, value, color = Colors.dark.primary }: StatItemP
   );
 }
 
+const PAYMENT_METHODS = [
+  { value: "bank_transfer", label: "Bank Transfer", icon: "business-outline" as const },
+  { value: "cash", label: "Cash", icon: "cash-outline" as const },
+  { value: "cheque", label: "Cheque", icon: "document-text-outline" as const },
+  { value: "card", label: "Card", icon: "card-outline" as const },
+];
+
 export default function AdminCoachesScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedCoachId, setSelectedCoachId] = useState<string | null>(null);
   const [editingCoach, setEditingCoach] = useState<Coach | null>(null);
+  const [pendingPayment, setPendingPayment] = useState<{ month: number; year: number } | null>(null);
+  const [paymentFormData, setPaymentFormData] = useState({
+    paymentMethod: "bank_transfer",
+    paymentReference: "",
+  });
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -164,13 +179,23 @@ export default function AdminCoachesScreen() {
   };
 
   const markPaidMutation = useMutation({
-    mutationFn: async ({ coachId, month, year }: { coachId: string; month: number; year: number }) => {
+    mutationFn: async ({ coachId, month, year, paymentMethod, paymentReference }: { 
+      coachId: string; 
+      month: number; 
+      year: number;
+      paymentMethod: string;
+      paymentReference?: string;
+    }) => {
       return apiRequest("POST", `/api/admin/coaches/${coachId}/payouts/${month}/${year}/pay`, {
-        paymentMethod: "bank_transfer",
+        paymentMethod,
+        paymentReference: paymentReference || undefined,
       });
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/coaches", variables.coachId, "stats"] });
+      setShowPaymentModal(false);
+      setPendingPayment(null);
+      setPaymentFormData({ paymentMethod: "bank_transfer", paymentReference: "" });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (Platform.OS === "web") {
         window.alert("Payment marked as paid!");
@@ -208,22 +233,33 @@ export default function AdminCoachesScreen() {
 
   const handleMarkPaid = (month: number, year: number) => {
     if (!selectedCoachId) return;
-    const coachId = selectedCoachId;
-    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    if (Platform.OS === "web") {
-      if (window.confirm(`Mark payment for ${monthNames[month - 1]} ${year} as paid?`)) {
-        markPaidMutation.mutate({ coachId, month, year });
-      }
-    } else {
-      Alert.alert(
-        "Confirm Payment",
-        `Mark payment for ${monthNames[month - 1]} ${year} as paid?`,
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Mark Paid", onPress: () => markPaidMutation.mutate({ coachId, month, year }) },
-        ]
-      );
-    }
+    setPendingPayment({ month, year });
+    setPaymentFormData({ paymentMethod: "bank_transfer", paymentReference: "" });
+    setShowPaymentModal(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const confirmPayment = () => {
+    if (!selectedCoachId || !pendingPayment) return;
+    markPaidMutation.mutate({
+      coachId: selectedCoachId,
+      month: pendingPayment.month,
+      year: pendingPayment.year,
+      paymentMethod: paymentFormData.paymentMethod,
+      paymentReference: paymentFormData.paymentReference || undefined,
+    });
+  };
+
+  const getPaymentMethodLabel = (method: string | null) => {
+    if (!method) return "";
+    const found = PAYMENT_METHODS.find(m => m.value === method);
+    return found ? found.label : method;
+  };
+
+  const getPaymentMethodIcon = (method: string | null): keyof typeof Ionicons.glyphMap => {
+    if (!method) return "help-outline";
+    const found = PAYMENT_METHODS.find(m => m.value === method);
+    return found ? found.icon : "help-outline";
   };
 
   const handleDecline = (month: number, year: number) => {
@@ -526,6 +562,31 @@ export default function AdminCoachesScreen() {
                         {payment.status === "declined" && payment.declineReason ? (
                           <Text style={styles.declineReason}>Reason: {payment.declineReason}</Text>
                         ) : null}
+
+                        {payment.status === "paid" && (payment.paymentMethod || payment.paidAt) ? (
+                          <View style={styles.paidDetailsRow}>
+                            {payment.paymentMethod ? (
+                              <View style={styles.paidDetailItem}>
+                                <Ionicons name={getPaymentMethodIcon(payment.paymentMethod)} size={14} color={Colors.dark.successNeon} />
+                                <Text style={styles.paidDetailText}>{getPaymentMethodLabel(payment.paymentMethod)}</Text>
+                              </View>
+                            ) : null}
+                            {payment.paidAt ? (
+                              <View style={styles.paidDetailItem}>
+                                <Ionicons name="checkmark-circle" size={14} color={Colors.dark.successNeon} />
+                                <Text style={styles.paidDetailText}>
+                                  {new Date(payment.paidAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                                </Text>
+                              </View>
+                            ) : null}
+                            {payment.paymentReference ? (
+                              <View style={styles.paidDetailItem}>
+                                <Ionicons name="document-text-outline" size={14} color={Colors.dark.textMuted} />
+                                <Text style={[styles.paidDetailText, { color: Colors.dark.textMuted }]}>{payment.paymentReference}</Text>
+                              </View>
+                            ) : null}
+                          </View>
+                        ) : null}
                         
                         {payment.status === "pending" ? (
                           <View style={styles.paymentActions}>
@@ -665,6 +726,103 @@ export default function AdminCoachesScreen() {
       />
 
       {renderDetailModal()}
+
+      <Modal
+        visible={showPaymentModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => {
+          setShowPaymentModal(false);
+          setPendingPayment(null);
+        }}
+      >
+        <View style={styles.paymentModalOverlay}>
+          <View style={[styles.paymentModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <View style={styles.paymentModalHeader}>
+              <Text style={styles.paymentModalTitle}>Record Payment</Text>
+              <Pressable 
+                onPress={() => {
+                  setShowPaymentModal(false);
+                  setPendingPayment(null);
+                }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={24} color={Colors.dark.textMuted} />
+              </Pressable>
+            </View>
+            
+            {pendingPayment ? (
+              <Text style={styles.paymentModalSubtitle}>
+                {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][pendingPayment.month - 1]} {pendingPayment.year}
+              </Text>
+            ) : null}
+
+            <Text style={styles.paymentModalLabel}>Payment Method</Text>
+            <View style={styles.paymentMethodGrid}>
+              {PAYMENT_METHODS.map((method) => (
+                <Pressable
+                  key={method.value}
+                  style={[
+                    styles.paymentMethodOption,
+                    paymentFormData.paymentMethod === method.value && styles.paymentMethodSelected
+                  ]}
+                  onPress={() => {
+                    setPaymentFormData(prev => ({ ...prev, paymentMethod: method.value }));
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Ionicons 
+                    name={method.icon} 
+                    size={24} 
+                    color={paymentFormData.paymentMethod === method.value ? Colors.dark.text : Colors.dark.textMuted} 
+                  />
+                  <Text style={[
+                    styles.paymentMethodLabel,
+                    paymentFormData.paymentMethod === method.value && styles.paymentMethodLabelSelected
+                  ]}>
+                    {method.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.paymentModalLabel}>Reference Number (Optional)</Text>
+            <TextInput
+              style={styles.paymentReferenceInput}
+              value={paymentFormData.paymentReference}
+              onChangeText={(text) => setPaymentFormData(prev => ({ ...prev, paymentReference: text }))}
+              placeholder="Bank transfer ID, cheque number, etc."
+              placeholderTextColor={Colors.dark.textMuted}
+            />
+
+            <View style={styles.paymentModalActions}>
+              <Pressable 
+                style={styles.paymentCancelButton}
+                onPress={() => {
+                  setShowPaymentModal(false);
+                  setPendingPayment(null);
+                }}
+              >
+                <Text style={styles.paymentCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.paymentConfirmButton, markPaidMutation.isPending && styles.paymentButtonDisabled]}
+                onPress={confirmPayment}
+                disabled={markPaidMutation.isPending}
+              >
+                {markPaidMutation.isPending ? (
+                  <ActivityIndicator size="small" color={Colors.dark.text} />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle" size={20} color={Colors.dark.text} />
+                    <Text style={styles.paymentConfirmText}>Confirm Payment</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={showAddModal}
@@ -1158,6 +1316,136 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   sendOverviewText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  paidDetailsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: `${Colors.dark.successNeon}30`,
+  },
+  paidDetailItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  paidDetailText: {
+    ...Typography.small,
+    color: Colors.dark.successNeon,
+  },
+  paymentModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "flex-end",
+  },
+  paymentModalContent: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+  },
+  paymentModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  paymentModalTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  paymentModalSubtitle: {
+    ...Typography.body,
+    color: Colors.dark.orange,
+    fontWeight: "600",
+    marginBottom: Spacing.lg,
+  },
+  paymentModalLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  paymentMethodGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  paymentMethodOption: {
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    minWidth: 80,
+    gap: Spacing.xs,
+  },
+  paymentMethodSelected: {
+    borderColor: Colors.dark.orange,
+    backgroundColor: `${Colors.dark.orange}20`,
+  },
+  paymentMethodLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  paymentMethodLabelSelected: {
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  paymentReferenceInput: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+  },
+  paymentModalActions: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginTop: Spacing.xl,
+  },
+  paymentCancelButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  paymentCancelText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+  },
+  paymentConfirmButton: {
+    flex: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.successNeon,
+  },
+  paymentButtonDisabled: {
+    opacity: 0.6,
+  },
+  paymentConfirmText: {
     ...Typography.body,
     color: Colors.dark.text,
     fontWeight: "600",

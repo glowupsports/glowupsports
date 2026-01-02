@@ -8177,6 +8177,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           grossAmount,
           status: payoutRecord?.status || "pending",
           paidAt: payoutRecord?.paidAt || null,
+          paymentMethod: payoutRecord?.paymentMethod || null,
+          paymentReference: payoutRecord?.paymentReference || null,
           declineReason: payoutRecord?.declineReason || null,
           payoutId: payoutRecord?.id || null,
         };
