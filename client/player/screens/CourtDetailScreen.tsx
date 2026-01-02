@@ -73,8 +73,10 @@ export default function CourtDetailScreen() {
   const [selectedSlot, setSelectedSlot] = useState<{ start: string; end: string } | null>(null);
   const [showBookingConfirm, setShowBookingConfirm] = useState(false);
 
+  const detailUrl = `/api/courts/${courtId}/details?date=${date}`;
+
   const { data: court, isLoading, isError } = useQuery<CourtDetails>({
-    queryKey: [`/api/courts/${courtId}/details`, { date }],
+    queryKey: [detailUrl],
   });
 
   const bookingMutation = useMutation({
@@ -92,8 +94,8 @@ export default function CourtDetailScreen() {
           { text: "Done", onPress: () => navigation.goBack() },
         ]
       );
-      queryClient.invalidateQueries({ queryKey: [`/api/courts/${courtId}/details`, { date }] });
-      queryClient.invalidateQueries({ queryKey: ["/api/courts/search"], exact: false });
+      queryClient.invalidateQueries({ queryKey: [detailUrl] });
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0]?.toString().startsWith("/api/courts/search") ?? false });
       queryClient.invalidateQueries({ queryKey: ["/api/my-court-bookings"] });
     },
     onError: (error: Error) => {

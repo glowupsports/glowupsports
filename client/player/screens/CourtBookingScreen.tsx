@@ -55,8 +55,13 @@ export default function CourtBookingScreen() {
     return today.toISOString().split("T")[0];
   });
 
+  const searchParams = new URLSearchParams();
+  if (selectedSurface !== "all") searchParams.set("surface", selectedSurface);
+  if (selectedDate) searchParams.set("date", selectedDate);
+  const searchUrl = `/api/courts/search${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+
   const { data: courts = [], isLoading, isError } = useQuery<Court[]>({
-    queryKey: ["/api/courts/search", { surface: selectedSurface === "all" ? undefined : selectedSurface, date: selectedDate }],
+    queryKey: [searchUrl],
   });
 
   const filteredCourts = useMemo(() => {
