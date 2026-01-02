@@ -563,6 +563,18 @@ export const players = pgTable("players", {
   focusGoals: jsonb("focus_goals").$type<string[]>(), // multi-select
   selfConfidenceFlags: jsonb("self_confidence_flags").$type<string[]>(), // optional self-check
   
+  // Social Profile Fields (Game Character)
+  profilePhotoUrl: text("profile_photo_url"),
+  displayName: text("display_name"), // Optional nickname
+  preferredPlayType: text("preferred_play_type"), // singles/doubles/both
+  openToPlay: boolean("open_to_play").default(false), // Findable for matches
+  typicalPlayTimes: jsonb("typical_play_times").$type<string[]>(), // morning/afternoon/evening/weekend
+  preferredCities: jsonb("preferred_cities").$type<string[]>(), // cities/areas
+  matchPreference: text("match_preference"), // casual/training/competitive
+  privacyLevel: text("privacy_level").default("platform"), // public/platform/academy
+  bio: text("bio"), // Short player bio
+  lastActiveAt: timestamp("last_active_at"),
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -581,6 +593,16 @@ export const updatePlayerSchema = z.object({
   backhandType: z.enum(["single", "double"]).optional().nullable(),
   tshirtSize: z.enum(tshirtSizes).optional().nullable(),
   height: z.number().int().min(50).max(250).optional().nullable(),
+  // Social Profile Fields
+  profilePhotoUrl: z.string().optional().nullable(),
+  displayName: z.string().max(50).optional().nullable(),
+  preferredPlayType: z.enum(["singles", "doubles", "both"]).optional().nullable(),
+  openToPlay: z.boolean().optional(),
+  typicalPlayTimes: z.array(z.string()).optional().nullable(),
+  preferredCities: z.array(z.string()).optional().nullable(),
+  matchPreference: z.enum(["casual", "training", "competitive"]).optional().nullable(),
+  privacyLevel: z.enum(["public", "platform", "academy"]).optional(),
+  bio: z.string().max(500).optional().nullable(),
 }).transform((data) => ({
   ...data,
   email: data.email === "" ? null : data.email,
@@ -588,6 +610,90 @@ export const updatePlayerSchema = z.object({
 export type InsertPlayer = z.infer<typeof insertPlayerSchema>;
 export type UpdatePlayer = z.infer<typeof updatePlayerSchema>;
 export type Player = typeof players.$inferSelect;
+
+// Player Matches - Casual matches & challenges between players
+export const playerMatches = pgTable("player_matches", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  
+  // Who initiated the match
+  initiatorId: varchar("initiator_id").references(() => players.id).notNull(),
+  // Who received the challenge (null for open matches)
+  receiverId: varchar("receiver_id").references(() => players.id),
+  
+  // Match details
+  matchType: text("match_type").notNull(), // casual/training/friendly
+  playType: text("play_type").notNull(), // singles/doubles
+  
+  // Location & Time
+  proposedDate: timestamp("proposed_date"),
+  proposedTimeSlot: text("proposed_time_slot"), // morning/afternoon/evening
+  locationCity: text("location_city"),
+  courtId: varchar("court_id").references(() => courts.id),
+  courtBookingId: varchar("court_booking_id").references(() => courtBookings.id),
+  
+  // Status flow: pending -> accepted/declined/expired
+  status: text("status").default("pending"), // pending/accepted/declined/cancelled/completed/expired
+  
+  // Message from initiator
+  message: text("message"),
+  
+  // Response
+  respondedAt: timestamp("responded_at"),
+  responseMessage: text("response_message"),
+  
+  // Alternative time suggested
+  counterProposedDate: timestamp("counter_proposed_date"),
+  counterProposedTimeSlot: text("counter_proposed_time_slot"),
+  
+  // Result (optional, no score tracking for MVP)
+  resultStatus: text("result_status"), // played/no_show/cancelled
+  resultNotes: text("result_notes"),
+  
+  // XP awarded
+  xpAwarded: integer("xp_awarded").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  initiatorIdx: index("player_matches_initiator_idx").on(table.initiatorId),
+  receiverIdx: index("player_matches_receiver_idx").on(table.receiverId),
+  statusIdx: index("player_matches_status_idx").on(table.status),
+}));
+
+export const insertPlayerMatchSchema = createInsertSchema(playerMatches).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true,
+  respondedAt: true,
+});
+export type InsertPlayerMatch = z.infer<typeof insertPlayerMatchSchema>;
+export type PlayerMatch = typeof playerMatches.$inferSelect;
+
+// Player Connections - Track who has played together
+export const playerConnections = pgTable("player_connections", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  
+  player1Id: varchar("player1_id").references(() => players.id).notNull(),
+  player2Id: varchar("player2_id").references(() => players.id).notNull(),
+  
+  // Stats
+  matchesPlayed: integer("matches_played").default(0),
+  lastPlayedAt: timestamp("last_played_at"),
+  
+  // Relationship (optional)
+  connectionType: text("connection_type"), // friend/rival/training_partner
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  player1Idx: index("player_connections_player1_idx").on(table.player1Id),
+  player2Idx: index("player_connections_player2_idx").on(table.player2Id),
+}));
+
+export type PlayerConnection = typeof playerConnections.$inferSelect;
 
 // Package Templates - Reusable package definitions (defined by academy owner)
 export const packageTemplates = pgTable("package_templates", {

@@ -9450,6 +9450,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalSessions = playerSessions.length;
       const sessionsAttended = playerSessions.filter(s => s.attended === "present").length;
       
+      // Get social data (matches and connections)
+      const matchesResult = await db.execute(sql`
+        SELECT COUNT(*) as count FROM player_matches 
+        WHERE (player1_id = ${playerId} OR player2_id = ${playerId})
+        AND status = 'completed'
+      `);
+      const matchesPlayed = Number(matchesResult.rows[0]?.count || 0);
+
+      const connectionsResult = await db.execute(sql`
+        SELECT COUNT(*) as count FROM player_connections 
+        WHERE (player_id = ${playerId} OR connected_player_id = ${playerId})
+      `);
+      const connectionsCount = Number(connectionsResult.rows[0]?.count || 0);
+
+      // Get recent play partners (up to 5)
+      const recentPartnersResult = await db.execute(sql`
+        SELECT DISTINCT ON (partner_id) 
+          partner_id, 
+          partner_name,
+          last_played_at
+        FROM (
+          SELECT 
+            CASE WHEN player1_id = ${playerId} THEN player2_id ELSE player1_id END as partner_id,
+            CASE WHEN player1_id = ${playerId} 
+              THEN (SELECT name FROM players WHERE id = player2_id)
+              ELSE (SELECT name FROM players WHERE id = player1_id)
+            END as partner_name,
+            scheduled_date as last_played_at
+          FROM player_matches
+          WHERE (player1_id = ${playerId} OR player2_id = ${playerId})
+          AND status = 'completed'
+          ORDER BY scheduled_date DESC
+        ) sub
+        ORDER BY partner_id, last_played_at DESC
+        LIMIT 5
+      `);
+      
+      const recentPartners = recentPartnersResult.rows.map((row: any) => ({
+        id: row.partner_id,
+        name: row.partner_name || "Player",
+        lastPlayedAt: row.last_played_at,
+      }));
+
       res.json({
         player: {
           id: player.id,
@@ -9461,6 +9504,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ballLevel: player.ballLevel || "red",
           streak: player.streak || 0,
           createdAt: player.createdAt,
+          dominantHand: (player as any).dominantHand || null,
+          preferredPlayType: (player as any).preferredPlayType || null,
+          openToPlay: (player as any).openToPlay || false,
+          typicalPlayTimes: (player as any).typicalPlayTimes || null,
+          preferredCities: (player as any).preferredCities || null,
+          matchPreference: (player as any).matchPreference || null,
+          bio: (player as any).bio || null,
+          displayName: (player as any).displayName || null,
         },
         coach: coach ? {
           id: coach.id,
@@ -9476,10 +9527,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sessionsTotal: totalSessions,
           attendanceRate: totalSessions > 0 ? Math.round((sessionsAttended / totalSessions) * 100) : 0,
         },
+        social: {
+          matchesPlayed,
+          connectionsCount,
+          recentPartners,
+        },
       });
     } catch (error) {
       console.error("Error fetching player profile:", error);
       res.status(500).json({ error: "Failed to fetch player profile" });
+    }
+  });
+
+  // Update player social profile
+  app.patch("/api/player/me/profile", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    if (!req.user!.playerId) {
+      return res.status(400).json({ error: "No player profile found" });
+    }
+    
+    try {
+      const playerId = req.user!.playerId!;
+      const { openToPlay, dominantHand, preferredPlayType, typicalPlayTimes, preferredCities, matchPreference, bio, displayName, privacyLevel } = req.body;
+      
+      // Build update object with only provided fields
+      const updates: Record<string, any> = {};
+      if (typeof openToPlay === "boolean") updates.open_to_play = openToPlay;
+      if (dominantHand !== undefined) updates.dominant_hand = dominantHand;
+      if (preferredPlayType !== undefined) updates.preferred_play_type = preferredPlayType;
+      if (typicalPlayTimes !== undefined) updates.typical_play_times = typicalPlayTimes;
+      if (preferredCities !== undefined) updates.preferred_cities = preferredCities;
+      if (matchPreference !== undefined) updates.match_preference = matchPreference;
+      if (bio !== undefined) updates.bio = bio;
+      if (displayName !== undefined) updates.display_name = displayName;
+      if (privacyLevel !== undefined) updates.privacy_level = privacyLevel;
+      
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: "No valid fields to update" });
+      }
+      
+      // Build dynamic update query
+      const setClauses = Object.keys(updates).map(key => `${key} = $${Object.keys(updates).indexOf(key) + 2}`).join(", ");
+      const values = [playerId, ...Object.values(updates)];
+      
+      await db.execute(sql`
+        UPDATE players 
+        SET ${sql.raw(Object.entries(updates).map(([k, v]) => {
+          if (typeof v === "boolean") return `${k} = ${v}`;
+          if (v === null) return `${k} = NULL`;
+          if (Array.isArray(v)) return `${k} = ARRAY[${v.map(i => `'${i}'`).join(",")}]`;
+          return `${k} = '${v}'`;
+        }).join(", "))}
+        WHERE id = ${playerId}
+      `);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating player profile:", error);
+      res.status(500).json({ error: "Failed to update player profile" });
     }
   });
   

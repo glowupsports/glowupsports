@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform, Linking } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform, Linking, Switch } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
@@ -10,6 +10,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import PinEntryModal from "@/components/PinEntryModal";
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
+import { apiRequest } from "@/lib/query-client";
 
 interface ProfileData {
   player: {
@@ -22,6 +24,14 @@ interface ProfileData {
     ballLevel: string | null;
     streak: number;
     createdAt: string;
+    dominantHand: string | null;
+    preferredPlayType: string | null;
+    openToPlay: boolean;
+    typicalPlayTimes: string[] | null;
+    preferredCities: string[] | null;
+    matchPreference: string | null;
+    bio: string | null;
+    displayName: string | null;
   };
   coach: {
     id: string;
@@ -36,6 +46,11 @@ interface ProfileData {
     sessionsAttended: number;
     sessionsTotal: number;
     attendanceRate: number;
+  };
+  social: {
+    matchesPlayed: number;
+    recentPartners: Array<{ id: string; name: string; lastPlayedAt: string }>;
+    connectionsCount: number;
   };
 }
 
@@ -79,9 +94,23 @@ export default function PlayerProfileScreen() {
   const { setMode } = useAppMode();
   const { logout } = useAuth();
   const [showPinModal, setShowPinModal] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery<ProfileData>({
     queryKey: ["/api/player/me/profile"],
+  });
+
+  const toggleOpenToPlay = useMutation({
+    mutationFn: async (newValue: boolean) => {
+      return apiRequest("/api/player/me/profile", {
+        method: "PATCH",
+        body: JSON.stringify({ openToPlay: newValue }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
   });
 
   const handleLogout = () => {
@@ -180,7 +209,126 @@ export default function PlayerProfileScreen() {
               <Text style={styles.glowText}>{player.glowScore} Glow</Text>
             </View>
           </View>
+
+          {/* Open to Play Toggle */}
+          <View style={styles.openToPlayCard}>
+            <LinearGradient
+              colors={player.openToPlay 
+                ? [Colors.dark.primary + "30", Colors.dark.primary + "10"]
+                : ["rgba(50, 50, 50, 0.6)", "rgba(40, 40, 40, 0.4)"]
+              }
+              style={styles.openToPlayGradient}
+            >
+              <View style={styles.openToPlayContent}>
+                <View style={styles.openToPlayLeft}>
+                  <View style={[styles.openToPlayIcon, player.openToPlay && styles.openToPlayIconActive]}>
+                    <Ionicons 
+                      name="tennisball" 
+                      size={20} 
+                      color={player.openToPlay ? Colors.dark.primary : Colors.dark.textMuted} 
+                    />
+                  </View>
+                  <View>
+                    <Text style={[styles.openToPlayTitle, player.openToPlay && styles.openToPlayTitleActive]}>
+                      Open to Play
+                    </Text>
+                    <Text style={styles.openToPlaySubtitle}>
+                      {player.openToPlay ? "Others can find you for matches" : "Hidden from match search"}
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={player.openToPlay}
+                  onValueChange={(value) => toggleOpenToPlay.mutate(value)}
+                  trackColor={{ 
+                    false: Colors.dark.backgroundSecondary, 
+                    true: Colors.dark.primary + "80" 
+                  }}
+                  thumbColor={player.openToPlay ? Colors.dark.primary : Colors.dark.textMuted}
+                  disabled={toggleOpenToPlay.isPending}
+                />
+              </View>
+            </LinearGradient>
+          </View>
+
+          {/* Player Identity */}
+          <View style={styles.identityRow}>
+            {player.dominantHand ? (
+              <View style={styles.identityChip}>
+                <Ionicons name="hand-left" size={14} color={Colors.dark.xpCyan} />
+                <Text style={styles.identityText}>
+                  {player.dominantHand === "left" ? "Left" : "Right"} Hand
+                </Text>
+              </View>
+            ) : null}
+            {player.preferredPlayType ? (
+              <View style={styles.identityChip}>
+                <Ionicons 
+                  name={player.preferredPlayType === "doubles" ? "people" : "person"} 
+                  size={14} 
+                  color={Colors.dark.xpCyan} 
+                />
+                <Text style={styles.identityText}>
+                  {player.preferredPlayType === "singles" ? "Singles" : 
+                   player.preferredPlayType === "doubles" ? "Doubles" : "Both"}
+                </Text>
+              </View>
+            ) : null}
+            {player.matchPreference ? (
+              <View style={styles.identityChip}>
+                <Ionicons name="trophy" size={14} color={Colors.dark.gold} />
+                <Text style={styles.identityText}>
+                  {player.matchPreference.charAt(0).toUpperCase() + player.matchPreference.slice(1)}
+                </Text>
+              </View>
+            ) : null}
+          </View>
         </View>
+
+        {/* Social Signals Card */}
+        {data?.social ? (
+          <View style={styles.socialCard}>
+            <LinearGradient
+              colors={["rgba(0, 212, 255, 0.08)", "rgba(46, 204, 64, 0.05)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.socialGradient}
+            >
+              <Text style={styles.socialTitle}>Social</Text>
+              <View style={styles.socialStats}>
+                <View style={styles.socialStat}>
+                  <Text style={styles.socialStatValue}>{data.social.matchesPlayed}</Text>
+                  <Text style={styles.socialStatLabel}>Matches</Text>
+                </View>
+                <View style={styles.socialDivider} />
+                <View style={styles.socialStat}>
+                  <Text style={styles.socialStatValue}>{data.social.connectionsCount}</Text>
+                  <Text style={styles.socialStatLabel}>Connections</Text>
+                </View>
+              </View>
+              {data.social.recentPartners.length > 0 ? (
+                <View style={styles.recentPartnersSection}>
+                  <Text style={styles.recentPartnersLabel}>Recently Played With</Text>
+                  <View style={styles.recentPartnersAvatars}>
+                    {data.social.recentPartners.slice(0, 5).map((partner, index) => (
+                      <View 
+                        key={partner.id} 
+                        style={[styles.partnerAvatar, { marginLeft: index > 0 ? -12 : 0, zIndex: 5 - index }]}
+                      >
+                        <Text style={styles.partnerAvatarText}>{partner.name.charAt(0)}</Text>
+                      </View>
+                    ))}
+                    {data.social.recentPartners.length > 5 ? (
+                      <View style={[styles.partnerAvatar, styles.partnerAvatarMore, { marginLeft: -12 }]}>
+                        <Text style={styles.partnerAvatarMoreText}>+{data.social.recentPartners.length - 5}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+              ) : null}
+            </LinearGradient>
+          </View>
+        ) : null}
 
         <View style={styles.statsCard}>
           <View style={styles.statsGridCompact}>
@@ -708,5 +856,148 @@ const styles = StyleSheet.create({
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
     color: Colors.dark.error,
+  },
+  openToPlayCard: {
+    width: "100%",
+    marginTop: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  openToPlayGradient: {
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  openToPlayContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  openToPlayLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  openToPlayIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(100, 100, 100, 0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  openToPlayIconActive: {
+    backgroundColor: Colors.dark.primary + "30",
+  },
+  openToPlayTitle: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  openToPlayTitleActive: {
+    color: Colors.dark.primary,
+  },
+  openToPlaySubtitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  identityRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  identityChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(0, 212, 255, 0.1)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.lg,
+  },
+  identityText: {
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+    fontWeight: "500",
+  },
+  socialCard: {
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  socialGradient: {
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 255, 0.15)",
+  },
+  socialTitle: {
+    ...Typography.sectionTitle,
+    color: Colors.dark.xpCyan,
+    marginBottom: Spacing.md,
+  },
+  socialStats: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xl,
+  },
+  socialStat: {
+    alignItems: "center",
+  },
+  socialStatValue: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+  },
+  socialStatLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  socialDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  recentPartnersSection: {
+    marginTop: Spacing.lg,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.08)",
+  },
+  recentPartnersLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+  },
+  recentPartnersAvatars: {
+    flexDirection: "row",
+  },
+  partnerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.xpCyan,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: Colors.dark.backgroundRoot,
+  },
+  partnerAvatarText: {
+    ...Typography.small,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  partnerAvatarMore: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  partnerAvatarMoreText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
   },
 });
