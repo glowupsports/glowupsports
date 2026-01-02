@@ -9549,36 +9549,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const playerId = req.user!.playerId!;
       const { openToPlay, dominantHand, preferredPlayType, typicalPlayTimes, preferredCities, matchPreference, bio, displayName, privacyLevel } = req.body;
       
-      // Build update object with only provided fields
-      const updates: Record<string, any> = {};
-      if (typeof openToPlay === "boolean") updates.open_to_play = openToPlay;
-      if (dominantHand !== undefined) updates.dominant_hand = dominantHand;
-      if (preferredPlayType !== undefined) updates.preferred_play_type = preferredPlayType;
-      if (typicalPlayTimes !== undefined) updates.typical_play_times = typicalPlayTimes;
-      if (preferredCities !== undefined) updates.preferred_cities = preferredCities;
-      if (matchPreference !== undefined) updates.match_preference = matchPreference;
-      if (bio !== undefined) updates.bio = bio;
-      if (displayName !== undefined) updates.display_name = displayName;
-      if (privacyLevel !== undefined) updates.privacy_level = privacyLevel;
-      
-      if (Object.keys(updates).length === 0) {
-        return res.status(400).json({ error: "No valid fields to update" });
+      // Use parameterized updates for each field individually for safety
+      if (typeof openToPlay === "boolean") {
+        await db.execute(sql`UPDATE players SET open_to_play = ${openToPlay} WHERE id = ${playerId}`);
       }
-      
-      // Build dynamic update query
-      const setClauses = Object.keys(updates).map(key => `${key} = $${Object.keys(updates).indexOf(key) + 2}`).join(", ");
-      const values = [playerId, ...Object.values(updates)];
-      
-      await db.execute(sql`
-        UPDATE players 
-        SET ${sql.raw(Object.entries(updates).map(([k, v]) => {
-          if (typeof v === "boolean") return `${k} = ${v}`;
-          if (v === null) return `${k} = NULL`;
-          if (Array.isArray(v)) return `${k} = ARRAY[${v.map(i => `'${i}'`).join(",")}]`;
-          return `${k} = '${v}'`;
-        }).join(", "))}
-        WHERE id = ${playerId}
-      `);
+      if (dominantHand !== undefined) {
+        await db.execute(sql`UPDATE players SET dominant_hand = ${dominantHand} WHERE id = ${playerId}`);
+      }
+      if (preferredPlayType !== undefined) {
+        await db.execute(sql`UPDATE players SET preferred_play_type = ${preferredPlayType} WHERE id = ${playerId}`);
+      }
+      if (typicalPlayTimes !== undefined) {
+        await db.execute(sql`UPDATE players SET typical_play_times = ${typicalPlayTimes} WHERE id = ${playerId}`);
+      }
+      if (preferredCities !== undefined) {
+        await db.execute(sql`UPDATE players SET preferred_cities = ${preferredCities} WHERE id = ${playerId}`);
+      }
+      if (matchPreference !== undefined) {
+        await db.execute(sql`UPDATE players SET match_preference = ${matchPreference} WHERE id = ${playerId}`);
+      }
+      if (bio !== undefined) {
+        await db.execute(sql`UPDATE players SET bio = ${bio} WHERE id = ${playerId}`);
+      }
+      if (displayName !== undefined) {
+        await db.execute(sql`UPDATE players SET display_name = ${displayName} WHERE id = ${playerId}`);
+      }
+      if (privacyLevel !== undefined) {
+        await db.execute(sql`UPDATE players SET privacy_level = ${privacyLevel} WHERE id = ${playerId}`);
+      }
       
       res.json({ success: true });
     } catch (error) {
