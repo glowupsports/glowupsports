@@ -11,7 +11,21 @@ interface PlayerContextData {
   xp: number;
   glowScore: number;
   ballLevel: string;
+  dateOfBirth: string | null;
+  isMinor: boolean;
   isLoading: boolean;
+}
+
+function calculateAge(dateOfBirth: string | null): number {
+  if (!dateOfBirth) return 18;
+  const today = new Date();
+  const birth = new Date(dateOfBirth);
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
 }
 
 const PlayerContext = createContext<PlayerContextData | undefined>(undefined);
@@ -29,6 +43,7 @@ interface PlayerProfile {
     xp: number;
     glowScore: number;
     ballLevel: string;
+    dateOfBirth?: string | null;
   };
   coach?: {
     id: number;
@@ -44,6 +59,9 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     enabled: user?.role === "player",
   });
 
+  const dateOfBirth = profile?.player?.dateOfBirth || null;
+  const age = calculateAge(dateOfBirth);
+  
   const value: PlayerContextData = {
     playerId: profile?.player?.id || null,
     academyId: profile?.player?.academyId || null,
@@ -53,6 +71,8 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     xp: profile?.player?.xp || 0,
     glowScore: profile?.player?.glowScore || 0,
     ballLevel: profile?.player?.ballLevel || "red",
+    dateOfBirth,
+    isMinor: age <= 17,
     isLoading,
   };
 

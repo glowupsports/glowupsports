@@ -45,6 +45,7 @@ interface DashboardData {
     glowScore: number;
     ballLevel: string | null;
     streak: number;
+    dateOfBirth?: string | null;
   };
   coach: {
     id: string;
@@ -150,6 +151,48 @@ function getStreakLevel(streak: number): StreakLevel {
   if (streak >= 3) return { name: "SURGE", label: "RISING", color: Colors.dark.orange, progress: 0.65, icon: "flash" };
   return { name: "SPARK", label: "WARMING UP", color: Colors.dark.xpCyan, progress: 0.3, icon: "flash-outline" };
 }
+
+function calculatePlayerAge(dateOfBirth: string | null | undefined): number {
+  if (!dateOfBirth) return 18;
+  const today = new Date();
+  const birth = new Date(dateOfBirth);
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+}
+
+const ADULT_CANCEL_REASONS = [
+  { id: "sick", label: "Feeling unwell", icon: "medkit" },
+  { id: "schedule_conflict", label: "Schedule conflict", icon: "calendar" },
+  { id: "work_trip", label: "Work trip", icon: "briefcase" },
+  { id: "other", label: "Other (required explanation)", icon: "create" },
+];
+
+const MINOR_CANCEL_REASONS = [
+  { id: "sick", label: "Feeling unwell", icon: "medkit" },
+  { id: "school_trip", label: "School trip", icon: "bus" },
+  { id: "birthday_party", label: "Birthday party", icon: "gift" },
+  { id: "family_event", label: "Family event", icon: "people" },
+  { id: "other", label: "Other (required explanation)", icon: "create" },
+];
+
+const ADULT_GROUP_REASONS = [
+  { id: "sick", label: "Feeling unwell", icon: "medkit" },
+  { id: "schedule_conflict", label: "Schedule conflict", icon: "calendar" },
+  { id: "work_trip", label: "Work trip", icon: "briefcase" },
+  { id: "other", label: "Other (required explanation)", icon: "create" },
+];
+
+const MINOR_GROUP_REASONS = [
+  { id: "sick", label: "Feeling unwell", icon: "medkit" },
+  { id: "school_trip", label: "School trip", icon: "bus" },
+  { id: "birthday_party", label: "Birthday party", icon: "gift" },
+  { id: "family_event", label: "Family event", icon: "people" },
+  { id: "other", label: "Other (required explanation)", icon: "create" },
+];
 
 function CircularGauge({ 
   progress, 
@@ -669,6 +712,9 @@ export default function PlayerHomeScreen() {
   const [vacationEndDate, setVacationEndDate] = useState("");
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   
+  const playerAge = calculatePlayerAge(data?.player?.dateOfBirth);
+  const isMinorPlayer = playerAge <= 17;
+  
   const cancelSessionMutation = useMutation({
     mutationFn: async ({ sessionId, reason, reasonText, sessionType }: { sessionId: string; reason: string; reasonText?: string; sessionType: string }) => {
       const endpoint = sessionType === "group" 
@@ -1157,12 +1203,7 @@ export default function PlayerHomeScreen() {
                 </View>
                 
                 <View style={styles.cancelReasonsList}>
-                  {[
-                    { id: "sick", label: "Feeling unwell", icon: "medkit" },
-                    { id: "schedule_conflict", label: "Schedule conflict", icon: "calendar" },
-                    { id: "vacation", label: "On vacation", icon: "airplane" },
-                    { id: "other", label: "Other (required explanation)", icon: "create" },
-                  ].map((reason) => (
+                  {(isMinorPlayer ? MINOR_GROUP_REASONS : ADULT_GROUP_REASONS).map((reason) => (
                     <Pressable
                       key={reason.id}
                       style={[
@@ -1244,12 +1285,7 @@ export default function PlayerHomeScreen() {
                 </Text>
                 
                 <View style={styles.cancelReasonsList}>
-                  {[
-                    { id: "sick", label: "Feeling unwell", icon: "medkit" },
-                    { id: "schedule_conflict", label: "Schedule conflict", icon: "calendar" },
-                    { id: "weather", label: "Bad weather", icon: "rainy" },
-                    { id: "other", label: "Other reason", icon: "ellipsis-horizontal" },
-                  ].map((reason) => (
+                  {(isMinorPlayer ? MINOR_CANCEL_REASONS : ADULT_CANCEL_REASONS).map((reason) => (
                     <Pressable
                       key={reason.id}
                       style={[

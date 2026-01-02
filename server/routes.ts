@@ -8644,6 +8644,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           streak,
           onboardingCompleted,
           academyId: player.academyId,
+          dateOfBirth: player.dateOfBirth,
         },
         coach: coach ? {
           id: coach.id,
