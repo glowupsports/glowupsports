@@ -46,7 +46,7 @@ interface AuthContextType {
   user: AuthUser | null;
   coach: Coach | null;
   academy: Academy | null;
-  login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (username: string, password: string) => Promise<{ success: boolean; error?: string; user?: AuthUser }>;
   register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
   registerPlayer: (data: PlayerRegisterData) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -151,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [fetchUserData]);
 
-  const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (username: string, password: string): Promise<{ success: boolean; error?: string; user?: AuthUser }> => {
     try {
       queryClient.clear();
       
@@ -173,7 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await fetchUserData(data.token);
       setIsAuthenticated(true);
       
-      return { success: true };
+      return { success: true, user: data.user };
     } catch (error) {
       console.error("Login error:", error);
       return { success: false, error: "Network error. Please try again." };

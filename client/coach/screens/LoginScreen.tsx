@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -17,6 +18,13 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 import CountryCodePicker, { getDefaultCountry, CountryCode } from "@/components/CountryCodePicker";
+import {
+  SavedAccount,
+  getSavedAccounts,
+  saveAccount,
+  removeAccount,
+  checkBiometricSupport,
+} from "@/lib/savedAccounts";
 
 type AuthMode = "login" | "player_register" | "coach_info" | "academy_apply";
 
@@ -69,6 +77,50 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [applicationSubmitted, setApplicationSubmitted] = useState(false);
 
+  const [savedAccounts, setSavedAccounts] = useState<SavedAccount[]>([]);
+  const [biometryType, setBiometryType] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadSavedAccounts();
+    checkBiometrics();
+  }, []);
+
+  const loadSavedAccounts = async () => {
+    const accounts = await getSavedAccounts();
+    setSavedAccounts(accounts);
+  };
+
+  const checkBiometrics = async () => {
+    const { available, biometryType: type } = await checkBiometricSupport();
+    if (available && type) {
+      setBiometryType(type);
+    }
+  };
+
+  const handleQuickLogin = (account: SavedAccount) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setUsername(account.username);
+  };
+
+  const handleRemoveAccount = (account: SavedAccount) => {
+    Alert.alert(
+      "Remove Account",
+      `Remove ${account.displayName} from quick login?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            await removeAccount(account.username);
+            loadSavedAccounts();
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          },
+        },
+      ]
+    );
+  };
+
   const resetForm = () => {
     setUsername("");
     setEmail("");
@@ -93,9 +145,16 @@ export default function LoginScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      // Normalize username to lowercase for consistency
-      const result = await login(username.toLowerCase(), password);
-      if (!result.success) {
+      const normalizedUsername = username.toLowerCase();
+      const result = await login(normalizedUsername, password);
+      if (result.success && result.user) {
+        await saveAccount(
+          normalizedUsername,
+          normalizedUsername,
+          result.user.role as "coach" | "player" | "owner" | "parent"
+        );
+        loadSavedAccounts();
+      } else if (!result.success) {
         Alert.alert("Login Failed", result.error || "Please check your credentials");
       }
     } catch (error) {
@@ -193,8 +252,73 @@ export default function LoginScreen() {
     setApplicationSubmitted(false);
   };
 
+  const getRoleIcon = (role: string): keyof typeof Ionicons.glyphMap => {
+    switch (role) {
+      case "coach": return "tennisball";
+      case "player": return "person";
+      case "owner": return "business";
+      case "parent": return "people";
+      default: return "person";
+    }
+  };
+
+  const getRoleColor = (role: string): string => {
+    switch (role) {
+      case "coach": return Colors.dark.primary;
+      case "player": return Colors.dark.xpCyan;
+      case "owner": return Colors.dark.gold;
+      case "parent": return "#9B59B6";
+      default: return Colors.dark.textMuted;
+    }
+  };
+
+  const renderSavedAccounts = () => {
+    if (savedAccounts.length === 0) return null;
+
+    return (
+      <View style={styles.savedAccountsSection}>
+        <Text style={styles.savedAccountsTitle}>Quick Login</Text>
+        <Text style={styles.savedAccountsHint}>
+          Tap to select, hold to remove
+        </Text>
+        <View style={styles.savedAccountsList}>
+          {savedAccounts.map((account) => (
+            <Pressable
+              key={account.username}
+              style={[
+                styles.savedAccountItem,
+                username === account.username && styles.savedAccountItemSelected,
+              ]}
+              onPress={() => handleQuickLogin(account)}
+              onLongPress={() => handleRemoveAccount(account)}
+            >
+              <View style={[styles.savedAccountAvatar, { borderColor: getRoleColor(account.role) }]}>
+                <Ionicons 
+                  name={getRoleIcon(account.role)} 
+                  size={20} 
+                  color={getRoleColor(account.role)} 
+                />
+              </View>
+              <Text style={styles.savedAccountName} numberOfLines={1}>
+                {account.displayName}
+              </Text>
+              <Text style={styles.savedAccountRole}>{account.role}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <View style={styles.savedAccountsDivider}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or enter manually</Text>
+          <View style={styles.dividerLine} />
+        </View>
+      </View>
+    );
+  };
+
   const renderLoginForm = () => (
     <>
+      {renderSavedAccounts()}
+      
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Username</Text>
         <TextInput
@@ -906,5 +1030,61 @@ const styles = StyleSheet.create({
   toggleText: {
     ...Typography.small,
     color: Colors.dark.xpCyan,
+  },
+  savedAccountsSection: {
+    marginBottom: Spacing.lg,
+  },
+  savedAccountsTitle: {
+    ...Typography.h4,
+    color: Colors.dark.text,
+    marginBottom: Spacing.xs,
+  },
+  savedAccountsHint: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.md,
+  },
+  savedAccountsList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.md,
+  },
+  savedAccountItem: {
+    alignItems: "center",
+    width: 72,
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  savedAccountItemSelected: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  savedAccountAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.xs,
+  },
+  savedAccountName: {
+    ...Typography.caption,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    textAlign: "center",
+    width: "100%",
+  },
+  savedAccountRole: {
+    ...Typography.small,
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+    textTransform: "capitalize",
+  },
+  savedAccountsDivider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: Spacing.lg,
+    gap: Spacing.md,
   },
 });
