@@ -846,11 +846,72 @@ export const storage = {
   },
 
   async deletePlayer(id: string, academyId: string): Promise<boolean> {
-    const result = await db
-      .delete(players)
-      .where(and(eq(players.id, id), eq(players.academyId, academyId)))
-      .returning();
-    return result.length > 0;
+    // First verify the player belongs to this academy
+    const player = await db.select().from(players).where(
+      and(eq(players.id, id), eq(players.academyId, academyId))
+    );
+    if (player.length === 0) return false;
+    
+    // Use a transaction to ensure atomicity
+    try {
+      // Delete all related records in order to satisfy foreign key constraints
+      // First batch: tables with no further dependencies
+      await Promise.all([
+        // Progress Engine V2 tables
+        db.delete(sessionSkillObservations).where(eq(sessionSkillObservations.playerId, id)),
+        db.delete(playerSkillState).where(eq(playerSkillState.playerId, id)),
+        db.delete(playerProgressFlags).where(eq(playerProgressFlags.playerId, id)),
+        db.delete(domainAssessments).where(eq(domainAssessments.playerId, id)),
+        db.delete(xpTransactions).where(eq(xpTransactions.playerId, id)),
+        // Core tables
+        db.delete(sessionFeedback).where(eq(sessionFeedback.playerId, id)),
+        db.delete(playerNotes).where(eq(playerNotes.playerId, id)),
+        db.delete(playerProgress).where(eq(playerProgress.playerId, id)),
+        db.delete(playerHolidays).where(eq(playerHolidays.playerId, id)),
+        db.delete(sessionPlayers).where(eq(sessionPlayers.playerId, id)),
+        // Booking, applications, and transfers
+        db.delete(bookingRequests).where(eq(bookingRequests.playerId, id)),
+        db.delete(academyApplications).where(eq(academyApplications.playerId, id)),
+        db.delete(joinRequests).where(eq(joinRequests.playerId, id)),
+        db.delete(academyTransferRequests).where(eq(academyTransferRequests.playerId, id)),
+        // Chat - participants and reactions
+        db.delete(conversationParticipants).where(eq(conversationParticipants.playerId, id)),
+        db.delete(messageReactions).where(eq(messageReactions.reactorPlayerId, id)),
+        // Coach reviews
+        db.delete(coachReviews).where(eq(coachReviews.playerId, id)),
+      ]);
+      
+      // Second batch: chat messages and parent relations
+      await Promise.all([
+        db.delete(messages).where(eq(messages.senderPlayerId, id)),
+        db.delete(parentPlayerRelations).where(eq(parentPlayerRelations.playerId, id)),
+      ]);
+      
+      // Third batch: billing tables (order matters due to FKs)
+      await db.delete(paymentReminders).where(eq(paymentReminders.playerId, id));
+      await db.delete(refunds).where(
+        inArray(refunds.paymentId, 
+          db.select({ id: payments.id }).from(payments).where(eq(payments.playerId, id))
+        )
+      );
+      await db.delete(payments).where(eq(payments.playerId, id));
+      await db.delete(invoices).where(eq(invoices.playerId, id));
+      await db.delete(playerSubscriptions).where(eq(playerSubscriptions.playerId, id));
+      await db.delete(packages).where(eq(packages.playerId, id));
+      
+      // Update users table to unlink the player
+      await db.update(users).set({ playerId: null }).where(eq(users.playerId, id));
+      
+      // Finally delete the player
+      const result = await db
+        .delete(players)
+        .where(and(eq(players.id, id), eq(players.academyId, academyId)))
+        .returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error in deletePlayer transaction:", error);
+      throw error;
+    }
   },
 
   // ==================== PACKAGES ====================
