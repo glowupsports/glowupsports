@@ -38,6 +38,7 @@ import { CoachEarningsCard } from "@/coach/components/CoachEarningsCard";
 import { AcademySwitcher } from "@/coach/components/AcademySwitcher";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import { filterSessionsByDate } from "@/lib/dateUtils";
+import { NextSessionCountdown } from "@/coach/components/NextSessionCountdown";
 
 interface Session {
   id: string;
@@ -76,6 +77,14 @@ export default function DashboardScreen() {
   const [energyCollapsed, setEnergyCollapsed] = useState(false);
   const [selectedDayOffset, setSelectedDayOffset] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [currentMinute, setCurrentMinute] = useState(() => Math.floor(Date.now() / 60000));
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentMinute(Math.floor(Date.now() / 60000));
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
   
   const todayDateStr = new Date().toISOString().split("T")[0];
   const weeklyCalendarPath = coach?.id 
@@ -193,6 +202,17 @@ export default function DashboardScreen() {
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     return upcoming[0] || null;
   }, [todaysSessions]);
+
+  const upcomingSessionForCountdown = useMemo(() => {
+    if (!nextSession) return null;
+    const now = new Date();
+    const sessionStart = new Date(nextSession.startTime);
+    const minutesUntil = (sessionStart.getTime() - now.getTime()) / (1000 * 60);
+    if (minutesUntil <= 30 && minutesUntil > 0) {
+      return nextSession;
+    }
+    return null;
+  }, [nextSession, currentMinute]);
 
   const coachStats = useMemo(() => {
     const maxDailyMinutes = 360;
@@ -469,6 +489,32 @@ export default function DashboardScreen() {
 
       {/* Collapsible Mode Switcher */}
       <CollapsibleModeSwitcher />
+
+      {/* Next Session Countdown - shows when session starts within 30 minutes */}
+      {upcomingSessionForCountdown ? (
+        <NextSessionCountdown
+          session={{
+            id: upcomingSessionForCountdown.id,
+            sessionType: upcomingSessionForCountdown.sessionType,
+            startTime: upcomingSessionForCountdown.startTime,
+            endTime: upcomingSessionForCountdown.endTime,
+            courtName: (calendarData?.courts || []).find(
+              (c: any) => c.id === upcomingSessionForCountdown.courtId
+            )?.name,
+          }}
+          onCancel={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            RNAlert.alert("Cancel Session", "Navigate to session details to cancel");
+          }}
+          onDelay={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            RNAlert.alert("Delay Session", "Session delay feature coming soon");
+          }}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
+        />
+      ) : null}
 
       <ScrollView
         style={styles.scrollView}
