@@ -606,7 +606,7 @@ export default function SettingsScreen() {
             <TextInput
               style={styles.modalInput}
               placeholder="Court name"
-              placeholderTextColor={Colors.dark.disabled}
+              placeholderTextColor={Colors.dark.textMuted}
               value={newCourtName}
               onChangeText={setNewCourtName}
               autoFocus

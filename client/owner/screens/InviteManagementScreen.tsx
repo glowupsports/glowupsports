@@ -219,7 +219,7 @@ export default function InviteManagementScreen() {
               value={email}
               onChangeText={setEmail}
               placeholder="coach@example.com"
-              placeholderTextColor={Colors.dark.disabled}
+              placeholderTextColor={Colors.dark.textMuted}
               keyboardType="email-address"
               autoCapitalize="none"
             />
@@ -235,7 +235,7 @@ export default function InviteManagementScreen() {
               value={expiresInDays}
               onChangeText={setExpiresInDays}
               placeholder="7"
-              placeholderTextColor={Colors.dark.disabled}
+              placeholderTextColor={Colors.dark.textMuted}
               keyboardType="number-pad"
             />
           </View>

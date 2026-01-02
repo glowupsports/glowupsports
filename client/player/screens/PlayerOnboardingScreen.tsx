@@ -318,7 +318,7 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
               setFoundAcademy(null);
             }}
             placeholder="Enter join code (e.g. ABC123)"
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
             autoCapitalize="characters"
             autoCorrect={false}
             maxLength={8}

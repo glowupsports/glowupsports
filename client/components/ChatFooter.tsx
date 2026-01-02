@@ -224,7 +224,7 @@ export function ChatFooter() {
               value={inputText}
               onChangeText={setInputText}
               placeholder="Type a message..."
-              placeholderTextColor={Colors.dark.disabled}
+              placeholderTextColor={Colors.dark.textMuted}
               style={styles.input}
               onSubmitEditing={handleSend}
               returnKeyType="send"

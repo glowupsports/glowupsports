@@ -362,7 +362,7 @@ export default function AttendanceDrawer({
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search players..."
-                placeholderTextColor={Colors.dark.disabled}
+                placeholderTextColor={Colors.dark.textMuted}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
               />
@@ -695,7 +695,7 @@ const styles = StyleSheet.create({
   statusButtonText: {
     fontSize: Typography.caption.fontSize,
     fontWeight: "500",
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   optionsRow: {
     marginTop: Spacing.xs,
@@ -904,6 +904,6 @@ const styles = StyleSheet.create({
   },
   noPlayersText: {
     fontSize: Typography.body.fontSize,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
 });

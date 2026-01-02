@@ -170,7 +170,7 @@ export default function CoachProfileScreen() {
                 value={formData.name}
                 onChangeText={(text) => setFormData({ ...formData, name: text })}
                 placeholder="Enter name"
-                placeholderTextColor={Colors.dark.disabled}
+                placeholderTextColor={Colors.dark.textMuted}
               />
             ) : (
               <Text style={styles.fieldValue}>{profile?.name || "Not set"}</Text>
@@ -185,7 +185,7 @@ export default function CoachProfileScreen() {
                 value={formData.email || ""}
                 onChangeText={(text) => setFormData({ ...formData, email: text })}
                 placeholder="Enter email"
-                placeholderTextColor={Colors.dark.disabled}
+                placeholderTextColor={Colors.dark.textMuted}
                 keyboardType="email-address"
               />
             ) : (
@@ -201,7 +201,7 @@ export default function CoachProfileScreen() {
                 value={formData.phone || ""}
                 onChangeText={(text) => setFormData({ ...formData, phone: text })}
                 placeholder="Enter phone"
-                placeholderTextColor={Colors.dark.disabled}
+                placeholderTextColor={Colors.dark.textMuted}
                 keyboardType="phone-pad"
               />
             ) : (
@@ -217,7 +217,7 @@ export default function CoachProfileScreen() {
                 value={formData.specialty || ""}
                 onChangeText={(text) => setFormData({ ...formData, specialty: text })}
                 placeholder="e.g., Youth coaching, Advanced technique"
-                placeholderTextColor={Colors.dark.disabled}
+                placeholderTextColor={Colors.dark.textMuted}
               />
             ) : (
               <Text style={styles.fieldValue}>{profile?.specialty || "Not set"}</Text>
@@ -234,7 +234,7 @@ export default function CoachProfileScreen() {
                 value={formData.bio || ""}
                 onChangeText={(text) => setFormData({ ...formData, bio: text })}
                 placeholder="Tell us about yourself..."
-                placeholderTextColor={Colors.dark.disabled}
+                placeholderTextColor={Colors.dark.textMuted}
                 multiline
                 numberOfLines={4}
               />

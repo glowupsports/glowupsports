@@ -2692,7 +2692,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   gamingSessionTimePast: {
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   gamingSessionDuration: {
     fontSize: 10,
@@ -2712,7 +2712,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   gamingSessionTypePast: {
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   gamingLiveBadge: {
     flexDirection: "row",
@@ -2746,7 +2746,7 @@ const styles = StyleSheet.create({
   gamingDoneText: {
     fontSize: 10,
     fontWeight: "600",
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     letterSpacing: 0.5,
   },
 });

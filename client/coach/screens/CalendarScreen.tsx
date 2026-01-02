@@ -2157,7 +2157,7 @@ const styles = StyleSheet.create({
   },
   noCoachSubtext: {
     ...Typography.body,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     marginTop: Spacing.sm,
     textAlign: "center",
   },
@@ -2327,7 +2327,7 @@ const styles = StyleSheet.create({
   viewButtonText: {
     fontSize: 12,
     fontWeight: "600",
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     letterSpacing: 0.5,
     textTransform: "uppercase",
   },
@@ -2428,7 +2428,7 @@ const styles = StyleSheet.create({
   timeText: {
     fontSize: 10,
     fontWeight: "600",
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     letterSpacing: 0.5,
   },
   courtLanesContainer: {
@@ -2546,7 +2546,7 @@ const styles = StyleSheet.create({
   },
   blockedText: {
     ...Typography.caption,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     fontStyle: "italic",
     textAlign: "center",
   },
@@ -2602,7 +2602,7 @@ const styles = StyleSheet.create({
   },
   coachEmail: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   weekCardsContainer: {
     padding: Spacing.md,
@@ -2752,7 +2752,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   monthDayNumberWeekend: {
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   monthDayNumberToday: {
     color: Colors.dark.primary,
@@ -3057,7 +3057,7 @@ const styles = StyleSheet.create({
   weekTimeHeaderText: {
     fontSize: 9,
     fontWeight: "700",
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     letterSpacing: 0.5,
     textTransform: "uppercase",
   },
@@ -3121,7 +3121,7 @@ const styles = StyleSheet.create({
   weekTimeText: {
     fontSize: 9,
     fontWeight: "600",
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     letterSpacing: 0.3,
   },
   weekDayColumns: {
@@ -3229,7 +3229,7 @@ const styles = StyleSheet.create({
   weekBlockedText: {
     ...Typography.caption,
     fontSize: 8,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     fontWeight: "500",
   },
   // Availability mode styles - Energy Bands (legacy)
@@ -3334,7 +3334,7 @@ const styles = StyleSheet.create({
   energyTimeHintText: {
     ...Typography.caption,
     fontSize: 10,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   energyTimeHintLine: {
     flex: 1,
@@ -3407,7 +3407,7 @@ const styles = StyleSheet.create({
   },
   dayContextDot: {
     ...Typography.caption,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   dayContextMeta: {
     ...Typography.caption,
@@ -3472,7 +3472,7 @@ const styles = StyleSheet.create({
   },
   dayContextNoSlots: {
     ...Typography.caption,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     fontStyle: "italic",
   },
   dayContextAction: {
@@ -3510,6 +3510,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.disabled,
   },
   dayContextActionTextDisabled: {
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
 });

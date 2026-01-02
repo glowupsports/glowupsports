@@ -524,7 +524,7 @@ export default function AvailabilityScreen() {
                 value={exceptionStartDate}
                 onChangeText={setExceptionStartDate}
                 placeholder="YYYY-MM-DD"
-                placeholderTextColor={Colors.dark.disabled}
+                placeholderTextColor={Colors.dark.textMuted}
               />
             </View>
 
@@ -535,7 +535,7 @@ export default function AvailabilityScreen() {
                 value={exceptionEndDate}
                 onChangeText={setExceptionEndDate}
                 placeholder="YYYY-MM-DD"
-                placeholderTextColor={Colors.dark.disabled}
+                placeholderTextColor={Colors.dark.textMuted}
               />
             </View>
 

@@ -93,7 +93,7 @@ export default function GameLobbyScreen() {
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Ionicons name="grid-outline" size={48} color={Colors.dark.disabled} />
+            <Ionicons name="grid-outline" size={48} color={Colors.dark.textMuted} />
             <ThemedText style={styles.emptyText}>No active games</ThemedText>
           </View>
         }
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   fab: {
     position: "absolute",

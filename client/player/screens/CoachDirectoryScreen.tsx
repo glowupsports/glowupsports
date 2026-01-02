@@ -143,7 +143,7 @@ export default function CoachDirectoryScreen() {
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="Search by name, specialty, or location..."
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
           />
           {searchQuery ? (
             <Pressable onPress={() => setSearchQuery("")}>

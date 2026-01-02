@@ -1632,7 +1632,7 @@ function ProgressTab({ insets, tabBarHeight }: { insets: { bottom: number }; tab
       case "meets": return { label: "Meets", color: Colors.dark.xpCyan };
       case "developing": return { label: "Developing", color: Colors.dark.gold };
       case "not_yet": return { label: "Not Yet", color: Colors.dark.orange };
-      default: return { label: "No Assessment", color: Colors.dark.disabled };
+      default: return { label: "No Assessment", color: Colors.dark.textMuted };
     }
   };
 
@@ -3647,7 +3647,7 @@ const styles = StyleSheet.create({
   },
   noRating: {
     fontSize: Typography.body.fontSize,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   noProgressCard: {
     flexDirection: "row",
@@ -3660,7 +3660,7 @@ const styles = StyleSheet.create({
   },
   noProgressText: {
     fontSize: Typography.body.fontSize,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   recentNoteCard: {
     flexDirection: "row",

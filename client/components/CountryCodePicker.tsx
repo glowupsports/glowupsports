@@ -155,7 +155,7 @@ export default function CountryCodePicker({
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Search country or code..."
-              placeholderTextColor={Colors.dark.disabled}
+              placeholderTextColor={Colors.dark.textMuted}
               autoCapitalize="none"
             />
             {searchQuery ? (

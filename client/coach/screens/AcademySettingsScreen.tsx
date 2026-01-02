@@ -354,7 +354,7 @@ export default function AcademySettingsScreen() {
             value={formData.businessName}
             onChangeText={(text) => updateField("businessName", text)}
             placeholder="Your academy name"
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
           />
         </View>
 
@@ -365,7 +365,7 @@ export default function AcademySettingsScreen() {
             value={formData.contactEmail}
             onChangeText={(text) => updateField("contactEmail", text)}
             placeholder="contact@academy.com"
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
             keyboardType="email-address"
             autoCapitalize="none"
           />
@@ -378,7 +378,7 @@ export default function AcademySettingsScreen() {
             value={formData.contactPhone}
             onChangeText={(text) => updateField("contactPhone", text)}
             placeholder="+971 50 123 4567"
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
             keyboardType="phone-pad"
           />
         </View>
@@ -390,7 +390,7 @@ export default function AcademySettingsScreen() {
             value={formData.address}
             onChangeText={(text) => updateField("address", text)}
             placeholder="Your academy address"
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
             multiline
             numberOfLines={2}
           />
@@ -445,7 +445,7 @@ export default function AcademySettingsScreen() {
             value={formData.invoicePrefix}
             onChangeText={(text) => updateField("invoicePrefix", text)}
             placeholder="INV"
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
             autoCapitalize="characters"
             maxLength={10}
           />
@@ -458,7 +458,7 @@ export default function AcademySettingsScreen() {
             value={formData.taxRate}
             onChangeText={(text) => updateField("taxRate", text)}
             placeholder="5"
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
             keyboardType="decimal-pad"
           />
         </View>
@@ -470,7 +470,7 @@ export default function AcademySettingsScreen() {
             value={formData.invoiceFooter}
             onChangeText={(text) => updateField("invoiceFooter", text)}
             placeholder="Thank you for your business!"
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
             multiline
             numberOfLines={2}
           />
@@ -549,7 +549,7 @@ export default function AcademySettingsScreen() {
             value={inviteEmail}
             onChangeText={setInviteEmail}
             placeholder="coach@email.com"
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
             keyboardType="email-address"
             autoCapitalize="none"
           />
@@ -720,7 +720,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   tabTextActive: {
     color: Colors.dark.primary,
@@ -745,7 +745,7 @@ const styles = StyleSheet.create({
   },
   label: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     marginBottom: Spacing.xs,
   },
   input: {
@@ -778,7 +778,7 @@ const styles = StyleSheet.create({
   },
   optionText: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   optionTextActive: {
     color: Colors.dark.primary,
@@ -811,7 +811,7 @@ const styles = StyleSheet.create({
   },
   memberEmail: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   memberActions: {
     flexDirection: "row",
@@ -829,7 +829,7 @@ const styles = StyleSheet.create({
   },
   roleText: {
     ...Typography.caption,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     textTransform: "capitalize",
   },
   removeButton: {
@@ -857,7 +857,7 @@ const styles = StyleSheet.create({
   },
   inviteExpiry: {
     ...Typography.caption,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   cancelButton: {
     padding: Spacing.sm,
@@ -892,7 +892,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     ...Typography.body,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     textAlign: "center",
     paddingVertical: Spacing.xl,
   },

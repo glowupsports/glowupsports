@@ -239,7 +239,7 @@ export default function TransferRequestScreen() {
               value={reason}
               onChangeText={setReason}
               placeholder="Why do you want to transfer? (optional)"
-              placeholderTextColor={Colors.dark.disabled}
+              placeholderTextColor={Colors.dark.textMuted}
               multiline
               numberOfLines={3}
               textAlignVertical="top"

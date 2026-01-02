@@ -416,7 +416,7 @@ export default function BillingScreen() {
                   value={newInvoiceAmount}
                   onChangeText={setNewInvoiceAmount}
                   placeholder="0.00"
-                  placeholderTextColor={Colors.dark.disabled}
+                  placeholderTextColor={Colors.dark.textMuted}
                   keyboardType="decimal-pad"
                 />
               </View>
@@ -428,7 +428,7 @@ export default function BillingScreen() {
                   value={newInvoiceNotes}
                   onChangeText={setNewInvoiceNotes}
                   placeholder="Invoice description..."
-                  placeholderTextColor={Colors.dark.disabled}
+                  placeholderTextColor={Colors.dark.textMuted}
                   multiline
                   numberOfLines={3}
                 />
@@ -522,7 +522,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   tabTextActive: {
     color: Colors.dark.primary,
@@ -562,7 +562,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     marginTop: Spacing.xs,
   },
   section: {
@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
   },
   invoiceDate: {
     ...Typography.caption,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   invoiceAmount: {
     alignItems: "flex-end",
@@ -655,7 +655,7 @@ const styles = StyleSheet.create({
   },
   paymentDate: {
     ...Typography.caption,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   paymentAmount: {
     ...Typography.body,
@@ -668,12 +668,12 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     ...Typography.body,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     marginTop: Spacing.sm,
   },
   emptySubtext: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     marginTop: Spacing.xs,
   },
   createButton: {
@@ -717,7 +717,7 @@ const styles = StyleSheet.create({
   },
   invoiceListDate: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   invoiceListDue: {
     ...Typography.small,
@@ -725,7 +725,7 @@ const styles = StyleSheet.create({
   },
   invoiceNotes: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     marginTop: Spacing.sm,
     fontStyle: "italic",
   },
@@ -754,7 +754,7 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     ...Typography.body,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     marginTop: Spacing.xs,
     textAlign: "center",
   },
@@ -788,7 +788,7 @@ const styles = StyleSheet.create({
   },
   paymentListDate: {
     ...Typography.caption,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   modalOverlay: {
     flex: 1,
@@ -819,7 +819,7 @@ const styles = StyleSheet.create({
   },
   label: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     marginBottom: Spacing.xs,
   },
   input: {
@@ -851,7 +851,7 @@ const styles = StyleSheet.create({
   },
   playerChipText: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   playerChipTextActive: {
     color: Colors.dark.primary,

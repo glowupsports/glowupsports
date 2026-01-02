@@ -124,7 +124,7 @@ function AcademyCard({ academy, pendingRequest, onJoin, onViewProfile, isSubmitt
             value={message}
             onChangeText={setMessage}
             placeholder="Add a message (optional)"
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
             multiline
             numberOfLines={2}
           />
@@ -245,7 +245,7 @@ export default function AcademyBrowserScreen() {
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="Search academies..."
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
           />
           {searchQuery ? (
             <Pressable onPress={() => setSearchQuery("")}>

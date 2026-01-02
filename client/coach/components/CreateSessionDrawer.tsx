@@ -931,7 +931,7 @@ export default function CreateSessionDrawer({
               value={notes}
               onChangeText={setNotes}
               placeholder="Add notes..."
-              placeholderTextColor={Colors.dark.disabled}
+              placeholderTextColor={Colors.dark.textMuted}
               multiline
               numberOfLines={3}
             />
@@ -990,7 +990,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     marginBottom: Spacing.md,
     textTransform: "uppercase",
     letterSpacing: 1,
@@ -1063,7 +1063,7 @@ const styles = StyleSheet.create({
   },
   dateText: {
     ...Typography.body,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   dateButton: {
     flexDirection: "row",
@@ -1143,7 +1143,7 @@ const styles = StyleSheet.create({
   },
   optionChipText: {
     ...Typography.body,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   optionChipTextActive: {
     color: Colors.dark.text,
@@ -1159,7 +1159,7 @@ const styles = StyleSheet.create({
   },
   typeChipText: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   typeChipTextActive: {
     color: Colors.dark.backgroundRoot,
@@ -1179,7 +1179,7 @@ const styles = StyleSheet.create({
   },
   courtChipText: {
     ...Typography.body,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   courtChipTextActive: {
     color: Colors.dark.text,
@@ -1247,7 +1247,7 @@ const styles = StyleSheet.create({
   },
   noPlayersText: {
     ...Typography.body,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     fontStyle: "italic",
   },
   playerSearchContainer: {
@@ -1318,7 +1318,7 @@ const styles = StyleSheet.create({
   },
   recurringLabel: {
     ...Typography.body,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   weeksSelector: {
     flexDirection: "row",
@@ -1361,7 +1361,7 @@ const styles = StyleSheet.create({
   },
   levelChipText: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     fontWeight: "600",
   },
   levelChipTextActive: {
@@ -1372,7 +1372,7 @@ const styles = StyleSheet.create({
   },
   weekCountLabel: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     marginBottom: Spacing.sm,
   },
   calendarContainer: {
@@ -1401,7 +1401,7 @@ const styles = StyleSheet.create({
   },
   calendarWeekDay: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     width: "14.28%",
     textAlign: "center",
   },

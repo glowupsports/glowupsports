@@ -1391,7 +1391,7 @@ const styles = StyleSheet.create({
   },
   sessionDate: {
     ...Typography.body,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     marginBottom: Spacing.sm,
   },
   courtRow: {
@@ -1401,7 +1401,7 @@ const styles = StyleSheet.create({
   },
   courtName: {
     ...Typography.body,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   playersSection: {
     marginBottom: Spacing.xl,
@@ -1448,7 +1448,7 @@ const styles = StyleSheet.create({
   },
   noPlayersText: {
     ...Typography.body,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     fontStyle: "italic",
   },
   playerRowGuest: {
@@ -1851,7 +1851,7 @@ const styles = StyleSheet.create({
   },
   stepLabel: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     marginBottom: Spacing.sm,
     textTransform: "uppercase",
     letterSpacing: 1,
@@ -1893,7 +1893,7 @@ const styles = StyleSheet.create({
   },
   playerSelectLevel: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   selectedPlayerCard: {
     flexDirection: "row",
@@ -1974,7 +1974,7 @@ const styles = StyleSheet.create({
   },
   calendarWeekDay: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     width: "14.28%",
     textAlign: "center",
   },
@@ -2008,7 +2008,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   calendarDayTextDisabled: {
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   confirmButton: {
     backgroundColor: Colors.dark.primary,
@@ -2035,7 +2035,7 @@ const styles = StyleSheet.create({
   },
   catchUpSubtitle: {
     ...Typography.body,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   bulkActions: {
     flexDirection: "row",
@@ -2079,7 +2079,7 @@ const styles = StyleSheet.create({
   },
   catchUpDateDay: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   catchUpDateNum: {
     ...Typography.body,
@@ -2115,7 +2115,7 @@ const styles = StyleSheet.create({
   },
   catchUpOptionText: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   catchUpOptionTextActive: {
     color: Colors.dark.text,

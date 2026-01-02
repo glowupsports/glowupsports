@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   },
   notificationTime: {
     fontSize: Typography.caption.fontSize,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   notificationMessage: {
     fontSize: Typography.small.fontSize,

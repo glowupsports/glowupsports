@@ -874,7 +874,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
                   value={inputText}
                   onChangeText={handleInputChange}
                   placeholder={isSampleConversation ? "Demo chat - read only" : "Type a message..."}
-                  placeholderTextColor={Colors.dark.disabled}
+                  placeholderTextColor={Colors.dark.textMuted}
                   style={styles.input}
                   onSubmitEditing={handleSend}
                   returnKeyType="send"
@@ -1246,7 +1246,7 @@ const styles = StyleSheet.create({
   },
   typingText: {
     fontSize: 12,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     fontStyle: "italic",
   },
   connectionIndicator: {

@@ -1073,7 +1073,7 @@ const styles = StyleSheet.create({
   },
   emptySubtext: {
     fontSize: 14,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     textAlign: "center",
   },
   calmPlayerCard: {

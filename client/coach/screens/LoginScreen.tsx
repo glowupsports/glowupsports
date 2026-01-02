@@ -201,7 +201,7 @@ export default function LoginScreen() {
           value={username}
           onChangeText={setUsername}
           placeholder="Enter your username"
-          placeholderTextColor={Colors.dark.disabled}
+          placeholderTextColor={Colors.dark.textMuted}
           autoCapitalize="none"
           autoComplete="username"
           style={styles.input}
@@ -215,7 +215,7 @@ export default function LoginScreen() {
             value={password}
             onChangeText={setPassword}
             placeholder="Enter your password"
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
             secureTextEntry={!showPassword}
             autoCapitalize="none"
             style={[styles.input, styles.passwordInput]}
@@ -297,7 +297,7 @@ export default function LoginScreen() {
           value={username}
           onChangeText={setUsername}
           placeholder="Choose a unique username"
-          placeholderTextColor={Colors.dark.disabled}
+          placeholderTextColor={Colors.dark.textMuted}
           autoCapitalize="none"
           autoComplete="username"
           style={styles.input}
@@ -312,7 +312,7 @@ export default function LoginScreen() {
             value={firstName}
             onChangeText={setFirstName}
             placeholder="First name"
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
             autoCapitalize="words"
             style={styles.input}
           />
@@ -323,7 +323,7 @@ export default function LoginScreen() {
             value={lastName}
             onChangeText={setLastName}
             placeholder="Last name"
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
             autoCapitalize="words"
             style={styles.input}
           />
@@ -336,7 +336,7 @@ export default function LoginScreen() {
           value={email}
           onChangeText={setEmail}
           placeholder="Enter your email"
-          placeholderTextColor={Colors.dark.disabled}
+          placeholderTextColor={Colors.dark.textMuted}
           keyboardType="email-address"
           autoCapitalize="none"
           autoComplete="email"
@@ -355,7 +355,7 @@ export default function LoginScreen() {
             value={phone}
             onChangeText={setPhone}
             placeholder="Phone number"
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
             keyboardType="phone-pad"
             style={[styles.input, styles.phoneInput]}
           />
@@ -369,7 +369,7 @@ export default function LoginScreen() {
             value={password}
             onChangeText={setPassword}
             placeholder="Create a secure password"
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
             secureTextEntry={!showPassword}
             autoCapitalize="none"
             style={[styles.input, styles.passwordInput]}
@@ -529,7 +529,7 @@ export default function LoginScreen() {
             value={academyName}
             onChangeText={setAcademyName}
             placeholder="Your academy name"
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
             autoCapitalize="words"
             style={styles.input}
           />
@@ -541,7 +541,7 @@ export default function LoginScreen() {
             value={country}
             onChangeText={setCountry}
             placeholder="Country"
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
             autoCapitalize="words"
             style={styles.input}
           />
@@ -553,7 +553,7 @@ export default function LoginScreen() {
             value={contactPerson}
             onChangeText={setContactPerson}
             placeholder="Your name"
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
             autoCapitalize="words"
             style={styles.input}
           />
@@ -565,7 +565,7 @@ export default function LoginScreen() {
             value={email}
             onChangeText={setEmail}
             placeholder="Contact email"
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"
@@ -579,7 +579,7 @@ export default function LoginScreen() {
             value={phone}
             onChangeText={setPhone}
             placeholder="Contact phone"
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
             keyboardType="phone-pad"
             style={styles.input}
           />
@@ -591,7 +591,7 @@ export default function LoginScreen() {
             value={description}
             onChangeText={setDescription}
             placeholder="Tell us about your academy"
-            placeholderTextColor={Colors.dark.disabled}
+            placeholderTextColor={Colors.dark.textMuted}
             multiline
             numberOfLines={3}
             style={[styles.input, styles.textArea]}
@@ -768,7 +768,7 @@ const styles = StyleSheet.create({
   },
   requirementText: {
     ...Typography.caption,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
   requirementMet: {
     color: Colors.dark.primary,

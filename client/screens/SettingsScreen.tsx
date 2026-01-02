@@ -128,7 +128,7 @@ export default function SettingsScreen() {
           value={name}
           onChangeText={handleNameChange}
           style={styles.input}
-          placeholderTextColor={Colors.dark.disabled}
+          placeholderTextColor={Colors.dark.textMuted}
           placeholder="Enter your name"
         />
       </Card>
@@ -285,6 +285,6 @@ const styles = StyleSheet.create({
   },
   version: {
     fontSize: 12,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
   },
 });

@@ -529,7 +529,7 @@ const styles = StyleSheet.create({
   },
   tapHint: {
     fontSize: 10,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     fontStyle: "italic",
   },
   actionButton: {

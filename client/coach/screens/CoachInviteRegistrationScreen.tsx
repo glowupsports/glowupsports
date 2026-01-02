@@ -230,7 +230,7 @@ export default function CoachInviteRegistrationScreen({
                 value={username}
                 onChangeText={setUsername}
                 placeholder="Choose a unique username"
-                placeholderTextColor={Colors.dark.disabled}
+                placeholderTextColor={Colors.dark.textMuted}
                 autoCapitalize="none"
                 autoComplete="username"
               />
@@ -247,7 +247,7 @@ export default function CoachInviteRegistrationScreen({
                 value={name}
                 onChangeText={setName}
                 placeholder="Enter your full name"
-                placeholderTextColor={Colors.dark.disabled}
+                placeholderTextColor={Colors.dark.textMuted}
                 autoCapitalize="words"
               />
             </View>
@@ -262,7 +262,7 @@ export default function CoachInviteRegistrationScreen({
                 value={email}
                 onChangeText={setEmail}
                 placeholder="Enter your email"
-                placeholderTextColor={Colors.dark.disabled}
+                placeholderTextColor={Colors.dark.textMuted}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 editable={!inviteData.invitedEmail}
@@ -284,7 +284,7 @@ export default function CoachInviteRegistrationScreen({
                 value={password}
                 onChangeText={setPassword}
                 placeholder="At least 8 characters"
-                placeholderTextColor={Colors.dark.disabled}
+                placeholderTextColor={Colors.dark.textMuted}
                 secureTextEntry={!showPassword}
               />
               <Pressable onPress={() => setShowPassword(!showPassword)}>
@@ -306,7 +306,7 @@ export default function CoachInviteRegistrationScreen({
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 placeholder="Confirm your password"
-                placeholderTextColor={Colors.dark.disabled}
+                placeholderTextColor={Colors.dark.textMuted}
                 secureTextEntry={!showPassword}
               />
             </View>
@@ -325,7 +325,7 @@ export default function CoachInviteRegistrationScreen({
                   value={phone}
                   onChangeText={setPhone}
                   placeholder="Phone number"
-                  placeholderTextColor={Colors.dark.disabled}
+                  placeholderTextColor={Colors.dark.textMuted}
                   keyboardType="phone-pad"
                 />
               </View>
@@ -341,7 +341,7 @@ export default function CoachInviteRegistrationScreen({
                 value={specialty}
                 onChangeText={setSpecialty}
                 placeholder="e.g., Junior coaching, Advanced technique"
-                placeholderTextColor={Colors.dark.disabled}
+                placeholderTextColor={Colors.dark.textMuted}
               />
             </View>
           </View>

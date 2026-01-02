@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   },
   dropdownTitle: {
     ...Typography.small,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     padding: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Colors.dark.backgroundTertiary,
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
   },
   academyRole: {
     ...Typography.caption,
-    color: Colors.dark.disabled,
+    color: Colors.dark.textMuted,
     textTransform: "capitalize",
   },
 });

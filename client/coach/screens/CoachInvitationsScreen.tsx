@@ -333,7 +333,7 @@ export default function CoachInvitationsScreen() {
                     value={newEmail}
                     onChangeText={setNewEmail}
                     placeholder="Coach email address"
-                    placeholderTextColor={Colors.dark.disabled}
+                    placeholderTextColor={Colors.dark.textMuted}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -343,7 +343,7 @@ export default function CoachInvitationsScreen() {
                     value={newMessage}
                     onChangeText={setNewMessage}
                     placeholder="Personal message (optional)"
-                    placeholderTextColor={Colors.dark.disabled}
+                    placeholderTextColor={Colors.dark.textMuted}
                     multiline
                     numberOfLines={2}
                     textAlignVertical="top"
