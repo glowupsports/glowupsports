@@ -2421,8 +2421,8 @@ const styles = StyleSheet.create({
   },
   timeColumn: {
     width: TIME_COLUMN_WIDTH,
-    borderRightWidth: 1,
-    borderRightColor: Colors.dark.primary + "15",
+    borderRightWidth: 2,
+    borderRightColor: "#6A6A6A",
   },
   timeSlot: {
     height: HOUR_HEIGHT_60,
@@ -2445,34 +2445,34 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   courtLaneWithDivider: {
-    borderLeftWidth: 2,
-    borderLeftColor: "#3A3A3A",
+    borderLeftWidth: 3,
+    borderLeftColor: "#8A8A8A",
   },
   hourSlot: {
     height: HOUR_HEIGHT_60,
     position: "relative",
   },
   hourSlotEven: {
-    backgroundColor: "#1A1A1A",
+    backgroundColor: "#252525",
   },
   hourSlotOdd: {
-    backgroundColor: "#0D0D0D",
+    backgroundColor: "#141414",
   },
   hourLine: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    height: 2,
-    backgroundColor: "#3A3A3A",
+    height: 3,
+    backgroundColor: "#7A7A7A",
   },
   halfHourLine: {
     position: "absolute",
     top: HOUR_HEIGHT_60 / 2,
     left: 0,
     right: 0,
-    height: 1,
-    backgroundColor: "#2A2A2A",
+    height: 2,
+    backgroundColor: "#5A5A5A",
   },
   sessionBlock: {
     position: "absolute",
