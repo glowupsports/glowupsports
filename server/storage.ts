@@ -83,6 +83,22 @@ import {
   packageTemplates,
   type PackageTemplate,
   type InsertPackageTemplate,
+  // Coach Review System
+  coachReviews,
+  reviewResponses,
+  reviewFlags,
+  reviewPrompts,
+  coachReviewStats,
+  type CoachReview,
+  type InsertCoachReview,
+  type ReviewResponse,
+  type InsertReviewResponse,
+  type ReviewFlag,
+  type InsertReviewFlag,
+  type ReviewPrompt,
+  type InsertReviewPrompt,
+  type CoachReviewStats,
+  type InsertCoachReviewStats,
   // Academy types
   type Academy,
   type InsertAcademy,
@@ -4799,6 +4815,367 @@ export const storage = {
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(coachPaymentRules.coachId, coachId))
       .returning();
+    return result[0];
+  },
+
+  // ==================== COACH REVIEW SYSTEM ====================
+
+  // Get count of completed sessions between player and coach
+  async getPlayerCoachSessionCount(playerId: string, coachId: string): Promise<number> {
+    const result = await db.select({ count: count() })
+      .from(sessionPlayers)
+      .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+      .where(and(
+        eq(sessionPlayers.playerId, playerId),
+        eq(sessions.coachId, coachId),
+        eq(sessionPlayers.attendanceStatus, "present")
+      ));
+    return result[0]?.count || 0;
+  },
+
+  // Check if player has already reviewed a coach
+  async hasPlayerReviewedCoach(playerId: string, coachId: string): Promise<boolean> {
+    const result = await db.select({ id: coachReviews.id })
+      .from(coachReviews)
+      .where(and(
+        eq(coachReviews.playerId, playerId),
+        eq(coachReviews.coachId, coachId)
+      ))
+      .limit(1);
+    return result.length > 0;
+  },
+
+  // Get pending review prompt for player-coach pair
+  async getPendingReviewPrompt(playerId: string, coachId: string): Promise<ReviewPrompt | undefined> {
+    const result = await db.select()
+      .from(reviewPrompts)
+      .where(and(
+        eq(reviewPrompts.playerId, playerId),
+        eq(reviewPrompts.coachId, coachId),
+        eq(reviewPrompts.status, "pending")
+      ))
+      .limit(1);
+    return result[0];
+  },
+
+  // Get all pending review prompts for a player
+  async getPlayerReviewPrompts(playerId: string): Promise<ReviewPrompt[]> {
+    return db.select()
+      .from(reviewPrompts)
+      .where(and(
+        eq(reviewPrompts.playerId, playerId),
+        eq(reviewPrompts.status, "pending"),
+        lte(reviewPrompts.triggerAt, new Date())
+      ))
+      .orderBy(desc(reviewPrompts.triggerAt));
+  },
+
+  // Create a coach review
+  async createCoachReview(data: {
+    coachId: string;
+    playerId: string;
+    academyId?: string | null;
+    coachingQuality: number;
+    communication: number;
+    withKidsBeginners: number;
+    reliability: number;
+    feedbackMotivation: number;
+    overallScore: string;
+    whatDoesWell?: string | null;
+    bestForPlayerType?: string | null;
+    reviewerAgeCategory?: string | null;
+    reviewerLevel?: string | null;
+    sessionCountAtReview: number;
+  }): Promise<CoachReview> {
+    const result = await db.insert(coachReviews).values(data).returning();
+    return result[0];
+  },
+
+  // Get a coach review by ID
+  async getCoachReview(id: string): Promise<CoachReview | undefined> {
+    const result = await db.select()
+      .from(coachReviews)
+      .where(eq(coachReviews.id, id));
+    return result[0];
+  },
+
+  // Get coach review stats
+  async getCoachReviewStats(coachId: string): Promise<CoachReviewStats | undefined> {
+    const result = await db.select()
+      .from(coachReviewStats)
+      .where(eq(coachReviewStats.coachId, coachId));
+    return result[0];
+  },
+
+  // Update coach review stats (recalculate from all reviews)
+  async updateCoachReviewStats(coachId: string): Promise<void> {
+    // Get all non-hidden reviews for this coach
+    const reviews = await db.select()
+      .from(coachReviews)
+      .where(and(
+        eq(coachReviews.coachId, coachId),
+        eq(coachReviews.isHidden, false)
+      ));
+
+    if (reviews.length === 0) {
+      // Delete stats if no reviews
+      await db.delete(coachReviewStats).where(eq(coachReviewStats.coachId, coachId));
+      return;
+    }
+
+    const totalReviews = reviews.length;
+    const visibleReviews = reviews.length >= 3 ? reviews.length : 0;
+
+    // Calculate averages
+    const avgOverall = reviews.reduce((sum, r) => sum + parseFloat(r.overallScore.toString()), 0) / totalReviews;
+    const avgCoachingQuality = reviews.reduce((sum, r) => sum + r.coachingQuality, 0) / totalReviews;
+    const avgCommunication = reviews.reduce((sum, r) => sum + r.communication, 0) / totalReviews;
+    const avgWithKidsBeginners = reviews.reduce((sum, r) => sum + r.withKidsBeginners, 0) / totalReviews;
+    const avgReliability = reviews.reduce((sum, r) => sum + r.reliability, 0) / totalReviews;
+    const avgFeedbackMotivation = reviews.reduce((sum, r) => sum + r.feedbackMotivation, 0) / totalReviews;
+
+    // Count by age category
+    const kidReviewCount = reviews.filter(r => r.reviewerAgeCategory === "kid").length;
+    const teenReviewCount = reviews.filter(r => r.reviewerAgeCategory === "teen").length;
+    const adultReviewCount = reviews.filter(r => r.reviewerAgeCategory === "adult").length;
+
+    // Count by level
+    const redLevelCount = reviews.filter(r => r.reviewerLevel === "red").length;
+    const orangeLevelCount = reviews.filter(r => r.reviewerLevel === "orange").length;
+    const greenLevelCount = reviews.filter(r => r.reviewerLevel === "green").length;
+    const yellowLevelCount = reviews.filter(r => r.reviewerLevel === "yellow").length;
+
+    // Generate best-for tags based on high scores
+    const bestForTags: string[] = [];
+    if (avgWithKidsBeginners >= 4.5 && kidReviewCount >= 2) bestForTags.push("Great with kids");
+    if (avgWithKidsBeginners >= 4.0 && redLevelCount >= 2) bestForTags.push("Perfect for beginners");
+    if (avgCoachingQuality >= 4.5) bestForTags.push("High coaching quality");
+    if (avgCommunication >= 4.5) bestForTags.push("Excellent communicator");
+    if (avgReliability >= 4.5) bestForTags.push("Very reliable");
+
+    // Mark reviews as visible if we have 3+ reviews
+    if (reviews.length >= 3) {
+      await db.update(coachReviews)
+        .set({ isVisible: true })
+        .where(and(
+          eq(coachReviews.coachId, coachId),
+          eq(coachReviews.isHidden, false)
+        ));
+    }
+
+    // Upsert stats
+    const existing = await db.select().from(coachReviewStats)
+      .where(eq(coachReviewStats.coachId, coachId));
+
+    const statsData = {
+      totalReviews,
+      visibleReviews,
+      averageOverall: avgOverall.toFixed(2),
+      avgCoachingQuality: avgCoachingQuality.toFixed(2),
+      avgCommunication: avgCommunication.toFixed(2),
+      avgWithKidsBeginners: avgWithKidsBeginners.toFixed(2),
+      avgReliability: avgReliability.toFixed(2),
+      avgFeedbackMotivation: avgFeedbackMotivation.toFixed(2),
+      kidReviewCount,
+      teenReviewCount,
+      adultReviewCount,
+      redLevelCount,
+      orangeLevelCount,
+      greenLevelCount,
+      yellowLevelCount,
+      bestForTags,
+      lastUpdated: new Date(),
+    };
+
+    if (existing.length > 0) {
+      await db.update(coachReviewStats)
+        .set(statsData)
+        .where(eq(coachReviewStats.coachId, coachId));
+    } else {
+      await db.insert(coachReviewStats).values({ coachId, ...statsData });
+    }
+  },
+
+  // Get visible reviews for a coach (public display)
+  async getVisibleCoachReviews(coachId: string, limit: number = 10): Promise<Array<CoachReview & { response?: ReviewResponse }>> {
+    const reviews = await db.select()
+      .from(coachReviews)
+      .where(and(
+        eq(coachReviews.coachId, coachId),
+        eq(coachReviews.isVisible, true),
+        eq(coachReviews.isHidden, false)
+      ))
+      .orderBy(desc(coachReviews.createdAt))
+      .limit(limit);
+
+    // Get responses for these reviews
+    const reviewIds = reviews.map(r => r.id);
+    const responses = reviewIds.length > 0 
+      ? await db.select().from(reviewResponses)
+          .where(and(
+            inArray(reviewResponses.reviewId, reviewIds),
+            eq(reviewResponses.isHidden, false)
+          ))
+      : [];
+
+    const responseMap = new Map(responses.map(r => [r.reviewId, r]));
+
+    return reviews.map(r => ({
+      ...r,
+      response: responseMap.get(r.id),
+    }));
+  },
+
+  // Get all reviews for a coach (coach's own view)
+  async getCoachReviewsForCoach(coachId: string): Promise<Array<CoachReview & { response?: ReviewResponse }>> {
+    const reviews = await db.select()
+      .from(coachReviews)
+      .where(eq(coachReviews.coachId, coachId))
+      .orderBy(desc(coachReviews.createdAt));
+
+    const reviewIds = reviews.map(r => r.id);
+    const responses = reviewIds.length > 0 
+      ? await db.select().from(reviewResponses)
+          .where(inArray(reviewResponses.reviewId, reviewIds))
+      : [];
+
+    const responseMap = new Map(responses.map(r => [r.reviewId, r]));
+
+    return reviews.map(r => ({
+      ...r,
+      response: responseMap.get(r.id),
+    }));
+  },
+
+  // Complete a review prompt
+  async completeReviewPrompt(playerId: string, coachId: string, reviewId: string): Promise<void> {
+    await db.update(reviewPrompts)
+      .set({ 
+        status: "completed", 
+        completedAt: new Date(),
+        reviewId,
+      })
+      .where(and(
+        eq(reviewPrompts.playerId, playerId),
+        eq(reviewPrompts.coachId, coachId),
+        eq(reviewPrompts.status, "pending")
+      ));
+  },
+
+  // Dismiss a review prompt
+  async dismissReviewPrompt(promptId: string, playerId: string): Promise<void> {
+    await db.update(reviewPrompts)
+      .set({ 
+        status: "dismissed", 
+        dismissedAt: new Date(),
+      })
+      .where(and(
+        eq(reviewPrompts.id, promptId),
+        eq(reviewPrompts.playerId, playerId)
+      ));
+  },
+
+  // Create a review response (coach reply)
+  async createReviewResponse(data: { reviewId: string; coachId: string; responseText: string }): Promise<ReviewResponse> {
+    const result = await db.insert(reviewResponses).values(data).returning();
+    return result[0];
+  },
+
+  // Get review response
+  async getReviewResponse(reviewId: string): Promise<ReviewResponse | undefined> {
+    const result = await db.select()
+      .from(reviewResponses)
+      .where(eq(reviewResponses.reviewId, reviewId));
+    return result[0];
+  },
+
+  // Create a review flag
+  async createReviewFlag(data: { reviewId: string; flaggedBy: string; reason: string; details?: string | null }): Promise<ReviewFlag> {
+    const result = await db.insert(reviewFlags).values(data).returning();
+    return result[0];
+  },
+
+  // Get review flags for moderation
+  async getReviewFlags(status: string = "pending"): Promise<Array<ReviewFlag & { review: CoachReview }>> {
+    const flags = await db.select()
+      .from(reviewFlags)
+      .where(eq(reviewFlags.status, status))
+      .orderBy(desc(reviewFlags.createdAt));
+
+    const reviewIds = [...new Set(flags.map(f => f.reviewId))];
+    const reviews = reviewIds.length > 0
+      ? await db.select().from(coachReviews).where(inArray(coachReviews.id, reviewIds))
+      : [];
+
+    const reviewMap = new Map(reviews.map(r => [r.id, r]));
+
+    return flags.map(f => ({
+      ...f,
+      review: reviewMap.get(f.reviewId)!,
+    })).filter(f => f.review);
+  },
+
+  // Hide a review
+  async hideReview(reviewId: string, hiddenBy: string, reason: string): Promise<void> {
+    await db.update(coachReviews)
+      .set({ 
+        isHidden: true, 
+        hiddenBy,
+        hiddenReason: reason,
+        hiddenAt: new Date(),
+      })
+      .where(eq(coachReviews.id, reviewId));
+  },
+
+  // Unhide a review
+  async unhideReview(reviewId: string): Promise<void> {
+    await db.update(coachReviews)
+      .set({ 
+        isHidden: false, 
+        hiddenBy: null,
+        hiddenReason: null,
+        hiddenAt: null,
+      })
+      .where(eq(coachReviews.id, reviewId));
+  },
+
+  // Dismiss review flags
+  async dismissReviewFlags(reviewId: string, reviewedBy: string, internalNote?: string): Promise<void> {
+    await db.update(reviewFlags)
+      .set({ 
+        status: "dismissed",
+        reviewedBy,
+        reviewedAt: new Date(),
+        internalNote: internalNote || null,
+      })
+      .where(and(
+        eq(reviewFlags.reviewId, reviewId),
+        eq(reviewFlags.status, "pending")
+      ));
+  },
+
+  // Create a review prompt (called after 3 sessions or package completion)
+  async createReviewPrompt(data: {
+    playerId: string;
+    coachId: string;
+    triggerType: string;
+    triggerAt: Date;
+  }): Promise<ReviewPrompt> {
+    // Check if prompt already exists
+    const existing = await db.select()
+      .from(reviewPrompts)
+      .where(and(
+        eq(reviewPrompts.playerId, data.playerId),
+        eq(reviewPrompts.coachId, data.coachId),
+        inArray(reviewPrompts.status, ["pending", "shown"])
+      ))
+      .limit(1);
+
+    if (existing.length > 0) {
+      return existing[0];
+    }
+
+    const result = await db.insert(reviewPrompts).values(data).returning();
     return result[0];
   },
 };

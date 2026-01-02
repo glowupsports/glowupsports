@@ -31,6 +31,7 @@ import {
   insertPlayerNoteSchema,
   insertMessageSchema,
   insertMessageReactionSchema,
+  submitReviewSchema,
 } from "@shared/schema";
 import crypto from "crypto";
 import { fromZodError } from "zod-validation-error";
@@ -11546,6 +11547,395 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Get parent invoice HTML error:", error);
       res.status(500).json({ error: "Failed to generate invoice" });
+    }
+  });
+
+  // ==================== COACH REVIEW SYSTEM ====================
+
+  // Helper: Get player age category from date of birth
+  function getAgeCategory(dateOfBirth: string | Date | null): "kid" | "teen" | "adult" {
+    if (!dateOfBirth) return "adult";
+    const birthDate = new Date(dateOfBirth);
+    const today = new Date();
+    const age = today.getFullYear() - birthDate.getFullYear();
+    if (age < 13) return "kid";
+    if (age < 18) return "teen";
+    return "adult";
+  }
+
+  // Check if player is eligible to review a coach (requires 3+ sessions)
+  app.get("/api/player/review-eligibility/:coachId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const { coachId } = req.params;
+      
+      if (!playerId) {
+        return res.status(403).json({ error: "Player profile required" });
+      }
+
+      // Count completed sessions with this coach
+      const sessionCount = await storage.getPlayerCoachSessionCount(playerId, coachId);
+      const hasExistingReview = await storage.hasPlayerReviewedCoach(playerId, coachId);
+      
+      // Check for pending review prompt
+      const pendingPrompt = await storage.getPendingReviewPrompt(playerId, coachId);
+      
+      const isEligible = sessionCount >= 3 && !hasExistingReview;
+      
+      res.json({
+        eligible: isEligible,
+        sessionCount,
+        requiredSessions: 3,
+        hasExistingReview,
+        pendingPrompt: pendingPrompt ? {
+          id: pendingPrompt.id,
+          triggerType: pendingPrompt.triggerType,
+        } : null,
+      });
+    } catch (error) {
+      console.error("Check review eligibility error:", error);
+      res.status(500).json({ error: "Failed to check eligibility" });
+    }
+  });
+
+  // Get pending review prompts for player
+  app.get("/api/player/review-prompts", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      
+      if (!playerId) {
+        return res.status(403).json({ error: "Player profile required" });
+      }
+
+      const prompts = await storage.getPlayerReviewPrompts(playerId);
+      
+      // Get coach info for each prompt
+      const promptsWithCoaches = await Promise.all(
+        prompts.map(async (prompt) => {
+          const coach = await storage.getCoach(prompt.coachId);
+          return {
+            ...prompt,
+            coach: coach ? { id: coach.id, name: coach.name } : null,
+          };
+        })
+      );
+      
+      res.json(promptsWithCoaches);
+    } catch (error) {
+      console.error("Get review prompts error:", error);
+      res.status(500).json({ error: "Failed to get prompts" });
+    }
+  });
+
+  // Submit a review for a coach
+  app.post("/api/player/reviews", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const academyId = req.user?.academyId;
+      
+      if (!playerId) {
+        return res.status(403).json({ error: "Player profile required" });
+      }
+
+      const parsed = submitReviewSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: fromZodError(parsed.error).message });
+      }
+
+      const { coachId, coachingQuality, communication, withKidsBeginners, reliability, feedbackMotivation, whatDoesWell, bestForPlayerType } = parsed.data;
+
+      // Verify eligibility
+      const sessionCount = await storage.getPlayerCoachSessionCount(playerId, coachId);
+      if (sessionCount < 3) {
+        return res.status(403).json({ error: "You need at least 3 sessions with this coach to submit a review" });
+      }
+
+      const hasExistingReview = await storage.hasPlayerReviewedCoach(playerId, coachId);
+      if (hasExistingReview) {
+        return res.status(400).json({ error: "You have already reviewed this coach" });
+      }
+
+      // Get player info for semi-anonymous display
+      const player = await storage.getPlayer(playerId);
+      const reviewerAgeCategory = getAgeCategory(player?.dateOfBirth || null);
+      const reviewerLevel = player?.level || "green";
+
+      // Calculate overall score
+      const overallScore = ((coachingQuality + communication + withKidsBeginners + reliability + feedbackMotivation) / 5).toFixed(2);
+
+      const review = await storage.createCoachReview({
+        coachId,
+        playerId,
+        academyId,
+        coachingQuality,
+        communication,
+        withKidsBeginners,
+        reliability,
+        feedbackMotivation,
+        overallScore,
+        whatDoesWell: whatDoesWell ? sanitizeMessage(whatDoesWell) : null,
+        bestForPlayerType: bestForPlayerType ? sanitizeMessage(bestForPlayerType) : null,
+        reviewerAgeCategory,
+        reviewerLevel,
+        sessionCountAtReview: sessionCount,
+      });
+
+      // Update coach review stats
+      await storage.updateCoachReviewStats(coachId);
+
+      // Mark any pending prompt as completed
+      await storage.completeReviewPrompt(playerId, coachId, review.id);
+
+      res.status(201).json({
+        id: review.id,
+        message: "Review submitted successfully. It will be visible once the coach has more reviews.",
+      });
+    } catch (error) {
+      console.error("Submit review error:", error);
+      res.status(500).json({ error: "Failed to submit review" });
+    }
+  });
+
+  // Dismiss a review prompt
+  app.post("/api/player/review-prompts/:promptId/dismiss", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const { promptId } = req.params;
+      
+      if (!playerId) {
+        return res.status(403).json({ error: "Player profile required" });
+      }
+
+      await storage.dismissReviewPrompt(promptId, playerId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Dismiss prompt error:", error);
+      res.status(500).json({ error: "Failed to dismiss prompt" });
+    }
+  });
+
+  // Get coach review stats (public - for coach profiles)
+  app.get("/api/coaches/:coachId/reviews", async (req: Request, res: Response) => {
+    try {
+      const { coachId } = req.params;
+      
+      // Get aggregated stats
+      const stats = await storage.getCoachReviewStats(coachId);
+      
+      // Get visible reviews (snippets)
+      const reviews = await storage.getVisibleCoachReviews(coachId, 10); // Top 10 reviews
+      
+      res.json({
+        stats: stats ? {
+          totalReviews: stats.visibleReviews || 0,
+          averageOverall: stats.averageOverall ? parseFloat(stats.averageOverall.toString()) : null,
+          categories: {
+            coachingQuality: stats.avgCoachingQuality ? parseFloat(stats.avgCoachingQuality.toString()) : null,
+            communication: stats.avgCommunication ? parseFloat(stats.avgCommunication.toString()) : null,
+            withKidsBeginners: stats.avgWithKidsBeginners ? parseFloat(stats.avgWithKidsBeginners.toString()) : null,
+            reliability: stats.avgReliability ? parseFloat(stats.avgReliability.toString()) : null,
+            feedbackMotivation: stats.avgFeedbackMotivation ? parseFloat(stats.avgFeedbackMotivation.toString()) : null,
+          },
+          reviewerBreakdown: {
+            kids: stats.kidReviewCount || 0,
+            teens: stats.teenReviewCount || 0,
+            adults: stats.adultReviewCount || 0,
+          },
+          levelBreakdown: {
+            red: stats.redLevelCount || 0,
+            orange: stats.orangeLevelCount || 0,
+            green: stats.greenLevelCount || 0,
+            yellow: stats.yellowLevelCount || 0,
+          },
+          bestForTags: stats.bestForTags || [],
+        } : null,
+        reviews: reviews.map(r => ({
+          id: r.id,
+          overallScore: parseFloat(r.overallScore.toString()),
+          whatDoesWell: r.whatDoesWell,
+          bestForPlayerType: r.bestForPlayerType,
+          reviewerAgeCategory: r.reviewerAgeCategory,
+          reviewerLevel: r.reviewerLevel,
+          createdAt: r.createdAt,
+          response: r.response ? {
+            text: r.response.responseText,
+            createdAt: r.response.createdAt,
+          } : null,
+        })),
+        isVisible: stats && (stats.visibleReviews || 0) >= 3, // Only show stats if 3+ reviews
+      });
+    } catch (error) {
+      console.error("Get coach reviews error:", error);
+      res.status(500).json({ error: "Failed to get reviews" });
+    }
+  });
+
+  // Coach: Respond to a review
+  app.post("/api/coach/reviews/:reviewId/respond", authMiddleware, requireRole("coach", "admin", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user?.coachId;
+      const { reviewId } = req.params;
+      const { responseText } = req.body;
+      
+      if (!coachId) {
+        return res.status(403).json({ error: "Coach profile required" });
+      }
+
+      if (!responseText || typeof responseText !== "string" || responseText.trim().length === 0) {
+        return res.status(400).json({ error: "Response text is required" });
+      }
+
+      if (responseText.length > 500) {
+        return res.status(400).json({ error: "Response must be 500 characters or less" });
+      }
+
+      // Verify the review is for this coach
+      const review = await storage.getCoachReview(reviewId);
+      if (!review || review.coachId !== coachId) {
+        return res.status(404).json({ error: "Review not found" });
+      }
+
+      // Check if already responded
+      const existingResponse = await storage.getReviewResponse(reviewId);
+      if (existingResponse) {
+        return res.status(400).json({ error: "You have already responded to this review" });
+      }
+
+      const response = await storage.createReviewResponse({
+        reviewId,
+        coachId,
+        responseText: sanitizeMessage(responseText.trim()),
+      });
+
+      res.status(201).json({
+        id: response.id,
+        message: "Response submitted successfully",
+      });
+    } catch (error) {
+      console.error("Respond to review error:", error);
+      res.status(500).json({ error: "Failed to submit response" });
+    }
+  });
+
+  // Coach: Get my reviews
+  app.get("/api/coach/my-reviews", authMiddleware, requireRole("coach", "admin", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user?.coachId;
+      
+      if (!coachId) {
+        return res.status(403).json({ error: "Coach profile required" });
+      }
+
+      const reviews = await storage.getCoachReviewsForCoach(coachId);
+      const stats = await storage.getCoachReviewStats(coachId);
+      
+      res.json({
+        stats: stats ? {
+          totalReviews: stats.totalReviews || 0,
+          visibleReviews: stats.visibleReviews || 0,
+          averageOverall: stats.averageOverall ? parseFloat(stats.averageOverall.toString()) : null,
+        } : null,
+        reviews: reviews.map(r => ({
+          id: r.id,
+          coachingQuality: r.coachingQuality,
+          communication: r.communication,
+          withKidsBeginners: r.withKidsBeginners,
+          reliability: r.reliability,
+          feedbackMotivation: r.feedbackMotivation,
+          overallScore: parseFloat(r.overallScore.toString()),
+          whatDoesWell: r.whatDoesWell,
+          bestForPlayerType: r.bestForPlayerType,
+          reviewerAgeCategory: r.reviewerAgeCategory,
+          reviewerLevel: r.reviewerLevel,
+          isVisible: r.isVisible,
+          createdAt: r.createdAt,
+          response: r.response,
+        })),
+      });
+    } catch (error) {
+      console.error("Get my reviews error:", error);
+      res.status(500).json({ error: "Failed to get reviews" });
+    }
+  });
+
+  // Flag a review (anyone can flag)
+  app.post("/api/reviews/:reviewId/flag", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      const { reviewId } = req.params;
+      const { reason, details } = req.body;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      if (!reason || !["inappropriate", "fake", "spam", "other"].includes(reason)) {
+        return res.status(400).json({ error: "Valid reason is required (inappropriate, fake, spam, or other)" });
+      }
+
+      const review = await storage.getCoachReview(reviewId);
+      if (!review) {
+        return res.status(404).json({ error: "Review not found" });
+      }
+
+      await storage.createReviewFlag({
+        reviewId,
+        flaggedBy: userId,
+        reason,
+        details: details ? sanitizeMessage(details) : null,
+      });
+
+      res.status(201).json({ message: "Review flagged for moderation" });
+    } catch (error) {
+      console.error("Flag review error:", error);
+      res.status(500).json({ error: "Failed to flag review" });
+    }
+  });
+
+  // Platform Owner: Get flagged reviews for moderation
+  app.get("/api/platform/review-flags", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { status = "pending" } = req.query;
+      
+      const flags = await storage.getReviewFlags(status as string);
+      
+      res.json(flags);
+    } catch (error) {
+      console.error("Get review flags error:", error);
+      res.status(500).json({ error: "Failed to get flags" });
+    }
+  });
+
+  // Platform Owner: Moderate a review (hide/unhide)
+  app.post("/api/platform/reviews/:reviewId/moderate", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      const { reviewId } = req.params;
+      const { action, reason, internalNote } = req.body;
+      
+      if (!["hide", "unhide", "dismiss_flags"].includes(action)) {
+        return res.status(400).json({ error: "Valid action is required (hide, unhide, or dismiss_flags)" });
+      }
+
+      const review = await storage.getCoachReview(reviewId);
+      if (!review) {
+        return res.status(404).json({ error: "Review not found" });
+      }
+
+      if (action === "hide") {
+        await storage.hideReview(reviewId, userId!, reason || "Moderation decision");
+        await storage.updateCoachReviewStats(review.coachId);
+      } else if (action === "unhide") {
+        await storage.unhideReview(reviewId);
+        await storage.updateCoachReviewStats(review.coachId);
+      } else if (action === "dismiss_flags") {
+        await storage.dismissReviewFlags(reviewId, userId!, internalNote);
+      }
+
+      res.json({ success: true, message: `Review ${action} successful` });
+    } catch (error) {
+      console.error("Moderate review error:", error);
+      res.status(500).json({ error: "Failed to moderate review" });
     }
   });
 
