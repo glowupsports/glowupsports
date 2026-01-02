@@ -1429,10 +1429,14 @@ export default function CalendarScreen() {
                     courtIndex > 0 && styles.courtLaneWithDivider,
                   ]}>
                     {/* Hour grid lines and clickable slots */}
-                    {hours.map((hour) => (
+                    {hours.map((hour, hourIndex) => (
                       <Pressable
                         key={hour}
-                        style={[styles.hourSlot, { height: hourHeight }]}
+                        style={[
+                          styles.hourSlot, 
+                          { height: hourHeight },
+                          hourIndex % 2 === 0 ? styles.hourSlotEven : styles.hourSlotOdd,
+                        ]}
                         onPress={() => handleSlotPress(court.id, hour)}
                       >
                         <View style={styles.hourLine} />
@@ -2441,20 +2445,26 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   courtLaneWithDivider: {
-    borderLeftWidth: 1,
-    borderLeftColor: Colors.dark.primary + "50",
+    borderLeftWidth: 2,
+    borderLeftColor: "#3A3A3A",
   },
   hourSlot: {
     height: HOUR_HEIGHT_60,
     position: "relative",
+  },
+  hourSlotEven: {
+    backgroundColor: "#1A1A1A",
+  },
+  hourSlotOdd: {
+    backgroundColor: "#0D0D0D",
   },
   hourLine: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    height: 1,
-    backgroundColor: Colors.dark.primary + "60",
+    height: 2,
+    backgroundColor: "#3A3A3A",
   },
   halfHourLine: {
     position: "absolute",
@@ -2462,7 +2472,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: Colors.dark.primary + "30",
+    backgroundColor: "#2A2A2A",
   },
   sessionBlock: {
     position: "absolute",
