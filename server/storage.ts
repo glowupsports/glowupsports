@@ -99,6 +99,13 @@ import {
   type InsertReviewPrompt,
   type CoachReviewStats,
   type InsertCoachReviewStats,
+  // Court Booking Marketplace
+  courtAvailability,
+  courtBookings,
+  type CourtAvailability,
+  type InsertCourtAvailability,
+  type CourtBooking,
+  type InsertCourtBooking,
   // Academy types
   type Academy,
   type InsertAcademy,
@@ -5259,6 +5266,343 @@ export const storage = {
     }
 
     const result = await db.insert(reviewPrompts).values(data).returning();
+    return result[0];
+  },
+
+  // ==================== COURT BOOKING MARKETPLACE ====================
+
+  // Search courts with filters
+  async searchCourts(filters: {
+    userId?: string;
+    userAcademyId?: string | null;
+    date?: string;
+    surface?: string;
+    visibility?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    location?: string;
+    limit: number;
+    offset: number;
+  }): Promise<Array<Court & { academy?: Academy; location?: Location }>> {
+    const conditions = [eq(courts.isActive, true)];
+
+    // Visibility filter: public courts OR user's academy courts
+    if (filters.userAcademyId) {
+      conditions.push(
+        or(
+          eq(courts.visibility, "public"),
+          and(
+            eq(courts.visibility, "academy"),
+            eq(courts.academyId, filters.userAcademyId)
+          )
+        )!
+      );
+    } else {
+      conditions.push(eq(courts.visibility, "public"));
+    }
+
+    if (filters.surface) {
+      conditions.push(eq(courts.surface, filters.surface));
+    }
+
+    if (filters.minPrice !== undefined) {
+      conditions.push(gte(courts.pricePerHour, filters.minPrice.toString()));
+    }
+
+    if (filters.maxPrice !== undefined) {
+      conditions.push(lte(courts.pricePerHour, filters.maxPrice.toString()));
+    }
+
+    const result = await db.select()
+      .from(courts)
+      .leftJoin(academies, eq(courts.academyId, academies.id))
+      .leftJoin(locations, eq(courts.locationId, locations.id))
+      .where(and(...conditions))
+      .limit(filters.limit)
+      .offset(filters.offset);
+
+    return result.map(r => ({
+      ...r.courts,
+      academy: r.academies || undefined,
+      location: r.locations || undefined,
+    }));
+  },
+
+  // Get court with full details
+  async getCourtWithDetails(courtId: string, userId?: string, userAcademyId?: string | null): Promise<(Court & { academy?: Academy; location?: Location; canBook: boolean }) | null> {
+    const result = await db.select()
+      .from(courts)
+      .leftJoin(academies, eq(courts.academyId, academies.id))
+      .leftJoin(locations, eq(courts.locationId, locations.id))
+      .where(eq(courts.id, courtId))
+      .limit(1);
+
+    if (result.length === 0) return null;
+
+    const court = result[0];
+    const canBook = court.courts.visibility === "public" || 
+      (court.courts.visibility === "academy" && court.courts.academyId === userAcademyId);
+
+    return {
+      ...court.courts,
+      academy: court.academies || undefined,
+      location: court.locations || undefined,
+      canBook,
+    };
+  },
+
+  // Get court availability for a specific date
+  async getCourtAvailability(courtId: string, date: string): Promise<CourtAvailability[]> {
+    return db.select()
+      .from(courtAvailability)
+      .where(and(
+        eq(courtAvailability.courtId, courtId),
+        eq(courtAvailability.date, date)
+      ))
+      .orderBy(asc(courtAvailability.startTime));
+  },
+
+  // Get court availability for a date range
+  async getCourtAvailabilityRange(courtId: string, startDate: string, endDate: string): Promise<CourtAvailability[]> {
+    return db.select()
+      .from(courtAvailability)
+      .where(and(
+        eq(courtAvailability.courtId, courtId),
+        gte(courtAvailability.date, startDate),
+        lte(courtAvailability.date, endDate)
+      ))
+      .orderBy(asc(courtAvailability.date), asc(courtAvailability.startTime));
+  },
+
+  // Check if court is available for a time slot
+  async checkCourtAvailability(courtId: string, date: string, startTime: string, endTime: string): Promise<boolean> {
+    // Check court_availability for blocked/booked slots
+    const blocked = await db.select()
+      .from(courtAvailability)
+      .where(and(
+        eq(courtAvailability.courtId, courtId),
+        eq(courtAvailability.date, date),
+        ne(courtAvailability.status, "available"),
+        or(
+          and(lte(courtAvailability.startTime, startTime), gte(courtAvailability.endTime, startTime)),
+          and(lte(courtAvailability.startTime, endTime), gte(courtAvailability.endTime, endTime)),
+          and(gte(courtAvailability.startTime, startTime), lte(courtAvailability.endTime, endTime))
+        )
+      ))
+      .limit(1);
+
+    if (blocked.length > 0) return false;
+
+    // Check court_bookings for existing bookings
+    const existingBooking = await db.select()
+      .from(courtBookings)
+      .where(and(
+        eq(courtBookings.courtId, courtId),
+        eq(courtBookings.date, date),
+        inArray(courtBookings.status, ["pending", "confirmed"]),
+        or(
+          and(lte(courtBookings.startTime, startTime), gte(courtBookings.endTime, startTime)),
+          and(lte(courtBookings.startTime, endTime), gte(courtBookings.endTime, endTime)),
+          and(gte(courtBookings.startTime, startTime), lte(courtBookings.endTime, endTime))
+        )
+      ))
+      .limit(1);
+
+    return existingBooking.length === 0;
+  },
+
+  // Create a court booking
+  async createCourtBooking(data: Omit<InsertCourtBooking, "id" | "createdAt">): Promise<CourtBooking> {
+    const result = await db.insert(courtBookings).values({
+      ...data,
+      confirmedAt: data.status === "confirmed" ? new Date() : null,
+    }).returning();
+    return result[0];
+  },
+
+  // Get a court booking by ID
+  async getCourtBooking(bookingId: string): Promise<CourtBooking | undefined> {
+    const result = await db.select()
+      .from(courtBookings)
+      .where(eq(courtBookings.id, bookingId));
+    return result[0];
+  },
+
+  // Get user's court bookings
+  async getUserCourtBookings(userId: string, filters: {
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<Array<CourtBooking & { court: Court }>> {
+    const conditions = [eq(courtBookings.userId, userId)];
+
+    if (filters.status) {
+      conditions.push(eq(courtBookings.status, filters.status));
+    }
+    if (filters.startDate) {
+      conditions.push(gte(courtBookings.date, filters.startDate));
+    }
+    if (filters.endDate) {
+      conditions.push(lte(courtBookings.date, filters.endDate));
+    }
+
+    const result = await db.select()
+      .from(courtBookings)
+      .leftJoin(courts, eq(courtBookings.courtId, courts.id))
+      .where(and(...conditions))
+      .orderBy(desc(courtBookings.date), desc(courtBookings.startTime));
+
+    return result.map(r => ({
+      ...r.court_bookings,
+      court: r.courts!,
+    }));
+  },
+
+  // Cancel a court booking
+  async cancelCourtBooking(bookingId: string, cancelledBy: string, reason?: string): Promise<void> {
+    await db.update(courtBookings)
+      .set({
+        status: "cancelled",
+        cancelledAt: new Date(),
+        cancelledBy,
+        cancelReason: reason || null,
+      })
+      .where(eq(courtBookings.id, bookingId));
+  },
+
+  // Update court availability status
+  async updateCourtAvailabilityStatus(courtId: string, date: string, startTime: string, endTime: string, status: string): Promise<void> {
+    // Check if slot exists
+    const existing = await db.select()
+      .from(courtAvailability)
+      .where(and(
+        eq(courtAvailability.courtId, courtId),
+        eq(courtAvailability.date, date),
+        eq(courtAvailability.startTime, startTime),
+        eq(courtAvailability.endTime, endTime)
+      ))
+      .limit(1);
+
+    if (existing.length > 0) {
+      await db.update(courtAvailability)
+        .set({ status })
+        .where(eq(courtAvailability.id, existing[0].id));
+    } else {
+      await db.insert(courtAvailability).values({
+        courtId,
+        date,
+        startTime,
+        endTime,
+        status,
+      });
+    }
+  },
+
+  // Block a court time slot
+  async blockCourtTimeSlot(data: {
+    courtId: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    status: string;
+    blockedReason: string;
+    blockedBy?: string;
+  }): Promise<void> {
+    await db.insert(courtAvailability).values(data);
+  },
+
+  // Get academy's court bookings
+  async getAcademyCourtBookings(academyId: string, filters: {
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+    courtId?: string;
+  }): Promise<Array<CourtBooking & { court: Court; user?: User }>> {
+    const conditions = [eq(courtBookings.academyId, academyId)];
+
+    if (filters.status) {
+      conditions.push(eq(courtBookings.status, filters.status));
+    }
+    if (filters.startDate) {
+      conditions.push(gte(courtBookings.date, filters.startDate));
+    }
+    if (filters.endDate) {
+      conditions.push(lte(courtBookings.date, filters.endDate));
+    }
+    if (filters.courtId) {
+      conditions.push(eq(courtBookings.courtId, filters.courtId));
+    }
+
+    const result = await db.select()
+      .from(courtBookings)
+      .leftJoin(courts, eq(courtBookings.courtId, courts.id))
+      .leftJoin(users, eq(courtBookings.userId, users.id))
+      .where(and(...conditions))
+      .orderBy(desc(courtBookings.date), desc(courtBookings.startTime));
+
+    return result.map(r => ({
+      ...r.court_bookings,
+      court: r.courts!,
+      user: r.users || undefined,
+    }));
+  },
+
+  // Approve a court booking
+  async approveCourtBooking(bookingId: string): Promise<void> {
+    await db.update(courtBookings)
+      .set({
+        status: "confirmed",
+        confirmedAt: new Date(),
+      })
+      .where(eq(courtBookings.id, bookingId));
+  },
+
+  // Decline a court booking
+  async declineCourtBooking(bookingId: string, reason?: string): Promise<void> {
+    await db.update(courtBookings)
+      .set({
+        status: "cancelled",
+        cancelledAt: new Date(),
+        cancelReason: reason || "Declined by academy",
+      })
+      .where(eq(courtBookings.id, bookingId));
+  },
+
+  // Update court booking settings
+  async updateCourtBookingSettings(courtId: string, settings: {
+    visibility?: string;
+    pricePerHour?: string;
+    peakPricePerHour?: string;
+    memberPricePerHour?: string;
+    currency?: string;
+    maxBookingDurationHours?: number;
+    minBookingDurationMinutes?: number;
+    cancelWindowHours?: number;
+    guestsAllowed?: boolean;
+    requiresApproval?: boolean;
+    operatingHours?: any;
+    xpRewardPerHour?: number;
+  }): Promise<Court> {
+    const updateData: any = {};
+    
+    if (settings.visibility !== undefined) updateData.visibility = settings.visibility;
+    if (settings.pricePerHour !== undefined) updateData.pricePerHour = settings.pricePerHour;
+    if (settings.peakPricePerHour !== undefined) updateData.peakPricePerHour = settings.peakPricePerHour;
+    if (settings.memberPricePerHour !== undefined) updateData.memberPricePerHour = settings.memberPricePerHour;
+    if (settings.currency !== undefined) updateData.currency = settings.currency;
+    if (settings.maxBookingDurationHours !== undefined) updateData.maxBookingDurationHours = settings.maxBookingDurationHours;
+    if (settings.minBookingDurationMinutes !== undefined) updateData.minBookingDurationMinutes = settings.minBookingDurationMinutes;
+    if (settings.cancelWindowHours !== undefined) updateData.cancelWindowHours = settings.cancelWindowHours;
+    if (settings.guestsAllowed !== undefined) updateData.guestsAllowed = settings.guestsAllowed;
+    if (settings.requiresApproval !== undefined) updateData.requiresApproval = settings.requiresApproval;
+    if (settings.operatingHours !== undefined) updateData.operatingHours = settings.operatingHours;
+    if (settings.xpRewardPerHour !== undefined) updateData.xpRewardPerHour = settings.xpRewardPerHour;
+
+    const result = await db.update(courts)
+      .set(updateData)
+      .where(eq(courts.id, courtId))
+      .returning();
+
     return result[0];
   },
 };

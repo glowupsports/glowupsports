@@ -12298,6 +12298,452 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== COURT BOOKING MARKETPLACE ====================
+
+  // Search public courts (available for all users)
+  app.get("/api/courts/search", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      const academyId = req.user?.academyId;
+      const { 
+        date, 
+        surface, 
+        visibility, 
+        minPrice, 
+        maxPrice,
+        location,
+        limit = "20",
+        offset = "0" 
+      } = req.query;
+
+      const courts = await storage.searchCourts({
+        userId,
+        userAcademyId: academyId,
+        date: date as string,
+        surface: surface as string,
+        visibility: visibility as string,
+        minPrice: minPrice ? parseFloat(minPrice as string) : undefined,
+        maxPrice: maxPrice ? parseFloat(maxPrice as string) : undefined,
+        location: location as string,
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string),
+      });
+
+      res.json(courts);
+    } catch (error) {
+      console.error("Search courts error:", error);
+      res.status(500).json({ error: "Failed to search courts" });
+    }
+  });
+
+  // Get court details with availability
+  app.get("/api/courts/:courtId/details", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { courtId } = req.params;
+      const { date } = req.query;
+      const userId = req.user?.userId;
+      const userAcademyId = req.user?.academyId;
+
+      const court = await storage.getCourtWithDetails(courtId, userId, userAcademyId);
+      if (!court) {
+        return res.status(404).json({ error: "Court not found" });
+      }
+
+      // Get availability for the requested date
+      const availability = date 
+        ? await storage.getCourtAvailability(courtId, date as string)
+        : [];
+
+      res.json({ ...court, availability });
+    } catch (error) {
+      console.error("Get court details error:", error);
+      res.status(500).json({ error: "Failed to get court details" });
+    }
+  });
+
+  // Get court availability for a date range
+  app.get("/api/courts/:courtId/availability", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { courtId } = req.params;
+      const { startDate, endDate } = req.query;
+
+      if (!startDate) {
+        return res.status(400).json({ error: "startDate is required" });
+      }
+
+      const availability = await storage.getCourtAvailabilityRange(
+        courtId, 
+        startDate as string, 
+        (endDate as string) || startDate as string
+      );
+
+      res.json(availability);
+    } catch (error) {
+      console.error("Get court availability error:", error);
+      res.status(500).json({ error: "Failed to get availability" });
+    }
+  });
+
+  // Create a court booking (player booking)
+  app.post("/api/courts/:courtId/book", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      const playerId = req.user?.playerId;
+      const { courtId } = req.params;
+      const { date, startTime, endTime, notes } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      if (!date || !startTime || !endTime) {
+        return res.status(400).json({ error: "date, startTime, and endTime are required" });
+      }
+
+      // Calculate duration
+      const start = new Date(`${date}T${startTime}`);
+      const end = new Date(`${date}T${endTime}`);
+      const durationMinutes = Math.round((end.getTime() - start.getTime()) / 60000);
+
+      if (durationMinutes <= 0) {
+        return res.status(400).json({ error: "Invalid time range" });
+      }
+
+      // Get court to check rules and pricing
+      const court = await storage.getCourt(courtId);
+      if (!court) {
+        return res.status(404).json({ error: "Court not found" });
+      }
+
+      // Check if user can book this court
+      const userAcademyId = req.user?.academyId;
+      const canBook = court.visibility === "public" || 
+        (court.visibility === "academy" && court.academyId === userAcademyId);
+      
+      if (!canBook) {
+        return res.status(403).json({ error: "You don't have access to book this court" });
+      }
+
+      // Check duration limits
+      if (durationMinutes < (court.minBookingDurationMinutes || 60)) {
+        return res.status(400).json({ error: `Minimum booking duration is ${court.minBookingDurationMinutes || 60} minutes` });
+      }
+      if (durationMinutes > ((court.maxBookingDurationHours || 2) * 60)) {
+        return res.status(400).json({ error: `Maximum booking duration is ${court.maxBookingDurationHours || 2} hours` });
+      }
+
+      // Check availability
+      const isAvailable = await storage.checkCourtAvailability(courtId, date, startTime, endTime);
+      if (!isAvailable) {
+        return res.status(409).json({ error: "This time slot is not available" });
+      }
+
+      // Calculate price
+      const hours = durationMinutes / 60;
+      const isMember = court.academyId === userAcademyId;
+      const pricePerHour = isMember && court.memberPricePerHour 
+        ? parseFloat(court.memberPricePerHour)
+        : parseFloat(court.pricePerHour || "0");
+      const price = pricePerHour * hours;
+
+      // Determine booking type
+      const bookingType = court.visibility === "public" ? "public" : "academy";
+
+      // Create booking
+      const booking = await storage.createCourtBooking({
+        courtId,
+        userId,
+        playerId: playerId || null,
+        academyId: court.academyId,
+        date,
+        startTime,
+        endTime,
+        durationMinutes,
+        bookingType,
+        price: price.toFixed(2),
+        currency: court.currency || "AED",
+        paymentStatus: price === 0 ? "free" : "pending",
+        status: court.requiresApproval ? "pending" : "confirmed",
+        notes: notes ? sanitizeMessage(notes) : null,
+      });
+
+      // Mark time slot as booked
+      await storage.updateCourtAvailabilityStatus(courtId, date, startTime, endTime, "booked");
+
+      res.status(201).json(booking);
+    } catch (error) {
+      console.error("Create court booking error:", error);
+      res.status(500).json({ error: "Failed to create booking" });
+    }
+  });
+
+  // Get user's court bookings
+  app.get("/api/my-court-bookings", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      const { status, startDate, endDate } = req.query;
+
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const bookings = await storage.getUserCourtBookings(userId, {
+        status: status as string,
+        startDate: startDate as string,
+        endDate: endDate as string,
+      });
+
+      res.json(bookings);
+    } catch (error) {
+      console.error("Get my court bookings error:", error);
+      res.status(500).json({ error: "Failed to get bookings" });
+    }
+  });
+
+  // Cancel a court booking
+  app.post("/api/court-bookings/:bookingId/cancel", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      const { bookingId } = req.params;
+      const { reason } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const booking = await storage.getCourtBooking(bookingId);
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      // Check ownership
+      if (booking.userId !== userId) {
+        return res.status(403).json({ error: "You can only cancel your own bookings" });
+      }
+
+      // Check if already cancelled
+      if (booking.status === "cancelled") {
+        return res.status(400).json({ error: "Booking is already cancelled" });
+      }
+
+      // Get court for cancel window check
+      const court = await storage.getCourt(booking.courtId);
+      const bookingDateTime = new Date(`${booking.date}T${booking.startTime}`);
+      const now = new Date();
+      const hoursUntilBooking = (bookingDateTime.getTime() - now.getTime()) / 3600000;
+      
+      if (court && hoursUntilBooking < (court.cancelWindowHours || 24)) {
+        return res.status(400).json({ 
+          error: `Cancellations must be made at least ${court.cancelWindowHours || 24} hours before the booking` 
+        });
+      }
+
+      // Cancel booking
+      await storage.cancelCourtBooking(bookingId, userId, reason);
+
+      // Release time slot
+      await storage.updateCourtAvailabilityStatus(
+        booking.courtId, 
+        booking.date, 
+        booking.startTime, 
+        booking.endTime, 
+        "available"
+      );
+
+      res.json({ success: true, message: "Booking cancelled" });
+    } catch (error) {
+      console.error("Cancel court booking error:", error);
+      res.status(500).json({ error: "Failed to cancel booking" });
+    }
+  });
+
+  // ==================== COACH COURT BLOCKING ====================
+
+  // Coach blocks court for training
+  app.post("/api/courts/:courtId/block", authMiddleware, requireRole("coach", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      const { courtId } = req.params;
+      const { date, startTime, endTime, reason } = req.body;
+
+      if (!date || !startTime || !endTime) {
+        return res.status(400).json({ error: "date, startTime, and endTime are required" });
+      }
+
+      // Check if coach has access to this court
+      const court = await storage.getCourt(courtId);
+      if (!court) {
+        return res.status(404).json({ error: "Court not found" });
+      }
+
+      const userAcademyId = req.user?.academyId;
+      if (court.academyId !== userAcademyId && req.user?.role !== "platform_owner") {
+        return res.status(403).json({ error: "You can only block courts in your academy" });
+      }
+
+      // Check availability
+      const isAvailable = await storage.checkCourtAvailability(courtId, date, startTime, endTime);
+      if (!isAvailable) {
+        return res.status(409).json({ error: "This time slot is already booked or blocked" });
+      }
+
+      // Block the time slot
+      await storage.blockCourtTimeSlot({
+        courtId,
+        date,
+        startTime,
+        endTime,
+        status: "blocked",
+        blockedReason: reason || "training",
+        blockedBy: userId,
+      });
+
+      res.status(201).json({ success: true, message: "Court blocked for training" });
+    } catch (error) {
+      console.error("Block court error:", error);
+      res.status(500).json({ error: "Failed to block court" });
+    }
+  });
+
+  // Coach unblocks court
+  app.post("/api/courts/:courtId/unblock", authMiddleware, requireRole("coach", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { courtId } = req.params;
+      const { date, startTime, endTime } = req.body;
+
+      if (!date || !startTime || !endTime) {
+        return res.status(400).json({ error: "date, startTime, and endTime are required" });
+      }
+
+      await storage.updateCourtAvailabilityStatus(courtId, date, startTime, endTime, "available");
+
+      res.json({ success: true, message: "Court unblocked" });
+    } catch (error) {
+      console.error("Unblock court error:", error);
+      res.status(500).json({ error: "Failed to unblock court" });
+    }
+  });
+
+  // ==================== ACADEMY COURT MANAGEMENT ====================
+
+  // Update court booking settings
+  app.put("/api/courts/:courtId/booking-settings", authMiddleware, requireRole("academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { courtId } = req.params;
+      const {
+        visibility,
+        pricePerHour,
+        peakPricePerHour,
+        memberPricePerHour,
+        currency,
+        maxBookingDurationHours,
+        minBookingDurationMinutes,
+        cancelWindowHours,
+        guestsAllowed,
+        requiresApproval,
+        operatingHours,
+        xpRewardPerHour,
+      } = req.body;
+
+      // Check ownership
+      const court = await storage.getCourt(courtId);
+      if (!court) {
+        return res.status(404).json({ error: "Court not found" });
+      }
+
+      const userAcademyId = req.user?.academyId;
+      if (court.academyId !== userAcademyId && req.user?.role !== "platform_owner") {
+        return res.status(403).json({ error: "You can only update courts in your academy" });
+      }
+
+      const updatedCourt = await storage.updateCourtBookingSettings(courtId, {
+        visibility,
+        pricePerHour,
+        peakPricePerHour,
+        memberPricePerHour,
+        currency,
+        maxBookingDurationHours,
+        minBookingDurationMinutes,
+        cancelWindowHours,
+        guestsAllowed,
+        requiresApproval,
+        operatingHours,
+        xpRewardPerHour,
+      });
+
+      res.json(updatedCourt);
+    } catch (error) {
+      console.error("Update court booking settings error:", error);
+      res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
+
+  // Get academy's court bookings (for management)
+  app.get("/api/academy/court-bookings", authMiddleware, requireRole("coach", "academy_owner", "platform_owner"), requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      const { status, startDate, endDate, courtId } = req.query;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const bookings = await storage.getAcademyCourtBookings(academyId, {
+        status: status as string,
+        startDate: startDate as string,
+        endDate: endDate as string,
+        courtId: courtId as string,
+      });
+
+      res.json(bookings);
+    } catch (error) {
+      console.error("Get academy court bookings error:", error);
+      res.status(500).json({ error: "Failed to get bookings" });
+    }
+  });
+
+  // Approve/decline pending booking (academy admin)
+  app.post("/api/court-bookings/:bookingId/review", authMiddleware, requireRole("academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { bookingId } = req.params;
+      const { action, reason } = req.body;
+
+      if (!["approve", "decline"].includes(action)) {
+        return res.status(400).json({ error: "Action must be 'approve' or 'decline'" });
+      }
+
+      const booking = await storage.getCourtBooking(bookingId);
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      // Check academy ownership
+      const userAcademyId = req.user?.academyId;
+      if (booking.academyId !== userAcademyId && req.user?.role !== "platform_owner") {
+        return res.status(403).json({ error: "You can only review bookings for your academy" });
+      }
+
+      if (action === "approve") {
+        await storage.approveCourtBooking(bookingId);
+      } else {
+        await storage.declineCourtBooking(bookingId, reason);
+        // Release the time slot
+        await storage.updateCourtAvailabilityStatus(
+          booking.courtId,
+          booking.date,
+          booking.startTime,
+          booking.endTime,
+          "available"
+        );
+      }
+
+      res.json({ success: true, message: `Booking ${action}d` });
+    } catch (error) {
+      console.error("Review court booking error:", error);
+      res.status(500).json({ error: "Failed to review booking" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat

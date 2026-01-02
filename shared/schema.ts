@@ -416,12 +416,113 @@ export const courts = pgTable("courts", {
   name: text("name").notNull(),
   color: varchar("color", { length: 7 }).default("#2ECC40"),
   isActive: boolean("is_active").default(true),
+  
+  // Court Booking Marketplace Fields
+  surface: text("surface").default("hard"), // hard | clay | grass | indoor | artificial
+  description: text("description"),
+  photoUrl: text("photo_url"),
+  visibility: text("visibility").default("academy"), // public | academy | invite_only
+  pricePerHour: numeric("price_per_hour").default("0"), // 0 = free
+  peakPricePerHour: numeric("peak_price_per_hour"), // optional peak hours price
+  memberPricePerHour: numeric("member_price_per_hour"), // optional discounted price for members
+  currency: text("currency").default("AED"),
+  
+  // Booking Rules
+  maxBookingDurationHours: integer("max_booking_duration_hours").default(2),
+  minBookingDurationMinutes: integer("min_booking_duration_minutes").default(60),
+  cancelWindowHours: integer("cancel_window_hours").default(24), // hours before start time
+  guestsAllowed: boolean("guests_allowed").default(false),
+  requiresApproval: boolean("requires_approval").default(false), // academy must approve booking
+  
+  // Operating Hours (JSON for flexibility)
+  operatingHours: jsonb("operating_hours").$type<{
+    [day: string]: { open: string; close: string; closed?: boolean };
+  }>(),
+  
+  // XP Rewards (game layer)
+  xpRewardPerHour: integer("xp_reward_per_hour").default(10),
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertCourtSchema = createInsertSchema(courts).omit({ id: true, createdAt: true });
 export type InsertCourt = z.infer<typeof insertCourtSchema>;
 export type Court = typeof courts.$inferSelect;
+
+// Court Availability - Tracks available/booked/blocked time slots
+export const courtAvailability = pgTable("court_availability", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  courtId: varchar("court_id").references(() => courts.id).notNull(),
+  date: date("date").notNull(),
+  startTime: text("start_time").notNull(), // "09:00"
+  endTime: text("end_time").notNull(), // "10:00"
+  status: text("status").notNull().default("available"), // available | booked | blocked | maintenance
+  blockedReason: text("blocked_reason"), // training | event | maintenance | closed
+  blockedBy: varchar("blocked_by").references(() => users.id), // coach or admin who blocked
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  courtDateIdx: index("court_availability_court_date_idx").on(table.courtId, table.date),
+}));
+
+export const insertCourtAvailabilitySchema = createInsertSchema(courtAvailability).omit({ id: true, createdAt: true });
+export type InsertCourtAvailability = z.infer<typeof insertCourtAvailabilitySchema>;
+export type CourtAvailability = typeof courtAvailability.$inferSelect;
+
+// Court Bookings - Player bookings for court time
+export const courtBookings = pgTable("court_bookings", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  courtId: varchar("court_id").references(() => courts.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(), // who booked
+  playerId: varchar("player_id").references(() => players.id), // optional player profile
+  academyId: varchar("academy_id").references(() => academies.id), // court's academy
+  
+  // Booking Details
+  date: date("date").notNull(),
+  startTime: text("start_time").notNull(), // "09:00"
+  endTime: text("end_time").notNull(), // "10:00"
+  durationMinutes: integer("duration_minutes").notNull(),
+  
+  // Booking Type
+  bookingType: text("booking_type").notNull().default("public"), // public | academy | training | event
+  
+  // Pricing
+  price: numeric("price").default("0"),
+  currency: text("currency").default("AED"),
+  paymentStatus: text("payment_status").default("pending"), // pending | paid | free | refunded
+  
+  // Status
+  status: text("status").default("pending"), // pending | confirmed | cancelled | completed | no_show
+  confirmedAt: timestamp("confirmed_at"),
+  cancelledAt: timestamp("cancelled_at"),
+  cancelReason: text("cancel_reason"),
+  cancelledBy: varchar("cancelled_by").references(() => users.id),
+  
+  // XP Rewards
+  xpAwarded: integer("xp_awarded").default(0),
+  
+  // Notes
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  courtDateIdx: index("court_bookings_court_date_idx").on(table.courtId, table.date),
+  userIdx: index("court_bookings_user_idx").on(table.userId),
+  statusIdx: index("court_bookings_status_idx").on(table.status),
+}));
+
+export const insertCourtBookingSchema = createInsertSchema(courtBookings).omit({ 
+  id: true, 
+  createdAt: true,
+  confirmedAt: true,
+  cancelledAt: true,
+  cancelledBy: true,
+});
+export type InsertCourtBooking = z.infer<typeof insertCourtBookingSchema>;
+export type CourtBooking = typeof courtBookings.$inferSelect;
 
 // Players
 export const players = pgTable("players", {
