@@ -12156,18 +12156,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         limit: 20,
       });
 
-      // Get mutual session count for each player
+      // Build enriched players with mutual session counts
       const enrichedPlayers = await Promise.all(players.map(async (player) => {
-        // Count sessions where both players participated
-        const mutualSessions = await db.execute(sql`
-          SELECT COUNT(DISTINCT sp1.session_id) as count
-          FROM session_players sp1
-          JOIN session_players sp2 ON sp1.session_id = sp2.session_id
-          WHERE sp1.player_id = ${playerId} 
-          AND sp2.player_id = ${player.id}
-        `);
+        let mutualCount = 0;
         
-        const mutualCount = Number(mutualSessions.rows[0]?.count || 0);
+        // Only query mutual sessions if both player IDs are valid
+        if (playerId && player.id) {
+          try {
+            const mutualSessions = await db.execute(
+              sql`SELECT COUNT(DISTINCT sp1.session_id)::int as count
+                  FROM session_players sp1
+                  INNER JOIN session_players sp2 ON sp1.session_id = sp2.session_id
+                  WHERE sp1.player_id = ${playerId}
+                    AND sp2.player_id = ${player.id}`
+            );
+            mutualCount = Number(mutualSessions.rows[0]?.count || 0);
+          } catch (e) {
+            console.error("Mutual sessions query failed:", e);
+          }
+        }
 
         return {
           id: player.id,
