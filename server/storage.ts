@@ -115,8 +115,7 @@ import {
   type InsertCourtAvailability,
   type CourtBooking,
   type InsertCourtBooking,
-  // Academy types
-  type Academy,
+  // Academy types (Academy already imported above)
   type InsertAcademy,
   type Coach,
   type InsertCoach,
@@ -1075,16 +1074,14 @@ export const storage = {
         db.delete(playerProgressFlags).where(eq(playerProgressFlags.playerId, id)),
         db.delete(domainAssessments).where(eq(domainAssessments.playerId, id)),
         db.delete(xpTransactions).where(eq(xpTransactions.playerId, id)),
-        // Core tables
-        db.delete(sessionFeedback).where(eq(sessionFeedback.playerId, id)),
+        // Core tables (sessionFeedback has no playerId - it's session-level)
         db.delete(playerNotes).where(eq(playerNotes.playerId, id)),
         db.delete(playerProgress).where(eq(playerProgress.playerId, id)),
         db.delete(playerHolidays).where(eq(playerHolidays.playerId, id)),
         db.delete(sessionPlayers).where(eq(sessionPlayers.playerId, id)),
         db.delete(playerSessionCancellations).where(eq(playerSessionCancellations.playerId, id)),
-        // Booking, applications, and transfers
+        // Booking and transfers (academyApplications has no playerId - it's for academy applications)
         db.delete(bookingRequests).where(eq(bookingRequests.playerId, id)),
-        db.delete(academyApplications).where(eq(academyApplications.playerId, id)),
         db.delete(joinRequests).where(eq(joinRequests.playerId, id)),
         db.delete(academyTransferRequests).where(eq(academyTransferRequests.playerId, id)),
         // Chat - participants and reactions
@@ -1103,8 +1100,7 @@ export const storage = {
         ),
         // Court bookings
         db.delete(courtBookings).where(eq(courtBookings.playerId, id)),
-        // Coach earnings referencing this player
-        db.delete(coachEarnings).where(eq(coachEarnings.playerId, id)),
+        // Note: coachEarnings has no playerId - it's coach-level
       ]);
       
       // Second batch: chat messages and parent relations

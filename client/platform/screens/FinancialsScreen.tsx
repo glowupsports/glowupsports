@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   mrrCard: {
-    backgroundColor: Colors.dark.backgroundElevated,
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   },
   alertCard: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundElevated,
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     flexDirection: "row",
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   chartCard: {
-    backgroundColor: Colors.dark.backgroundElevated,
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
   },
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   transactionsCard: {
-    backgroundColor: Colors.dark.backgroundElevated,
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
   },
@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
     ...Typography.h3,
   },
   churnCard: {
-    backgroundColor: Colors.dark.backgroundElevated,
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
