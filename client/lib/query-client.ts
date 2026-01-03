@@ -40,6 +40,28 @@ function getAuthHeaders(): Record<string, string> {
   return {};
 }
 
+/**
+ * Centralized fetch wrapper for API calls.
+ * DO NOT USE relative URLs like fetch("/api/...") - they fail on native mobile!
+ * Always use this function or getApiUrl() for all API requests.
+ */
+export async function apiFetch(
+  path: string,
+  options?: RequestInit
+): Promise<Response> {
+  const baseUrl = getApiUrl();
+  const url = new URL(path, baseUrl);
+  
+  return fetch(url.toString(), {
+    credentials: "include",
+    ...options,
+    headers: {
+      ...getAuthHeaders(),
+      ...options?.headers,
+    },
+  });
+}
+
 export async function apiRequest(
   method: string,
   route: string,
