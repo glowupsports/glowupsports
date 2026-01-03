@@ -32,8 +32,9 @@ export function AcademyHubCard({ hasAcademy, academyName, onBrowsePress }: Acade
     return null;
   }
 
-  const pendingRequests = joinRequests?.filter(r => r.status === "pending") || [];
-  const rejectedRequests = joinRequests?.filter(r => r.status === "rejected") || [];
+  const requestsArray = Array.isArray(joinRequests) ? joinRequests : [];
+  const pendingRequests = requestsArray.filter(r => r.status === "pending");
+  const rejectedRequests = requestsArray.filter(r => r.status === "rejected");
   const hasPendingRequests = pendingRequests.length > 0;
 
   const handleBrowsePress = () => {
