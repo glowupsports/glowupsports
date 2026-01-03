@@ -2,13 +2,14 @@
   "expo": {
     "name": "Glow Up Sports",
     "slug": "glow-up-sports-qimo0pvm-ks03bklnmcri",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "enabled": true,
-      "url": "https://u.expo.dev/ce3ccb00-0553-4abc-a038-1a93b7483738"
+      "enabled": false,
+      "checkOnLaunch": "NEVER",
+      "fallbackToCacheTimeout": 0
     },
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",

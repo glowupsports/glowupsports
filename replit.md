@@ -74,8 +74,9 @@ The app uses a single environment variable pattern that works identically across
 - `EXPO_PUBLIC_ENV` - Environment identifier for conditional behavior
 
 **OTA Updates:**
-- OTA updates are ENABLED - you can push hotfixes via `eas update --branch production --message "Description"`
-- Updates URL: `https://u.expo.dev/ce3ccb00-0553-4abc-a038-1a93b7483738`
+- OTA updates are DISABLED due to download reliability issues
+- All updates require a new Play Store build
+- To re-enable: set `updates.enabled: true` in app.json and rebuild
 
 **Backend Variables (server-only, never exposed to app):**
 - `DATABASE_URL` - PostgreSQL connection string (Replit Secrets)
