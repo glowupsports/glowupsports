@@ -9,7 +9,10 @@ import {
   Switch,
   RefreshControl,
   Modal,
+  Platform,
+  Image as RNImage,
 } from "react-native";
+import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,7 +24,7 @@ import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from "react-na
 import Animated, { FadeIn, FadeInUp, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, getPlayerLevelColor } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
 
 interface PublicProfile {
   id: string;
@@ -299,11 +302,19 @@ export default function PlayerPublicProfileScreen() {
             <Animated.View style={[styles.avatarGlow, glowStyle, { backgroundColor: levelColor }]} />
             <View style={[styles.avatarBorder, { borderColor: levelColor }]}>
               {profile.photoUrl ? (
-                <View style={styles.avatarImage}>
-                  <Text style={styles.avatarInitial}>
-                    {profile.name.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
+                Platform.OS === 'web' ? (
+                  <RNImage
+                    source={{ uri: profile.photoUrl.startsWith('http') ? profile.photoUrl : `${getStaticAssetsUrl()}${profile.photoUrl}` }}
+                    style={styles.avatarPhoto}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Image
+                    source={{ uri: profile.photoUrl.startsWith('http') ? profile.photoUrl : `${getStaticAssetsUrl()}${profile.photoUrl}` }}
+                    style={styles.avatarPhoto}
+                    contentFit="cover"
+                  />
+                )
               ) : (
                 <View style={styles.avatarImage}>
                   <Text style={styles.avatarInitial}>
@@ -884,6 +895,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundTertiary,
     justifyContent: "center",
     alignItems: "center",
+  },
+  avatarPhoto: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
   },
   avatarInitial: {
     fontSize: 36,
