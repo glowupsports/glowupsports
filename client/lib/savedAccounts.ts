@@ -1,5 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 import * as LocalAuthentication from "expo-local-authentication";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
 export interface SavedAccount {
@@ -12,9 +13,24 @@ export interface SavedAccount {
 
 const SAVED_ACCOUNTS_KEY = "gus_saved_accounts_v2";
 
+async function getStorageItem(key: string): Promise<string | null> {
+  if (Platform.OS === "web") {
+    return AsyncStorage.getItem(key);
+  }
+  return SecureStore.getItemAsync(key);
+}
+
+async function setStorageItem(key: string, value: string): Promise<void> {
+  if (Platform.OS === "web") {
+    await AsyncStorage.setItem(key, value);
+  } else {
+    await SecureStore.setItemAsync(key, value);
+  }
+}
+
 export async function getSavedAccounts(): Promise<SavedAccount[]> {
   try {
-    const data = await SecureStore.getItemAsync(SAVED_ACCOUNTS_KEY);
+    const data = await getStorageItem(SAVED_ACCOUNTS_KEY);
     if (!data) return [];
     const accounts = JSON.parse(data) as SavedAccount[];
     return accounts.sort((a, b) => b.lastLogin - a.lastLogin);
@@ -50,10 +66,7 @@ export async function saveAccount(
     }
 
     const limitedAccounts = accounts.slice(0, 10);
-    await SecureStore.setItemAsync(
-      SAVED_ACCOUNTS_KEY,
-      JSON.stringify(limitedAccounts)
-    );
+    await setStorageItem(SAVED_ACCOUNTS_KEY, JSON.stringify(limitedAccounts));
   } catch (error) {
     console.error("Failed to save account:", error);
   }
@@ -65,7 +78,7 @@ export async function removeAccount(username: string): Promise<void> {
     const filtered = accounts.filter(
       (a) => a.username.toLowerCase() !== username.toLowerCase()
     );
-    await SecureStore.setItemAsync(SAVED_ACCOUNTS_KEY, JSON.stringify(filtered));
+    await setStorageItem(SAVED_ACCOUNTS_KEY, JSON.stringify(filtered));
   } catch (error) {
     console.error("Failed to remove account:", error);
   }
