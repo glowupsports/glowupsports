@@ -2446,7 +2446,7 @@ const styles = StyleSheet.create({
   },
   courtLaneWithDivider: {
     borderLeftWidth: 3,
-    borderLeftColor: "#8A8A8A",
+    borderLeftColor: "#FFFFFF",
   },
   hourSlot: {
     height: HOUR_HEIGHT_60,
@@ -2464,7 +2464,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 3,
-    backgroundColor: "#7A7A7A",
+    backgroundColor: "#FFFFFF",
   },
   halfHourLine: {
     position: "absolute",
@@ -2472,7 +2472,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 2,
-    backgroundColor: "#5A5A5A",
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
   },
   sessionBlock: {
     position: "absolute",

@@ -509,6 +509,14 @@ export const storage = {
       await tx.delete(courts).where(eq(courts.academyId, id));
       await tx.delete(locations).where(eq(locations.academyId, id));
       await tx.delete(auditLogs).where(eq(auditLogs.academyId, id));
+      
+      // Nullify resolvedBy FK for diagnostic reports before deletion
+      // (resolvedBy references users.id which may be users from this academy)
+      if (userIds.length > 0) {
+        await tx.update(diagnosticReports)
+          .set({ resolvedBy: null })
+          .where(inArray(diagnosticReports.resolvedBy, userIds));
+      }
       await tx.delete(diagnosticReports).where(eq(diagnosticReports.academyId, id));
       
       // ===== PHASE 9: Delete invites and memberships =====
@@ -545,6 +553,99 @@ export const storage = {
       
       await tx.delete(academies).where(eq(academies.id, id));
     });
+  },
+
+  async resetAcademyData(id: string, resetTypes: {
+    sessions?: boolean;
+    attendance?: boolean;
+    payments?: boolean;
+    progress?: boolean;
+    feedback?: boolean;
+    packages?: boolean;
+    invoices?: boolean;
+  }): Promise<{ deleted: Record<string, number> }> {
+    const deleted: Record<string, number> = {};
+    
+    await db.transaction(async (tx) => {
+      const academyPlayers = await tx.select({ id: players.id }).from(players).where(eq(players.academyId, id));
+      const playerIds = academyPlayers.map(p => p.id);
+      
+      const academySessions = await tx.select({ id: sessions.id }).from(sessions).where(eq(sessions.academyId, id));
+      const sessionIds = academySessions.map(s => s.id);
+      
+      const academyCoaches = await tx.select({ id: coaches.id }).from(coaches).where(eq(coaches.academyId, id));
+      const coachIds = academyCoaches.map(c => c.id);
+      
+      if (resetTypes.feedback && sessionIds.length > 0) {
+        await tx.delete(sessionFeedback).where(inArray(sessionFeedback.sessionId, sessionIds));
+        if (playerIds.length > 0) {
+          const skillDel = await tx.delete(sessionSkillObservations).where(inArray(sessionSkillObservations.playerId, playerIds)).returning();
+          deleted.skillObservations = skillDel.length;
+        }
+        deleted.feedback = sessionIds.length;
+      }
+      
+      if (resetTypes.attendance && sessionIds.length > 0) {
+        const attDel = await tx.delete(sessionPlayers).where(and(
+          inArray(sessionPlayers.sessionId, sessionIds),
+          sql`true`
+        )).returning();
+        deleted.attendance = attDel.length;
+      }
+      
+      if (resetTypes.progress && playerIds.length > 0) {
+        await tx.delete(playerProgress).where(inArray(playerProgress.playerId, playerIds));
+        await tx.delete(playerSkillState).where(inArray(playerSkillState.playerId, playerIds));
+        await tx.delete(playerProgressFlags).where(inArray(playerProgressFlags.playerId, playerIds));
+        await tx.delete(domainAssessments).where(inArray(domainAssessments.playerId, playerIds));
+        const xpDel = await tx.delete(xpTransactions).where(inArray(xpTransactions.playerId, playerIds)).returning();
+        deleted.progress = xpDel.length;
+        
+        await tx.update(players)
+          .set({ level: 1, totalXp: 0, glowScore: 50 })
+          .where(eq(players.academyId, id));
+        deleted.playersReset = playerIds.length;
+      }
+      
+      if (resetTypes.packages && playerIds.length > 0) {
+        const pkgDel = await tx.delete(packages).where(eq(packages.academyId, id)).returning();
+        deleted.packages = pkgDel.length;
+      }
+      
+      if (resetTypes.invoices) {
+        const academyInvoiceRecords = await tx.select({ id: invoices.id }).from(invoices).where(eq(invoices.academyId, id));
+        const invoiceIds = academyInvoiceRecords.map(i => i.id);
+        if (invoiceIds.length > 0) {
+          await tx.delete(paymentReminders).where(inArray(paymentReminders.invoiceId, invoiceIds));
+        }
+        const invDel = await tx.delete(invoices).where(eq(invoices.academyId, id)).returning();
+        deleted.invoices = invDel.length;
+      }
+      
+      if (resetTypes.payments) {
+        const academyPaymentRecords = await tx.select({ id: payments.id }).from(payments).where(eq(payments.academyId, id));
+        const paymentIds = academyPaymentRecords.map(p => p.id);
+        if (paymentIds.length > 0) {
+          await tx.delete(refunds).where(inArray(refunds.paymentId, paymentIds));
+        }
+        const payDel = await tx.delete(payments).where(eq(payments.academyId, id)).returning();
+        deleted.payments = payDel.length;
+      }
+      
+      if (resetTypes.sessions && sessionIds.length > 0) {
+        await tx.delete(sessionRecurrenceRules).where(inArray(sessionRecurrenceRules.sessionId, sessionIds));
+        await tx.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
+        await tx.delete(sessionFeedback).where(inArray(sessionFeedback.sessionId, sessionIds));
+        if (coachIds.length > 0) {
+          await tx.delete(coachXpTransactions).where(inArray(coachXpTransactions.sessionId, sessionIds));
+          await tx.delete(coachEarnings).where(inArray(coachEarnings.sessionId, sessionIds));
+        }
+        const sesDel = await tx.delete(sessions).where(eq(sessions.academyId, id)).returning();
+        deleted.sessions = sesDel.length;
+      }
+    });
+    
+    return { deleted };
   },
 
   // Get academy public profile with coach count and player count
@@ -981,6 +1082,44 @@ export const storage = {
       return db.select().from(players).where(eq(players.academyId, academyId));
     }
     return db.select().from(players);
+  },
+  
+  async getAllPlayersWithCredits(academyId?: string): Promise<(Player & { remainingCredits: number; totalCredits: number })[]> {
+    const playerList = academyId 
+      ? await db.select().from(players).where(eq(players.academyId, academyId))
+      : await db.select().from(players);
+    
+    if (playerList.length === 0) return [];
+    
+    // Fetch active packages for all players in one query - scoped by academy for multi-tenant safety
+    const playerIds = playerList.map(p => p.id);
+    const packageConditions = [
+      inArray(packages.playerId, playerIds),
+      eq(packages.status, "active")
+    ];
+    if (academyId) {
+      packageConditions.push(eq(packages.academyId, academyId));
+    }
+    const activePackages = await db.select()
+      .from(packages)
+      .where(and(...packageConditions));
+    
+    // Aggregate credits per player
+    const creditsByPlayer = new Map<string, { remaining: number; total: number }>();
+    for (const pkg of activePackages) {
+      const playerId = pkg.playerId;
+      if (!playerId) continue;
+      const current = creditsByPlayer.get(playerId) || { remaining: 0, total: 0 };
+      current.remaining += pkg.remainingCredits || 0;
+      current.total += pkg.totalCredits || 0;
+      creditsByPlayer.set(playerId, current);
+    }
+    
+    return playerList.map(player => ({
+      ...player,
+      remainingCredits: creditsByPlayer.get(player.id)?.remaining || 0,
+      totalCredits: creditsByPlayer.get(player.id)?.total || 0,
+    }));
   },
 
   async getPlayersByAcademy(academyId: string): Promise<Player[]> {

@@ -31,6 +31,8 @@ interface Player {
   level?: number;
   totalXp?: number;
   coachName?: string;
+  remainingCredits?: number;
+  totalCredits?: number;
 }
 
 interface PlayerStats {
@@ -132,7 +134,7 @@ export default function AdminPlayersScreen() {
   });
 
   const { data: players = [], isLoading, error, refetch } = useQuery<Player[]>({
-    queryKey: ["/api/players"],
+    queryKey: ["/api/players?withCredits=true"],
   });
 
   const { data: playerStats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery<PlayerStats>({
@@ -249,6 +251,14 @@ export default function AdminPlayersScreen() {
     player.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const getCreditsColor = (remaining?: number, total?: number) => {
+    if (!remaining || !total || total === 0) return Colors.dark.textMuted;
+    const ratio = remaining / total;
+    if (ratio <= 0.2) return Colors.dark.error;
+    if (ratio <= 0.5) return Colors.dark.orange;
+    return Colors.dark.successNeon;
+  };
+
   const renderPlayer = ({ item }: { item: Player }) => (
     <Pressable
       style={[styles.playerCard, CardStyles.elevated]}
@@ -275,7 +285,21 @@ export default function AdminPlayersScreen() {
           ) : null}
         </View>
       </View>
-      <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+      <View style={styles.creditsContainer}>
+        {item.totalCredits && item.totalCredits > 0 ? (
+          <View style={[styles.creditsBadge, { backgroundColor: `${getCreditsColor(item.remainingCredits, item.totalCredits)}15` }]}>
+            <Ionicons 
+              name="ticket-outline" 
+              size={14} 
+              color={getCreditsColor(item.remainingCredits, item.totalCredits)} 
+            />
+            <Text style={[styles.creditsText, { color: getCreditsColor(item.remainingCredits, item.totalCredits) }]}>
+              {item.remainingCredits || 0}
+            </Text>
+          </View>
+        ) : null}
+        <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+      </View>
     </Pressable>
   );
 
@@ -988,6 +1012,23 @@ const styles = StyleSheet.create({
   coachText: {
     ...Typography.caption,
     color: Colors.dark.xpCyan,
+  },
+  creditsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  creditsBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+    gap: 4,
+  },
+  creditsText: {
+    ...Typography.caption,
+    fontWeight: "700",
   },
   emptyState: {
     alignItems: "center",

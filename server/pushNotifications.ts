@@ -1,6 +1,6 @@
 import { db } from "./db";
-import { eq, and, gte, lte, inArray, isNull } from "drizzle-orm";
-import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers } from "@shared/schema";
+import { eq, and, gte, lte, inArray, isNull, lt, ne } from "drizzle-orm";
+import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, coachXpTransactions } from "@shared/schema";
 import { sendSessionReminderEmail } from "./emailService";
 
 interface ExpoPushMessage {
@@ -329,6 +329,121 @@ export async function processScheduledReminders(): Promise<void> {
 
 let reminderInterval: ReturnType<typeof setInterval> | null = null;
 
+const AUTO_ATTENDANCE_GRACE_PERIOD = 30 * 60 * 1000; // 30 minutes after session ends
+const AUTO_ATTENDANCE_XP_REWARD = 25; // XP for marking attendance during class
+
+async function processAutoAttendance(): Promise<void> {
+  try {
+    const now = new Date();
+    const gracePeriodAgo = new Date(now.getTime() - AUTO_ATTENDANCE_GRACE_PERIOD);
+    const lookbackWindow = new Date(now.getTime() - 2 * 60 * 60 * 1000); // 2 hours back
+
+    const completedSessions = await db.select({
+      id: sessions.id,
+      coachId: sessions.coachId,
+      endTime: sessions.endTime,
+    })
+      .from(sessions)
+      .where(and(
+        lte(sessions.endTime, gracePeriodAgo),
+        gte(sessions.endTime, lookbackWindow),
+        eq(sessions.status, "completed")
+      ));
+
+    if (completedSessions.length === 0) {
+      console.log("[AutoAttendance] No completed sessions to process");
+      return;
+    }
+
+    console.log(`[AutoAttendance] Processing ${completedSessions.length} completed sessions`);
+
+    for (const session of completedSessions) {
+      const unmarkedPlayers = await db.select({
+        id: sessionPlayers.id,
+        playerId: sessionPlayers.playerId,
+        attendanceStatus: sessionPlayers.attendanceStatus,
+      })
+        .from(sessionPlayers)
+        .where(and(
+          eq(sessionPlayers.sessionId, session.id),
+          isNull(sessionPlayers.attendanceStatus)
+        ));
+
+      if (unmarkedPlayers.length === 0) continue;
+
+      console.log(`[AutoAttendance] Session ${session.id}: Marking ${unmarkedPlayers.length} players as absent (no coach marked)`);
+
+      for (const player of unmarkedPlayers) {
+        await db.update(sessionPlayers)
+          .set({ 
+            attendanceStatus: "absent",
+            absenceReason: "no-show"
+          })
+          .where(eq(sessionPlayers.id, player.id));
+      }
+    }
+
+    console.log("[AutoAttendance] Processing complete");
+  } catch (error) {
+    console.error("[AutoAttendance] Error:", error);
+  }
+}
+
+export async function rewardCoachForTimelyAttendance(
+  coachId: string,
+  sessionId: string,
+  sessionEndTime: Date
+): Promise<boolean> {
+  try {
+    const now = new Date();
+    
+    // Only reward if attendance was marked before or during session (within 10 min after end)
+    const graceTime = new Date(sessionEndTime.getTime() + 10 * 60 * 1000);
+    
+    if (now > graceTime) {
+      console.log(`[AutoAttendance] Attendance marked too late for XP reward (session ${sessionId})`);
+      return false;
+    }
+
+    // Check if XP was already awarded for this session
+    const existing = await db.select()
+      .from(coachXpTransactions)
+      .where(and(
+        eq(coachXpTransactions.coachId, coachId),
+        eq(coachXpTransactions.source, "timely_attendance"),
+        eq(coachXpTransactions.sessionId, sessionId)
+      ));
+
+    if (existing.length > 0) {
+      console.log(`[AutoAttendance] XP already awarded for session ${sessionId}`);
+      return false;
+    }
+
+    // Award XP
+    await db.insert(coachXpTransactions).values({
+      coachId,
+      xpAmount: AUTO_ATTENDANCE_XP_REWARD,
+      source: "timely_attendance",
+      sessionId,
+      description: "Marked attendance during class time",
+    });
+
+    // Update coach XP total
+    const coach = await db.select().from(coaches).where(eq(coaches.id, coachId));
+    if (coach[0]) {
+      await db.update(coaches)
+        .set({ totalXp: (coach[0].totalXp || 0) + AUTO_ATTENDANCE_XP_REWARD })
+        .where(eq(coaches.id, coachId));
+    }
+
+    console.log(`[AutoAttendance] Awarded ${AUTO_ATTENDANCE_XP_REWARD} XP to coach ${coachId} for timely attendance`);
+    return true;
+  } catch (error) {
+    console.error("[AutoAttendance] Error rewarding coach:", error);
+    return false;
+  }
+}
+
 export function startReminderScheduler(): void {
   if (reminderInterval) {
     console.log("[SessionReminders] Scheduler already running");
@@ -338,9 +453,11 @@ export function startReminderScheduler(): void {
   console.log("[SessionReminders] Starting reminder scheduler (every 5 minutes)");
   
   processScheduledReminders().catch(console.error);
+  processAutoAttendance().catch(console.error);
 
   reminderInterval = setInterval(() => {
     processScheduledReminders().catch(console.error);
+    processAutoAttendance().catch(console.error);
   }, 5 * 60 * 1000);
 }
 

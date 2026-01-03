@@ -12,11 +12,14 @@ import {
   Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
+import { Image } from "expo-image";
 import { Colors, Spacing, BorderRadius, CardStyles, Typography } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 interface Court {
@@ -28,6 +31,7 @@ interface Court {
   isActive: boolean;
   createdAt: string;
   locationName?: string;
+  photoUrl?: string | null;
 }
 
 interface Location {
@@ -49,18 +53,64 @@ const COURT_COLORS = [
 
 export default function AdminCourtsScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const queryClient = useQueryClient();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedCourt, setSelectedCourt] = useState<Court | null>(null);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
     locationId: "",
     color: "#2ECC40",
     isActive: true,
+    photoUrl: "" as string | null,
   });
+
+  const pickAndUploadPhoto = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: "images",
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets[0]) {
+        setUploadingPhoto(true);
+        const asset = result.assets[0];
+        
+        const formDataUpload = new FormData();
+        const uriParts = asset.uri.split(".");
+        const fileType = uriParts[uriParts.length - 1];
+        
+        formDataUpload.append("file", {
+          uri: asset.uri,
+          type: `image/${fileType}`,
+          name: `court-photo.${fileType}`,
+        } as any);
+        
+        const response = await fetch(new URL("/api/upload/court-photo", getApiUrl()).toString(), {
+          method: "POST",
+          body: formDataUpload,
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setFormData({ ...formData, photoUrl: data.url });
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } else {
+          Alert.alert("Error", "Failed to upload photo");
+        }
+        setUploadingPhoto(false);
+      }
+    } catch (error) {
+      setUploadingPhoto(false);
+      Alert.alert("Error", "Failed to pick photo");
+    }
+  };
 
   const { data: courts = [], isLoading } = useQuery<Court[]>({
     queryKey: ["/api/admin/courts"],
@@ -128,6 +178,7 @@ export default function AdminCourtsScreen() {
       locationId: activeLocations.length > 0 ? activeLocations[0].id : "",
       color: "#2ECC40",
       isActive: true,
+      photoUrl: null,
     });
   };
 
@@ -141,6 +192,7 @@ export default function AdminCourtsScreen() {
       locationId: formData.locationId || null,
       color: formData.color,
       isActive: formData.isActive,
+      photoUrl: formData.photoUrl || null,
     });
   };
 
@@ -156,6 +208,7 @@ export default function AdminCourtsScreen() {
         locationId: formData.locationId || null,
         color: formData.color,
         isActive: formData.isActive,
+        photoUrl: formData.photoUrl || null,
       },
     });
   };
@@ -184,6 +237,7 @@ export default function AdminCourtsScreen() {
       locationId: court.locationId || "",
       color: court.color || "#2ECC40",
       isActive: court.isActive,
+      photoUrl: court.photoUrl || null,
     });
     setShowEditModal(true);
   };
@@ -200,6 +254,19 @@ export default function AdminCourtsScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={[styles.topBar, { paddingTop: insets.top + Spacing.sm }]}>
+        <Pressable
+          style={styles.backButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.goBack();
+          }}
+        >
+          <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
+          <Text style={styles.backText}>Back</Text>
+        </Pressable>
+      </View>
+      
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[
@@ -346,6 +413,36 @@ export default function AdminCourtsScreen() {
                 </View>
               </View>
 
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Court Photo</Text>
+                <Pressable 
+                  style={styles.photoUploadButton}
+                  onPress={pickAndUploadPhoto}
+                  disabled={uploadingPhoto}
+                >
+                  {uploadingPhoto ? (
+                    <ActivityIndicator size="small" color={Colors.dark.primary} />
+                  ) : formData.photoUrl ? (
+                    <View style={styles.photoPreviewContainer}>
+                      <Image 
+                        source={{ uri: formData.photoUrl }}
+                        style={styles.photoPreview}
+                        contentFit="cover"
+                      />
+                      <View style={styles.photoOverlay}>
+                        <Ionicons name="camera" size={20} color="#FFF" />
+                        <Text style={styles.photoOverlayText}>Change</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.photoPlaceholder}>
+                      <Ionicons name="camera-outline" size={32} color={Colors.dark.textMuted} />
+                      <Text style={styles.photoPlaceholderText}>Add Photo</Text>
+                    </View>
+                  )}
+                </Pressable>
+              </View>
+
               <Pressable
                 style={styles.toggleRow}
                 onPress={() => setFormData({ ...formData, isActive: !formData.isActive })}
@@ -447,6 +544,36 @@ export default function AdminCourtsScreen() {
                 </View>
               </View>
 
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Court Photo</Text>
+                <Pressable 
+                  style={styles.photoUploadButton}
+                  onPress={pickAndUploadPhoto}
+                  disabled={uploadingPhoto}
+                >
+                  {uploadingPhoto ? (
+                    <ActivityIndicator size="small" color={Colors.dark.primary} />
+                  ) : formData.photoUrl ? (
+                    <View style={styles.photoPreviewContainer}>
+                      <Image 
+                        source={{ uri: formData.photoUrl }}
+                        style={styles.photoPreview}
+                        contentFit="cover"
+                      />
+                      <View style={styles.photoOverlay}>
+                        <Ionicons name="camera" size={20} color="#FFF" />
+                        <Text style={styles.photoOverlayText}>Change</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.photoPlaceholder}>
+                      <Ionicons name="camera-outline" size={32} color={Colors.dark.textMuted} />
+                      <Text style={styles.photoPlaceholderText}>Add Photo</Text>
+                    </View>
+                  )}
+                </Pressable>
+              </View>
+
               <Pressable
                 style={styles.toggleRow}
                 onPress={() => setFormData({ ...formData, isActive: !formData.isActive })}
@@ -497,6 +624,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  backButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  backText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+    fontWeight: "500",
   },
   scrollView: {
     flex: 1,
@@ -678,6 +822,51 @@ const styles = StyleSheet.create({
   colorOptionActive: {
     borderWidth: 3,
     borderColor: "#FFF",
+  },
+  photoUploadButton: {
+    width: "100%",
+    aspectRatio: 16 / 9,
+    borderRadius: BorderRadius.md,
+    borderWidth: 2,
+    borderColor: Colors.dark.border,
+    borderStyle: "dashed",
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  photoPreviewContainer: {
+    width: "100%",
+    height: "100%",
+    position: "relative",
+  },
+  photoPreview: {
+    width: "100%",
+    height: "100%",
+  },
+  photoOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+  },
+  photoOverlayText: {
+    color: "#FFF",
+    fontSize: Typography.small.fontSize,
+    fontWeight: "500",
+  },
+  photoPlaceholder: {
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  photoPlaceholderText: {
+    color: Colors.dark.textMuted,
+    fontSize: Typography.small.fontSize,
   },
   toggleRow: {
     flexDirection: "row",

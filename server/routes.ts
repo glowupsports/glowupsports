@@ -903,6 +903,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reset academy data (selective data wipe)
+  app.post("/api/academy/reset", authMiddleware, requireRole("academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy not found" });
+      }
+      
+      const { resetTypes, confirmationCode } = req.body;
+      
+      // Require confirmation code for safety
+      if (confirmationCode !== "RESET") {
+        return res.status(400).json({ error: "Invalid confirmation code. Please type RESET to confirm." });
+      }
+      
+      if (!resetTypes || typeof resetTypes !== "object") {
+        return res.status(400).json({ error: "Please specify which data types to reset" });
+      }
+      
+      const validTypes = ["sessions", "attendance", "payments", "progress", "feedback", "packages", "invoices"];
+      const selectedTypes = Object.keys(resetTypes).filter(key => resetTypes[key] && validTypes.includes(key));
+      
+      if (selectedTypes.length === 0) {
+        return res.status(400).json({ error: "Please select at least one data type to reset" });
+      }
+      
+      const result = await storage.resetAcademyData(academyId, resetTypes);
+      
+      // Log the reset action
+      console.log(`[Academy Reset] Academy ${academyId} reset: ${selectedTypes.join(", ")}`, result.deleted);
+      
+      res.json({ 
+        success: true,
+        message: `Academy data reset successfully`,
+        deletedCounts: result.deleted
+      });
+    } catch (error) {
+      console.error("Academy reset error:", error);
+      res.status(500).json({ error: "Failed to reset academy data" });
+    }
+  });
+
   // ==================== ACADEMY PUBLIC PROFILE ====================
 
   // Get academy public profile (detailed view with coaches)
@@ -2266,11 +2308,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
+      const coachId = req.user!.coachId;
 
-      const { valid } = await validateSessionOwnership(id, academyId, storage);
-      if (!valid) {
+      const { valid, session } = await validateSessionOwnership(id, academyId, storage);
+      if (!valid || !session) {
         return res.status(404).json({ error: "Session not found" });
       }
+
+      let xpAwarded = false;
 
       // Handle batch attendance (array of records)
       if (req.body.attendance && Array.isArray(req.body.attendance)) {
@@ -2285,7 +2330,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
           results.push(updated);
         }
-        return res.json({ success: true, updated: results.length, message: "Attendance saved" });
+        
+        // Award XP for timely attendance marking (during class time)
+        if (coachId && session.endTime) {
+          const { rewardCoachForTimelyAttendance } = await import("./pushNotifications");
+          xpAwarded = await rewardCoachForTimelyAttendance(coachId, id, session.endTime);
+        }
+        
+        return res.json({ 
+          success: true, 
+          updated: results.length, 
+          message: "Attendance saved",
+          xpAwarded: xpAwarded ? 25 : 0 
+        });
       }
 
       // Handle single player attendance (legacy)
@@ -2297,8 +2354,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lateMinutes,
         absenceReason
       );
+      
+      // Award XP for timely attendance marking (during class time)
+      if (coachId && session.endTime) {
+        const { rewardCoachForTimelyAttendance } = await import("./pushNotifications");
+        xpAwarded = await rewardCoachForTimelyAttendance(coachId, id, session.endTime);
+      }
 
-      res.json(updated);
+      res.json({ ...updated, xpAwarded: xpAwarded ? 25 : 0 });
     } catch (error) {
       console.error("Error saving attendance:", error);
       res.status(500).json({ error: "Failed to save attendance" });
@@ -2988,7 +3051,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all players with last lesson date (supports optional pagination)
+  // Get all players with last lesson date (supports optional pagination and credits)
   app.get("/api/players", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const role = req.user?.role;
@@ -2999,10 +3062,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const effectiveAcademyId = role === "platform_owner" ? undefined : academyId;
-      const { search, paginated } = req.query;
+      const { search, paginated, withCredits } = req.query;
       const usePagination = paginated === 'true';
+      const includeCredits = withCredits === 'true';
       
-      let playerList;
+      let playerList: any[];
       let total = 0;
       
       if (usePagination) {
@@ -3020,6 +3084,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Backward compatible: return all players as array
         if (search) {
           playerList = await storage.searchPlayers(search as string, effectiveAcademyId);
+        } else if (includeCredits) {
+          playerList = await storage.getAllPlayersWithCredits(effectiveAcademyId);
         } else {
           playerList = await storage.getAllPlayers(effectiveAcademyId);
         }
