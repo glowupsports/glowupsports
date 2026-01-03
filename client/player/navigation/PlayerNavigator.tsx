@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigation } from "@react-navigation/native";
+import { HeaderButton } from "@react-navigation/elements";
 import { StyleSheet, View, Platform, ActivityIndicator, ViewStyle } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -28,6 +29,8 @@ import ParentSettingsScreen from "@/player/screens/ParentSettingsScreen";
 import CourtBookingScreen from "@/player/screens/CourtBookingScreen";
 import CourtDetailScreen from "@/player/screens/CourtDetailScreen";
 import MyCourtBookingsScreen from "@/player/screens/MyCourtBookingsScreen";
+import LessonBookingScreen from "@/player/screens/LessonBookingScreen";
+import MyLessonRequestsScreen from "@/player/screens/MyLessonRequestsScreen";
 import PlayerFinderScreen from "@/player/screens/PlayerFinderScreen";
 import GlowLeaderboardScreen from "@/player/screens/GlowLeaderboardScreen";
 import PlayerMessagesScreen from "@/player/screens/PlayerMessagesScreen";
@@ -70,6 +73,8 @@ export type PlayerStackParamList = {
   CourtBooking: undefined;
   CourtDetail: { courtId: string; date: string };
   MyCourtBookings: undefined;
+  LessonBooking: undefined;
+  MyLessonRequests: undefined;
   PlayerFinder: undefined;
   GlowLeaderboard: undefined;
   PlayerMessages: undefined;
@@ -313,6 +318,35 @@ function PlayerStackNavigator() {
         component={MyCourtBookingsScreen}
         options={{
           presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="LessonBooking" 
+        component={LessonBookingScreen}
+        options={({ navigation }) => ({
+          presentation: "card",
+          headerShown: true,
+          headerTitle: "Book a Lesson",
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.text,
+          headerBackTitle: "Back",
+          headerRight: () => (
+            <HeaderButton onPress={() => navigation.navigate("MyLessonRequests")}>
+              <Ionicons name="list" size={22} color={Colors.dark.primary} />
+            </HeaderButton>
+          ),
+        })}
+      />
+      <Stack.Screen 
+        name="MyLessonRequests" 
+        component={MyLessonRequestsScreen}
+        options={{
+          presentation: "card",
+          headerShown: true,
+          headerTitle: "My Requests",
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.text,
+          headerBackTitle: "Back",
         }}
       />
       <Stack.Screen 

@@ -473,14 +473,34 @@ function MissionCard({ session, coach, isVacationActive, upcomingOverlapsSession
   );
 }
 
+const MOTIVATIONAL_MESSAGES = [
+  { title: "Your racket is waiting!", subtitle: "Time to hit the court and level up" },
+  { title: "Champions train daily!", subtitle: "Book your next session now" },
+  { title: "Feeling the itch?", subtitle: "Let's get you on the court" },
+  { title: "Ready to improve?", subtitle: "Your next breakthrough awaits" },
+  { title: "Miss the court?", subtitle: "Book a lesson and get playing" },
+];
+
 function NoMissionCard() {
+  const navigation = useNavigation<any>();
+  const [messageIndex] = useState(() => Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length));
+  const message = MOTIVATIONAL_MESSAGES[messageIndex];
+  
+  const handleBookLesson = () => {
+    navigation.navigate("LessonBooking");
+  };
+  
   return (
     <View style={missionStyles.noMissionCard}>
       <View style={missionStyles.noMissionRing}>
-        <Ionicons name="radio-button-off" size={48} color={Colors.dark.textMuted} />
+        <Ionicons name="tennisball" size={48} color={Colors.dark.primary} />
       </View>
-      <Text style={missionStyles.noMissionTitle}>STANDBY</Text>
-      <Text style={missionStyles.noMissionSubtitle}>No active missions</Text>
+      <Text style={missionStyles.noMissionTitle}>{message.title}</Text>
+      <Text style={missionStyles.noMissionSubtitle}>{message.subtitle}</Text>
+      <Pressable style={missionStyles.bookLessonButton} onPress={handleBookLesson}>
+        <Ionicons name="calendar-outline" size={18} color={Colors.dark.backgroundRoot} />
+        <Text style={missionStyles.bookLessonText}>Book a Lesson</Text>
+      </Pressable>
     </View>
   );
 }
@@ -2983,6 +3003,21 @@ const missionStyles = StyleSheet.create({
   noMissionSubtitle: {
     ...Typography.caption,
     color: Colors.dark.textMuted,
+  },
+  bookLessonButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.primary,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.full,
+    marginTop: Spacing.md,
+  },
+  bookLessonText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
   },
 });
 

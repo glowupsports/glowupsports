@@ -243,7 +243,26 @@ function configureExpoAndLanding(app: express.Application) {
   const landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
   const appName = getAppName();
 
+  const privacyPolicyPath = path.resolve(
+    process.cwd(),
+    "server",
+    "templates",
+    "privacy-policy.html",
+  );
+  const privacyPolicyTemplate = fs.existsSync(privacyPolicyPath) 
+    ? fs.readFileSync(privacyPolicyPath, "utf-8") 
+    : null;
+
   log("Serving static Expo files with dynamic manifest routing");
+
+  app.get("/privacy-policy", (_req: Request, res: Response) => {
+    if (privacyPolicyTemplate) {
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.status(200).send(privacyPolicyTemplate);
+    } else {
+      res.status(404).send("Privacy policy not found");
+    }
+  });
 
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith("/api") || req.path.startsWith("/auth")) {
