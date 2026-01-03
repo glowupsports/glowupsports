@@ -26,7 +26,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest, getApiUrl, apiFetch } from "@/lib/query-client";
 import { saveAuthState, setAuthToken, AuthUser } from "@/lib/auth";
 import { useAuth } from "@/coach/context/AuthContext";
 import { TshirtSize } from "@shared/schema";
@@ -254,12 +254,15 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
     setFoundAcademy(null);
     
     try {
-      const apiUrl = getApiUrl();
-      const response = await fetch(new URL(`/api/academies/join-code/${joinCode.toUpperCase()}`, apiUrl).toString());
+      const response = await apiFetch(`/api/academies/join-code/${joinCode.toUpperCase()}`);
       const result = await response.json();
       
       if (!response.ok) {
-        setJoinCodeError(result.error || "Academy not found");
+        if (response.status === 401 || response.status === 403) {
+          setJoinCodeError("Please log in again to search for academies");
+        } else {
+          setJoinCodeError(result.error || "Academy not found");
+        }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       } else {
         setFoundAcademy(result.academy);

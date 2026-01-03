@@ -15,7 +15,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest, apiFetch } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 
 interface AcademyProfile {
@@ -112,8 +112,7 @@ export default function AcademyProfileScreen() {
   const { data: profileData, isLoading } = useQuery<{ profile: AcademyProfile }>({
     queryKey: ["/api/academies", academyId, "profile"],
     queryFn: async () => {
-      const apiUrl = getApiUrl();
-      const response = await fetch(new URL(`/api/academies/${academyId}/profile`, apiUrl).toString());
+      const response = await apiFetch(`/api/academies/${academyId}/profile`);
       if (!response.ok) throw new Error("Failed to load academy profile");
       return response.json();
     },
