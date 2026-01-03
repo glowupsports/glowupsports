@@ -13052,7 +13052,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const viewerId = req.user?.playerId;
       
       // Get player basic info
-      const player = await storage.getPlayerById(playerId);
+      const player = await storage.getPlayer(playerId);
       if (!player) {
         return res.status(404).json({ error: "Player not found" });
       }
