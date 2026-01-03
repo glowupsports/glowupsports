@@ -4002,6 +4002,34 @@ export const storage = {
     }
   },
 
+  // Get court bookings for a player/user
+  async getPlayerCourtBookings(userId: string, playerId: string | null): Promise<CourtBooking[]> {
+    try {
+      // Get bookings by userId or playerId
+      const conditions = playerId 
+        ? or(eq(courtBookings.userId, userId), eq(courtBookings.playerId, playerId))
+        : eq(courtBookings.userId, userId);
+      
+      // Get upcoming and recent bookings (last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
+      
+      const bookings = await db.select()
+        .from(courtBookings)
+        .where(and(
+          conditions,
+          gte(courtBookings.date, thirtyDaysAgoStr)
+        ))
+        .orderBy(desc(courtBookings.date));
+      
+      return bookings;
+    } catch (error) {
+      console.error("Error in getPlayerCourtBookings:", error);
+      return [];
+    }
+  },
+
   async getPlayerFeedbackNotes(playerId: string, limit: number = 10): Promise<{
     id: string;
     content: string;
@@ -4827,6 +4855,66 @@ export const storage = {
       cancelled,
       makeUps: 0, // TODO: Track make-up sessions separately if needed
     };
+  },
+
+  // Get session-based billing summary for a player
+  async getPlayerSessionBilling(playerId: string): Promise<{
+    unpaidCount: number;
+    unpaidTotal: number;
+    paidCount: number;
+    paidTotal: number;
+  }> {
+    try {
+      // Get all session player records for this player
+      const sessionPlayerRecords = await db.select({
+        sessionId: sessionPlayers.sessionId,
+        attendanceStatus: sessionPlayers.attendanceStatus,
+      }).from(sessionPlayers)
+        .where(eq(sessionPlayers.playerId, playerId));
+      
+      if (sessionPlayerRecords.length === 0) {
+        return { unpaidCount: 0, unpaidTotal: 0, paidCount: 0, paidTotal: 0 };
+      }
+      
+      // Filter for attended sessions
+      const attendedSessionIds = sessionPlayerRecords
+        .filter(sp => sp.attendanceStatus === "present" || sp.attendanceStatus === "late")
+        .map(sp => sp.sessionId)
+        .filter((id): id is string => id !== null);
+      
+      if (attendedSessionIds.length === 0) {
+        return { unpaidCount: 0, unpaidTotal: 0, paidCount: 0, paidTotal: 0 };
+      }
+      
+      // Get sessions with their prices and payment status
+      const sessionData = await db.select({
+        id: sessions.id,
+        price: sessions.price,
+        paymentStatus: sessions.paymentStatus,
+      }).from(sessions)
+        .where(inArray(sessions.id, attendedSessionIds));
+      
+      let unpaidCount = 0;
+      let unpaidTotal = 0;
+      let paidCount = 0;
+      let paidTotal = 0;
+      
+      for (const s of sessionData) {
+        const price = parseFloat(s.price || "0");
+        if (s.paymentStatus === "paid") {
+          paidCount++;
+          paidTotal += price;
+        } else if (s.paymentStatus === "unpaid" && price > 0) {
+          unpaidCount++;
+          unpaidTotal += price;
+        }
+      }
+      
+      return { unpaidCount, unpaidTotal, paidCount, paidTotal };
+    } catch (error) {
+      console.error("Error in getPlayerSessionBilling:", error);
+      return { unpaidCount: 0, unpaidTotal: 0, paidCount: 0, paidTotal: 0 };
+    }
   },
 
   // Get parent settings

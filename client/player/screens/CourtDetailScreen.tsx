@@ -343,6 +343,22 @@ export default function CourtDetailScreen() {
             </View>
           </View>
         </View>
+
+        <Pressable 
+          style={styles.findPlayerSection}
+          onPress={() => navigation.navigate("PlayerFinder" as any)}
+        >
+          <View style={styles.findPlayerContent}>
+            <View style={styles.findPlayerIcon}>
+              <Ionicons name="people" size={24} color={Colors.dark.xpCyan} />
+            </View>
+            <View style={styles.findPlayerText}>
+              <Text style={styles.findPlayerTitle}>Looking for a hitting partner?</Text>
+              <Text style={styles.findPlayerSubtitle}>Find players nearby to join your session</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.textSecondary} />
+          </View>
+        </Pressable>
       </ScrollView>
 
       {selectedSlot && court.canBook && (
@@ -729,5 +745,41 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: Colors.dark.backgroundRoot,
+  },
+  findPlayerSection: {
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+    overflow: "hidden",
+  },
+  findPlayerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  findPlayerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  findPlayerText: {
+    flex: 1,
+  },
+  findPlayerTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    marginBottom: 2,
+  },
+  findPlayerSubtitle: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
   },
 });

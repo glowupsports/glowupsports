@@ -11,6 +11,7 @@ interface DashboardData {
   player: { id: string; name: string };
   academy: { id: string; name: string } | null;
   invoiceSummary: { pending: number; overdue: number; totalPending: number };
+  sessionBilling?: { unpaidCount: number; unpaidTotal: number; paidCount: number; paidTotal: number };
   lessonSummary: { scheduled: number; attended: number; missed: number; cancelled: number; makeUps: number };
 }
 

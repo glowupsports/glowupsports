@@ -32,6 +32,22 @@ interface ScheduledSession {
   courtName?: string;
   status: "upcoming" | "completed" | "cancelled";
   xpEarned?: number;
+  isCourtBooking?: boolean;
+}
+
+interface CourtBookingData {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  courtName: string;
+  courtLocation: string | null;
+  status: string;
+  bookingType: string;
+  price: string;
+  currency: string;
+  paymentStatus: string;
 }
 
 interface CalendarDay {
@@ -46,48 +62,80 @@ export default function PlayerScheduleScreen() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
-  const { data: rawSessions, isLoading, error } = useQuery<SessionData[]>({
+  const { data: rawSessions, isLoading: sessionsLoading, error: sessionsError } = useQuery<SessionData[]>({
     queryKey: ["/api/player/me/sessions"],
   });
 
+  const { data: courtBookings, isLoading: bookingsLoading } = useQuery<CourtBookingData[]>({
+    queryKey: ["/api/player/me/court-bookings"],
+  });
+
+  const isLoading = sessionsLoading || bookingsLoading;
+  const error = sessionsError;
+
   const sessions: ScheduledSession[] = useMemo(() => {
-    if (!rawSessions) return [];
     const now = new Date();
-    return rawSessions.map(s => {
-      // Parse ISO date strings from API
-      const startDateTime = s.session?.startTime ? new Date(s.session.startTime) : new Date();
-      const endDateTime = s.session?.endTime ? new Date(s.session.endTime) : new Date();
-      
-      const isPast = startDateTime < now;
-      
-      // Format time as HH:mm for display
-      const formatTime = (date: Date) => {
-        const hours = date.getHours().toString().padStart(2, '0');
-        const mins = date.getMinutes().toString().padStart(2, '0');
-        return `${hours}:${mins}`;
-      };
-      
-      // Format date as YYYY-MM-DD for calendar matching
-      const formatDate = (date: Date) => {
-        const year = date.getFullYear();
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const day = date.getDate().toString().padStart(2, '0');
-        return `${year}-${month}-${day}`;
-      };
-      
-      return {
-        id: s.id,
-        date: formatDate(startDateTime),
-        startTime: formatTime(startDateTime),
-        endTime: formatTime(endDateTime),
-        type: s.session?.sessionType || "training",
-        title: s.session?.title || "Training Session",
-        coachName: s.coachName || "Your Coach",
-        courtName: s.session?.courtName || undefined,
-        status: s.attendanceStatus === "cancelled" ? "cancelled" : (isPast ? "completed" : "upcoming"),
-      };
-    });
-  }, [rawSessions]);
+    const items: ScheduledSession[] = [];
+    
+    // Format time as HH:mm for display
+    const formatTime = (date: Date) => {
+      const hours = date.getHours().toString().padStart(2, '0');
+      const mins = date.getMinutes().toString().padStart(2, '0');
+      return `${hours}:${mins}`;
+    };
+    
+    // Format date as YYYY-MM-DD for calendar matching
+    const formatDate = (date: Date) => {
+      const year = date.getFullYear();
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    // Add training sessions
+    if (rawSessions) {
+      for (const s of rawSessions) {
+        const startDateTime = s.session?.startTime ? new Date(s.session.startTime) : new Date();
+        const endDateTime = s.session?.endTime ? new Date(s.session.endTime) : new Date();
+        const isPast = startDateTime < now;
+        
+        items.push({
+          id: s.id,
+          date: formatDate(startDateTime),
+          startTime: formatTime(startDateTime),
+          endTime: formatTime(endDateTime),
+          type: s.session?.sessionType || "training",
+          title: s.session?.title || "Training Session",
+          coachName: s.coachName || "Your Coach",
+          courtName: s.session?.courtName || undefined,
+          status: s.attendanceStatus === "cancelled" ? "cancelled" : (isPast ? "completed" : "upcoming"),
+        });
+      }
+    }
+    
+    // Add court bookings
+    if (courtBookings) {
+      for (const b of courtBookings) {
+        const bookingDate = new Date(b.date + "T" + b.startTime);
+        const isPast = bookingDate < now;
+        
+        items.push({
+          id: `court-${b.id}`,
+          date: b.date,
+          startTime: b.startTime,
+          endTime: b.endTime,
+          type: "court",
+          title: "Court Booking",
+          coachName: b.courtName,
+          courtName: b.courtName,
+          status: b.status === "cancelled" ? "cancelled" : (isPast ? "completed" : "upcoming"),
+          isCourtBooking: true,
+        });
+      }
+    }
+    
+    return items;
+  }, [rawSessions, courtBookings]);
 
   const data = sessions;
 
@@ -158,6 +206,7 @@ export default function PlayerScheduleScreen() {
       case "private": return Colors.dark.primary;
       case "group": return Colors.dark.gold;
       case "physical": return Colors.dark.orange;
+      case "court": return Colors.dark.success;
       default: return Colors.dark.xpCyan;
     }
   };

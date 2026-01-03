@@ -8783,6 +8783,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get player court bookings
+  app.get("/api/player/me/court-bookings", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.userId;
+      const playerId = req.user!.playerId;
+      
+      if (!userId) {
+        return res.json([]);
+      }
+      
+      // Get court bookings for this user (by userId or playerId)
+      const bookings = await storage.getPlayerCourtBookings(userId, playerId);
+      
+      // Enrich with court names
+      const enrichedBookings = await Promise.all(bookings.map(async (booking) => {
+        const court = await storage.getCourt(booking.courtId);
+        return {
+          id: booking.id,
+          date: booking.date,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          durationMinutes: booking.durationMinutes,
+          courtName: court?.name || "Court",
+          courtLocation: court?.location || null,
+          status: booking.status,
+          bookingType: booking.bookingType,
+          price: booking.price,
+          currency: booking.currency,
+          paymentStatus: booking.paymentStatus,
+        };
+      }));
+      
+      res.json(enrichedBookings);
+    } catch (error) {
+      console.error("Error fetching player court bookings:", error);
+      res.status(500).json({ error: "Failed to fetch court bookings" });
+    }
+  });
+
   // ==================== PLAYER SESSION ACTIONS ====================
   
   // Cancel session as player (private/semi-private only)
@@ -12148,6 +12187,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get current month lesson summary
       const now = new Date();
       const lessonSummary = await storage.getPlayerLessonSummary(playerId, now.getMonth() + 1, now.getFullYear());
+      
+      // Get session-based billing (attended sessions with prices)
+      const sessionBilling = await storage.getPlayerSessionBilling(playerId);
 
       res.json({
         player: {
@@ -12156,9 +12198,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         academy: academy ? { id: academy.id, name: academy.name } : null,
         invoiceSummary: {
-          pending: pendingInvoices.length,
+          pending: pendingInvoices.length + sessionBilling.unpaidCount,
           overdue: overdueInvoices.length,
-          totalPending: pendingInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount || "0"), 0),
+          totalPending: pendingInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount || "0"), 0) + sessionBilling.unpaidTotal,
+        },
+        sessionBilling: {
+          unpaidCount: sessionBilling.unpaidCount,
+          unpaidTotal: sessionBilling.unpaidTotal,
+          paidCount: sessionBilling.paidCount,
+          paidTotal: sessionBilling.paidTotal,
         },
         lessonSummary,
       });
