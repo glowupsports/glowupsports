@@ -1,0 +1,13 @@
+name: Publish OTA Update
+
+on:
+  push:
+    branches: ['main']
+
+jobs:
+  update:
+    name: Publish Update
+    type: update
+    params:
+      branch: production
+      message: "OTA Update"
