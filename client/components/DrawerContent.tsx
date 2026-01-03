@@ -1,13 +1,14 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Pressable, Alert, Platform } from "react-native";
+import { View, StyleSheet, Pressable, Alert, Platform, Text, Image as RNImage } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { DrawerContentComponentProps } from "@react-navigation/drawer";
 import * as Haptics from "expo-haptics";
 import { useQuery } from "@tanstack/react-query";
+import { LinearGradient } from "expo-linear-gradient";
+import { Image } from "expo-image";
 
 import { ThemedText } from "@/components/ThemedText";
-import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { ReportIssueModal } from "@/components/ReportIssueModal";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { usePlayer } from "@/context/PlayerContext";
@@ -47,6 +48,9 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
   const profilePhotoUrl = dashboardData?.player?.profilePhotoUrl 
     ? `${getStaticAssetsUrl()}${dashboardData.player.profilePhotoUrl}` 
     : null;
+  
+  const playerName = dashboardData?.player?.name ?? player.name;
+  const playerLevel = dashboardData?.player?.level ?? player.level;
 
   const { trackInteraction } = useUIInteraction();
   const [showReportModal, setShowReportModal] = useState(false);
@@ -100,16 +104,38 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
   return (
     <View style={[styles.container, { paddingTop: insets.top + Spacing.lg, paddingBottom: insets.bottom }]}>
       <View style={styles.header}>
-        <PlayerAvatar 
-          avatar={player.avatar} 
-          size={60} 
-          level={dashboardData?.player?.level ?? player.level} 
-          showLevel 
-          photoUrl={profilePhotoUrl}
-        />
+        <View style={styles.avatarContainer}>
+          {profilePhotoUrl ? (
+            Platform.OS === 'web' ? (
+              <RNImage
+                source={{ uri: profilePhotoUrl }}
+                style={styles.avatarImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <Image
+                source={{ uri: profilePhotoUrl }}
+                style={styles.avatarImage}
+                contentFit="cover"
+              />
+            )
+          ) : (
+            <LinearGradient
+              colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.avatarGradient}
+            >
+              <Text style={styles.avatarInitial}>{playerName.charAt(0).toUpperCase()}</Text>
+            </LinearGradient>
+          )}
+          <View style={styles.levelBadge}>
+            <Text style={styles.levelBadgeText}>{playerLevel}</Text>
+          </View>
+        </View>
         <View style={styles.headerInfo}>
-          <ThemedText style={styles.playerName}>{dashboardData?.player?.name ?? player.name}</ThemedText>
-          <ThemedText style={styles.playerLevel}>Level {dashboardData?.player?.level ?? player.level}</ThemedText>
+          <ThemedText style={styles.playerName}>{playerName}</ThemedText>
+          <ThemedText style={styles.playerLevel}>Level {playerLevel}</ThemedText>
         </View>
       </View>
 
@@ -185,6 +211,48 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: Colors.dark.backgroundSecondary,
+  },
+  avatarContainer: {
+    position: "relative",
+    width: 60,
+    height: 60,
+  },
+  avatarImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  avatarGradient: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarInitial: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
+  },
+  levelBadge: {
+    position: "absolute",
+    bottom: -4,
+    left: -4,
+    backgroundColor: Colors.dark.gold,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: Colors.dark.backgroundRoot,
+  },
+  levelBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
   },
   headerInfo: {
     flex: 1,
