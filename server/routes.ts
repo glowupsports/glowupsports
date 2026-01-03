@@ -7,8 +7,8 @@ import fs from "fs";
 import { storage } from "./storage";
 import { db } from "./db";
 import { playerHolidays } from "@shared/schema";
-import { eq, sql, desc } from "drizzle-orm";
-import { invoices, payments, sessionPlayers, sessionWaitlist } from "@shared/schema";
+import { eq, sql, desc, and, ne, gt, asc } from "drizzle-orm";
+import { invoices, payments, sessionPlayers, sessionWaitlist, creditTransactions, players } from "@shared/schema";
 import { setupWebSocket, broadcastNewMessage } from "./websocket";
 import { 
   hashPassword, 
@@ -12452,6 +12452,341 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Join session error:", error);
       res.status(500).json({ error: "Failed to join session" });
+    }
+  });
+
+  // Leave a play session (frees up slot and notifies waitlist/make-up credit holders)
+  app.post("/api/play/sessions/:sessionId/leave", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const { sessionId } = req.params;
+      const { reason } = req.body;
+      
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+
+      const session = await storage.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      // Check if player is in this session
+      const sessionPlayer = await db.query.sessionPlayers.findFirst({
+        where: (sp, { and: spAnd, eq: spEq }) => spAnd(
+          spEq(sp.sessionId, sessionId),
+          spEq(sp.playerId, playerId)
+        ),
+      });
+
+      if (!sessionPlayer) {
+        return res.status(400).json({ error: "You are not in this session" });
+      }
+
+      // Calculate hours until session for cancellation policy
+      const now = new Date();
+      const sessionStart = new Date(session.startTime);
+      const hoursUntilSession = (sessionStart.getTime() - now.getTime()) / (1000 * 60 * 60);
+      const isLateCancel = hoursUntilSession < 24;
+
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      // Check the original join transaction to determine which credit type was used
+      const originalTransactions = await storage.getCreditTransactionsBySession(sessionId);
+      const playerJoinTx = originalTransactions.find(
+        tx => tx.playerId === playerId && (tx.reason === "session_join" || tx.reason === "make_up_lesson_used")
+      );
+      
+      // Determine if make-up credit was used based on transaction reason or metadata
+      let usedMakeUpCredit = false;
+      if (playerJoinTx) {
+        if (playerJoinTx.reason === "make_up_lesson_used") {
+          usedMakeUpCredit = true;
+        } else if (playerJoinTx.metadata) {
+          try {
+            const metadata = typeof playerJoinTx.metadata === "string" 
+              ? JSON.parse(playerJoinTx.metadata) 
+              : playerJoinTx.metadata;
+            usedMakeUpCredit = metadata.makeUpUsed === true;
+          } catch {
+            usedMakeUpCredit = false;
+          }
+        }
+      }
+
+      // Remove player from session
+      await db.delete(sessionPlayers).where(
+        and(
+          eq(sessionPlayers.sessionId, sessionId),
+          eq(sessionPlayers.playerId, playerId)
+        )
+      );
+
+      // Log the cancellation
+      await storage.createPlayerSessionCancellation({
+        playerId,
+        sessionId,
+        reason: reason || "player_left_session",
+        hoursBeforeSession: Math.max(0, hoursUntilSession),
+        isLateNotice: isLateCancel,
+        makeUpEligibility: isLateCancel ? "not_eligible" : "eligible",
+      });
+
+      let creditRefunded = false;
+      let makeUpRefunded = false;
+      
+      // Early cancel: refund the correct credit type
+      // Only refund if we found a valid join transaction (prevents double refunds and errors)
+      if (!isLateCancel && playerJoinTx) {
+        if (usedMakeUpCredit) {
+          // Refund make-up credit
+          await storage.updatePlayer(playerId, {
+            makeUpCredits: (player.makeUpCredits || 0) + 1,
+          });
+          makeUpRefunded = true;
+
+          await storage.createCreditTransaction({
+            playerId,
+            academyId: session.academyId || player.academyId,
+            type: "refund",
+            amount: 0,
+            reason: "make_up_credit_refund",
+            sessionId,
+            metadata: JSON.stringify({
+              hoursBeforeSession: hoursUntilSession,
+              originalPaymentMethod: "make_up_credit",
+              originalTransactionId: playerJoinTx.id,
+            }),
+          });
+        } else {
+          // Refund regular credit - use the amount from the original transaction
+          const originalAmount = Math.abs(playerJoinTx.amount || 1);
+          await storage.updatePlayer(playerId, {
+            credits: (player.credits || 0) + originalAmount,
+          });
+          creditRefunded = true;
+
+          await storage.createCreditTransaction({
+            playerId,
+            academyId: session.academyId || player.academyId,
+            type: "refund",
+            amount: originalAmount,
+            reason: "session_cancel_early",
+            sessionId,
+            metadata: JSON.stringify({
+              hoursBeforeSession: hoursUntilSession,
+              originalPaymentMethod: "credits",
+              originalTransactionId: playerJoinTx.id,
+              originalAmount: originalAmount,
+            }),
+          });
+        }
+      } else if (!isLateCancel && !playerJoinTx) {
+        // No transaction found - log warning but don't refund to prevent abuse
+        console.warn(`[Leave Session] No join transaction found for player ${playerId} session ${sessionId}. No refund issued.`);
+      }
+
+      // Notify and promote first player on waitlist
+      const waitlistPlayers = await db.query.sessionWaitlist.findMany({
+        where: (wl, { and: wlAnd, eq: wlEq }) => wlAnd(
+          wlEq(wl.sessionId, sessionId),
+          wlEq(wl.status, "waiting")
+        ),
+        orderBy: (wl, { asc: wlAsc }) => wlAsc(wl.joinedAt),
+      });
+
+      let waitlistPromoted = false;
+      const sessionCredits = session.sessionType === "private" ? 2 : 1;
+      
+      // Promote first eligible waitlist player to the session (with credit deduction)
+      // Loop through waitlist until we find someone who can pay
+      for (const waitlistEntry of waitlistPlayers) {
+        if (waitlistPromoted) break; // Stop once someone is promoted
+        
+        const waitlistPlayer = await storage.getPlayer(waitlistEntry.playerId);
+        if (!waitlistPlayer) continue;
+        
+        const playerCredits = waitlistPlayer.credits || 0;
+        const playerMakeUpCredits = waitlistPlayer.makeUpCredits || 0;
+        
+        let canPromote = false;
+        let useMakeUp = false;
+        
+        // Prefer make-up credits, then regular credits
+        if (playerMakeUpCredits > 0) {
+          canPromote = true;
+          useMakeUp = true;
+        } else if (playerCredits >= sessionCredits) {
+          canPromote = true;
+          useMakeUp = false;
+        }
+        
+        if (canPromote) {
+          try {
+            // Use database transaction for atomicity - all or nothing
+            await db.transaction(async (tx) => {
+              // Step 1: Atomically deduct credits with guard to prevent negative balance
+              // Uses raw SQL column references for concurrency safety
+              if (useMakeUp) {
+                const result = await tx.update(players)
+                  .set({ makeUpCredits: sql`GREATEST(0, COALESCE(make_up_credits, 0) - 1)` })
+                  .where(and(
+                    eq(players.id, waitlistPlayer.id),
+                    sql`COALESCE(make_up_credits, 0) > 0`
+                  ))
+                  .returning({ id: players.id });
+                
+                if (result.length === 0) {
+                  throw new Error("Insufficient make-up credits (concurrent deduction)");
+                }
+              } else {
+                const result = await tx.update(players)
+                  .set({ credits: sql`GREATEST(0, COALESCE(credits, 0) - ${sessionCredits})` })
+                  .where(and(
+                    eq(players.id, waitlistPlayer.id),
+                    sql`COALESCE(credits, 0) >= ${sessionCredits}`
+                  ))
+                  .returning({ id: players.id });
+                
+                if (result.length === 0) {
+                  throw new Error("Insufficient credits (concurrent deduction)");
+                }
+              }
+              
+              // Step 2: Add player to session
+              await tx.insert(sessionPlayers).values({
+                sessionId,
+                playerId: waitlistPlayer.id,
+              });
+              
+              // Step 3: Log the credit transaction
+              await tx.insert(creditTransactions).values({
+                playerId: waitlistPlayer.id,
+                academyId: session.academyId || waitlistPlayer.academyId,
+                type: "debit",
+                amount: useMakeUp ? 0 : -sessionCredits,
+                reason: useMakeUp ? "make_up_lesson_used" : "session_join",
+                sessionId,
+                metadata: JSON.stringify({
+                  sessionType: session.sessionType,
+                  paymentMethod: useMakeUp ? "make_up_credit" : "credits",
+                  makeUpUsed: useMakeUp,
+                  promotedFromWaitlist: true,
+                }),
+              });
+              
+              // Step 4: Update waitlist status to promoted
+              await tx.update(sessionWaitlist)
+                .set({ status: "promoted" })
+                .where(eq(sessionWaitlist.id, waitlistEntry.id));
+            });
+            
+            // Transaction succeeded - mark as promoted
+            waitlistPromoted = true;
+            
+            // Step 5: Notify the promoted player (outside transaction, non-critical)
+            if (waitlistPlayer.userId) {
+              await storage.createScheduledNotification({
+                userId: waitlistPlayer.userId,
+                playerId: waitlistPlayer.id,
+                title: "You're In!",
+                body: useMakeUp 
+                  ? `You've been promoted from the waitlist! Make-up credit used.`
+                  : `You've been promoted from the waitlist! ${sessionCredits} credit(s) deducted.`,
+                type: "waitlist_promoted",
+                metadata: JSON.stringify({
+                  sessionId,
+                  sessionType: session.sessionType,
+                  startTime: session.startTime,
+                  creditsUsed: useMakeUp ? 0 : sessionCredits,
+                  makeUpUsed: useMakeUp,
+                }),
+                scheduledFor: new Date(),
+              });
+            }
+          } catch (promotionError) {
+            // Transaction rolled back - try next waitlist player
+            console.error(`[Waitlist] Promotion transaction failed for player ${waitlistPlayer.id}:`, promotionError);
+            continue;
+          }
+        } else {
+          // Player doesn't have enough credits - notify and continue to next
+          if (waitlistPlayer.userId) {
+            await storage.createScheduledNotification({
+              userId: waitlistPlayer.userId,
+              playerId: waitlistPlayer.id,
+              title: "Spot Available - Credits Needed",
+              body: `A spot opened up but you need ${sessionCredits} credit(s) to join.`,
+              type: "waitlist_credits_needed",
+              metadata: JSON.stringify({
+                sessionId,
+                sessionType: session.sessionType,
+                creditsNeeded: sessionCredits,
+              }),
+              scheduledFor: new Date(),
+            });
+          }
+          // Update waitlist status to show they were notified but continue loop
+          await db.update(sessionWaitlist)
+            .set({ status: "insufficient_credits" })
+            .where(eq(sessionWaitlist.id, waitlistEntry.id));
+        }
+      }
+
+      // Only notify make-up credit holders if no waitlist promotion happened (spot is still open)
+      const academyId = session.academyId || player.academyId;
+      if (academyId && !waitlistPromoted) {
+        const playersWithMakeUp = await db.query.players.findMany({
+          where: (p, { and: pAnd, eq: pEq, gt: pGt }) => pAnd(
+            pEq(p.academyId, academyId),
+            pGt(p.makeUpCredits, 0)
+          ),
+        });
+
+        // Filter out the player who left and limit notifications
+        const eligiblePlayers = playersWithMakeUp
+          .filter(p => p.id !== playerId && p.userId)
+          .slice(0, 5);
+
+        for (const makeUpPlayer of eligiblePlayers) {
+          await storage.createScheduledNotification({
+            userId: makeUpPlayer.userId!,
+            playerId: makeUpPlayer.id,
+            title: "Spot Available!",
+            body: `A spot opened up in a ${session.sessionType} session. Use your make-up credit!`,
+            type: "make_up_opportunity",
+            metadata: JSON.stringify({
+              sessionId,
+              sessionType: session.sessionType,
+              startTime: session.startTime,
+              locationName: session.locationName || session.location,
+            }),
+            scheduledFor: new Date(),
+          });
+        }
+      }
+
+      const refundMessage = makeUpRefunded 
+        ? "Make-up credit refunded." 
+        : creditRefunded 
+          ? "Credit refunded." 
+          : "No refund (late cancellation).";
+
+      res.json({ 
+        success: true, 
+        message: `You've left the session. ${refundMessage}${waitlistPromoted ? " Waitlist player promoted to your spot." : ""}`,
+        creditRefunded,
+        makeUpRefunded,
+        hoursBeforeSession: hoursUntilSession,
+        waitlistPromoted,
+        waitlistCount: waitlistPlayers.length,
+      });
+    } catch (error) {
+      console.error("Leave session error:", error);
+      res.status(500).json({ error: "Failed to leave session" });
     }
   });
 

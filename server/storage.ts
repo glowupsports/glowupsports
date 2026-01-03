@@ -241,6 +241,10 @@ import {
   type InsertParentSettings,
   type PaymentReminder,
   type InsertPaymentReminder,
+  // Credit Transactions
+  creditTransactions,
+  type CreditTransaction,
+  type InsertCreditTransaction,
 } from "@shared/schema";
 
 export const storage = {
@@ -4191,6 +4195,24 @@ export const storage = {
   async deletePayment(id: string): Promise<boolean> {
     const result = await db.delete(payments).where(eq(payments.id, id)).returning();
     return result.length > 0;
+  },
+
+  // ==================== CREDIT TRANSACTIONS ====================
+  async createCreditTransaction(data: InsertCreditTransaction): Promise<CreditTransaction> {
+    const result = await db.insert(creditTransactions).values(data).returning();
+    return result[0];
+  },
+
+  async getCreditTransactionsByPlayer(playerId: string): Promise<CreditTransaction[]> {
+    return db.select().from(creditTransactions)
+      .where(eq(creditTransactions.playerId, playerId))
+      .orderBy(desc(creditTransactions.createdAt));
+  },
+
+  async getCreditTransactionsBySession(sessionId: string): Promise<CreditTransaction[]> {
+    return db.select().from(creditTransactions)
+      .where(eq(creditTransactions.sessionId, sessionId))
+      .orderBy(desc(creditTransactions.createdAt));
   },
 
   // Player Subscriptions (contracts - what players SHOULD pay)

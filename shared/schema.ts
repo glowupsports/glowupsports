@@ -1873,6 +1873,31 @@ export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true,
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type Payment = typeof payments.$inferSelect;
 
+// Credit Transactions - Track credit usage for session joins, cancellations, and make-up credits
+export const creditTransactions = pgTable("credit_transactions", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  academyId: varchar("academy_id").references(() => academies.id),
+  sessionId: varchar("session_id").references(() => sessions.id),
+  
+  type: text("type").notNull(), // credit | debit | refund | make_up_grant | make_up_used
+  amount: integer("amount").notNull(), // positive for credit, negative for debit
+  reason: text("reason").notNull(), // session_join | session_cancel | make_up_granted | make_up_lesson_used | package_purchased | admin_adjustment
+  
+  balanceBefore: integer("balance_before"),
+  balanceAfter: integer("balance_after"),
+  
+  metadata: jsonb("metadata"), // Additional context like session type, payment method
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCreditTransactionSchema = createInsertSchema(creditTransactions).omit({ id: true, createdAt: true });
+export type InsertCreditTransaction = z.infer<typeof insertCreditTransactionSchema>;
+export type CreditTransaction = typeof creditTransactions.$inferSelect;
+
 // Player Subscriptions - What players SHOULD pay (contracts, not auto-payments)
 // These are administrative records representing billing agreements, not Stripe subscriptions
 export const playerSubscriptions = pgTable("player_subscriptions", {
