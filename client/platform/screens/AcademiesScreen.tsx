@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import * as Clipboard from "expo-clipboard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -114,10 +115,16 @@ function AcademyCard({ name, coaches, players, mrr, status, lastActivity, onPres
 
 type NavigationProp = NativeStackNavigationProp<PlatformStackParamList>;
 
+interface InviteData {
+  token: string;
+  email: string;
+  expiresAt: string;
+}
+
 interface CreateAcademyModalProps {
   visible: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (invite?: InviteData) => void;
 }
 
 function CreateAcademyModal({ visible, onClose, onSuccess }: CreateAcademyModalProps) {
@@ -136,14 +143,15 @@ function CreateAcademyModal({ visible, onClose, onSuccess }: CreateAcademyModalP
         city: city || undefined,
       });
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/platform/stats"] });
+      const inviteData = data?.invite as InviteData | null;
       setName("");
       setOwnerEmail("");
       setCity("");
       setError("");
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      onSuccess();
+      onSuccess(inviteData || undefined);
     },
     onError: (err: any) => {
       setError(err?.message || "Failed to create academy");
@@ -259,12 +267,101 @@ function CreateAcademyModal({ visible, onClose, onSuccess }: CreateAcademyModalP
   );
 }
 
+interface InviteLinkModalProps {
+  visible: boolean;
+  invite: InviteData | null;
+  onClose: () => void;
+}
+
+function InviteLinkModal({ visible, invite, onClose }: InviteLinkModalProps) {
+  const insets = useSafeAreaInsets();
+  const [copied, setCopied] = useState(false);
+
+  if (!invite) return null;
+
+  const domain = process.env.EXPO_PUBLIC_DOMAIN || "glow-up-sports--ltvjeugd.replit.app";
+  const baseUrl = `https://${domain.replace(/^https?:\/\//, "").replace(/\/$/, "")}`;
+  const inviteLink = `${baseUrl}/join/${invite.token}`;
+
+  const handleCopy = async () => {
+    await Clipboard.setStringAsync(inviteLink);
+    setCopied(true);
+    if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const expiresDate = new Date(invite.expiresAt);
+  const formattedExpiry = expiresDate.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="fade"
+      transparent
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <Pressable style={styles.modalBackdrop} onPress={onClose} />
+        <View style={[styles.inviteModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+          <View style={styles.inviteIconContainer}>
+            <Ionicons name="checkmark-circle" size={48} color={Colors.dark.primary} />
+          </View>
+          
+          <Text style={styles.inviteModalTitle}>Academy Created!</Text>
+          <Text style={styles.inviteModalSubtitle}>
+            Share this link with the academy owner to give them access:
+          </Text>
+
+          <View style={styles.inviteEmailBadge}>
+            <Ionicons name="mail-outline" size={16} color={PLATFORM_COLOR} />
+            <Text style={styles.inviteEmailText}>{invite.email}</Text>
+          </View>
+
+          <View style={styles.inviteLinkBox}>
+            <Text style={styles.inviteLinkLabel}>Invite Link</Text>
+            <Text style={styles.inviteLinkText} numberOfLines={2}>{inviteLink}</Text>
+          </View>
+
+          <Text style={styles.inviteExpiryText}>
+            Expires: {formattedExpiry}
+          </Text>
+
+          <View style={styles.inviteActions}>
+            <Pressable 
+              style={[styles.copyButton, copied && styles.copyButtonSuccess]} 
+              onPress={handleCopy}
+            >
+              <Ionicons 
+                name={copied ? "checkmark" : "copy-outline"} 
+                size={20} 
+                color={Colors.dark.backgroundRoot} 
+              />
+              <Text style={styles.copyButtonText}>
+                {copied ? "Copied!" : "Copy Link"}
+              </Text>
+            </Pressable>
+            
+            <Pressable style={styles.doneButton} onPress={onClose}>
+              <Text style={styles.doneButtonText}>Done</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function AcademiesScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [pendingInvite, setPendingInvite] = useState<InviteData | null>(null);
 
   const { data: stats, isLoading } = useQuery<PlatformStats>({
     queryKey: ["/api/platform/stats"],
@@ -382,7 +479,18 @@ export default function AcademiesScreen() {
       <CreateAcademyModal
         visible={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        onSuccess={() => setShowCreateModal(false)}
+        onSuccess={(invite) => {
+          setShowCreateModal(false);
+          if (invite) {
+            setPendingInvite(invite);
+          }
+        }}
+      />
+
+      <InviteLinkModal
+        visible={pendingInvite !== null}
+        invite={pendingInvite}
+        onClose={() => setPendingInvite(null)}
       />
     </View>
   );
@@ -659,5 +767,101 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  inviteModalContent: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    marginHorizontal: Spacing.lg,
+    alignItems: "center",
+  },
+  inviteIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: `${Colors.dark.primary}20`,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  inviteModalTitle: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+    textAlign: "center",
+    marginBottom: Spacing.xs,
+  },
+  inviteModalSubtitle: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    marginBottom: Spacing.lg,
+  },
+  inviteEmailBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: `${PLATFORM_COLOR}20`,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.full,
+    marginBottom: Spacing.lg,
+  },
+  inviteEmailText: {
+    ...Typography.small,
+    color: PLATFORM_COLOR,
+    fontWeight: "500",
+  },
+  inviteLinkBox: {
+    width: "100%",
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  inviteLinkLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.xs,
+    fontSize: 11,
+  },
+  inviteLinkText: {
+    ...Typography.small,
+    color: Colors.dark.text,
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+  },
+  inviteExpiryText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.lg,
+  },
+  inviteActions: {
+    width: "100%",
+    gap: Spacing.sm,
+  },
+  copyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    backgroundColor: PLATFORM_COLOR,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  copyButtonSuccess: {
+    backgroundColor: Colors.dark.primary,
+  },
+  copyButtonText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  doneButton: {
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+  },
+  doneButtonText: {
+    ...Typography.body,
+    color: Colors.dark.textSecondary,
+    fontWeight: "500",
   },
 });

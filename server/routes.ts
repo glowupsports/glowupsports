@@ -7828,8 +7828,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      let inviteToken: string | null = null;
       if (ownerEmail && typeof ownerEmail === "string" && ownerEmail.includes("@")) {
-        const inviteToken = crypto.randomUUID();
+        inviteToken = crypto.randomUUID();
         await storage.createInvite({
           token: inviteToken,
           academyId: newAcademy.id,
@@ -7843,6 +7844,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json({
         success: true,
         academy: newAcademy,
+        invite: inviteToken ? {
+          token: inviteToken,
+          email: ownerEmail.trim().toLowerCase(),
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        } : null,
       });
     } catch (error) {
       console.error("Create academy error:", error);
