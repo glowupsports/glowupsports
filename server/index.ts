@@ -35,6 +35,14 @@ function setupCors(app: express.Application) {
       origins.add(`https://${devDomain}`);
       origins.add(`https://${devDomain}:5000`);
       origins.add(`https://${devDomain}:8081`);
+      
+      // Also allow .repl.co variant (Replit uses both .replit.dev and .repl.co)
+      const replCoVariant = devDomain.replace('.replit.dev', '.repl.co');
+      if (replCoVariant !== devDomain) {
+        origins.add(`https://${replCoVariant}`);
+        origins.add(`https://${replCoVariant}:5000`);
+        origins.add(`https://${replCoVariant}:8081`);
+      }
     }
 
     if (process.env.REPLIT_DOMAINS) {
@@ -42,6 +50,13 @@ function setupCors(app: express.Application) {
         const domain = d.trim();
         origins.add(`https://${domain}`);
         origins.add(`https://${domain}:5000`);
+        
+        // Also allow .repl.co variant
+        const replCoVariant = domain.replace('.replit.dev', '.repl.co');
+        if (replCoVariant !== domain) {
+          origins.add(`https://${replCoVariant}`);
+          origins.add(`https://${replCoVariant}:5000`);
+        }
       });
     }
 
