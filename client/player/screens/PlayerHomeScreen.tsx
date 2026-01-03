@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Modal, Platform, TextInput, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Modal, Platform, TextInput, Alert, Image as RNImage } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -15,7 +15,7 @@ import { PlayerStatusBar } from "@/player/components/PlayerStatusBar";
 import { AcademyHubCard } from "@/player/components/AcademyHubCard";
 import { ReviewPromptBanner } from "@/player/components/ReviewPromptBanner";
 import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import Animated, { FadeIn, FadeOut, SlideInUp, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, withRepeat } from "react-native-reanimated";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
@@ -597,7 +597,7 @@ interface PlayerStatusAvatarProps {
 
 function PlayerStatusAvatar({ player, coach, academy }: PlayerStatusAvatarProps) {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
-  const profilePhotoUri = player.profilePhotoUrl ? `${getApiUrl()}${player.profilePhotoUrl}` : null;
+  const profilePhotoUri = player.profilePhotoUrl ? `${getStaticAssetsUrl()}${player.profilePhotoUrl}` : null;
   
   return (
     <>
@@ -606,11 +606,19 @@ function PlayerStatusAvatar({ player, coach, academy }: PlayerStatusAvatarProps)
         onPress={() => setShowStatusMenu(true)}
       >
         {profilePhotoUri ? (
-          <Image
-            source={{ uri: profilePhotoUri }}
-            style={styles.avatarImage}
-            contentFit="cover"
-          />
+          Platform.OS === 'web' ? (
+            <RNImage
+              source={{ uri: profilePhotoUri }}
+              style={styles.avatarImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <Image
+              source={{ uri: profilePhotoUri }}
+              style={styles.avatarImage}
+              contentFit="cover"
+            />
+          )
         ) : (
           <LinearGradient
             colors={[Colors.dark.primary, Colors.dark.xpCyan]}
@@ -636,11 +644,19 @@ function PlayerStatusAvatar({ player, coach, academy }: PlayerStatusAvatarProps)
           <View style={statusStyles.menu}>
             <View style={statusStyles.header}>
               {profilePhotoUri ? (
-                <Image
-                  source={{ uri: profilePhotoUri }}
-                  style={statusStyles.avatarImage}
-                  contentFit="cover"
-                />
+                Platform.OS === 'web' ? (
+                  <RNImage
+                    source={{ uri: profilePhotoUri }}
+                    style={statusStyles.avatarImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Image
+                    source={{ uri: profilePhotoUri }}
+                    style={statusStyles.avatarImage}
+                    contentFit="cover"
+                  />
+                )
               ) : (
                 <LinearGradient
                   colors={[Colors.dark.primary, Colors.dark.xpCyan]}

@@ -14,7 +14,7 @@ import { usePlayer } from "@/context/PlayerContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useUIInteraction } from "@/contexts/UIInteractionContext";
 import { DRAWER_ITEMS } from "@/constants/playerData";
-import { getApiUrl } from "@/lib/query-client";
+import { getStaticAssetsUrl } from "@/lib/query-client";
 
 interface DashboardPlayer {
   id: string;
@@ -44,7 +44,7 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
   });
   
   const profilePhotoUrl = dashboardData?.player?.profilePhotoUrl 
-    ? `${getApiUrl()}${dashboardData.player.profilePhotoUrl}` 
+    ? `${getStaticAssetsUrl()}${dashboardData.player.profilePhotoUrl}` 
     : null;
 
   const { trackInteraction } = useUIInteraction();

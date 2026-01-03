@@ -1,5 +1,5 @@
 import React from "react";
-import { View, StyleSheet, Pressable } from "react-native";
+import { View, StyleSheet, Pressable, Platform, Image as RNImage } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
@@ -44,11 +44,19 @@ export function PlayerAvatar({
   const content = (
     <View style={[styles.container, { width: size, height: size }]}>
       {photoUrl ? (
-        <Image
-          source={{ uri: photoUrl }}
-          style={[styles.photoImage, { width: size, height: size, borderRadius: size / 2 }]}
-          contentFit="cover"
-        />
+        Platform.OS === 'web' ? (
+          <RNImage
+            source={{ uri: photoUrl }}
+            style={[styles.photoImage, { width: size, height: size, borderRadius: size / 2 }]}
+            resizeMode="cover"
+          />
+        ) : (
+          <Image
+            source={{ uri: photoUrl }}
+            style={[styles.photoImage, { width: size, height: size, borderRadius: size / 2 }]}
+            contentFit="cover"
+          />
+        )
       ) : (
         <LinearGradient
           colors={[Colors.dark.primary, Colors.dark.xpCyan]}

@@ -11,6 +11,7 @@ if (__DEV__) {
 /**
  * Gets the base URL for the Express API server (e.g., "https://glow-up-sports--ltvjeugd.replit.app")
  * Uses EXPO_PUBLIC_API_URL (preferred) or falls back to EXPO_PUBLIC_DOMAIN
+ * For API calls, port 5000 is stripped on web because of the proxy
  * @returns {string} The API base URL
  */
 export function getApiUrl(): string {
@@ -22,6 +23,21 @@ export function getApiUrl(): string {
     url = url.replace(/:5000$/, "").replace(/:5000\//, "/");
   }
   
+  return url.endsWith("/") ? url.slice(0, -1) : url;
+}
+
+/**
+ * Gets the base URL for static assets (images, files) served from Express
+ * Unlike getApiUrl(), this KEEPS the port 5000 for web because static files
+ * are not proxied through the Expo dev server
+ * @returns {string} The static assets base URL with full port
+ */
+export function getStaticAssetsUrl(): string {
+  const { EXPO_PUBLIC_API_URL } = validateEnv();
+  
+  let url = EXPO_PUBLIC_API_URL;
+  
+  // Don't strip port for static assets - they're served directly from Express
   return url.endsWith("/") ? url.slice(0, -1) : url;
 }
 

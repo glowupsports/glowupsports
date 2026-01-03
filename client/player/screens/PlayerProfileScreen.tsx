@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform, Linking, Switch } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform, Linking, Switch, Image as RNImage } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -13,7 +13,7 @@ import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import PinEntryModal from "@/components/PinEntryModal";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import { getAuthToken } from "@/lib/auth";
 
 interface ProfileData {
@@ -260,11 +260,19 @@ export default function PlayerProfileScreen() {
               disabled={isUploadingPhoto}
             >
               {player.profilePhotoUrl ? (
-                <Image
-                  source={{ uri: `${getApiUrl()}${player.profilePhotoUrl}` }}
-                  style={styles.avatarImage}
-                  contentFit="cover"
-                />
+                Platform.OS === 'web' ? (
+                  <RNImage
+                    source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                    style={styles.avatarImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Image
+                    source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                    style={styles.avatarImage}
+                    contentFit="cover"
+                  />
+                )
               ) : (
                 <LinearGradient
                   colors={[ballColor, Colors.dark.xpCyan]}
@@ -673,6 +681,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
+    backgroundColor: Colors.dark.backgroundSecondary,
   },
   cameraIconOverlay: {
     position: "absolute",
