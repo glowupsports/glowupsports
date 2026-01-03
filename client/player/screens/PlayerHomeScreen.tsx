@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
 import { LinearGradient } from "expo-linear-gradient";
+import { Image } from "expo-image";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useAppMode } from "@/context/AppModeContext";
@@ -14,7 +15,7 @@ import { PlayerStatusBar } from "@/player/components/PlayerStatusBar";
 import { AcademyHubCard } from "@/player/components/AcademyHubCard";
 import { ReviewPromptBanner } from "@/player/components/ReviewPromptBanner";
 import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
 import Animated, { FadeIn, FadeOut, SlideInUp, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, withRepeat } from "react-native-reanimated";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
@@ -47,6 +48,7 @@ interface DashboardData {
     ballLevel: string | null;
     streak: number;
     dateOfBirth?: string | null;
+    profilePhotoUrl?: string | null;
   };
   coach: {
     id: string;
@@ -595,6 +597,7 @@ interface PlayerStatusAvatarProps {
 
 function PlayerStatusAvatar({ player, coach, academy }: PlayerStatusAvatarProps) {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const profilePhotoUri = player.profilePhotoUrl ? `${getApiUrl()}${player.profilePhotoUrl}` : null;
   
   return (
     <>
@@ -602,14 +605,22 @@ function PlayerStatusAvatar({ player, coach, academy }: PlayerStatusAvatarProps)
         style={styles.avatarContainer}
         onPress={() => setShowStatusMenu(true)}
       >
-        <LinearGradient
-          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
-          style={styles.avatarGradient}
-        >
-          <View style={styles.avatarInner}>
-            <Text style={styles.avatarText}>{player.name.charAt(0)}</Text>
-          </View>
-        </LinearGradient>
+        {profilePhotoUri ? (
+          <Image
+            source={{ uri: profilePhotoUri }}
+            style={styles.avatarImage}
+            contentFit="cover"
+          />
+        ) : (
+          <LinearGradient
+            colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+            style={styles.avatarGradient}
+          >
+            <View style={styles.avatarInner}>
+              <Text style={styles.avatarText}>{player.name.charAt(0)}</Text>
+            </View>
+          </LinearGradient>
+        )}
       </Pressable>
       
       <Modal
@@ -624,14 +635,22 @@ function PlayerStatusAvatar({ player, coach, academy }: PlayerStatusAvatarProps)
         >
           <View style={statusStyles.menu}>
             <View style={statusStyles.header}>
-              <LinearGradient
-                colors={[Colors.dark.primary, Colors.dark.xpCyan]}
-                style={statusStyles.avatarGradient}
-              >
-                <View style={statusStyles.avatarInner}>
-                  <Text style={statusStyles.avatarText}>{player.name.charAt(0)}</Text>
-                </View>
-              </LinearGradient>
+              {profilePhotoUri ? (
+                <Image
+                  source={{ uri: profilePhotoUri }}
+                  style={statusStyles.avatarImage}
+                  contentFit="cover"
+                />
+              ) : (
+                <LinearGradient
+                  colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                  style={statusStyles.avatarGradient}
+                >
+                  <View style={statusStyles.avatarInner}>
+                    <Text style={statusStyles.avatarText}>{player.name.charAt(0)}</Text>
+                  </View>
+                </LinearGradient>
+              )}
               <Text style={statusStyles.playerName}>{player.name}</Text>
               {academy ? (
                 <Text style={statusStyles.academyName}>{academy.name}</Text>
@@ -1800,6 +1819,11 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     padding: 2,
   },
+  avatarImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+  },
   avatarInner: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundDefault,
@@ -2770,6 +2794,12 @@ const statusStyles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     padding: 3,
+    marginBottom: Spacing.md,
+  },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     marginBottom: Spacing.md,
   },
   avatarInner: {

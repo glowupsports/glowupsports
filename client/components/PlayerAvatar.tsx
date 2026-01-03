@@ -2,6 +2,7 @@ import React from "react";
 import { View, StyleSheet, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { Image } from "expo-image";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
@@ -13,6 +14,7 @@ interface PlayerAvatarProps {
   size?: number;
   showLevel?: boolean;
   onPress?: () => void;
+  photoUrl?: string | null;
 }
 
 const AVATAR_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -35,19 +37,28 @@ export function PlayerAvatar({
   size = 40,
   showLevel = false,
   onPress,
+  photoUrl,
 }: PlayerAvatarProps) {
-  const iconName = AVATAR_ICONS[avatar] || "user";
+  const iconName = AVATAR_ICONS[avatar] || "person-outline";
 
   const content = (
     <View style={[styles.container, { width: size, height: size }]}>
-      <LinearGradient
-        colors={[Colors.dark.primary, Colors.dark.xpCyan]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}
-      >
-        <Ionicons name={iconName} size={size * 0.5} color={Colors.dark.backgroundRoot} />
-      </LinearGradient>
+      {photoUrl ? (
+        <Image
+          source={{ uri: photoUrl }}
+          style={[styles.photoImage, { width: size, height: size, borderRadius: size / 2 }]}
+          contentFit="cover"
+        />
+      ) : (
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}
+        >
+          <Ionicons name={iconName} size={size * 0.5} color={Colors.dark.backgroundRoot} />
+        </LinearGradient>
+      )}
       {showLevel && level !== undefined ? (
         <View style={styles.levelBadge}>
           <ThemedText style={styles.levelText}>{level}</ThemedText>
@@ -74,6 +85,9 @@ const styles = StyleSheet.create({
   avatar: {
     alignItems: "center",
     justifyContent: "center",
+  },
+  photoImage: {
+    backgroundColor: Colors.dark.backgroundSecondary,
   },
   levelBadge: {
     position: "absolute",

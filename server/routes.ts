@@ -8921,6 +8921,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           onboardingCompleted,
           academyId: player.academyId,
           dateOfBirth: player.dateOfBirth,
+          profilePhotoUrl: (player as any).profilePhotoUrl || null,
         },
         coach: coach ? {
           id: coach.id,

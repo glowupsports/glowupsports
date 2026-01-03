@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { DrawerContentComponentProps } from "@react-navigation/drawer";
 import * as Haptics from "expo-haptics";
+import { useQuery } from "@tanstack/react-query";
 
 import { ThemedText } from "@/components/ThemedText";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
@@ -13,11 +14,38 @@ import { usePlayer } from "@/context/PlayerContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useUIInteraction } from "@/contexts/UIInteractionContext";
 import { DRAWER_ITEMS } from "@/constants/playerData";
+import { getApiUrl } from "@/lib/query-client";
+
+interface DashboardPlayer {
+  id: string;
+  name: string;
+  level: number;
+  profilePhotoUrl?: string | null;
+}
+
+interface DashboardData {
+  player: DashboardPlayer;
+}
 
 export function DrawerContent({ navigation, state }: DrawerContentComponentProps) {
   const insets = useSafeAreaInsets();
   const { player } = usePlayer();
-  const { logout } = useAuth();
+  const { logout, isAuthenticated, user, isLoading: authLoading } = useAuth();
+  
+  const hasPlayerProfile = !!user?.playerId;
+  const authReady = isAuthenticated && !authLoading && hasPlayerProfile;
+  
+  const { data: dashboardData } = useQuery<DashboardData>({
+    queryKey: ["/api/player/me/dashboard"],
+    enabled: authReady,
+    staleTime: 1000 * 60 * 5,
+    retry: 2,
+    retryDelay: 1000,
+  });
+  
+  const profilePhotoUrl = dashboardData?.player?.profilePhotoUrl 
+    ? `${getApiUrl()}${dashboardData.player.profilePhotoUrl}` 
+    : null;
 
   const { trackInteraction } = useUIInteraction();
   const [showReportModal, setShowReportModal] = useState(false);
@@ -71,10 +99,16 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
   return (
     <View style={[styles.container, { paddingTop: insets.top + Spacing.lg, paddingBottom: insets.bottom }]}>
       <View style={styles.header}>
-        <PlayerAvatar avatar={player.avatar} size={60} level={player.level} showLevel />
+        <PlayerAvatar 
+          avatar={player.avatar} 
+          size={60} 
+          level={dashboardData?.player?.level ?? player.level} 
+          showLevel 
+          photoUrl={profilePhotoUrl}
+        />
         <View style={styles.headerInfo}>
-          <ThemedText style={styles.playerName}>{player.name}</ThemedText>
-          <ThemedText style={styles.playerLevel}>Level {player.level}</ThemedText>
+          <ThemedText style={styles.playerName}>{dashboardData?.player?.name ?? player.name}</ThemedText>
+          <ThemedText style={styles.playerLevel}>Level {dashboardData?.player?.level ?? player.level}</ThemedText>
         </View>
       </View>
 
