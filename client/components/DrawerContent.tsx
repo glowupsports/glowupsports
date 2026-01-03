@@ -1,11 +1,9 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Pressable, Alert, Platform, Text, Image as RNImage } from "react-native";
+import { View, StyleSheet, Pressable, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { DrawerContentComponentProps } from "@react-navigation/drawer";
 import * as Haptics from "expo-haptics";
-import { LinearGradient } from "expo-linear-gradient";
-import { Image } from "expo-image";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ReportIssueModal } from "@/components/ReportIssueModal";
@@ -14,17 +12,11 @@ import { usePlayer } from "@/context/PlayerContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useUIInteraction } from "@/contexts/UIInteractionContext";
 import { DRAWER_ITEMS } from "@/constants/playerData";
-import { getStaticAssetsUrl } from "@/lib/query-client";
 
 export function DrawerContent({ navigation, state }: DrawerContentComponentProps) {
   const insets = useSafeAreaInsets();
   const { player } = usePlayer();
   const { logout } = useAuth();
-  
-  const rawPhotoUrl = player.profilePhotoUrl;
-  const profilePhotoUrl = rawPhotoUrl 
-    ? `${getStaticAssetsUrl()}${rawPhotoUrl}` 
-    : null;
   
   const playerName = player.name;
   const playerLevel = player.level;
@@ -81,42 +73,6 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
   return (
     <View style={[styles.container, { paddingTop: insets.top + Spacing.lg, paddingBottom: insets.bottom }]}>
       <View style={styles.header}>
-        <View style={styles.avatarContainer}>
-          {profilePhotoUrl ? (
-            Platform.OS === 'web' ? (
-              <RNImage
-                key={profilePhotoUrl}
-                source={{ uri: profilePhotoUrl }}
-                style={[styles.avatarImage, { backgroundColor: "#333" }]}
-                resizeMode="cover"
-                onError={(e) => console.error("[DrawerContent] Image error (web):", e.nativeEvent)}
-                onLoad={() => console.log("[DrawerContent] Image loaded (web)")}
-              />
-            ) : (
-              <Image
-                key={profilePhotoUrl}
-                source={{ uri: profilePhotoUrl }}
-                style={[styles.avatarImage, { backgroundColor: "#333" }]}
-                contentFit="cover"
-                cachePolicy="none"
-                onError={(e) => console.error("[DrawerContent] Image error (native):", e)}
-                onLoad={() => console.log("[DrawerContent] Image loaded (native)")}
-              />
-            )
-          ) : (
-            <LinearGradient
-              colors={[Colors.dark.primary, Colors.dark.xpCyan]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.avatarGradient}
-            >
-              <Text style={styles.avatarInitial}>{playerName.charAt(0).toUpperCase()}</Text>
-            </LinearGradient>
-          )}
-          <View style={styles.levelBadge}>
-            <Text style={styles.levelBadgeText}>{playerLevel}</Text>
-          </View>
-        </View>
         <View style={styles.headerInfo}>
           <ThemedText style={styles.playerName}>{playerName}</ThemedText>
           <ThemedText style={styles.playerLevel}>Level {playerLevel}</ThemedText>
@@ -189,54 +145,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.lg,
     paddingVertical: Spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: Colors.dark.backgroundSecondary,
-  },
-  avatarContainer: {
-    position: "relative",
-    width: 60,
-    height: 60,
-  },
-  avatarImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: Colors.dark.backgroundSecondary,
-  },
-  avatarGradient: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarInitial: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
-  },
-  levelBadge: {
-    position: "absolute",
-    bottom: -4,
-    left: -4,
-    backgroundColor: Colors.dark.gold,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 4,
-    borderWidth: 2,
-    borderColor: Colors.dark.backgroundRoot,
-  },
-  levelBadgeText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
   },
   headerInfo: {
     flex: 1,
