@@ -9,20 +9,20 @@ if (__DEV__) {
 }
 
 /**
- * Gets the base URL for the Express API server (e.g., "http://localhost:3000")
+ * Gets the base URL for the Express API server (e.g., "https://glow-up-sports--ltvjeugd.replit.app")
+ * Uses EXPO_PUBLIC_API_URL (preferred) or falls back to EXPO_PUBLIC_DOMAIN
  * @returns {string} The API base URL
  */
 export function getApiUrl(): string {
-  const { EXPO_PUBLIC_DOMAIN } = validateEnv();
-  let host = EXPO_PUBLIC_DOMAIN;
-
+  const { EXPO_PUBLIC_API_URL } = validateEnv();
+  
+  let url = EXPO_PUBLIC_API_URL;
+  
   if (Platform.OS === "web") {
-    host = host.replace(/:5000$/, "");
+    url = url.replace(/:5000$/, "").replace(/:5000\//, "/");
   }
-
-  let url = new URL(`https://${host}`);
-
-  return url.href;
+  
+  return url.endsWith("/") ? url.slice(0, -1) : url;
 }
 
 async function throwIfResNotOk(res: Response) {
