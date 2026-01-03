@@ -1,0 +1,313 @@
+Je gevoel klopt. Dit is geen bagger omdat het slecht gebouwd is, maar omdat het nog denkt als “boek een les” i.p.v. “ik wil spelen”.
+Liga / TennisLocker / deels Playtomic winnen hier omdat ze mentaal het juiste model pakken.
+
+Ik ga dit niet globaal doen.
+Ik ga per onderdeel zeggen:
+
+❌ wat nu niet klopt
+
+✅ wat het moet worden
+
+🎾 hoe Liga / TL dit slim doen
+
+🔧 wat jij concreet moet bouwen (UX + data)
+
+1️⃣ HUIDIGE “BOOK A LESSON” FLOW — WAAR HET MISGAAT
+❌ Probleem (hard gezegd)
+
+Je huidige flow voelt als:
+
+“Vul een formulier in en hoop dat er iets bestaat.”
+
+Eerst type
+
+Dan duur
+
+Dan datum
+
+Dan pas: geen slots
+
+Dat is anti-sport, anti-sociaal, anti-spontaan.
+
+❌ UX-fouten (belangrijk)
+
+❌ Geen zicht op andere spelers
+
+❌ Geen zicht op coach
+
+❌ Geen context (niveau, vibe, wie doet mee)
+
+❌ Geen social proof
+
+❌ Geen open spots discovery
+
+❌ Geen “join flow”
+
+❌ Geen wachtlijst met beloning
+
+Liga wint hier keihard.
+
+2️⃣ MENTAAL MODEL MOET ANDERS (KEY SHIFT)
+🔁 VAN:
+
+“Ik boek een les”
+
+🔁 NAAR:
+
+“Ik vind een plek om te spelen”
+
+Dat betekent:
+
+Les = event
+
+Event = mensen + coach + locatie + niveau
+
+Boeken = joinen, niet aanvragen
+
+3️⃣ IDEALE STRUCTUUR (HIGH LEVEL)
+
+Je hebt 3 hoofdingangen, geen formulier:
+
+🟢 A. Play Now
+
+Wat kan ik NU of BINNENKORT spelen?
+
+🔵 B. Groups & Sessions
+
+Welke groepen bestaan er? Waar kan ik bij?
+
+🟣 C. Private / Semi
+
+Met wie & waar kan ik privé trainen?
+
+4️⃣ PLAY NOW (DIT MOET JE HOOFDSCHERM ZIJN)
+🔥 Dit ontbreekt nu volledig
+
+Screen: “Play Now”
+
+Kaarten zoals Liga:
+
+🟢 Group Session
+📍 Maple
+👤 Coach: Alex
+🎾 Green Ball
+👥 3 / 4 players
+⏰ Today 18:00
+[ JOIN ]
+
+
+OF
+
+🟡 Group Session (Full)
+👥 4 / 4
+⏳ Waiting list (2)
+[ JOIN WAITLIST + earn XP ]
+
+🔧 Data die je nodig hebt
+
+session_id
+
+coach_id
+
+location_id
+
+max_players
+
+current_players
+
+level_range
+
+session_type
+
+start_time
+
+status (open / full / cancelled)
+
+➡️ Dit heb je grotendeels al, je expose’t het verkeerd.
+
+5️⃣ GROUP SESSION DETAIL (HÉÉL BELANGRIJK)
+
+Wanneer ik op een group klik, wil ik zien:
+
+🧠 Wat Liga goed doet
+
+Profielfoto’s van spelers
+
+Niveau-indicatie
+
+Coach zichtbaar
+
+Aantal plekken
+
+Wachtlijst
+
+📱 JOUW IDEALE SCREEN
+
+Group Card → Detail:
+
+Group Session – Green Ball
+📍 Maple Court 2
+👤 Coach Alex (rating ★★★★☆)
+
+Players:
+[avatar] [avatar] [avatar]
+Tom (Lv 9)
+Sara (Lv 11)
+Jay (Lv 10)
+
+1 spot left
+
+[ JOIN SESSION ]
+
+
+OF bij vol:
+
+Session Full
+Waiting list: 3 players
+XP bonus if someone cancels
+
+[ JOIN WAITLIST ]
+
+6️⃣ WACHTLIJST = GAME MECHANIC (NIET BIJZAAK)
+❌ Nu:
+
+Bestaat amper / voelt dood
+
+✅ Moet worden:
+
+XP beloning
+
+Notificatie first
+
+Auto-join bij cancel
+
+“You’re #2 on the list”
+
+Voorbeeld:
+
+🟡 You’re #1 on the waitlist
++5 XP if you get in
+
+7️⃣ PRIVATE / SEMI — COACH-FIRST, NIET FORM-FIRST
+❌ Nu:
+
+Eerst type → dan hoop
+
+✅ Beter:
+
+Coach cards
+
+Coach Alex
+📍 Maple
+🎾 Green–Yellow
+⏰ Available Today
+[ VIEW SLOTS ]
+
+
+Dan pas:
+
+duur
+
+type
+
+bevestigen
+
+8️⃣ PLAYER PROFILE IN CONTEXT VAN SESSIONS
+
+Je profile zelf is goed (serieus), maar:
+
+❌ Het leeft niet in booking
+
+Je ziet nergens:
+
+wie jij bent t.o.v. groep
+
+waarom jij past
+
+✅ Oplossing
+
+Bij session join:
+
+Your fit:
+✔ Level matches
+✔ Same ball type
+✔ Coach trained you before
+
+9️⃣ VERGELIJKING MET CONCURRENTEN
+Liga
+
+✅ Social
+✅ Groups
+✅ Visibility
+❌ Geen echte progression
+
+TennisLocker
+
+✅ Admin sterk
+❌ Speler voelt passief
+
+Playtomic
+
+✅ Discovery
+❌ Geen coaching intelligence
+
+Glow Up Sports
+
+👉 Jij kunt winnen door:
+
+Liga UX
+
+RPG progression
+
+Coach intelligence
+
+XP / Waitlist / Social loops
+
+🔟 CONCREET ACTIEPLAN (ZEER BELANGRIJK)
+Stap 1 (NU)
+
+❌ Stop met “Book a Lesson” formulier als start
+✅ Maak Play Now screen
+
+Stap 2
+
+Maak Group Session cards met:
+
+players
+
+open spots
+
+join / waitlist
+
+Stap 3
+
+Maak Session Detail modal
+
+avatars
+
+levels
+
+coach
+
+vibe
+
+Stap 4
+
+Wachtlijst = XP mechanic
+
+Stap 5
+
+Private = coach-first flow
+
+SLOT (eerlijk)
+
+Je zit 90% goed qua systeem
+Je zit 60% verkeerd qua mental model
+
+Je bouwt:
+
+“tennis software”
+
+Maar je moet bouwen:
+
+“ik wil NU spelen met mensen”
