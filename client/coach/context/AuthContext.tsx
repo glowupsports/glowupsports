@@ -71,9 +71,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { setMode, setAvailableModes } = useAppMode();
   const setAvailableModesRef = useRef(setAvailableModes);
   setAvailableModesRef.current = setAvailableModes;
+  const setModeRef = useRef(setMode);
+  setModeRef.current = setMode;
   const queryClient = useQueryClient();
 
-  const fetchUserData = useCallback(async (token: string) => {
+  const fetchUserData = useCallback(async (token: string, forceDefaultMode: boolean = false) => {
     try {
       const apiUrl = getApiUrl();
       const response = await fetch(new URL("/api/me", apiUrl).toString(), {
@@ -99,6 +101,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const defaultMode = getDefaultModeForRole(userRole);
         console.log("[AuthContext] Setting modes for role:", userRole, "modes:", availableModes, "default:", defaultMode);
         setAvailableModesRef.current(availableModes, defaultMode);
+        
+        if (forceDefaultMode && defaultMode) {
+          console.log("[AuthContext] Forcing default mode for role:", defaultMode);
+          setModeRef.current(defaultMode);
+        }
         
         return true;
       }
@@ -170,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       await saveAuthState(data.token, data.user);
       setAuthToken(data.token);
-      await fetchUserData(data.token);
+      await fetchUserData(data.token, true);
       setIsAuthenticated(true);
       
       return { success: true, user: data.user };
@@ -197,7 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       await saveAuthState(data.token, data.user);
       setAuthToken(data.token);
-      await fetchUserData(data.token);
+      await fetchUserData(data.token, true);
       setIsAuthenticated(true);
       
       return { success: true };
@@ -224,7 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       await saveAuthState(data.token, data.user);
       setAuthToken(data.token);
-      await fetchUserData(data.token);
+      await fetchUserData(data.token, true);
       setIsAuthenticated(true);
       
       return { success: true };
