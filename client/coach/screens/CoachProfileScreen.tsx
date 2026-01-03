@@ -15,10 +15,12 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
+import { Image } from "expo-image";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 interface CoachProfile {
@@ -33,6 +35,7 @@ interface CoachProfile {
   defaultSessionDuration: number | null;
   workingHoursStart: string | null;
   workingHoursEnd: string | null;
+  photoUrl: string | null;
 }
 
 export default function CoachProfileScreen() {
@@ -43,6 +46,63 @@ export default function CoachProfileScreen() {
   const { refreshAuth } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<Partial<CoachProfile>>({});
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+  const handleChangePhoto = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert("Permission Required", "Please allow access to your photo library to change your profile picture.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets?.[0]) {
+        return;
+      }
+
+      setIsUploadingPhoto(true);
+      const asset = result.assets[0];
+      
+      const formData = new FormData();
+      const filename = asset.uri.split("/").pop() || "photo.jpg";
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : "image/jpeg";
+      
+      formData.append("photo", {
+        uri: asset.uri,
+        name: filename,
+        type,
+      } as any);
+
+      const response = await fetch(`${getApiUrl()}/api/coach/profile/photo`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upload photo");
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["/api/coach/profile"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Success", "Profile photo updated!");
+    } catch (error) {
+      console.error("Error uploading photo:", error);
+      Alert.alert("Error", "Failed to upload photo. Please try again.");
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
 
   const { data: profile, isLoading } = useQuery<CoachProfile>({
     queryKey: ["/api/coach/profile", coach?.id],
@@ -150,9 +210,30 @@ export default function CoachProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.avatarSection}>
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={48} color={Colors.dark.primary} />
-          </View>
+          <Pressable 
+            style={styles.avatarContainer} 
+            onPress={handleChangePhoto}
+            disabled={isUploadingPhoto}
+          >
+            {profile?.photoUrl ? (
+              <Image
+                source={{ uri: `${getApiUrl()}${profile.photoUrl}` }}
+                style={styles.avatarImage}
+                contentFit="cover"
+              />
+            ) : (
+              <View style={styles.avatar}>
+                <Ionicons name="person" size={48} color={Colors.dark.primary} />
+              </View>
+            )}
+            <View style={styles.cameraIconOverlay}>
+              {isUploadingPhoto ? (
+                <ActivityIndicator size="small" color={Colors.dark.text} />
+              ) : (
+                <Ionicons name="camera" size={16} color={Colors.dark.text} />
+              )}
+            </View>
+          </Pressable>
           <Text style={styles.avatarName}>{profile?.name || "Coach"}</Text>
           {profile?.specialty ? (
             <Text style={styles.avatarSpecialty}>{profile.specialty}</Text>
@@ -360,6 +441,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
   },
+  avatarContainer: {
+    position: "relative",
+  },
   avatar: {
     width: 100,
     height: 100,
@@ -367,6 +451,24 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.primary + "20",
     alignItems: "center",
     justifyContent: "center",
+  },
+  avatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  cameraIconOverlay: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: Colors.dark.backgroundRoot,
   },
   avatarName: {
     fontSize: Typography.h2.fontSize,

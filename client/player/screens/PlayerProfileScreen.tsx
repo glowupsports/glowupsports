@@ -5,13 +5,15 @@ import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
+import { Image } from "expo-image";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import PinEntryModal from "@/components/PinEntryModal";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
 
 interface ProfileData {
   player: {
@@ -32,6 +34,7 @@ interface ProfileData {
     matchPreference: string | null;
     bio: string | null;
     displayName: string | null;
+    profilePhotoUrl: string | null;
   };
   coach: {
     id: string;
@@ -94,6 +97,7 @@ export default function PlayerProfileScreen() {
   const { setMode } = useAppMode();
   const { logout } = useAuth();
   const [showPinModal, setShowPinModal] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery<ProfileData>({
@@ -109,6 +113,62 @@ export default function PlayerProfileScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
   });
+
+  const handleChangePhoto = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert("Permission Required", "Please allow access to your photo library to change your profile picture.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets?.[0]) {
+        return;
+      }
+
+      setIsUploadingPhoto(true);
+      const asset = result.assets[0];
+      
+      const formData = new FormData();
+      const filename = asset.uri.split("/").pop() || "photo.jpg";
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : "image/jpeg";
+      
+      formData.append("photo", {
+        uri: asset.uri,
+        name: filename,
+        type,
+      } as any);
+
+      const response = await fetch(`${getApiUrl()}/api/player/me/photo`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upload photo");
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Success", "Profile photo updated!");
+    } catch (error) {
+      console.error("Error uploading photo:", error);
+      Alert.alert("Error", "Failed to upload photo. Please try again.");
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
 
   const handleLogout = () => {
     if (Platform.OS === "web") {
@@ -177,19 +237,38 @@ export default function PlayerProfileScreen() {
       >
         <View style={styles.header}>
           <View style={styles.avatarSection}>
-            <View style={styles.avatarContainer}>
-              <LinearGradient
-                colors={[ballColor, Colors.dark.xpCyan]}
-                style={styles.avatarGradient}
-              >
-                <View style={styles.avatarInner}>
-                  <Text style={styles.avatarText}>{player.name.charAt(0)}</Text>
-                </View>
-              </LinearGradient>
+            <Pressable 
+              style={styles.avatarContainer} 
+              onPress={handleChangePhoto}
+              disabled={isUploadingPhoto}
+            >
+              {player.profilePhotoUrl ? (
+                <Image
+                  source={{ uri: `${getApiUrl()}${player.profilePhotoUrl}` }}
+                  style={styles.avatarImage}
+                  contentFit="cover"
+                />
+              ) : (
+                <LinearGradient
+                  colors={[ballColor, Colors.dark.xpCyan]}
+                  style={styles.avatarGradient}
+                >
+                  <View style={styles.avatarInner}>
+                    <Text style={styles.avatarText}>{player.name.charAt(0)}</Text>
+                  </View>
+                </LinearGradient>
+              )}
               <View style={[styles.levelBadgeOverlay, { backgroundColor: ballColor }]}>
                 <Text style={styles.levelBadgeText}>{player.level}</Text>
               </View>
-            </View>
+              <View style={styles.cameraIconOverlay}>
+                {isUploadingPhoto ? (
+                  <ActivityIndicator size="small" color={Colors.dark.text} />
+                ) : (
+                  <Ionicons name="camera" size={16} color={Colors.dark.text} />
+                )}
+              </View>
+            </Pressable>
             <Text style={styles.playerName}>{player.name}</Text>
             <Text style={styles.levelTitle}>{getLevelTitle(player.level)}</Text>
           </View>
@@ -572,6 +651,24 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
     padding: 3,
+  },
+  avatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  cameraIconOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: Colors.dark.backgroundRoot,
   },
   avatarInner: {
     flex: 1,

@@ -60,6 +60,7 @@ const authLimiter = rateLimit({
 // File upload configuration
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
 const COURT_PHOTOS_DIR = path.join(UPLOADS_DIR, "court-photos");
+const PROFILE_PHOTOS_DIR = path.join(UPLOADS_DIR, "profile-photos");
 
 // Ensure upload directories exist
 if (!fs.existsSync(UPLOADS_DIR)) {
@@ -67,6 +68,9 @@ if (!fs.existsSync(UPLOADS_DIR)) {
 }
 if (!fs.existsSync(COURT_PHOTOS_DIR)) {
   fs.mkdirSync(COURT_PHOTOS_DIR, { recursive: true });
+}
+if (!fs.existsSync(PROFILE_PHOTOS_DIR)) {
+  fs.mkdirSync(PROFILE_PHOTOS_DIR, { recursive: true });
 }
 
 const courtPhotoStorage = multer.diskStorage({
@@ -84,6 +88,33 @@ const courtPhotoUpload = multer({
   storage: courtPhotoStorage,
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB max
+  },
+  fileFilter: (_req, file, cb) => {
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only JPEG, PNG, WebP, and HEIC images are allowed."));
+    }
+  },
+});
+
+// Profile photo upload configuration
+const profilePhotoStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, PROFILE_PHOTOS_DIR);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const ext = path.extname(file.originalname) || '.jpg';
+    cb(null, `profile-${uniqueSuffix}${ext}`);
+  },
+});
+
+const profilePhotoUpload = multer({
+  storage: profilePhotoStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB max for profile photos
   },
   fileFilter: (_req, file, cb) => {
     const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
@@ -4459,6 +4490,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating coach profile:", error);
       res.status(500).json({ error: "Failed to update coach profile" });
+    }
+  });
+
+  // Upload coach profile photo
+  app.post("/api/coach/profile/photo", authMiddleware, profilePhotoUpload.single("photo"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      if (!coachId) {
+        return res.status(400).json({ error: "Coach profile not found" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ error: "No photo uploaded" });
+      }
+
+      const photoUrl = `/uploads/profile-photos/${req.file.filename}`;
+      
+      await storage.updateCoach(coachId, { photoUrl });
+      
+      res.json({ 
+        success: true, 
+        photoUrl,
+        message: "Profile photo updated successfully" 
+      });
+    } catch (error) {
+      console.error("Error uploading coach profile photo:", error);
+      res.status(500).json({ error: "Failed to upload profile photo" });
     }
   });
 
@@ -9972,6 +10030,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           matchPreference: (player as any).matchPreference || null,
           bio: (player as any).bio || null,
           displayName: (player as any).displayName || null,
+          profilePhotoUrl: (player as any).profilePhotoUrl || null,
         },
         coach: coach ? {
           id: coach.id,
@@ -10042,6 +10101,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating player profile:", error);
       res.status(500).json({ error: "Failed to update player profile" });
+    }
+  });
+
+  // Upload player profile photo
+  app.post("/api/player/me/photo", authMiddleware, requirePlayerOrOwner, profilePhotoUpload.single("photo"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) {
+        return res.status(400).json({ error: "Player profile not found" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ error: "No photo uploaded" });
+      }
+
+      const photoUrl = `/uploads/profile-photos/${req.file.filename}`;
+      
+      await db.execute(sql`UPDATE players SET profile_photo_url = ${photoUrl} WHERE id = ${playerId}`);
+      
+      res.json({ 
+        success: true, 
+        profilePhotoUrl: photoUrl,
+        message: "Profile photo updated successfully" 
+      });
+    } catch (error) {
+      console.error("Error uploading player profile photo:", error);
+      res.status(500).json({ error: "Failed to upload profile photo" });
     }
   });
   
