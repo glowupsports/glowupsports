@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, Modal } from "react-native";
+import { View, Text, StyleSheet, Pressable, Modal, Platform, Image as RNImage } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, {
   useAnimatedStyle,
@@ -12,6 +13,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
+import { getStaticAssetsUrl } from "@/lib/query-client";
 
 interface PlayerData {
   id: string;
@@ -21,6 +23,7 @@ interface PlayerData {
   glowScore: number;
   ballLevel: string | null;
   streak: number;
+  profilePhotoUrl?: string | null;
 }
 
 interface CoachData {
@@ -96,6 +99,7 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
   const [showCoachModal, setShowCoachModal] = useState(false);
   const [showPlayerModal, setShowPlayerModal] = useState(false);
   const glowPulse = useSharedValue(0);
+  const profilePhotoUri = player.profilePhotoUrl ? `${getStaticAssetsUrl()}${player.profilePhotoUrl}` : null;
   
   React.useEffect(() => {
     glowPulse.value = withRepeat(
@@ -162,14 +166,30 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
         >
           <View style={styles.avatarWrapper}>
             <Animated.View style={[styles.glowRing, glowRingStyle]} />
-            <LinearGradient
-              colors={[Colors.dark.xpCyan, Colors.dark.primary]}
-              style={styles.avatarGradient}
-            >
-              <View style={styles.avatarInner}>
-                <Text style={styles.avatarText}>{player.name.charAt(0)}</Text>
-              </View>
-            </LinearGradient>
+            {profilePhotoUri ? (
+              Platform.OS === 'web' ? (
+                <RNImage
+                  source={{ uri: profilePhotoUri }}
+                  style={styles.avatarPhoto}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Image
+                  source={{ uri: profilePhotoUri }}
+                  style={styles.avatarPhoto}
+                  contentFit="cover"
+                />
+              )
+            ) : (
+              <LinearGradient
+                colors={[Colors.dark.xpCyan, Colors.dark.primary]}
+                style={styles.avatarGradient}
+              >
+                <View style={styles.avatarInner}>
+                  <Text style={styles.avatarText}>{player.name.charAt(0)}</Text>
+                </View>
+              </LinearGradient>
+            )}
             <View style={styles.levelBadge}>
               <Text style={styles.levelBadgeText}>{player.level}</Text>
             </View>
@@ -307,14 +327,30 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
           />
           <View style={styles.playerCard}>
             <View style={styles.playerModalHeader}>
-              <LinearGradient
-                colors={[Colors.dark.xpCyan, Colors.dark.primary]}
-                style={styles.playerAvatarLarge}
-              >
-                <View style={styles.playerAvatarInner}>
-                  <Text style={styles.playerAvatarText}>{player.name.charAt(0)}</Text>
-                </View>
-              </LinearGradient>
+              {profilePhotoUri ? (
+                Platform.OS === 'web' ? (
+                  <RNImage
+                    source={{ uri: profilePhotoUri }}
+                    style={styles.playerAvatarPhotoLarge}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Image
+                    source={{ uri: profilePhotoUri }}
+                    style={styles.playerAvatarPhotoLarge}
+                    contentFit="cover"
+                  />
+                )
+              ) : (
+                <LinearGradient
+                  colors={[Colors.dark.xpCyan, Colors.dark.primary]}
+                  style={styles.playerAvatarLarge}
+                >
+                  <View style={styles.playerAvatarInner}>
+                    <Text style={styles.playerAvatarText}>{player.name.charAt(0)}</Text>
+                  </View>
+                </LinearGradient>
+              )}
               <Text style={styles.playerModalName}>{player.name}</Text>
               <View style={styles.titleBadge}>
                 <Ionicons name="ribbon-outline" size={14} color={Colors.dark.xpCyan} />
@@ -416,6 +452,12 @@ const styles = StyleSheet.create({
     padding: 3,
     alignItems: "center",
     justifyContent: "center",
+  },
+  avatarPhoto: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: Colors.dark.backgroundSecondary,
   },
   avatarInner: {
     width: 44,
@@ -719,6 +761,13 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     padding: 4,
     marginBottom: Spacing.md,
+  },
+  playerAvatarPhotoLarge: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
   },
   playerAvatarInner: {
     flex: 1,
