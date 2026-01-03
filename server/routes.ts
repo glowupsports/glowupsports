@@ -10511,10 +10511,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const playerId = req.user!.playerId!;
       const { sessionId } = req.params;
       
+      // Include future sessions (add 1 year to endDate to capture upcoming sessions)
+      const futureDate = new Date();
+      futureDate.setFullYear(futureDate.getFullYear() + 1);
+      
       const sessions = await storage.getPlayerSessionsWithDetails(
         playerId,
         new Date(0),
-        new Date()
+        futureDate
       );
       
       const sessionData = sessions.find(s => s.id === sessionId);
