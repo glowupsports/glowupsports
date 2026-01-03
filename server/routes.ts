@@ -9400,6 +9400,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Report an issue with a session (equipment, court, safety, coach, other)
+  app.post("/api/player/me/sessions/:sessionId/report-issue", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+      const { issueType, description } = req.body;
+      const playerId = req.user!.playerId;
+      
+      if (!playerId) {
+        return res.status(400).json({ error: "Player profile required" });
+      }
+      
+      const validIssueTypes = ["equipment", "court", "safety", "coach", "other"];
+      if (!issueType || !validIssueTypes.includes(issueType)) {
+        return res.status(400).json({ error: "Please select a valid issue type" });
+      }
+      
+      // Get the session
+      const session = await storage.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      // Verify player is part of this session
+      const sessionPlayer = await storage.getSessionPlayer(sessionId, playerId);
+      if (!sessionPlayer) {
+        return res.status(403).json({ error: "You are not part of this session" });
+      }
+      
+      const player = await storage.getPlayer(playerId);
+      const issueLabels: Record<string, string> = {
+        equipment: "Equipment Issue",
+        court: "Court Problem", 
+        safety: "Safety Concern",
+        coach: "Coach-Related",
+        other: "Other Issue",
+      };
+      
+      // Create diagnostic report for platform owner visibility
+      await storage.createDiagnosticReport({
+        source: "player_app",
+        category: `session_issue_${issueType}`,
+        severity: issueType === "safety" ? "high" : "medium",
+        title: `${issueLabels[issueType]} - Session Report`,
+        message: description || `Player reported a ${issueType} issue`,
+        metadata: JSON.stringify({
+          sessionId,
+          playerId,
+          playerName: player?.name,
+          issueType,
+          sessionDate: session.startTime,
+          coachId: session.coachId,
+          academyId: session.academyId,
+        }),
+        status: "new",
+      });
+      
+      // Notify coach if it's not a coach-related issue (avoid conflict)
+      if (session.coachId && issueType !== "coach") {
+        await storage.createNotification({
+          coachId: session.coachId,
+          type: "session_issue_reported",
+          title: "Session Issue Reported",
+          message: `${player?.name || "A player"} reported: ${issueLabels[issueType]}`,
+          metadata: JSON.stringify({
+            sessionId,
+            playerId,
+            playerName: player?.name,
+            issueType,
+            description,
+          }),
+        });
+      }
+      
+      // For coach-related issues, notify academy owner instead
+      if (issueType === "coach" && session.academyId) {
+        const academy = await storage.getAcademy(session.academyId);
+        if (academy?.ownerId) {
+          await storage.createNotification({
+            playerId: undefined,
+            coachId: undefined,
+            ownerId: academy.ownerId,
+            type: "coach_issue_reported",
+            title: "Coach Issue Reported",
+            message: `${player?.name || "A player"} reported a coach-related concern`,
+            metadata: JSON.stringify({
+              sessionId,
+              playerId,
+              playerName: player?.name,
+              coachId: session.coachId,
+              description,
+            }),
+          });
+        }
+      }
+      
+      // For safety issues, create critical diagnostic with urgency flag
+      // Platform owners see these via the diagnostics inbox with high severity
+      if (issueType === "safety") {
+        console.log(`[SAFETY ALERT] Player ${player?.name} reported safety concern for session ${sessionId}`);
+        
+        // Create additional critical-level diagnostic for immediate visibility
+        await storage.createDiagnosticReport({
+          source: "player_app",
+          category: "safety_critical",
+          severity: "critical",
+          title: "URGENT: Safety Concern - Immediate Action Required",
+          message: `Player reported safety concern: ${description || "No details provided"}`,
+          metadata: JSON.stringify({
+            sessionId,
+            playerId,
+            playerName: player?.name,
+            issueType: "safety",
+            sessionDate: session.startTime,
+            coachId: session.coachId,
+            academyId: session.academyId,
+            urgent: true,
+          }),
+          status: "new",
+        });
+      }
+      
+      res.json({
+        success: true,
+        message: "Your report has been submitted. Thank you for helping us improve.",
+        ticketCreated: true,
+      });
+    } catch (error) {
+      console.error("Error reporting issue:", error);
+      res.status(500).json({ error: "Failed to submit report" });
+    }
+  });
+  
   // Get player vacation status
   app.get("/api/player/me/vacation", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {

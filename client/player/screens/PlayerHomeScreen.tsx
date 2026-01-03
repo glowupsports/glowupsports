@@ -303,6 +303,7 @@ interface MissionCardProps {
   upcomingOverlapsSession: boolean;
   onCancel: () => void;
   onLate: () => void;
+  onReportIssue: () => void;
 }
 
 function MissionCountdownRing({ targetDate, size = 140 }: { targetDate: Date; size?: number }) {
@@ -388,7 +389,7 @@ function MissionCountdownRing({ targetDate, size = 140 }: { targetDate: Date; si
   );
 }
 
-function MissionCard({ session, coach, isVacationActive, upcomingOverlapsSession, onCancel, onLate }: MissionCardProps) {
+function MissionCard({ session, coach, isVacationActive, upcomingOverlapsSession, onCancel, onLate, onReportIssue }: MissionCardProps) {
   const sessionDate = new Date(session.date);
   const status = getSessionStatus(sessionDate);
   const statusColor = getStatusColor(status);
@@ -462,6 +463,13 @@ function MissionCard({ session, coach, isVacationActive, upcomingOverlapsSession
                 <Ionicons name="time" size={20} color={Colors.dark.orange} />
               </View>
               <Text style={[missionStyles.actionLabel, { color: Colors.dark.orange }]}>DELAY</Text>
+            </Pressable>
+            <View style={missionStyles.actionDivider} />
+            <Pressable style={missionStyles.actionToggle} onPress={onReportIssue}>
+              <View style={[missionStyles.actionGlow, { backgroundColor: Colors.dark.error + "15" }]}>
+                <Ionicons name="alert-circle" size={20} color={Colors.dark.error} />
+              </View>
+              <Text style={[missionStyles.actionLabel, { color: Colors.dark.error }]}>REPORT</Text>
             </Pressable>
           </View>
         )}
@@ -726,12 +734,15 @@ export default function PlayerHomeScreen() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showLateModal, setShowLateModal] = useState(false);
   const [showVacationModal, setShowVacationModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [cancelReason, setCancelReason] = useState<string | null>(null);
   const [cancelReasonText, setCancelReasonText] = useState("");
   const [lateMinutes, setLateMinutes] = useState(10);
   const [lateMessage, setLateMessage] = useState("");
   const [vacationStartDate, setVacationStartDate] = useState("");
   const [vacationEndDate, setVacationEndDate] = useState("");
+  const [reportIssueType, setReportIssueType] = useState<string | null>(null);
+  const [reportIssueText, setReportIssueText] = useState("");
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   
   const playerAge = calculatePlayerAge(data?.player?.dateOfBirth);
@@ -809,6 +820,22 @@ export default function PlayerHomeScreen() {
     },
     onError: (error: any) => {
       Alert.alert("Error", error?.message || "Failed to cancel vacation");
+    },
+  });
+  
+  const reportIssueMutation = useMutation({
+    mutationFn: async ({ sessionId, issueType, description }: { sessionId: string; issueType: string; description: string }) => {
+      return apiRequest("POST", `/api/player/me/sessions/${sessionId}/report-issue`, { issueType, description });
+    },
+    onSuccess: () => {
+      setShowReportModal(false);
+      setReportIssueType(null);
+      setReportIssueText("");
+      setActionSuccess("Issue reported. Your coach will be notified.");
+      setTimeout(() => setActionSuccess(null), 4000);
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error?.message || "Failed to report issue");
     },
   });
   
@@ -1094,6 +1121,7 @@ export default function PlayerHomeScreen() {
             upcomingOverlapsSession={upcomingOverlapsSession}
             onCancel={() => setShowCancelModal(true)}
             onLate={() => setShowLateModal(true)}
+            onReportIssue={() => setShowReportModal(true)}
           />
         ) : (
           <NoMissionCard />
@@ -1595,6 +1623,109 @@ export default function PlayerHomeScreen() {
                     <ActivityIndicator size="small" color={Colors.dark.text} />
                   ) : (
                     <Text style={styles.modalConfirmButtonText}>Set Vacation</Text>
+                  )}
+                </Pressable>
+              </View>
+            </Pressable>
+          </KeyboardAwareScrollViewCompat>
+        </Pressable>
+      </Modal>
+      
+      <Modal
+        visible={showReportModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowReportModal(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setShowReportModal(false)}
+        >
+          <KeyboardAwareScrollViewCompat 
+            contentContainerStyle={styles.vacationModalScrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.modalHeader}>
+                <Ionicons name="alert-circle" size={28} color={Colors.dark.error} />
+                <Text style={styles.modalTitle}>Report an Issue</Text>
+              </View>
+              
+              <Text style={styles.modalDescription}>
+                Having a problem with this session? Let us know.
+              </Text>
+              
+              <View style={styles.reportIssueOptions}>
+                {[
+                  { id: "equipment", label: "Equipment Problem", icon: "tennisball" },
+                  { id: "court", label: "Court Issue", icon: "location" },
+                  { id: "safety", label: "Safety Concern", icon: "shield" },
+                  { id: "coach", label: "Coach Not Here", icon: "person" },
+                  { id: "other", label: "Other Issue", icon: "ellipsis-horizontal" },
+                ].map((option) => (
+                  <Pressable
+                    key={option.id}
+                    style={[
+                      styles.reportIssueOption,
+                      reportIssueType === option.id && styles.reportIssueOptionSelected,
+                    ]}
+                    onPress={() => setReportIssueType(option.id)}
+                  >
+                    <Ionicons 
+                      name={option.icon as any} 
+                      size={20} 
+                      color={reportIssueType === option.id ? Colors.dark.error : Colors.dark.textMuted} 
+                    />
+                    <Text style={[
+                      styles.reportIssueOptionText,
+                      reportIssueType === option.id && styles.reportIssueOptionTextSelected,
+                    ]}>
+                      {option.label}
+                    </Text>
+                    {reportIssueType === option.id ? (
+                      <Ionicons name="checkmark-circle" size={20} color={Colors.dark.error} />
+                    ) : null}
+                  </Pressable>
+                ))}
+              </View>
+              
+              <TextInput
+                style={styles.reportIssueTextInput}
+                placeholder="Describe the issue (optional)"
+                placeholderTextColor={Colors.dark.textMuted}
+                value={reportIssueText}
+                onChangeText={setReportIssueText}
+                multiline
+                numberOfLines={3}
+              />
+              
+              <View style={styles.modalActions}>
+                <Pressable 
+                  style={styles.modalCancelButton}
+                  onPress={() => setShowReportModal(false)}
+                >
+                  <Text style={styles.modalCancelButtonText}>Cancel</Text>
+                </Pressable>
+                <Pressable 
+                  style={[
+                    styles.reportIssueSubmitButton,
+                    !reportIssueType && styles.modalConfirmButtonDisabled,
+                  ]}
+                  onPress={() => {
+                    if (nextSession && reportIssueType) {
+                      reportIssueMutation.mutate({ 
+                        sessionId: nextSession.id, 
+                        issueType: reportIssueType,
+                        description: reportIssueText,
+                      });
+                    }
+                  }}
+                  disabled={!reportIssueType || (reportIssueType === "other" && !reportIssueText.trim()) || reportIssueMutation.isPending}
+                >
+                  {reportIssueMutation.isPending ? (
+                    <ActivityIndicator size="small" color={Colors.dark.text} />
+                  ) : (
+                    <Text style={styles.modalConfirmButtonText}>Report Issue</Text>
                   )}
                 </Pressable>
               </View>
@@ -2352,6 +2483,51 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.xpCyan,
     fontStyle: "italic",
+  },
+  reportIssueOptions: {
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  reportIssueOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  reportIssueOptionSelected: {
+    borderColor: Colors.dark.error,
+    backgroundColor: Colors.dark.error + "10",
+  },
+  reportIssueOptionText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    flex: 1,
+  },
+  reportIssueOptionTextSelected: {
+    color: Colors.dark.text,
+  },
+  reportIssueTextInput: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    minHeight: 80,
+    textAlignVertical: "top",
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  reportIssueSubmitButton: {
+    flex: 1,
+    backgroundColor: Colors.dark.error,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
   },
 });
 
