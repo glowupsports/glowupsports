@@ -3,7 +3,7 @@ import { createServer, type Server } from "node:http";
 import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { db } from "./db";
-import { playerHolidays, playerSessionCancellations } from "@shared/schema";
+import { playerHolidays } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { setupWebSocket, broadcastNewMessage } from "./websocket";
 import { 
@@ -8774,7 +8774,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Create cancellation record
-      await storage.db.insert(playerSessionCancellations).values({
+      await storage.createPlayerSessionCancellation({
         sessionId,
         playerId,
         academyId: player?.academyId,
@@ -8939,7 +8939,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Create cancellation record for tracking
-      await storage.db.insert(playerSessionCancellations).values({
+      await storage.createPlayerSessionCancellation({
         sessionId,
         playerId,
         academyId: player?.academyId,

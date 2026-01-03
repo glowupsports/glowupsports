@@ -42,6 +42,8 @@ import {
   coachNotifications,
   recurringSeries,
   playerSessionCancellations,
+  type PlayerSessionCancellation,
+  type InsertPlayerSessionCancellation,
   // Progress Engine V2
   skillDomains,
   playerSkillState,
@@ -1725,6 +1727,16 @@ export const storage = {
       conditions.push(eq(coachNotifications.coachId, coachId));
     }
     await db.delete(coachNotifications).where(and(...conditions));
+  },
+
+  // ==================== PLAYER SESSION CANCELLATIONS ====================
+  async createPlayerSessionCancellation(data: InsertPlayerSessionCancellation): Promise<PlayerSessionCancellation> {
+    const result = await db.insert(playerSessionCancellations).values(data).returning();
+    return result[0];
+  },
+
+  async getPlayerSessionCancellations(playerId: string): Promise<PlayerSessionCancellation[]> {
+    return db.select().from(playerSessionCancellations).where(eq(playerSessionCancellations.playerId, playerId)).orderBy(desc(playerSessionCancellations.createdAt));
   },
 
   // ==================== AUTO-RENEW ALERTS ====================
