@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { View, StyleSheet, Pressable, Alert, Platform, Text, Image as RNImage } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { DrawerContentComponentProps } from "@react-navigation/drawer";
+import { DrawerContentComponentProps, useDrawerStatus } from "@react-navigation/drawer";
 import * as Haptics from "expo-haptics";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 
@@ -24,19 +24,36 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
   
   const hasPlayerProfile = !!user?.playerId;
   const authReady = isAuthenticated && !authLoading && hasPlayerProfile;
+  const queryClient = useQueryClient();
+  const drawerStatus = useDrawerStatus();
   
-  const { data: profileData } = useQuery<{ player: { id: string; name: string; level: number; profilePhotoUrl?: string | null } }>({
+  const { data: profileData, isLoading, refetch } = useQuery<{ player: { id: string; name: string; level: number; profilePhotoUrl?: string | null } }>({
     queryKey: ["/api/player/me/profile"],
     enabled: authReady,
-    staleTime: 1000 * 30,
-    refetchOnMount: "always",
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
     retry: 2,
     retryDelay: 1000,
   });
   
-  const profilePhotoUrl = profileData?.player?.profilePhotoUrl 
-    ? `${getStaticAssetsUrl()}${profileData.player.profilePhotoUrl}` 
+  React.useEffect(() => {
+    if (drawerStatus === "open" && authReady) {
+      refetch();
+    }
+  }, [drawerStatus, authReady, refetch]);
+  
+  const rawPhotoUrl = profileData?.player?.profilePhotoUrl;
+  const profilePhotoUrl = rawPhotoUrl 
+    ? `${getStaticAssetsUrl()}${rawPhotoUrl}` 
     : null;
+
+  if (__DEV__) {
+    console.log("[DrawerContent] profileData:", JSON.stringify(profileData?.player, null, 2));
+    console.log("[DrawerContent] rawPhotoUrl:", rawPhotoUrl);
+    console.log("[DrawerContent] profilePhotoUrl:", profilePhotoUrl);
+  }
   
   const playerName = profileData?.player?.name ?? player.name;
   const playerLevel = profileData?.player?.level ?? player.level;
@@ -97,15 +114,22 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
           {profilePhotoUrl ? (
             Platform.OS === 'web' ? (
               <RNImage
+                key={profilePhotoUrl}
                 source={{ uri: profilePhotoUrl }}
-                style={styles.avatarImage}
+                style={[styles.avatarImage, { backgroundColor: "#333" }]}
                 resizeMode="cover"
+                onError={(e) => console.error("[DrawerContent] Image error (web):", e.nativeEvent)}
+                onLoad={() => console.log("[DrawerContent] Image loaded (web)")}
               />
             ) : (
               <Image
+                key={profilePhotoUrl}
                 source={{ uri: profilePhotoUrl }}
-                style={styles.avatarImage}
+                style={[styles.avatarImage, { backgroundColor: "#333" }]}
                 contentFit="cover"
+                cachePolicy="none"
+                onError={(e) => console.error("[DrawerContent] Image error (native):", e)}
+                onLoad={() => console.log("[DrawerContent] Image loaded (native)")}
               />
             )
           ) : (

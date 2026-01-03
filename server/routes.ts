@@ -10012,6 +10012,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastPlayedAt: row.last_played_at,
       }));
 
+      console.log("[Profile API] Returning player with profilePhotoUrl:", (player as any).profilePhotoUrl);
       res.json({
         player: {
           id: player.id,
