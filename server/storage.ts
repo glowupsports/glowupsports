@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, and, gte, lte, ne, or, inArray, ilike, sql, count, gt } from "drizzle-orm";
+import { eq, and, gte, lte, lt, ne, or, inArray, ilike, sql, count, gt } from "drizzle-orm";
 import { desc, asc } from "drizzle-orm";
 import {
   // Auth tables
@@ -1610,9 +1610,7 @@ export const storage = {
       eq(sessions.coachId, coachId),
       eq(sessions.status, "scheduled"),
       or(
-        and(lte(sessions.startTime, startTime), gte(sessions.endTime, startTime)),
-        and(lte(sessions.startTime, endTime), gte(sessions.endTime, endTime)),
-        and(gte(sessions.startTime, startTime), lte(sessions.endTime, endTime))
+        and(lt(sessions.startTime, endTime), gt(sessions.endTime, startTime))
       )
     ];
     
@@ -1633,9 +1631,7 @@ export const storage = {
       eq(sessions.courtId, courtId),
       eq(sessions.status, "scheduled"),
       or(
-        and(lte(sessions.startTime, startTime), gte(sessions.endTime, startTime)),
-        and(lte(sessions.startTime, endTime), gte(sessions.endTime, endTime)),
-        and(gte(sessions.startTime, startTime), lte(sessions.endTime, endTime))
+        and(lt(sessions.startTime, endTime), gt(sessions.endTime, startTime))
       )
     ];
     
@@ -1652,7 +1648,6 @@ export const storage = {
   },
 
   async checkPlayerConflict(playerId: string, startTime: Date, endTime: Date, excludeSessionId?: string, academyId?: string): Promise<boolean> {
-    // First get all sessions the player is in
     const playerSessions = await db
       .select({ sessionId: sessionPlayers.sessionId })
       .from(sessionPlayers)
@@ -1663,14 +1658,11 @@ export const storage = {
     const sessionIds = playerSessions.map(ps => ps.sessionId).filter((id): id is string => id !== null);
     if (sessionIds.length === 0) return false;
     
-    // Check if any of those sessions overlap with the proposed time
     const baseConditions = [
       inArray(sessions.id, sessionIds),
       eq(sessions.status, "scheduled"),
       or(
-        and(lte(sessions.startTime, startTime), gte(sessions.endTime, startTime)),
-        and(lte(sessions.startTime, endTime), gte(sessions.endTime, endTime)),
-        and(gte(sessions.startTime, startTime), lte(sessions.endTime, endTime))
+        and(lt(sessions.startTime, endTime), gt(sessions.endTime, startTime))
       )
     ];
     
