@@ -108,3 +108,4 @@ Before uploading to Play Store:
 - No mock/test data in production
 - No anonymous auth fallbacks
 - All auth failures must show UI feedback
+- **NEVER use relative URLs** like `fetch("/api/...")` - they fail in native mobile builds! Always use `apiFetch()`, `apiRequest()`, or `getApiUrl()` from `@/lib/query-client`
