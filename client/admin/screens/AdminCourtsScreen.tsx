@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -20,6 +21,7 @@ import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
 import { Colors, Spacing, BorderRadius, CardStyles, Typography } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 interface Court {
@@ -69,8 +71,37 @@ export default function AdminCourtsScreen() {
     photoUrl: "" as string | null,
   });
 
-  const pickAndUploadPhoto = async () => {
+  const pickAndUploadPhoto = async (courtId?: string) => {
+    if (Platform.OS === "web") {
+      Alert.alert("Not Available", "Photo upload is only available on mobile devices. Use Expo Go to access this feature.");
+      return;
+    }
+
     try {
+      // Request media library permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Required",
+          "We need access to your photo library to upload court photos.",
+          [
+            { text: "Cancel", style: "cancel" },
+            { 
+              text: "Open Settings", 
+              onPress: async () => {
+                try {
+                  await Linking.openSettings();
+                } catch (e) {
+                  console.warn("Could not open settings:", e);
+                }
+              }
+            },
+          ]
+        );
+        return;
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: "images",
         allowsEditing: true,
@@ -82,33 +113,55 @@ export default function AdminCourtsScreen() {
         setUploadingPhoto(true);
         const asset = result.assets[0];
         
+        // Get auth token for authenticated request
+        const token = await AsyncStorage.getItem("auth_token");
+        if (!token) {
+          Alert.alert("Error", "Not authenticated. Please log in again.");
+          setUploadingPhoto(false);
+          return;
+        }
+        
+        // Build FormData with proper React Native file handling
         const formDataUpload = new FormData();
         const uriParts = asset.uri.split(".");
-        const fileType = uriParts[uriParts.length - 1];
+        const fileType = uriParts[uriParts.length - 1] || "jpg";
         
-        formDataUpload.append("file", {
+        // React Native style FormData append (not expo-file-system File which is for different purposes)
+        formDataUpload.append("photo", {
           uri: asset.uri,
-          type: `image/${fileType}`,
+          type: `image/${fileType === "jpg" ? "jpeg" : fileType}`,
           name: `court-photo.${fileType}`,
         } as any);
         
+        // Include the courtId if we're editing an existing court
+        const targetCourtId = courtId || selectedCourt?.id;
+        if (targetCourtId) {
+          formDataUpload.append("courtId", targetCourtId);
+        }
+        
         const response = await fetch(new URL("/api/upload/court-photo", getApiUrl()).toString(), {
           method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+          },
           body: formDataUpload,
         });
         
         if (response.ok) {
           const data = await response.json();
-          setFormData({ ...formData, photoUrl: data.url });
+          setFormData(prev => ({ ...prev, photoUrl: data.photoUrl }));
+          invalidateCourts();
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } else {
-          Alert.alert("Error", "Failed to upload photo");
+          const errorData = await response.json().catch(() => ({}));
+          Alert.alert("Error", errorData.error || "Failed to upload photo");
         }
         setUploadingPhoto(false);
       }
     } catch (error) {
+      console.error("Photo upload error:", error);
       setUploadingPhoto(false);
-      Alert.alert("Error", "Failed to pick photo");
+      Alert.alert("Error", "Failed to pick or upload photo");
     }
   };
 

@@ -1,6 +1,9 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "node:http";
 import rateLimit from "express-rate-limit";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import { storage } from "./storage";
 import { db } from "./db";
 import { playerHolidays } from "@shared/schema";
@@ -52,6 +55,44 @@ const authLimiter = rateLimit({
   message: { error: "Too many login attempts, please try again later" },
   standardHeaders: true,
   legacyHeaders: false,
+});
+
+// File upload configuration
+const UPLOADS_DIR = path.join(process.cwd(), "uploads");
+const COURT_PHOTOS_DIR = path.join(UPLOADS_DIR, "court-photos");
+
+// Ensure upload directories exist
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+if (!fs.existsSync(COURT_PHOTOS_DIR)) {
+  fs.mkdirSync(COURT_PHOTOS_DIR, { recursive: true });
+}
+
+const courtPhotoStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, COURT_PHOTOS_DIR);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const ext = path.extname(file.originalname);
+    cb(null, `court-${uniqueSuffix}${ext}`);
+  },
+});
+
+const courtPhotoUpload = multer({
+  storage: courtPhotoStorage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB max
+  },
+  fileFilter: (_req, file, cb) => {
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only JPEG, PNG, WebP, and HEIC images are allowed."));
+    }
+  },
 });
 
 // Pagination helper
@@ -11456,6 +11497,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Delete court error:", error);
       res.status(500).json({ error: "Failed to delete court" });
+    }
+  });
+
+  // Court photo upload endpoint
+  app.post("/api/upload/court-photo", authMiddleware, requireRole("admin", "academy_owner", "platform_owner", "coach"), courtPhotoUpload.single("photo"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      const courtId = req.body.courtId;
+      
+      if (!courtId) {
+        return res.status(400).json({ error: "Court ID is required" });
+      }
+      
+      if (!req.file) {
+        return res.status(400).json({ error: "No photo file provided" });
+      }
+      
+      // Verify the court exists and belongs to the user's academy
+      const court = await storage.getCourt(courtId, academyId || undefined);
+      if (!court) {
+        // Delete the uploaded file if court doesn't exist
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (e) {
+          console.warn("Could not clean up orphaned upload:", e);
+        }
+        return res.status(404).json({ error: "Court not found" });
+      }
+      
+      // Generate the public URL for the uploaded file
+      const photoUrl = `/uploads/court-photos/${req.file.filename}`;
+      
+      // Update the court with the new photo URL
+      const updatedCourt = await storage.updateCourt(courtId, { photoUrl }, academyId || undefined);
+      
+      // Delete old photo if it exists and is different
+      if (court.photoUrl && court.photoUrl !== photoUrl) {
+        const oldPhotoPath = path.join(process.cwd(), court.photoUrl.replace(/^\//, ""));
+        if (fs.existsSync(oldPhotoPath)) {
+          try {
+            fs.unlinkSync(oldPhotoPath);
+          } catch (e) {
+            console.warn("Could not delete old photo:", e);
+          }
+        }
+      }
+      
+      await storage.createAuditLog({
+        academyId,
+        entityType: "court",
+        entityId: courtId,
+        action: "update",
+        performedBy: req.user?.coachId || null,
+        performedByRole: req.user?.role || null,
+        beforeState: { photoUrl: court.photoUrl },
+        afterState: { photoUrl },
+      });
+      
+      res.json({ 
+        success: true, 
+        photoUrl,
+        court: updatedCourt,
+      });
+    } catch (error) {
+      console.error("Court photo upload error:", error);
+      // Clean up uploaded file on error
+      if (req.file) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (e) {
+          console.warn("Could not clean up file:", e);
+        }
+      }
+      res.status(500).json({ error: "Failed to upload court photo" });
     }
   });
 
