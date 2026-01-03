@@ -14,6 +14,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import PinEntryModal from "@/components/PinEntryModal";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { getAuthToken } from "@/lib/auth";
 
 interface ProfileData {
   player: {
@@ -149,10 +150,12 @@ export default function PlayerProfileScreen() {
         type,
       } as any);
 
+      const token = getAuthToken();
+      
       const response = await fetch(`${getApiUrl()}/api/player/me/photo`, {
         method: "POST",
         body: formData,
-        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
 
       if (!response.ok) {

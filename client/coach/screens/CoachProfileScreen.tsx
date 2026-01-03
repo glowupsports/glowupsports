@@ -21,6 +21,7 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { getAuthToken } from "@/lib/auth";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 interface CoachProfile {
@@ -83,10 +84,12 @@ export default function CoachProfileScreen() {
         type,
       } as any);
 
+      const token = getAuthToken();
+      
       const response = await fetch(`${getApiUrl()}/api/coach/profile/photo`, {
         method: "POST",
         body: formData,
-        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
 
       if (!response.ok) {
