@@ -29,16 +29,6 @@ interface Court {
   isIndoor?: boolean;
 }
 
-interface ResetOptions {
-  sessions: boolean;
-  attendance: boolean;
-  payments: boolean;
-  progress: boolean;
-  feedback: boolean;
-  packages: boolean;
-  invoices: boolean;
-}
-
 export default function AdminSettingsScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -47,17 +37,6 @@ export default function AdminSettingsScreen() {
   const [editingCourt, setEditingCourt] = useState<Court | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [showResetModal, setShowResetModal] = useState(false);
-  const [resetConfirmation, setResetConfirmation] = useState("");
-  const [resetOptions, setResetOptions] = useState<ResetOptions>({
-    sessions: false,
-    attendance: false,
-    payments: false,
-    progress: false,
-    feedback: false,
-    packages: false,
-    invoices: false,
-  });
   const [profileData, setProfileData] = useState({
     name: "Glow Up Tennis Academy",
     email: "admin@glowuptennis.com",
@@ -125,84 +104,6 @@ export default function AdminSettingsScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
   });
-
-  const resetAcademyMutation = useMutation({
-    mutationFn: async ({ resetTypes, confirmationCode }: { resetTypes: ResetOptions; confirmationCode: string }) => {
-      return apiRequest("POST", "/api/academy/reset", { resetTypes, confirmationCode });
-    },
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries();
-      setShowResetModal(false);
-      setResetConfirmation("");
-      setResetOptions({
-        sessions: false,
-        attendance: false,
-        payments: false,
-        progress: false,
-        feedback: false,
-        packages: false,
-        invoices: false,
-      });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      if (Platform.OS === "web") {
-        window.alert("Academy data reset successfully!");
-      } else {
-        Alert.alert("Success", "Academy data has been reset successfully!");
-      }
-    },
-    onError: (err: Error) => {
-      if (Platform.OS === "web") {
-        window.alert(`Error: ${err.message}`);
-      } else {
-        Alert.alert("Error", err.message);
-      }
-    },
-  });
-
-  const handleOpenResetModal = () => {
-    setShowResetModal(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-  };
-
-  const handleCloseResetModal = () => {
-    setShowResetModal(false);
-    setResetConfirmation("");
-    setResetOptions({
-      sessions: false,
-      attendance: false,
-      payments: false,
-      progress: false,
-      feedback: false,
-      packages: false,
-      invoices: false,
-    });
-  };
-
-  const handleResetAcademy = () => {
-    const selectedCount = Object.values(resetOptions).filter(Boolean).length;
-    if (selectedCount === 0) {
-      if (Platform.OS === "web") {
-        window.alert("Please select at least one data type to reset");
-      } else {
-        Alert.alert("Error", "Please select at least one data type to reset");
-      }
-      return;
-    }
-    if (resetConfirmation !== "RESET") {
-      if (Platform.OS === "web") {
-        window.alert("Please type RESET to confirm");
-      } else {
-        Alert.alert("Error", "Please type RESET to confirm");
-      }
-      return;
-    }
-    resetAcademyMutation.mutate({ resetTypes: resetOptions, confirmationCode: resetConfirmation });
-  };
-
-  const toggleResetOption = (key: keyof ResetOptions) => {
-    setResetOptions(prev => ({ ...prev, [key]: !prev[key] }));
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
 
   const handleOpenCourtEdit = (court: Court) => {
     setEditingCourt(court);
@@ -438,23 +339,6 @@ export default function AdminSettingsScreen() {
                 <Text style={styles.menuSubtitle}>Send invitations to coaches and players</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
-            </View>
-          </Pressable>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Danger Zone</Text>
-          <Pressable
-            style={[styles.dangerCard, CardStyles.elevated]}
-            onPress={handleOpenResetModal}
-          >
-            <View style={styles.menuContent}>
-              <Ionicons name="refresh-outline" size={24} color={Colors.dark.error} />
-              <View style={styles.menuText}>
-                <Text style={[styles.menuTitle, { color: Colors.dark.error }]}>Reset Academy Data</Text>
-                <Text style={styles.menuSubtitle}>Selectively clear sessions, payments, progress</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={Colors.dark.error} />
             </View>
           </Pressable>
         </View>
@@ -742,86 +626,6 @@ export default function AdminSettingsScreen() {
           </KeyboardAwareScrollViewCompat>
         </View>
       </Modal>
-
-      <Modal
-        visible={showResetModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={handleCloseResetModal}
-      >
-        <View style={[styles.modalContainer, { paddingTop: insets.top + Spacing.lg }]}>
-          <View style={styles.modalHeader}>
-            <Pressable onPress={handleCloseResetModal}>
-              <Text style={styles.cancelButton}>Cancel</Text>
-            </Pressable>
-            <Text style={styles.modalTitle}>Reset Data</Text>
-            <Pressable
-              onPress={handleResetAcademy}
-              disabled={resetAcademyMutation.isPending}
-            >
-              <Text style={[styles.saveButton, { color: Colors.dark.error }, resetAcademyMutation.isPending && styles.disabledButton]}>
-                {resetAcademyMutation.isPending ? "Resetting..." : "Reset"}
-              </Text>
-            </Pressable>
-          </View>
-
-          <KeyboardAwareScrollViewCompat
-            style={styles.formScroll}
-            contentContainerStyle={styles.form}
-          >
-            <View style={styles.warningBanner}>
-              <Ionicons name="warning-outline" size={24} color={Colors.dark.error} />
-              <Text style={styles.warningText}>
-                This action is permanent. Selected data will be deleted and cannot be recovered.
-              </Text>
-            </View>
-
-            <Text style={[styles.sectionTitle, { marginTop: Spacing.lg }]}>Select Data to Reset</Text>
-
-            {[
-              { key: "sessions" as const, label: "Sessions", desc: "All scheduled lessons and appointments" },
-              { key: "attendance" as const, label: "Attendance Records", desc: "Player attendance history" },
-              { key: "feedback" as const, label: "Session Feedback", desc: "Coach feedback and skill observations" },
-              { key: "progress" as const, label: "Player Progress", desc: "XP, levels, skills, glow scores" },
-              { key: "packages" as const, label: "Credit Packages", desc: "Player lesson packages" },
-              { key: "invoices" as const, label: "Invoices", desc: "Generated invoice records" },
-              { key: "payments" as const, label: "Payments", desc: "Payment and refund records" },
-            ].map((item) => (
-              <Pressable
-                key={item.key}
-                style={[styles.resetOption, resetOptions[item.key] && styles.resetOptionSelected]}
-                onPress={() => toggleResetOption(item.key)}
-              >
-                <View style={styles.resetOptionCheck}>
-                  <Ionicons
-                    name={resetOptions[item.key] ? "checkbox" : "square-outline"}
-                    size={24}
-                    color={resetOptions[item.key] ? Colors.dark.error : Colors.dark.textMuted}
-                  />
-                </View>
-                <View style={styles.resetOptionContent}>
-                  <Text style={[styles.resetOptionLabel, resetOptions[item.key] && { color: Colors.dark.error }]}>
-                    {item.label}
-                  </Text>
-                  <Text style={styles.resetOptionDesc}>{item.desc}</Text>
-                </View>
-              </Pressable>
-            ))}
-
-            <View style={styles.formGroup}>
-              <Text style={[styles.label, { color: Colors.dark.error }]}>Type RESET to confirm</Text>
-              <TextInput
-                style={[styles.input, { borderColor: resetConfirmation === "RESET" ? Colors.dark.error : Colors.dark.border }]}
-                value={resetConfirmation}
-                onChangeText={setResetConfirmation}
-                placeholder="RESET"
-                placeholderTextColor={Colors.dark.textMuted}
-                autoCapitalize="characters"
-              />
-            </View>
-          </KeyboardAwareScrollViewCompat>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -997,54 +801,6 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.error,
     fontWeight: "600",
-  },
-  dangerCard: {
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: `${Colors.dark.error}30`,
-  },
-  warningBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: `${Colors.dark.error}15`,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    gap: Spacing.sm,
-  },
-  warningText: {
-    ...Typography.small,
-    color: Colors.dark.error,
-    flex: 1,
-  },
-  resetOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: Spacing.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-  },
-  resetOptionSelected: {
-    borderColor: Colors.dark.error,
-    backgroundColor: `${Colors.dark.error}10`,
-  },
-  resetOptionCheck: {
-    marginRight: Spacing.md,
-  },
-  resetOptionContent: {
-    flex: 1,
-  },
-  resetOptionLabel: {
-    ...Typography.body,
-    color: Colors.dark.text,
-    fontWeight: "600",
-  },
-  resetOptionDesc: {
-    ...Typography.caption,
-    color: Colors.dark.textMuted,
-    marginTop: 2,
   },
   modalContainer: {
     flex: 1,
