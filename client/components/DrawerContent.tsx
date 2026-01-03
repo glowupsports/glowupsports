@@ -17,17 +17,6 @@ import { useUIInteraction } from "@/contexts/UIInteractionContext";
 import { DRAWER_ITEMS } from "@/constants/playerData";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 
-interface DashboardPlayer {
-  id: string;
-  name: string;
-  level: number;
-  profilePhotoUrl?: string | null;
-}
-
-interface DashboardData {
-  player: DashboardPlayer;
-}
-
 export function DrawerContent({ navigation, state }: DrawerContentComponentProps) {
   const insets = useSafeAreaInsets();
   const { player } = usePlayer();
@@ -36,8 +25,8 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
   const hasPlayerProfile = !!user?.playerId;
   const authReady = isAuthenticated && !authLoading && hasPlayerProfile;
   
-  const { data: dashboardData } = useQuery<DashboardData>({
-    queryKey: ["/api/player/me/dashboard"],
+  const { data: profileData } = useQuery<{ player: { id: string; name: string; level: number; profilePhotoUrl?: string | null } }>({
+    queryKey: ["/api/player/me/profile"],
     enabled: authReady,
     staleTime: 1000 * 30,
     refetchOnMount: "always",
@@ -45,12 +34,12 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
     retryDelay: 1000,
   });
   
-  const profilePhotoUrl = dashboardData?.player?.profilePhotoUrl 
-    ? `${getStaticAssetsUrl()}${dashboardData.player.profilePhotoUrl}` 
+  const profilePhotoUrl = profileData?.player?.profilePhotoUrl 
+    ? `${getStaticAssetsUrl()}${profileData.player.profilePhotoUrl}` 
     : null;
   
-  const playerName = dashboardData?.player?.name ?? player.name;
-  const playerLevel = dashboardData?.player?.level ?? player.level;
+  const playerName = profileData?.player?.name ?? player.name;
+  const playerLevel = profileData?.player?.level ?? player.level;
 
   const { trackInteraction } = useUIInteraction();
   const [showReportModal, setShowReportModal] = useState(false);
