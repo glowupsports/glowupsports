@@ -637,10 +637,15 @@ export const storage = {
         await tx.delete(playerSessionCancellations).where(inArray(playerSessionCancellations.sessionId, sessionIds));
         await tx.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
         await tx.delete(sessionFeedback).where(inArray(sessionFeedback.sessionId, sessionIds));
+        await tx.delete(sessionSkillObservations).where(inArray(sessionSkillObservations.sessionId, sessionIds));
+        await tx.delete(playerNotes).where(inArray(playerNotes.sessionId, sessionIds));
+        await tx.delete(xpTransactions).where(inArray(xpTransactions.sessionId, sessionIds));
         if (coachIds.length > 0) {
           await tx.delete(coachXpTransactions).where(inArray(coachXpTransactions.sessionId, sessionIds));
           await tx.delete(coachEarnings).where(inArray(coachEarnings.sessionId, sessionIds));
         }
+        await tx.update(bookingRequests).set({ sessionId: null }).where(inArray(bookingRequests.sessionId, sessionIds));
+        await tx.update(invoices).set({ sessionId: null }).where(inArray(invoices.sessionId, sessionIds));
         const sesDel = await tx.delete(sessions).where(eq(sessions.academyId, id)).returning();
         deleted.sessions = sesDel.length;
       }
@@ -654,6 +659,28 @@ export const storage = {
         await tx.delete(sessionSkillObservations).where(inArray(sessionSkillObservations.playerId, playerIds));
         await tx.delete(packages).where(inArray(packages.playerId, playerIds));
         await tx.delete(bookingRequests).where(inArray(bookingRequests.playerId, playerIds));
+        await tx.delete(joinRequests).where(inArray(joinRequests.playerId, playerIds));
+        await tx.delete(playerNotes).where(inArray(playerNotes.playerId, playerIds));
+        await tx.delete(playerHolidays).where(inArray(playerHolidays.playerId, playerIds));
+        await tx.delete(playerMatches).where(or(
+          inArray(playerMatches.initiatorId, playerIds),
+          inArray(playerMatches.receiverId, playerIds)
+        ));
+        await tx.delete(playerConnections).where(or(
+          inArray(playerConnections.player1Id, playerIds),
+          inArray(playerConnections.player2Id, playerIds)
+        ));
+        await tx.delete(conversationParticipants).where(inArray(conversationParticipants.playerId, playerIds));
+        await tx.delete(messages).where(inArray(messages.senderPlayerId, playerIds));
+        await tx.delete(messageReactions).where(inArray(messageReactions.reactorPlayerId, playerIds));
+        await tx.delete(courtBookings).where(inArray(courtBookings.playerId, playerIds));
+        await tx.delete(academyTransferRequests).where(inArray(academyTransferRequests.playerId, playerIds));
+        await tx.delete(parentPlayerRelations).where(inArray(parentPlayerRelations.playerId, playerIds));
+        await tx.delete(reviewPrompts).where(inArray(reviewPrompts.playerId, playerIds));
+        await tx.delete(coachReviews).where(inArray(coachReviews.playerId, playerIds));
+        await tx.delete(sessionPlayers).where(inArray(sessionPlayers.playerId, playerIds));
+        await tx.delete(playerSessionCancellations).where(inArray(playerSessionCancellations.playerId, playerIds));
+        await tx.update(users).set({ playerId: null }).where(inArray(users.playerId, playerIds));
         const plaDel = await tx.delete(players).where(eq(players.academyId, id)).returning();
         deleted.players = plaDel.length;
       }
