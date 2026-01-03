@@ -12339,6 +12339,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const playerId = req.user?.playerId;
       const { sessionId } = req.params;
+      const { useMakeUpCredit } = req.body || {};
       
       if (!playerId) {
         return res.status(403).json({ error: "Player access required" });
@@ -12371,13 +12372,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Session is full. Join the waitlist instead." });
       }
 
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      // Determine credit cost based on session type
+      const sessionCredits = session.sessionType === "private" ? 2 : 1;
+      let creditsUsed = 0;
+      let makeUpUsed = false;
+      let paymentMethod = "credits";
+
+      // Check for make-up credits first if requested
+      if (useMakeUpCredit) {
+        const makeUpCredits = player.makeUpCredits || 0;
+        if (makeUpCredits > 0) {
+          // Use make-up credit
+          await storage.updatePlayer(playerId, {
+            makeUpCredits: makeUpCredits - 1,
+          });
+          makeUpUsed = true;
+          paymentMethod = "make_up_credit";
+        }
+      }
+
+      // If no make-up credit used, deduct regular credits
+      if (!makeUpUsed) {
+        const playerCredits = player.credits || 0;
+        if (playerCredits < sessionCredits) {
+          return res.status(400).json({ 
+            error: `Not enough credits. This session requires ${sessionCredits} credit(s). You have ${playerCredits}.`,
+            creditsRequired: sessionCredits,
+            creditsAvailable: playerCredits,
+            makeUpCreditsAvailable: player.makeUpCredits || 0,
+          });
+        }
+        
+        // Deduct credits
+        await storage.updatePlayer(playerId, {
+          credits: playerCredits - sessionCredits,
+        });
+        creditsUsed = sessionCredits;
+      }
+
       // Add player to session
       await db.insert(sessionPlayers).values({
         sessionId,
         playerId,
       });
 
-      res.json({ success: true, message: "Successfully joined the session!" });
+      // Log the credit transaction
+      await storage.createCreditTransaction({
+        playerId,
+        academyId: session.academyId || player.academyId,
+        type: "debit",
+        amount: makeUpUsed ? 0 : -sessionCredits,
+        reason: makeUpUsed ? "make_up_lesson_used" : "session_join",
+        sessionId,
+        metadata: JSON.stringify({
+          sessionType: session.sessionType,
+          paymentMethod,
+          makeUpUsed,
+        }),
+      });
+
+      const remainingCredits = makeUpUsed 
+        ? (player.credits || 0) 
+        : ((player.credits || 0) - sessionCredits);
+
+      res.json({ 
+        success: true, 
+        message: makeUpUsed 
+          ? "Joined with make-up credit!" 
+          : `Joined! ${sessionCredits} credit${sessionCredits > 1 ? "s" : ""} deducted.`,
+        creditsDeducted: creditsUsed,
+        makeUpUsed,
+        remainingCredits,
+      });
     } catch (error) {
       console.error("Join session error:", error);
       res.status(500).json({ error: "Failed to join session" });

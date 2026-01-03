@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Image, Alert, ImageBackground, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -63,6 +63,38 @@ export default function PlayScreen() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<typeof TAB_OPTIONS[number]>("Sessions");
   const [joiningSessionId, setJoiningSessionId] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const getCountdownText = (startTime: string) => {
+    const sessionDate = new Date(startTime);
+    const now = currentTime;
+    const diff = sessionDate.getTime() - now.getTime();
+    
+    if (diff <= 0) return { text: "Starting Now", urgent: true, expired: false };
+    
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    
+    if (hours > 24) {
+      const days = Math.floor(hours / 24);
+      return { text: `${days}d ${hours % 24}h left`, urgent: false, expired: false };
+    }
+    if (hours > 0) {
+      return { text: `${hours}h ${minutes}m left`, urgent: hours < 2, expired: false };
+    }
+    if (minutes > 0) {
+      return { text: `${minutes}m ${seconds}s left`, urgent: minutes < 30, expired: false };
+    }
+    return { text: `${seconds}s left`, urgent: true, expired: false };
+  };
 
   const { data: sessions, isLoading: sessionsLoading } = useQuery<PlaySession[]>({
     queryKey: ["/api/play/sessions"],
@@ -200,9 +232,26 @@ export default function PlayScreen() {
                 </View>
               </View>
 
-              <View style={styles.epicXpBadge}>
-                <Ionicons name="flame" size={16} color={Colors.dark.orange} />
-                <Text style={styles.epicXpText}>+{session.xpReward} XP</Text>
+              <View style={styles.epicBadgesRow}>
+                <View style={styles.epicXpBadge}>
+                  <Ionicons name="flame" size={16} color={Colors.dark.orange} />
+                  <Text style={styles.epicXpText}>+{session.xpReward} XP</Text>
+                </View>
+                {(() => {
+                  const countdown = getCountdownText(session.startTime);
+                  return (
+                    <View style={[styles.countdownBadge, countdown.urgent && styles.countdownUrgent]}>
+                      <Ionicons 
+                        name="timer-outline" 
+                        size={14} 
+                        color={countdown.urgent ? Colors.dark.error : Colors.dark.xpCyan} 
+                      />
+                      <Text style={[styles.countdownText, countdown.urgent && styles.countdownTextUrgent]}>
+                        {countdown.text}
+                      </Text>
+                    </View>
+                  );
+                })()}
               </View>
 
               <View style={styles.epicActionsRow}>
@@ -670,10 +719,15 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     marginHorizontal: 2,
   },
-  epicXpBadge: {
+  epicBadgesRow: {
     position: "absolute",
     top: 0,
     right: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  epicXpBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
@@ -683,6 +737,30 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     borderWidth: 1,
     borderColor: Colors.dark.orange + "40",
+  },
+  countdownBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "40",
+  },
+  countdownUrgent: {
+    backgroundColor: Colors.dark.error + "20",
+    borderColor: Colors.dark.error + "40",
+  },
+  countdownText: {
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+    fontSize: 11,
+  },
+  countdownTextUrgent: {
+    color: Colors.dark.error,
   },
   epicXpText: {
     ...Typography.body,
