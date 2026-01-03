@@ -634,6 +634,7 @@ export const storage = {
       }
       
       if (resetTypes.sessions && sessionIds.length > 0) {
+        await tx.delete(playerSessionCancellations).where(inArray(playerSessionCancellations.sessionId, sessionIds));
         await tx.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
         await tx.delete(sessionFeedback).where(inArray(sessionFeedback.sessionId, sessionIds));
         if (coachIds.length > 0) {
