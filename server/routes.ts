@@ -7829,11 +7829,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (ownerEmail && typeof ownerEmail === "string" && ownerEmail.includes("@")) {
+        const inviteToken = crypto.randomUUID();
         await storage.createInvite({
+          token: inviteToken,
           academyId: newAcademy.id,
-          email: ownerEmail.trim().toLowerCase(),
+          invitedEmail: ownerEmail.trim().toLowerCase(),
           role: "academy_owner",
-          status: "pending",
+          invitedBy: req.user!.id,
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         });
       }
@@ -10202,15 +10204,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let newPlayerCreated = false;
       const { academyId, motivationType, dateOfBirth, height, tshirtSize, dominantHand, backhandType, experienceLevel, enjoymentTags, focusGoals, selfConfidenceFlags } = req.body;
 
-      // Validate academy selection - required for onboarding
-      if (!academyId) {
-        return res.status(400).json({ error: "Academy selection is required" });
-      }
-
-      // Verify academy exists
-      const academy = await storage.getAcademy(academyId);
-      if (!academy) {
-        return res.status(400).json({ error: "Selected academy not found" });
+      // Academy selection is now optional - players can skip it
+      let selectedAcademyId = academyId || null;
+      
+      // If academyId provided, verify it exists
+      if (selectedAcademyId) {
+        const academy = await storage.getAcademy(selectedAcademyId);
+        if (!academy) {
+          return res.status(400).json({ error: "Selected academy not found" });
+        }
       }
 
       // If no player profile exists, create one during onboarding
@@ -10225,12 +10227,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ error: "User not found" });
         }
         
-        // Create player with the selected academy
+        // Create player with the selected academy (or null if skipped)
         const newPlayer = await storage.createPlayer({
           name: user.email.split("@")[0] || "Player",
           email: user.email,
           ballLevel: "green",
-          academyId: academyId,
+          academyId: selectedAcademyId,
           coachId: null,
         });
         
@@ -10238,12 +10240,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         newPlayerCreated = true;
         
         // Link the player to the user account and update their academy
-        await storage.updateUser(user.id, { playerId: newPlayer.id, academyId: academyId });
+        await storage.updateUser(user.id, { playerId: newPlayer.id, academyId: selectedAcademyId });
       }
 
       const updatedPlayer = await storage.updatePlayer(playerId, {
         onboardingCompleted: true,
-        academyId: academyId,
+        academyId: selectedAcademyId,
         motivationType,
         dateOfBirth,
         height,
