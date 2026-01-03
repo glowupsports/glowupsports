@@ -260,37 +260,30 @@ export default function PlayerProfileScreen() {
               onPress={handleChangePhoto}
               disabled={isUploadingPhoto}
             >
-              <LinearGradient
-                colors={["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#4B0082", "#9400D3"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.rainbowBorder}
-              >
-                {player.profilePhotoUrl ? (
-                  Platform.OS === 'web' ? (
-                    <RNImage
-                      source={{ uri: player.profilePhotoUrl.startsWith('http') ? player.profilePhotoUrl : `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
-                      style={styles.avatarImageWithBorder}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <Image
-                      source={{ uri: player.profilePhotoUrl.startsWith('http') ? player.profilePhotoUrl : `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
-                      style={styles.avatarImageWithBorder}
-                      contentFit="cover"
-                    />
-                  )
+              {player.profilePhotoUrl ? (
+                Platform.OS === 'web' ? (
+                  <RNImage
+                    source={{ uri: player.profilePhotoUrl.startsWith('http') ? player.profilePhotoUrl : `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                    style={styles.avatarImage}
+                    resizeMode="cover"
+                  />
                 ) : (
-                  <LinearGradient
-                    colors={[ballColor, Colors.dark.xpCyan]}
-                    style={styles.avatarGradientInner}
-                  >
-                    <View style={styles.avatarInner}>
-                      <Text style={styles.avatarText}>{player.name.charAt(0)}</Text>
-                    </View>
-                  </LinearGradient>
-                )}
-              </LinearGradient>
+                  <Image
+                    source={{ uri: player.profilePhotoUrl.startsWith('http') ? player.profilePhotoUrl : `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                    style={styles.avatarImage}
+                    contentFit="cover"
+                  />
+                )
+              ) : (
+                <LinearGradient
+                  colors={[ballColor, Colors.dark.xpCyan]}
+                  style={styles.avatarGradient}
+                >
+                  <View style={styles.avatarInner}>
+                    <Text style={styles.avatarText}>{player.name.charAt(0)}</Text>
+                  </View>
+                </LinearGradient>
+              )}
               <View style={[styles.levelBadgeOverlay, { backgroundColor: ballColor }]}>
                 <Text style={styles.levelBadgeText}>{player.level}</Text>
               </View>

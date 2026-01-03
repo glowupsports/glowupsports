@@ -299,12 +299,6 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigateToPro
             {/* LAAG 2: PRIMARY HERO ACTIONS */}
             {/* ═══════════════════════════════════════════════════════════ */}
             <View style={styles.heroActions}>
-              <LinearGradient
-                colors={["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#4B0082", "#9400D3"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.rainbowBar}
-              />
               <Pressable
                 style={({ pressed }) => [styles.heroButtonPrimary, pressed && styles.heroButtonPressed]}
                 onPress={() => {
