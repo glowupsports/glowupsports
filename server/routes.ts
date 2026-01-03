@@ -6514,6 +6514,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user!.userId;
       const coachId = req.user!.coachId;
+      const playerId = req.user!.playerId;
       const { token, platform, deviceName } = req.body;
 
       if (!token || !platform) {
@@ -6522,12 +6523,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const deviceToken = await storage.registerPushToken({
         userId,
-        coachId,
+        coachId: coachId || null,
+        playerId: playerId || null,
         token,
         platform,
         deviceName,
       });
 
+      console.log(`[PushNotifications] Registered token for user ${userId} (coach: ${coachId}, player: ${playerId})`);
       res.json(deviceToken);
     } catch (error) {
       console.error("Error registering push token:", error);

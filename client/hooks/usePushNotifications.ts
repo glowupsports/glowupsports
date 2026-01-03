@@ -105,49 +105,32 @@ export function usePushNotifications() {
   const registerTokenWithServer = useCallback(async (token: string) => {
     if (!user?.id) return;
 
-    const isCoach = user.role === 'coach' || user.role === 'admin';
-    
-    if (!isCoach) {
-      console.log('Push token registration skipped - player endpoints not yet implemented');
-      return;
-    }
-
     try {
-      const url = new URL('/api/coach/push-token', getApiUrl());
+      const url = new URL('/api/push/register', getApiUrl());
       await apiRequest('POST', url.toString(), {
         token,
         platform: Platform.OS,
-        deviceInfo: {
-          brand: Device.brand,
-          modelName: Device.modelName,
-          osVersion: Device.osVersion,
-        },
+        deviceName: `${Device.brand || 'Unknown'} ${Device.modelName || 'Device'}`,
       });
       
       setState(prev => ({ ...prev, isRegistered: true }));
+      console.log('Push token registered successfully');
     } catch (error) {
       console.error('Failed to register push token with server:', error);
     }
-  }, [user?.id, user?.role]);
+  }, [user?.id]);
 
   const unregisterToken = useCallback(async () => {
     if (!state.expoPushToken) return;
 
-    const isCoach = user?.role === 'coach' || user?.role === 'admin';
-    
-    if (!isCoach) {
-      setState(prev => ({ ...prev, isRegistered: false, expoPushToken: null }));
-      return;
-    }
-
     try {
-      const url = new URL('/api/coach/push-token', getApiUrl());
+      const url = new URL('/api/push/unregister', getApiUrl());
       await apiRequest('DELETE', url.toString(), { token: state.expoPushToken });
       setState(prev => ({ ...prev, isRegistered: false, expoPushToken: null }));
     } catch (error) {
       console.error('Failed to unregister push token:', error);
     }
-  }, [state.expoPushToken, user?.role]);
+  }, [state.expoPushToken]);
 
   const enableNotifications = useCallback(async () => {
     const token = await registerForPushNotificationsAsync();
