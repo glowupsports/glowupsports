@@ -12,11 +12,11 @@ interface SessionData {
   attendanceStatus: string;
   session: {
     id: string;
-    sessionDate: string;
     startTime: string;
     endTime: string;
     sessionType: string;
     courtName: string | null;
+    title: string;
   } | null;
   coachName: string | null;
 }
@@ -27,6 +27,7 @@ interface ScheduledSession {
   startTime: string;
   endTime: string;
   type: string;
+  title: string;
   coachName: string;
   courtName?: string;
   status: "upcoming" | "completed" | "cancelled";
@@ -53,22 +54,35 @@ export default function PlayerScheduleScreen() {
     if (!rawSessions) return [];
     const now = new Date();
     return rawSessions.map(s => {
-      const sessionDate = s.session?.sessionDate ? new Date(s.session.sessionDate) : new Date();
-      const startTime = s.session?.startTime || "00:00";
+      // Parse ISO date strings from API
+      const startDateTime = s.session?.startTime ? new Date(s.session.startTime) : new Date();
+      const endDateTime = s.session?.endTime ? new Date(s.session.endTime) : new Date();
       
-      const [hours, minutes] = startTime.split(":").map(Number);
-      const sessionDateTime = new Date(sessionDate);
-      sessionDateTime.setHours(hours || 0, minutes || 0, 0, 0);
+      const isPast = startDateTime < now;
       
-      const isPast = sessionDateTime < now;
+      // Format time as HH:mm for display
+      const formatTime = (date: Date) => {
+        const hours = date.getHours().toString().padStart(2, '0');
+        const mins = date.getMinutes().toString().padStart(2, '0');
+        return `${hours}:${mins}`;
+      };
+      
+      // Format date as YYYY-MM-DD for calendar matching
+      const formatDate = (date: Date) => {
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
       
       return {
         id: s.id,
-        date: sessionDate.toISOString().split("T")[0],
-        startTime: s.session?.startTime || "",
-        endTime: s.session?.endTime || "",
+        date: formatDate(startDateTime),
+        startTime: formatTime(startDateTime),
+        endTime: formatTime(endDateTime),
         type: s.session?.sessionType || "training",
-        coachName: s.coachName || "Coach",
+        title: s.session?.title || "Training Session",
+        coachName: s.coachName || "Your Coach",
         courtName: s.session?.courtName || undefined,
         status: s.attendanceStatus === "cancelled" ? "cancelled" : (isPast ? "completed" : "upcoming"),
       };
@@ -76,6 +90,14 @@ export default function PlayerScheduleScreen() {
   }, [rawSessions]);
 
   const data = sessions;
+
+  // Helper to format date as YYYY-MM-DD using local time
+  const formatLocalDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   const calendarDays = useMemo(() => {
     const year = currentMonth.getFullYear();
@@ -100,7 +122,7 @@ export default function PlayerScheduleScreen() {
 
     for (let day = 1; day <= lastDay.getDate(); day++) {
       const date = new Date(year, month, day);
-      const dateStr = date.toISOString().split("T")[0];
+      const dateStr = formatLocalDate(date);
       const daySessions = data.filter((s) => s.date === dateStr);
       
       days.push({
@@ -127,7 +149,7 @@ export default function PlayerScheduleScreen() {
 
   const selectedDateSessions = useMemo(() => {
     if (!selectedDate) return [];
-    const dateStr = selectedDate.toISOString().split("T")[0];
+    const dateStr = formatLocalDate(selectedDate);
     return data.filter((s) => s.date === dateStr);
   }, [selectedDate, data]);
 
@@ -265,9 +287,7 @@ export default function PlayerScheduleScreen() {
                   ) : null}
                 </View>
                 <Text style={styles.sessionType}>
-                  {session.type === "private" ? "Private Session" :
-                   session.type === "group" ? "Group Training" :
-                   session.type === "physical" ? "Physical Training" : "Training"}
+                  {session.title}
                 </Text>
                 <View style={styles.sessionDetails}>
                   {session.courtName ? (

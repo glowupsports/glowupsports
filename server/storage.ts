@@ -3945,11 +3945,13 @@ export const storage = {
     endDate: Date
   ): Promise<{
     id: string;
+    sessionPlayerId: string;
     startTime: Date;
     endTime: Date;
     sessionType: string | null;
     status: string | null;
     courtId: string | null;
+    coachId: string | null;
     attendanceStatus: string | null;
   }[]> {
     try {
@@ -3984,11 +3986,13 @@ export const storage = {
         const playerRecord = sessionPlayerRecords.find(sp => sp.sessionId === s.id);
         return {
           id: s.id,
+          sessionPlayerId: playerRecord?.id || s.id,
           startTime: s.startTime,
           endTime: s.endTime,
           sessionType: s.sessionType,
           status: s.status,
           courtId: s.courtId,
+          coachId: s.coachId,
           attendanceStatus: playerRecord?.attendanceStatus || null,
         };
       });

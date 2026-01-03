@@ -8671,6 +8671,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch player dashboard" });
     }
   });
+
+  // Get coach profile for player
+  app.get("/api/player/coach/:coachId", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { coachId } = req.params;
+      const coach = await storage.getCoach(coachId);
+      
+      if (!coach) {
+        return res.status(404).json({ error: "Coach not found" });
+      }
+      
+      // Get coach review stats
+      const reviewStats = await storage.getCoachReviewStats(coachId);
+      
+      // Get number of active players for this coach
+      const players = await storage.getPlayersByCoach(coachId);
+      const activePlayers = players.length;
+      
+      res.json({
+        id: coach.id,
+        name: coach.name,
+        email: coach.user?.email || null,
+        phone: coach.phone || null,
+        bio: coach.bio || null,
+        yearsExperience: coach.yearsExperience || 0,
+        specializations: coach.specializations || [],
+        certifications: coach.certifications || [],
+        playersCount: activePlayers,
+        averageRating: reviewStats?.averageRating || null,
+        reviewsCount: reviewStats?.totalReviews || 0,
+      });
+    } catch (error) {
+      console.error("Error fetching coach profile:", error);
+      res.status(500).json({ error: "Failed to fetch coach profile" });
+    }
+  });
   
   // Get player sessions
   app.get("/api/player/me/sessions", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
@@ -8689,21 +8725,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const sessions = await storage.getPlayerSessionsWithDetails(playerId, past, future);
       
-      // Enrich with court names
-      const playerSessions = await Promise.all(
-        sessions.map(async (session) => {
-          const court = session.courtId ? await storage.getCourt(session.courtId) : null;
-          return {
-            id: session.id,
-            startTime: session.startTime,
-            endTime: session.endTime,
-            sessionType: session.sessionType,
-            courtName: court?.name,
-            attended: session.attended === "present",
-            status: session.status,
-          };
-        })
-      );
+      // Batch fetch coaches and courts for efficiency
+      const coachIds = [...new Set(sessions.map(s => s.coachId).filter((id): id is string => !!id))];
+      const courtIds = [...new Set(sessions.map(s => s.courtId).filter((id): id is string => !!id))];
+      
+      // Fetch all coaches and their user info
+      const coachMap: Record<string, string> = {};
+      for (const coachId of coachIds) {
+        const coach = await storage.getCoach(coachId);
+        if (coach) {
+          const coachUser = await storage.getUserById(coach.userId);
+          coachMap[coachId] = coachUser?.name || coach.name || "Coach";
+        }
+      }
+      
+      // Fetch all courts
+      const courtMap: Record<string, string> = {};
+      for (const courtId of courtIds) {
+        const court = await storage.getCourt(courtId);
+        if (court) {
+          courtMap[courtId] = court.name;
+        }
+      }
+      
+      // Generate session title based on type
+      const getSessionTitle = (type: string | null) => {
+        switch (type) {
+          case "private": return "Private Training";
+          case "semi": return "Semi-Private Session";
+          case "group": return "Group Session";
+          case "physical": return "Physical Training";
+          case "activity": return "Activity Session";
+          default: return "Training Session";
+        }
+      };
+      
+      // Build response - let Express JSON serialize dates to ISO strings
+      const playerSessions = sessions.map((session) => ({
+        id: session.sessionPlayerId,
+        sessionId: session.id,
+        attendanceStatus: session.attendanceStatus || "pending",
+        session: {
+          id: session.id,
+          startTime: session.startTime,
+          endTime: session.endTime,
+          sessionType: session.sessionType,
+          courtName: session.courtId ? courtMap[session.courtId] || null : null,
+          title: getSessionTitle(session.sessionType),
+        },
+        coachName: session.coachId ? coachMap[session.coachId] || null : null,
+      }));
       
       res.json(playerSessions);
     } catch (error) {

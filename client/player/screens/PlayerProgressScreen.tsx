@@ -1,9 +1,10 @@
-import React from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable } from "react-native";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Haptics from "expo-haptics";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
 import Svg, { Polygon, Circle, Text as SvgText, Line } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
@@ -295,6 +296,132 @@ function LevelReadinessSection({
   );
 }
 
+function LevelExplanationModal({ 
+  visible, 
+  onClose, 
+  currentLevel 
+}: { 
+  visible: boolean; 
+  onClose: () => void;
+  currentLevel: number;
+}) {
+  const insets = useSafeAreaInsets();
+  
+  const getLevelTitle = (level: number) => {
+    if (level >= 30) return "Legend";
+    if (level >= 25) return "Champion";
+    if (level >= 20) return "Elite Competitor";
+    if (level >= 15) return "Rising Star";
+    if (level >= 10) return "Rising Force";
+    if (level >= 7) return "Contender";
+    if (level >= 5) return "Challenger";
+    if (level >= 3) return "Rising Player";
+    if (level >= 2) return "New Challenger";
+    return "Just Started";
+  };
+
+  const levelMilestones = [
+    { level: 1, title: "Just Started", unlocks: "Basic profile, session tracking", xp: 0 },
+    { level: 3, title: "Rising Player", unlocks: "Skill radar unlocked, basic badges", xp: 200 },
+    { level: 5, title: "Challenger", unlocks: "Coach messaging, session booking", xp: 400 },
+    { level: 7, title: "Contender", unlocks: "Court booking, match challenges", xp: 600 },
+    { level: 10, title: "Rising Force", unlocks: "Public profile, leaderboard entry", xp: 900 },
+    { level: 15, title: "Rising Star", unlocks: "Advanced analytics, training plans", xp: 1400 },
+    { level: 20, title: "Elite Competitor", unlocks: "Priority booking, coach selection", xp: 1900 },
+    { level: 25, title: "Champion", unlocks: "Premium features, special events", xp: 2400 },
+    { level: 30, title: "Legend", unlocks: "All features, lifetime status", xp: 2900 },
+  ];
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={modalStyles.overlay}>
+        <Pressable style={modalStyles.backdrop} onPress={onClose} />
+        <View style={[modalStyles.content, { paddingBottom: insets.bottom + 20 }]}>
+          <View style={modalStyles.header}>
+            <Text style={modalStyles.title}>Understanding Levels</Text>
+            <Pressable onPress={onClose}>
+              <Ionicons name="close-circle" size={28} color={Colors.dark.textMuted} />
+            </Pressable>
+          </View>
+
+          <ScrollView style={modalStyles.body} showsVerticalScrollIndicator={false}>
+            <View style={modalStyles.currentLevel}>
+              <View style={modalStyles.currentLevelCircle}>
+                <Text style={modalStyles.currentLevelNumber}>{currentLevel}</Text>
+              </View>
+              <View style={modalStyles.currentLevelInfo}>
+                <Text style={modalStyles.currentLevelTitle}>{getLevelTitle(currentLevel)}</Text>
+                <Text style={modalStyles.currentLevelDesc}>Your current rank</Text>
+              </View>
+            </View>
+
+            <View style={modalStyles.howToLevel}>
+              <Text style={modalStyles.sectionTitle}>How to Level Up</Text>
+              <View style={modalStyles.howToItem}>
+                <Ionicons name="calendar" size={18} color={Colors.dark.primary} />
+                <Text style={modalStyles.howToText}>Attend training sessions</Text>
+              </View>
+              <View style={modalStyles.howToItem}>
+                <Ionicons name="star" size={18} color={Colors.dark.xpCyan} />
+                <Text style={modalStyles.howToText}>Earn XP from coach feedback</Text>
+              </View>
+              <View style={modalStyles.howToItem}>
+                <Ionicons name="trophy" size={18} color={Colors.dark.orange} />
+                <Text style={modalStyles.howToText}>Complete skill assessments</Text>
+              </View>
+              <View style={modalStyles.howToItem}>
+                <Ionicons name="flame" size={18} color="#FF4444" />
+                <Text style={modalStyles.howToText}>Maintain training streaks</Text>
+              </View>
+            </View>
+
+            <View style={modalStyles.milestonesSection}>
+              <Text style={modalStyles.sectionTitle}>Level Milestones</Text>
+              {levelMilestones.map((milestone, index) => (
+                <View 
+                  key={milestone.level} 
+                  style={[
+                    modalStyles.milestone,
+                    currentLevel >= milestone.level && modalStyles.milestoneUnlocked
+                  ]}
+                >
+                  <View style={[
+                    modalStyles.milestoneBadge,
+                    currentLevel >= milestone.level && modalStyles.milestoneBadgeUnlocked
+                  ]}>
+                    <Text style={[
+                      modalStyles.milestoneLevelNum,
+                      currentLevel >= milestone.level && { color: "#fff" }
+                    ]}>
+                      {milestone.level}
+                    </Text>
+                  </View>
+                  <View style={modalStyles.milestoneInfo}>
+                    <Text style={modalStyles.milestoneTitle}>{milestone.title}</Text>
+                    <Text style={modalStyles.milestoneUnlocks}>{milestone.unlocks}</Text>
+                  </View>
+                  {currentLevel >= milestone.level ? (
+                    <Ionicons name="checkmark-circle" size={18} color={Colors.dark.primary} />
+                  ) : (
+                    <Ionicons name="lock-closed" size={16} color={Colors.dark.textMuted} />
+                  )}
+                </View>
+              ))}
+            </View>
+
+            <View style={modalStyles.xpInfo}>
+              <Ionicons name="flash" size={18} color={Colors.dark.xpCyan} />
+              <Text style={modalStyles.xpInfoText}>
+                Earn 500 XP to reach the next level. XP is awarded by your coach after each training session based on effort and improvement.
+              </Text>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 function SkillBar({ domain, onPress }: { domain: SkillDomain; onPress: () => void }) {
   const progress = domain.value / domain.maxValue;
   
@@ -350,6 +477,7 @@ function SkillBar({ domain, onPress }: { domain: SkillDomain; onPress: () => voi
 export default function PlayerProgressScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const [showLevelModal, setShowLevelModal] = useState(false);
 
   const handleDomainPress = (domainId: string) => {
     navigation.navigate("SkillDetail", { domain: domainId });
@@ -412,12 +540,21 @@ export default function PlayerProgressScreen() {
             </View>
             <Text style={styles.statLabel}>Glow Score</Text>
           </View>
-          <View style={styles.statCard}>
+          <Pressable 
+            style={styles.statCard}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowLevelModal(true);
+            }}
+          >
             <View style={styles.levelCircle}>
               <Text style={styles.levelValue}>{data.level}</Text>
             </View>
-            <Text style={styles.statLabel}>Level</Text>
-          </View>
+            <View style={styles.levelLabelRow}>
+              <Text style={styles.statLabel}>Level</Text>
+              <Ionicons name="information-circle-outline" size={12} color={Colors.dark.textMuted} />
+            </View>
+          </Pressable>
           <View style={styles.statCard}>
             <View style={styles.sessionsCircle}>
               <Text style={styles.sessionsValue}>{totalObservations}</Text>
@@ -503,6 +640,12 @@ export default function PlayerProgressScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      <LevelExplanationModal 
+        visible={showLevelModal}
+        onClose={() => setShowLevelModal(false)}
+        currentLevel={data.level}
+      />
     </View>
   );
 }
@@ -842,5 +985,156 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.textMuted,
     fontSize: 10,
+  },
+  levelLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+});
+
+const modalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.7)",
+  },
+  content: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    paddingTop: Spacing.lg,
+    maxHeight: "85%",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+  },
+  title: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  body: {
+    paddingHorizontal: Spacing.xl,
+  },
+  currentLevel: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.lg,
+    marginBottom: Spacing.xl,
+    padding: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+  },
+  currentLevelCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "rgba(46, 204, 64, 0.2)",
+    borderWidth: 3,
+    borderColor: Colors.dark.primary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  currentLevelNumber: {
+    ...Typography.h1,
+    color: Colors.dark.primary,
+    fontSize: 28,
+  },
+  currentLevelInfo: {
+    flex: 1,
+  },
+  currentLevelTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  currentLevelDesc: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  howToLevel: {
+    marginBottom: Spacing.xl,
+  },
+  sectionTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    marginBottom: Spacing.md,
+  },
+  howToItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  howToText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+  },
+  milestonesSection: {
+    marginBottom: Spacing.xl,
+  },
+  milestone: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.sm,
+    opacity: 0.6,
+  },
+  milestoneUnlocked: {
+    opacity: 1,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.dark.primary,
+  },
+  milestoneBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  milestoneBadgeUnlocked: {
+    backgroundColor: Colors.dark.primary,
+  },
+  milestoneLevelNum: {
+    ...Typography.body,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+  },
+  milestoneInfo: {
+    flex: 1,
+  },
+  milestoneTitle: {
+    ...Typography.small,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  milestoneUnlocks: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  xpInfo: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    backgroundColor: "rgba(0, 212, 255, 0.1)",
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.xl,
+  },
+  xpInfoText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    flex: 1,
   },
 });

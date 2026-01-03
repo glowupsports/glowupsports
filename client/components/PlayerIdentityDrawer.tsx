@@ -328,7 +328,7 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigateToPro
                 iconColor={Colors.dark.primary}
                 title="My Schedule"
                 subtitle="Training & games timeline"
-                onPress={() => { handleClose(); navigation.navigate("Schedule"); }}
+                onPress={() => { handleClose(); navigation.navigate("PlayerTabs", { screen: "Schedule" }); }}
               />
             </View>
 
@@ -351,7 +351,7 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigateToPro
                 iconColor={Colors.dark.primary}
                 title="Public Courts"
                 subtitle="Find courts near you"
-                onPress={() => navigateAndClose("PublicCourts")}
+                onPress={() => navigateAndClose("CourtBooking")}
               />
               <WorldMenuItem 
                 icon="flame"
@@ -381,14 +381,14 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigateToPro
                 iconColor={Colors.dark.primary}
                 title="Progress Overview"
                 subtitle="Technique, Mental, Physical"
-                onPress={() => { handleClose(); navigation.navigate("Progress"); }}
+                onPress={() => { handleClose(); navigation.navigate("PlayerTabs", { screen: "Progress" }); }}
               />
               <WorldMenuItem 
                 icon="map"
                 iconColor={Colors.dark.primary}
                 title="My Journey"
                 subtitle="Your tennis story"
-                onPress={() => { handleClose(); navigation.navigate("Journey"); }}
+                onPress={() => { handleClose(); navigation.navigate("PlayerTabs", { screen: "Journey" }); }}
               />
               <WorldMenuItem 
                 icon="chatbubbles"

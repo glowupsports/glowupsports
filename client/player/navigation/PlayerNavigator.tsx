@@ -34,6 +34,7 @@ import PlayerMessagesScreen from "@/player/screens/PlayerMessagesScreen";
 import PlayerNotificationsScreen from "@/player/screens/PlayerNotificationsScreen";
 import PlayerHelpScreen from "@/player/screens/PlayerHelpScreen";
 import PlayerPublicProfileScreen from "@/player/screens/PlayerPublicProfileScreen";
+import PlayerCoachProfileScreen from "@/player/screens/PlayerCoachProfileScreen";
 import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { Colors } from "@/constants/theme";
@@ -75,6 +76,7 @@ export type PlayerStackParamList = {
   PlayerNotifications: undefined;
   PlayerHelp: undefined;
   PublicProfile: { playerId?: string };
+  CoachProfile: { coachId: string };
 };
 
 const Tab = createBottomTabNavigator<PlayerTabParamList>();
@@ -356,8 +358,15 @@ function PlayerStackNavigator() {
           headerShown: true,
           headerTitle: "Player Profile",
           headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.textPrimary,
+          headerTintColor: Colors.dark.text,
           headerBackTitle: "Back",
+        }}
+      />
+      <Stack.Screen 
+        name="CoachProfile" 
+        component={PlayerCoachProfileScreen}
+        options={{
+          presentation: "card",
         }}
       />
     </Stack.Navigator>
