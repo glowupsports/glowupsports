@@ -65,6 +65,8 @@ import {
   coachCourtRules,
   // Player Booking System
   coachAvailability,
+  availabilityExceptions,
+  coachSettings,
   bookingRequests,
   // Player Social & Matches
   playerMatches,
@@ -347,7 +349,203 @@ export const storage = {
   },
 
   async deleteAcademy(id: string): Promise<void> {
-    await db.delete(academies).where(eq(academies.id, id));
+    // Delete all related data in proper order to respect foreign key constraints
+    // This is a comprehensive cascade delete - all academy data will be permanently removed
+    // Wrapped in a transaction for atomicity - if any step fails, all changes are rolled back
+    
+    await db.transaction(async (tx) => {
+      // First, collect all IDs we need for cascade deletion
+      const academyCoaches = await tx.select({ id: coaches.id }).from(coaches).where(eq(coaches.academyId, id));
+      const coachIds = academyCoaches.map(c => c.id);
+      
+      const academyPlayers = await tx.select({ id: players.id }).from(players).where(eq(players.academyId, id));
+      const playerIds = academyPlayers.map(p => p.id);
+      
+      const academySessions = await tx.select({ id: sessions.id }).from(sessions).where(eq(sessions.academyId, id));
+      const sessionIds = academySessions.map(s => s.id);
+      
+      const academyCourts = await tx.select({ id: courts.id }).from(courts).where(eq(courts.academyId, id));
+      const courtIds = academyCourts.map(c => c.id);
+      
+      const academyConversations = await tx.select({ id: conversations.id }).from(conversations).where(eq(conversations.academyId, id));
+      const conversationIds = academyConversations.map(c => c.id);
+      
+      const academyInvoiceRecords = await tx.select({ id: invoices.id }).from(invoices).where(eq(invoices.academyId, id));
+      const invoiceIds = academyInvoiceRecords.map(i => i.id);
+      
+      const academyPaymentRecords = await tx.select({ id: payments.id }).from(payments).where(eq(payments.academyId, id));
+      const paymentIds = academyPaymentRecords.map(p => p.id);
+      
+      const academyReviews = await tx.select({ id: coachReviews.id }).from(coachReviews).where(eq(coachReviews.academyId, id));
+      const reviewIds = academyReviews.map(r => r.id);
+      
+      // Get users associated with this academy for parentSettings cleanup
+      const academyUsers = await tx.select({ id: users.id }).from(users).where(eq(users.academyId, id));
+      const userIds = academyUsers.map(u => u.id);
+      
+      // Get message IDs for proper reaction cleanup
+      const academyMessages = await tx.select({ id: messages.id }).from(messages).where(eq(messages.academyId, id));
+      const messageIds = academyMessages.map(m => m.id);
+      
+      // ===== PHASE 1: Delete deepest nested relationships first =====
+      
+      // Delete review-related (deepest level)
+      if (reviewIds.length > 0) {
+        await tx.delete(reviewFlags).where(inArray(reviewFlags.reviewId, reviewIds));
+        await tx.delete(reviewResponses).where(inArray(reviewResponses.reviewId, reviewIds));
+      }
+      if (playerIds.length > 0) {
+        await tx.delete(reviewPrompts).where(inArray(reviewPrompts.playerId, playerIds));
+      }
+      if (coachIds.length > 0) {
+        await tx.delete(coachReviewStats).where(inArray(coachReviewStats.coachId, coachIds));
+      }
+      await tx.delete(coachReviews).where(eq(coachReviews.academyId, id));
+      
+      // Delete payment-related (refunds depend on payments)
+      if (paymentIds.length > 0) {
+        await tx.delete(refunds).where(inArray(refunds.paymentId, paymentIds));
+      }
+      
+      // Delete invoice-related (payment reminders depend on invoices)
+      if (invoiceIds.length > 0) {
+        await tx.delete(paymentReminders).where(inArray(paymentReminders.invoiceId, invoiceIds));
+      }
+      
+      // Delete message-related (reactions depend on messages)
+      if (messageIds.length > 0) {
+        await tx.delete(messageReactions).where(inArray(messageReactions.messageId, messageIds));
+      }
+      await tx.delete(messages).where(eq(messages.academyId, id));
+      
+      // Delete conversation-related
+      if (conversationIds.length > 0) {
+        await tx.delete(conversationParticipants).where(inArray(conversationParticipants.conversationId, conversationIds));
+      }
+      await tx.delete(conversations).where(eq(conversations.academyId, id));
+      
+      // ===== PHASE 2: Delete session-related data =====
+      
+      if (sessionIds.length > 0) {
+        await tx.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
+        await tx.delete(sessionFeedback).where(inArray(sessionFeedback.sessionId, sessionIds));
+        await tx.delete(sessionSkillObservations).where(inArray(sessionSkillObservations.sessionId, sessionIds));
+      }
+      await tx.delete(playerSessionCancellations).where(eq(playerSessionCancellations.academyId, id));
+      await tx.delete(sessions).where(eq(sessions.academyId, id));
+      await tx.delete(recurringSeries).where(eq(recurringSeries.academyId, id));
+      
+      // ===== PHASE 3: Delete court-related data =====
+      
+      if (courtIds.length > 0) {
+        await tx.delete(courtAvailability).where(inArray(courtAvailability.courtId, courtIds));
+        await tx.delete(courtBookings).where(inArray(courtBookings.courtId, courtIds));
+      }
+      // Also delete any court bookings directly by academyId
+      await tx.delete(courtBookings).where(eq(courtBookings.academyId, id));
+      
+      // ===== PHASE 4: Delete coach-related data =====
+      
+      if (coachIds.length > 0) {
+        await tx.delete(coachNotifications).where(inArray(coachNotifications.coachId, coachIds));
+        await tx.delete(coachAvailability).where(inArray(coachAvailability.coachId, coachIds));
+        await tx.delete(availabilityExceptions).where(inArray(availabilityExceptions.coachId, coachIds));
+        await tx.delete(coachCourtPreferences).where(inArray(coachCourtPreferences.coachId, coachIds));
+        await tx.delete(coachCourtRules).where(inArray(coachCourtRules.coachId, coachIds));
+        await tx.delete(coachSettings).where(inArray(coachSettings.coachId, coachIds));
+        await tx.delete(coachXpTransactions).where(inArray(coachXpTransactions.coachId, coachIds));
+        await tx.delete(coachStatsRollup).where(inArray(coachStatsRollup.coachId, coachIds));
+        await tx.delete(pushDeviceTokens).where(inArray(pushDeviceTokens.coachId, coachIds));
+        await tx.delete(notificationPreferences).where(inArray(notificationPreferences.coachId, coachIds));
+        await tx.delete(scheduledNotifications).where(inArray(scheduledNotifications.coachId, coachIds));
+        await tx.delete(offlineQueue).where(inArray(offlineQueue.coachId, coachIds));
+        await tx.delete(sessionTemplates).where(inArray(sessionTemplates.coachId, coachIds));
+        await tx.delete(coachEarnings).where(inArray(coachEarnings.coachId, coachIds));
+        await tx.delete(coachPaymentRules).where(inArray(coachPaymentRules.coachId, coachIds));
+      }
+      await tx.delete(coachPayouts).where(eq(coachPayouts.academyId, id));
+      
+      // ===== PHASE 5: Delete player-related data =====
+      
+      if (playerIds.length > 0) {
+        await tx.delete(playerNotes).where(inArray(playerNotes.playerId, playerIds));
+        await tx.delete(playerProgress).where(inArray(playerProgress.playerId, playerIds));
+        await tx.delete(playerHolidays).where(inArray(playerHolidays.playerId, playerIds));
+        await tx.delete(playerSkillState).where(inArray(playerSkillState.playerId, playerIds));
+        await tx.delete(playerProgressFlags).where(inArray(playerProgressFlags.playerId, playerIds));
+        await tx.delete(xpTransactions).where(inArray(xpTransactions.playerId, playerIds));
+        await tx.delete(domainAssessments).where(inArray(domainAssessments.playerId, playerIds));
+        await tx.delete(playerConnections).where(or(
+          inArray(playerConnections.player1Id, playerIds),
+          inArray(playerConnections.player2Id, playerIds)
+        ));
+        await tx.delete(playerMatches).where(or(
+          inArray(playerMatches.initiatorId, playerIds),
+          inArray(playerMatches.receiverId, playerIds)
+        ));
+        await tx.delete(parentPlayerRelations).where(inArray(parentPlayerRelations.playerId, playerIds));
+      }
+      
+      // ===== PHASE 6: Delete booking and request data =====
+      
+      await tx.delete(bookingRequests).where(eq(bookingRequests.academyId, id));
+      await tx.delete(joinRequests).where(eq(joinRequests.academyId, id));
+      await tx.delete(academyTransferRequests).where(or(
+        eq(academyTransferRequests.fromAcademyId, id),
+        eq(academyTransferRequests.toAcademyId, id)
+      ));
+      
+      // ===== PHASE 7: Delete billing and subscription data =====
+      
+      await tx.delete(payments).where(eq(payments.academyId, id));
+      await tx.delete(invoices).where(eq(invoices.academyId, id));
+      await tx.delete(packages).where(eq(packages.academyId, id));
+      await tx.delete(packageTemplates).where(eq(packageTemplates.academyId, id));
+      await tx.delete(playerSubscriptions).where(eq(playerSubscriptions.academyId, id));
+      await tx.delete(subscriptions).where(eq(subscriptions.academyId, id));
+      await tx.delete(billingAccounts).where(eq(billingAccounts.academyId, id));
+      
+      // ===== PHASE 8: Delete academy structure =====
+      
+      await tx.delete(courts).where(eq(courts.academyId, id));
+      await tx.delete(locations).where(eq(locations.academyId, id));
+      await tx.delete(auditLogs).where(eq(auditLogs.academyId, id));
+      await tx.delete(diagnosticReports).where(eq(diagnosticReports.academyId, id));
+      
+      // ===== PHASE 9: Delete invites and memberships =====
+      
+      await tx.delete(coachInvitations).where(eq(coachInvitations.academyId, id));
+      await tx.delete(invites).where(eq(invites.academyId, id));
+      await tx.delete(academyInvites).where(eq(academyInvites.academyId, id));
+      await tx.delete(coachAcademyMemberships).where(eq(coachAcademyMemberships.academyId, id));
+      await tx.delete(academySettings).where(eq(academySettings.academyId, id));
+      await tx.delete(academyOwnerProfiles).where(eq(academyOwnerProfiles.academyId, id));
+      
+      // ===== PHASE 10: Handle users and parent settings =====
+      
+      // Delete parent settings for users in this academy
+      if (userIds.length > 0) {
+        await tx.delete(parentSettings).where(inArray(parentSettings.userId, userIds));
+      }
+      
+      // Nullify user references (don't delete users, just disassociate them)
+      if (coachIds.length > 0) {
+        await tx.update(users).set({ coachId: null }).where(inArray(users.coachId, coachIds));
+      }
+      if (playerIds.length > 0) {
+        await tx.update(users).set({ playerId: null }).where(inArray(users.playerId, playerIds));
+      }
+      await tx.update(users).set({ academyId: null }).where(eq(users.academyId, id));
+      
+      // ===== PHASE 11: Delete players and coaches =====
+      
+      await tx.delete(players).where(eq(players.academyId, id));
+      await tx.delete(coaches).where(eq(coaches.academyId, id));
+      
+      // ===== PHASE 12: Finally, delete the academy =====
+      
+      await tx.delete(academies).where(eq(academies.id, id));
+    });
   },
 
   // Get academy public profile with coach count and player count
