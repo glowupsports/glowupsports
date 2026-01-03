@@ -9,6 +9,7 @@ import { BlurView } from "expo-blur";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import PlayerHomeScreen from "@/player/screens/PlayerHomeScreen";
 import PlayerJourneyScreen from "@/player/screens/PlayerJourneyScreen";
+import PlayScreen from "@/player/screens/PlayScreen";
 import PlayerTrainingScreen from "@/player/screens/PlayerTrainingScreen";
 import PlayerProgressScreen from "@/player/screens/PlayerProgressScreen";
 import PlayerScheduleScreen from "@/player/screens/PlayerScheduleScreen";
@@ -49,7 +50,7 @@ export { usePlayerDrawer };
 
 export type PlayerTabParamList = {
   Home: undefined;
-  Journey: undefined;
+  Play: undefined;
   Progress: undefined;
   Schedule: undefined;
   Profile: undefined;
@@ -123,12 +124,12 @@ function PlayerTabsContent() {
           }}
         />
         <Tab.Screen
-          name="Journey"
-          component={PlayerJourneyScreen}
+          name="Play"
+          component={PlayScreen}
           options={{
-            tabBarLabel: "Journey",
+            tabBarLabel: "Play",
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="map-outline" size={size} color={color} />
+              <Ionicons name="game-controller-outline" size={size} color={color} />
             ),
           }}
         />

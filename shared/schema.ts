@@ -770,6 +770,13 @@ export const sessions = pgTable("sessions", {
   ballLevel: text("ball_level"),
   skillLevel: integer("skill_level"),
   
+  title: text("title"), // Display name like "Sunset Rally", "Glow Doubles"
+  maxPlayers: integer("max_players").default(4), // Max players for group sessions
+  xpReward: integer("xp_reward").default(20), // XP earned for attending
+  vibe: text("vibe").default("casual"), // casual/competitive
+  minLevel: integer("min_level"), // Minimum player level
+  maxLevel: integer("max_level"), // Maximum player level
+  
   isRecurring: boolean("is_recurring").default(false),
   recurringGroupId: varchar("recurring_group_id"),
   weekCount: integer("week_count"), // 1/5/10/15/20
@@ -853,6 +860,69 @@ export const sessionPlayers = pgTable("session_players", {
 export const insertSessionPlayerSchema = createInsertSchema(sessionPlayers).omit({ id: true });
 export type InsertSessionPlayer = z.infer<typeof insertSessionPlayerSchema>;
 export type SessionPlayer = typeof sessionPlayers.$inferSelect;
+
+// Session Waitlist - Players waiting to join full sessions
+export const sessionWaitlist = pgTable("session_waitlist", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => sessions.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  
+  position: integer("position").notNull(), // 1, 2, 3... position in queue
+  xpBonusOnJoin: integer("xp_bonus_on_join").default(5), // Bonus XP if they get in
+  
+  status: text("status").default("waiting"), // waiting/promoted/cancelled/expired
+  promotedAt: timestamp("promoted_at"), // When they got a spot
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSessionWaitlistSchema = createInsertSchema(sessionWaitlist).omit({ id: true, createdAt: true });
+export type InsertSessionWaitlist = z.infer<typeof insertSessionWaitlistSchema>;
+export type SessionWaitlist = typeof sessionWaitlist.$inferSelect;
+
+// Squads - Groups of players who play together
+export const squads = pgTable("squads", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id),
+  
+  name: text("name").notNull(), // "Maple Wolves", "Night Owls"
+  description: text("description"),
+  badge: text("badge"), // Icon or badge identifier
+  
+  totalXp: integer("total_xp").default(0), // Combined XP earned as squad
+  weekStreak: integer("week_streak").default(0), // Weeks playing together
+  
+  maxMembers: integer("max_members").default(8),
+  isPublic: boolean("is_public").default(true), // Can others join?
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSquadSchema = createInsertSchema(squads).omit({ id: true, createdAt: true });
+export type InsertSquad = z.infer<typeof insertSquadSchema>;
+export type Squad = typeof squads.$inferSelect;
+
+// Squad Members - Players in squads
+export const squadMembers = pgTable("squad_members", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  squadId: varchar("squad_id").references(() => squads.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  
+  role: text("role").default("member"), // leader/captain/member
+  joinedAt: timestamp("joined_at").defaultNow(),
+  
+  xpContributed: integer("xp_contributed").default(0), // XP earned for this squad
+});
+
+export const insertSquadMemberSchema = createInsertSchema(squadMembers).omit({ id: true, joinedAt: true });
+export type InsertSquadMember = z.infer<typeof insertSquadMemberSchema>;
+export type SquadMember = typeof squadMembers.$inferSelect;
 
 // Player Session Cancellations - Detailed tracking for cancellations/unavailability
 export const playerSessionCancellations = pgTable("player_session_cancellations", {

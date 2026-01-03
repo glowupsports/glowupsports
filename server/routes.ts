@@ -8,7 +8,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { playerHolidays } from "@shared/schema";
 import { eq, sql, desc } from "drizzle-orm";
-import { invoices, payments } from "@shared/schema";
+import { invoices, payments, sessionPlayers, sessionWaitlist } from "@shared/schema";
 import { setupWebSocket, broadcastNewMessage } from "./websocket";
 import { 
   hashPassword, 
@@ -12017,6 +12017,278 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Cancel booking request error:", error);
       res.status(500).json({ error: "Failed to cancel booking request" });
+    }
+  });
+
+  // ==================== PLAY SCREEN (MMO STYLE) ====================
+
+  // Get available sessions for Play screen
+  app.get("/api/play/sessions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const academyId = req.user?.academyId;
+      
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+
+      // Get upcoming group/semi sessions from player's academy + public sessions
+      const now = new Date();
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 14); // Next 2 weeks
+
+      const sessions = await db.query.sessions.findMany({
+        where: (s, { and, or, eq, gte, lte, inArray }) => and(
+          or(
+            eq(s.academyId, academyId || ""),
+            eq(s.academyId, null as any) // Public sessions
+          ),
+          inArray(s.sessionType, ["group", "semi"]),
+          eq(s.status, "scheduled"),
+          gte(s.startTime, now),
+          lte(s.startTime, futureDate)
+        ),
+        orderBy: (s, { asc }) => [asc(s.startTime)],
+        limit: 20,
+      });
+
+      // Enrich sessions with player count and player info
+      const enrichedSessions = await Promise.all(sessions.map(async (session) => {
+        // Get players in this session
+        const sessionPlayerRecords = await db.query.sessionPlayers.findMany({
+          where: (sp, { eq }) => eq(sp.sessionId, session.id),
+        });
+        
+        const playerIds = sessionPlayerRecords.map(sp => sp.playerId).filter(Boolean) as string[];
+        const players = playerIds.length > 0 
+          ? await db.query.players.findMany({
+              where: (p, { inArray }) => inArray(p.id, playerIds),
+            })
+          : [];
+
+        // Get coach info
+        let coachName = null;
+        if (session.coachId) {
+          const coach = await storage.getCoach(session.coachId);
+          coachName = coach?.name || null;
+        }
+
+        // Get location info
+        let locationName = "Location TBD";
+        if (session.locationId) {
+          const location = await storage.getLocation(session.locationId);
+          locationName = location?.name || "Location TBD";
+        }
+
+        // Get court info
+        let courtName = null;
+        if (session.courtId) {
+          const court = await storage.getCourt(session.courtId);
+          courtName = court?.name || null;
+        }
+
+        // Check waitlist
+        const waitlistRecords = await db.query.sessionWaitlist.findMany({
+          where: (w, { and, eq }) => and(
+            eq(w.sessionId, session.id),
+            eq(w.status, "waiting")
+          ),
+        });
+
+        const maxPlayers = session.maxPlayers || 4;
+        const currentPlayers = players.length;
+        let status: "open" | "almost_full" | "full" = "open";
+        if (currentPlayers >= maxPlayers) status = "full";
+        else if (maxPlayers - currentPlayers === 1) status = "almost_full";
+
+        return {
+          id: session.id,
+          title: session.title || `${session.sessionType === "group" ? "Group" : "Semi"} Training`,
+          sessionType: session.sessionType,
+          startTime: session.startTime.toISOString(),
+          endTime: session.endTime.toISOString(),
+          locationName,
+          courtName,
+          coachName,
+          coachId: session.coachId,
+          ballLevel: session.ballLevel,
+          vibe: session.vibe || "casual",
+          minLevel: session.minLevel,
+          maxLevel: session.maxLevel,
+          xpReward: session.xpReward || 20,
+          maxPlayers,
+          currentPlayers,
+          players: players.map(p => ({
+            id: p.id,
+            name: p.name,
+            level: p.level || 1,
+            ballLevel: p.ballLevel,
+          })),
+          waitlistCount: waitlistRecords.length,
+          status,
+        };
+      }));
+
+      res.json(enrichedSessions);
+    } catch (error) {
+      console.error("Play sessions error:", error);
+      res.status(500).json({ error: "Failed to fetch play sessions" });
+    }
+  });
+
+  // Get nearby players for Play screen
+  app.get("/api/play/nearby-players", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const academyId = req.user?.academyId;
+      
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+
+      // Get players from the same academy (or public players)
+      const players = await db.query.players.findMany({
+        where: (p, { and, eq, ne }) => and(
+          eq(p.academyId, academyId || ""),
+          ne(p.id, playerId),
+          eq(p.status, "active")
+        ),
+        limit: 20,
+      });
+
+      // Get mutual session count for each player
+      const enrichedPlayers = await Promise.all(players.map(async (player) => {
+        // Count sessions where both players participated
+        const mutualSessions = await db.execute(sql`
+          SELECT COUNT(DISTINCT sp1.session_id) as count
+          FROM session_players sp1
+          JOIN session_players sp2 ON sp1.session_id = sp2.session_id
+          WHERE sp1.player_id = ${playerId} 
+          AND sp2.player_id = ${player.id}
+        `);
+        
+        const mutualCount = Number(mutualSessions.rows[0]?.count || 0);
+
+        return {
+          id: player.id,
+          name: player.name,
+          level: player.level || 1,
+          avatarUrl: player.avatarUrl,
+          vibe: player.preferredPlayType || "casual",
+          mutualSessions: mutualCount,
+          preferredTime: player.preferredTime || undefined,
+        };
+      }));
+
+      // Sort by mutual sessions first, then by level proximity
+      enrichedPlayers.sort((a, b) => b.mutualSessions - a.mutualSessions);
+
+      res.json(enrichedPlayers);
+    } catch (error) {
+      console.error("Nearby players error:", error);
+      res.status(500).json({ error: "Failed to fetch nearby players" });
+    }
+  });
+
+  // Join a session
+  app.post("/api/play/sessions/:sessionId/join", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const { sessionId } = req.params;
+      
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+
+      const session = await storage.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      // Check if already joined
+      const existingPlayer = await db.query.sessionPlayers.findFirst({
+        where: (sp, { and, eq }) => and(
+          eq(sp.sessionId, sessionId),
+          eq(sp.playerId, playerId)
+        ),
+      });
+
+      if (existingPlayer) {
+        return res.status(400).json({ error: "Already joined this session" });
+      }
+
+      // Check capacity
+      const currentPlayers = await db.query.sessionPlayers.findMany({
+        where: (sp, { eq }) => eq(sp.sessionId, sessionId),
+      });
+
+      const maxPlayers = session.maxPlayers || 4;
+      if (currentPlayers.length >= maxPlayers) {
+        return res.status(400).json({ error: "Session is full. Join the waitlist instead." });
+      }
+
+      // Add player to session
+      await db.insert(sessionPlayers).values({
+        sessionId,
+        playerId,
+      });
+
+      res.json({ success: true, message: "Successfully joined the session!" });
+    } catch (error) {
+      console.error("Join session error:", error);
+      res.status(500).json({ error: "Failed to join session" });
+    }
+  });
+
+  // Join session waitlist
+  app.post("/api/play/sessions/:sessionId/waitlist", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const { sessionId } = req.params;
+      
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+
+      // Check if already on waitlist
+      const existingWaitlist = await db.query.sessionWaitlist.findFirst({
+        where: (w, { and, eq }) => and(
+          eq(w.sessionId, sessionId),
+          eq(w.playerId, playerId),
+          eq(w.status, "waiting")
+        ),
+      });
+
+      if (existingWaitlist) {
+        return res.status(400).json({ error: "Already on the waitlist" });
+      }
+
+      // Get current position
+      const waitlistCount = await db.query.sessionWaitlist.findMany({
+        where: (w, { and, eq }) => and(
+          eq(w.sessionId, sessionId),
+          eq(w.status, "waiting")
+        ),
+      });
+
+      const position = waitlistCount.length + 1;
+
+      await db.insert(sessionWaitlist).values({
+        sessionId,
+        playerId,
+        position,
+        xpBonusOnJoin: 5,
+        status: "waiting",
+      });
+
+      res.json({ 
+        success: true, 
+        position,
+        message: `You're #${position} on the waitlist. +5 XP if you get in!` 
+      });
+    } catch (error) {
+      console.error("Join waitlist error:", error);
+      res.status(500).json({ error: "Failed to join waitlist" });
     }
   });
 
