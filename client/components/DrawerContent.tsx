@@ -38,7 +38,8 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
   const { data: dashboardData } = useQuery<DashboardData>({
     queryKey: ["/api/player/me/dashboard"],
     enabled: authReady,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 30,
+    refetchOnMount: "always",
     retry: 2,
     retryDelay: 1000,
   });
