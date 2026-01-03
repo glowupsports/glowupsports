@@ -26,43 +26,34 @@ function setupSecurityHeaders(app: express.Application) {
   });
 }
 
+function isAllowedOrigin(origin: string): boolean {
+  if (!origin) return false;
+  
+  try {
+    const url = new URL(origin);
+    const hostname = url.hostname;
+    
+    // Allow all Replit domains (both .replit.dev and .repl.co variants)
+    if (hostname.endsWith('.replit.dev') || hostname.endsWith('.repl.co') || hostname.endsWith('.replit.app')) {
+      return true;
+    }
+    
+    // Allow localhost for development
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return true;
+    }
+    
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 function setupCors(app: express.Application) {
   app.use((req, res, next) => {
-    const origins = new Set<string>();
-
-    if (process.env.REPLIT_DEV_DOMAIN) {
-      const devDomain = process.env.REPLIT_DEV_DOMAIN;
-      origins.add(`https://${devDomain}`);
-      origins.add(`https://${devDomain}:5000`);
-      origins.add(`https://${devDomain}:8081`);
-      
-      // Also allow .repl.co variant (Replit uses both .replit.dev and .repl.co)
-      const replCoVariant = devDomain.replace('.replit.dev', '.repl.co');
-      if (replCoVariant !== devDomain) {
-        origins.add(`https://${replCoVariant}`);
-        origins.add(`https://${replCoVariant}:5000`);
-        origins.add(`https://${replCoVariant}:8081`);
-      }
-    }
-
-    if (process.env.REPLIT_DOMAINS) {
-      process.env.REPLIT_DOMAINS.split(",").forEach((d) => {
-        const domain = d.trim();
-        origins.add(`https://${domain}`);
-        origins.add(`https://${domain}:5000`);
-        
-        // Also allow .repl.co variant
-        const replCoVariant = domain.replace('.replit.dev', '.repl.co');
-        if (replCoVariant !== domain) {
-          origins.add(`https://${replCoVariant}`);
-          origins.add(`https://${replCoVariant}:5000`);
-        }
-      });
-    }
-
     const origin = req.header("origin");
 
-    if (origin && origins.has(origin)) {
+    if (origin && isAllowedOrigin(origin)) {
       res.header("Access-Control-Allow-Origin", origin);
       res.header(
         "Access-Control-Allow-Methods",

@@ -1,4 +1,4 @@
-import React, { useState, createContext, useContext } from "react";
+import React, { useState } from "react";
 import { useNavigation } from "@react-navigation/native";
 import { StyleSheet, View, Platform, ActivityIndicator } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -39,9 +39,9 @@ import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { PlayerDrawerProvider, usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 
-const DrawerContext = createContext<{ openDrawer: () => void }>({ openDrawer: () => {} });
-export const usePlayerDrawer = () => useContext(DrawerContext);
+export { usePlayerDrawer };
 
 export type PlayerTabParamList = {
   Home: undefined;
@@ -161,9 +161,14 @@ function PlayerTabsContent() {
   );
 }
 
-function PlayerTabs() {
+function PlayerTabsWithDrawer() {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const navigation = useNavigation<any>();
+  const { setOpenDrawer } = usePlayerDrawer();
+  
+  React.useEffect(() => {
+    setOpenDrawer(() => setDrawerVisible(true));
+  }, [setOpenDrawer]);
   
   const navigateToProfile = () => {
     setDrawerVisible(false);
@@ -173,16 +178,22 @@ function PlayerTabs() {
   };
   
   return (
-    <DrawerContext.Provider value={{ openDrawer: () => setDrawerVisible(true) }}>
-      <View style={{ flex: 1 }}>
-        <PlayerTabsContent />
-        <PlayerIdentityDrawer 
-          visible={drawerVisible} 
-          onClose={() => setDrawerVisible(false)}
-          onNavigateToProfile={navigateToProfile}
-        />
-      </View>
-    </DrawerContext.Provider>
+    <View style={{ flex: 1 }}>
+      <PlayerTabsContent />
+      <PlayerIdentityDrawer 
+        visible={drawerVisible} 
+        onClose={() => setDrawerVisible(false)}
+        onNavigateToProfile={navigateToProfile}
+      />
+    </View>
+  );
+}
+
+function PlayerTabs() {
+  return (
+    <PlayerDrawerProvider>
+      <PlayerTabsWithDrawer />
+    </PlayerDrawerProvider>
   );
 }
 
