@@ -563,6 +563,7 @@ export const storage = {
     feedback?: boolean;
     packages?: boolean;
     invoices?: boolean;
+    players?: boolean;
   }): Promise<{ deleted: Record<string, number> }> {
     const deleted: Record<string, number> = {};
     
@@ -643,9 +644,65 @@ export const storage = {
         const sesDel = await tx.delete(sessions).where(eq(sessions.academyId, id)).returning();
         deleted.sessions = sesDel.length;
       }
+      
+      if (resetTypes.players && playerIds.length > 0) {
+        await tx.delete(playerProgress).where(inArray(playerProgress.playerId, playerIds));
+        await tx.delete(playerSkillState).where(inArray(playerSkillState.playerId, playerIds));
+        await tx.delete(playerProgressFlags).where(inArray(playerProgressFlags.playerId, playerIds));
+        await tx.delete(domainAssessments).where(inArray(domainAssessments.playerId, playerIds));
+        await tx.delete(xpTransactions).where(inArray(xpTransactions.playerId, playerIds));
+        await tx.delete(sessionSkillObservations).where(inArray(sessionSkillObservations.playerId, playerIds));
+        await tx.delete(packages).where(inArray(packages.playerId, playerIds));
+        await tx.delete(bookingRequests).where(inArray(bookingRequests.playerId, playerIds));
+        await tx.delete(playerReviews).where(inArray(playerReviews.playerId, playerIds));
+        const plaDel = await tx.delete(players).where(eq(players.academyId, id)).returning();
+        deleted.players = plaDel.length;
+      }
     });
     
     return { deleted };
+  },
+
+  async getAcademyResetCounts(academyId: string): Promise<{
+    sessions: number;
+    attendance: number;
+    payments: number;
+    progress: number;
+    feedback: number;
+    packages: number;
+    invoices: number;
+    players: number;
+  }> {
+    const [sessionsCount] = await db.select({ count: count() }).from(sessions).where(eq(sessions.academyId, academyId));
+    const [playersCount] = await db.select({ count: count() }).from(players).where(eq(players.academyId, academyId));
+    const [attendanceCount] = await db.select({ count: count() }).from(sessionPlayers)
+      .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+      .where(eq(sessions.academyId, academyId));
+    const [paymentsCount] = await db.select({ count: count() }).from(payments).where(eq(payments.academyId, academyId));
+    const [feedbackCount] = await db.select({ count: count() }).from(sessionFeedback)
+      .innerJoin(sessions, eq(sessionFeedback.sessionId, sessions.id))
+      .where(eq(sessions.academyId, academyId));
+    const [packagesCount] = await db.select({ count: count() }).from(packages).where(eq(packages.academyId, academyId));
+    const [invoicesCount] = await db.select({ count: count() }).from(invoices).where(eq(invoices.academyId, academyId));
+    
+    const academyPlayerIds = await db.select({ id: players.id }).from(players).where(eq(players.academyId, academyId));
+    const playerIds = academyPlayerIds.map(p => p.id);
+    let progressCount = 0;
+    if (playerIds.length > 0) {
+      const [xpCount] = await db.select({ count: count() }).from(xpTransactions).where(inArray(xpTransactions.playerId, playerIds));
+      progressCount = xpCount?.count || 0;
+    }
+    
+    return {
+      sessions: sessionsCount?.count || 0,
+      attendance: attendanceCount?.count || 0,
+      payments: paymentsCount?.count || 0,
+      progress: progressCount,
+      feedback: feedbackCount?.count || 0,
+      packages: packagesCount?.count || 0,
+      invoices: invoicesCount?.count || 0,
+      players: playersCount?.count || 0,
+    };
   },
 
   // Get academy public profile with coach count and player count

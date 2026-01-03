@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Platform,
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
@@ -20,6 +20,18 @@ interface ResetOptions {
   feedback: boolean;
   packages: boolean;
   invoices: boolean;
+  players: boolean;
+}
+
+interface ResetCounts {
+  sessions: number;
+  attendance: number;
+  payments: number;
+  progress: number;
+  feedback: number;
+  packages: number;
+  invoices: number;
+  players: number;
 }
 
 type NavigationProp = NativeStackNavigationProp<OwnerStackParamList>;
@@ -103,7 +115,14 @@ export default function SettingsScreen() {
     feedback: false,
     packages: false,
     invoices: false,
+    players: false,
   });
+
+  const { data: resetCountsData } = useQuery<{ counts: ResetCounts }>({
+    queryKey: ["/api/academy/reset-counts"],
+    enabled: showResetModal,
+  });
+  const resetCounts = resetCountsData?.counts;
 
   const resetAcademyMutation = useMutation({
     mutationFn: async ({ resetTypes, confirmationCode }: { resetTypes: ResetOptions; confirmationCode: string }) => {
@@ -121,6 +140,7 @@ export default function SettingsScreen() {
         feedback: false,
         packages: false,
         invoices: false,
+        players: false,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (Platform.OS === "web") {
@@ -154,6 +174,7 @@ export default function SettingsScreen() {
       feedback: false,
       packages: false,
       invoices: false,
+      players: false,
     });
   };
 
@@ -182,14 +203,15 @@ export default function SettingsScreen() {
     setResetOptions(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const RESET_OPTIONS_LIST = [
-    { key: "sessions" as const, label: "Sessions", desc: "All scheduled and past sessions" },
-    { key: "attendance" as const, label: "Attendance", desc: "Player attendance records" },
-    { key: "payments" as const, label: "Payments", desc: "Payment records and transactions" },
-    { key: "progress" as const, label: "Progress", desc: "Player XP, levels, and skill data" },
-    { key: "feedback" as const, label: "Feedback", desc: "Session feedback and observations" },
-    { key: "packages" as const, label: "Packages", desc: "Credit packages assigned to players" },
-    { key: "invoices" as const, label: "Invoices", desc: "All generated invoices" },
+  const RESET_OPTIONS_LIST: { key: keyof ResetOptions; label: string; desc: string }[] = [
+    { key: "sessions", label: "Sessions", desc: "All scheduled and past sessions" },
+    { key: "attendance", label: "Attendance", desc: "Player attendance records" },
+    { key: "payments", label: "Payments", desc: "Payment records and transactions" },
+    { key: "progress", label: "Progress", desc: "Player XP, levels, and skill data" },
+    { key: "feedback", label: "Feedback", desc: "Session feedback and observations" },
+    { key: "packages", label: "Packages", desc: "Credit packages assigned to players" },
+    { key: "invoices", label: "Invoices", desc: "All generated invoices" },
+    { key: "players", label: "Players", desc: "All player accounts in this academy" },
   ];
 
   const handleLogout = () => {
@@ -346,27 +368,37 @@ export default function SettingsScreen() {
 
             <Text style={styles.resetSectionTitle}>Select Data to Reset</Text>
 
-            {RESET_OPTIONS_LIST.map((item) => (
-              <Pressable
-                key={item.key}
-                style={[styles.resetOption, resetOptions[item.key] && styles.resetOptionSelected]}
-                onPress={() => toggleResetOption(item.key)}
-              >
-                <View style={styles.resetOptionCheck}>
-                  <Ionicons
-                    name={resetOptions[item.key] ? "checkbox" : "square-outline"}
-                    size={24}
-                    color={resetOptions[item.key] ? Colors.dark.error : Colors.dark.textMuted}
-                  />
-                </View>
-                <View style={styles.resetOptionContent}>
-                  <Text style={[styles.resetOptionLabel, resetOptions[item.key] && { color: Colors.dark.error }]}>
-                    {item.label}
-                  </Text>
-                  <Text style={styles.resetOptionDesc}>{item.desc}</Text>
-                </View>
-              </Pressable>
-            ))}
+            {RESET_OPTIONS_LIST.map((item) => {
+              const count = resetCounts ? resetCounts[item.key] : undefined;
+              return (
+                <Pressable
+                  key={item.key}
+                  style={[styles.resetOption, resetOptions[item.key] && styles.resetOptionSelected]}
+                  onPress={() => toggleResetOption(item.key)}
+                >
+                  <View style={styles.resetOptionCheck}>
+                    <Ionicons
+                      name={resetOptions[item.key] ? "checkbox" : "square-outline"}
+                      size={24}
+                      color={resetOptions[item.key] ? Colors.dark.error : Colors.dark.textMuted}
+                    />
+                  </View>
+                  <View style={styles.resetOptionContent}>
+                    <View style={styles.resetOptionHeader}>
+                      <Text style={[styles.resetOptionLabel, resetOptions[item.key] && { color: Colors.dark.error }]}>
+                        {item.label}
+                      </Text>
+                      {count !== undefined ? (
+                        <View style={styles.countBadge}>
+                          <Text style={styles.countText}>{count}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <Text style={styles.resetOptionDesc}>{item.desc}</Text>
+                  </View>
+                </Pressable>
+              );
+            })}
 
             <View style={styles.confirmSection}>
               <Text style={styles.confirmLabel}>Type RESET to confirm</Text>
@@ -558,6 +590,24 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.textMuted,
     marginTop: 2,
+  },
+  resetOptionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  countBadge: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+    minWidth: 28,
+    alignItems: "center",
+  },
+  countText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
   },
   confirmSection: {
     marginTop: Spacing.lg,

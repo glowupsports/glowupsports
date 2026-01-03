@@ -944,8 +944,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Reset academy data (selective data wipe)
-  app.post("/api/academy/reset", authMiddleware, requireRole("academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+  // Reset academy data (selective data wipe) - owners and platform owners only
+  app.post("/api/academy/reset", authMiddleware, requireRole("academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId;
       if (!academyId) {
@@ -963,7 +963,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Please specify which data types to reset" });
       }
       
-      const validTypes = ["sessions", "attendance", "payments", "progress", "feedback", "packages", "invoices"];
+      const validTypes = ["sessions", "attendance", "payments", "progress", "feedback", "packages", "invoices", "players"];
       const selectedTypes = Object.keys(resetTypes).filter(key => resetTypes[key] && validTypes.includes(key));
       
       if (selectedTypes.length === 0) {
@@ -983,6 +983,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Academy reset error:", error);
       res.status(500).json({ error: "Failed to reset academy data" });
+    }
+  });
+
+  // Get academy reset counts (for showing in the reset modal)
+  app.get("/api/academy/reset-counts", authMiddleware, requireRole("academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy not found" });
+      }
+      
+      const counts = await storage.getAcademyResetCounts(academyId);
+      res.json({ counts });
+    } catch (error) {
+      console.error("Get reset counts error:", error);
+      res.status(500).json({ error: "Failed to get reset counts" });
     }
   });
 
