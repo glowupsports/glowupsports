@@ -634,7 +634,6 @@ export const storage = {
       }
       
       if (resetTypes.sessions && sessionIds.length > 0) {
-        await tx.delete(sessionRecurrenceRules).where(inArray(sessionRecurrenceRules.sessionId, sessionIds));
         await tx.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
         await tx.delete(sessionFeedback).where(inArray(sessionFeedback.sessionId, sessionIds));
         if (coachIds.length > 0) {
@@ -654,7 +653,6 @@ export const storage = {
         await tx.delete(sessionSkillObservations).where(inArray(sessionSkillObservations.playerId, playerIds));
         await tx.delete(packages).where(inArray(packages.playerId, playerIds));
         await tx.delete(bookingRequests).where(inArray(bookingRequests.playerId, playerIds));
-        await tx.delete(playerReviews).where(inArray(playerReviews.playerId, playerIds));
         const plaDel = await tx.delete(players).where(eq(players.academyId, id)).returning();
         deleted.players = plaDel.length;
       }
