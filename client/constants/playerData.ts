@@ -9,6 +9,7 @@ export interface Player {
   diamonds: number;
   coins: number;
   skills: SkillCategory[];
+  profilePhotoUrl?: string | null;
 }
 
 export interface SkillCategory {

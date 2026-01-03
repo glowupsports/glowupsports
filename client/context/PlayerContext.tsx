@@ -20,6 +20,7 @@ interface PlayerContextType {
   loadConversationMessages: () => Promise<void>;
   initializeCoachConversation: () => Promise<void>;
   conversationId: string | null;
+  setProfilePhotoUrl: (url: string | null) => void;
 }
 
 interface ApiMessage {
@@ -265,6 +266,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setMessages(INITIAL_MESSAGES);
   }, []);
 
+  const setProfilePhotoUrl = useCallback((url: string | null) => {
+    setPlayer(prev => ({ ...prev, profilePhotoUrl: url }));
+  }, []);
+
   return (
     <PlayerContext.Provider
       value={{
@@ -284,6 +289,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         loadConversationMessages,
         initializeCoachConversation,
         conversationId,
+        setProfilePhotoUrl,
       }}
     >
       {children}
