@@ -109,3 +109,63 @@ Before uploading to Play Store:
 - No anonymous auth fallbacks
 - All auth failures must show UI feedback
 - **NEVER use relative URLs** like `fetch("/api/...")` - they fail in native mobile builds! Always use `apiFetch()`, `apiRequest()`, or `getApiUrl()` from `@/lib/query-client`
+
+## CI/CD with EAS Workflows
+
+### Workflow Files Location
+All EAS workflow files are in `.eas/workflows/` directory.
+
+### Automated Workflows
+
+| File | Trigger | Purpose |
+|------|---------|---------|
+| `build-android-production.yml` | Push to `main` | Builds Android production APK/AAB |
+| `publish-update.yml` | Push to `main` | Publishes OTA (over-the-air) JavaScript updates |
+| `submit-android.yml` | Push to `release` | Builds AND auto-submits to Google Play Store |
+
+### Workflow Syntax Reference
+
+**Important syntax rules for EAS Workflows:**
+- Use `${{ needs.job_id.outputs.output_name }}` to reference outputs from previous jobs
+- Do NOT use GitHub Actions syntax like `${{ github.ref_name }}` - EAS Workflows has different interpolation
+- For submit jobs, always pass `build_id: ${{ needs.build_job.outputs.build_id }}`
+- Use `needs: [job_id]` to chain job dependencies
+
+**Example submit workflow pattern:**
+```yaml
+jobs:
+  build_android:
+    type: build
+    params:
+      platform: android
+      profile: production
+
+  submit_android:
+    needs: [build_android]
+    type: submit
+    params:
+      build_id: ${{ needs.build_android.outputs.build_id }}
+```
+
+### Manual Build Commands
+
+```bash
+# Trigger production build manually
+eas build --platform android --profile production
+
+# Publish OTA update manually
+eas update --branch production --message "Description"
+
+# Submit existing build to Play Store
+eas submit --platform android --latest
+```
+
+### Prerequisites for Auto-Submit
+- EXPO_TOKEN secret must be set in Replit Secrets
+- Google Play Service Account credentials configured in Expo dashboard (Project Settings → Credentials → Android)
+
+### Query Key Fix Reference
+When mutating data that refreshes lists, ensure query key invalidation matches exactly:
+- If fetch uses `queryKey: ['/api/players?withCredits=true']`
+- Then invalidation must use `queryClient.invalidateQueries({ queryKey: ['/api/players?withCredits=true'] })`
+- Mismatched query keys cause UI refresh bugs
