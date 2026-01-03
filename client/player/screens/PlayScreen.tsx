@@ -242,7 +242,11 @@ export default function PlayScreen() {
                     key={player.id} 
                     style={[styles.avatarCircle, { marginLeft: index > 0 ? -12 : 0, zIndex: 4 - index }]}
                   >
-                    <Text style={styles.avatarInitial}>{player.name.charAt(0).toUpperCase()}</Text>
+                    {player.avatarUrl ? (
+                      <Image source={{ uri: player.avatarUrl }} style={styles.avatarImage} />
+                    ) : (
+                      <Text style={styles.avatarInitial}>{player.name.charAt(0).toUpperCase()}</Text>
+                    )}
                   </View>
                 ))}
                 {session.currentPlayers > 4 ? (
@@ -281,7 +285,11 @@ export default function PlayScreen() {
       onPress={() => navigation.navigate("PublicProfile", { playerId: player.id })}
     >
       <View style={styles.playerAvatarLarge}>
-        <Text style={styles.playerAvatarText}>{player.name.charAt(0).toUpperCase()}</Text>
+        {player.avatarUrl ? (
+          <Image source={{ uri: player.avatarUrl }} style={styles.playerAvatarImage} />
+        ) : (
+          <Text style={styles.playerAvatarText}>{player.name.charAt(0).toUpperCase()}</Text>
+        )}
         <View style={styles.levelBadge}>
           <Text style={styles.levelBadgeText}>{player.level}</Text>
         </View>
@@ -625,6 +633,11 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     fontWeight: "600",
   },
+  avatarImage: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
   avatarMore: {
     backgroundColor: Colors.dark.primary + "30",
   },
@@ -695,6 +708,11 @@ const styles = StyleSheet.create({
   playerAvatarText: {
     ...Typography.h3,
     color: Colors.dark.text,
+  },
+  playerAvatarImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
   },
   levelBadge: {
     position: "absolute",

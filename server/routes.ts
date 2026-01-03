@@ -12123,6 +12123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             name: p.name,
             level: p.level || 1,
             ballLevel: p.ballLevel,
+            avatarUrl: p.avatarUrl,
           })),
           waitlistCount: waitlistRecords.length,
           status,

@@ -77,12 +77,12 @@ export default function DashboardScreen() {
   const [energyCollapsed, setEnergyCollapsed] = useState(false);
   const [selectedDayOffset, setSelectedDayOffset] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [currentMinute, setCurrentMinute] = useState(() => Math.floor(Date.now() / 60000));
+  const [currentSecond, setCurrentSecond] = useState(() => Math.floor(Date.now() / 1000));
   
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentMinute(Math.floor(Date.now() / 60000));
-    }, 30000);
+      setCurrentSecond(Math.floor(Date.now() / 1000));
+    }, 1000);
     return () => clearInterval(interval);
   }, []);
   
@@ -220,7 +220,7 @@ export default function DashboardScreen() {
       return nextSession;
     }
     return null;
-  }, [todaysSessions, nextSession, currentMinute]);
+  }, [todaysSessions, nextSession, currentSecond]);
 
   const coachStats = useMemo(() => {
     const maxDailyMinutes = 360;
@@ -331,7 +331,7 @@ export default function DashboardScreen() {
     const minutes = Math.floor(diff / (1000 * 60));
     const seconds = Math.floor((diff % (1000 * 60)) / 1000);
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-  }, [currentSession]);
+  }, [currentSession, currentSecond]);
 
   const getTimeUntil = (startTime: string) => {
     const start = new Date(startTime);
