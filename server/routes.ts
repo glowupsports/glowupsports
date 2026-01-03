@@ -7835,7 +7835,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           academyId: newAcademy.id,
           invitedEmail: ownerEmail.trim().toLowerCase(),
           role: "academy_owner",
-          invitedBy: req.user!.id,
+          invitedBy: req.user!.userId,
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         });
       }
