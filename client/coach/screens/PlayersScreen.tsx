@@ -10,7 +10,9 @@ import {
   Alert,
   Modal,
   Platform,
+  Image as RNImage,
 } from "react-native";
+import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { LinearGradient } from "expo-linear-gradient";
@@ -18,7 +20,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
 import PackagesCard from "@/coach/components/PackagesCard";
 
@@ -43,6 +45,7 @@ interface Player {
   enjoymentTags?: string[] | null;
   focusGoals?: string[] | null;
   selfConfidenceFlags?: string[] | null;
+  profilePhotoUrl?: string | null;
 }
 
 interface PlayerNote {
@@ -316,11 +319,27 @@ export default function PlayersScreen() {
                 onPress={() => handleSelectPlayer(player)}
               >
                 {/* Simple Avatar */}
-                <View style={[styles.calmAvatar, { backgroundColor: levelColor + "20" }]}>
-                  <Text style={[styles.calmAvatarText, { color: levelColor }]}>
-                    {player.name.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
+                {player.profilePhotoUrl ? (
+                  Platform.OS === 'web' ? (
+                    <RNImage
+                      source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                      style={styles.calmAvatarPhoto}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Image
+                      source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                      style={styles.calmAvatarPhoto}
+                      contentFit="cover"
+                    />
+                  )
+                ) : (
+                  <View style={[styles.calmAvatar, { backgroundColor: levelColor + "20" }]}>
+                    <Text style={[styles.calmAvatarText, { color: levelColor }]}>
+                      {player.name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
 
                 {/* Player Info */}
                 <View style={styles.calmPlayerInfo}>
@@ -586,9 +605,25 @@ function PlayerDetailView({
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.profileHeader}>
-          <View style={[styles.largeAvatar, { backgroundColor: getPlayerLevelColor(player.ballLevel ?? "green") + "30" }]}>
-            <Text style={[styles.largeInitial, { color: getPlayerLevelColor(player.ballLevel ?? "green") }]}>{player.name.charAt(0).toUpperCase()}</Text>
-          </View>
+          {player.profilePhotoUrl ? (
+            Platform.OS === 'web' ? (
+              <RNImage
+                source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                style={styles.largeAvatarPhoto}
+                resizeMode="cover"
+              />
+            ) : (
+              <Image
+                source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                style={styles.largeAvatarPhoto}
+                contentFit="cover"
+              />
+            )
+          ) : (
+            <View style={[styles.largeAvatar, { backgroundColor: getPlayerLevelColor(player.ballLevel ?? "green") + "30" }]}>
+              <Text style={[styles.largeInitial, { color: getPlayerLevelColor(player.ballLevel ?? "green") }]}>{player.name.charAt(0).toUpperCase()}</Text>
+            </View>
+          )}
           <Text style={styles.profileName}>{player.name}</Text>
           {player.ballLevel ? (
             <View style={styles.profileLevel}>
@@ -1105,6 +1140,12 @@ const styles = StyleSheet.create({
   calmAvatarText: {
     fontSize: 18,
     fontWeight: "600",
+  },
+  calmAvatarPhoto: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.dark.backgroundSecondary,
   },
   calmPlayerInfo: {
     flex: 1,
@@ -1907,6 +1948,13 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: "600",
     color: Colors.dark.primary,
+  },
+  largeAvatarPhoto: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    marginBottom: Spacing.md,
   },
   profileName: {
     ...Typography.h2,

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Image, Alert, ImageBackground, Dimensions } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Image, Alert, ImageBackground, Dimensions, Platform, Image as RNImage } from "react-native";
+import { Image as ExpoImage } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -7,7 +8,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
 
 const courtBackground = require("@/assets/images/courts/court-night-default.png");
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -306,7 +307,19 @@ export default function PlayScreen() {
                         ]}
                       >
                         {player.avatarUrl ? (
-                          <Image source={{ uri: player.avatarUrl }} style={styles.epicAvatarImage} />
+                          Platform.OS === 'web' ? (
+                            <RNImage 
+                              source={{ uri: `${getStaticAssetsUrl()}${player.avatarUrl}` }} 
+                              style={styles.epicAvatarImage}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <ExpoImage 
+                              source={{ uri: `${getStaticAssetsUrl()}${player.avatarUrl}` }} 
+                              style={styles.epicAvatarImage}
+                              contentFit="cover"
+                            />
+                          )
                         ) : (
                           <LinearGradient
                             colors={[Colors.dark.backgroundSecondary, Colors.dark.backgroundTertiary]}
@@ -360,7 +373,7 @@ export default function PlayScreen() {
       >
         {hasAvatar ? (
           <ImageBackground 
-            source={{ uri: player.avatarUrl }}
+            source={{ uri: `${getStaticAssetsUrl()}${player.avatarUrl}` }}
             style={styles.epicPlayerCardBg}
             imageStyle={styles.epicPlayerCardBgImage}
           >
