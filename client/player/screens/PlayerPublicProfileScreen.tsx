@@ -138,18 +138,18 @@ const PILLAR_DESCRIPTIONS: Record<string, { meaning: string; howToLevel: string 
   },
 };
 
-const getPlayerStatusBadge = (stats: { matchesPlayed: number; wins: number; sessionsAttended: number }): { label: string; color: string } => {
+const getPlayerStatusBadge = (stats: { matchesPlayed: number; wins: number; sessionsAttended: number }): { label: string; color: string; borderColor: string } => {
   const totalActivity = stats.matchesPlayed + stats.sessionsAttended;
   const winRate = stats.matchesPlayed > 0 ? stats.wins / stats.matchesPlayed : 0;
   
   if (totalActivity >= 20 && winRate >= 0.6) {
-    return { label: "Competitive", color: Colors.dark.gold };
+    return { label: "Competitive", color: Colors.dark.gold, borderColor: Colors.dark.gold };
   } else if (totalActivity >= 10) {
-    return { label: "Active", color: Colors.dark.primary };
+    return { label: "Active", color: Colors.dark.primary, borderColor: Colors.dark.primary };
   } else if (totalActivity >= 3) {
-    return { label: "Rising", color: Colors.dark.xpCyan };
+    return { label: "Rising", color: Colors.dark.xpCyan, borderColor: Colors.dark.xpCyan };
   }
-  return { label: "New Player", color: Colors.dark.textMuted };
+  return { label: "New Player", color: Colors.dark.text, borderColor: Colors.dark.backgroundTertiary };
 };
 
 export default function PlayerPublicProfileScreen() {
@@ -331,9 +331,9 @@ export default function PlayerPublicProfileScreen() {
           {(() => {
             const statusBadge = getPlayerStatusBadge(profile.stats);
             return (
-              <View style={[styles.statusBadge, { borderColor: statusBadge.color }]}>
+              <View style={[styles.statusBadge, { borderColor: statusBadge.borderColor, backgroundColor: statusBadge.borderColor + "20" }]}>
                 <Ionicons 
-                  name={statusBadge.label === "Competitive" ? "trophy" : statusBadge.label === "Active" ? "pulse" : "trending-up"} 
+                  name={statusBadge.label === "Competitive" ? "trophy" : statusBadge.label === "Active" ? "pulse" : statusBadge.label === "Rising" ? "trending-up" : "star-outline"} 
                   size={12} 
                   color={statusBadge.color} 
                 />
@@ -744,7 +744,7 @@ export default function PlayerPublicProfileScreen() {
             {selectedPillar && (
               <>
                 <View style={styles.modalHeader}>
-                  <View style={[styles.modalPillarIcon, { backgroundColor: PILLAR_COLORS[selectedPillar.name] + "20", borderColor: PILLAR_COLORS[selectedPillar.name] }]}>
+                  <View style={[styles.modalPillarIcon, { backgroundColor: (PILLAR_COLORS[selectedPillar.name] || Colors.dark.primary) + "20", borderColor: PILLAR_COLORS[selectedPillar.name] || Colors.dark.primary }]}>
                     <Ionicons 
                       name={(PILLAR_ICONS[selectedPillar.name] || "ellipse") as any} 
                       size={32} 
