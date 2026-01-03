@@ -102,10 +102,7 @@ export default function PlayerProfileScreen() {
 
   const toggleOpenToPlay = useMutation({
     mutationFn: async (newValue: boolean) => {
-      return apiRequest("/api/player/me/profile", {
-        method: "PATCH",
-        body: JSON.stringify({ openToPlay: newValue }),
-      });
+      return apiRequest("PATCH", "/api/player/me/profile", { openToPlay: newValue });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });

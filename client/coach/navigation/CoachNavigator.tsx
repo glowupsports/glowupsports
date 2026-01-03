@@ -295,9 +295,12 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
     borderTopWidth: 0,
     elevation: 0,
-    backgroundColor: "transparent",
+    backgroundColor: Platform.OS === "web" ? "rgba(12, 12, 12, 0.98)" : "transparent",
     height: 85,
     paddingTop: 8,
   },

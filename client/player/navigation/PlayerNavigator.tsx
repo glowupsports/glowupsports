@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigation } from "@react-navigation/native";
-import { StyleSheet, View, Platform, ActivityIndicator } from "react-native";
+import { StyleSheet, View, Platform, ActivityIndicator, ViewStyle } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -434,9 +434,12 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
     borderTopWidth: 0,
     elevation: 0,
-    backgroundColor: "transparent",
+    backgroundColor: Platform.OS === "web" ? "rgba(18, 18, 18, 0.95)" : "transparent",
     height: 85,
     paddingTop: 8,
   },
