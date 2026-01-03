@@ -55,3 +55,56 @@ The application features a dark-themed gaming aesthetic, utilizing neon green an
 ### Platform Support
 - **Mobile**: iOS and Android (native applications)
 - **Web**: Single-page application via Expo web build
+
+## Production Deployment
+
+### Environment Variables
+
+The app uses a single environment variable pattern that works identically across all environments:
+
+| Variable | Development (Replit) | Preview (EAS) | Production (Play Store) |
+|----------|---------------------|---------------|------------------------|
+| `EXPO_PUBLIC_DOMAIN` | Set via npm script | eas.json | eas.json |
+| `EXPO_PUBLIC_ENV` | "development" | "preview" | "production" |
+
+**Frontend Variables (EXPO_PUBLIC_* prefix):**
+- `EXPO_PUBLIC_DOMAIN` - API server domain (e.g., `glow-up-sports--ltvjeugd.replit.app`)
+- `EXPO_PUBLIC_ENV` - Environment identifier for conditional behavior
+
+**Backend Variables (server-only, never exposed to app):**
+- `DATABASE_URL` - PostgreSQL connection string (Replit Secrets)
+- `SESSION_SECRET` - JWT signing secret (Replit Secrets)
+
+### Build Profiles (eas.json)
+
+- **development**: Dev client with hot reload
+- **preview**: Internal distribution for testing (uses production API)
+- **production**: App bundle for Play Store (uses production API)
+
+### Pre-Flight Checklist
+
+Before uploading to Play Store:
+1. App opens without errors
+2. Login works with real credentials
+3. Player profile loads with real data
+4. XP / Glow Score visible and accurate
+5. Session scheduling works
+6. No `undefined` API URLs in logs
+
+### Architecture
+
+```
+[ Mobile App (Expo / Play Store) ]
+           |
+           v
+[ API (Replit - glow-up-sports--ltvjeugd.replit.app) ]
+           |
+           v
+[ ONE Database (PostgreSQL via Replit) ]
+```
+
+**Critical Rules:**
+- ONE database for all environments
+- No mock/test data in production
+- No anonymous auth fallbacks
+- All auth failures must show UI feedback
