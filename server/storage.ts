@@ -670,9 +670,10 @@ export const storage = {
           inArray(playerConnections.player1Id, playerIds),
           inArray(playerConnections.player2Id, playerIds)
         ));
-        await tx.delete(conversationParticipants).where(inArray(conversationParticipants.playerId, playerIds));
-        await tx.delete(messages).where(inArray(messages.senderPlayerId, playerIds));
         await tx.delete(messageReactions).where(inArray(messageReactions.reactorPlayerId, playerIds));
+        await tx.delete(messages).where(inArray(messages.senderPlayerId, playerIds));
+        await tx.delete(conversationParticipants).where(inArray(conversationParticipants.playerId, playerIds));
+        await tx.delete(conversations).where(inArray(conversations.playerId, playerIds));
         await tx.delete(courtBookings).where(inArray(courtBookings.playerId, playerIds));
         await tx.delete(academyTransferRequests).where(inArray(academyTransferRequests.playerId, playerIds));
         await tx.delete(parentPlayerRelations).where(inArray(parentPlayerRelations.playerId, playerIds));
@@ -680,6 +681,10 @@ export const storage = {
         await tx.delete(coachReviews).where(inArray(coachReviews.playerId, playerIds));
         await tx.delete(sessionPlayers).where(inArray(sessionPlayers.playerId, playerIds));
         await tx.delete(playerSessionCancellations).where(inArray(playerSessionCancellations.playerId, playerIds));
+        await tx.delete(paymentReminders).where(inArray(paymentReminders.playerId, playerIds));
+        await tx.delete(invoices).where(inArray(invoices.playerId, playerIds));
+        await tx.delete(playerSubscriptions).where(inArray(playerSubscriptions.playerId, playerIds));
+        await tx.update(payments).set({ playerId: null }).where(inArray(payments.playerId, playerIds));
         await tx.update(users).set({ playerId: null }).where(inArray(users.playerId, playerIds));
         const plaDel = await tx.delete(players).where(eq(players.academyId, id)).returning();
         deleted.players = plaDel.length;
