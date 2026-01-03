@@ -144,11 +144,25 @@ export default function PlayerProfileScreen() {
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : "image/jpeg";
       
-      formData.append("photo", {
-        uri: asset.uri,
-        name: filename,
-        type,
-      } as any);
+      if (Platform.OS === "web") {
+        if ((asset as any).file) {
+          formData.append("photo", (asset as any).file);
+        } else if (asset.uri.startsWith("data:")) {
+          const response = await fetch(asset.uri);
+          const blob = await response.blob();
+          formData.append("photo", blob, filename);
+        } else {
+          const response = await fetch(asset.uri);
+          const blob = await response.blob();
+          formData.append("photo", blob, filename);
+        }
+      } else {
+        formData.append("photo", {
+          uri: asset.uri,
+          name: filename,
+          type,
+        } as any);
+      }
 
       const token = getAuthToken();
       
