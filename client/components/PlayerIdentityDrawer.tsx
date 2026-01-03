@@ -6,6 +6,8 @@ import {
   Pressable,
   Dimensions,
   ScrollView,
+  Platform,
+  Image as RNImage,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -20,11 +22,14 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
+import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from "react-native-svg";
 import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
+import { usePlayer } from "@/context/PlayerContext";
+import { getStaticAssetsUrl } from "@/lib/query-client";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const DRAWER_WIDTH = SCREEN_WIDTH * 0.85;
@@ -74,14 +79,20 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigateToPro
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { logout } = useAuth();
+  const { player: playerContext } = usePlayer();
   
   const translateX = useSharedValue(-DRAWER_WIDTH);
   const backdropOpacity = useSharedValue(0);
   const glowPulse = useSharedValue(1);
 
-  const { data: profileData } = useQuery<{ player: PlayerData }>({
+  const { data: profileData } = useQuery<{ player: PlayerData & { profilePhotoUrl?: string | null } }>({
     queryKey: ["/api/player/me/profile"],
   });
+  
+  const rawPhotoUrl = profileData?.player?.profilePhotoUrl || playerContext.profilePhotoUrl;
+  const profilePhotoUrl = rawPhotoUrl 
+    ? (rawPhotoUrl.startsWith('http') ? rawPhotoUrl : `${getStaticAssetsUrl()}${rawPhotoUrl}`)
+    : null;
 
   const { data: unreadData } = useQuery<{ unreadCount: number }>({
     queryKey: ["/api/player/me/unread-count"],
@@ -204,14 +215,33 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigateToPro
                     </Svg>
                     
                     <View style={styles.avatarInner}>
-                      <LinearGradient
-                        colors={["#1A2A1A", "#0D150D"]}
-                        style={styles.avatarGradient}
-                      >
-                        <Text style={styles.avatarInitial}>
-                          {player?.name?.charAt(0)?.toUpperCase() || "P"}
-                        </Text>
-                      </LinearGradient>
+                      {profilePhotoUrl ? (
+                        Platform.OS === 'web' ? (
+                          <RNImage
+                            key={profilePhotoUrl}
+                            source={{ uri: profilePhotoUrl }}
+                            style={styles.avatarPhoto}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <Image
+                            key={profilePhotoUrl}
+                            source={{ uri: profilePhotoUrl }}
+                            style={styles.avatarPhoto}
+                            contentFit="cover"
+                            cachePolicy="none"
+                          />
+                        )
+                      ) : (
+                        <LinearGradient
+                          colors={["#1A2A1A", "#0D150D"]}
+                          style={styles.avatarGradient}
+                        >
+                          <Text style={styles.avatarInitial}>
+                            {player?.name?.charAt(0)?.toUpperCase() || "P"}
+                          </Text>
+                        </LinearGradient>
+                      )}
                     </View>
                   </Animated.View>
 
@@ -533,6 +563,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  avatarPhoto: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 41,
   },
   avatarInitial: {
     fontSize: 34,
