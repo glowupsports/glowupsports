@@ -16,7 +16,8 @@
         "autoIncrement": true
       },
       "env": {
-        "EXPO_PUBLIC_DOMAIN": "glow-up-sports--ltvjeugd.replit.app"
+        "EXPO_PUBLIC_DOMAIN": "glow-up-sports--ltvjeugd.replit.app",
+        "EXPO_PUBLIC_ENV": "preview"
       }
     },
     "production": {
@@ -26,7 +27,8 @@
         "autoIncrement": true
       },
       "env": {
-        "EXPO_PUBLIC_DOMAIN": "glow-up-sports--ltvjeugd.replit.app"
+        "EXPO_PUBLIC_DOMAIN": "glow-up-sports--ltvjeugd.replit.app",
+        "EXPO_PUBLIC_ENV": "production"
       }
     }
   },

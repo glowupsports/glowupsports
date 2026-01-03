@@ -60,3 +60,6 @@ ensurePreviewReachable = "/status"
 
 [userenv.shared]
 EXPO_PUBLIC_DOMAIN = "glow-up-sports--ltvjeugd.replit.app"
+
+[userenv.development]
+EXPO_PUBLIC_ENV = "development"
