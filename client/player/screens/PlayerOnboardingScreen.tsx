@@ -26,7 +26,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { saveAuthState, setAuthToken, AuthUser } from "@/lib/auth";
 import { useAuth } from "@/coach/context/AuthContext";
 import { TshirtSize } from "@shared/schema";
@@ -254,7 +254,8 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
     setFoundAcademy(null);
     
     try {
-      const response = await fetch(`/api/academies/join-code/${joinCode.toUpperCase()}`);
+      const apiUrl = getApiUrl();
+      const response = await fetch(new URL(`/api/academies/join-code/${joinCode.toUpperCase()}`, apiUrl).toString());
       const result = await response.json();
       
       if (!response.ok) {

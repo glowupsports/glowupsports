@@ -15,6 +15,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { getApiUrl } from "@/lib/query-client";
 
 interface CoachDirectoryEntry {
   id: string;
@@ -94,7 +95,8 @@ export default function CoachDirectoryScreen() {
     queryFn: async () => {
       const params = new URLSearchParams();
       if (showOpenOnly) params.set("openToOpportunities", "true");
-      const response = await fetch(`/api/coaches/directory?${params.toString()}`);
+      const apiUrl = getApiUrl();
+      const response = await fetch(new URL(`/api/coaches/directory?${params.toString()}`, apiUrl).toString());
       if (!response.ok) throw new Error("Failed to load coaches");
       return response.json();
     },
