@@ -521,9 +521,19 @@ export default function PlayerPublicProfileScreen() {
               </Pressable>
             </View>
           ) : (
-            <View style={styles.emptyCard}>
-              <Ionicons name="tennisball-outline" size={32} color={Colors.dark.textMuted} />
-              <Text style={styles.emptyText}>No matches played yet</Text>
+            <View style={styles.emptyMatchCard}>
+              <View style={styles.emptyIconContainer}>
+                <Ionicons name="trophy" size={40} color={Colors.dark.gold} />
+              </View>
+              <Text style={styles.emptyMatchTitle}>First Match Unlocks Social XP</Text>
+              <Text style={styles.emptyMatchSubtitle}>Play your first match to appear in Glow Rank</Text>
+              <Pressable 
+                style={styles.findMatchCta}
+                onPress={() => navigation.navigate("FindMatch" as never)}
+              >
+                <Ionicons name="tennisball" size={18} color="#000" />
+                <Text style={styles.findMatchCtaText}>Find a Match</Text>
+              </Pressable>
             </View>
           )}
         </Animated.View>
@@ -536,12 +546,12 @@ export default function PlayerPublicProfileScreen() {
             <Text style={styles.sectionTitle}>CONNECTIONS</Text>
           </View>
           
-          <View style={styles.connectionsCard}>
-            <Text style={styles.connectionsSubtitle}>
-              You've played matches with {profile.connections.total} players
-            </Text>
-            
-            {profile.connections.previews.length > 0 ? (
+          {profile.connections.total > 0 ? (
+            <View style={styles.connectionsCard}>
+              <Text style={styles.connectionsSubtitle}>
+                You've played matches with {profile.connections.total} players
+              </Text>
+              
               <View style={styles.connectionAvatars}>
                 {profile.connections.previews.slice(0, 5).map((conn, i) => (
                   <View 
@@ -557,15 +567,28 @@ export default function PlayerPublicProfileScreen() {
                   </View>
                 )}
               </View>
-            ) : (
-              <Text style={styles.noConnectionsText}>Play matches to connect with other players</Text>
-            )}
-            
-            <Pressable style={styles.viewAllBtn}>
-              <Text style={styles.viewAllBtnText}>View All Connections</Text>
-              <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
-            </Pressable>
-          </View>
+              
+              <Pressable style={styles.viewAllBtn}>
+                <Text style={styles.viewAllBtnText}>View All Connections</Text>
+                <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.emptyConnectionsCard}>
+              <View style={styles.emptyIconContainer}>
+                <Ionicons name="people" size={40} color={Colors.dark.xpCyan} />
+              </View>
+              <Text style={styles.emptyConnectionsTitle}>Connections Unlock After First Match</Text>
+              <Text style={styles.emptyConnectionsSubtitle}>Play matches to build your tennis network</Text>
+              <Pressable 
+                style={[styles.findMatchCta, { backgroundColor: Colors.dark.xpCyan }]}
+                onPress={() => navigation.navigate("FindMatch" as never)}
+              >
+                <Ionicons name="people-outline" size={18} color="#000" />
+                <Text style={styles.findMatchCtaText}>Find Players</Text>
+              </Pressable>
+            </View>
+          )}
         </Animated.View>
 
         {/* Bio Section (if available) */}
@@ -1090,5 +1113,67 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.dark.text,
     lineHeight: 20,
+  },
+  
+  emptyMatchCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.xl,
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  emptyIconContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  emptyMatchTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textAlign: "center",
+  },
+  emptyMatchSubtitle: {
+    fontSize: 14,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  findMatchCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.primary,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    marginTop: Spacing.sm,
+  },
+  findMatchCtaText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#000",
+  },
+  
+  emptyConnectionsCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.xl,
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  emptyConnectionsTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textAlign: "center",
+  },
+  emptyConnectionsSubtitle: {
+    fontSize: 14,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
   },
 });

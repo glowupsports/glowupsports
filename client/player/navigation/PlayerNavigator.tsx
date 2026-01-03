@@ -353,7 +353,11 @@ function PlayerStackNavigator() {
         component={PlayerPublicProfileScreen}
         options={{
           presentation: "card",
+          headerShown: true,
           headerTitle: "Player Profile",
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.textPrimary,
+          headerBackTitle: "Back",
         }}
       />
     </Stack.Navigator>
