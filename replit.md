@@ -64,12 +64,18 @@ The app uses a single environment variable pattern that works identically across
 
 | Variable | Development (Replit) | Preview (EAS) | Production (Play Store) |
 |----------|---------------------|---------------|------------------------|
-| `EXPO_PUBLIC_DOMAIN` | Set via npm script | eas.json | eas.json |
+| `EXPO_PUBLIC_API_URL` | Set via npm script | eas.json | eas.json |
+| `EXPO_PUBLIC_DOMAIN` | (fallback) | eas.json | eas.json |
 | `EXPO_PUBLIC_ENV` | "development" | "preview" | "production" |
 
 **Frontend Variables (EXPO_PUBLIC_* prefix):**
-- `EXPO_PUBLIC_DOMAIN` - API server domain (e.g., `glow-up-sports--ltvjeugd.replit.app`)
+- `EXPO_PUBLIC_API_URL` - **PREFERRED**: Full API server URL (e.g., `https://glow-up-sports--ltvjeugd.replit.app`)
+- `EXPO_PUBLIC_DOMAIN` - Fallback: API server domain without protocol (e.g., `glow-up-sports--ltvjeugd.replit.app`)
 - `EXPO_PUBLIC_ENV` - Environment identifier for conditional behavior
+
+**OTA Updates:**
+- OTA updates are ENABLED - you can push hotfixes via `eas update --branch production --message "Description"`
+- Updates URL: `https://u.expo.dev/ce3ccb00-0553-4abc-a038-1a93b7483738`
 
 **Backend Variables (server-only, never exposed to app):**
 - `DATABASE_URL` - PostgreSQL connection string (Replit Secrets)
