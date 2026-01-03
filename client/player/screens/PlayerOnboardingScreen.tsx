@@ -459,6 +459,20 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
           )}
         </Animated.View>
       )}
+
+      <Animated.View entering={FadeInDown.delay(500).duration(500)} style={styles.skipSection}>
+        <Pressable
+          style={styles.skipButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onNext();
+          }}
+        >
+          <Text style={styles.skipButtonText}>Continue without an academy</Text>
+          <Ionicons name="arrow-forward" size={16} color={Colors.dark.textMuted} />
+        </Pressable>
+        <Text style={styles.skipHint}>You can join an academy later from your profile</Text>
+      </Animated.View>
     </ScrollView>
   );
 }
@@ -1829,5 +1843,27 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.xpCyan,
     fontWeight: "600",
+  },
+  skipSection: {
+    marginTop: Spacing.xl,
+    alignItems: "center",
+    paddingBottom: Spacing.xl,
+  },
+  skipButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+  },
+  skipButtonText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+  },
+  skipHint: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
+    opacity: 0.7,
   },
 });
