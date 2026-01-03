@@ -149,7 +149,7 @@ export default function AdminPlayersScreen() {
       return apiRequest("POST", "/api/players", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
       setShowAddModal(false);
       resetForm();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -168,7 +168,7 @@ export default function AdminPlayersScreen() {
       return apiRequest("DELETE", `/api/players/${playerId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
       setShowDeleteModal(false);
       closeDetailModal();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
