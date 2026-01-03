@@ -1,0 +1,237 @@
+🔍 Wat Liga goed doet
+
+Alles is een event
+
+Event = tijd + plek + mensen + host
+
+Geen “formulier”, alleen:
+
+Sign up
+
+Details
+
+👉 De gebruiker denkt niet: “ik boek”
+👉 De gebruiker denkt: “dit lijkt leuk, ik doe mee”
+
+❌ Jouw huidige probleem
+
+Je flow denkt nog als:
+
+“Welke les wil je boeken?”
+
+Dat is academisch, niet sociaal.
+
+✅ Wat jij moet doen
+
+Maak alles in Glow Up Sports een Session Card:
+
+Session
+- Type (Group / Semi / Private)
+- Tijd
+- Locatie
+- Coach
+- Spelers
+- Status (open / full / waitlist)
+
+
+❗️Geen losse “Book lesson” flow meer als startpunt
+
+2️⃣ AVATARS = SOCIALE TRIGGER (EXTREEM BELANGRIJK)
+🔍 Liga detail (onderschat maar cruciaal)
+
+Je ziet echte gezichten
+
+Je ziet hoe druk het is
+
+Je voelt: “hier gebeurt iets”
+
+Zelfs al ken je niemand → social pull
+
+❌ Bij jou nu
+
+Booking is anoniem
+
+Geen gezichten
+
+Geen vibe
+
+Geen “wie zit hier al in?”
+
+✅ Wat jij moet bouwen
+
+In elke session card:
+
+👥 3 / 6 players
+[avatar][avatar][avatar]
+
+
+En in detail:
+
+Klik op avatar → mini profiel
+
+Toon:
+
+Level
+
+Ball type
+
+XP badge
+
+👉 Dit past PERFECT bij jouw RPG-systeem
+👉 Liga kan dit niet
+
+3️⃣ “GOING / LIMIT” = PSYCHOLOGIE (NIET DATA)
+🔍 Liga gebruikt dit geniaal:
+3 going · 6 limit
+
+
+Dit doet 3 dingen:
+
+Urgentie (niet leeg)
+
+Sociale bevestiging
+
+Duidelijkheid (ik hoor hier wel/niet)
+
+❌ Bij jou
+
+Slots = technisch
+
+“No available slots” = dood einde
+
+✅ Glow Up upgrade
+
+Gebruik 3 statussen:
+
+🟢 Open
+3 / 6 spots filled
+Join now
+
+🟡 Almost full
+5 / 6 spots
+Last spot!
+
+🔴 Full
+6 / 6
+Join waitlist (+XP)
+
+
+❗️ Nooit “No available slots” tonen
+Altijd een actie.
+
+4️⃣ WAITLIST = JE GEHEIME WAPEN (LIGA HEEFT DIT NIET)
+
+Liga:
+
+Soms wachtlijst
+
+Geen beloning
+
+Geen game
+
+✅ Wat jij uniek kan doen
+
+Maak waitlist RPG-native:
+
+You are #2 on the waitlist
+If someone cancels:
+✔ auto-join
+✔ +5 XP
+✔ streak protected
+
+
+En:
+
+Push notificatie
+
+In-app glow effect
+
+“You got in!” moment
+
+🔥 Dit is 100% Glow Up Sports DNA
+
+5️⃣ “PLAYERS NEARBY” → MAAR DAN SLIMMER
+🔍 Liga screen onderaan
+
+“Players nearby”
+Leuk, maar losstaand.
+
+❌ Bij jou (nu)
+
+Profiel is geïsoleerd
+
+Social zit niet in de flow
+
+✅ Wat jij moet doen (veel sterker)
+
+Contextual social:
+
+Bij een session:
+
+3 players already joined
+2 players near you with matching level
+
+
+Of:
+
+Alex (Lv 10) joined – you trained together before
+
+
+👉 Dit kan alleen jij, want jij hebt:
+
+XP
+
+History
+
+Coach data
+
+6️⃣ WAT MOET JE CONCREET BOUWEN (CHECKLIST)
+🧱 Nieuwe hoofdpagina: Play
+
+Lijst van sessions (cards)
+
+Filters:
+
+Today / Tomorrow
+
+Location
+
+Level
+
+Coach
+
+🧱 Session Detail
+
+Avatars
+
+Coach
+
+Level range
+
+Join / Waitlist
+
+🧱 Booking herdefiniëren
+
+Booking = Join
+
+Private = coach → slots
+
+Group = event → join
+
+7️⃣ BELANGRIJKSTE CONCLUSIE (EERLIJK)
+
+Liga wint niet omdat ze beter tech hebben.
+Ze winnen omdat ze dit begrijpen:
+
+Tennis is sociaal, niet administratief
+
+Jij hebt:
+
+Betere data
+
+Betere progression
+
+Betere coaching intelligence
+
+Maar je UI moet stoppen met denken als een agenda
+en beginnen denken als een clubhuis
