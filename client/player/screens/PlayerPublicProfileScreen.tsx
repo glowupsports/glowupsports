@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Switch,
   RefreshControl,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoute, useNavigation } from "@react-navigation/native";
@@ -114,6 +115,43 @@ const PILLAR_COLORS: Record<string, string> = {
   tactical: "#9B59B6",
 };
 
+const PILLAR_DESCRIPTIONS: Record<string, { meaning: string; howToLevel: string }> = {
+  technical: {
+    meaning: "Your stroke mechanics, shot variety, and ball control mastery",
+    howToLevel: "Attend training sessions, practice drills, complete technique feedback",
+  },
+  mental: {
+    meaning: "Focus, pressure handling, match strategy and mental resilience",
+    howToLevel: "Complete mental challenges, maintain streaks, stay consistent",
+  },
+  physical: {
+    meaning: "Endurance, speed, agility and on-court fitness level",
+    howToLevel: "Attend fitness sessions, complete physical challenges, track activity",
+  },
+  social: {
+    meaning: "Connections, sportsmanship, and community engagement",
+    howToLevel: "Play matches with others, connect with players, join group sessions",
+  },
+  tactical: {
+    meaning: "Game awareness, shot selection, and court positioning",
+    howToLevel: "Complete tactical drills, analyze match patterns, attend tactical training",
+  },
+};
+
+const getPlayerStatusBadge = (stats: { matchesPlayed: number; wins: number; sessionsAttended: number }): { label: string; color: string } => {
+  const totalActivity = stats.matchesPlayed + stats.sessionsAttended;
+  const winRate = stats.matchesPlayed > 0 ? stats.wins / stats.matchesPlayed : 0;
+  
+  if (totalActivity >= 20 && winRate >= 0.6) {
+    return { label: "Competitive", color: Colors.dark.gold };
+  } else if (totalActivity >= 10) {
+    return { label: "Active", color: Colors.dark.primary };
+  } else if (totalActivity >= 3) {
+    return { label: "Rising", color: Colors.dark.xpCyan };
+  }
+  return { label: "New Player", color: Colors.dark.textMuted };
+};
+
 export default function PlayerPublicProfileScreen() {
   const insets = useSafeAreaInsets();
   const route = useRoute<any>();
@@ -123,6 +161,7 @@ export default function PlayerPublicProfileScreen() {
   
   const playerId = route.params?.playerId || user?.playerId;
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedPillar, setSelectedPillar] = useState<PublicProfile["pillars"][0] | null>(null);
 
   const glowPulse = useSharedValue(0.5);
   
@@ -287,6 +326,21 @@ export default function PlayerPublicProfileScreen() {
           <Text style={styles.playerSubtitle}>
             {profile.levelTitle} · {getBallLevelLabel(profile.ballLevel)}
           </Text>
+          
+          {/* Status Badge */}
+          {(() => {
+            const statusBadge = getPlayerStatusBadge(profile.stats);
+            return (
+              <View style={[styles.statusBadge, { borderColor: statusBadge.color }]}>
+                <Ionicons 
+                  name={statusBadge.label === "Competitive" ? "trophy" : statusBadge.label === "Active" ? "pulse" : "trending-up"} 
+                  size={12} 
+                  color={statusBadge.color} 
+                />
+                <Text style={[styles.statusBadgeText, { color: statusBadge.color }]}>{statusBadge.label}</Text>
+              </View>
+            );
+          })()}
 
           {/* Level & Glow Score Chips */}
           <View style={styles.chipRow}>
@@ -430,7 +484,14 @@ export default function PlayerPublicProfileScreen() {
           
           <View style={styles.pillarsGrid}>
             {profile.pillars.map((pillar) => (
-              <View key={pillar.id} style={styles.pillarItem}>
+              <Pressable 
+                key={pillar.id} 
+                style={styles.pillarItem}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedPillar(pillar);
+                }}
+              >
                 <View style={[styles.pillarCircle, { borderColor: PILLAR_COLORS[pillar.name] || Colors.dark.primary }]}>
                   <Ionicons 
                     name={(PILLAR_ICONS[pillar.name] || "ellipse") as any} 
@@ -442,9 +503,76 @@ export default function PlayerPublicProfileScreen() {
                 <Text style={[styles.pillarLevel, { color: PILLAR_COLORS[pillar.name] || Colors.dark.primary }]}>
                   LVL {pillar.level}
                 </Text>
-              </View>
+                <View style={styles.pillarProgress}>
+                  <View 
+                    style={[
+                      styles.pillarProgressFill, 
+                      { width: `${pillar.progress}%`, backgroundColor: PILLAR_COLORS[pillar.name] || Colors.dark.primary }
+                    ]} 
+                  />
+                </View>
+              </Pressable>
             ))}
           </View>
+        </Animated.View>
+
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* LAYER 3.5: ACTIVITY FEED */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        <Animated.View entering={FadeInUp.delay(250).duration(400)} style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>RECENT ACTIVITY</Text>
+          </View>
+          
+          {(profile.recentMatches.length > 0 || profile.stats.sessionsAttended > 0) ? (
+            <View style={styles.activityFeed}>
+              {profile.recentMatches.slice(0, 2).map((match) => (
+                <View key={match.id} style={styles.activityItem}>
+                  <View style={[styles.activityIcon, { backgroundColor: "rgba(255,107,107,0.2)" }]}>
+                    <Ionicons name="tennisball" size={16} color={Colors.dark.orange} />
+                  </View>
+                  <View style={styles.activityContent}>
+                    <Text style={styles.activityText}>
+                      Played a match vs <Text style={styles.activityHighlight}>{match.opponentName}</Text>
+                    </Text>
+                    <Text style={styles.activityXp}>+12 Social XP</Text>
+                  </View>
+                </View>
+              ))}
+              {profile.stats.sessionsAttended > 0 && (
+                <View style={styles.activityItem}>
+                  <View style={[styles.activityIcon, { backgroundColor: "rgba(255,215,0,0.2)" }]}>
+                    <Ionicons name="fitness" size={16} color={Colors.dark.gold} />
+                  </View>
+                  <View style={styles.activityContent}>
+                    <Text style={styles.activityText}>Completed training session</Text>
+                    <Text style={styles.activityXp}>+8 Physical XP</Text>
+                  </View>
+                </View>
+              )}
+              {profile.connections.total > 0 && (
+                <View style={styles.activityItem}>
+                  <View style={[styles.activityIcon, { backgroundColor: "rgba(0,212,255,0.2)" }]}>
+                    <Ionicons name="people" size={16} color={Colors.dark.xpCyan} />
+                  </View>
+                  <View style={styles.activityContent}>
+                    <Text style={styles.activityText}>
+                      Connected with <Text style={styles.activityHighlight}>{profile.connections.previews[0]?.name || "a player"}</Text>
+                    </Text>
+                    <Text style={styles.activityXp}>+5 Social XP</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          ) : (
+            <View style={styles.emptyActivityCard}>
+              <View style={styles.emptyIconContainer}>
+                <Ionicons name="sparkles" size={40} color={Colors.dark.primary} />
+              </View>
+              <Text style={styles.emptyActivityTitle}>Start Your Journey</Text>
+              <Text style={styles.emptyActivitySubtitle}>Play matches, attend training, and connect with players to build your activity feed</Text>
+            </View>
+          )}
         </Animated.View>
 
         {/* ═══════════════════════════════════════════════════════════ */}
@@ -603,6 +731,76 @@ export default function PlayerPublicProfileScreen() {
           </Animated.View>
         )}
       </ScrollView>
+      
+      {/* Pillar Detail Modal */}
+      <Modal
+        visible={selectedPillar !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedPillar(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setSelectedPillar(null)}>
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            {selectedPillar && (
+              <>
+                <View style={styles.modalHeader}>
+                  <View style={[styles.modalPillarIcon, { backgroundColor: PILLAR_COLORS[selectedPillar.name] + "20", borderColor: PILLAR_COLORS[selectedPillar.name] }]}>
+                    <Ionicons 
+                      name={(PILLAR_ICONS[selectedPillar.name] || "ellipse") as any} 
+                      size={32} 
+                      color={PILLAR_COLORS[selectedPillar.name] || Colors.dark.primary} 
+                    />
+                  </View>
+                  <View style={styles.modalHeaderText}>
+                    <Text style={styles.modalTitle}>{selectedPillar.displayName}</Text>
+                    <Text style={[styles.modalLevel, { color: PILLAR_COLORS[selectedPillar.name] }]}>
+                      Level {selectedPillar.level}
+                    </Text>
+                  </View>
+                  <Pressable style={styles.modalClose} onPress={() => setSelectedPillar(null)}>
+                    <Ionicons name="close" size={24} color={Colors.dark.textMuted} />
+                  </Pressable>
+                </View>
+                
+                <View style={styles.modalProgressBar}>
+                  <View 
+                    style={[
+                      styles.modalProgressFill, 
+                      { width: `${selectedPillar.progress}%`, backgroundColor: PILLAR_COLORS[selectedPillar.name] }
+                    ]} 
+                  />
+                </View>
+                <Text style={styles.modalProgressText}>{selectedPillar.progress}% to next level</Text>
+                
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionTitle}>What it means</Text>
+                  <Text style={styles.modalSectionText}>
+                    {PILLAR_DESCRIPTIONS[selectedPillar.name]?.meaning || "Your progress in this skill area"}
+                  </Text>
+                </View>
+                
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionTitle}>How to level up</Text>
+                  <Text style={styles.modalSectionText}>
+                    {PILLAR_DESCRIPTIONS[selectedPillar.name]?.howToLevel || "Complete activities and training"}
+                  </Text>
+                </View>
+                
+                <View style={[styles.modalTrend, { borderColor: selectedPillar.trend === "up" ? Colors.dark.primary : Colors.dark.textMuted }]}>
+                  <Ionicons 
+                    name={selectedPillar.trend === "up" ? "trending-up" : "trending-down"} 
+                    size={20} 
+                    color={selectedPillar.trend === "up" ? Colors.dark.primary : Colors.dark.textMuted} 
+                  />
+                  <Text style={[styles.modalTrendText, { color: selectedPillar.trend === "up" ? Colors.dark.primary : Colors.dark.textMuted }]}>
+                    {selectedPillar.trend === "up" ? "Improving" : "Needs attention"}
+                  </Text>
+                </View>
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -1175,5 +1373,178 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.dark.textMuted,
     textAlign: "center",
+  },
+  
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    marginBottom: Spacing.md,
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  
+  pillarProgress: {
+    width: "100%",
+    height: 4,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: 2,
+    marginTop: Spacing.xs,
+    overflow: "hidden",
+  },
+  pillarProgressFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  
+  activityFeed: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  activityItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  activityIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  activityContent: {
+    flex: 1,
+  },
+  activityText: {
+    fontSize: 14,
+    color: Colors.dark.text,
+  },
+  activityHighlight: {
+    fontWeight: "600",
+    color: Colors.dark.primary,
+  },
+  activityXp: {
+    fontSize: 12,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  emptyActivityCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.xl,
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  emptyActivityTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textAlign: "center",
+  },
+  emptyActivitySubtitle: {
+    fontSize: 14,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  modalContent: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    width: "100%",
+    maxWidth: 400,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  modalPillarIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+  },
+  modalHeaderText: {
+    flex: 1,
+    marginLeft: Spacing.md,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  modalLevel: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  modalClose: {
+    padding: Spacing.sm,
+  },
+  modalProgressBar: {
+    width: "100%",
+    height: 8,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  modalProgressFill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  modalProgressText: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.lg,
+  },
+  modalSection: {
+    marginBottom: Spacing.lg,
+  },
+  modalSectionTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+    letterSpacing: 1,
+    marginBottom: Spacing.sm,
+  },
+  modalSectionText: {
+    fontSize: 14,
+    color: Colors.dark.text,
+    lineHeight: 20,
+  },
+  modalTrend: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    alignSelf: "flex-start",
+  },
+  modalTrendText: {
+    fontSize: 13,
+    fontWeight: "600",
   },
 });
