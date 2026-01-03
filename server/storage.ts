@@ -41,6 +41,7 @@ import {
   sessionTemplates,
   coachNotifications,
   recurringSeries,
+  playerSessionCancellations,
   // Progress Engine V2
   skillDomains,
   playerSkillState,
@@ -880,6 +881,7 @@ export const storage = {
         db.delete(playerProgress).where(eq(playerProgress.playerId, id)),
         db.delete(playerHolidays).where(eq(playerHolidays.playerId, id)),
         db.delete(sessionPlayers).where(eq(sessionPlayers.playerId, id)),
+        db.delete(playerSessionCancellations).where(eq(playerSessionCancellations.playerId, id)),
         // Booking, applications, and transfers
         db.delete(bookingRequests).where(eq(bookingRequests.playerId, id)),
         db.delete(academyApplications).where(eq(academyApplications.playerId, id)),
@@ -888,8 +890,21 @@ export const storage = {
         // Chat - participants and reactions
         db.delete(conversationParticipants).where(eq(conversationParticipants.playerId, id)),
         db.delete(messageReactions).where(eq(messageReactions.reactorPlayerId, id)),
-        // Coach reviews
+        // Coach reviews and prompts
         db.delete(coachReviews).where(eq(coachReviews.playerId, id)),
+        db.delete(reviewPrompts).where(eq(reviewPrompts.playerId, id)),
+        // Player matches (initiator or receiver)
+        db.delete(playerMatches).where(
+          or(eq(playerMatches.initiatorId, id), eq(playerMatches.receiverId, id))
+        ),
+        // Player connections (either party)
+        db.delete(playerConnections).where(
+          or(eq(playerConnections.player1Id, id), eq(playerConnections.player2Id, id))
+        ),
+        // Court bookings
+        db.delete(courtBookings).where(eq(courtBookings.playerId, id)),
+        // Coach earnings referencing this player
+        db.delete(coachEarnings).where(eq(coachEarnings.playerId, id)),
       ]);
       
       // Second batch: chat messages and parent relations

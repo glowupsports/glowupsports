@@ -117,6 +117,7 @@ export default function AdminPlayersScreen() {
   const queryClient = useQueryClient();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -166,6 +167,7 @@ export default function AdminPlayersScreen() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/players"] });
+      setShowDeleteModal(false);
       closeDetailModal();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
@@ -214,27 +216,13 @@ export default function AdminPlayersScreen() {
 
   const handleDelete = () => {
     if (!selectedPlayerId) return;
-    
-    const playerName = playerStats?.player?.name || selectedPlayer?.name || "this player";
-    
-    const confirmDelete = () => {
-      deletePlayerMutation.mutate(selectedPlayerId);
-    };
+    setShowDeleteModal(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
 
-    if (Platform.OS === "web") {
-      if (window.confirm(`Delete ${playerName}? This action cannot be undone.`)) {
-        confirmDelete();
-      }
-    } else {
-      Alert.alert(
-        "Delete Player",
-        `Are you sure you want to delete ${playerName}? This action cannot be undone.`,
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Delete", style: "destructive", onPress: confirmDelete },
-        ]
-      );
-    }
+  const confirmDelete = () => {
+    if (!selectedPlayerId) return;
+    deletePlayerMutation.mutate(selectedPlayerId);
   };
 
   const getBallLevelColor = (level?: string) => {
@@ -741,6 +729,125 @@ export default function AdminPlayersScreen() {
         </View>
       </Modal>
 
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <Pressable 
+          style={styles.deleteModalOverlay} 
+          onPress={() => setShowDeleteModal(false)}
+        >
+          <Pressable style={styles.deleteModalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.deleteModalHeader}>
+              <View style={styles.deleteModalIconContainer}>
+                <Ionicons name="trash" size={32} color={Colors.dark.error} />
+              </View>
+              <Text style={styles.deleteModalTitle}>Delete Player</Text>
+              <Text style={styles.deleteModalSubtitle}>
+                {playerStats?.player?.name || selectedPlayer?.name || "Player"}
+              </Text>
+            </View>
+
+            <Text style={styles.deleteOptionsLabel}>This will permanently delete:</Text>
+            
+            <ScrollView style={styles.deleteOptionsContainer}>
+              <View style={styles.deleteOptionRow}>
+                <View style={[styles.checkbox, styles.checkboxChecked]}>
+                  <Ionicons name="checkmark" size={14} color="#000" />
+                </View>
+                <View style={styles.deleteOptionContent}>
+                  <Text style={styles.deleteOptionLabel}>Progress & XP Data</Text>
+                  <Text style={styles.deleteOptionDesc}>Skills, levels, XP transactions, assessments</Text>
+                </View>
+              </View>
+
+              <View style={styles.deleteOptionRow}>
+                <View style={[styles.checkbox, styles.checkboxChecked]}>
+                  <Ionicons name="checkmark" size={14} color="#000" />
+                </View>
+                <View style={styles.deleteOptionContent}>
+                  <Text style={styles.deleteOptionLabel}>Feedback & Notes</Text>
+                  <Text style={styles.deleteOptionDesc}>Session feedback, coach notes</Text>
+                </View>
+              </View>
+
+              <View style={styles.deleteOptionRow}>
+                <View style={[styles.checkbox, styles.checkboxChecked]}>
+                  <Ionicons name="checkmark" size={14} color="#000" />
+                </View>
+                <View style={styles.deleteOptionContent}>
+                  <Text style={styles.deleteOptionLabel}>Billing & Payments</Text>
+                  <Text style={styles.deleteOptionDesc}>Invoices, payments, packages, subscriptions</Text>
+                </View>
+              </View>
+
+              <View style={styles.deleteOptionRow}>
+                <View style={[styles.checkbox, styles.checkboxChecked]}>
+                  <Ionicons name="checkmark" size={14} color="#000" />
+                </View>
+                <View style={styles.deleteOptionContent}>
+                  <Text style={styles.deleteOptionLabel}>Chat Messages</Text>
+                  <Text style={styles.deleteOptionDesc}>Conversations and message history</Text>
+                </View>
+              </View>
+
+              <View style={styles.deleteOptionRow}>
+                <View style={[styles.checkbox, styles.checkboxChecked]}>
+                  <Ionicons name="checkmark" size={14} color="#000" />
+                </View>
+                <View style={styles.deleteOptionContent}>
+                  <Text style={styles.deleteOptionLabel}>Coach Reviews</Text>
+                  <Text style={styles.deleteOptionDesc}>Reviews given by the player</Text>
+                </View>
+              </View>
+
+              <View style={styles.deleteOptionRow}>
+                <View style={[styles.checkbox, styles.checkboxChecked]}>
+                  <Ionicons name="checkmark" size={14} color="#000" />
+                </View>
+                <View style={styles.deleteOptionContent}>
+                  <Text style={styles.deleteOptionLabel}>Booking Requests</Text>
+                  <Text style={styles.deleteOptionDesc}>Pending and past booking requests</Text>
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.warningInfo}>
+              <Ionicons name="warning" size={16} color={Colors.dark.warning} />
+              <Text style={styles.warningText}>
+                This action cannot be undone
+              </Text>
+            </View>
+
+            <View style={styles.deleteModalActions}>
+              <Pressable 
+                style={styles.cancelDeleteBtn}
+                onPress={() => setShowDeleteModal(false)}
+              >
+                <Text style={styles.cancelDeleteBtnText}>Cancel</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.confirmDeleteBtn, deletePlayerMutation.isPending && styles.btnDisabled]}
+                onPress={confirmDelete}
+                disabled={deletePlayerMutation.isPending}
+              >
+                {deletePlayerMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <>
+                    <Ionicons name="trash" size={16} color="#FFF" />
+                    <Text style={styles.confirmDeleteBtnText}>Delete Player</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <ReportIssueModal
         visible={showReportIssueModal}
         onClose={() => setShowReportIssueModal(false)}
@@ -1241,5 +1348,132 @@ const styles = StyleSheet.create({
   deleteText: {
     ...Typography.body,
     color: Colors.dark.error,
+  },
+  deleteModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  deleteModalContent: {
+    ...CardStyles.card,
+    width: "100%",
+    maxWidth: 400,
+    maxHeight: "80%",
+    padding: Spacing.xl,
+  },
+  deleteModalHeader: {
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  deleteModalIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: `${Colors.dark.error}20`,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  deleteModalTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  deleteModalSubtitle: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
+  },
+  deleteOptionsLabel: {
+    ...Typography.bodySmall,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.md,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  deleteOptionsContainer: {
+    maxHeight: 280,
+  },
+  deleteOptionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    gap: Spacing.md,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 2,
+    borderColor: Colors.dark.border,
+    backgroundColor: "transparent",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkboxChecked: {
+    backgroundColor: Colors.dark.error,
+    borderColor: Colors.dark.error,
+  },
+  deleteOptionContent: {
+    flex: 1,
+  },
+  deleteOptionLabel: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  deleteOptionDesc: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  warningInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    backgroundColor: `${Colors.dark.warning}15`,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  warningText: {
+    ...Typography.caption,
+    color: Colors.dark.warning,
+    flex: 1,
+  },
+  deleteModalActions: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  cancelDeleteBtn: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    alignItems: "center",
+  },
+  cancelDeleteBtnText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  confirmDeleteBtn: {
+    flex: 1,
+    flexDirection: "row",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.error,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  confirmDeleteBtnText: {
+    ...Typography.body,
+    color: "#FFF",
+    fontWeight: "600",
+  },
+  btnDisabled: {
+    opacity: 0.6,
   },
 });

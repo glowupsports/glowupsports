@@ -3150,7 +3150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete player
+  // Delete player (permanently removes all associated data)
   app.delete("/api/players/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
