@@ -9,7 +9,9 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Image as RNImage,
 } from "react-native";
+import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
@@ -18,7 +20,7 @@ import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
@@ -29,6 +31,7 @@ interface Player {
   email: string;
   ballLevel?: string | null;
   level?: string | null;
+  profilePhotoUrl?: string | null;
 }
 
 interface CreateSessionDrawerProps {
@@ -741,12 +744,28 @@ export default function CreateSessionDrawer({
                       color={isSelected ? Colors.dark.primary : Colors.dark.disabled}
                     />
                     {/* Player Avatar with Ball Level Color */}
-                    <View style={[
-                      styles.playerAvatar,
-                      isGuest ? styles.playerAvatarGuest : { backgroundColor: ballColor }
-                    ]}>
-                      <Text style={styles.playerAvatarText}>{player.name.charAt(0).toUpperCase()}</Text>
-                    </View>
+                    {player.profilePhotoUrl ? (
+                      Platform.OS === 'web' ? (
+                        <RNImage
+                          source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                          style={styles.playerAvatarPhoto}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <Image
+                          source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                          style={styles.playerAvatarPhoto}
+                          contentFit="cover"
+                        />
+                      )
+                    ) : (
+                      <View style={[
+                        styles.playerAvatar,
+                        isGuest ? styles.playerAvatarGuest : { backgroundColor: ballColor }
+                      ]}>
+                        <Text style={styles.playerAvatarText}>{player.name.charAt(0).toUpperCase()}</Text>
+                      </View>
+                    )}
                     <View style={styles.playerInfo}>
                       <Text style={styles.playerName}>{player.name}</Text>
                       {(player.ballLevel || skillLabel) && !isGuest ? (
@@ -1280,6 +1299,12 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.text,
     fontWeight: "600",
+  },
+  playerAvatarPhoto: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.backgroundSecondary,
   },
   playerInfo: {
     flex: 1,
