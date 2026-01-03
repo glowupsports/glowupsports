@@ -177,6 +177,7 @@ export default function PlayerProfileScreen() {
       }
 
       await queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert("Success", "Profile photo updated!");
     } catch (error) {
