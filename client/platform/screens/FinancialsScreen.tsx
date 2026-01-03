@@ -1,8 +1,9 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 
 const PLATFORM_COLOR = "#9B59B6";
@@ -21,7 +22,7 @@ function TransactionRow({ academy, amount, type, date }: TransactionRowProps) {
     pending: { color: Colors.dark.orange, icon: "time" as const, prefix: "" },
   };
 
-  const config = typeConfig[type];
+  const config = typeConfig[type] || typeConfig.pending;
 
   return (
     <View style={styles.transactionRow}>
@@ -33,7 +34,7 @@ function TransactionRow({ academy, amount, type, date }: TransactionRowProps) {
         <Text style={styles.transactionDate}>{date}</Text>
       </View>
       <Text style={[styles.transactionAmount, { color: config.color }]}>
-        {config.prefix}${Math.abs(amount).toLocaleString()}
+        {config.prefix}AED {Math.abs(amount).toLocaleString()}
       </Text>
     </View>
   );
@@ -47,7 +48,7 @@ interface RevenueBarProps {
 }
 
 function RevenueBar({ month, amount, maxAmount, isCurrent }: RevenueBarProps) {
-  const height = (amount / maxAmount) * 100;
+  const height = maxAmount > 0 ? (amount / maxAmount) * 100 : 0;
 
   return (
     <View style={styles.revenueBarContainer}>
@@ -55,7 +56,7 @@ function RevenueBar({ month, amount, maxAmount, isCurrent }: RevenueBarProps) {
         style={[
           styles.revenueBar, 
           { 
-            height: `${height}%`,
+            height: `${Math.max(height, 5)}%`,
             backgroundColor: isCurrent ? Colors.dark.gold : `${Colors.dark.gold}60`,
           }
         ]} 
@@ -65,36 +66,62 @@ function RevenueBar({ month, amount, maxAmount, isCurrent }: RevenueBarProps) {
   );
 }
 
+interface FinancialsData {
+  currency: string;
+  financialStats: {
+    mrr: number;
+    arr: number;
+    pendingPayments: number;
+    failedPayments: number;
+    avgRevenuePerAcademy: number;
+    churnValue: number;
+  };
+  revenueData: Array<{ month: string; amount: number }>;
+  transactions: Array<{
+    academy: string;
+    amount: number;
+    type: "payment" | "refund" | "pending";
+    date: string;
+  }>;
+}
+
 export default function FinancialsScreen() {
   const insets = useSafeAreaInsets();
 
-  const financialStats = {
-    mrr: 28500,
-    arr: 342000,
-    pendingPayments: 3200,
-    failedPayments: 2,
-    avgRevenuePerAcademy: 2375,
-    churnValue: 1500,
+  const { data, isLoading, error } = useQuery<FinancialsData>({
+    queryKey: ["/api/platform/financials"],
+  });
+
+  const financialStats = data?.financialStats || {
+    mrr: 0,
+    arr: 0,
+    pendingPayments: 0,
+    failedPayments: 0,
+    avgRevenuePerAcademy: 0,
+    churnValue: 0,
   };
 
-  const revenueData = [
-    { month: "Jul", amount: 22000 },
-    { month: "Aug", amount: 24500 },
-    { month: "Sep", amount: 23800 },
-    { month: "Oct", amount: 26200 },
-    { month: "Nov", amount: 27800 },
-    { month: "Dec", amount: 28500 },
-  ];
+  const revenueData = data?.revenueData || [];
+  const maxRevenue = Math.max(...revenueData.map(r => r.amount), 1);
+  const transactions = data?.transactions || [];
 
-  const maxRevenue = Math.max(...revenueData.map(r => r.amount));
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={PLATFORM_COLOR} />
+        <Text style={styles.loadingText}>Loading financial data...</Text>
+      </View>
+    );
+  }
 
-  const transactions: TransactionRowProps[] = [
-    { academy: "Tennis Academy Pro", amount: 2850, type: "payment", date: "Dec 28, 2025" },
-    { academy: "Elite Tennis Club", amount: 2200, type: "payment", date: "Dec 28, 2025" },
-    { academy: "City Tennis Center", amount: 3500, type: "pending", date: "Dec 27, 2025" },
-    { academy: "Junior Elite Sports", amount: 2000, type: "pending", date: "Dec 26, 2025" },
-    { academy: "Sunset Tennis Academy", amount: 500, type: "refund", date: "Dec 25, 2025" },
-  ];
+  if (error) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <Ionicons name="alert-circle" size={48} color={Colors.dark.error} />
+        <Text style={styles.errorText}>Failed to load financial data</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -110,22 +137,22 @@ export default function FinancialsScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.title}>Financials</Text>
-          <Text style={styles.subtitle}>Platform revenue and payments</Text>
+          <Text style={styles.subtitle}>Platform revenue and payments (AED)</Text>
         </View>
 
         <View style={[styles.mrrCard, CardStyles.elevated]}>
           <View style={styles.mrrMain}>
             <Text style={styles.mrrLabel}>Monthly Recurring Revenue</Text>
-            <Text style={styles.mrrValue}>${financialStats.mrr.toLocaleString()}</Text>
+            <Text style={styles.mrrValue}>AED {financialStats.mrr.toLocaleString()}</Text>
           </View>
           <View style={styles.mrrSecondary}>
             <View style={styles.mrrItem}>
               <Text style={styles.mrrItemLabel}>ARR</Text>
-              <Text style={styles.mrrItemValue}>${(financialStats.arr / 1000).toFixed(0)}k</Text>
+              <Text style={styles.mrrItemValue}>AED {(financialStats.arr / 1000).toFixed(0)}k</Text>
             </View>
             <View style={styles.mrrItem}>
               <Text style={styles.mrrItemLabel}>Avg/Academy</Text>
-              <Text style={styles.mrrItemValue}>${financialStats.avgRevenuePerAcademy}</Text>
+              <Text style={styles.mrrItemValue}>AED {financialStats.avgRevenuePerAcademy.toLocaleString()}</Text>
             </View>
           </View>
         </View>
@@ -134,7 +161,7 @@ export default function FinancialsScreen() {
           <View style={[styles.alertCard, CardStyles.elevated, { borderLeftColor: Colors.dark.orange }]}>
             <Ionicons name="time" size={24} color={Colors.dark.orange} />
             <View style={styles.alertInfo}>
-              <Text style={styles.alertValue}>${financialStats.pendingPayments.toLocaleString()}</Text>
+              <Text style={styles.alertValue}>AED {financialStats.pendingPayments.toLocaleString()}</Text>
               <Text style={styles.alertLabel}>Pending</Text>
             </View>
           </View>
@@ -150,36 +177,46 @@ export default function FinancialsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Revenue Trend</Text>
           <View style={[styles.chartCard, CardStyles.elevated]}>
-            <View style={styles.revenueBars}>
-              {revenueData.map((item, index) => (
-                <RevenueBar 
-                  key={index} 
-                  month={item.month} 
-                  amount={item.amount} 
-                  maxAmount={maxRevenue}
-                  isCurrent={index === revenueData.length - 1}
-                />
-              ))}
-            </View>
-            <View style={styles.chartFooter}>
-              <View style={styles.chartLegend}>
-                <View style={[styles.legendDot, { backgroundColor: Colors.dark.gold }]} />
-                <Text style={styles.legendText}>Current</Text>
-              </View>
-              <View style={styles.chartLegend}>
-                <View style={[styles.legendDot, { backgroundColor: `${Colors.dark.gold}60` }]} />
-                <Text style={styles.legendText}>Previous</Text>
-              </View>
-            </View>
+            {revenueData.length > 0 ? (
+              <>
+                <View style={styles.revenueBars}>
+                  {revenueData.map((item, index) => (
+                    <RevenueBar 
+                      key={index} 
+                      month={item.month} 
+                      amount={item.amount} 
+                      maxAmount={maxRevenue}
+                      isCurrent={index === revenueData.length - 1}
+                    />
+                  ))}
+                </View>
+                <View style={styles.chartFooter}>
+                  <View style={styles.chartLegend}>
+                    <View style={[styles.legendDot, { backgroundColor: Colors.dark.gold }]} />
+                    <Text style={styles.legendText}>Current</Text>
+                  </View>
+                  <View style={styles.chartLegend}>
+                    <View style={[styles.legendDot, { backgroundColor: `${Colors.dark.gold}60` }]} />
+                    <Text style={styles.legendText}>Previous</Text>
+                  </View>
+                </View>
+              </>
+            ) : (
+              <Text style={styles.emptyText}>No revenue data available</Text>
+            )}
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Recent Transactions</Text>
           <View style={[styles.transactionsCard, CardStyles.elevated]}>
-            {transactions.map((transaction, index) => (
-              <TransactionRow key={index} {...transaction} />
-            ))}
+            {transactions.length > 0 ? (
+              transactions.map((transaction, index) => (
+                <TransactionRow key={index} {...transaction} />
+              ))
+            ) : (
+              <Text style={styles.emptyText}>No recent transactions</Text>
+            )}
           </View>
         </View>
 
@@ -188,8 +225,8 @@ export default function FinancialsScreen() {
             <Ionicons name="trending-down" size={24} color={Colors.dark.error} />
             <Text style={styles.churnTitle}>Monthly Churn</Text>
           </View>
-          <Text style={styles.churnValue}>${financialStats.churnValue.toLocaleString()}</Text>
-          <Text style={styles.churnSubtext}>Lost revenue from 1 cancelled subscription</Text>
+          <Text style={styles.churnValue}>AED {financialStats.churnValue.toLocaleString()}</Text>
+          <Text style={styles.churnSubtext}>Lost revenue from inactive academies</Text>
         </View>
       </ScrollView>
     </View>
@@ -200,6 +237,26 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  centered: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
+  },
+  errorText: {
+    ...Typography.body,
+    color: Colors.dark.error,
+    marginTop: Spacing.md,
+  },
+  emptyText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    padding: Spacing.lg,
   },
   headerGradient: {
     position: "absolute",
@@ -224,39 +281,37 @@ const styles = StyleSheet.create({
   subtitle: {
     ...Typography.body,
     color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
   },
   mrrCard: {
-    padding: Spacing.xl,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Colors.dark.backgroundElevated,
     borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
     marginBottom: Spacing.lg,
   },
   mrrMain: {
-    alignItems: "center",
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   mrrLabel: {
-    ...Typography.body,
+    ...Typography.caption,
     color: Colors.dark.textMuted,
     marginBottom: Spacing.xs,
   },
   mrrValue: {
-    fontSize: 40,
-    fontWeight: "700",
+    ...Typography.h1,
     color: Colors.dark.gold,
   },
   mrrSecondary: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    paddingTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Colors.dark.backgroundRoot,
+    borderTopColor: Colors.dark.border,
+    paddingTop: Spacing.md,
   },
   mrrItem: {
-    alignItems: "center",
+    flex: 1,
   },
   mrrItemLabel: {
-    ...Typography.small,
+    ...Typography.caption,
     color: Colors.dark.textMuted,
   },
   mrrItemValue: {
@@ -266,16 +321,16 @@ const styles = StyleSheet.create({
   alertCards: {
     flexDirection: "row",
     gap: Spacing.md,
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
   alertCard: {
     flex: 1,
+    backgroundColor: Colors.dark.backgroundElevated,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.md,
-    padding: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
+    gap: Spacing.sm,
     borderLeftWidth: 3,
   },
   alertInfo: {
@@ -286,11 +341,11 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   alertLabel: {
-    ...Typography.small,
+    ...Typography.caption,
     color: Colors.dark.textMuted,
   },
   section: {
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
   sectionTitle: {
     ...Typography.h3,
@@ -298,40 +353,39 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   chartCard: {
-    padding: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Colors.dark.backgroundElevated,
     borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
   },
   revenueBars: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "flex-end",
     height: 120,
+    alignItems: "flex-end",
+    justifyContent: "space-between",
     marginBottom: Spacing.md,
   },
   revenueBarContainer: {
+    flex: 1,
     alignItems: "center",
     height: "100%",
     justifyContent: "flex-end",
   },
   revenueBar: {
-    width: 32,
+    width: "60%",
     borderRadius: BorderRadius.sm,
     marginBottom: Spacing.xs,
-    minHeight: 4,
   },
   revenueBarLabel: {
-    ...Typography.small,
+    ...Typography.caption,
     color: Colors.dark.textMuted,
-    fontSize: 10,
   },
   chartFooter: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: Spacing.xl,
-    paddingTop: Spacing.md,
+    gap: Spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: Colors.dark.backgroundRoot,
+    borderTopColor: Colors.dark.border,
+    paddingTop: Spacing.sm,
   },
   chartLegend: {
     flexDirection: "row",
@@ -344,28 +398,28 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   legendText: {
-    ...Typography.small,
+    ...Typography.caption,
     color: Colors.dark.textMuted,
   },
   transactionsCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Colors.dark.backgroundElevated,
     borderRadius: BorderRadius.lg,
-    overflow: "hidden",
+    padding: Spacing.md,
   },
   transactionRow: {
     flexDirection: "row",
     alignItems: "center",
-    padding: Spacing.md,
+    paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.backgroundRoot,
+    borderBottomColor: Colors.dark.border,
   },
   transactionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
-    marginRight: Spacing.md,
+    justifyContent: "center",
+    marginRight: Spacing.sm,
   },
   transactionInfo: {
     flex: 1,
@@ -373,20 +427,19 @@ const styles = StyleSheet.create({
   transactionAcademy: {
     ...Typography.body,
     color: Colors.dark.text,
-    fontWeight: "600",
   },
   transactionDate: {
-    ...Typography.small,
+    ...Typography.caption,
     color: Colors.dark.textMuted,
   },
   transactionAmount: {
     ...Typography.h3,
   },
   churnCard: {
-    padding: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Colors.dark.backgroundElevated,
     borderRadius: BorderRadius.lg,
-    alignItems: "center",
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
   },
   churnHeader: {
     flexDirection: "row",
@@ -395,16 +448,16 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   churnTitle: {
-    ...Typography.body,
-    color: Colors.dark.textMuted,
+    ...Typography.h3,
+    color: Colors.dark.text,
   },
   churnValue: {
     ...Typography.h1,
     color: Colors.dark.error,
+    marginBottom: Spacing.xs,
   },
   churnSubtext: {
-    ...Typography.small,
+    ...Typography.caption,
     color: Colors.dark.textMuted,
-    marginTop: Spacing.xs,
   },
 });

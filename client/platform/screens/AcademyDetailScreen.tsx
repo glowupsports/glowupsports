@@ -69,13 +69,24 @@ export default function AcademyDetailScreen() {
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("DELETE", `/api/platform/academies/${academyId}`);
+      const response = await apiRequest("DELETE", `/api/platform/academies/${academyId}`);
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/platform/academies"] });
       queryClient.invalidateQueries({ queryKey: ["/api/platform/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/platform/financials"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       navigation.goBack();
+    },
+    onError: (error: Error) => {
+      console.error("Delete academy error:", error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      if (Platform.OS === "web") {
+        window.alert(`Failed to delete academy: ${error.message}`);
+      } else {
+        Alert.alert("Error", `Failed to delete academy: ${error.message}`);
+      }
     },
   });
 
