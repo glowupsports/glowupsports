@@ -5,7 +5,6 @@ import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
@@ -135,7 +134,7 @@ export default function PlayScreen() {
     
     const timeStr = date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
     
-    if (isToday) return `Today's Soon`;
+    if (isToday) return `Today ${timeStr}`;
     if (isTomorrow) return `Tomorrow ${timeStr}`;
     return `${date.toLocaleDateString("en-US", { weekday: "short" })} ${timeStr}`;
   };
