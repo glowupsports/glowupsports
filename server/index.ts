@@ -222,7 +222,7 @@ function setupExpoDevProxy(app: express.Application) {
 
   app.use((req, res, next) => {
     log(`[Proxy] ${req.method} ${req.path}`);
-    if (req.path.startsWith('/api') || req.path.startsWith('/auth')) {
+    if (req.path.startsWith('/api') || req.path.startsWith('/auth') || req.path.startsWith('/uploads') || req.path.startsWith('/assets')) {
       log(`[Proxy] Skipping proxy for ${req.path}`);
       return next();
     }
