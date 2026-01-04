@@ -11,7 +11,7 @@ if (__DEV__) {
 /**
  * Gets the base URL for the Express API server (e.g., "https://glow-up-sports--ltvjeugd.replit.app")
  * Uses EXPO_PUBLIC_API_URL (preferred) or falls back to EXPO_PUBLIC_DOMAIN
- * For API calls, port 5000 is stripped on web because of the proxy
+ * In development, keeps the port. In production, the URL has no port.
  * @returns {string} The API base URL
  */
 export function getApiUrl(): string {
@@ -19,9 +19,8 @@ export function getApiUrl(): string {
   
   let url = EXPO_PUBLIC_API_URL;
   
-  if (Platform.OS === "web") {
-    url = url.replace(/:5000$/, "").replace(/:5000\//, "/");
-  }
+  // Don't strip port - in development the Express server IS on port 5000
+  // In production, the URL won't have a port anyway
   
   return url.endsWith("/") ? url.slice(0, -1) : url;
 }
