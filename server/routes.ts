@@ -712,7 +712,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if email is taken
       const existingEmailUser = await storage.getUserByEmail(invite.invitedEmail);
       if (existingEmailUser) {
-        return res.status(409).json({ error: "An account with this email already exists" });
+        return res.status(409).json({ 
+          error: "An account with this email already exists. Please login with your existing account instead.",
+          existingAccount: true
+        });
       }
 
       const hashedPassword = await hashPassword(password);
