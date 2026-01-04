@@ -8,7 +8,6 @@
     },
     "updates": {
       "enabled": false,
-      "checkOnLaunch": "NEVER",
       "fallbackToCacheTimeout": 0
     },
     "orientation": "portrait",
