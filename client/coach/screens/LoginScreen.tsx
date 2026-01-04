@@ -340,7 +340,25 @@ export default function LoginScreen() {
         Alert.alert("Registration Failed", data.error || "Please try again");
       }
     } catch (error: any) {
-      Alert.alert("Error", "Something went wrong. Please try again.");
+      console.log("[InviteRegister] Error:", error.message);
+      let errorMessage = "Something went wrong. Please try again.";
+      if (error.message) {
+        try {
+          const parsed = JSON.parse(error.message.replace(/^\d+:\s*/, ''));
+          if (parsed.error) {
+            errorMessage = parsed.error;
+          }
+        } catch {
+          if (error.message.includes("Username already taken")) {
+            errorMessage = "Username already taken. Please choose a different one.";
+          } else if (error.message.includes("Invalid invite")) {
+            errorMessage = "This invite link is invalid or has expired.";
+          } else if (error.message.includes("Missing required")) {
+            errorMessage = "Please fill in all required fields.";
+          }
+        }
+      }
+      Alert.alert("Error", errorMessage);
     } finally {
       setIsSubmitting(false);
     }

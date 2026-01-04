@@ -149,12 +149,17 @@ export default function InviteManagementScreen() {
   });
 
   const handleCopyLink = async (token: string) => {
-    const { EXPO_PUBLIC_API_URL, EXPO_PUBLIC_DOMAIN } = getEnv();
-    const baseUrl = EXPO_PUBLIC_API_URL || `https://${EXPO_PUBLIC_DOMAIN}`;
-    const inviteUrl = `${baseUrl}/join/${token}`;
-    await Clipboard.setStringAsync(inviteUrl);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert("Copied", "Invite link copied to clipboard");
+    try {
+      const { EXPO_PUBLIC_API_URL, EXPO_PUBLIC_DOMAIN } = getEnv();
+      const baseUrl = EXPO_PUBLIC_API_URL || `https://${EXPO_PUBLIC_DOMAIN}`;
+      const inviteUrl = `${baseUrl}/join/${token}`;
+      await Clipboard.setStringAsync(inviteUrl);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Copied", `Invite link copied:\n${inviteUrl}`);
+    } catch (error) {
+      console.error("Clipboard error:", error);
+      Alert.alert("Error", "Could not copy to clipboard. Please try again.");
+    }
   };
 
   const handleCreateInvite = () => {

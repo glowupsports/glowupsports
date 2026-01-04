@@ -671,7 +671,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { token, username, email, firstName, lastName, password, phone } = req.body;
 
+      console.log("[InviteRegister] Attempting registration for username:", username, "email:", email);
+
       if (!token || !username || !email || !firstName || !lastName || !password) {
+        console.log("[InviteRegister] Missing fields - token:", !!token, "username:", !!username, "email:", !!email, "firstName:", !!firstName, "lastName:", !!lastName, "password:", !!password);
         return res.status(400).json({ error: "Missing required fields" });
       }
 
