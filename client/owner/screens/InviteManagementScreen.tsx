@@ -137,9 +137,10 @@ export default function InviteManagementScreen() {
       setExpiresInDays("7");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
-      const { EXPO_PUBLIC_API_URL, EXPO_PUBLIC_DOMAIN } = getEnv();
-      const baseUrl = EXPO_PUBLIC_API_URL || `https://${EXPO_PUBLIC_DOMAIN}`;
-      const inviteUrl = `${baseUrl}/join/${data.invite.token}`;
+      const { EXPO_PUBLIC_DOMAIN, EXPO_PUBLIC_API_URL } = getEnv();
+      const raw = EXPO_PUBLIC_DOMAIN || EXPO_PUBLIC_API_URL || "";
+      const domain = raw.replace(/^https?:\/\//, "").replace(/:\d+$/, "").replace(/\/$/, "");
+      const inviteUrl = `https://${domain}/join/${data.invite.token}`;
       Clipboard.setStringAsync(inviteUrl);
       Alert.alert("Invite Created", "The invite link has been copied to your clipboard.");
     },
@@ -150,9 +151,10 @@ export default function InviteManagementScreen() {
 
   const handleCopyLink = async (token: string) => {
     try {
-      const { EXPO_PUBLIC_API_URL, EXPO_PUBLIC_DOMAIN } = getEnv();
-      const baseUrl = EXPO_PUBLIC_API_URL || `https://${EXPO_PUBLIC_DOMAIN}`;
-      const inviteUrl = `${baseUrl}/join/${token}`;
+      const { EXPO_PUBLIC_DOMAIN, EXPO_PUBLIC_API_URL } = getEnv();
+      const raw = EXPO_PUBLIC_DOMAIN || EXPO_PUBLIC_API_URL || "";
+      const domain = raw.replace(/^https?:\/\//, "").replace(/:\d+$/, "").replace(/\/$/, "");
+      const inviteUrl = `https://${domain}/join/${token}`;
       await Clipboard.setStringAsync(inviteUrl);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert("Copied", `Invite link copied:\n${inviteUrl}`);

@@ -281,9 +281,9 @@ function InviteLinkModal({ visible, invite, onClose }: InviteLinkModalProps) {
 
   if (!invite) return null;
 
-  const domain = process.env.EXPO_PUBLIC_DOMAIN || "glow-up-sports--ltvjeugd.replit.app";
-  const baseUrl = `https://${domain.replace(/^https?:\/\//, "").replace(/\/$/, "")}`;
-  const inviteLink = `${baseUrl}/join/${invite.token}`;
+  const raw = process.env.EXPO_PUBLIC_DOMAIN || process.env.EXPO_PUBLIC_API_URL || "glow-up-sports--ltvjeugd.replit.app";
+  const cleanDomain = raw.replace(/^https?:\/\//, "").replace(/:\d+$/, "").replace(/\/$/, "");
+  const inviteLink = `https://${cleanDomain}/join/${invite.token}`;
 
   const handleCopy = async () => {
     await Clipboard.setStringAsync(inviteLink);

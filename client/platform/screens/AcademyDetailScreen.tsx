@@ -147,9 +147,10 @@ export default function AcademyDetailScreen() {
   });
 
   const getInviteUrl = (token: string) => {
-    const { EXPO_PUBLIC_API_URL, EXPO_PUBLIC_DOMAIN } = getEnv();
-    const baseUrl = EXPO_PUBLIC_API_URL || `https://${EXPO_PUBLIC_DOMAIN}`;
-    return `${baseUrl}/join/${token}`;
+    const { EXPO_PUBLIC_DOMAIN, EXPO_PUBLIC_API_URL } = getEnv();
+    const raw = EXPO_PUBLIC_DOMAIN || EXPO_PUBLIC_API_URL || "";
+    const domain = raw.replace(/^https?:\/\//, "").replace(/:\d+$/, "").replace(/\/$/, "");
+    return `https://${domain}/join/${token}`;
   };
 
   const handleCopyInviteLink = async (invite: Invite) => {
