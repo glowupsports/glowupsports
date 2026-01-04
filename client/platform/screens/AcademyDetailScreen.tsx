@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable, TextInput, Alert, Platform, ActivityIndicator, Share } from "react-native";
+import { View, Text, StyleSheet, Pressable, TextInput, Alert, Platform, ActivityIndicator, Share, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -52,6 +52,9 @@ export default function AcademyDetailScreen() {
   const [editTimezone, setEditTimezone] = useState("Asia/Dubai");
   const [selectedInviteRole, setSelectedInviteRole] = useState<"academy_owner" | "coach">("academy_owner");
   const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [pendingInvite, setPendingInvite] = useState<{ token: string; role: string; url: string } | null>(null);
+  const [modalCopied, setModalCopied] = useState(false);
 
   const { data: academy, isLoading } = useQuery<AcademyDetails>({
     queryKey: ["/api/platform/academies", academyId],
@@ -123,38 +126,13 @@ export default function AcademyDetailScreen() {
       
       if (data.invite?.token) {
         const inviteUrl = getInviteUrl(data.invite.token);
-        const roleLabel = data.invite.role === "academy_owner" ? "Academy Owner" : "Coach";
-        
-        try {
-          await Clipboard.setStringAsync(inviteUrl);
-        } catch (e) {
-          console.log("Auto-copy failed:", e);
-        }
-        
-        if (Platform.OS === "web") {
-          window.alert(`${roleLabel} invite link created and copied!\n\n${inviteUrl}`);
-        } else {
-          Alert.alert(
-            "Invite Link Created",
-            `${roleLabel} invite link has been copied to clipboard:\n\n${inviteUrl}`,
-            [
-              { text: "OK", style: "default" },
-              { 
-                text: "Share", 
-                onPress: async () => {
-                  try {
-                    await Share.share({
-                      message: `Join ${academyName} as ${roleLabel}: ${inviteUrl}`,
-                      url: inviteUrl,
-                    });
-                  } catch (error) {
-                    console.error("Share failed:", error);
-                  }
-                }
-              },
-            ]
-          );
-        }
+        setPendingInvite({
+          token: data.invite.token,
+          role: data.invite.role,
+          url: inviteUrl,
+        });
+        setModalCopied(false);
+        setShowInviteModal(true);
       }
     },
     onError: (error: Error) => {
@@ -201,6 +179,36 @@ export default function AcademyDetailScreen() {
 
   const handleCreateInvite = () => {
     createInviteMutation.mutate(selectedInviteRole);
+  };
+
+  const handleModalCopy = async () => {
+    if (!pendingInvite) return;
+    try {
+      await Clipboard.setStringAsync(pendingInvite.url);
+      setModalCopied(true);
+      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setTimeout(() => setModalCopied(false), 2000);
+    } catch (error) {
+      console.error("Failed to copy:", error);
+    }
+  };
+
+  const handleModalShare = async () => {
+    if (!pendingInvite) return;
+    const roleLabel = pendingInvite.role === "academy_owner" ? "Academy Owner" : "Coach";
+    try {
+      await Share.share({
+        message: `Join ${academyName} as ${roleLabel}: ${pendingInvite.url}`,
+        url: pendingInvite.url,
+      });
+    } catch (error) {
+      console.error("Failed to share:", error);
+    }
+  };
+
+  const handleCloseInviteModal = () => {
+    setShowInviteModal(false);
+    setPendingInvite(null);
   };
 
   const handleDelete = () => {
@@ -491,6 +499,61 @@ export default function AcademyDetailScreen() {
           </Pressable>
         </View>
       </KeyboardAwareScrollViewCompat>
+
+      <Modal
+        visible={showInviteModal}
+        animationType="fade"
+        transparent
+        onRequestClose={handleCloseInviteModal}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={handleCloseInviteModal} />
+          <View style={[styles.inviteModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <View style={styles.inviteIconContainer}>
+              <Ionicons name="checkmark-circle" size={48} color={Colors.dark.primary} />
+            </View>
+            
+            <Text style={styles.inviteModalTitle}>Invite Link Created!</Text>
+            <Text style={styles.inviteModalSubtitle}>
+              Share this link to invite someone as {pendingInvite?.role === "academy_owner" ? "Academy Owner" : "Coach"}:
+            </Text>
+
+            <View style={styles.inviteLinkBox}>
+              <Text style={styles.inviteLinkLabel}>Invite Link</Text>
+              <Text style={styles.inviteLinkText} numberOfLines={2} selectable>
+                {pendingInvite?.url}
+              </Text>
+            </View>
+
+            <View style={styles.modalActions}>
+              <Pressable 
+                style={[styles.copyButton, modalCopied && styles.copyButtonSuccess]} 
+                onPress={handleModalCopy}
+              >
+                <Ionicons 
+                  name={modalCopied ? "checkmark" : "copy-outline"} 
+                  size={20} 
+                  color={Colors.dark.backgroundRoot} 
+                />
+                <Text style={styles.copyButtonText}>
+                  {modalCopied ? "Copied!" : "Copy Link"}
+                </Text>
+              </Pressable>
+              
+              {Platform.OS !== "web" ? (
+                <Pressable style={styles.shareButton} onPress={handleModalShare}>
+                  <Ionicons name="share-outline" size={20} color={PLATFORM_COLOR} />
+                  <Text style={styles.shareButtonText}>Share</Text>
+                </Pressable>
+              ) : null}
+              
+              <Pressable style={styles.doneButton} onPress={handleCloseInviteModal}>
+                <Text style={styles.doneButtonText}>Done</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -747,5 +810,117 @@ const styles = StyleSheet.create({
     backgroundColor: `${PLATFORM_COLOR}20`,
     alignItems: "center",
     justifyContent: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+  },
+  modalBackdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  inviteModalContent: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    marginHorizontal: Spacing.lg,
+    maxWidth: 400,
+    width: "90%",
+    alignItems: "center",
+  },
+  inviteIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: `${Colors.dark.primary}20`,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.lg,
+  },
+  inviteModalTitle: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+    textAlign: "center",
+    marginBottom: Spacing.sm,
+  },
+  inviteModalSubtitle: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    marginBottom: Spacing.lg,
+  },
+  inviteLinkBox: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    width: "100%",
+    marginBottom: Spacing.lg,
+  },
+  inviteLinkLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.xs,
+  },
+  inviteLinkText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontFamily: "monospace",
+    fontSize: 12,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    width: "100%",
+    justifyContent: "center",
+    flexWrap: "wrap",
+  },
+  copyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: PLATFORM_COLOR,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    minWidth: 120,
+    justifyContent: "center",
+  },
+  copyButtonSuccess: {
+    backgroundColor: Colors.dark.successNeon,
+  },
+  copyButtonText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  shareButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: `${PLATFORM_COLOR}20`,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+  },
+  shareButtonText: {
+    ...Typography.body,
+    color: PLATFORM_COLOR,
+    fontWeight: "600",
+  },
+  doneButton: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  doneButtonText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
   },
 });
