@@ -6,6 +6,7 @@ import {
   saveAuthState, 
   clearAuthState, 
   setAuthToken,
+  setOnUnauthorizedCallback,
   AuthUser 
 } from "@/lib/auth";
 import { useAppMode, getModesForRole, getDefaultModeForRole } from "@/context/AppModeContext";
@@ -116,6 +117,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false;
     }
   }, []);
+
+  const handleUnauthorized = useCallback(async () => {
+    console.log("[AuthContext] Handling unauthorized - clearing auth state and forcing re-login");
+    queryClient.clear();
+    await clearAuthState();
+    setAuthToken(null);
+    setIsAuthenticated(false);
+    setUser(null);
+    setCoach(null);
+    setAcademy(null);
+  }, [queryClient]);
+
+  useEffect(() => {
+    setOnUnauthorizedCallback(handleUnauthorized);
+    return () => {
+      setOnUnauthorizedCallback(null);
+    };
+  }, [handleUnauthorized]);
 
   useEffect(() => {
     let isMounted = true;

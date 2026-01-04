@@ -1,5 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import { getAuthToken } from "./auth";
+import { getAuthToken, triggerUnauthorized } from "./auth";
 import { validateEnv, isDevelopment, logEnvStatus } from "./env";
 
 import { Platform } from "react-native";
@@ -118,8 +118,12 @@ export const getQueryFn: <T>(options: {
       credentials: "include",
     });
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
+    if (res.status === 401) {
+      console.log("[QueryClient] Received 401 for", queryKey.join("/"));
+      triggerUnauthorized();
+      if (unauthorizedBehavior === "returnNull") {
+        return null;
+      }
     }
 
     await throwIfResNotOk(res);

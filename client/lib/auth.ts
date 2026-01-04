@@ -20,6 +20,18 @@ export interface AuthState {
 }
 
 let currentToken: string | null = null;
+let onUnauthorizedCallback: (() => void) | null = null;
+
+export function setOnUnauthorizedCallback(callback: (() => void) | null): void {
+  onUnauthorizedCallback = callback;
+}
+
+export function triggerUnauthorized(): void {
+  console.log("[Auth] Triggering unauthorized callback (token expired or invalid)");
+  if (onUnauthorizedCallback) {
+    onUnauthorizedCallback();
+  }
+}
 
 export function getAuthToken(): string | null {
   return currentToken;
