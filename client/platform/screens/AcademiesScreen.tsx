@@ -117,7 +117,8 @@ type NavigationProp = NativeStackNavigationProp<PlatformStackParamList>;
 
 interface InviteData {
   token: string;
-  email: string;
+  email: string | null;
+  role?: string;
   expiresAt: string;
 }
 
@@ -317,10 +318,17 @@ function InviteLinkModal({ visible, invite, onClose }: InviteLinkModalProps) {
             Share this link with the academy owner to give them access:
           </Text>
 
-          <View style={styles.inviteEmailBadge}>
-            <Ionicons name="mail-outline" size={16} color={PLATFORM_COLOR} />
-            <Text style={styles.inviteEmailText}>{invite.email}</Text>
-          </View>
+          {invite.email ? (
+            <View style={styles.inviteEmailBadge}>
+              <Ionicons name="mail-outline" size={16} color={PLATFORM_COLOR} />
+              <Text style={styles.inviteEmailText}>{invite.email}</Text>
+            </View>
+          ) : (
+            <View style={styles.inviteEmailBadge}>
+              <Ionicons name="link-outline" size={16} color={PLATFORM_COLOR} />
+              <Text style={styles.inviteEmailText}>Shareable Link (anyone can use)</Text>
+            </View>
+          )}
 
           <View style={styles.inviteLinkBox}>
             <Text style={styles.inviteLinkLabel}>Invite Link</Text>

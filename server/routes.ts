@@ -8009,27 +8009,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      let inviteToken: string | null = null;
-      if (ownerEmail && typeof ownerEmail === "string" && ownerEmail.includes("@")) {
-        inviteToken = crypto.randomUUID();
-        await storage.createInvite({
-          token: inviteToken,
-          academyId: newAcademy.id,
-          invitedEmail: ownerEmail.trim().toLowerCase(),
-          role: "academy_owner",
-          invitedBy: req.user!.userId,
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        });
-      }
+      // Always create an academy_owner invite for new academies
+      const inviteToken = crypto.randomUUID();
+      const inviteEmail = ownerEmail && typeof ownerEmail === "string" && ownerEmail.includes("@")
+        ? ownerEmail.trim().toLowerCase()
+        : null;
+      
+      await storage.createInvite({
+        token: inviteToken,
+        academyId: newAcademy.id,
+        invitedEmail: inviteEmail,
+        role: "academy_owner",
+        invitedBy: req.user!.userId,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      });
 
       res.status(201).json({
         success: true,
         academy: newAcademy,
-        invite: inviteToken ? {
+        invite: {
           token: inviteToken,
-          email: ownerEmail.trim().toLowerCase(),
+          email: inviteEmail,
+          role: "academy_owner",
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        } : null,
+        },
       });
     } catch (error) {
       console.error("Create academy error:", error);

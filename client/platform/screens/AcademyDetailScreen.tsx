@@ -117,13 +117,54 @@ export default function AcademyDetailScreen() {
       const response = await apiRequest("POST", `/api/platform/academies/${academyId}/invites`, { role });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/platform/academies", academyId, "invites"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+      if (data.invite?.token) {
+        const inviteUrl = getInviteUrl(data.invite.token);
+        const roleLabel = data.invite.role === "academy_owner" ? "Academy Owner" : "Coach";
+        
+        try {
+          await Clipboard.setStringAsync(inviteUrl);
+        } catch (e) {
+          console.log("Auto-copy failed:", e);
+        }
+        
+        if (Platform.OS === "web") {
+          window.alert(`${roleLabel} invite link created and copied!\n\n${inviteUrl}`);
+        } else {
+          Alert.alert(
+            "Invite Link Created",
+            `${roleLabel} invite link has been copied to clipboard:\n\n${inviteUrl}`,
+            [
+              { text: "OK", style: "default" },
+              { 
+                text: "Share", 
+                onPress: async () => {
+                  try {
+                    await Share.share({
+                      message: `Join ${academyName} as ${roleLabel}: ${inviteUrl}`,
+                      url: inviteUrl,
+                    });
+                  } catch (error) {
+                    console.error("Share failed:", error);
+                  }
+                }
+              },
+            ]
+          );
+        }
+      }
     },
     onError: (error: Error) => {
       console.error("Create invite error:", error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      if (Platform.OS === "web") {
+        window.alert(`Failed to create invite: ${error.message}`);
+      } else {
+        Alert.alert("Error", `Failed to create invite: ${error.message}`);
+      }
     },
   });
 
