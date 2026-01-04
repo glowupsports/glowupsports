@@ -87,6 +87,7 @@ export default function LoginScreen() {
     suggestions: string[];
   }>({ checking: false, available: null, error: null, suggestions: [] });
   const usernameCheckTimeout = useRef<NodeJS.Timeout | null>(null);
+  const isInviteRegisteringRef = useRef(false);
 
   const [savedAccounts, setSavedAccounts] = useState<SavedAccount[]>([]);
   const [biometryType, setBiometryType] = useState<string | null>(null);
@@ -359,14 +360,19 @@ export default function LoginScreen() {
   };
 
   const handleInviteRegister = async () => {
+    if (isSubmitting || isInviteRegisteringRef.current) return;
+    isInviteRegisteringRef.current = true;
+    
     if (!username || !firstName || !lastName || !password || !email) {
       Alert.alert("Error", "Please fill in all required fields");
+      isInviteRegisteringRef.current = false;
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       Alert.alert("Error", "Please enter a valid email address");
+      isInviteRegisteringRef.current = false;
       return;
     }
 
@@ -374,16 +380,19 @@ export default function LoginScreen() {
 
     if (normalizedUsername.length < 3) {
       Alert.alert("Error", "Username must be at least 3 characters");
+      isInviteRegisteringRef.current = false;
       return;
     }
 
     if (!/^[a-z0-9_]+$/.test(normalizedUsername)) {
       Alert.alert("Error", "Username can only contain letters, numbers, and underscores");
+      isInviteRegisteringRef.current = false;
       return;
     }
 
     if (password.length < 8) {
       Alert.alert("Error", "Password must be at least 8 characters");
+      isInviteRegisteringRef.current = false;
       return;
     }
 
@@ -437,6 +446,7 @@ export default function LoginScreen() {
       Alert.alert("Error", errorMessage);
     } finally {
       setIsSubmitting(false);
+      isInviteRegisteringRef.current = false;
     }
   };
 
