@@ -1,5 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import { getAuthToken, triggerUnauthorized } from "./auth";
+import { getAuthToken, triggerUnauthorized, getCurrentAcademyId } from "./auth";
 import { validateEnv, isDevelopment, logEnvStatus } from "./env";
 
 import { Platform } from "react-native";
@@ -52,11 +52,19 @@ async function throwIfResNotOk(res: Response) {
 }
 
 function getAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
+  
   const token = getAuthToken();
   if (token) {
-    return { Authorization: `Bearer ${token}` };
+    headers["Authorization"] = `Bearer ${token}`;
   }
-  return {};
+  
+  const academyId = getCurrentAcademyId();
+  if (academyId) {
+    headers["X-Academy-Id"] = academyId;
+  }
+  
+  return headers;
 }
 
 /**

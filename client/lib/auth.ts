@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const AUTH_TOKEN_KEY = "@auth_token";
 const AUTH_USER_KEY = "@auth_user";
+const CURRENT_ACADEMY_KEY = "@current_academy_id";
 
 export interface AuthUser {
   id: string;
@@ -20,6 +21,7 @@ export interface AuthState {
 }
 
 let currentToken: string | null = null;
+let currentAcademyId: string | null = null;
 let onUnauthorizedCallback: (() => void) | null = null;
 
 export function setOnUnauthorizedCallback(callback: (() => void) | null): void {
@@ -43,16 +45,26 @@ export function setAuthToken(token: string | null): void {
 
 export async function loadAuthState(): Promise<AuthState> {
   try {
-    const [token, userJson] = await Promise.all([
+    const [token, userJson, academyId] = await Promise.all([
       AsyncStorage.getItem(AUTH_TOKEN_KEY),
       AsyncStorage.getItem(AUTH_USER_KEY),
+      AsyncStorage.getItem(CURRENT_ACADEMY_KEY),
     ]);
     
     if (token) {
       currentToken = token;
     }
     
+    if (academyId) {
+      currentAcademyId = academyId;
+    }
+    
     const user = userJson ? JSON.parse(userJson) : null;
+    
+    // Initialize current academy from user if not already set
+    if (!currentAcademyId && user?.academyId) {
+      currentAcademyId = user.academyId;
+    }
     
     return {
       token,
@@ -80,11 +92,37 @@ export async function saveAuthState(token: string, user: AuthUser): Promise<void
 export async function clearAuthState(): Promise<void> {
   try {
     currentToken = null;
+    currentAcademyId = null;
     await Promise.all([
       AsyncStorage.removeItem(AUTH_TOKEN_KEY),
       AsyncStorage.removeItem(AUTH_USER_KEY),
+      AsyncStorage.removeItem(CURRENT_ACADEMY_KEY),
     ]);
   } catch (error) {
     console.error("Failed to clear auth state:", error);
+  }
+}
+
+export function getCurrentAcademyId(): string | null {
+  return currentAcademyId;
+}
+
+export function setCurrentAcademyId(academyId: string | null): void {
+  currentAcademyId = academyId;
+  if (academyId) {
+    AsyncStorage.setItem(CURRENT_ACADEMY_KEY, academyId).catch(console.error);
+  } else {
+    AsyncStorage.removeItem(CURRENT_ACADEMY_KEY).catch(console.error);
+  }
+}
+
+export async function loadCurrentAcademyId(): Promise<string | null> {
+  try {
+    const academyId = await AsyncStorage.getItem(CURRENT_ACADEMY_KEY);
+    currentAcademyId = academyId;
+    return academyId;
+  } catch (error) {
+    console.error("Failed to load current academy ID:", error);
+    return null;
   }
 }

@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   TextInput,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -21,11 +22,14 @@ import Animated, {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { countries, getCitiesForCountry } from "@shared/countries";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface OnboardingData {
   academyName: string;
+  country: string;
+  city: string;
   location: string;
   sport: string;
   theme: "dark" | "light";
@@ -42,6 +46,13 @@ interface StepProps {
   setData: React.Dispatch<React.SetStateAction<OnboardingData>>;
   onNext: () => void;
   onBack?: () => void;
+}
+
+interface Step2Props extends StepProps {
+  showCountryPicker: boolean;
+  setShowCountryPicker: (show: boolean) => void;
+  showCityPicker: boolean;
+  setShowCityPicker: (show: boolean) => void;
 }
 
 const ACCENT_COLORS = [
@@ -193,9 +204,48 @@ function Step1Welcome({ onNext }: StepProps) {
   );
 }
 
-function Step2Identity({ data, setData, onNext, onBack }: StepProps) {
+function Step2Identity({ data, setData, onNext, onBack, showCountryPicker, setShowCountryPicker, showCityPicker, setShowCityPicker }: Step2Props) {
   const insets = useSafeAreaInsets();
-  const canContinue = data.academyName.trim().length > 0 && data.location.trim().length > 0;
+  const [countrySearchQuery, setCountrySearchQuery] = useState("");
+  const [citySearchQuery, setCitySearchQuery] = useState("");
+  
+  const canContinue = data.academyName.trim().length > 0 && data.country.length > 0 && data.city.length > 0;
+  
+  const selectedCountry = countries.find(c => c.code === data.country);
+  const availableCities = data.country ? getCitiesForCountry(data.country) : [];
+  
+  const filteredCountries = countrySearchQuery 
+    ? countries.filter(c => c.name.toLowerCase().includes(countrySearchQuery.toLowerCase()))
+    : countries;
+  
+  const filteredCities = citySearchQuery
+    ? availableCities.filter(c => c.toLowerCase().includes(citySearchQuery.toLowerCase()))
+    : availableCities;
+  
+  const handleCountrySelect = (countryCode: string) => {
+    const country = countries.find(c => c.code === countryCode);
+    setData(prev => ({ 
+      ...prev, 
+      country: countryCode, 
+      city: "",
+      location: country ? `${country.name}` : ""
+    }));
+    setCountrySearchQuery("");
+    setShowCountryPicker(false);
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+  
+  const handleCitySelect = (city: string) => {
+    const country = countries.find(c => c.code === data.country);
+    setData(prev => ({ 
+      ...prev, 
+      city,
+      location: country ? `${city}, ${country.name}` : city
+    }));
+    setCitySearchQuery("");
+    setShowCityPicker(false);
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
   
   return (
     <View style={[styles.stepContainer, { paddingTop: insets.top + Spacing.xl }]}>
@@ -216,14 +266,40 @@ function Step2Identity({ data, setData, onNext, onBack }: StepProps) {
           </View>
           
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Location (City / Country)</Text>
-            <TextInput
-              style={styles.textInput}
-              value={data.location}
-              onChangeText={(text) => setData(prev => ({ ...prev, location: text }))}
-              placeholder="e.g., Dubai, UAE"
-              placeholderTextColor={Colors.dark.textSecondary}
-            />
+            <Text style={styles.inputLabel}>Country</Text>
+            <Pressable 
+              style={styles.dropdownButton}
+              onPress={() => {
+                setCountrySearchQuery("");
+                setShowCountryPicker(true);
+                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+            >
+              <Text style={selectedCountry ? styles.dropdownButtonText : styles.dropdownButtonPlaceholder}>
+                {selectedCountry?.name || "Select a country"}
+              </Text>
+              <Ionicons name="chevron-down" size={20} color={Colors.dark.textSecondary} />
+            </Pressable>
+          </View>
+          
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>City</Text>
+            <Pressable 
+              style={[styles.dropdownButton, !data.country ? styles.dropdownButtonDisabled : null]}
+              onPress={() => {
+                if (data.country) {
+                  setCitySearchQuery("");
+                  setShowCityPicker(true);
+                  if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+              }}
+              disabled={!data.country}
+            >
+              <Text style={data.city ? styles.dropdownButtonText : styles.dropdownButtonPlaceholder}>
+                {data.city || (data.country ? "Select a city" : "Select a country first")}
+              </Text>
+              <Ionicons name="chevron-down" size={20} color={Colors.dark.textSecondary} />
+            </Pressable>
           </View>
           
           <View style={styles.inputGroup}>
@@ -263,6 +339,85 @@ function Step2Identity({ data, setData, onNext, onBack }: StepProps) {
           <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
         </Pressable>
       </View>
+      
+      <Modal visible={showCountryPicker} animationType="slide" transparent>
+        <View style={styles.pickerModalOverlay}>
+          <View style={styles.pickerModalContent}>
+            <View style={styles.pickerModalHeader}>
+              <Text style={styles.pickerModalTitle}>Select Country</Text>
+              <Pressable onPress={() => setShowCountryPicker(false)}>
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+            <TextInput
+              style={styles.pickerSearchInput}
+              value={countrySearchQuery}
+              onChangeText={setCountrySearchQuery}
+              placeholder="Search countries..."
+              placeholderTextColor={Colors.dark.textSecondary}
+            />
+            <FlatList
+              data={filteredCountries}
+              keyExtractor={(item) => item.code}
+              renderItem={({ item }) => (
+                <Pressable 
+                  style={[styles.pickerItem, data.country === item.code ? styles.pickerItemSelected : null]}
+                  onPress={() => handleCountrySelect(item.code)}
+                >
+                  <Text style={[styles.pickerItemText, data.country === item.code ? styles.pickerItemTextSelected : null]}>
+                    {item.name}
+                  </Text>
+                  {data.country === item.code ? (
+                    <Ionicons name="checkmark" size={20} color={Colors.dark.primary} />
+                  ) : null}
+                </Pressable>
+              )}
+              showsVerticalScrollIndicator={false}
+            />
+          </View>
+        </View>
+      </Modal>
+      
+      <Modal visible={showCityPicker} animationType="slide" transparent>
+        <View style={styles.pickerModalOverlay}>
+          <View style={styles.pickerModalContent}>
+            <View style={styles.pickerModalHeader}>
+              <Text style={styles.pickerModalTitle}>Select City</Text>
+              <Pressable onPress={() => setShowCityPicker(false)}>
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+            <TextInput
+              style={styles.pickerSearchInput}
+              value={citySearchQuery}
+              onChangeText={setCitySearchQuery}
+              placeholder="Search cities..."
+              placeholderTextColor={Colors.dark.textSecondary}
+            />
+            <FlatList
+              data={filteredCities}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <Pressable 
+                  style={[styles.pickerItem, data.city === item ? styles.pickerItemSelected : null]}
+                  onPress={() => handleCitySelect(item)}
+                >
+                  <Text style={[styles.pickerItemText, data.city === item ? styles.pickerItemTextSelected : null]}>
+                    {item}
+                  </Text>
+                  {data.city === item ? (
+                    <Ionicons name="checkmark" size={20} color={Colors.dark.primary} />
+                  ) : null}
+                </Pressable>
+              )}
+              showsVerticalScrollIndicator={false}
+              ListEmptyComponent={
+                <Text style={styles.pickerEmptyText}>No cities found</Text>
+              }
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -604,6 +759,8 @@ export default function AcademyOnboardingScreen({ navigation }: any) {
   
   const [data, setData] = useState<OnboardingData>({
     academyName: "",
+    country: "",
+    city: "",
     location: "",
     sport: "tennis",
     theme: "dark",
@@ -614,6 +771,10 @@ export default function AcademyOnboardingScreen({ navigation }: any) {
     expectations: [],
     additionalFeedback: "",
   });
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [showCityPicker, setShowCityPicker] = useState(false);
+  const [countrySearch, setCountrySearch] = useState("");
+  const [citySearch, setCitySearch] = useState("");
   
   const completeMutation = useMutation({
     mutationFn: async () => {
@@ -652,7 +813,7 @@ export default function AcademyOnboardingScreen({ navigation }: any) {
       case 0:
         return <Step1Welcome {...stepProps} />;
       case 1:
-        return <Step2Identity {...stepProps} />;
+        return <Step2Identity {...stepProps} showCountryPicker={showCountryPicker} setShowCountryPicker={setShowCountryPicker} showCityPicker={showCityPicker} setShowCityPicker={setShowCityPicker} />;
       case 2:
         return <Step3Style {...stepProps} />;
       case 3:
@@ -1075,5 +1236,86 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600" as const,
     color: Colors.dark.backgroundRoot,
+  },
+  dropdownButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  dropdownButtonDisabled: {
+    opacity: 0.5,
+  },
+  dropdownButtonText: {
+    fontSize: 16,
+    color: Colors.dark.text,
+  },
+  dropdownButtonPlaceholder: {
+    fontSize: 16,
+    color: Colors.dark.textSecondary,
+  },
+  pickerModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    justifyContent: "flex-end",
+  },
+  pickerModalContent: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    maxHeight: "70%",
+    paddingBottom: Spacing.xl,
+  },
+  pickerModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  pickerModalTitle: {
+    fontSize: 18,
+    fontWeight: "600" as const,
+    color: Colors.dark.text,
+  },
+  pickerSearchInput: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.md,
+    margin: Spacing.lg,
+    marginTop: Spacing.sm,
+    fontSize: 16,
+    color: Colors.dark.text,
+  },
+  pickerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  pickerItemSelected: {
+    backgroundColor: "rgba(46, 204, 64, 0.1)",
+  },
+  pickerItemText: {
+    fontSize: 16,
+    color: Colors.dark.text,
+  },
+  pickerItemTextSelected: {
+    color: Colors.dark.primary,
+    fontWeight: "500" as const,
+  },
+  pickerEmptyText: {
+    fontSize: 16,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    padding: Spacing.xl,
   },
 });

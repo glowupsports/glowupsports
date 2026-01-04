@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { StyleSheet, View, Platform, ActivityIndicator } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
 import { useQuery } from "@tanstack/react-query";
+import { setCurrentAcademyId } from "@/lib/auth";
 import OwnerDashboardScreen from "@/owner/screens/OwnerDashboardScreen";
 import AcademyScreen from "@/owner/screens/AcademyScreen";
 import PeopleScreen from "@/owner/screens/PeopleScreen";
@@ -137,9 +138,16 @@ function OwnerTabs() {
 }
 
 export default function OwnerNavigator() {
-  const { data: meData, isLoading } = useQuery<{ coach: { onboardingCompleted?: boolean } | null }>({
+  const { data: meData, isLoading } = useQuery<{ user?: { academyId?: string | null }; coach: { onboardingCompleted?: boolean } | null }>({
     queryKey: ["/api/me"],
   });
+  
+  // Set the current academy context when user data loads
+  useEffect(() => {
+    if (meData?.user?.academyId) {
+      setCurrentAcademyId(meData.user.academyId);
+    }
+  }, [meData?.user?.academyId]);
   
   if (isLoading || meData === undefined) {
     return (

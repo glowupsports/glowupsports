@@ -921,7 +921,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/invites", authMiddleware, requireRole("academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { role = "coach", email, expiresInDays = 7 } = req.body;
-      const academyId = req.user!.academyId;
+      // Use currentAcademyId (from X-Academy-Id header) for multi-academy support
+      const academyId = req.user!.currentAcademyId || req.user!.academyId;
       const invitedBy = req.user!.coachId || req.user!.userId;
 
       if (!academyId) {
@@ -965,7 +966,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // List invites for academy
   app.get("/api/invites", authMiddleware, requireRole("academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const academyId = req.user!.academyId;
+      // Use currentAcademyId (from X-Academy-Id header) for multi-academy support
+      const academyId = req.user!.currentAcademyId || req.user!.academyId;
       if (!academyId) {
         return res.status(400).json({ error: "Academy ID is required" });
       }

@@ -13,6 +13,7 @@ export interface JWTPayload {
   academyId: string | null;
   coachId: string | null;
   playerId: string | null;
+  currentAcademyId?: string | null; // The active academy context (from X-Academy-Id header)
 }
 
 export interface AuthenticatedRequest extends Request {
@@ -22,6 +23,7 @@ export interface AuthenticatedRequest extends Request {
 export interface UserStorageInterface {
   getUserById(id: string): Promise<{ id: string; email: string; role: string; academyId: string | null; coachId: string | null; playerId: string | null } | null>;
   isMaintenanceMode(): Promise<boolean>;
+  isUserAcademyOwner(userId: string, academyId: string): Promise<boolean>;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -86,11 +88,34 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
     return;
   }
 
+  // Read the X-Academy-Id header for multi-academy context
+  const requestedAcademyId = req.headers["x-academy-id"] as string | undefined;
+
   // Fetch fresh user data from database to get current academyId/coachId/playerId
   if (freshUserStorage) {
     try {
       const freshUser = await freshUserStorage.getUserById(payload.userId);
       if (freshUser) {
+        // Determine the effective academy context
+        let effectiveAcademyId = freshUser.academyId;
+        
+        // Platform owners can access any academy via the header
+        if (freshUser.role === "platform_owner" && requestedAcademyId) {
+          effectiveAcademyId = requestedAcademyId;
+        }
+        // Academy owners can access academies they own via the header
+        else if (freshUser.role === "academy_owner" && requestedAcademyId) {
+          // Validate that the user actually owns this academy
+          const isOwner = await freshUserStorage.isUserAcademyOwner(freshUser.id, requestedAcademyId);
+          if (isOwner) {
+            effectiveAcademyId = requestedAcademyId;
+          } else {
+            // If they don't own it, reject the request with 403
+            res.status(403).json({ error: "Access denied to this academy" });
+            return;
+          }
+        }
+        
         req.user = {
           userId: freshUser.id,
           email: freshUser.email,
@@ -98,6 +123,7 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
           academyId: freshUser.academyId,
           coachId: freshUser.coachId,
           playerId: freshUser.playerId,
+          currentAcademyId: effectiveAcademyId, // The active academy context
         };
         
         // Check maintenance mode for non-platform_owner users
@@ -125,7 +151,11 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
   }
 
   // Fallback to JWT payload if fresh data fetch fails
-  req.user = payload;
+  // SECURITY: Never trust X-Academy-Id header in fallback path - only use payload.academyId
+  req.user = {
+    ...payload,
+    currentAcademyId: payload.academyId, // Only use validated academy from JWT, never trust header in fallback
+  };
   
   // Also check maintenance mode for fallback path
   if (payload.role !== "platform_owner" && freshUserStorage) {

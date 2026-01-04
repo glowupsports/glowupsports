@@ -4814,6 +4814,49 @@ export const storage = {
     const config = await this.getPlatformConfig("maintenance");
     return config?.value === true || (config?.value as any)?.enabled === true;
   },
+  
+  async isUserAcademyOwner(userId: string, academyId: string): Promise<boolean> {
+    // Check multiple ownership paths:
+    
+    // 1. Direct ownership via academies.ownerId -> coaches -> users
+    const directOwnership = await db
+      .select({ id: academies.id })
+      .from(academies)
+      .innerJoin(coaches, eq(academies.ownerId, coaches.id))
+      .innerJoin(users, eq(coaches.userId, users.id))
+      .where(and(eq(users.id, userId), eq(academies.id, academyId)))
+      .limit(1);
+    if (directOwnership.length > 0) return true;
+    
+    // 2. Membership via coachAcademyMemberships with role academy_owner
+    const membershipOwnership = await db
+      .select({ id: coachAcademyMemberships.id })
+      .from(coachAcademyMemberships)
+      .innerJoin(coaches, eq(coachAcademyMemberships.coachId, coaches.id))
+      .innerJoin(users, eq(coaches.userId, users.id))
+      .where(and(
+        eq(users.id, userId),
+        eq(coachAcademyMemberships.academyId, academyId),
+        eq(coachAcademyMemberships.role, "academy_owner"),
+        eq(coachAcademyMemberships.isActive, true)
+      ))
+      .limit(1);
+    if (membershipOwnership.length > 0) return true;
+    
+    // 3. User's default academy with academy_owner role
+    const defaultAcademyOwnership = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(
+        eq(users.id, userId),
+        eq(users.academyId, academyId),
+        eq(users.role, "academy_owner")
+      ))
+      .limit(1);
+    if (defaultAcademyOwnership.length > 0) return true;
+    
+    return false;
+  },
 
   async setMaintenanceMode(enabled: boolean, updatedBy?: string): Promise<PlatformConfig> {
     return this.setPlatformConfig("maintenance", { enabled, updatedAt: new Date().toISOString() }, updatedBy);
