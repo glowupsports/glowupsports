@@ -656,12 +656,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
         valid: true,
         role: invite.role,
         academyName: academy?.name || "Unknown Academy",
+        email: invite.invitedEmail,
         invitedEmail: invite.invitedEmail,
         expiresAt: invite.expiresAt,
       });
     } catch (error) {
       console.error("Invite validation error:", error);
       res.status(500).json({ error: "Failed to validate invite" });
+    }
+  });
+
+  // Register user via invite (for academy owners invited by platform owner)
+  app.post("/auth/register/invite", authLimiter, async (req: Request, res: Response) => {
+    try {
+      const { token, username, firstName, lastName, password, phone } = req.body;
+
+      if (!token || !username || !firstName || !lastName || !password) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const normalizedUsername = username.toLowerCase();
+
+      if (normalizedUsername.length < 3) {
+        return res.status(400).json({ error: "Username must be at least 3 characters" });
+      }
+
+      if (!/^[a-z0-9_]+$/.test(normalizedUsername)) {
+        return res.status(400).json({ error: "Username can only contain letters, numbers, and underscores" });
+      }
+
+      if (password.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters" });
+      }
+
+      // Validate invite
+      const invite = await storage.getInviteByToken(token);
+      if (!invite) {
+        return res.status(400).json({ error: "Invalid invite code" });
+      }
+
+      if (invite.usedAt) {
+        return res.status(400).json({ error: "This invite has already been used" });
+      }
+
+      if (new Date() > new Date(invite.expiresAt)) {
+        return res.status(400).json({ error: "This invite has expired" });
+      }
+
+      // Check if username is taken
+      const existingUser = await storage.getUserByUsername(normalizedUsername);
+      if (existingUser) {
+        return res.status(409).json({ error: "Username already taken" });
+      }
+
+      // Check if email is taken
+      const existingEmailUser = await storage.getUserByEmail(invite.invitedEmail);
+      if (existingEmailUser) {
+        return res.status(409).json({ error: "An account with this email already exists" });
+      }
+
+      const hashedPassword = await hashPassword(password);
+
+      // Create user based on role
+      if (invite.role === "academy_owner") {
+        // Create user as academy owner
+        const user = await storage.createUser({
+          username: normalizedUsername,
+          email: invite.invitedEmail,
+          password: hashedPassword,
+          role: "academy_owner",
+          academyId: invite.academyId,
+        });
+
+        // Mark invite as used
+        await storage.markInviteUsed(invite.id, user.id);
+
+        // Get academy name
+        const academy = await storage.getAcademy(invite.academyId);
+
+        res.status(201).json({
+          success: true,
+          message: `Welcome! You are now the owner of ${academy?.name || "your academy"}.`,
+        });
+      } else if (invite.role === "coach") {
+        // Create coach profile
+        const coach = await storage.createCoach({
+          name: `${firstName} ${lastName}`,
+          email: invite.invitedEmail,
+          phone: phone || null,
+          academyId: invite.academyId,
+          role: "coach",
+          level: 1,
+          totalXp: 0,
+        });
+
+        // Create user account
+        const user = await storage.createUser({
+          username: normalizedUsername,
+          email: invite.invitedEmail,
+          password: hashedPassword,
+          role: "coach",
+          academyId: invite.academyId,
+          coachId: coach.id,
+        });
+
+        // Mark invite as used
+        await storage.markInviteUsed(invite.id, user.id);
+
+        res.status(201).json({
+          success: true,
+          message: "Welcome to the team!",
+        });
+      } else {
+        return res.status(400).json({ error: "Unsupported invite role" });
+      }
+    } catch (error) {
+      console.error("Invite registration error:", error);
+      res.status(500).json({ error: "Registration failed" });
     }
   });
 

@@ -26,7 +26,7 @@ import {
   checkBiometricSupport,
 } from "@/lib/savedAccounts";
 
-type AuthMode = "login" | "player_register" | "coach_info" | "academy_apply";
+type AuthMode = "login" | "player_register" | "coach_info" | "academy_apply" | "invite_code";
 
 interface RoleOptionProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -76,6 +76,9 @@ export default function LoginScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [applicationSubmitted, setApplicationSubmitted] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
+  const [inviteData, setInviteData] = useState<{ academyName: string; email: string; role: string } | null>(null);
+  const [inviteValidated, setInviteValidated] = useState(false);
 
   const [savedAccounts, setSavedAccounts] = useState<SavedAccount[]>([]);
   const [biometryType, setBiometryType] = useState<string | null>(null);
@@ -133,6 +136,9 @@ export default function LoginScreen() {
     setCountry("");
     setContactPerson("");
     setDescription("");
+    setInviteCode("");
+    setInviteData(null);
+    setInviteValidated(false);
   };
 
   const handleLogin = async () => {
@@ -240,6 +246,94 @@ export default function LoginScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error: any) {
       Alert.alert("Application Failed", error.message || "Please try again");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleValidateInvite = async () => {
+    if (!inviteCode.trim()) {
+      Alert.alert("Error", "Please enter an invite code");
+      return;
+    }
+
+    const code = inviteCode.trim().split("/").pop() || inviteCode.trim();
+
+    setIsSubmitting(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    try {
+      const response = await apiRequest("GET", `/auth/invite/${code}`);
+      const data = await response.json();
+      
+      if (data.valid) {
+        setInviteData({
+          academyName: data.academyName,
+          email: data.email,
+          role: data.role,
+        });
+        setEmail(data.email);
+        setInviteValidated(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        Alert.alert("Invalid Code", data.error || "This invite code is not valid or has expired");
+      }
+    } catch (error: any) {
+      Alert.alert("Error", "Could not validate invite code. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleInviteRegister = async () => {
+    if (!username || !firstName || !lastName || !password) {
+      Alert.alert("Error", "Please fill in all required fields");
+      return;
+    }
+
+    const normalizedUsername = username.toLowerCase();
+
+    if (normalizedUsername.length < 3) {
+      Alert.alert("Error", "Username must be at least 3 characters");
+      return;
+    }
+
+    if (!/^[a-z0-9_]+$/.test(normalizedUsername)) {
+      Alert.alert("Error", "Username can only contain letters, numbers, and underscores");
+      return;
+    }
+
+    if (password.length < 8) {
+      Alert.alert("Error", "Password must be at least 8 characters");
+      return;
+    }
+
+    const code = inviteCode.trim().split("/").pop() || inviteCode.trim();
+
+    setIsSubmitting(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    try {
+      const response = await apiRequest("POST", "/auth/register/invite", {
+        token: code,
+        username: normalizedUsername,
+        firstName,
+        lastName,
+        password,
+        phone: phone ? `${countryCode.dial}${phone.trim().replace(/\s/g, '')}` : undefined,
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("Success", "Account created! You can now sign in.", [
+          { text: "OK", onPress: () => handleModeChange("login") }
+        ]);
+      } else {
+        Alert.alert("Registration Failed", data.error || "Please try again");
+      }
+    } catch (error: any) {
+      Alert.alert("Error", "Something went wrong. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -401,6 +495,13 @@ export default function LoginScreen() {
           description="Apply to join the platform"
           color={Colors.dark.gold}
           onPress={() => handleModeChange("academy_apply")}
+        />
+        <RoleOption
+          icon="key"
+          title="I have an invite code"
+          description="Join with a code from your platform owner"
+          color="#9B59B6"
+          onPress={() => handleModeChange("invite_code")}
         />
       </View>
     </>
@@ -744,6 +845,195 @@ export default function LoginScreen() {
     );
   };
 
+  const renderInviteCode = () => {
+    if (inviteValidated && inviteData) {
+      return (
+        <>
+          <View style={styles.formHeader}>
+            <Pressable style={styles.backButton} onPress={() => handleModeChange("login")}>
+              <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+            </Pressable>
+            <Text style={styles.formTitle}>Create Your Account</Text>
+          </View>
+
+          <View style={styles.successCard}>
+            <View style={[styles.successIcon, { backgroundColor: "#9B59B620" }]}>
+              <Ionicons name="checkmark-circle" size={32} color="#9B59B6" />
+            </View>
+            <Text style={styles.successTitle}>Invite Verified!</Text>
+            <Text style={styles.successText}>
+              You're joining {inviteData.academyName} as {inviteData.role === "academy_owner" ? "Academy Owner" : inviteData.role}
+            </Text>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Email (from invite)</Text>
+            <TextInput
+              value={email}
+              editable={false}
+              style={[styles.input, { opacity: 0.7 }]}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Username</Text>
+            <TextInput
+              value={username}
+              onChangeText={setUsername}
+              placeholder="Choose a unique username"
+              placeholderTextColor={Colors.dark.textMuted}
+              autoCapitalize="none"
+              style={styles.input}
+            />
+          </View>
+
+          <View style={styles.inputRow}>
+            <View style={[styles.inputGroup, { flex: 1 }]}>
+              <Text style={styles.label}>First Name</Text>
+              <TextInput
+                value={firstName}
+                onChangeText={setFirstName}
+                placeholder="First name"
+                placeholderTextColor={Colors.dark.textMuted}
+                autoCapitalize="words"
+                style={styles.input}
+              />
+            </View>
+            <View style={[styles.inputGroup, { flex: 1 }]}>
+              <Text style={styles.label}>Last Name</Text>
+              <TextInput
+                value={lastName}
+                onChangeText={setLastName}
+                placeholder="Last name"
+                placeholderTextColor={Colors.dark.textMuted}
+                autoCapitalize="words"
+                style={styles.input}
+              />
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Phone (optional)</Text>
+            <View style={styles.phoneRow}>
+              <CountryCodePicker
+                selectedCountry={countryCode}
+                onSelect={setCountryCode}
+              />
+              <TextInput
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="Phone number"
+                placeholderTextColor={Colors.dark.textMuted}
+                keyboardType="phone-pad"
+                style={[styles.input, styles.phoneInput]}
+              />
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Password</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Create a secure password"
+                placeholderTextColor={Colors.dark.textMuted}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                style={[styles.input, styles.passwordInput]}
+              />
+              <Pressable
+                style={styles.eyeButton}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Ionicons
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color={Colors.dark.tabIconDefault}
+                />
+              </Pressable>
+            </View>
+          </View>
+
+          <Pressable
+            style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+            onPress={handleInviteRegister}
+            disabled={isSubmitting}
+          >
+            <LinearGradient
+              colors={["#9B59B6", "#8E44AD"]}
+              style={styles.submitGradient}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color={Colors.dark.text} />
+              ) : (
+                <Text style={styles.submitText}>Create Account</Text>
+              )}
+            </LinearGradient>
+          </Pressable>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <View style={styles.formHeader}>
+          <Pressable style={styles.backButton} onPress={() => handleModeChange("login")}>
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <Text style={styles.formTitle}>Enter Invite Code</Text>
+        </View>
+
+        <View style={styles.infoCard}>
+          <View style={[styles.infoIcon, { backgroundColor: "#9B59B620" }]}>
+            <Ionicons name="key" size={32} color="#9B59B6" />
+          </View>
+          <Text style={styles.infoTitle}>Join with Invite Code</Text>
+          <Text style={styles.infoText}>
+            Enter the invite code or paste the full invite link you received from the platform owner.
+          </Text>
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Invite Code or Link</Text>
+          <TextInput
+            value={inviteCode}
+            onChangeText={setInviteCode}
+            placeholder="Paste your invite code or link"
+            placeholderTextColor={Colors.dark.textMuted}
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={styles.input}
+          />
+        </View>
+
+        <Pressable
+          style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+          onPress={handleValidateInvite}
+          disabled={isSubmitting}
+        >
+          <LinearGradient
+            colors={["#9B59B6", "#8E44AD"]}
+            style={styles.submitGradient}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color={Colors.dark.text} />
+            ) : (
+              <Text style={styles.submitText}>Validate Code</Text>
+            )}
+          </LinearGradient>
+        </Pressable>
+
+        <Pressable
+          style={styles.secondaryButton}
+          onPress={() => handleModeChange("login")}
+        >
+          <Text style={styles.secondaryButtonText}>Back to Login</Text>
+        </Pressable>
+      </>
+    );
+  };
+
   return (
     <LinearGradient
       colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
@@ -771,6 +1061,7 @@ export default function LoginScreen() {
           {mode === "player_register" ? renderPlayerRegister() : null}
           {mode === "coach_info" ? renderCoachInfo() : null}
           {mode === "academy_apply" ? renderAcademyApply() : null}
+          {mode === "invite_code" ? renderInviteCode() : null}
         </View>
 
         {mode !== "login" ? (
