@@ -669,10 +669,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register user via invite (for academy owners invited by platform owner)
   app.post("/auth/register/invite", authLimiter, async (req: Request, res: Response) => {
     try {
-      const { token, username, firstName, lastName, password, phone } = req.body;
+      const { token, username, email, firstName, lastName, password, phone } = req.body;
 
-      if (!token || !username || !firstName || !lastName || !password) {
+      if (!token || !username || !email || !firstName || !lastName || !password) {
         return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ error: "Invalid email address" });
       }
 
       const normalizedUsername = username.toLowerCase();
@@ -714,12 +719,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const hashedPassword = await hashPassword(password);
 
+      // Use invite's email if set, otherwise use the email from request
+      // This prevents users from tampering with the email for targeted invites
+      const userEmail = invite.invitedEmail 
+        ? invite.invitedEmail.toLowerCase().trim()
+        : email.toLowerCase().trim();
+
       // Create user based on role
       if (invite.role === "academy_owner") {
         // Create user as academy owner
         const user = await storage.createUser({
           username: normalizedUsername,
-          email: invite.invitedEmail,
+          email: userEmail,
           password: hashedPassword,
           role: "academy_owner",
           academyId: invite.academyId,
@@ -739,7 +750,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Create coach profile
         const coach = await storage.createCoach({
           name: `${firstName} ${lastName}`,
-          email: invite.invitedEmail,
+          email: userEmail,
           phone: phone || null,
           academyId: invite.academyId,
           role: "coach",
@@ -750,7 +761,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Create user account
         const user = await storage.createUser({
           username: normalizedUsername,
-          email: invite.invitedEmail,
+          email: userEmail,
           password: hashedPassword,
           role: "coach",
           academyId: invite.academyId,

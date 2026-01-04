@@ -77,7 +77,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [applicationSubmitted, setApplicationSubmitted] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
-  const [inviteData, setInviteData] = useState<{ academyName: string; email: string; role: string } | null>(null);
+  const [inviteData, setInviteData] = useState<{ academyName: string; email: string | null; role: string } | null>(null);
   const [inviteValidated, setInviteValidated] = useState(false);
 
   const [savedAccounts, setSavedAccounts] = useState<SavedAccount[]>([]);
@@ -272,7 +272,7 @@ export default function LoginScreen() {
           email: data.email,
           role: data.role,
         });
-        setEmail(data.email);
+        setEmail(data.email || "");
         setInviteValidated(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
@@ -286,8 +286,14 @@ export default function LoginScreen() {
   };
 
   const handleInviteRegister = async () => {
-    if (!username || !firstName || !lastName || !password) {
+    if (!username || !firstName || !lastName || !password || !email) {
       Alert.alert("Error", "Please fill in all required fields");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert("Error", "Please enter a valid email address");
       return;
     }
 
@@ -317,6 +323,7 @@ export default function LoginScreen() {
       const response = await apiRequest("POST", "/auth/register/invite", {
         token: code,
         username: normalizedUsername,
+        email: email.toLowerCase().trim(),
         firstName,
         lastName,
         password,
@@ -867,11 +874,16 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email (from invite)</Text>
+            <Text style={styles.label}>{inviteData.email ? "Email (from invite)" : "Email"}</Text>
             <TextInput
               value={email}
-              editable={false}
-              style={[styles.input, { opacity: 0.7 }]}
+              onChangeText={inviteData.email ? undefined : setEmail}
+              editable={!inviteData.email}
+              placeholder={inviteData.email ? undefined : "Enter your email"}
+              placeholderTextColor={Colors.dark.textMuted}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              style={[styles.input, inviteData.email ? { opacity: 0.7 } : undefined]}
             />
           </View>
 
