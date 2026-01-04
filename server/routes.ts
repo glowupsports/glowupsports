@@ -631,6 +631,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check if username is available (for real-time validation)
+  app.get("/auth/check-username/:username", async (req: Request, res: Response) => {
+    try {
+      const { username } = req.params;
+      const normalizedUsername = username.toLowerCase().trim();
+
+      if (normalizedUsername.length < 3) {
+        return res.json({ 
+          available: false, 
+          error: "Username must be at least 3 characters",
+          suggestions: [] 
+        });
+      }
+
+      if (!/^[a-z0-9_]+$/.test(normalizedUsername)) {
+        return res.json({ 
+          available: false, 
+          error: "Only letters, numbers, and underscores allowed",
+          suggestions: [] 
+        });
+      }
+
+      const existingUser = await storage.getUserByUsername(normalizedUsername);
+      
+      if (existingUser) {
+        const suggestions: string[] = [];
+        for (let i = 1; i <= 5; i++) {
+          const suggestion = `${normalizedUsername}${i}`;
+          const exists = await storage.getUserByUsername(suggestion);
+          if (!exists) {
+            suggestions.push(suggestion);
+            if (suggestions.length >= 3) break;
+          }
+        }
+        if (suggestions.length < 3) {
+          for (let i = 10; i <= 99; i += 10) {
+            const suggestion = `${normalizedUsername}_${i}`;
+            const exists = await storage.getUserByUsername(suggestion);
+            if (!exists) {
+              suggestions.push(suggestion);
+              if (suggestions.length >= 3) break;
+            }
+          }
+        }
+        
+        return res.json({ 
+          available: false, 
+          error: "Username already taken",
+          suggestions 
+        });
+      }
+
+      res.json({ available: true, suggestions: [] });
+    } catch (error) {
+      console.error("Username check error:", error);
+      res.status(500).json({ available: false, error: "Failed to check username", suggestions: [] });
+    }
+  });
+
   // Validate invite token (for checking before showing registration form)
   app.get("/auth/invite/:token", async (req: Request, res: Response) => {
     try {

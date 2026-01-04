@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -80,12 +80,26 @@ export default function LoginScreen() {
   const [inviteData, setInviteData] = useState<{ academyName: string; email: string | null; role: string } | null>(null);
   const [inviteValidated, setInviteValidated] = useState(false);
 
+  const [usernameStatus, setUsernameStatus] = useState<{
+    checking: boolean;
+    available: boolean | null;
+    error: string | null;
+    suggestions: string[];
+  }>({ checking: false, available: null, error: null, suggestions: [] });
+  const usernameCheckTimeout = useRef<NodeJS.Timeout | null>(null);
+
   const [savedAccounts, setSavedAccounts] = useState<SavedAccount[]>([]);
   const [biometryType, setBiometryType] = useState<string | null>(null);
 
   useEffect(() => {
     loadSavedAccounts();
     checkBiometrics();
+    
+    return () => {
+      if (usernameCheckTimeout.current) {
+        clearTimeout(usernameCheckTimeout.current);
+      }
+    };
   }, []);
 
   const loadSavedAccounts = async () => {
@@ -139,6 +153,51 @@ export default function LoginScreen() {
     setInviteCode("");
     setInviteData(null);
     setInviteValidated(false);
+    setUsernameStatus({ checking: false, available: null, error: null, suggestions: [] });
+  };
+
+  const checkUsernameAvailability = async (value: string) => {
+    if (usernameCheckTimeout.current) {
+      clearTimeout(usernameCheckTimeout.current);
+    }
+
+    const normalizedValue = value.toLowerCase().trim();
+    
+    if (normalizedValue.length < 3) {
+      setUsernameStatus({ checking: false, available: null, error: null, suggestions: [] });
+      return;
+    }
+
+    setUsernameStatus(prev => ({ ...prev, checking: true }));
+
+    usernameCheckTimeout.current = setTimeout(async () => {
+      try {
+        const response = await apiRequest("GET", `/auth/check-username/${normalizedValue}`);
+        const data = await response.json();
+        
+        setUsernameStatus({
+          checking: false,
+          available: data.available,
+          error: data.available ? null : data.error,
+          suggestions: data.suggestions || [],
+        });
+      } catch (error) {
+        setUsernameStatus({ checking: false, available: null, error: null, suggestions: [] });
+      }
+    }, 500);
+  };
+
+  const handleUsernameChange = (value: string) => {
+    setUsername(value);
+    if ((mode === "invite_code" && inviteValidated) || mode === "player_register") {
+      checkUsernameAvailability(value);
+    }
+  };
+
+  const selectSuggestion = (suggestion: string) => {
+    setUsername(suggestion);
+    setUsernameStatus({ checking: false, available: true, error: null, suggestions: [] });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleLogin = async () => {
@@ -279,7 +338,21 @@ export default function LoginScreen() {
         Alert.alert("Invalid Code", data.error || "This invite code is not valid or has expired");
       }
     } catch (error: any) {
-      Alert.alert("Error", "Could not validate invite code. Please try again.");
+      let errorMessage = "Could not validate invite code. Please try again.";
+      
+      if (error.message) {
+        const match = error.message.match(/^\d+:\s*(.+)/);
+        if (match) {
+          try {
+            const parsed = JSON.parse(match[1]);
+            errorMessage = parsed.error || errorMessage;
+          } catch {
+            errorMessage = match[1];
+          }
+        }
+      }
+      
+      Alert.alert("Invalid Invite", errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -331,11 +404,14 @@ export default function LoginScreen() {
       });
       const data = await response.json();
       
-      if (data.success) {
+      if (data.token || data.user) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert("Success", "Account created! You can now sign in.", [
-          { text: "OK", onPress: () => handleModeChange("login") }
-        ]);
+        resetForm();
+        Alert.alert(
+          "Welcome to the team!",
+          `Your account has been created successfully. You can now sign in with username "${normalizedUsername}".`,
+          [{ text: "Sign In", onPress: () => handleModeChange("login") }]
+        );
       } else {
         Alert.alert("Registration Failed", data.error || "Please try again");
       }
@@ -543,16 +619,51 @@ export default function LoginScreen() {
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Username</Text>
-        <TextInput
-          value={username}
-          onChangeText={setUsername}
-          placeholder="Choose a unique username"
-          placeholderTextColor={Colors.dark.textMuted}
-          autoCapitalize="none"
-          autoComplete="username"
-          style={styles.input}
-        />
-        <Text style={styles.hintText}>Letters, numbers, and underscores only</Text>
+        <View style={styles.usernameInputContainer}>
+          <TextInput
+            value={username}
+            onChangeText={handleUsernameChange}
+            placeholder="Choose a unique username"
+            placeholderTextColor={Colors.dark.textMuted}
+            autoCapitalize="none"
+            autoComplete="username"
+            style={[styles.input, styles.usernameInput]}
+          />
+          {usernameStatus.checking ? (
+            <View style={styles.usernameStatusIcon}>
+              <ActivityIndicator size="small" color={Colors.dark.textMuted} />
+            </View>
+          ) : usernameStatus.available === true ? (
+            <View style={styles.usernameStatusIcon}>
+              <Ionicons name="checkmark-circle" size={20} color="#2ECC71" />
+            </View>
+          ) : usernameStatus.available === false ? (
+            <View style={styles.usernameStatusIcon}>
+              <Ionicons name="close-circle" size={20} color="#E74C3C" />
+            </View>
+          ) : null}
+        </View>
+        {usernameStatus.error ? (
+          <Text style={styles.usernameError}>{usernameStatus.error}</Text>
+        ) : (
+          <Text style={styles.hintText}>Letters, numbers, and underscores only</Text>
+        )}
+        {usernameStatus.suggestions.length > 0 ? (
+          <View style={styles.suggestionsContainer}>
+            <Text style={styles.suggestionsLabel}>Try these instead:</Text>
+            <View style={styles.suggestionsRow}>
+              {usernameStatus.suggestions.map((suggestion) => (
+                <Pressable
+                  key={suggestion}
+                  style={styles.suggestionChip}
+                  onPress={() => selectSuggestion(suggestion)}
+                >
+                  <Text style={styles.suggestionText}>{suggestion}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.inputRow}>
@@ -907,14 +1018,48 @@ export default function LoginScreen() {
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Username</Text>
-            <TextInput
-              value={username}
-              onChangeText={setUsername}
-              placeholder="Choose a unique username"
-              placeholderTextColor={Colors.dark.textMuted}
-              autoCapitalize="none"
-              style={styles.input}
-            />
+            <View style={styles.usernameInputContainer}>
+              <TextInput
+                value={username}
+                onChangeText={handleUsernameChange}
+                placeholder="Choose a unique username"
+                placeholderTextColor={Colors.dark.textMuted}
+                autoCapitalize="none"
+                style={[styles.input, styles.usernameInput]}
+              />
+              {usernameStatus.checking ? (
+                <View style={styles.usernameStatusIcon}>
+                  <ActivityIndicator size="small" color={Colors.dark.textMuted} />
+                </View>
+              ) : usernameStatus.available === true ? (
+                <View style={styles.usernameStatusIcon}>
+                  <Ionicons name="checkmark-circle" size={20} color="#2ECC71" />
+                </View>
+              ) : usernameStatus.available === false ? (
+                <View style={styles.usernameStatusIcon}>
+                  <Ionicons name="close-circle" size={20} color="#E74C3C" />
+                </View>
+              ) : null}
+            </View>
+            {usernameStatus.error ? (
+              <Text style={styles.usernameError}>{usernameStatus.error}</Text>
+            ) : null}
+            {usernameStatus.suggestions.length > 0 ? (
+              <View style={styles.suggestionsContainer}>
+                <Text style={styles.suggestionsLabel}>Try these instead:</Text>
+                <View style={styles.suggestionsRow}>
+                  {usernameStatus.suggestions.map((suggestion) => (
+                    <Pressable
+                      key={suggestion}
+                      style={styles.suggestionChip}
+                      onPress={() => selectSuggestion(suggestion)}
+                    >
+                      <Text style={styles.suggestionText}>{suggestion}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            ) : null}
           </View>
 
           <View style={styles.inputRow}>
@@ -1184,6 +1329,52 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     color: Colors.dark.text,
     fontSize: Typography.body.fontSize,
+  },
+  usernameInputContainer: {
+    position: "relative" as const,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+  },
+  usernameInput: {
+    flex: 1,
+    paddingRight: 40,
+  },
+  usernameStatusIcon: {
+    position: "absolute" as const,
+    right: 12,
+    top: 0,
+    bottom: 0,
+    justifyContent: "center" as const,
+  },
+  usernameError: {
+    ...Typography.caption,
+    color: "#E74C3C",
+    marginTop: 4,
+  },
+  suggestionsContainer: {
+    marginTop: Spacing.sm,
+  },
+  suggestionsLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginBottom: 4,
+  },
+  suggestionsRow: {
+    flexDirection: "row" as const,
+    flexWrap: "wrap" as const,
+    gap: 8,
+  },
+  suggestionChip: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary,
+  },
+  suggestionText: {
+    ...Typography.caption,
+    color: Colors.dark.primary,
   },
   textArea: {
     minHeight: 80,
