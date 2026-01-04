@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable, TextInput, Alert, Platform, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Pressable, TextInput, Alert, Platform, ActivityIndicator, Share } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import * as Clipboard from "expo-clipboard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { getEnv } from "@/lib/env";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import type { PlatformStackParamList } from "@/platform/navigation/PlatformNavigator";
 
@@ -27,6 +29,16 @@ interface AcademyDetails {
   createdAt: string;
 }
 
+interface Invite {
+  id: string;
+  token: string;
+  role: string;
+  invitedEmail: string | null;
+  expiresAt: string;
+  createdAt: string;
+  usedAt: string | null;
+}
+
 export default function AcademyDetailScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
@@ -38,6 +50,8 @@ export default function AcademyDetailScreen() {
   const [editName, setEditName] = useState(academyName);
   const [editCurrency, setEditCurrency] = useState("AED");
   const [editTimezone, setEditTimezone] = useState("Asia/Dubai");
+  const [selectedInviteRole, setSelectedInviteRole] = useState<"academy_owner" | "coach">("academy_owner");
+  const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
 
   const { data: academy, isLoading } = useQuery<AcademyDetails>({
     queryKey: ["/api/platform/academies", academyId],
@@ -89,6 +103,64 @@ export default function AcademyDetailScreen() {
       }
     },
   });
+
+  const { data: invitesData, isLoading: invitesLoading } = useQuery<{ invites: Invite[] }>({
+    queryKey: ["/api/platform/academies", academyId, "invites"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/platform/academies/${academyId}/invites`);
+      return res.json();
+    },
+  });
+
+  const createInviteMutation = useMutation({
+    mutationFn: async (role: string) => {
+      const response = await apiRequest("POST", `/api/platform/academies/${academyId}/invites`, { role });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/platform/academies", academyId, "invites"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: Error) => {
+      console.error("Create invite error:", error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+
+  const getInviteUrl = (token: string) => {
+    const { EXPO_PUBLIC_API_URL, EXPO_PUBLIC_DOMAIN } = getEnv();
+    const baseUrl = EXPO_PUBLIC_API_URL || `https://${EXPO_PUBLIC_DOMAIN}`;
+    return `${baseUrl}/join/${token}`;
+  };
+
+  const handleCopyInviteLink = async (invite: Invite) => {
+    const url = getInviteUrl(invite.token);
+    try {
+      await Clipboard.setStringAsync(url);
+      setCopiedInviteId(invite.id);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setTimeout(() => setCopiedInviteId(null), 2000);
+    } catch (error) {
+      console.error("Failed to copy:", error);
+    }
+  };
+
+  const handleShareInviteLink = async (invite: Invite) => {
+    const url = getInviteUrl(invite.token);
+    const roleLabel = invite.role === "academy_owner" ? "Academy Owner" : "Coach";
+    try {
+      await Share.share({
+        message: `Join ${academyName} as ${roleLabel}: ${url}`,
+        url: url,
+      });
+    } catch (error) {
+      console.error("Failed to share:", error);
+    }
+  };
+
+  const handleCreateInvite = () => {
+    createInviteMutation.mutate(selectedInviteRole);
+  };
 
   const handleDelete = () => {
     const confirmDelete = () => {
@@ -258,6 +330,105 @@ export default function AcademyDetailScreen() {
             {(academy?.players?.length || 0) > 10 ? (
               <Text style={styles.moreText}>+{(academy?.players?.length || 0) - 10} more players</Text>
             ) : null}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Invite Links</Text>
+          <View style={[styles.card, CardStyles.elevated]}>
+            <View style={styles.inviteRoleSelector}>
+              <Pressable
+                style={[
+                  styles.roleButton,
+                  selectedInviteRole === "academy_owner" && styles.roleButtonActive,
+                ]}
+                onPress={() => setSelectedInviteRole("academy_owner")}
+              >
+                <Text style={[
+                  styles.roleButtonText,
+                  selectedInviteRole === "academy_owner" && styles.roleButtonTextActive,
+                ]}>Academy Owner</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.roleButton,
+                  selectedInviteRole === "coach" && styles.roleButtonActive,
+                ]}
+                onPress={() => setSelectedInviteRole("coach")}
+              >
+                <Text style={[
+                  styles.roleButtonText,
+                  selectedInviteRole === "coach" && styles.roleButtonTextActive,
+                ]}>Coach</Text>
+              </Pressable>
+            </View>
+
+            <Pressable
+              style={styles.createInviteButton}
+              onPress={handleCreateInvite}
+              disabled={createInviteMutation.isPending}
+            >
+              {createInviteMutation.isPending ? (
+                <ActivityIndicator size="small" color={Colors.dark.text} />
+              ) : (
+                <>
+                  <Ionicons name="add-circle-outline" size={20} color={Colors.dark.text} />
+                  <Text style={styles.createInviteButtonText}>Create Invite Link</Text>
+                </>
+              )}
+            </Pressable>
+
+            {invitesLoading ? (
+              <ActivityIndicator size="small" color={PLATFORM_COLOR} style={{ marginTop: Spacing.md }} />
+            ) : invitesData?.invites?.length ? (
+              <View style={styles.invitesList}>
+                {invitesData.invites.filter(inv => !inv.usedAt).map((invite) => {
+                  const isExpired = new Date(invite.expiresAt) < new Date();
+                  const roleLabel = invite.role === "academy_owner" ? "Owner" : "Coach";
+                  return (
+                    <View key={invite.id} style={[styles.inviteItem, isExpired && styles.inviteItemExpired]}>
+                      <View style={styles.inviteInfo}>
+                        <View style={styles.inviteRoleBadge}>
+                          <Text style={styles.inviteRoleText}>{roleLabel}</Text>
+                        </View>
+                        <Text style={styles.inviteToken} numberOfLines={1}>
+                          ...{invite.token.slice(-8)}
+                        </Text>
+                        {isExpired ? (
+                          <Text style={styles.inviteExpired}>Expired</Text>
+                        ) : (
+                          <Text style={styles.inviteExpires}>
+                            Expires: {new Date(invite.expiresAt).toLocaleDateString()}
+                          </Text>
+                        )}
+                      </View>
+                      {!isExpired ? (
+                        <View style={styles.inviteActions}>
+                          <Pressable
+                            style={styles.inviteActionButton}
+                            onPress={() => handleCopyInviteLink(invite)}
+                          >
+                            <Ionicons 
+                              name={copiedInviteId === invite.id ? "checkmark" : "copy-outline"} 
+                              size={18} 
+                              color={copiedInviteId === invite.id ? Colors.dark.successNeon : PLATFORM_COLOR} 
+                            />
+                          </Pressable>
+                          <Pressable
+                            style={styles.inviteActionButton}
+                            onPress={() => handleShareInviteLink(invite)}
+                          >
+                            <Ionicons name="share-outline" size={18} color={PLATFORM_COLOR} />
+                          </Pressable>
+                        </View>
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <Text style={[styles.emptyText, { marginTop: Spacing.md }]}>No invite links created yet</Text>
+            )}
           </View>
         </View>
 
@@ -438,5 +609,102 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.error,
     fontWeight: "600",
+  },
+  inviteRoleSelector: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  roleButton: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundRoot,
+    alignItems: "center",
+  },
+  roleButtonActive: {
+    backgroundColor: PLATFORM_COLOR,
+  },
+  roleButtonText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
+  },
+  roleButtonTextActive: {
+    color: Colors.dark.text,
+  },
+  createInviteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: PLATFORM_COLOR,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+  },
+  createInviteButtonText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  invitesList: {
+    marginTop: Spacing.md,
+  },
+  inviteItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.backgroundRoot,
+  },
+  inviteItemExpired: {
+    opacity: 0.5,
+  },
+  inviteInfo: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  inviteRoleBadge: {
+    backgroundColor: `${PLATFORM_COLOR}30`,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  inviteRoleText: {
+    ...Typography.small,
+    color: PLATFORM_COLOR,
+    fontWeight: "600",
+    fontSize: 10,
+  },
+  inviteToken: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontFamily: "monospace",
+  },
+  inviteExpires: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontSize: 10,
+  },
+  inviteExpired: {
+    ...Typography.small,
+    color: Colors.dark.error,
+    fontSize: 10,
+  },
+  inviteActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  inviteActionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: `${PLATFORM_COLOR}20`,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

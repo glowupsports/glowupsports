@@ -990,6 +990,12 @@ export const storage = {
       .orderBy(desc(invites.createdAt));
   },
 
+  async getInvitesByAcademy(academyId: string): Promise<Invite[]> {
+    return db.select().from(invites)
+      .where(eq(invites.academyId, academyId))
+      .orderBy(desc(invites.createdAt));
+  },
+
   async createInvite(data: InsertInvite): Promise<Invite> {
     const result = await db.insert(invites).values(data).returning();
     return result[0];

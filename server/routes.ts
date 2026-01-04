@@ -8941,6 +8941,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to delete academy" });
     }
   });
+
+  // Platform Owner - Create invite for specific academy
+  app.post("/api/platform/academies/:id/invites", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.params.id;
+      const { role = "academy_owner", email, expiresInDays = 7 } = req.body;
+      const invitedBy = req.user!.userId;
+
+      const validRoles = ["academy_owner", "coach"];
+      if (!validRoles.includes(role)) {
+        return res.status(400).json({ error: "Invalid role. Must be 'academy_owner' or 'coach'" });
+      }
+
+      const validExpiry = Math.min(Math.max(1, expiresInDays), 30);
+
+      const academy = await storage.getAcademy(academyId);
+      if (!academy) {
+        return res.status(404).json({ error: "Academy not found" });
+      }
+
+      const token = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + validExpiry);
+
+      const invite = await storage.createInvite({
+        token,
+        role,
+        academyId,
+        invitedEmail: email?.toLowerCase() || null,
+        invitedBy,
+        expiresAt,
+      });
+
+      res.status(201).json({
+        invite: {
+          id: invite.id,
+          token: invite.token,
+          role: invite.role,
+          invitedEmail: invite.invitedEmail,
+          expiresAt: invite.expiresAt,
+          createdAt: invite.createdAt,
+        },
+        inviteUrl: `/join/${invite.token}`,
+      });
+    } catch (error) {
+      console.error("Create academy invite error:", error);
+      res.status(500).json({ error: "Failed to create invite" });
+    }
+  });
+
+  // Platform Owner - Get invites for specific academy
+  app.get("/api/platform/academies/:id/invites", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.params.id;
+
+      const academy = await storage.getAcademy(academyId);
+      if (!academy) {
+        return res.status(404).json({ error: "Academy not found" });
+      }
+
+      const invitesList = await storage.getInvitesByAcademy(academyId);
+      res.json({ invites: invitesList });
+    } catch (error) {
+      console.error("Get academy invites error:", error);
+      res.status(500).json({ error: "Failed to get invites" });
+    }
+  });
   
   // Get player dashboard data
   app.get("/api/player/me/dashboard", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
