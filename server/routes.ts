@@ -709,14 +709,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(409).json({ error: "Username already taken" });
       }
 
-      // Check if email is taken
-      const existingEmailUser = await storage.getUserByEmail(invite.invitedEmail);
-      if (existingEmailUser) {
-        return res.status(409).json({ 
-          error: "An account with this email already exists. Please login with your existing account instead.",
-          existingAccount: true
-        });
-      }
+      // Note: We do NOT check email uniqueness here because login is username-based
+      // This allows one person to own multiple academies with the same email
 
       const hashedPassword = await hashPassword(password);
 
