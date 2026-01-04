@@ -16,7 +16,8 @@ import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest } from "@/lib/query-client";
+import { getEnv } from "@/lib/env";
 
 interface Invite {
   id: string;
@@ -136,7 +137,9 @@ export default function InviteManagementScreen() {
       setExpiresInDays("7");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
-      const inviteUrl = `${getApiUrl()}join/${data.invite.token}`;
+      const { EXPO_PUBLIC_API_URL, EXPO_PUBLIC_DOMAIN } = getEnv();
+      const baseUrl = EXPO_PUBLIC_API_URL || `https://${EXPO_PUBLIC_DOMAIN}`;
+      const inviteUrl = `${baseUrl}/join/${data.invite.token}`;
       Clipboard.setStringAsync(inviteUrl);
       Alert.alert("Invite Created", "The invite link has been copied to your clipboard.");
     },
@@ -146,7 +149,9 @@ export default function InviteManagementScreen() {
   });
 
   const handleCopyLink = async (token: string) => {
-    const inviteUrl = `${getApiUrl()}join/${token}`;
+    const { EXPO_PUBLIC_API_URL, EXPO_PUBLIC_DOMAIN } = getEnv();
+    const baseUrl = EXPO_PUBLIC_API_URL || `https://${EXPO_PUBLIC_DOMAIN}`;
+    const inviteUrl = `${baseUrl}/join/${token}`;
     await Clipboard.setStringAsync(inviteUrl);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     Alert.alert("Copied", "Invite link copied to clipboard");
