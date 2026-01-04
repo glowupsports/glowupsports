@@ -137,11 +137,12 @@ function CreateAcademyModal({ visible, onClose, onSuccess }: CreateAcademyModalP
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/platform/academies", {
+      const response = await apiRequest("POST", "/api/platform/academies", {
         name,
         ownerEmail: ownerEmail || undefined,
         city: city || undefined,
       });
+      return response.json();
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/platform/stats"] });
