@@ -8,7 +8,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { playerHolidays } from "@shared/schema";
 import { eq, sql, desc, and, ne, gt, asc } from "drizzle-orm";
-import { invoices, payments, sessionPlayers, sessionWaitlist, creditTransactions, players } from "@shared/schema";
+import { invoices, payments, sessionPlayers, sessionWaitlist, creditTransactions, players, locationTravelTimes } from "@shared/schema";
 import { setupWebSocket, broadcastNewMessage } from "./websocket";
 import { 
   hashPassword, 
@@ -14516,6 +14516,121 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Delete availability error:", error);
       res.status(500).json({ error: "Failed to delete availability" });
+    }
+  });
+
+  // ==================== LOCATION TRAVEL TIMES ====================
+
+  // Get all travel times for coach
+  app.get("/api/coach/travel-times", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user?.coachId;
+      const academyId = req.user?.academyId;
+      
+      if (!coachId || !academyId) {
+        return res.status(403).json({ error: "Coach access required" });
+      }
+
+      const travelTimes = await db
+        .select()
+        .from(locationTravelTimes)
+        .where(and(
+          eq(locationTravelTimes.coachId, coachId),
+          eq(locationTravelTimes.academyId, academyId)
+        ));
+
+      res.json(travelTimes);
+    } catch (error) {
+      console.error("Get travel times error:", error);
+      res.status(500).json({ error: "Failed to get travel times" });
+    }
+  });
+
+  // Create or update travel time between locations
+  app.post("/api/coach/travel-times", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user?.coachId;
+      const academyId = req.user?.academyId;
+      
+      if (!coachId || !academyId) {
+        return res.status(403).json({ error: "Coach access required" });
+      }
+
+      const { fromLocationId, toLocationId, travelTimeMinutes } = req.body;
+
+      if (!fromLocationId || !toLocationId || typeof travelTimeMinutes !== 'number') {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      if (fromLocationId === toLocationId) {
+        return res.status(400).json({ error: "Cannot set travel time to same location" });
+      }
+
+      // Check if travel time already exists for this pair
+      const existing = await db
+        .select()
+        .from(locationTravelTimes)
+        .where(and(
+          eq(locationTravelTimes.coachId, coachId),
+          eq(locationTravelTimes.academyId, academyId),
+          eq(locationTravelTimes.fromLocationId, fromLocationId),
+          eq(locationTravelTimes.toLocationId, toLocationId)
+        ))
+        .limit(1);
+
+      let result;
+      if (existing.length > 0) {
+        // Update existing
+        [result] = await db
+          .update(locationTravelTimes)
+          .set({ 
+            travelTimeMinutes,
+            updatedAt: new Date()
+          })
+          .where(eq(locationTravelTimes.id, existing[0].id))
+          .returning();
+      } else {
+        // Create new
+        [result] = await db
+          .insert(locationTravelTimes)
+          .values({
+            coachId,
+            academyId,
+            fromLocationId,
+            toLocationId,
+            travelTimeMinutes,
+          })
+          .returning();
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Create travel time error:", error);
+      res.status(500).json({ error: "Failed to create travel time" });
+    }
+  });
+
+  // Delete travel time
+  app.delete("/api/coach/travel-times/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user?.coachId;
+      const { id } = req.params;
+      
+      if (!coachId) {
+        return res.status(403).json({ error: "Coach access required" });
+      }
+
+      await db
+        .delete(locationTravelTimes)
+        .where(and(
+          eq(locationTravelTimes.id, id),
+          eq(locationTravelTimes.coachId, coachId)
+        ));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete travel time error:", error);
+      res.status(500).json({ error: "Failed to delete travel time" });
     }
   });
 

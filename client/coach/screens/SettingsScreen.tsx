@@ -69,6 +69,21 @@ interface CoachSettings {
   offlineSyncAuto: boolean;
 }
 
+interface Location {
+  id: string;
+  name: string;
+  academyId: string | null;
+}
+
+interface TravelTimeConfig {
+  id: string;
+  fromLocationId: string;
+  toLocationId: string;
+  travelTimeMinutes: number;
+}
+
+const TRAVEL_TIME_OPTIONS = [15, 30, 45, 60, 90, 120];
+
 const SETTINGS_KEY = "@coach_settings";
 
 const defaultSettings: CoachSettings = {
@@ -197,9 +212,45 @@ export default function SettingsScreen() {
   const [newCourtColor, setNewCourtColor] = useState(COURT_COLORS[0]);
   const [testPushLoading, setTestPushLoading] = useState(false);
   const [testBookingLoading, setTestBookingLoading] = useState(false);
+  const [showTravelTimeModal, setShowTravelTimeModal] = useState(false);
+  const [fromLocationId, setFromLocationId] = useState<string>("");
+  const [toLocationId, setToLocationId] = useState<string>("");
+  const [selectedTravelTime, setSelectedTravelTime] = useState(30);
 
   const { data: courts = [], isLoading: courtsLoading } = useQuery<Court[]>({
     queryKey: ["/api/courts"],
+  });
+
+  const { data: locations = [] } = useQuery<Location[]>({
+    queryKey: ["/api/locations"],
+  });
+
+  const { data: travelTimes = [] } = useQuery<TravelTimeConfig[]>({
+    queryKey: ["/api/coach/travel-times"],
+  });
+
+  const createTravelTimeMutation = useMutation({
+    mutationFn: async (data: { fromLocationId: string; toLocationId: string; travelTimeMinutes: number }) => {
+      return apiRequest("POST", "/api/coach/travel-times", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/travel-times"] });
+      setShowTravelTimeModal(false);
+      setFromLocationId("");
+      setToLocationId("");
+      setSelectedTravelTime(30);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  const deleteTravelTimeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/coach/travel-times/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/travel-times"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
   });
 
   const createCourtMutation = useMutation({
@@ -283,6 +334,47 @@ export default function SettingsScreen() {
     } else {
       createCourtMutation.mutate({ name: newCourtName.trim(), color: newCourtColor });
     }
+  };
+
+  const handleAddTravelTime = () => {
+    if (locations.length >= 2) {
+      setFromLocationId(locations[0].id);
+      setToLocationId(locations[1].id);
+    }
+    setSelectedTravelTime(30);
+    setShowTravelTimeModal(true);
+  };
+
+  const handleSaveTravelTime = async () => {
+    if (isOffline) {
+      await logOfflineAttempt({ screen: "SettingsScreen", action: "create_travel_time" });
+      showOfflineAlert();
+      return;
+    }
+    if (!fromLocationId || !toLocationId || fromLocationId === toLocationId) {
+      Alert.alert("Error", "Please select two different locations");
+      return;
+    }
+    createTravelTimeMutation.mutate({
+      fromLocationId,
+      toLocationId,
+      travelTimeMinutes: selectedTravelTime,
+    });
+  };
+
+  const handleDeleteTravelTime = (id: string, fromName: string, toName: string) => {
+    Alert.alert(
+      "Delete Travel Time",
+      `Remove travel time between ${fromName} and ${toName}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: () => deleteTravelTimeMutation.mutate(id) },
+      ]
+    );
+  };
+
+  const getLocationName = (id: string) => {
+    return locations.find(l => l.id === id)?.name || "Unknown";
   };
 
   useEffect(() => {
@@ -672,6 +764,64 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
+          <SectionHeader title="Location Travel Times" icon="car-outline" />
+          <Text style={styles.sectionDescription}>
+            Set travel time between your locations to prevent scheduling conflicts
+          </Text>
+          
+          {locations.length < 2 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="location-outline" size={32} color={Colors.dark.tabIconDefault} />
+              <Text style={styles.emptyStateText}>Add at least 2 locations to configure travel times</Text>
+            </View>
+          ) : (
+            <>
+              {travelTimes.length > 0 ? (
+                <View style={styles.travelTimesList}>
+                  {travelTimes.map((tt) => (
+                    <View key={tt.id} style={styles.travelTimeCard}>
+                      <View style={styles.travelTimeInfo}>
+                        <View style={styles.travelTimeRoute}>
+                          <Text style={styles.travelTimeLocation}>{getLocationName(tt.fromLocationId)}</Text>
+                          <Ionicons name="arrow-forward" size={16} color={Colors.dark.xpCyan} />
+                          <Text style={styles.travelTimeLocation}>{getLocationName(tt.toLocationId)}</Text>
+                        </View>
+                        <View style={styles.travelTimeBadge}>
+                          <Ionicons name="time-outline" size={14} color={Colors.dark.gold} />
+                          <Text style={styles.travelTimeValue}>{tt.travelTimeMinutes} min</Text>
+                        </View>
+                      </View>
+                      <Pressable
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          handleDeleteTravelTime(tt.id, getLocationName(tt.fromLocationId), getLocationName(tt.toLocationId));
+                        }}
+                        style={styles.travelTimeDeleteBtn}
+                      >
+                        <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+                      </Pressable>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.emptyState}>
+                  <Ionicons name="swap-horizontal-outline" size={32} color={Colors.dark.tabIconDefault} />
+                  <Text style={styles.emptyStateText}>No travel times configured yet</Text>
+                </View>
+              )}
+              
+              <View style={styles.syncButtonContainer}>
+                <GradientButton
+                  onPress={handleAddTravelTime}
+                  label="Add Travel Time"
+                  icon="add-outline"
+                />
+              </View>
+            </>
+          )}
+        </View>
+
+        <View style={styles.section}>
           <SectionHeader title="Offline & Sync" icon="cloud-outline" />
 
           <View style={styles.settingRow}>
@@ -885,6 +1035,117 @@ export default function SettingsScreen() {
                   style={styles.modalSaveButton}
                 >
                   <Text style={styles.modalSaveText}>{editingCourt ? "Save" : "Add"}</Text>
+                </LinearGradient>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showTravelTimeModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowTravelTimeModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <LinearGradient
+              colors={[Colors.dark.gold, Colors.dark.orange]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.modalAccent}
+            />
+            <Text style={styles.modalTitle}>ADD TRAVEL TIME</Text>
+            
+            <Text style={styles.colorPickerLabel}>FROM LOCATION</Text>
+            <View style={styles.locationPicker}>
+              {locations.map((loc) => (
+                <Pressable
+                  key={loc.id}
+                  style={[
+                    styles.locationOption,
+                    fromLocationId === loc.id && styles.locationOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setFromLocationId(loc.id);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Text style={[
+                    styles.locationOptionText,
+                    fromLocationId === loc.id && styles.locationOptionTextSelected,
+                  ]}>
+                    {loc.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.colorPickerLabel}>TO LOCATION</Text>
+            <View style={styles.locationPicker}>
+              {locations.filter(loc => loc.id !== fromLocationId).map((loc) => (
+                <Pressable
+                  key={loc.id}
+                  style={[
+                    styles.locationOption,
+                    toLocationId === loc.id && styles.locationOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setToLocationId(loc.id);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Text style={[
+                    styles.locationOptionText,
+                    toLocationId === loc.id && styles.locationOptionTextSelected,
+                  ]}>
+                    {loc.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.colorPickerLabel}>TRAVEL TIME</Text>
+            <View style={styles.locationPicker}>
+              {TRAVEL_TIME_OPTIONS.map((mins) => (
+                <Pressable
+                  key={mins}
+                  style={[
+                    styles.travelTimeOption,
+                    selectedTravelTime === mins && styles.travelTimeOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setSelectedTravelTime(mins);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Text style={[
+                    styles.travelTimeOptionText,
+                    selectedTravelTime === mins && styles.travelTimeOptionTextSelected,
+                  ]}>
+                    {mins} min
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <View style={styles.modalButtons}>
+              <Pressable style={styles.modalCancelButton} onPress={() => setShowTravelTimeModal(false)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.modalSaveButtonWrapper, (!fromLocationId || !toLocationId) && { opacity: 0.5 }]} 
+                onPress={handleSaveTravelTime}
+                disabled={!fromLocationId || !toLocationId}
+              >
+                <LinearGradient
+                  colors={[Colors.dark.gold, Colors.dark.orange]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.modalSaveButton}
+                >
+                  <Text style={styles.modalSaveText}>Add</Text>
                 </LinearGradient>
               </Pressable>
             </View>
@@ -1451,5 +1712,107 @@ const styles = StyleSheet.create({
     fontSize: Typography.body.fontSize,
     color: Colors.dark.backgroundRoot,
     fontWeight: "700",
+  },
+  sectionDescription: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+  },
+  travelTimesList: {
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  travelTimeCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(30, 30, 35, 0.8)",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 255, 0.15)",
+  },
+  travelTimeInfo: {
+    flex: 1,
+    gap: Spacing.xs,
+  },
+  travelTimeRoute: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    flexWrap: "wrap",
+  },
+  travelTimeLocation: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  travelTimeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.gold + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    alignSelf: "flex-start",
+  },
+  travelTimeValue: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.gold,
+  },
+  travelTimeDeleteBtn: {
+    padding: Spacing.sm,
+    marginLeft: Spacing.sm,
+  },
+  locationPicker: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  locationOption: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: "rgba(60, 60, 60, 0.5)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  locationOptionSelected: {
+    backgroundColor: Colors.dark.gold + "30",
+    borderColor: Colors.dark.gold,
+  },
+  locationOptionText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  locationOptionTextSelected: {
+    color: Colors.dark.gold,
+  },
+  travelTimeOption: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: "rgba(60, 60, 60, 0.5)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    minWidth: 60,
+    alignItems: "center",
+  },
+  travelTimeOptionSelected: {
+    backgroundColor: Colors.dark.xpCyan + "30",
+    borderColor: Colors.dark.xpCyan,
+  },
+  travelTimeOptionText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+  },
+  travelTimeOptionTextSelected: {
+    color: Colors.dark.xpCyan,
   },
 });

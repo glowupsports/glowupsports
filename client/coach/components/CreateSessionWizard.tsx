@@ -197,8 +197,19 @@ export default function CreateSessionWizard({
   const glowPulse = useSharedValue(0);
 
   // Fetch courts
-  const { data: courts = [] } = useQuery<{ id: string; name: string }[]>({
+  const { data: courts = [] } = useQuery<{ id: string; name: string; locationId?: string }[]>({
     queryKey: ["/api/courts"],
+    enabled: visible,
+  });
+
+  // Fetch travel times
+  const { data: travelTimes = [] } = useQuery<Array<{
+    id: string;
+    fromLocationId: string;
+    toLocationId: string;
+    travelTimeMinutes: number;
+  }>>({
+    queryKey: ["/api/coach/travel-times"],
     enabled: visible,
   });
 
@@ -284,6 +295,74 @@ export default function CreateSessionWizard({
     
     return blocked;
   }, [calendarData, selectedCourtId, selectedDate, duration]);
+
+  // Calculate travel time conflicts for time slots
+  const travelTimeConflicts = useMemo((): Map<string, { warning: string; minutes: number }> => {
+    const conflicts = new Map<string, { warning: string; minutes: number }>();
+    if (!calendarData || !selectedCourtId || travelTimes.length === 0) return conflicts;
+
+    const selectedCourt = courts.find(c => c.id === selectedCourtId);
+    const selectedLocationId = selectedCourt?.locationId;
+    if (!selectedLocationId) return conflicts;
+
+    const ownSessions = calendarData.ownSessions || [];
+    if (ownSessions.length === 0) return conflicts;
+
+    const slotTimes = [
+      "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
+      "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
+      "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
+      "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
+      "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
+    ];
+
+    for (const time of slotTimes) {
+      const [hours, mins] = time.split(":").map(Number);
+      const slotStart = new Date(selectedDate);
+      slotStart.setHours(hours, mins, 0, 0);
+      const slotEnd = new Date(slotStart);
+      slotEnd.setMinutes(slotEnd.getMinutes() + duration);
+
+      // Check each existing session for travel time conflicts
+      for (const session of ownSessions) {
+        const sessionCourt = courts.find(c => c.id === session.courtId);
+        const sessionLocationId = sessionCourt?.locationId;
+        if (!sessionLocationId || sessionLocationId === selectedLocationId) continue;
+
+        // Find travel time between locations
+        const travelTime = travelTimes.find(t =>
+          (t.fromLocationId === sessionLocationId && t.toLocationId === selectedLocationId) ||
+          (t.fromLocationId === selectedLocationId && t.toLocationId === sessionLocationId)
+        );
+        if (!travelTime) continue;
+
+        const sessionStart = new Date(session.startTime.endsWith("Z") ? session.startTime : session.startTime + "Z");
+        const sessionEnd = new Date(session.endTime.endsWith("Z") ? session.endTime : session.endTime + "Z");
+
+        // Check if new session would end too close to existing session start (need travel time before)
+        const gapBefore = (sessionStart.getTime() - slotEnd.getTime()) / 60000;
+        if (gapBefore >= 0 && gapBefore < travelTime.travelTimeMinutes) {
+          conflicts.set(time, {
+            warning: `Need ${travelTime.travelTimeMinutes}min travel before next session`,
+            minutes: travelTime.travelTimeMinutes,
+          });
+          break;
+        }
+
+        // Check if new session would start too close after existing session ends (need travel time after)
+        const gapAfter = (slotStart.getTime() - sessionEnd.getTime()) / 60000;
+        if (gapAfter >= 0 && gapAfter < travelTime.travelTimeMinutes) {
+          conflicts.set(time, {
+            warning: `Need ${travelTime.travelTimeMinutes}min travel after previous session`,
+            minutes: travelTime.travelTimeMinutes,
+          });
+          break;
+        }
+      }
+    }
+
+    return conflicts;
+  }, [calendarData, selectedCourtId, travelTimes, courts, selectedDate, duration]);
 
   // Generate dates for recurring weeks
   const recurringDates = useMemo(() => {
@@ -376,7 +455,7 @@ export default function CreateSessionWizard({
     fetchMultiWeekAvailability();
   }, [isRecurring, selectedCourtId, recurringDates, duration, selectedDate]);
 
-  // Available time slots (HIDDEN if blocked - includes both current day and future recurring days)
+  // Available time slots (HIDDEN if blocked - includes both current day, future recurring days, AND travel time conflicts)
   const availableSlots = useMemo(() => {
     const allSlots = [
       "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
@@ -385,9 +464,13 @@ export default function CreateSessionWizard({
       "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
       "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
     ];
-    // Filter out slots blocked on current day AND slots blocked on any future recurring week
-    return allSlots.filter(time => !blockedSlots.has(time) && !multiWeekBlockedSlots.has(time));
-  }, [blockedSlots, multiWeekBlockedSlots]);
+    // Filter out slots blocked on current day, future recurring weeks, AND travel time conflicts (HIDDEN, not just warned)
+    return allSlots.filter(time => 
+      !blockedSlots.has(time) && 
+      !multiWeekBlockedSlots.has(time) &&
+      !travelTimeConflicts.has(time)
+    );
+  }, [blockedSlots, multiWeekBlockedSlots, travelTimeConflicts]);
 
   // Reset form on close
   const resetForm = useCallback(() => {
@@ -878,6 +961,7 @@ export default function CreateSessionWizard({
                 <Text style={styles.noSlotsHint}>Try a different date or duration</Text>
               </View>
             )}
+
           </View>
         ) : (
           <View style={styles.section}>
@@ -1849,6 +1933,44 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 8,
     elevation: 4,
+  },
+  timeSlotWarning: {
+    borderColor: Colors.dark.gold,
+    backgroundColor: Colors.dark.gold + "15",
+  },
+  travelWarningBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: Colors.dark.gold + "40",
+    borderRadius: 8,
+    padding: 2,
+  },
+  travelConflictWarning: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: Colors.dark.gold + "15",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginTop: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "40",
+    gap: Spacing.sm,
+  },
+  travelConflictTextContainer: {
+    flex: 1,
+    gap: 2,
+  },
+  travelConflictTitle: {
+    ...Typography.caption,
+    color: Colors.dark.gold,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  travelConflictText: {
+    ...Typography.caption,
+    color: Colors.dark.text,
+    opacity: 0.9,
   },
   timeSlotText: {
     ...Typography.body,

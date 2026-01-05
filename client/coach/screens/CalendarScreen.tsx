@@ -24,7 +24,7 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useQuery } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
@@ -584,6 +584,16 @@ export default function CalendarScreen() {
   } | null>(null);
   const [dragConflict, setDragConflict] = useState<string | null>(null);
   const [selectedCourtFilter, setSelectedCourtFilter] = useState<string | null>(null); // null = all courts
+
+  // Fetch travel times for this coach
+  const { data: travelTimes = [] } = useQuery<Array<{
+    id: string;
+    fromLocationId: string;
+    toLocationId: string;
+    travelTimeMinutes: number;
+  }>>({
+    queryKey: ["/api/coach/travel-times"],
+  });
   
   const hourHeight = timeGrid === 30 ? HOUR_HEIGHT_30 : HOUR_HEIGHT_60;
   const allCourts = calendarData?.courts || [];
@@ -780,6 +790,61 @@ export default function CalendarScreen() {
   const ownSessions = calendarData?.ownSessions || [];
   const blockedSessions = calendarData?.blockedSessions || [];
 
+  // Compute travel time blocks between sessions at different locations
+  const travelTimeBlocks = useMemo(() => {
+    if (travelTimes.length === 0 || ownSessions.length < 2) return [];
+    
+    // Sort sessions by start time
+    const sortedSessions = [...ownSessions].sort((a, b) => 
+      new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+    );
+    
+    const blocks: Array<{
+      id: string;
+      startTime: string;
+      endTime: string;
+      fromLocation: string;
+      toLocation: string;
+      minutes: number;
+    }> = [];
+    
+    for (let i = 0; i < sortedSessions.length - 1; i++) {
+      const currentSession = sortedSessions[i];
+      const nextSession = sortedSessions[i + 1];
+      
+      // Get location IDs from court
+      const currentLocationId = currentSession.locationId || courts.find(c => c.id === currentSession.courtId)?.locationId;
+      const nextLocationId = nextSession.locationId || courts.find(c => c.id === nextSession.courtId)?.locationId;
+      
+      // Skip if same location or no location info
+      if (!currentLocationId || !nextLocationId || currentLocationId === nextLocationId) continue;
+      
+      // Find travel time for this pair
+      const travelTime = travelTimes.find(t => 
+        (t.fromLocationId === currentLocationId && t.toLocationId === nextLocationId) ||
+        (t.fromLocationId === nextLocationId && t.toLocationId === currentLocationId)
+      );
+      
+      if (!travelTime) continue;
+      
+      // Calculate travel block times - starts when current session ends
+      const travelStart = new Date(currentSession.endTime);
+      const travelEnd = new Date(travelStart);
+      travelEnd.setMinutes(travelEnd.getMinutes() + travelTime.travelTimeMinutes);
+      
+      blocks.push({
+        id: `travel-${currentSession.id}-${nextSession.id}`,
+        startTime: travelStart.toISOString(),
+        endTime: travelEnd.toISOString(),
+        fromLocation: currentLocationId,
+        toLocation: nextLocationId,
+        minutes: travelTime.travelTimeMinutes,
+      });
+    }
+    
+    return blocks;
+  }, [ownSessions, travelTimes, courts]);
+
   const checkDragConflict = useCallback((
     session: Session,
     deltaY: number,
@@ -807,7 +872,8 @@ export default function CalendarScreen() {
     const newCourtIndex = Math.max(0, Math.min(courts.length - 1, currentCourtIndex + courtsChanged));
     const newCourtId = courts[newCourtIndex]?.id;
     
-    const hasTimeConflict = ownSessions.some(s => {
+    // Check for session conflicts
+    const hasSessionConflict = ownSessions.some(s => {
       if (s.id === session.id) return false;
       
       const sStart = parseUTCTimestamp(s.startTime);
@@ -821,9 +887,18 @@ export default function CalendarScreen() {
       
       return true;
     });
+
+    // Check for travel time block conflicts
+    const hasTravelConflict = travelTimeBlocks.some(block => {
+      const blockStart = new Date(block.startTime);
+      const blockEnd = new Date(block.endTime);
+      return newStart < blockEnd && newEnd > blockStart;
+    });
+
+    const hasTimeConflict = hasSessionConflict || hasTravelConflict;
     
     setDragConflict(hasTimeConflict ? session.id : null);
-  }, [hourHeight, courts, ownSessions]);
+  }, [hourHeight, courts, ownSessions, travelTimeBlocks]);
 
   const formatTime = (hour: number) => {
     return `${hour.toString().padStart(2, "0")}:00`;
@@ -1533,6 +1608,34 @@ export default function CalendarScreen() {
                             style={[styles.blockedBlock, { top, height: height - 2 }]}
                           >
                             <Text style={styles.blockedText}>Unavailable</Text>
+                          </View>
+                        );
+                      })}
+
+                    {/* Render travel time blocks (only on first court lane) */}
+                    {courtIndex === 0 && travelTimeBlocks
+                      .filter((block) => {
+                        const blockDate = new Date(block.startTime);
+                        return (
+                          blockDate.getFullYear() === selectedDate.getFullYear() &&
+                          blockDate.getMonth() === selectedDate.getMonth() &&
+                          blockDate.getDate() === selectedDate.getDate()
+                        );
+                      })
+                      .map((block) => {
+                        const startTime = parseUTCTimestamp(block.startTime);
+                        const endTime = parseUTCTimestamp(block.endTime);
+                        const startHour = startTime.getHours() + startTime.getMinutes() / 60;
+                        const endHour = endTime.getHours() + endTime.getMinutes() / 60;
+                        const top = (startHour - focusBaseHour) * hourHeight;
+                        const height = (endHour - startHour) * hourHeight;
+                        return (
+                          <View
+                            key={block.id}
+                            style={[styles.travelTimeBlock, { top, height: Math.max(height - 2, 24), width: courts.length * dynamicLaneWidth - 4 }]}
+                          >
+                            <Feather name="navigation" size={12} color={Colors.dark.gold} style={{ marginRight: 4 }} />
+                            <Text style={styles.travelTimeBlockText}>{block.minutes} min travel</Text>
                           </View>
                         );
                       })}
@@ -2819,6 +2922,26 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.textMuted,
     fontStyle: "italic",
+  },
+  travelTimeBlock: {
+    position: "absolute",
+    left: 2,
+    borderRadius: BorderRadius.xs,
+    backgroundColor: Colors.dark.gold + "25",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "50",
+    borderStyle: "dashed",
+    flexDirection: "row",
+    alignItems: "center",
+    zIndex: 5,
+  },
+  travelTimeBlockText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.gold,
+    letterSpacing: 0.3,
     textAlign: "center",
   },
   nowLine: {
