@@ -30,7 +30,8 @@ interface Player {
   name: string;
   email: string;
   ballLevel?: string | null;
-  level?: string | null;
+  level?: string | number | null;
+  skillLevel?: number | null;
   profilePhotoUrl?: string | null;
 }
 
@@ -101,6 +102,11 @@ export default function CreateSessionDrawer({
   const [playerSearch, setPlayerSearch] = useState("");
   const [weekAvailability, setWeekAvailability] = useState<{ week: number; date: Date; available: boolean; conflict?: string }[]>([]);
   const [isCheckingWeeks, setIsCheckingWeeks] = useState(false);
+  
+  // Player filtering states
+  const [filterBallLevel, setFilterBallLevel] = useState<BallLevel | null>(null);
+  const [filterSkillLevel, setFilterSkillLevel] = useState<SkillLevel | null>(null);
+  const [showAllPlayers, setShowAllPlayers] = useState(false);
 
   // Get ball level color
   const getBallLevelColor = (level: string | null | undefined): string => {
@@ -114,9 +120,10 @@ export default function CreateSessionDrawer({
     }
   };
 
-  // Get skill level label
-  const getSkillLevelLabel = (level: string | null | undefined): string => {
-    switch (level) {
+  // Get skill level label (handles both string and number)
+  const getSkillLevelLabel = (level: string | number | null | undefined): string => {
+    const lvl = typeof level === 'number' ? String(level) : level;
+    switch (lvl) {
       case "1": return "Beg";
       case "2": return "Int";
       case "3": return "Adv";
@@ -156,10 +163,43 @@ export default function CreateSessionDrawer({
   });
   const players = Array.isArray(playersData) ? playersData : [];
 
-  // Filter players based on search
-  const filteredPlayers = players.filter(p => 
-    p.name.toLowerCase().includes(playerSearch.toLowerCase())
-  );
+  // Normalize skill level to number (handles both numeric and string values)
+  const normalizeSkillLevel = (level: string | number | null | undefined): number | null => {
+    if (level === null || level === undefined) return null;
+    if (typeof level === 'number') return level;
+    // Handle string numeric values
+    const parsed = parseInt(level, 10);
+    if (!isNaN(parsed)) return parsed;
+    // Handle string text values
+    const normalized = level.toLowerCase();
+    if (normalized === 'beginner') return 1;
+    if (normalized === 'intermediate') return 2;
+    if (normalized === 'advanced') return 3;
+    return null;
+  };
+
+  // Filter players based on search, ball level, and skill level
+  const filteredPlayers = players.filter(p => {
+    // Always apply name search
+    const matchesSearch = p.name.toLowerCase().includes(playerSearch.toLowerCase());
+    if (!matchesSearch) return false;
+    
+    // If "Show All" is enabled, skip level filters
+    if (showAllPlayers) return true;
+    
+    // Filter by ball level if selected
+    if (filterBallLevel && p.ballLevel !== filterBallLevel) return false;
+    
+    // Filter by skill level if selected (check both skillLevel and level fields)
+    if (filterSkillLevel) {
+      // Try skillLevel first, then fall back to level
+      const rawSkill = p.skillLevel ?? p.level;
+      const playerSkill = normalizeSkillLevel(rawSkill);
+      if (playerSkill === null || playerSkill !== filterSkillLevel) return false;
+    }
+    
+    return true;
+  });
 
   const { data: templates = [] } = useQuery<SessionTemplate[]>({
     queryKey: ["/api/coach/templates", coach?.id],
@@ -330,6 +370,11 @@ export default function CreateSessionDrawer({
     setTravelTime(0);
     setNotes("");
     setConflicts([]);
+    // Reset player filters
+    setFilterBallLevel(null);
+    setFilterSkillLevel(null);
+    setShowAllPlayers(false);
+    setPlayerSearch("");
   };
 
   const checkConflicts = async () => {
@@ -569,10 +614,9 @@ export default function CreateSessionDrawer({
         </View>
 
         <KeyboardAwareScrollViewCompat style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Time Selection */}
+          {/* Step 1: Date Selection */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Time</Text>
-            {/* Date Display */}
+            <Text style={styles.sectionTitle}>1. Select Date</Text>
             <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowCalendar(!showCalendar); }} style={styles.dateButton}>
               <Ionicons name="calendar-outline" size={18} color={Colors.dark.primary} />
               <Text style={styles.dateButtonText}>
@@ -584,58 +628,10 @@ export default function CreateSessionDrawer({
               </Text>
               <Ionicons name="chevron-down" size={16} color={Colors.dark.tabIconDefault} />
             </Pressable>
-            {/* Quick Time Slots - Fast selection */}
-            <View style={styles.timeSlotGrid}>
-              {[
-                "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
-                "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
-                "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
-                "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
-                "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
-              ].map((time) => {
-                const [hours, mins] = time.split(":").map(Number);
-                const isSelected = startTime.getHours() === hours && startTime.getMinutes() === mins;
-                const isBlocked = blockedSlots.has(time);
-                return (
-                  <Pressable
-                    key={time}
-                    onPress={() => {
-                      if (isBlocked) {
-                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                        return;
-                      }
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      const newTime = new Date(startTime);
-                      newTime.setHours(hours, mins, 0, 0);
-                      setStartTime(newTime);
-                    }}
-                    style={[
-                      styles.timeSlot,
-                      isSelected && styles.timeSlotSelected,
-                      isBlocked && styles.timeSlotBlocked,
-                    ]}
-                    disabled={isBlocked}
-                  >
-                    <Text style={[
-                      styles.timeSlotText,
-                      isSelected && styles.timeSlotTextSelected,
-                      isBlocked && styles.timeSlotTextBlocked,
-                    ]}>
-                      {time}
-                    </Text>
-                    {isBlocked ? (
-                      <View style={styles.blockedIndicator}>
-                        <Ionicons name="close" size={10} color={Colors.dark.error} />
-                      </View>
-                    ) : null}
-                  </Pressable>
-                );
-              })}
-            </View>
           </View>
 
           {/* Calendar Picker */}
-          {showCalendar && (
+          {showCalendar ? (
             <View style={styles.calendarContainer}>
               <View style={styles.calendarHeader}>
                 <Pressable onPress={() => changeMonth(-1)} style={styles.calendarNavButton}>
@@ -679,6 +675,122 @@ export default function CreateSessionDrawer({
                     </Pressable>
                   );
                 })}
+              </View>
+            </View>
+          ) : null}
+
+          {/* Step 2: Court Selection */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>2. Select Court</Text>
+            <View style={styles.optionsRow}>
+              {courts.map((court) => (
+                <Pressable
+                  key={court.id}
+                  onPress={() => setSelectedCourtId(court.id)}
+                  style={[
+                    styles.courtChip,
+                    selectedCourtId === court.id && styles.courtChipActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.courtChipText,
+                      selectedCourtId === court.id && styles.courtChipTextActive,
+                    ]}
+                  >
+                    {court.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            {courts.length === 0 ? (
+              <Text style={styles.noPlayersText}>No courts available</Text>
+            ) : null}
+          </View>
+
+          {/* Step 3: Time Selection - Only show after court is selected */}
+          {selectedCourtId ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>3. Select Time (Available Slots)</Text>
+              <View style={styles.timeSlotGrid}>
+                {[
+                  "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
+                  "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
+                  "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
+                  "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
+                  "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
+                ].map((time) => {
+                  const [hours, mins] = time.split(":").map(Number);
+                  const isSelected = startTime.getHours() === hours && startTime.getMinutes() === mins;
+                  const isBlocked = blockedSlots.has(time);
+                  return (
+                    <Pressable
+                      key={time}
+                      onPress={() => {
+                        if (isBlocked) {
+                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                          return;
+                        }
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        const newTime = new Date(startTime);
+                        newTime.setHours(hours, mins, 0, 0);
+                        setStartTime(newTime);
+                      }}
+                      style={[
+                        styles.timeSlot,
+                        isSelected && styles.timeSlotSelected,
+                        isBlocked && styles.timeSlotBlocked,
+                      ]}
+                      disabled={isBlocked}
+                    >
+                      <Text style={[
+                        styles.timeSlotText,
+                        isSelected && styles.timeSlotTextSelected,
+                        isBlocked && styles.timeSlotTextBlocked,
+                      ]}>
+                        {time}
+                      </Text>
+                      {isBlocked ? (
+                        <View style={styles.blockedIndicator}>
+                          <Ionicons name="close" size={10} color={Colors.dark.error} />
+                        </View>
+                      ) : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+              
+              {/* Conflict Warning */}
+              {isChecking ? (
+                <View style={styles.conflictBox}>
+                  <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                  <Text style={styles.checkingText}>Checking availability...</Text>
+                </View>
+              ) : conflicts.length > 0 ? (
+                <View style={[styles.conflictBox, styles.conflictError]}>
+                  <Ionicons name="warning" size={20} color={Colors.dark.error} />
+                  <View style={styles.conflictContent}>
+                    <Text style={styles.conflictTitle}>Scheduling Conflict</Text>
+                    {conflicts.map((conflict, index) => (
+                      <Text key={index} style={styles.conflictText}>
+                        {conflict}
+                      </Text>
+                    ))}
+                  </View>
+                </View>
+              ) : (
+                <View style={[styles.conflictBox, styles.conflictOk]}>
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.dark.primary} />
+                  <Text style={styles.okText}>Time slot available</Text>
+                </View>
+              )}
+            </View>
+          ) : (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>3. Select Time</Text>
+              <View style={styles.selectCourtFirst}>
+                <Ionicons name="arrow-up" size={16} color={Colors.dark.textMuted} />
+                <Text style={styles.selectCourtFirstText}>Select a court first to see available times</Text>
               </View>
             </View>
           )}
@@ -757,61 +869,98 @@ export default function CreateSessionDrawer({
             </View>
           </View>
 
-          {/* Court Selection */}
+          {/* Player Filter Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Court</Text>
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>Filter Players</Text>
+              <Pressable
+                onPress={() => setShowAllPlayers(!showAllPlayers)}
+                style={[styles.seeAllButton, showAllPlayers && styles.seeAllButtonActive]}
+              >
+                <Ionicons name={showAllPlayers ? "people" : "people-outline"} size={14} color={showAllPlayers ? Colors.dark.text : Colors.dark.xpCyan} />
+                <Text style={[styles.seeAllText, showAllPlayers && styles.seeAllTextActive]}>
+                  {showAllPlayers ? "Showing All" : "See All"}
+                </Text>
+              </Pressable>
+            </View>
+            
+            {/* Ball Level Filter */}
+            <Text style={styles.filterLabel}>Ball Level:</Text>
             <View style={styles.optionsRow}>
-              {courts.map((court) => (
+              {BALL_LEVELS.map((level) => (
                 <Pressable
-                  key={court.id}
-                  onPress={() => setSelectedCourtId(court.id)}
+                  key={level.value}
+                  onPress={() => {
+                    setFilterBallLevel(filterBallLevel === level.value ? null : level.value);
+                    setShowAllPlayers(false);
+                  }}
                   style={[
-                    styles.courtChip,
-                    selectedCourtId === court.id && styles.courtChipActive,
+                    styles.levelChip,
+                    filterBallLevel === level.value && {
+                      backgroundColor: level.color,
+                      borderColor: level.color,
+                    },
                   ]}
                 >
                   <Text
                     style={[
-                      styles.courtChipText,
-                      selectedCourtId === court.id && styles.courtChipTextActive,
+                      styles.levelChipText,
+                      filterBallLevel === level.value && styles.levelChipTextActive,
                     ]}
                   >
-                    {court.name}
+                    {level.label}
                   </Text>
                 </Pressable>
               ))}
             </View>
-          </View>
-
-          {/* Conflict Warning */}
-          {isChecking ? (
-            <View style={styles.conflictBox}>
-              <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
-              <Text style={styles.checkingText}>Checking availability...</Text>
-            </View>
-          ) : conflicts.length > 0 ? (
-            <View style={[styles.conflictBox, styles.conflictError]}>
-              <Ionicons name="warning" size={20} color={Colors.dark.error} />
-              <View style={styles.conflictContent}>
-                <Text style={styles.conflictTitle}>Scheduling Conflict</Text>
-                {conflicts.map((conflict, index) => (
-                  <Text key={index} style={styles.conflictText}>
-                    {conflict}
+            
+            {/* Skill Level Filter */}
+            <Text style={[styles.filterLabel, { marginTop: Spacing.md }]}>Skill Level:</Text>
+            <View style={styles.optionsRow}>
+              {SKILL_LEVELS.map((level) => (
+                <Pressable
+                  key={level.value}
+                  onPress={() => {
+                    setFilterSkillLevel(filterSkillLevel === level.value ? null : level.value);
+                    setShowAllPlayers(false);
+                  }}
+                  style={[
+                    styles.optionChip,
+                    filterSkillLevel === level.value && styles.optionChipActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.optionChipText,
+                      filterSkillLevel === level.value && styles.optionChipTextActive,
+                    ]}
+                  >
+                    {level.label}
                   </Text>
-                ))}
+                </Pressable>
+              ))}
+            </View>
+            
+            {/* Active filters indicator */}
+            {(filterBallLevel || filterSkillLevel) && !showAllPlayers ? (
+              <View style={styles.activeFiltersRow}>
+                <Text style={styles.activeFiltersText}>
+                  Showing {filteredPlayers.length} of {players.length} players
+                </Text>
+                <Pressable 
+                  onPress={() => { setFilterBallLevel(null); setFilterSkillLevel(null); }}
+                  style={styles.clearFiltersButton}
+                >
+                  <Text style={styles.clearFiltersText}>Clear filters</Text>
+                </Pressable>
               </View>
-            </View>
-          ) : selectedCourtId ? (
-            <View style={[styles.conflictBox, styles.conflictOk]}>
-              <Ionicons name="checkmark-circle" size={20} color={Colors.dark.primary} />
-              <Text style={styles.okText}>Time slot available</Text>
-            </View>
-          ) : null}
+            ) : null}
+          </View>
 
           {/* Player Selection */}
           <View style={styles.section}>
             <View style={styles.sectionTitleRow}>
-              <Text style={styles.sectionTitle}>Players</Text>
+              <Text style={styles.sectionTitle}>Players ({filteredPlayers.length})</Text>
               <Pressable
                 onPress={() => setShowGuestInput(!showGuestInput)}
                 style={styles.addGuestButton}
@@ -871,7 +1020,7 @@ export default function CreateSessionDrawer({
                 const isSelected = selectedPlayers.some((p) => p.id === player.id);
                 const isGuest = player.name.includes("(Guest)");
                 const ballColor = getBallLevelColor(player.ballLevel);
-                const skillLabel = getSkillLevelLabel(player.level);
+                const skillLabel = getSkillLevelLabel(player.skillLevel ?? player.level);
                 
                 return (
                   <Pressable
@@ -1331,6 +1480,68 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 2,
     right: 2,
+  },
+  selectCourtFirst: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+  },
+  selectCourtFirstText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    fontStyle: "italic",
+  },
+  filterLabel: {
+    ...Typography.small,
+    color: Colors.dark.tabIconDefault,
+    marginBottom: Spacing.xs,
+    marginTop: Spacing.sm,
+  },
+  seeAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "40",
+  },
+  seeAllButtonActive: {
+    backgroundColor: Colors.dark.xpCyan,
+    borderColor: Colors.dark.xpCyan,
+  },
+  seeAllText: {
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+  },
+  seeAllTextActive: {
+    color: Colors.dark.text,
+  },
+  activeFiltersRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: Spacing.md,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  activeFiltersText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  clearFiltersButton: {
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+  },
+  clearFiltersText: {
+    ...Typography.small,
+    color: Colors.dark.error,
   },
   optionsRow: {
     flexDirection: "row",
