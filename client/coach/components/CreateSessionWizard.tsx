@@ -187,6 +187,10 @@ export default function CreateSessionWizard({
   // Loading states
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [multiWeekBlockedSlots, setMultiWeekBlockedSlots] = useState<Set<string>>(new Set());
+  
+  // Calendar modal state
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [calendarViewDate, setCalendarViewDate] = useState(new Date());
 
   // Animation values
   const slideProgress = useSharedValue(0);
@@ -761,6 +765,23 @@ export default function CreateSessionWizard({
                 </Pressable>
               );
             })}
+            {/* Calendar picker button */}
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setCalendarViewDate(selectedDate);
+                setShowCalendarModal(true);
+              }}
+              style={styles.calendarPickerBtn}
+            >
+              <LinearGradient
+                colors={[Colors.dark.xpCyan + "30", Colors.dark.primary + "20"]}
+                style={styles.calendarPickerGradient}
+              >
+                <Ionicons name="calendar" size={24} color={Colors.dark.xpCyan} />
+                <Text style={styles.calendarPickerText}>More</Text>
+              </LinearGradient>
+            </Pressable>
           </ScrollView>
         </View>
 
@@ -1221,6 +1242,7 @@ export default function CreateSessionWizard({
   };
 
   return (
+    <>
     <Modal
       visible={visible}
       animationType="slide"
@@ -1317,6 +1339,177 @@ export default function CreateSessionWizard({
         </View>
       </View>
     </Modal>
+
+    {/* Calendar Picker Modal */}
+    <Modal
+      visible={showCalendarModal}
+      animationType="fade"
+      transparent
+      onRequestClose={() => setShowCalendarModal(false)}
+    >
+      <View style={styles.calendarModalOverlay}>
+        <View style={styles.calendarModalContent}>
+          <LinearGradient
+            colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.calendarModalHeaderLine}
+          />
+          
+          {/* Modal Header */}
+          <View style={styles.calendarModalHeader}>
+            <Text style={styles.calendarModalTitle}>SELECT DATE</Text>
+            <Pressable
+              onPress={() => setShowCalendarModal(false)}
+              style={styles.calendarModalCloseBtn}
+            >
+              <Ionicons name="close" size={24} color={Colors.dark.text} />
+            </Pressable>
+          </View>
+          
+          {/* Month Navigation */}
+          <View style={styles.calendarMonthNav}>
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                const newDate = new Date(calendarViewDate);
+                newDate.setMonth(newDate.getMonth() - 1);
+                setCalendarViewDate(newDate);
+              }}
+              style={styles.calendarNavBtn}
+            >
+              <Ionicons name="chevron-back" size={24} color={Colors.dark.xpCyan} />
+            </Pressable>
+            <Text style={styles.calendarMonthTitle}>
+              {calendarViewDate.toLocaleDateString("en", { month: "long", year: "numeric" })}
+            </Text>
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                const newDate = new Date(calendarViewDate);
+                newDate.setMonth(newDate.getMonth() + 1);
+                setCalendarViewDate(newDate);
+              }}
+              style={styles.calendarNavBtn}
+            >
+              <Ionicons name="chevron-forward" size={24} color={Colors.dark.xpCyan} />
+            </Pressable>
+          </View>
+          
+          {/* Weekday Headers */}
+          <View style={styles.calendarWeekdayRow}>
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+              <Text key={day} style={styles.calendarWeekdayText}>{day}</Text>
+            ))}
+          </View>
+          
+          {/* Calendar Days Grid */}
+          <View style={styles.calendarDaysGrid}>
+            {(() => {
+              const year = calendarViewDate.getFullYear();
+              const month = calendarViewDate.getMonth();
+              const firstDay = new Date(year, month, 1).getDay();
+              const daysInMonth = new Date(year, month + 1, 0).getDate();
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              
+              const days = [];
+              // Empty cells for days before first day of month
+              for (let i = 0; i < firstDay; i++) {
+                days.push(<View key={`empty-${i}`} style={styles.calendarDayCell} />);
+              }
+              // Days of the month
+              for (let d = 1; d <= daysInMonth; d++) {
+                const date = new Date(year, month, d);
+                const isPast = date < today;
+                const isSelected = date.toDateString() === selectedDate.toDateString();
+                const isToday = date.toDateString() === today.toDateString();
+                
+                days.push(
+                  <Pressable
+                    key={d}
+                    disabled={isPast}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      setSelectedDate(date);
+                      setStartTime(null);
+                      setShowCalendarModal(false);
+                    }}
+                    style={[
+                      styles.calendarDayCell,
+                      isSelected && styles.calendarDayCellSelected,
+                      isToday && !isSelected && styles.calendarDayCellToday,
+                      isPast && styles.calendarDayCellPast,
+                    ]}
+                  >
+                    {isSelected ? (
+                      <LinearGradient
+                        colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                        style={styles.calendarDayGradient}
+                      >
+                        <Text style={styles.calendarDayTextSelected}>{d}</Text>
+                      </LinearGradient>
+                    ) : (
+                      <Text style={[
+                        styles.calendarDayText,
+                        isToday && styles.calendarDayTextToday,
+                        isPast && styles.calendarDayTextPast,
+                      ]}>
+                        {d}
+                      </Text>
+                    )}
+                  </Pressable>
+                );
+              }
+              return days;
+            })()}
+          </View>
+          
+          {/* Quick Select Buttons */}
+          <View style={styles.calendarQuickSelect}>
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                const today = new Date();
+                setSelectedDate(today);
+                setStartTime(null);
+                setShowCalendarModal(false);
+              }}
+              style={styles.calendarQuickBtn}
+            >
+              <Text style={styles.calendarQuickBtnText}>Today</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                const nextWeek = new Date();
+                nextWeek.setDate(nextWeek.getDate() + 7);
+                setSelectedDate(nextWeek);
+                setStartTime(null);
+                setShowCalendarModal(false);
+              }}
+              style={styles.calendarQuickBtn}
+            >
+              <Text style={styles.calendarQuickBtnText}>Next Week</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                const nextMonth = new Date();
+                nextMonth.setMonth(nextMonth.getMonth() + 1);
+                setSelectedDate(nextMonth);
+                setStartTime(null);
+                setShowCalendarModal(false);
+              }}
+              style={styles.calendarQuickBtn}
+            >
+              <Text style={styles.calendarQuickBtnText}>Next Month</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+    </>
   );
 }
 
@@ -1996,5 +2189,169 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.backgroundRoot,
     fontWeight: "700",
+  },
+
+  // Calendar Picker Button
+  calendarPickerBtn: {
+    marginRight: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  calendarPickerGradient: {
+    width: 70,
+    paddingVertical: Spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "40",
+  },
+  calendarPickerText: {
+    ...Typography.small,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+  },
+
+  // Calendar Modal
+  calendarModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  calendarModalContent: {
+    width: "100%",
+    maxWidth: 400,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  calendarModalHeaderLine: {
+    height: 3,
+  },
+  calendarModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  calendarModalTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    letterSpacing: 1,
+  },
+  calendarModalCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  calendarMonthNav: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+  },
+  calendarNavBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  calendarMonthTitle: {
+    ...Typography.h3,
+    color: Colors.dark.xpCyan,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  calendarWeekdayRow: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.sm,
+    paddingBottom: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  calendarWeekdayText: {
+    flex: 1,
+    textAlign: "center",
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  calendarDaysGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    padding: Spacing.sm,
+  },
+  calendarDayCell: {
+    width: "14.28%",
+    aspectRatio: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  calendarDayCellSelected: {
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+  calendarDayCellToday: {
+    borderWidth: 2,
+    borderColor: Colors.dark.xpCyan,
+    borderRadius: 999,
+  },
+  calendarDayCellPast: {
+    opacity: 0.3,
+  },
+  calendarDayGradient: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 999,
+  },
+  calendarDayText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  calendarDayTextSelected: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
+  },
+  calendarDayTextToday: {
+    color: Colors.dark.xpCyan,
+  },
+  calendarDayTextPast: {
+    color: Colors.dark.textMuted,
+  },
+  calendarQuickSelect: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  calendarQuickBtn: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  calendarQuickBtnText: {
+    ...Typography.small,
+    color: Colors.dark.primary,
+    fontWeight: "600",
   },
 });
