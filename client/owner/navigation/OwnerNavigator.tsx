@@ -33,7 +33,7 @@ export type OwnerTabParamList = {
 
 export type OwnerStackParamList = {
   OwnerTabs: undefined;
-  InviteManagement: undefined;
+  InviteManagement: { role?: "coach" | "admin" };
   OwnerProfile: undefined;
   AcademyOnboarding: undefined;
   OwnerMain: undefined;

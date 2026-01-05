@@ -10,7 +10,7 @@ import {
   Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
@@ -18,6 +18,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { getEnv } from "@/lib/env";
+import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
 
 interface Invite {
   id: string;
@@ -55,15 +56,19 @@ function InviteCard({ invite, onCopy }: InviteCardProps) {
   const expiryDate = new Date(invite.expiresAt);
   const daysLeft = Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 
+  const isAdmin = invite.role === "admin";
+  const roleIcon = isAdmin ? "shield" : "tennisball";
+  const roleColor = isAdmin ? Colors.dark.xpCyan : Colors.dark.gold;
+  
   return (
     <View style={[styles.inviteCard, CardStyles.elevated]}>
       <View style={styles.inviteHeader}>
-        <View style={[styles.roleIcon, { backgroundColor: `${Colors.dark.gold}20` }]}>
-          <Ionicons name="tennisball" size={20} color={Colors.dark.gold} />
+        <View style={[styles.roleIcon, { backgroundColor: `${roleColor}20` }]}>
+          <Ionicons name={roleIcon} size={20} color={roleColor} />
         </View>
         <View style={styles.inviteInfo}>
           <Text style={styles.inviteRole}>
-            {invite.role === "coach" ? "Coach Invite" : "Academy Owner Invite"}
+            {invite.role === "coach" ? "Coach Invite" : invite.role === "admin" ? "Admin Invite" : "Academy Owner Invite"}
           </Text>
           {invite.invitedEmail ? (
             <Text style={styles.inviteEmail}>{invite.invitedEmail}</Text>
@@ -109,22 +114,29 @@ function InviteCard({ invite, onCopy }: InviteCardProps) {
   );
 }
 
+type InviteManagementRouteProp = RouteProp<OwnerStackParamList, "InviteManagement">;
+
 export default function InviteManagementScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const route = useRoute<InviteManagementRouteProp>();
   const queryClient = useQueryClient();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [email, setEmail] = useState("");
   const [expiresInDays, setExpiresInDays] = useState("7");
+  
+  const inviteRole = route.params?.role || "coach";
+  const isAdminInvite = inviteRole === "admin";
+  const roleLabel = isAdminInvite ? "Admin" : "Coach";
 
   const { data: invitesData, isLoading } = useQuery<{ invites: Invite[] }>({
-    queryKey: ["/api/invites"],
+    queryKey: ["/api/invites", inviteRole],
   });
 
   const createInviteMutation = useMutation({
     mutationFn: async (data: { email?: string; expiresInDays: number }) => {
       const response = await apiRequest("POST", "/api/invites", {
-        role: "coach",
+        role: inviteRole,
         email: data.email || undefined,
         expiresInDays: data.expiresInDays,
       });
@@ -176,7 +188,8 @@ export default function InviteManagementScreen() {
     });
   };
 
-  const invites = invitesData?.invites || [];
+  const allInvites = invitesData?.invites || [];
+  const invites = allInvites.filter((i) => i.role === inviteRole);
   const activeInvites = invites.filter(
     (i) => !i.usedAt && new Date(i.expiresAt) >= new Date()
   );
@@ -199,8 +212,8 @@ export default function InviteManagementScreen() {
             <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
           </Pressable>
           <View style={styles.headerContent}>
-            <Text style={styles.title}>Coach Invites</Text>
-            <Text style={styles.subtitle}>Invite coaches to join your academy</Text>
+            <Text style={styles.title}>{roleLabel} Invites</Text>
+            <Text style={styles.subtitle}>Invite {roleLabel.toLowerCase()}s to join your academy</Text>
           </View>
         </View>
       </View>
@@ -304,11 +317,11 @@ export default function InviteManagementScreen() {
         ) : invites.length === 0 ? (
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIcon}>
-              <Ionicons name="mail-outline" size={48} color={Colors.dark.textMuted} />
+              <Ionicons name={isAdminInvite ? "shield-outline" : "mail-outline"} size={48} color={Colors.dark.textMuted} />
             </View>
-            <Text style={styles.emptyTitle}>No Invites Yet</Text>
+            <Text style={styles.emptyTitle}>No {roleLabel} Invites Yet</Text>
             <Text style={styles.emptyText}>
-              Create an invite to start growing your coaching team
+              Create an invite to {isAdminInvite ? "add admins to help manage your academy" : "start growing your coaching team"}
             </Text>
           </View>
         ) : (

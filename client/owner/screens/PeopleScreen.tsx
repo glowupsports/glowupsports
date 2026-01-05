@@ -172,7 +172,12 @@ export default function PeopleScreen() {
 
   const handleInviteCoach = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("InviteManagement");
+    navigation.navigate("InviteManagement", { role: "coach" });
+  };
+
+  const handleInviteAdmin = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("InviteManagement", { role: "admin" });
   };
 
   const handlePersonPress = (person: PersonData) => {
@@ -333,6 +338,13 @@ export default function PeopleScreen() {
 
         {activeTab === "admins" ? (
           <View style={styles.adminSection}>
+            <View style={styles.actionsRow}>
+              <Pressable style={styles.addButton} onPress={handleInviteAdmin}>
+                <Ionicons name="add" size={20} color={Colors.dark.gold} />
+                <Text style={styles.addButtonText}>Invite Admin</Text>
+              </Pressable>
+            </View>
+            
             <Text style={styles.sectionTitle}>Current Admins</Text>
             {admins.length === 0 ? (
               <View style={styles.emptyState}>
