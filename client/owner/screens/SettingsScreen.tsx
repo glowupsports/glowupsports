@@ -138,10 +138,7 @@ export default function SettingsScreen() {
 
   const updateSettingsMutation = useMutation({
     mutationFn: async (updates: Partial<AcademySettings>) => {
-      return apiRequest("/api/owner/academy-settings", {
-        method: "PATCH",
-        body: JSON.stringify(updates),
-      });
+      return apiRequest("PATCH", "/api/owner/academy-settings", updates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/owner/academy-settings"] });
@@ -164,25 +161,17 @@ export default function SettingsScreen() {
     updateSettingsMutation.mutate({ notificationsEnabled: value });
   };
 
-  const handleSaveSessionLength = () => {
-    const length = parseInt(sessionLengthInput) || 60;
-    if (length < 15 || length > 180) {
-      if (Platform.OS === "web") {
-        window.alert("Session length must be between 15 and 180 minutes");
-      } else {
-        Alert.alert("Error", "Session length must be between 15 and 180 minutes");
-      }
-      return;
-    }
-    updateSettingsMutation.mutate({ defaultSessionLength: length });
-    setShowSessionLengthModal(false);
+  const handleOpenSessionLengthModal = () => {
+    setSessionLengthInput(String(settings.defaultSessionLength || 60));
+    setShowSessionLengthModal(true);
   };
 
   const handleExportPlayers = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       // Use apiRequest to fetch with auth - returns JSON { csv, filename }
-      const response = await apiRequest("/api/owner/export/players", { method: "GET" }) as { csv: string; filename: string };
+      const res = await apiRequest("GET", "/api/owner/export/players");
+      const response = await res.json() as { csv: string; filename: string };
       const csvData = response.csv;
       
       if (Platform.OS === "web") {
@@ -225,7 +214,8 @@ export default function SettingsScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       // Use apiRequest to fetch with auth - returns JSON { csv, filename }
-      const response = await apiRequest("/api/owner/export/sessions", { method: "GET" }) as { csv: string; filename: string };
+      const res = await apiRequest("GET", "/api/owner/export/sessions");
+      const response = await res.json() as { csv: string; filename: string };
       const csvData = response.csv;
       
       if (Platform.OS === "web") {
@@ -402,10 +392,7 @@ export default function SettingsScreen() {
             icon="time"
             title="Default Session Length"
             value={`${settings.defaultSessionLength || 60} min`}
-            onPress={() => {
-              setSessionLengthInput(String(settings.defaultSessionLength || 60));
-              setShowSessionLengthModal(true);
-            }}
+            onPress={handleOpenSessionLengthModal}
           />
           <SettingRow
             icon="eye"
@@ -505,24 +492,36 @@ export default function SettingsScreen() {
                 <Text style={styles.cancelButton}>Cancel</Text>
               </Pressable>
               <Text style={styles.modalTitle}>Session Length</Text>
-              <Pressable onPress={handleSaveSessionLength} disabled={updateSettingsMutation.isPending}>
-                {updateSettingsMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.gold} />
-                ) : (
-                  <Text style={styles.saveButton}>Save</Text>
-                )}
-              </Pressable>
+              <View style={{ width: 50 }} />
             </View>
-            <Text style={styles.sessionLengthLabel}>Default session length (minutes)</Text>
-            <TextInput
-              style={styles.sessionLengthInput}
-              value={sessionLengthInput}
-              onChangeText={setSessionLengthInput}
-              keyboardType="number-pad"
-              placeholder="60"
-              placeholderTextColor={Colors.dark.textMuted}
-            />
-            <Text style={styles.sessionLengthHint}>Enter a value between 15 and 180 minutes</Text>
+            <Text style={styles.sessionLengthLabel}>Select default session length</Text>
+            <View style={styles.sessionLengthOptions}>
+              {[30, 45, 60, 75, 90, 120].map((minutes) => {
+                const isSelected = parseInt(sessionLengthInput) === minutes;
+                return (
+                  <Pressable
+                    key={minutes}
+                    style={[
+                      styles.sessionLengthOption,
+                      isSelected && styles.sessionLengthOptionSelected,
+                    ]}
+                    onPress={() => {
+                      setSessionLengthInput(String(minutes));
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      updateSettingsMutation.mutate({ defaultSessionLength: minutes });
+                      setShowSessionLengthModal(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.sessionLengthOptionText,
+                      isSelected && styles.sessionLengthOptionTextSelected,
+                    ]}>
+                      {minutes} min
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
         </View>
       </Modal>
@@ -846,6 +845,34 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     marginTop: Spacing.lg,
     marginBottom: Spacing.sm,
+  },
+  sessionLengthOptions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  sessionLengthOption: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    borderWidth: 2,
+    borderColor: "transparent",
+    minWidth: 80,
+    alignItems: "center",
+  },
+  sessionLengthOptionSelected: {
+    borderColor: Colors.dark.gold,
+    backgroundColor: `${Colors.dark.gold}15`,
+  },
+  sessionLengthOptionText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  sessionLengthOptionTextSelected: {
+    color: Colors.dark.gold,
   },
   sessionLengthInput: {
     ...Typography.h2,

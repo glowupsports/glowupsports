@@ -34,10 +34,7 @@ export default function RulesAndPoliciesScreen() {
 
   const updateMutation = useMutation({
     mutationFn: async (data: AcademySettings) => {
-      return apiRequest("/api/owner/settings", {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("PATCH", "/api/owner/settings", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/owner/settings"] });

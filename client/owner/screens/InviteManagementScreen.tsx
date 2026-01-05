@@ -130,7 +130,7 @@ export default function InviteManagementScreen() {
   const roleLabel = isAdminInvite ? "Admin" : "Coach";
 
   const { data: invitesData, isLoading } = useQuery<{ invites: Invite[] }>({
-    queryKey: ["/api/invites", inviteRole],
+    queryKey: ["/api/invites"],
   });
 
   const createInviteMutation = useMutation({
