@@ -474,14 +474,14 @@ const dragStyles = StyleSheet.create({
   sessionText: {
     fontSize: 10,
     fontWeight: "800",
-    color: "rgba(255, 255, 255, 0.95)",
+    color: "#FFFFFF",
     letterSpacing: 0.5,
     textTransform: "uppercase",
   },
   sessionTime: {
     fontSize: 8,
     fontWeight: "600",
-    color: "rgba(255, 255, 255, 0.85)",
+    color: "#FFFFFF",
     letterSpacing: 0.3,
     marginTop: 1,
   },
@@ -537,14 +537,14 @@ const dragStyles = StyleSheet.create({
   weekSessionText: {
     fontSize: 7,
     fontWeight: "800",
-    color: "rgba(255, 255, 255, 0.95)",
+    color: "#FFFFFF",
     letterSpacing: 0.3,
     textTransform: "uppercase",
   },
   weekSessionTime: {
     fontSize: 6,
     fontWeight: "600",
-    color: "rgba(255, 255, 255, 0.85)",
+    color: "#FFFFFF",
     letterSpacing: 0.2,
   },
 });
@@ -3468,7 +3468,7 @@ const styles = StyleSheet.create({
   weekSessionTime: {
     fontSize: 7,
     fontWeight: "600",
-    color: "rgba(255, 255, 255, 0.85)",
+    color: "#FFFFFF",
     letterSpacing: 0.2,
     marginTop: 1,
   },
