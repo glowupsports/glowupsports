@@ -12262,6 +12262,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== ADMIN COACH MANAGEMENT ====================
+
+  // Delete coach (admin) - removes coach from academy
+  app.delete("/api/admin/coaches/:id", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      const userId = req.user?.coachId || req.user?.userId;
+      const { id } = req.params;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const removed = await storage.removeCoachFromAcademy(id, academyId);
+      if (!removed) {
+        return res.status(404).json({ error: "Coach not found in this academy" });
+      }
+
+      await storage.createAuditLog({
+        academyId,
+        entityType: "coach",
+        entityId: id,
+        action: "delete",
+        performedBy: userId || null,
+        performedByRole: req.user?.role || null,
+        metadata: JSON.stringify({ removedAt: new Date().toISOString() }),
+      });
+
+      res.json({ success: true, message: "Coach removed from academy" });
+    } catch (error) {
+      console.error("Admin delete coach error:", error);
+      res.status(500).json({ error: "Failed to remove coach" });
+    }
+  });
+
+  // Delete player (admin) - removes player from academy
+  app.delete("/api/admin/players/:id", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      const userId = req.user?.coachId || req.user?.userId;
+      const { id } = req.params;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const deleted = await storage.deletePlayer(id, academyId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Player not found in this academy" });
+      }
+
+      await storage.createAuditLog({
+        academyId,
+        entityType: "player",
+        entityId: id,
+        action: "delete",
+        performedBy: userId || null,
+        performedByRole: req.user?.role || null,
+        metadata: JSON.stringify({ deletedAt: new Date().toISOString() }),
+      });
+
+      res.json({ success: true, message: "Player deleted" });
+    } catch (error) {
+      console.error("Admin delete player error:", error);
+      res.status(500).json({ error: "Failed to delete player" });
+    }
+  });
+
   // ==================== ADMIN PAYMENTS (MANUAL PAYMENTS MVP) ====================
 
   // Get all payments with filters

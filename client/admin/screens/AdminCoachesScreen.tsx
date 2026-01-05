@@ -231,6 +231,51 @@ export default function AdminCoachesScreen() {
     },
   });
 
+  const deleteCoachMutation = useMutation({
+    mutationFn: async (coachId: string) => {
+      return apiRequest("DELETE", `/api/admin/coaches/${coachId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coaches"] });
+      closeDetailModal();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS === "web") {
+        window.alert("Coach removed from academy");
+      } else {
+        Alert.alert("Success", "Coach removed from academy");
+      }
+    },
+    onError: (err: Error) => {
+      if (Platform.OS === "web") {
+        window.alert(`Error: ${err.message}`);
+      } else {
+        Alert.alert("Error", err.message);
+      }
+    },
+  });
+
+  const handleDeleteCoach = () => {
+    if (!selectedCoachId || !selectedCoach) return;
+    
+    const confirmDelete = () => {
+      deleteCoachMutation.mutate(selectedCoachId);
+    };
+
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm(`Remove ${selectedCoach.name} from academy? They will be marked as inactive.`);
+      if (confirmed) confirmDelete();
+    } else {
+      Alert.alert(
+        "Remove Coach",
+        `Remove ${selectedCoach.name} from academy? They will be marked as inactive.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Remove", style: "destructive", onPress: confirmDelete },
+        ]
+      );
+    }
+  };
+
   const handleMarkPaid = (month: number, year: number) => {
     if (!selectedCoachId) return;
     setPendingPayment({ month, year });
@@ -623,6 +668,19 @@ export default function AdminCoachesScreen() {
               >
                 <Ionicons name="mail-outline" size={20} color={Colors.dark.text} />
                 <Text style={styles.sendOverviewText}>Send Hours Overview to Coach</Text>
+              </Pressable>
+
+              <Pressable 
+                style={styles.deleteCoachButton}
+                onPress={handleDeleteCoach}
+                disabled={deleteCoachMutation.isPending}
+              >
+                {deleteCoachMutation.isPending ? (
+                  <ActivityIndicator size="small" color={Colors.dark.error} />
+                ) : (
+                  <Ionicons name="trash-outline" size={20} color={Colors.dark.error} />
+                )}
+                <Text style={styles.deleteCoachText}>Remove Coach from Academy</Text>
               </Pressable>
             </ScrollView>
           ) : selectedCoach ? (
@@ -1318,6 +1376,23 @@ const styles = StyleSheet.create({
   sendOverviewText: {
     ...Typography.body,
     color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  deleteCoachButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: `${Colors.dark.error}15`,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.lg,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.error}30`,
+  },
+  deleteCoachText: {
+    ...Typography.body,
+    color: Colors.dark.error,
     fontWeight: "600",
   },
   paidDetailsRow: {

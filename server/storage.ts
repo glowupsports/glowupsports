@@ -1597,6 +1597,10 @@ export const storage = {
     return db.select().from(sessions).where(and(...conditions));
   },
 
+  async getAllSessions(academyId: string): Promise<Session[]> {
+    return db.select().from(sessions).where(eq(sessions.academyId, academyId));
+  },
+
   async getSessionsByAcademy(academyId: string): Promise<Session[]> {
     return db.select().from(sessions).where(eq(sessions.academyId, academyId));
   },

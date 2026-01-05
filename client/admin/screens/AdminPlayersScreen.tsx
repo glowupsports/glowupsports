@@ -165,7 +165,7 @@ export default function AdminPlayersScreen() {
 
   const deletePlayerMutation = useMutation({
     mutationFn: async (playerId: string) => {
-      return apiRequest("DELETE", `/api/players/${playerId}`);
+      return apiRequest("DELETE", `/api/admin/players/${playerId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });

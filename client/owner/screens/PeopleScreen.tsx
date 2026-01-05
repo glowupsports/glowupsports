@@ -110,27 +110,39 @@ export default function PeopleScreen() {
 
   const deleteCoachMutation = useMutation({
     mutationFn: async (coachId: string) => {
-      return apiRequest(`/api/owner/coaches/${coachId}`, { method: "DELETE" });
+      return apiRequest("DELETE", `/api/owner/coaches/${coachId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/owner/people"] });
       setDeletingId(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
-    onError: () => {
+    onError: (err: Error) => {
       setDeletingId(null);
+      if (Platform.OS === "web") {
+        window.alert(`Failed to remove coach: ${err.message}`);
+      } else {
+        Alert.alert("Error", `Failed to remove coach: ${err.message}`);
+      }
     },
   });
 
   const deletePlayerMutation = useMutation({
     mutationFn: async (playerId: string) => {
-      return apiRequest(`/api/owner/players/${playerId}`, { method: "DELETE" });
+      return apiRequest("DELETE", `/api/owner/players/${playerId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/owner/people"] });
       setDeletingId(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
-    onError: () => {
+    onError: (err: Error) => {
       setDeletingId(null);
+      if (Platform.OS === "web") {
+        window.alert(`Failed to remove player: ${err.message}`);
+      } else {
+        Alert.alert("Error", `Failed to remove player: ${err.message}`);
+      }
     },
   });
 
@@ -140,10 +152,7 @@ export default function PeopleScreen() {
 
   const promoteToAdminMutation = useMutation({
     mutationFn: async (coachId: string) => {
-      return apiRequest("/api/owner/admins", { 
-        method: "POST",
-        body: JSON.stringify({ coachId }),
-      });
+      return apiRequest("POST", "/api/owner/admins", { coachId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/owner/admins"] });
@@ -153,7 +162,7 @@ export default function PeopleScreen() {
 
   const demoteFromAdminMutation = useMutation({
     mutationFn: async (coachId: string) => {
-      return apiRequest(`/api/owner/admins/${coachId}`, { method: "DELETE" });
+      return apiRequest("DELETE", `/api/owner/admins/${coachId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/owner/admins"] });
