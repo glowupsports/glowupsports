@@ -11538,25 +11538,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/owner/operations", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user?.academyId;
+      const period = (req.query.period as string) || "day";
       
-      let dbCourts: any[] = [];
-      if (academyId) {
-        dbCourts = await storage.getAllCourts(academyId);
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
       }
-
-      const courtSchedule = dbCourts.length > 0 
-        ? dbCourts.map(court => ({
-            name: court.name,
-            sessions: [],
-          }))
-        : [];
+      
+      // Calculate date range based on period
+      const now = new Date();
+      let startDate: Date;
+      let endDate: Date = new Date(now);
+      endDate.setHours(23, 59, 59, 999);
+      
+      if (period === "day") {
+        startDate = new Date(now);
+        startDate.setHours(0, 0, 0, 0);
+      } else if (period === "week") {
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - now.getDay()); // Start of week (Sunday)
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + 6);
+        endDate.setHours(23, 59, 59, 999);
+      } else { // month
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        endDate.setHours(23, 59, 59, 999);
+      }
+      
+      // Get courts
+      const dbCourts = await storage.getAllCourts(academyId);
+      
+      // Get sessions for the period
+      const allSessions = await storage.getAllSessions(academyId);
+      const periodSessions = allSessions.filter(session => {
+        const sessionDate = new Date(session.date);
+        return sessionDate >= startDate && sessionDate <= endDate;
+      });
+      
+      // Group sessions by court
+      const courtSessionsMap: Record<string, any[]> = {};
+      for (const session of periodSessions) {
+        const courtId = session.courtId || "unassigned";
+        if (!courtSessionsMap[courtId]) {
+          courtSessionsMap[courtId] = [];
+        }
+        courtSessionsMap[courtId].push(session);
+      }
+      
+      // Build court schedule
+      const courtSchedule = dbCourts.map(court => {
+        const sessions = courtSessionsMap[court.id] || [];
+        return {
+          name: court.name,
+          sessions: sessions.map(s => ({
+            time: s.time || "TBD",
+            coach: s.coachName || "Unassigned",
+            status: s.status === "cancelled" ? "conflict" : "booked" as const,
+            date: s.date,
+          })),
+        };
+      });
+      
+      // Add unassigned court sessions if any
+      if (courtSessionsMap["unassigned"]?.length > 0) {
+        courtSchedule.push({
+          name: "No Court Assigned",
+          sessions: courtSessionsMap["unassigned"].map(s => ({
+            time: s.time || "TBD",
+            coach: s.coachName || "Unassigned",
+            status: "conflict" as const,
+            date: s.date,
+          })),
+        });
+      }
+      
+      // Calculate insights
+      const totalSessions = periodSessions.length;
+      const conflicts = periodSessions.filter(s => s.status === "cancelled" || !s.courtId).length;
+      
+      // Find peak hours
+      const hourCounts: Record<number, number> = {};
+      for (const session of periodSessions) {
+        if (session.time) {
+          const hour = parseInt(session.time.split(":")[0]) || 0;
+          hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+        }
+      }
+      const peakHour = Object.entries(hourCounts).sort((a, b) => b[1] - a[1])[0];
+      const peakHoursLabel = peakHour ? `${peakHour[0]}:00` : "N/A";
+      
+      // Calculate utilization (sessions per court per day)
+      const daysInPeriod = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      const maxPossibleSessions = dbCourts.length * daysInPeriod * 12; // Assume 12 slots per court per day
+      const utilization = maxPossibleSessions > 0 ? Math.round((totalSessions / maxPossibleSessions) * 100) : 0;
 
       res.json({
         courts: courtSchedule,
         insights: {
-          peakHours: "N/A",
-          utilization: 0,
-          conflicts: 0,
+          peakHours: peakHoursLabel,
+          utilization,
+          conflicts,
+        },
+        period,
+        dateRange: {
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
         },
       });
     } catch (error) {
@@ -11716,6 +11803,205 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== ACADEMY SETTINGS & EXPORTS ====================
+
+  // Get academy settings (for settings screen)
+  app.get("/api/owner/academy-settings", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const academy = await storage.getAcademy(academyId);
+      if (!academy) {
+        return res.status(404).json({ error: "Academy not found" });
+      }
+
+      res.json({
+        defaultSessionLength: (academy as any).defaultSessionLength || 60,
+        xpVisibleToPlayers: (academy as any).xpVisibleToPlayers ?? true,
+        notificationsEnabled: (academy as any).notificationsEnabled ?? true,
+      });
+    } catch (error) {
+      console.error("Get academy settings error:", error);
+      res.status(500).json({ error: "Failed to fetch academy settings" });
+    }
+  });
+
+  // Update academy settings
+  app.patch("/api/owner/academy-settings", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const updates = req.body;
+      const updated = await storage.updateAcademy(academyId, updates);
+
+      res.json({ success: true, ...updates });
+    } catch (error) {
+      console.error("Update academy settings error:", error);
+      res.status(500).json({ error: "Failed to update academy settings" });
+    }
+  });
+
+  // Export players as CSV (returns JSON with CSV data for cross-platform compatibility)
+  app.get("/api/owner/export/players", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const players = await storage.getPlayersByAcademy(academyId);
+      
+      const csvHeader = "Name,Email,Phone,Ball Level,Status,Created At\n";
+      const csvRows = players.map(p => 
+        `"${p.name || ""}","${p.email || ""}","${p.phone || ""}","${p.ballLevel || ""}","${p.isActive ? "Active" : "Inactive"}","${p.createdAt || ""}"`
+      ).join("\n");
+      
+      const csv = csvHeader + csvRows;
+      
+      res.json({ csv, filename: "players.csv" });
+    } catch (error) {
+      console.error("Export players error:", error);
+      res.status(500).json({ error: "Failed to export players" });
+    }
+  });
+
+  // Export sessions as CSV (returns JSON with CSV data for cross-platform compatibility)
+  app.get("/api/owner/export/sessions", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const sessions = await storage.getAllSessions(academyId);
+      
+      const csvHeader = "Date,Time,Coach,Type,Status,Players,Duration\n";
+      const csvRows = sessions.map(s => 
+        `"${s.date || ""}","${s.time || ""}","${s.coachName || ""}","${s.sessionType || ""}","${s.status || ""}","${s.playerName || ""}","${s.duration || 60} min"`
+      ).join("\n");
+      
+      const csv = csvHeader + csvRows;
+      
+      res.json({ csv, filename: "sessions.csv" });
+    } catch (error) {
+      console.error("Export sessions error:", error);
+      res.status(500).json({ error: "Failed to export sessions" });
+    }
+  });
+
+  // ==================== ACADEMY PROFILE & SETTINGS ====================
+  
+  // Get academy profile
+  app.get("/api/owner/academy", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const academy = await storage.getAcademy(academyId);
+      if (!academy) {
+        return res.status(404).json({ error: "Academy not found" });
+      }
+
+      res.json(academy);
+    } catch (error) {
+      console.error("Get academy error:", error);
+      res.status(500).json({ error: "Failed to fetch academy" });
+    }
+  });
+
+  // Update academy profile
+  app.patch("/api/owner/academy", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const { name, description, email, phone, address, website, logoUrl, primaryColor, secondaryColor } = req.body;
+      
+      const updated = await storage.updateAcademy(academyId, {
+        name,
+        description,
+        email,
+        phone,
+        address,
+        website,
+        logoUrl,
+        primaryColor,
+        secondaryColor,
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Update academy error:", error);
+      res.status(500).json({ error: "Failed to update academy" });
+    }
+  });
+
+  // Get academy settings
+  app.get("/api/owner/settings", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const academy = await storage.getAcademy(academyId);
+      if (!academy) {
+        return res.status(404).json({ error: "Academy not found" });
+      }
+
+      // Return settings from academy or defaults
+      res.json({
+        cancellationHours: academy.cancelHoursBeforeFree || 24,
+        noShowPenalty: academy.noShowPenalty || 100,
+        lateCancellationPenalty: academy.lateCancellationPenalty || 50,
+        xpPerSession: academy.xpPerSession || 10,
+        xpBonusStreak: academy.xpBonusStreak || 5,
+        attendanceThreshold: academy.attendanceThreshold || 80,
+        requireConfirmation: academy.requireConfirmation ?? true,
+        allowWaitlist: academy.allowWaitlist ?? true,
+        maxWaitlistSize: academy.maxWaitlistSize || 3,
+      });
+    } catch (error) {
+      console.error("Get settings error:", error);
+      res.status(500).json({ error: "Failed to fetch settings" });
+    }
+  });
+
+  // Update academy settings
+  app.patch("/api/owner/settings", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const { cancellationHours, ...otherSettings } = req.body;
+      const updates: Record<string, any> = { ...otherSettings };
+      
+      // Map frontend field name to schema field name
+      if (cancellationHours !== undefined) {
+        updates.cancelHoursBeforeFree = cancellationHours;
+      }
+      
+      const updated = await storage.updateAcademy(academyId, updates);
+
+      res.json({ success: true, settings: updated });
+    } catch (error) {
+      console.error("Update settings error:", error);
+      res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
+
   // Academy Owner - Get coaches and players for People screen
   app.get("/api/owner/people", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -11770,6 +12056,209 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Owner people error:", error);
       res.status(500).json({ error: "Failed to fetch people data" });
+    }
+  });
+
+  // Remove coach from academy (academy owner)
+  app.delete("/api/owner/coaches/:id", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      const coachId = req.params.id;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const removed = await storage.removeCoachFromAcademy(coachId, academyId);
+      if (!removed) {
+        return res.status(404).json({ error: "Coach not found in this academy" });
+      }
+
+      res.json({ success: true, message: "Coach removed from academy" });
+    } catch (error) {
+      console.error("Remove coach error:", error);
+      res.status(500).json({ error: "Failed to remove coach" });
+    }
+  });
+
+  // Remove player from academy (academy owner)
+  app.delete("/api/owner/players/:id", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      const playerId = req.params.id;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      // Soft delete - set player to inactive
+      const player = await storage.getPlayer(playerId, academyId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found in this academy" });
+      }
+
+      await storage.updatePlayer(playerId, { status: "inactive" }, academyId);
+      res.json({ success: true, message: "Player removed from academy" });
+    } catch (error) {
+      console.error("Remove player error:", error);
+      res.status(500).json({ error: "Failed to remove player" });
+    }
+  });
+
+  // Get coach details (academy owner)
+  app.get("/api/owner/coaches/:id", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      const coachId = req.params.id;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const coach = await storage.getCoach(coachId, academyId);
+      if (!coach) {
+        return res.status(404).json({ error: "Coach not found" });
+      }
+
+      // Get coach's players
+      const players = await storage.getPlayersByCoach(coachId, academyId);
+      
+      // Get coach's sessions this week
+      const now = new Date();
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay());
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 7);
+      
+      const sessions = await storage.getSessionsByCoach(coachId, academyId);
+      const weekSessions = sessions.filter(s => {
+        const sessionDate = new Date(s.date);
+        return sessionDate >= weekStart && sessionDate < weekEnd;
+      });
+
+      res.json({
+        ...coach,
+        playerCount: players.length,
+        weeklySessionCount: weekSessions.length,
+        players: players.slice(0, 10).map(p => ({ id: p.id, name: p.name, ballLevel: p.ballLevel })),
+      });
+    } catch (error) {
+      console.error("Get coach details error:", error);
+      res.status(500).json({ error: "Failed to fetch coach details" });
+    }
+  });
+
+  // Get player details (academy owner)
+  app.get("/api/owner/players/:id", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      const playerId = req.params.id;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const player = await storage.getPlayer(playerId, academyId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      // Get player's coach
+      let coach = null;
+      if (player.coachId) {
+        coach = await storage.getCoach(player.coachId);
+      }
+
+      // Get XP data
+      const xpData = await storage.getPlayerXpTotal(playerId);
+
+      // Get recent sessions
+      const sessions = await storage.getSessionsForPlayer(playerId, academyId);
+
+      res.json({
+        ...player,
+        coach: coach ? { id: coach.id, name: coach.name } : null,
+        xp: xpData,
+        recentSessions: sessions.slice(0, 5),
+      });
+    } catch (error) {
+      console.error("Get player details error:", error);
+      res.status(500).json({ error: "Failed to fetch player details" });
+    }
+  });
+
+  // ==================== ACADEMY ADMIN MANAGEMENT (Academy Owner only) ====================
+  
+  // Get all admins for the academy
+  app.get("/api/owner/admins", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const admins = await storage.getAcademyAdmins(academyId);
+      res.json(admins);
+    } catch (error) {
+      console.error("Get admins error:", error);
+      res.status(500).json({ error: "Failed to fetch admins" });
+    }
+  });
+
+  // Promote a coach to admin role
+  app.post("/api/owner/admins", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      const { coachId } = req.body;
+      
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+      if (!coachId) {
+        return res.status(400).json({ error: "Coach ID required" });
+      }
+
+      // Verify coach exists and belongs to this academy
+      const coach = await storage.getCoach(coachId);
+      if (!coach || coach.academyId !== academyId) {
+        return res.status(404).json({ error: "Coach not found in this academy" });
+      }
+
+      // Update coach academy membership to admin role
+      await storage.promoteToAdmin(coachId, academyId);
+      
+      res.json({ success: true, message: `${coach.name} promoted to admin` });
+    } catch (error) {
+      console.error("Promote to admin error:", error);
+      res.status(500).json({ error: "Failed to promote coach to admin" });
+    }
+  });
+
+  // Demote an admin back to coach role
+  app.delete("/api/owner/admins/:coachId", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      const { coachId } = req.params;
+      
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      // Verify the coach is currently an admin in this academy
+      const admins = await storage.getAcademyAdmins(academyId);
+      const isAdmin = admins.some(a => a.id === coachId);
+      
+      if (!isAdmin) {
+        return res.status(404).json({ error: "Admin not found" });
+      }
+
+      // Demote back to coach
+      await storage.demoteFromAdmin(coachId, academyId);
+      
+      res.json({ success: true, message: "Admin demoted to coach" });
+    } catch (error) {
+      console.error("Demote admin error:", error);
+      res.status(500).json({ error: "Failed to demote admin" });
     }
   });
 

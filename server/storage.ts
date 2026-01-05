@@ -1088,6 +1088,38 @@ export const storage = {
     return result[0];
   },
 
+  async updateCoach(id: string, data: Partial<InsertCoach>, academyId?: string): Promise<Coach | undefined> {
+    const conditions = [eq(coaches.id, id)];
+    if (academyId) {
+      conditions.push(eq(coaches.academyId, academyId));
+    }
+    const result = await db.update(coaches).set(data).where(and(...conditions)).returning();
+    return result[0];
+  },
+
+  async removeCoachFromAcademy(coachId: string, academyId: string): Promise<boolean> {
+    // Verify coach belongs to this academy
+    const coach = await db.select().from(coaches).where(
+      and(eq(coaches.id, coachId), eq(coaches.academyId, academyId))
+    );
+    if (coach.length === 0) return false;
+
+    // Set coach status to inactive (soft delete)
+    await db.update(coaches).set({ status: "inactive" }).where(
+      and(eq(coaches.id, coachId), eq(coaches.academyId, academyId))
+    );
+
+    // Also deactivate their academy membership
+    await db.update(coachAcademyMemberships).set({ isActive: false }).where(
+      and(
+        eq(coachAcademyMemberships.coachId, coachId),
+        eq(coachAcademyMemberships.academyId, academyId)
+      )
+    );
+
+    return true;
+  },
+
   // ==================== LOCATIONS ====================
   async getLocation(id: string, academyId?: string): Promise<Location | undefined> {
     const conditions = [eq(locations.id, id)];
@@ -4008,6 +4040,44 @@ export const storage = {
     // Set the new primary
     await db.update(coachAcademyMemberships)
       .set({ isPrimary: true })
+      .where(and(
+        eq(coachAcademyMemberships.coachId, coachId),
+        eq(coachAcademyMemberships.academyId, academyId)
+      ));
+  },
+
+  // ==================== ADMIN MANAGEMENT ====================
+  
+  async getAcademyAdmins(academyId: string): Promise<Coach[]> {
+    const memberships = await db.select()
+      .from(coachAcademyMemberships)
+      .where(and(
+        eq(coachAcademyMemberships.academyId, academyId),
+        eq(coachAcademyMemberships.role, "admin"),
+        eq(coachAcademyMemberships.isActive, true)
+      ));
+    
+    if (memberships.length === 0) return [];
+    
+    const adminCoaches = await Promise.all(
+      memberships.map(m => this.getCoach(m.coachId))
+    );
+    
+    return adminCoaches.filter((c): c is Coach => c !== undefined);
+  },
+
+  async promoteToAdmin(coachId: string, academyId: string): Promise<void> {
+    await db.update(coachAcademyMemberships)
+      .set({ role: "admin" })
+      .where(and(
+        eq(coachAcademyMemberships.coachId, coachId),
+        eq(coachAcademyMemberships.academyId, academyId)
+      ));
+  },
+
+  async demoteFromAdmin(coachId: string, academyId: string): Promise<void> {
+    await db.update(coachAcademyMemberships)
+      .set({ role: "coach" })
       .where(and(
         eq(coachAcademyMemberships.coachId, coachId),
         eq(coachAcademyMemberships.academyId, academyId)

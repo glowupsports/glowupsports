@@ -94,7 +94,7 @@ export default function OperationsScreen() {
   const [viewType, setViewType] = useState<ViewType>("day");
 
   const { data: operationsData, isLoading, isError, refetch } = useQuery<OperationsData>({
-    queryKey: ["/api/owner/operations"],
+    queryKey: [`/api/owner/operations?period=${viewType}`],
   });
 
   const courts = operationsData?.courts || [];

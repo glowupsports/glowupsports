@@ -148,6 +148,30 @@ export const academies = pgTable("academies", {
   semiPrivateUpgradeBilling: text("semi_private_upgrade_billing").default("premium"), // premium | goodwill - how to bill remaining player
   allowMakeUpForTimelyCancels: boolean("allow_make_up_for_timely_cancels").default(true), // Academy discretion for make-ups
   
+  // XP & Gamification Settings
+  xpPerSession: integer("xp_per_session").default(10),
+  xpBonusStreak: integer("xp_bonus_streak").default(5),
+  noShowPenalty: integer("no_show_penalty").default(100),
+  lateCancellationPenalty: integer("late_cancellation_penalty").default(50),
+  
+  // Attendance Settings
+  attendanceThreshold: integer("attendance_threshold").default(80),
+  requireConfirmation: boolean("require_confirmation").default(true),
+  
+  // Waitlist Settings
+  allowWaitlist: boolean("allow_waitlist").default(true),
+  maxWaitlistSize: integer("max_waitlist_size").default(3),
+  
+  // Branding
+  primaryColor: text("primary_color"),
+  secondaryColor: text("secondary_color"),
+  address: text("address"),
+  
+  // Academy Settings
+  defaultSessionLength: integer("default_session_length").default(60),
+  xpVisibleToPlayers: boolean("xp_visible_to_players").default(true),
+  notificationsEnabled: boolean("notifications_enabled").default(true),
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 

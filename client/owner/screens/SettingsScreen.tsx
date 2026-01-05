@@ -6,9 +6,11 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
 
@@ -98,13 +100,19 @@ function Section({ title, children }: SectionProps) {
   );
 }
 
+interface AcademySettings {
+  defaultSessionLength?: number;
+  xpVisibleToPlayers?: boolean;
+  notificationsEnabled?: boolean;
+}
+
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const queryClient = useQueryClient();
   const { logout } = useAuth();
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [xpVisible, setXpVisible] = useState(true);
+  const [showSessionLengthModal, setShowSessionLengthModal] = useState(false);
+  const [sessionLengthInput, setSessionLengthInput] = useState("60");
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetConfirmation, setResetConfirmation] = useState("");
   const [resetOptions, setResetOptions] = useState<ResetOptions>({
@@ -117,6 +125,144 @@ export default function SettingsScreen() {
     invoices: false,
     players: false,
   });
+
+  const { data: settingsData } = useQuery<AcademySettings>({
+    queryKey: ["/api/owner/academy-settings"],
+  });
+
+  const settings = settingsData || {
+    defaultSessionLength: 60,
+    xpVisibleToPlayers: true,
+    notificationsEnabled: true,
+  };
+
+  const updateSettingsMutation = useMutation({
+    mutationFn: async (updates: Partial<AcademySettings>) => {
+      return apiRequest("/api/owner/academy-settings", {
+        method: "PATCH",
+        body: JSON.stringify(updates),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/owner/academy-settings"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: any) => {
+      if (Platform.OS === "web") {
+        window.alert(error.message || "Failed to update settings");
+      } else {
+        Alert.alert("Error", error.message || "Failed to update settings");
+      }
+    },
+  });
+
+  const handleToggleXpVisible = (value: boolean) => {
+    updateSettingsMutation.mutate({ xpVisibleToPlayers: value });
+  };
+
+  const handleToggleNotifications = (value: boolean) => {
+    updateSettingsMutation.mutate({ notificationsEnabled: value });
+  };
+
+  const handleSaveSessionLength = () => {
+    const length = parseInt(sessionLengthInput) || 60;
+    if (length < 15 || length > 180) {
+      if (Platform.OS === "web") {
+        window.alert("Session length must be between 15 and 180 minutes");
+      } else {
+        Alert.alert("Error", "Session length must be between 15 and 180 minutes");
+      }
+      return;
+    }
+    updateSettingsMutation.mutate({ defaultSessionLength: length });
+    setShowSessionLengthModal(false);
+  };
+
+  const handleExportPlayers = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      // Use apiRequest to fetch with auth - returns JSON { csv, filename }
+      const response = await apiRequest("/api/owner/export/players", { method: "GET" }) as { csv: string; filename: string };
+      const csvData = response.csv;
+      
+      if (Platform.OS === "web") {
+        // Web: use native browser download
+        const blob = new Blob([csvData], { type: "text/csv" });
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = response.filename || "players.csv";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+        window.alert("Players exported successfully!");
+      } else {
+        // Native: write to file and share
+        const fileUri = FileSystem.documentDirectory + (response.filename || "players.csv");
+        await FileSystem.writeAsStringAsync(fileUri, csvData);
+        
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: "text/csv",
+            dialogTitle: "Export Players",
+          });
+        } else {
+          Alert.alert("Success", "Players exported successfully!");
+        }
+      }
+    } catch (error) {
+      if (Platform.OS === "web") {
+        window.alert("Export failed - try again later");
+      } else {
+        Alert.alert("Error", "Export failed - try again later");
+      }
+    }
+  };
+
+  const handleExportSessions = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      // Use apiRequest to fetch with auth - returns JSON { csv, filename }
+      const response = await apiRequest("/api/owner/export/sessions", { method: "GET" }) as { csv: string; filename: string };
+      const csvData = response.csv;
+      
+      if (Platform.OS === "web") {
+        // Web: use native browser download
+        const blob = new Blob([csvData], { type: "text/csv" });
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = response.filename || "sessions.csv";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+        window.alert("Sessions exported successfully!");
+      } else {
+        // Native: write to file and share
+        const fileUri = FileSystem.documentDirectory + (response.filename || "sessions.csv");
+        await FileSystem.writeAsStringAsync(fileUri, csvData);
+        
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: "text/csv",
+            dialogTitle: "Export Sessions",
+          });
+        } else {
+          Alert.alert("Success", "Sessions exported successfully!");
+        }
+      }
+    } catch (error) {
+      if (Platform.OS === "web") {
+        window.alert("Export failed - try again later");
+      } else {
+        Alert.alert("Error", "Export failed - try again later");
+      }
+    }
+  };
 
   const { data: resetCountsData } = useQuery<{ counts: ResetCounts }>({
     queryKey: ["/api/academy/reset-counts"],
@@ -255,19 +401,23 @@ export default function SettingsScreen() {
           <SettingRow
             icon="time"
             title="Default Session Length"
-            value="60 min"
+            value={`${settings.defaultSessionLength || 60} min`}
+            onPress={() => {
+              setSessionLengthInput(String(settings.defaultSessionLength || 60));
+              setShowSessionLengthModal(true);
+            }}
           />
           <SettingRow
             icon="eye"
             title="XP Visible to Players"
-            toggle={xpVisible}
-            onToggle={setXpVisible}
+            toggle={settings.xpVisibleToPlayers ?? true}
+            onToggle={handleToggleXpVisible}
           />
           <SettingRow
             icon="notifications"
             title="Notifications"
-            toggle={notificationsEnabled}
-            onToggle={setNotificationsEnabled}
+            toggle={settings.notificationsEnabled ?? true}
+            onToggle={handleToggleNotifications}
           />
         </Section>
 
@@ -282,11 +432,13 @@ export default function SettingsScreen() {
             icon="shield-checkmark"
             title="Coach Permissions"
             subtitle="Manage what coaches can access"
+            onPress={() => navigation.navigate("RulesAndPolicies")}
           />
           <SettingRow
             icon="key"
             title="Head Coach Settings"
             subtitle="Special permissions for head coaches"
+            onPress={() => navigation.navigate("RulesAndPolicies")}
           />
         </Section>
 
@@ -295,16 +447,19 @@ export default function SettingsScreen() {
             icon="download"
             title="Export Players"
             subtitle="Download player data as CSV"
+            onPress={handleExportPlayers}
           />
           <SettingRow
             icon="document"
             title="Export Sessions"
             subtitle="Download session history"
+            onPress={handleExportSessions}
           />
           <SettingRow
             icon="lock-closed"
             title="GDPR Tools"
             subtitle="Data privacy and deletion"
+            onPress={handleOpenResetModal}
           />
         </Section>
 
@@ -335,6 +490,42 @@ export default function SettingsScreen() {
           <Text style={styles.logoutText}>Sign Out</Text>
         </Pressable>
       </ScrollView>
+
+      <Modal
+        visible={showSessionLengthModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowSessionLengthModal(false)}
+      >
+        <View style={styles.sessionLengthModalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setShowSessionLengthModal(false)} />
+          <View style={[styles.sessionLengthModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <View style={styles.modalHeader}>
+              <Pressable onPress={() => setShowSessionLengthModal(false)}>
+                <Text style={styles.cancelButton}>Cancel</Text>
+              </Pressable>
+              <Text style={styles.modalTitle}>Session Length</Text>
+              <Pressable onPress={handleSaveSessionLength} disabled={updateSettingsMutation.isPending}>
+                {updateSettingsMutation.isPending ? (
+                  <ActivityIndicator size="small" color={Colors.dark.gold} />
+                ) : (
+                  <Text style={styles.saveButton}>Save</Text>
+                )}
+              </Pressable>
+            </View>
+            <Text style={styles.sessionLengthLabel}>Default session length (minutes)</Text>
+            <TextInput
+              style={styles.sessionLengthInput}
+              value={sessionLengthInput}
+              onChangeText={setSessionLengthInput}
+              keyboardType="number-pad"
+              placeholder="60"
+              placeholderTextColor={Colors.dark.textMuted}
+            />
+            <Text style={styles.sessionLengthHint}>Enter a value between 15 and 180 minutes</Text>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={showResetModal}
@@ -630,5 +821,44 @@ const styles = StyleSheet.create({
   },
   confirmInputValid: {
     borderColor: Colors.dark.error,
+  },
+  sessionLengthModalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  sessionLengthModalContent: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+  },
+  saveButton: {
+    ...Typography.body,
+    color: Colors.dark.gold,
+    fontWeight: "600",
+  },
+  sessionLengthLabel: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
+  },
+  sessionLengthInput: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+    backgroundColor: Colors.dark.backgroundRoot,
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    textAlign: "center",
+  },
+  sessionLengthHint: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    marginTop: Spacing.sm,
   },
 });

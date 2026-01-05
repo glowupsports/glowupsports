@@ -16,6 +16,9 @@ import SettingsScreen from "@/owner/screens/SettingsScreen";
 import InviteManagementScreen from "@/owner/screens/InviteManagementScreen";
 import OwnerProfileScreen from "@/owner/screens/OwnerProfileScreen";
 import AcademyOnboardingScreen from "@/owner/screens/AcademyOnboardingScreen";
+import AcademyProfileScreen from "@/owner/screens/AcademyProfileScreen";
+import CourtsManagementScreen from "@/owner/screens/CourtsManagementScreen";
+import RulesAndPoliciesScreen from "@/owner/screens/RulesAndPoliciesScreen";
 import { Colors } from "@/constants/theme";
 
 export type OwnerTabParamList = {
@@ -34,6 +37,9 @@ export type OwnerStackParamList = {
   OwnerProfile: undefined;
   AcademyOnboarding: undefined;
   OwnerMain: undefined;
+  AcademyProfile: undefined;
+  CourtsManagement: undefined;
+  RulesAndPolicies: undefined;
 };
 
 const Tab = createBottomTabNavigator<OwnerTabParamList>();
@@ -170,6 +176,9 @@ export default function OwnerNavigator() {
       <Stack.Screen name="AcademyOnboarding" component={AcademyOnboardingScreen} />
       <Stack.Screen name="InviteManagement" component={InviteManagementScreen} />
       <Stack.Screen name="OwnerProfile" component={OwnerProfileScreen} />
+      <Stack.Screen name="AcademyProfile" component={AcademyProfileScreen} />
+      <Stack.Screen name="CourtsManagement" component={CourtsManagementScreen} />
+      <Stack.Screen name="RulesAndPolicies" component={RulesAndPoliciesScreen} />
     </Stack.Navigator>
   );
 }

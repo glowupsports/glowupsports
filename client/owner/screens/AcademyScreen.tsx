@@ -1,9 +1,12 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
 
 interface SectionCardProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -29,14 +32,11 @@ function SectionCard({ icon, title, description, onPress }: SectionCardProps) {
 
 export default function AcademyScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NativeStackNavigationProp<OwnerStackParamList>>();
 
-  const showComingSoon = (feature: string) => {
+  const navigateTo = (screen: keyof OwnerStackParamList) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (Platform.OS === "web") {
-      window.alert(`${feature} - Coming soon! This feature is currently being developed.`);
-    } else {
-      Alert.alert(feature, "This feature is currently being developed. Check back soon!");
-    }
+    navigation.navigate(screen);
   };
 
   return (
@@ -56,19 +56,19 @@ export default function AcademyScreen() {
             icon="business"
             title="Academy Profile"
             description="Name, logo, brand colors, contact info"
-            onPress={() => showComingSoon("Academy Profile")}
+            onPress={() => navigateTo("AcademyProfile")}
           />
           <SectionCard
             icon="location"
             title="Courts"
             description="Manage courts, capacity, and availability"
-            onPress={() => showComingSoon("Courts Management")}
+            onPress={() => navigateTo("CourtsManagement")}
           />
           <SectionCard
             icon="document-text"
             title="Rules & Policies"
             description="Attendance, cancellation, and XP rules"
-            onPress={() => showComingSoon("Rules & Policies")}
+            onPress={() => navigateTo("RulesAndPolicies")}
           />
         </View>
       </ScrollView>
