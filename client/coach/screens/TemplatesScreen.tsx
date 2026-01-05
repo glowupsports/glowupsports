@@ -16,7 +16,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest, apiFetch, getApiUrl } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { Card } from "@/components/Card";
@@ -71,9 +71,7 @@ export default function TemplatesScreen() {
   const { data: templates = [], isLoading } = useQuery<SessionTemplate[]>({
     queryKey: ["/api/coach/templates", coach?.id],
     queryFn: async () => {
-      const url = new URL("/api/coach/templates", getApiUrl());
-      url.searchParams.set("coachId", coach?.id || "");
-      const res = await fetch(url.href);
+      const res = await apiFetch(`/api/coach/templates?coachId=${coach?.id || ""}`);
       if (!res.ok) throw new Error("Failed to fetch templates");
       return res.json();
     },

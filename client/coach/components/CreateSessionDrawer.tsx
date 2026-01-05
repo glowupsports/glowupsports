@@ -163,9 +163,7 @@ export default function CreateSessionDrawer({
     queryKey: ["/api/coach/templates", coach?.id],
     queryFn: async () => {
       if (!coach?.id) return [];
-      const url = new URL("/api/coach/templates", getApiUrl());
-      url.searchParams.set("coachId", coach.id);
-      const res = await fetch(url.href);
+      const res = await apiFetch(`/api/coach/templates?coachId=${coach.id}`);
       if (!res.ok) return [];
       return res.json();
     },
