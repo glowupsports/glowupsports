@@ -106,7 +106,7 @@ export default function CreateSessionDrawer({
   // Player filtering states
   const [filterBallLevel, setFilterBallLevel] = useState<BallLevel | null>(null);
   const [filterSkillLevel, setFilterSkillLevel] = useState<SkillLevel | null>(null);
-  const [showAllPlayers, setShowAllPlayers] = useState(false);
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
 
   // Get ball level color
   const getBallLevelColor = (level: string | null | undefined): string => {
@@ -183,9 +183,6 @@ export default function CreateSessionDrawer({
     // Always apply name search
     const matchesSearch = p.name.toLowerCase().includes(playerSearch.toLowerCase());
     if (!matchesSearch) return false;
-    
-    // If "Show All" is enabled, skip level filters
-    if (showAllPlayers) return true;
     
     // Filter by ball level if selected
     if (filterBallLevel && p.ballLevel !== filterBallLevel) return false;
@@ -704,14 +701,19 @@ export default function CreateSessionDrawer({
             </View>
           ) : null}
 
-          {/* Step 2: Court Selection */}
+          {/* Step 2: Court Selection - Compact */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>2. Select Court</Text>
+            <Text style={styles.sectionTitle}>
+              <Ionicons name="location" size={12} color={Colors.dark.xpCyan} /> Court
+            </Text>
             <View style={styles.optionsRow}>
               {courts.map((court) => (
                 <Pressable
                   key={court.id}
-                  onPress={() => setSelectedCourtId(court.id)}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelectedCourtId(court.id);
+                  }}
                   style={[
                     styles.courtChip,
                     selectedCourtId === court.id && styles.courtChipActive,
@@ -733,129 +735,28 @@ export default function CreateSessionDrawer({
             ) : null}
           </View>
 
-          {/* Step 3: Time Selection - Only show after court is selected */}
-          {selectedCourtId ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>3. Select Time (Available Slots)</Text>
-              <View style={styles.timeSlotGrid}>
-                {[
-                  "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
-                  "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
-                  "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
-                  "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
-                  "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
-                ].map((time) => {
-                  const [hours, mins] = time.split(":").map(Number);
-                  const isSelected = startTime.getHours() === hours && startTime.getMinutes() === mins;
-                  const isBlocked = blockedSlots.has(time);
-                  return (
-                    <Pressable
-                      key={time}
-                      onPress={() => {
-                        if (isBlocked) {
-                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                          return;
-                        }
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        const newTime = new Date(startTime);
-                        newTime.setHours(hours, mins, 0, 0);
-                        setStartTime(newTime);
-                      }}
-                      style={[
-                        styles.timeSlot,
-                        isSelected && styles.timeSlotSelected,
-                        isBlocked && styles.timeSlotBlocked,
-                      ]}
-                      disabled={isBlocked}
-                    >
-                      <Text style={[
-                        styles.timeSlotText,
-                        isSelected && styles.timeSlotTextSelected,
-                        isBlocked && styles.timeSlotTextBlocked,
-                      ]}>
-                        {time}
-                      </Text>
-                      {isBlocked ? (
-                        <View style={styles.blockedIndicator}>
-                          <Ionicons name="close" size={10} color={Colors.dark.error} />
-                        </View>
-                      ) : null}
-                    </Pressable>
-                  );
-                })}
-              </View>
-              
-              {/* Conflict Warning */}
-              {isChecking ? (
-                <View style={styles.conflictBox}>
-                  <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
-                  <Text style={styles.checkingText}>Checking availability...</Text>
-                </View>
-              ) : conflicts.length > 0 ? (
-                <View style={[styles.conflictBox, styles.conflictError]}>
-                  <Ionicons name="warning" size={20} color={Colors.dark.error} />
-                  <View style={styles.conflictContent}>
-                    <Text style={styles.conflictTitle}>Scheduling Conflict</Text>
-                    {conflicts.map((conflict, index) => (
-                      <Text key={index} style={styles.conflictText}>
-                        {conflict}
-                      </Text>
-                    ))}
-                  </View>
-                </View>
-              ) : (
-                <View style={[styles.conflictBox, styles.conflictOk]}>
-                  <Ionicons name="checkmark-circle" size={20} color={Colors.dark.primary} />
-                  <Text style={styles.okText}>Time slot available</Text>
-                </View>
-              )}
-            </View>
-          ) : (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>3. Select Time</Text>
-              <View style={styles.selectCourtFirst}>
-                <Ionicons name="arrow-up" size={16} color={Colors.dark.textMuted} />
-                <Text style={styles.selectCourtFirstText}>Select a court first to see available times</Text>
-              </View>
-            </View>
-          )}
-
-          {/* Quick Templates */}
-          {templates.length > 0 ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Quick Templates</Text>
-              <View style={styles.templateRow}>
-                {templates.slice(0, 3).map((template) => (
-                  <Pressable
-                    key={template.id}
-                    onPress={() => applyTemplate(template)}
-                    style={styles.templateChip}
-                  >
-                    <Ionicons name="flash" size={14} color={Colors.dark.xpCyan} />
-                    <Text style={styles.templateChipText}>{template.name}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          ) : null}
-
-          {/* Duration Selection */}
+          {/* Step 3: Duration - Select BEFORE time to filter properly */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Duration</Text>
+            <Text style={styles.sectionTitle}>
+              <Ionicons name="time" size={12} color={Colors.dark.xpCyan} /> Duration
+            </Text>
             <View style={styles.optionsRow}>
               {DURATIONS.map((d) => (
                 <Pressable
                   key={d}
-                  onPress={() => setDuration(d)}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setDuration(d);
+                  }}
                   style={[
-                    styles.optionChip,
-                    duration === d && styles.optionChipActive,
+                    styles.durationChip,
+                    duration === d && styles.durationChipActive,
                   ]}
                 >
                   <Text
                     style={[
-                      styles.optionChipText,
-                      duration === d && styles.optionChipTextActive,
+                      styles.durationChipText,
+                      duration === d && styles.durationChipTextActive,
                     ]}
                   >
                     {d}m
@@ -865,14 +766,113 @@ export default function CreateSessionDrawer({
             </View>
           </View>
 
-          {/* Session Type */}
+          {/* Step 4: Available Time Slots ONLY - Hide blocked ones */}
+          {selectedCourtId ? (
+            <View style={styles.section}>
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.sectionTitle}>
+                  <Ionicons name="flash" size={12} color={Colors.dark.primary} /> Available Times
+                </Text>
+                <View style={styles.availableBadge}>
+                  <Text style={styles.availableBadgeText}>
+                    {[
+                      "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
+                      "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
+                      "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
+                      "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
+                      "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
+                    ].filter(t => !blockedSlots.has(t)).length} slots
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.timeSlotGrid}>
+                {[
+                  "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
+                  "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
+                  "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
+                  "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
+                  "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
+                ].filter(time => !blockedSlots.has(time)).map((time) => {
+                  const [hours, mins] = time.split(":").map(Number);
+                  const isSelected = startTime.getHours() === hours && startTime.getMinutes() === mins;
+                  return (
+                    <Pressable
+                      key={time}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        const newTime = new Date(startTime);
+                        newTime.setHours(hours, mins, 0, 0);
+                        setStartTime(newTime);
+                      }}
+                      style={[
+                        styles.timeSlot,
+                        isSelected && styles.timeSlotSelected,
+                      ]}
+                    >
+                      <Text style={[
+                        styles.timeSlotText,
+                        isSelected && styles.timeSlotTextSelected,
+                      ]}>
+                        {time}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              
+              {/* Show message if no slots available */}
+              {[
+                "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
+                "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
+                "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
+                "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
+                "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
+              ].filter(t => !blockedSlots.has(t)).length === 0 ? (
+                <View style={styles.noSlotsBox}>
+                  <Ionicons name="calendar-outline" size={24} color={Colors.dark.error} />
+                  <Text style={styles.noSlotsText}>No available slots for {duration}m session</Text>
+                  <Text style={styles.noSlotsHint}>Try a different date or shorter duration</Text>
+                </View>
+              ) : null}
+              
+              {/* Conflict check indicator */}
+              {isChecking ? (
+                <View style={styles.conflictBox}>
+                  <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                  <Text style={styles.checkingText}>Checking...</Text>
+                </View>
+              ) : conflicts.length > 0 ? (
+                <View style={[styles.conflictBox, styles.conflictError]}>
+                  <Ionicons name="warning" size={16} color={Colors.dark.error} />
+                  <Text style={styles.conflictText}>{conflicts[0]}</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                <Ionicons name="flash" size={12} color={Colors.dark.textMuted} /> Available Times
+              </Text>
+              <View style={styles.selectCourtFirst}>
+                <Ionicons name="arrow-up" size={14} color={Colors.dark.textMuted} />
+                <Text style={styles.selectCourtFirstText}>Select court first</Text>
+              </View>
+            </View>
+          )}
+
+          {/* Step 5: Session Type - Compact row */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Type</Text>
+            <Text style={styles.sectionTitle}>
+              <Ionicons name="fitness" size={12} color={Colors.dark.xpCyan} /> Type
+            </Text>
             <View style={styles.optionsRow}>
               {SESSION_TYPES.map((type) => (
                 <Pressable
                   key={type.value}
-                  onPress={() => setSessionType(type.value)}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSessionType(type.value);
+                  }}
                   style={[
                     styles.typeChip,
                     sessionType === type.value && {
@@ -894,106 +894,100 @@ export default function CreateSessionDrawer({
             </View>
           </View>
 
-          {/* Player Filter Section */}
+          {/* Quick Templates - Only if available */}
+          {templates.length > 0 ? (
+            <View style={styles.templatesRow}>
+              <Ionicons name="flash" size={12} color={Colors.dark.xpCyan} />
+              {templates.slice(0, 3).map((template) => (
+                <Pressable
+                  key={template.id}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    applyTemplate(template);
+                  }}
+                  style={styles.templateChipCompact}
+                >
+                  <Text style={styles.templateChipText}>{template.name}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+
+          {/* Player Selection with Filters */}
           <View style={styles.section}>
             <View style={styles.sectionTitleRow}>
-              <Text style={styles.sectionTitle}>Filter Players</Text>
-              <Pressable
-                onPress={() => setShowAllPlayers(!showAllPlayers)}
-                style={[styles.seeAllButton, showAllPlayers && styles.seeAllButtonActive]}
-              >
-                <Ionicons name={showAllPlayers ? "people" : "people-outline"} size={14} color={showAllPlayers ? Colors.dark.text : Colors.dark.xpCyan} />
-                <Text style={[styles.seeAllText, showAllPlayers && styles.seeAllTextActive]}>
-                  {showAllPlayers ? "Showing All" : "See All"}
-                </Text>
-              </Pressable>
+              <Text style={styles.sectionTitle}>
+                <Ionicons name="people" size={12} color={Colors.dark.xpCyan} /> Players
+              </Text>
+              <View style={styles.playerHeaderRight}>
+                {(filterBallLevel || filterSkillLevel) ? (
+                  <Pressable
+                    onPress={() => {
+                      setFilterBallLevel(null);
+                      setFilterSkillLevel(null);
+                    }}
+                    style={styles.clearFiltersBtn}
+                  >
+                    <Text style={styles.clearFiltersBtnText}>Clear</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable
+                  onPress={() => setShowGuestInput(!showGuestInput)}
+                  style={styles.addGuestButton}
+                >
+                  <Ionicons name="person-add-outline" size={14} color={Colors.dark.xpCyan} />
+                </Pressable>
+              </View>
             </View>
             
-            {/* Ball Level Filter */}
-            <Text style={styles.filterLabel}>Ball Level:</Text>
-            <View style={styles.optionsRow}>
+            {/* Compact Filter Row */}
+            <View style={styles.filterRow}>
+              <Text style={styles.filterLabel}>Ball:</Text>
               {BALL_LEVELS.map((level) => (
                 <Pressable
                   key={level.value}
-                  onPress={() => {
-                    setFilterBallLevel(filterBallLevel === level.value ? null : level.value);
-                    setShowAllPlayers(false);
-                  }}
+                  onPress={() => setFilterBallLevel(filterBallLevel === level.value ? null : level.value)}
                   style={[
-                    styles.levelChip,
-                    filterBallLevel === level.value && {
-                      backgroundColor: level.color,
-                      borderColor: level.color,
-                    },
+                    styles.filterChip,
+                    filterBallLevel === level.value && { backgroundColor: level.color, borderColor: level.color },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.levelChipText,
-                      filterBallLevel === level.value && styles.levelChipTextActive,
-                    ]}
-                  >
-                    {level.label}
+                  <Text style={[
+                    styles.filterChipText,
+                    filterBallLevel === level.value && styles.filterChipTextActive,
+                  ]}>
+                    {level.label.slice(0, 3)}
                   </Text>
                 </Pressable>
               ))}
             </View>
             
-            {/* Skill Level Filter */}
-            <Text style={[styles.filterLabel, { marginTop: Spacing.md }]}>Skill Level:</Text>
-            <View style={styles.optionsRow}>
+            <View style={styles.filterRow}>
+              <Text style={styles.filterLabel}>Skill:</Text>
               {SKILL_LEVELS.map((level) => (
                 <Pressable
                   key={level.value}
-                  onPress={() => {
-                    setFilterSkillLevel(filterSkillLevel === level.value ? null : level.value);
-                    setShowAllPlayers(false);
-                  }}
+                  onPress={() => setFilterSkillLevel(filterSkillLevel === level.value ? null : level.value)}
                   style={[
-                    styles.optionChip,
-                    filterSkillLevel === level.value && styles.optionChipActive,
+                    styles.filterChip,
+                    filterSkillLevel === level.value && styles.filterChipActive,
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.optionChipText,
-                      filterSkillLevel === level.value && styles.optionChipTextActive,
-                    ]}
-                  >
-                    {level.label}
+                  <Text style={[
+                    styles.filterChipText,
+                    filterSkillLevel === level.value && styles.filterChipTextActive,
+                  ]}>
+                    {level.label.slice(0, 3)}
                   </Text>
                 </Pressable>
               ))}
             </View>
             
-            {/* Active filters indicator */}
-            {(filterBallLevel || filterSkillLevel) && !showAllPlayers ? (
-              <View style={styles.activeFiltersRow}>
-                <Text style={styles.activeFiltersText}>
-                  Showing {filteredPlayers.length} of {players.length} players
-                </Text>
-                <Pressable 
-                  onPress={() => { setFilterBallLevel(null); setFilterSkillLevel(null); }}
-                  style={styles.clearFiltersButton}
-                >
-                  <Text style={styles.clearFiltersText}>Clear filters</Text>
-                </Pressable>
-              </View>
-            ) : null}
-          </View>
-
-          {/* Player Selection */}
-          <View style={styles.section}>
-            <View style={styles.sectionTitleRow}>
-              <Text style={styles.sectionTitle}>Players ({filteredPlayers.length})</Text>
-              <Pressable
-                onPress={() => setShowGuestInput(!showGuestInput)}
-                style={styles.addGuestButton}
-              >
-                <Ionicons name="person-add-outline" size={16} color={Colors.dark.xpCyan} />
-                <Text style={styles.addGuestText}>Add Guest</Text>
-              </Pressable>
-            </View>
+            {/* Player count indicator */}
+            <Text style={styles.playerCountText}>
+              {filteredPlayers.length} of {players.length} players
+              {(filterBallLevel || filterSkillLevel) ? " (filtered)" : ""}
+            </Text>
             
             {showGuestInput && (
               <View style={styles.guestInputRow}>
@@ -1114,216 +1108,194 @@ export default function CreateSessionDrawer({
             </View>
           </View>
 
-          {/* Ball Level */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Ball Level</Text>
-            <View style={styles.optionsRow}>
-              {BALL_LEVELS.map((level) => (
-                <Pressable
-                  key={level.value}
-                  onPress={() => setBallLevel(ballLevel === level.value ? null : level.value)}
-                  style={[
-                    styles.levelChip,
-                    ballLevel === level.value && {
-                      backgroundColor: level.color,
-                      borderColor: level.color,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.levelChipText,
-                      ballLevel === level.value && styles.levelChipTextActive,
-                    ]}
-                  >
-                    {level.label}
+          {/* More Options - Collapsible */}
+          <Pressable 
+            onPress={() => setShowMoreOptions(!showMoreOptions)}
+            style={styles.moreOptionsHeader}
+          >
+            <View style={styles.moreOptionsLeft}>
+              <Ionicons name="settings-outline" size={14} color={Colors.dark.xpCyan} />
+              <Text style={styles.moreOptionsTitle}>More Options</Text>
+            </View>
+            <View style={styles.moreOptionsRight}>
+              {(isRecurring || travelTime > 0 || notes.trim()) ? (
+                <View style={styles.moreOptionsBadge}>
+                  <Text style={styles.moreOptionsBadgeText}>
+                    {[
+                      isRecurring ? "Recurring" : null,
+                      travelTime > 0 ? "Travel" : null,
+                      notes.trim() ? "Notes" : null
+                    ].filter((x): x is string => x !== null).join(", ")}
                   </Text>
-                </Pressable>
-              ))}
+                </View>
+              ) : null}
+              <Ionicons 
+                name={showMoreOptions ? "chevron-up" : "chevron-down"} 
+                size={18} 
+                color={Colors.dark.textMuted} 
+              />
             </View>
-          </View>
+          </Pressable>
 
-          {/* Skill Level */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Skill Level</Text>
-            <View style={styles.optionsRow}>
-              {SKILL_LEVELS.map((level) => (
-                <Pressable
-                  key={level.value}
-                  onPress={() => setSkillLevel(skillLevel === level.value ? null : level.value)}
-                  style={[
-                    styles.optionChip,
-                    skillLevel === level.value && styles.optionChipActive,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.optionChipText,
-                      skillLevel === level.value && styles.optionChipTextActive,
-                    ]}
-                  >
-                    {level.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-
-          {/* Recurring Options */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Recurring</Text>
-            <View style={styles.optionsRow}>
-              <Pressable
-                onPress={() => setIsRecurring(false)}
-                style={[
-                  styles.optionChip,
-                  !isRecurring && styles.optionChipActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.optionChipText,
-                    !isRecurring && styles.optionChipTextActive,
-                  ]}
-                >
-                  One-time
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setIsRecurring(true)}
-                style={[
-                  styles.optionChip,
-                  isRecurring && styles.optionChipActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.optionChipText,
-                    isRecurring && styles.optionChipTextActive,
-                  ]}
-                >
-                  Weekly
-                </Text>
-              </Pressable>
-            </View>
-            {isRecurring && (
-              <View style={styles.weekCountSection}>
-                <Text style={styles.weekCountLabel}>Number of weeks:</Text>
+          {showMoreOptions ? (
+            <>
+              {/* Recurring Options */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Recurring</Text>
                 <View style={styles.optionsRow}>
-                  {WEEK_COUNTS.map((weeks) => (
-                    <Pressable
-                      key={weeks}
-                      onPress={() => setWeekCount(weeks)}
+                  <Pressable
+                    onPress={() => setIsRecurring(false)}
+                    style={[
+                      styles.optionChip,
+                      !isRecurring && styles.optionChipActive,
+                    ]}
+                  >
+                    <Text
                       style={[
-                        styles.optionChip,
-                        weekCount === weeks && styles.optionChipActive,
+                        styles.optionChipText,
+                        !isRecurring && styles.optionChipTextActive,
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.optionChipText,
-                          weekCount === weeks && styles.optionChipTextActive,
-                        ]}
-                      >
-                        {weeks}
-                      </Text>
-                    </Pressable>
-                  ))}
+                      One-time
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setIsRecurring(true)}
+                    style={[
+                      styles.optionChip,
+                      isRecurring && styles.optionChipActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.optionChipText,
+                        isRecurring && styles.optionChipTextActive,
+                      ]}
+                    >
+                      Weekly
+                    </Text>
+                  </Pressable>
                 </View>
-                
-                {/* Week Availability Preview */}
-                {selectedCourtId && weekCount > 1 ? (
-                  <View style={styles.weekPreviewSection}>
-                    <Text style={styles.weekPreviewTitle}>Week Availability:</Text>
-                    {isCheckingWeeks ? (
-                      <View style={styles.weekPreviewLoading}>
-                        <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
-                        <Text style={styles.weekPreviewLoadingText}>Checking {weekCount} weeks...</Text>
-                      </View>
-                    ) : weekAvailability.length > 0 ? (
-                      <View style={styles.weekPreviewGrid}>
-                        {weekAvailability.map((w) => (
-                          <View
-                            key={w.week}
+                {isRecurring ? (
+                  <View style={styles.weekCountSection}>
+                    <Text style={styles.weekCountLabel}>Number of weeks:</Text>
+                    <View style={styles.optionsRow}>
+                      {WEEK_COUNTS.map((weeks) => (
+                        <Pressable
+                          key={weeks}
+                          onPress={() => setWeekCount(weeks)}
+                          style={[
+                            styles.optionChip,
+                            weekCount === weeks && styles.optionChipActive,
+                          ]}
+                        >
+                          <Text
                             style={[
-                              styles.weekPreviewItem,
-                              w.available ? styles.weekPreviewAvailable : styles.weekPreviewConflict,
+                              styles.optionChipText,
+                              weekCount === weeks && styles.optionChipTextActive,
                             ]}
                           >
-                            <Text style={[
-                              styles.weekPreviewWeekNum,
-                              !w.available && styles.weekPreviewConflictText,
-                            ]}>
-                              W{w.week}
-                            </Text>
-                            <Text style={[
-                              styles.weekPreviewDate,
-                              !w.available && styles.weekPreviewConflictText,
-                            ]}>
-                              {w.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                            </Text>
-                            {!w.available ? (
-                              <Ionicons name="close-circle" size={12} color={Colors.dark.error} style={styles.weekPreviewIcon} />
-                            ) : (
-                              <Ionicons name="checkmark-circle" size={12} color={Colors.dark.primary} style={styles.weekPreviewIcon} />
-                            )}
+                            {weeks}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                    
+                    {/* Week Availability Preview */}
+                    {selectedCourtId && weekCount > 1 ? (
+                      <View style={styles.weekPreviewSection}>
+                        <Text style={styles.weekPreviewTitle}>Week Availability:</Text>
+                        {isCheckingWeeks ? (
+                          <View style={styles.weekPreviewLoading}>
+                            <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                            <Text style={styles.weekPreviewLoadingText}>Checking {weekCount} weeks...</Text>
                           </View>
-                        ))}
-                      </View>
-                    ) : null}
-                    {weekAvailability.filter(w => !w.available).length > 0 ? (
-                      <View style={styles.weekConflictSummary}>
-                        <Ionicons name="warning" size={14} color={Colors.dark.orange} />
-                        <Text style={styles.weekConflictSummaryText}>
-                          {weekAvailability.filter(w => !w.available).length} week(s) will be skipped due to conflicts
-                        </Text>
+                        ) : weekAvailability.length > 0 ? (
+                          <View style={styles.weekPreviewGrid}>
+                            {weekAvailability.map((w) => (
+                              <View
+                                key={w.week}
+                                style={[
+                                  styles.weekPreviewItem,
+                                  w.available ? styles.weekPreviewAvailable : styles.weekPreviewConflict,
+                                ]}
+                              >
+                                <Text style={[
+                                  styles.weekPreviewWeekNum,
+                                  !w.available && styles.weekPreviewConflictText,
+                                ]}>
+                                  W{w.week}
+                                </Text>
+                                <Text style={[
+                                  styles.weekPreviewDate,
+                                  !w.available && styles.weekPreviewConflictText,
+                                ]}>
+                                  {w.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                </Text>
+                                {!w.available ? (
+                                  <Ionicons name="close-circle" size={12} color={Colors.dark.error} style={styles.weekPreviewIcon} />
+                                ) : (
+                                  <Ionicons name="checkmark-circle" size={12} color={Colors.dark.primary} style={styles.weekPreviewIcon} />
+                                )}
+                              </View>
+                            ))}
+                          </View>
+                        ) : null}
+                        {weekAvailability.filter(w => !w.available).length > 0 ? (
+                          <View style={styles.weekConflictSummary}>
+                            <Ionicons name="warning" size={14} color={Colors.dark.orange} />
+                            <Text style={styles.weekConflictSummaryText}>
+                              {weekAvailability.filter(w => !w.available).length} week(s) will be skipped due to conflicts
+                            </Text>
+                          </View>
+                        ) : null}
                       </View>
                     ) : null}
                   </View>
                 ) : null}
               </View>
-            )}
-          </View>
 
-          {/* Travel Time */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Travel Time</Text>
-            <View style={styles.optionsRow}>
-              {TRAVEL_TIMES.map((time) => (
-                <Pressable
-                  key={time}
-                  onPress={() => setTravelTime(time)}
-                  style={[
-                    styles.optionChip,
-                    travelTime === time && styles.optionChipActive,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.optionChipText,
-                      travelTime === time && styles.optionChipTextActive,
-                    ]}
-                  >
-                    {time === 0 ? "None" : `${time}m`}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
+              {/* Travel Time */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Travel Time</Text>
+                <View style={styles.optionsRow}>
+                  {TRAVEL_TIMES.map((time) => (
+                    <Pressable
+                      key={time}
+                      onPress={() => setTravelTime(time)}
+                      style={[
+                        styles.optionChip,
+                        travelTime === time && styles.optionChipActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.optionChipText,
+                          travelTime === time && styles.optionChipTextActive,
+                        ]}
+                      >
+                        {time === 0 ? "None" : `${time}m`}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
 
-          {/* Notes */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Notes</Text>
-            <TextInput
-              style={styles.notesInput}
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Add notes..."
-              placeholderTextColor={Colors.dark.textMuted}
-              multiline
-              numberOfLines={3}
-            />
-          </View>
+              {/* Notes */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Notes</Text>
+                <TextInput
+                  style={styles.notesInput}
+                  value={notes}
+                  onChangeText={setNotes}
+                  placeholder="Add notes..."
+                  placeholderTextColor={Colors.dark.textMuted}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+            </>
+          ) : null}
         </KeyboardAwareScrollViewCompat>
       </View>
     </Modal>
@@ -1979,5 +1951,177 @@ const styles = StyleSheet.create({
   calendarDayTextSelected: {
     color: Colors.dark.backgroundRoot,
     fontWeight: "700",
+  },
+  // New gaming-styled duration chips
+  durationChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    minWidth: 50,
+    alignItems: "center",
+  },
+  durationChipActive: {
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  durationChipText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  durationChipTextActive: {
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
+  },
+  // Available time badge
+  availableBadge: {
+    backgroundColor: Colors.dark.primary + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  availableBadgeText: {
+    ...Typography.small,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  // No slots box
+  noSlotsBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  noSlotsText: {
+    ...Typography.body,
+    color: Colors.dark.error,
+    textAlign: "center",
+  },
+  noSlotsHint: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  // Compact templates row
+  templatesRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
+    marginTop: Spacing.md,
+  },
+  templateChipCompact: {
+    backgroundColor: Colors.dark.xpCyan + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "40",
+  },
+  // More options collapsible
+  moreOptionsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    marginTop: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  moreOptionsLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  moreOptionsTitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  moreOptionsRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  moreOptionsBadge: {
+    backgroundColor: Colors.dark.xpCyan + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  moreOptionsBadgeText: {
+    ...Typography.small,
+    color: Colors.dark.xpCyan,
+    fontSize: 10,
+  },
+  // Compact filter row
+  filterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  filterLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    width: 36,
+    fontSize: 10,
+  },
+  filterChip: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  filterChipActive: {
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
+  },
+  filterChipText: {
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
+  },
+  filterChipTextActive: {
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
+  },
+  playerHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  playerCountText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontSize: 10,
+    marginBottom: Spacing.sm,
+  },
+  clearFiltersBtn: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.error + "20",
+    borderWidth: 1,
+    borderColor: Colors.dark.error + "40",
+  },
+  clearFiltersBtnText: {
+    fontSize: 10,
+    color: Colors.dark.error,
+    fontWeight: "600",
   },
 });
