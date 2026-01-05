@@ -14,6 +14,7 @@ import {
   Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -181,6 +182,7 @@ function GradientButton({
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const queryClient = useQueryClient();
   const navigation = useNavigation<any>();
   const { coach, focusMode, setFocusMode } = useCoach();
@@ -402,7 +404,7 @@ export default function SettingsScreen() {
 
       <ScrollView
         style={styles.content}
-        contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
+        contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
         showsVerticalScrollIndicator={false}
       >
         {coach ? (
