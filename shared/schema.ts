@@ -437,6 +437,24 @@ export const insertLocationSchema = createInsertSchema(locations).omit({ id: tru
 export type InsertLocation = z.infer<typeof insertLocationSchema>;
 export type Location = typeof locations.$inferSelect;
 
+// Location Travel Times - stores travel time between location pairs
+export const locationTravelTimes = pgTable("location_travel_times", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id),
+  coachId: varchar("coach_id").references(() => coaches.id),
+  fromLocationId: varchar("from_location_id").references(() => locations.id).notNull(),
+  toLocationId: varchar("to_location_id").references(() => locations.id).notNull(),
+  travelTimeMinutes: integer("travel_time_minutes").notNull().default(30),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertLocationTravelTimeSchema = createInsertSchema(locationTravelTimes).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertLocationTravelTime = z.infer<typeof insertLocationTravelTimeSchema>;
+export type LocationTravelTime = typeof locationTravelTimes.$inferSelect;
+
 // Courts
 export const courts = pgTable("courts", {
   id: varchar("id")
