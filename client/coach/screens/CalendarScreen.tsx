@@ -66,6 +66,16 @@ const HOUR_HEIGHT_30 = 60;
 const START_HOUR = 6;
 const END_HOUR = 23;
 
+// Parse timestamps ensuring they're treated as UTC (add "Z" if missing timezone indicator)
+const parseUTCTimestamp = (timestamp: string | Date): Date => {
+  if (timestamp instanceof Date) return timestamp;
+  // If the timestamp doesn't have a timezone indicator, treat it as UTC
+  if (!timestamp.endsWith('Z') && !timestamp.includes('+') && !timestamp.includes('-', 10)) {
+    return new Date(timestamp + 'Z');
+  }
+  return new Date(timestamp);
+};
+
 function PulsingDot() {
   const opacity = useSharedValue(1);
   const scale = useSharedValue(1);
@@ -273,7 +283,7 @@ function DraggableSessionBlock({
             {sessionLabel}
           </Text>
           <Text style={dragStyles.sessionTime} numberOfLines={1}>
-            {new Date(session.startTime).toLocaleTimeString("en-US", {
+            {parseUTCTimestamp(session.startTime).toLocaleTimeString("en-US", {
               hour: "2-digit",
               minute: "2-digit",
               hour12: false,
@@ -397,7 +407,7 @@ function WeekDraggableSessionBlock({
           </Text>
           {height > 40 && (
             <Text style={dragStyles.weekSessionTime} numberOfLines={1}>
-              {new Date(session.startTime).toLocaleTimeString("en-US", {
+              {parseUTCTimestamp(session.startTime).toLocaleTimeString("en-US", {
                 hour: "2-digit",
                 minute: "2-digit",
                 hour12: false,
@@ -666,8 +676,8 @@ export default function CalendarScreen() {
     const hoursChanged = deltaY / hourHeight;
     const courtsChanged = Math.round(deltaX / COURT_LANE_WIDTH);
     
-    const originalStart = new Date(session.startTime);
-    const originalEnd = new Date(session.endTime);
+    const originalStart = parseUTCTimestamp(session.startTime);
+    const originalEnd = parseUTCTimestamp(session.endTime);
     
     const newStart = new Date(originalStart);
     newStart.setMinutes(newStart.getMinutes() + Math.round(hoursChanged * 60));
@@ -705,8 +715,8 @@ export default function CalendarScreen() {
     const minutesChanged = Math.round((deltaY / hourHeight) * 60);
     const daysChanged = Math.round(deltaX / dayColumnWidth);
     
-    const originalStart = new Date(session.startTime);
-    const originalEnd = new Date(session.endTime);
+    const originalStart = parseUTCTimestamp(session.startTime);
+    const originalEnd = parseUTCTimestamp(session.endTime);
     
     const newStart = new Date(originalStart.getTime());
     newStart.setDate(originalStart.getDate() + daysChanged);
@@ -785,8 +795,8 @@ export default function CalendarScreen() {
     const hoursChanged = deltaY / hourHeight;
     const courtsChanged = Math.round(deltaX / COURT_LANE_WIDTH);
     
-    const originalStart = new Date(session.startTime);
-    const originalEnd = new Date(session.endTime);
+    const originalStart = parseUTCTimestamp(session.startTime);
+    const originalEnd = parseUTCTimestamp(session.endTime);
     
     const newStart = new Date(originalStart);
     newStart.setMinutes(newStart.getMinutes() + Math.round(hoursChanged * 60));
@@ -800,8 +810,8 @@ export default function CalendarScreen() {
     const hasTimeConflict = ownSessions.some(s => {
       if (s.id === session.id) return false;
       
-      const sStart = new Date(s.startTime);
-      const sEnd = new Date(s.endTime);
+      const sStart = parseUTCTimestamp(s.startTime);
+      const sEnd = parseUTCTimestamp(s.endTime);
       
       const timeOverlap = newStart < sEnd && newEnd > sStart;
       
@@ -826,8 +836,8 @@ export default function CalendarScreen() {
   };
 
   const getSessionPosition = (session: Session | BlockedSession) => {
-    const startTime = new Date(session.startTime);
-    const endTime = new Date(session.endTime);
+    const startTime = parseUTCTimestamp(session.startTime);
+    const endTime = parseUTCTimestamp(session.endTime);
     const startHour = startTime.getHours() + startTime.getMinutes() / 60;
     const endHour = endTime.getHours() + endTime.getMinutes() / 60;
     const top = (startHour - focusBaseHour) * hourHeight;
@@ -939,7 +949,7 @@ export default function CalendarScreen() {
 
   const getSessionsForDate = (date: Date) => {
     return ownSessions.filter((s) => {
-      const sessionDate = new Date(s.startTime);
+      const sessionDate = parseUTCTimestamp(s.startTime);
       return sessionDate.toDateString() === date.toDateString();
     });
   };
@@ -950,8 +960,8 @@ export default function CalendarScreen() {
     // Calculate duration from start/end when missing
     const getSessionDuration = (s: Session) => {
       if (s.duration && s.duration > 0) return s.duration;
-      const start = new Date(s.startTime);
-      const end = new Date(s.endTime);
+      const start = parseUTCTimestamp(s.startTime);
+      const end = parseUTCTimestamp(s.endTime);
       return Math.round((end.getTime() - start.getTime()) / (1000 * 60));
     };
     
@@ -965,8 +975,8 @@ export default function CalendarScreen() {
     let eveningMinutes = 0;
     
     daySessions.forEach(s => {
-      const startTime = new Date(s.startTime);
-      const endTime = new Date(s.endTime);
+      const startTime = parseUTCTimestamp(s.startTime);
+      const endTime = parseUTCTimestamp(s.endTime);
       const duration = getSessionDuration(s);
       
       // Use decimal hours for accurate period allocation
@@ -995,11 +1005,11 @@ export default function CalendarScreen() {
     // Calculate energy level based on total hours AND back-to-back detection
     let backToBackCount = 0;
     const sortedSessions = [...daySessions].sort((a, b) => 
-      new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+      parseUTCTimestamp(a.startTime).getTime() - parseUTCTimestamp(b.startTime).getTime()
     );
     for (let i = 1; i < sortedSessions.length; i++) {
-      const prevEnd = new Date(sortedSessions[i - 1].endTime).getTime();
-      const currStart = new Date(sortedSessions[i].startTime).getTime();
+      const prevEnd = parseUTCTimestamp(sortedSessions[i - 1].endTime).getTime();
+      const currStart = parseUTCTimestamp(sortedSessions[i].startTime).getTime();
       const gap = (currStart - prevEnd) / (1000 * 60); // gap in minutes
       if (gap < 15) backToBackCount++;
     }
@@ -1064,8 +1074,8 @@ export default function CalendarScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     
     const now = new Date();
-    const startTime = new Date(session.startTime);
-    const endTime = new Date(session.endTime);
+    const startTime = parseUTCTimestamp(session.startTime);
+    const endTime = parseUTCTimestamp(session.endTime);
     const isActive = now >= startTime && now < endTime;
     const isUpcoming = now < startTime;
     const isPast = now >= endTime;
@@ -1116,7 +1126,7 @@ export default function CalendarScreen() {
     
     Alert.alert(
       `${sessionType} Session`,
-      `${new Date(session.startTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })} - ${new Date(session.endTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}`,
+      `${parseUTCTimestamp(session.startTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })} - ${parseUTCTimestamp(session.endTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}`,
       options
     );
   };
@@ -1446,12 +1456,18 @@ export default function CalendarScreen() {
 
                     {/* Render draggable sessions for this court (or unassigned sessions in first court) */}
                     {ownSessions
-                      .filter((s) => s.courtId === court.id || (s.courtId === null && courtIndex === 0))
+                      .filter((s) => {
+                        // Filter by selected date first
+                        const sessionDate = parseUTCTimestamp(s.startTime);
+                        if (sessionDate.toDateString() !== selectedDate.toDateString()) return false;
+                        // Then filter by court
+                        return s.courtId === court.id || (s.courtId === null && courtIndex === 0);
+                      })
                       .map((session) => {
                         const { top, height } = getSessionPosition(session);
                         const now = new Date();
-                        const sessionEnd = new Date(session.endTime);
-                        const sessionStart = new Date(session.startTime);
+                        const sessionEnd = parseUTCTimestamp(session.endTime);
+                        const sessionStart = parseUTCTimestamp(session.startTime);
                         const isPast = sessionEnd < now;
                         const isActive = now >= sessionStart && now < sessionEnd;
                         const sessionLabel = session.sessionType === "private" ? "Private" :
@@ -1632,7 +1648,7 @@ export default function CalendarScreen() {
               // Get blocked sessions for a specific date
               const getBlockedSessionsForDate = (date: Date) => {
                 return blockedSessions.filter((s) => {
-                  const sessionDate = new Date(s.startTime);
+                  const sessionDate = parseUTCTimestamp(s.startTime);
                   return sessionDate.toDateString() === date.toDateString();
                 });
               };
@@ -1657,8 +1673,8 @@ export default function CalendarScreen() {
                       
                       // Calculate session positions for this day
                       const getWeekSessionPosition = (session: Session | BlockedSession) => {
-                        const startTime = new Date(session.startTime);
-                        const endTime = new Date(session.endTime);
+                        const startTime = parseUTCTimestamp(session.startTime);
+                        const endTime = parseUTCTimestamp(session.endTime);
                         const startHour = startTime.getHours() + startTime.getMinutes() / 60;
                         const endHour = endTime.getHours() + endTime.getMinutes() / 60;
                         const top = (startHour - START_HOUR) * hourHeight;
@@ -1709,8 +1725,8 @@ export default function CalendarScreen() {
                           {daySessions.map((session) => {
                             const { top, height } = getWeekSessionPosition(session);
                             const now = new Date();
-                            const sessionEnd = new Date(session.endTime);
-                            const sessionStart = new Date(session.startTime);
+                            const sessionEnd = parseUTCTimestamp(session.endTime);
+                            const sessionStart = parseUTCTimestamp(session.startTime);
                             const isPast = sessionEnd < now;
                             const isActive = now >= sessionStart && now < sessionEnd;
                             const gradientColors = getSessionTypeGradient(session.sessionType);
@@ -1912,8 +1928,8 @@ export default function CalendarScreen() {
                   
                   for (const court of courts) {
                     const isOccupied = daySessions.some(s => {
-                      const sStart = new Date(s.startTime);
-                      const sEnd = new Date(s.endTime);
+                      const sStart = parseUTCTimestamp(s.startTime);
+                      const sEnd = parseUTCTimestamp(s.endTime);
                       return s.courtId === court.id && sStart < slotEnd && sEnd > slotStart;
                     });
                     if (!isOccupied) return true;
@@ -1925,19 +1941,19 @@ export default function CalendarScreen() {
               if (monthMode === "load") {
                 // Load mode - show sessions and workload
                 // Calculate peak time from actual session distribution
-                const morningMinutes = daySessions.filter(s => new Date(s.startTime).getHours() < 12).reduce((sum, s) => {
-                  const mins = (new Date(s.endTime).getTime() - new Date(s.startTime).getTime()) / 60000;
+                const morningMinutes = daySessions.filter(s => parseUTCTimestamp(s.startTime).getHours() < 12).reduce((sum, s) => {
+                  const mins = (parseUTCTimestamp(s.endTime).getTime() - parseUTCTimestamp(s.startTime).getTime()) / 60000;
                   return sum + mins;
                 }, 0);
                 const afternoonMinutes = daySessions.filter(s => {
-                  const hour = new Date(s.startTime).getHours();
+                  const hour = parseUTCTimestamp(s.startTime).getHours();
                   return hour >= 12 && hour < 17;
                 }).reduce((sum, s) => {
-                  const mins = (new Date(s.endTime).getTime() - new Date(s.startTime).getTime()) / 60000;
+                  const mins = (parseUTCTimestamp(s.endTime).getTime() - parseUTCTimestamp(s.startTime).getTime()) / 60000;
                   return sum + mins;
                 }, 0);
-                const eveningMinutes = daySessions.filter(s => new Date(s.startTime).getHours() >= 17).reduce((sum, s) => {
-                  const mins = (new Date(s.endTime).getTime() - new Date(s.startTime).getTime()) / 60000;
+                const eveningMinutes = daySessions.filter(s => parseUTCTimestamp(s.startTime).getHours() >= 17).reduce((sum, s) => {
+                  const mins = (parseUTCTimestamp(s.endTime).getTime() - parseUTCTimestamp(s.startTime).getTime()) / 60000;
                   return sum + mins;
                 }, 0);
                 
@@ -1996,8 +2012,8 @@ export default function CalendarScreen() {
                   
                   courts.forEach(court => {
                     const isOccupied = daySessions.some(s => {
-                      const sStart = new Date(s.startTime);
-                      const sEnd = new Date(s.endTime);
+                      const sStart = parseUTCTimestamp(s.startTime);
+                      const sEnd = parseUTCTimestamp(s.endTime);
                       return s.courtId === court.id && sStart < slotEnd && sEnd > slotStart;
                     });
                     if (!isOccupied && freeSlots.length < 5) {
@@ -2051,8 +2067,8 @@ export default function CalendarScreen() {
                 
                 for (const court of courts) {
                   const isOccupied = daySessions.some(s => {
-                    const sStart = new Date(s.startTime);
-                    const sEnd = new Date(s.endTime);
+                    const sStart = parseUTCTimestamp(s.startTime);
+                    const sEnd = parseUTCTimestamp(s.endTime);
                     return s.courtId === court.id && sStart < slotEnd && sEnd > slotStart;
                   });
                   if (!isOccupied) {
