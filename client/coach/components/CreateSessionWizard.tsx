@@ -1432,7 +1432,6 @@ export default function CreateSessionWizard({
                 days.push(
                   <Pressable
                     key={d}
-                    disabled={isPast}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                       setSelectedDate(date);
@@ -1443,7 +1442,6 @@ export default function CreateSessionWizard({
                       styles.calendarDayCell,
                       isSelected && styles.calendarDayCellSelected,
                       isToday && !isSelected && styles.calendarDayCellToday,
-                      isPast && styles.calendarDayCellPast,
                     ]}
                   >
                     {isSelected ? (
@@ -1457,7 +1455,6 @@ export default function CreateSessionWizard({
                       <Text style={[
                         styles.calendarDayText,
                         isToday && styles.calendarDayTextToday,
-                        isPast && styles.calendarDayTextPast,
                       ]}>
                         {d}
                       </Text>
