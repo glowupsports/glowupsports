@@ -10,6 +10,7 @@ import {
   Alert,
   Platform,
   ActivityIndicator,
+  Switch,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -53,6 +54,8 @@ export default function AdminSettingsScreen() {
     surface: "hard",
     isIndoor: false,
   });
+  const [testPushLoading, setTestPushLoading] = useState(false);
+  const [testInviteLoading, setTestInviteLoading] = useState(false);
 
   const { data: courts = [], isLoading: courtsLoading } = useQuery<Court[]>({
     queryKey: ["/api/courts"],
@@ -185,6 +188,56 @@ export default function AdminSettingsScreen() {
           { text: "Delete", style: "destructive", onPress: confirmDelete },
         ]
       );
+    }
+  };
+
+  const handleTestPushNotification = async () => {
+    setTestPushLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const response = await apiRequest("POST", "/api/push/test", {});
+      const data = response as unknown as { success: boolean; devicesNotified: number };
+      const message = `Test notification sent to ${data.devicesNotified} device(s). Check your phone!`;
+      if (Platform.OS === "web") {
+        window.alert(message);
+      } else {
+        Alert.alert("Success", message);
+      }
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : "Failed to send test notification";
+      if (Platform.OS === "web") {
+        window.alert(errMsg);
+      } else {
+        Alert.alert("Error", errMsg);
+      }
+    } finally {
+      setTestPushLoading(false);
+    }
+  };
+
+  const handleTestCoachInvite = async () => {
+    setTestInviteLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const response = await apiRequest("POST", "/api/admin/test/coach-invite", {});
+      const data = response as unknown as { success: boolean; simulation: { coachName: string; email: string; notificationSent: boolean } };
+      const message = data.simulation.notificationSent 
+        ? `Simulated: "${data.simulation.coachName}" (${data.simulation.email}) joined your academy! Push notification sent.`
+        : `Simulated coach invite acceptance. (No push token - open app on phone first)`;
+      if (Platform.OS === "web") {
+        window.alert(message);
+      } else {
+        Alert.alert("Simulation Complete", message);
+      }
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : "Failed to simulate coach invite";
+      if (Platform.OS === "web") {
+        window.alert(errMsg);
+      } else {
+        Alert.alert("Error", errMsg);
+      }
+    } finally {
+      setTestInviteLoading(false);
     }
   };
 
@@ -335,6 +388,45 @@ export default function AdminSettingsScreen() {
               <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
             </View>
           </Pressable>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: "#E67E22" }]}>Developer Tools</Text>
+          <View style={[styles.devToolsCard, CardStyles.elevated]}>
+            <Text style={styles.devToolsNote}>
+              Test push notifications and simulate events. Requires Expo Go with notifications enabled.
+            </Text>
+            
+            <Pressable
+              style={[styles.devToolsButton, testPushLoading && styles.devToolsButtonDisabled]}
+              onPress={handleTestPushNotification}
+              disabled={testPushLoading}
+            >
+              {testPushLoading ? (
+                <ActivityIndicator size="small" color="#E67E22" />
+              ) : (
+                <>
+                  <Ionicons name="notifications" size={20} color="#E67E22" />
+                  <Text style={styles.devToolsButtonText}>Test Push Notification</Text>
+                </>
+              )}
+            </Pressable>
+
+            <Pressable
+              style={[styles.devToolsButton, testInviteLoading && styles.devToolsButtonDisabled]}
+              onPress={handleTestCoachInvite}
+              disabled={testInviteLoading}
+            >
+              {testInviteLoading ? (
+                <ActivityIndicator size="small" color="#E67E22" />
+              ) : (
+                <>
+                  <Ionicons name="person-add" size={20} color="#E67E22" />
+                  <Text style={styles.devToolsButtonText}>Simulate Coach Invite Accept</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -783,6 +875,37 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.textMuted,
     marginTop: 2,
+  },
+  devToolsCard: {
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(230, 126, 34, 0.3)",
+    backgroundColor: "rgba(230, 126, 34, 0.05)",
+    gap: Spacing.md,
+  },
+  devToolsNote: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+  },
+  devToolsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    backgroundColor: "rgba(230, 126, 34, 0.15)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(230, 126, 34, 0.3)",
+  },
+  devToolsButtonDisabled: {
+    opacity: 0.6,
+  },
+  devToolsButtonText: {
+    ...Typography.body,
+    color: "#E67E22",
+    fontWeight: "600",
   },
   logoutButton: {
     flexDirection: "row",

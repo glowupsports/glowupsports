@@ -7023,6 +7023,127 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test endpoint: Player receives simulated coach feedback
+  app.post("/api/player/test/feedback", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.userId;
+      const { sendPushNotification, getUserPushTokens } = await import("./pushNotifications");
+      
+      const tokens = await getUserPushTokens(userId);
+      
+      const testCoachName = "Coach Sarah";
+      const testFeedbackType = "Great session today!";
+      const testXpGained = 25;
+      
+      if (tokens.length > 0) {
+        await sendPushNotification(
+          tokens,
+          "New Feedback from Coach",
+          `${testCoachName} left feedback: "${testFeedbackType}" (+${testXpGained} XP)`,
+          { type: "feedback_received", coachName: testCoachName, xpGained: testXpGained }
+        );
+      }
+      
+      console.log(`[PlayerTest] Simulated feedback notification for user ${userId}`);
+      res.json({ 
+        success: true, 
+        simulation: {
+          coachName: testCoachName,
+          feedbackType: testFeedbackType,
+          xpGained: testXpGained,
+          notificationSent: tokens.length > 0,
+        }
+      });
+    } catch (error) {
+      console.error("Error simulating player feedback:", error);
+      res.status(500).json({ error: "Failed to simulate feedback" });
+    }
+  });
+
+  // Test endpoint: Coach receives simulated booking request
+  app.post("/api/coach/test/booking-request", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userRole = req.user!.role;
+      if (userRole !== "coach" && userRole !== "academy_owner" && userRole !== "admin" && userRole !== "platform_owner") {
+        return res.status(403).json({ error: "Coach, Admin or Owner access required" });
+      }
+      
+      const userId = req.user!.userId;
+      const { sendPushNotification, getUserPushTokens } = await import("./pushNotifications");
+      
+      const tokens = await getUserPushTokens(userId);
+      
+      const testPlayerName = "Emma Johnson";
+      const testSessionType = "Private Lesson";
+      const testDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString();
+      
+      if (tokens.length > 0) {
+        await sendPushNotification(
+          tokens,
+          "New Booking Request",
+          `${testPlayerName} requested a ${testSessionType} on ${testDate}`,
+          { type: "booking_request", playerName: testPlayerName, sessionType: testSessionType }
+        );
+      }
+      
+      console.log(`[CoachTest] Simulated booking request for user ${userId}`);
+      res.json({ 
+        success: true, 
+        simulation: {
+          playerName: testPlayerName,
+          sessionType: testSessionType,
+          requestedDate: testDate,
+          notificationSent: tokens.length > 0,
+        }
+      });
+    } catch (error) {
+      console.error("Error simulating booking request:", error);
+      res.status(500).json({ error: "Failed to simulate booking request" });
+    }
+  });
+
+  // Test endpoint: Admin receives simulated coach invite acceptance
+  app.post("/api/admin/test/coach-invite", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userRole = req.user!.role;
+      if (userRole !== "admin" && userRole !== "academy_owner" && userRole !== "platform_owner") {
+        return res.status(403).json({ error: "Admin or Owner access required" });
+      }
+      
+      const userId = req.user!.userId;
+      const { sendPushNotification, getUserPushTokens } = await import("./pushNotifications");
+      
+      const tokens = await getUserPushTokens(userId);
+      
+      const testCoachName = "Michael Chen";
+      const testCoachEmail = "m.chen@example.com";
+      const testSpecialization = "Junior Development";
+      
+      if (tokens.length > 0) {
+        await sendPushNotification(
+          tokens,
+          "Coach Invite Accepted",
+          `${testCoachName} (${testCoachEmail}) has joined your academy as a ${testSpecialization} coach!`,
+          { type: "coach_invite_accepted", coachName: testCoachName, email: testCoachEmail }
+        );
+      }
+      
+      console.log(`[AdminTest] Simulated coach invite acceptance for user ${userId}`);
+      res.json({ 
+        success: true, 
+        simulation: {
+          coachName: testCoachName,
+          email: testCoachEmail,
+          specialization: testSpecialization,
+          notificationSent: tokens.length > 0,
+        }
+      });
+    } catch (error) {
+      console.error("Error simulating coach invite:", error);
+      res.status(500).json({ error: "Failed to simulate coach invite" });
+    }
+  });
+
   // ==================== PHASE 3: BILLING ====================
 
   app.get("/api/billing/account", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {

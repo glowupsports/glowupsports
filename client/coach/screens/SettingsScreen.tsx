@@ -10,6 +10,7 @@ import {
   TextInput,
   Modal,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -85,6 +86,8 @@ export default function SettingsScreen() {
   const [editingCourt, setEditingCourt] = useState<Court | null>(null);
   const [newCourtName, setNewCourtName] = useState("");
   const [newCourtColor, setNewCourtColor] = useState(COURT_COLORS[0]);
+  const [testPushLoading, setTestPushLoading] = useState(false);
+  const [testBookingLoading, setTestBookingLoading] = useState(false);
 
   const { data: courts = [], isLoading: courtsLoading } = useQuery<Court[]>({
     queryKey: ["/api/courts"],
@@ -209,6 +212,56 @@ export default function SettingsScreen() {
     setSettings(newSettings);
     setHasChanges(true);
     saveSettings(newSettings);
+  };
+
+  const handleTestPushNotification = async () => {
+    setTestPushLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const response = await apiRequest("POST", "/api/push/test", {});
+      const data = response as unknown as { success: boolean; devicesNotified: number };
+      const message = `Test notification sent to ${data.devicesNotified} device(s). Check your phone!`;
+      if (Platform.OS === "web") {
+        window.alert(message);
+      } else {
+        Alert.alert("Success", message);
+      }
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : "Failed to send test notification";
+      if (Platform.OS === "web") {
+        window.alert(errMsg);
+      } else {
+        Alert.alert("Error", errMsg);
+      }
+    } finally {
+      setTestPushLoading(false);
+    }
+  };
+
+  const handleTestBookingRequest = async () => {
+    setTestBookingLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const response = await apiRequest("POST", "/api/coach/test/booking-request", {});
+      const data = response as unknown as { success: boolean; simulation: { playerName: string; sessionType: string; notificationSent: boolean } };
+      const message = data.simulation.notificationSent 
+        ? `Simulated: "${data.simulation.playerName}" requested a ${data.simulation.sessionType}! Push notification sent.`
+        : `Simulated booking request. (No push token - open app on phone first)`;
+      if (Platform.OS === "web") {
+        window.alert(message);
+      } else {
+        Alert.alert("Simulation Complete", message);
+      }
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : "Failed to simulate booking request";
+      if (Platform.OS === "web") {
+        window.alert(errMsg);
+      } else {
+        Alert.alert("Error", errMsg);
+      }
+    } finally {
+      setTestBookingLoading(false);
+    }
   };
 
   return (
@@ -554,6 +607,45 @@ export default function SettingsScreen() {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Build</Text>
             <Text style={styles.infoValue}>2024.12.26</Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: "#E67E22" }]}>Developer Tools</Text>
+          <View style={styles.devToolsCard}>
+            <Text style={styles.devToolsNote}>
+              Test push notifications and simulate events. Requires Expo Go with notifications enabled.
+            </Text>
+            
+            <Pressable
+              style={[styles.devToolsButton, testPushLoading && styles.devToolsButtonDisabled]}
+              onPress={handleTestPushNotification}
+              disabled={testPushLoading}
+            >
+              {testPushLoading ? (
+                <ActivityIndicator size="small" color="#E67E22" />
+              ) : (
+                <>
+                  <Ionicons name="notifications" size={20} color="#E67E22" />
+                  <Text style={styles.devToolsButtonText}>Test Push Notification</Text>
+                </>
+              )}
+            </Pressable>
+
+            <Pressable
+              style={[styles.devToolsButton, testBookingLoading && styles.devToolsButtonDisabled]}
+              onPress={handleTestBookingRequest}
+              disabled={testBookingLoading}
+            >
+              {testBookingLoading ? (
+                <ActivityIndicator size="small" color="#E67E22" />
+              ) : (
+                <>
+                  <Ionicons name="calendar" size={20} color="#E67E22" />
+                  <Text style={styles.devToolsButtonText}>Simulate Booking Request</Text>
+                </>
+              )}
+            </Pressable>
           </View>
         </View>
 
@@ -1079,6 +1171,38 @@ const styles = StyleSheet.create({
   colorOptionSelected: {
     borderWidth: 2,
     borderColor: Colors.dark.text,
+  },
+  devToolsCard: {
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(230, 126, 34, 0.3)",
+    backgroundColor: "rgba(230, 126, 34, 0.05)",
+    borderRadius: BorderRadius.lg,
+    gap: Spacing.md,
+  },
+  devToolsNote: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+    marginBottom: Spacing.sm,
+  },
+  devToolsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    backgroundColor: "rgba(230, 126, 34, 0.15)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(230, 126, 34, 0.3)",
+  },
+  devToolsButtonDisabled: {
+    opacity: 0.6,
+  },
+  devToolsButtonText: {
+    fontSize: Typography.body.fontSize,
+    color: "#E67E22",
+    fontWeight: "600",
   },
   logoutButton: {
     flexDirection: "row",

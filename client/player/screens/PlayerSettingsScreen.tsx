@@ -1,11 +1,12 @@
-import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Platform } from "react-native";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Platform, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
+import { apiRequest } from "@/lib/query-client";
 
 interface SettingItem {
   id: string;
@@ -21,10 +22,62 @@ export default function PlayerSettingsScreen() {
   const navigation = useNavigation();
   const { logout } = useAuth();
 
-  const [notifications, setNotifications] = React.useState(true);
-  const [sessionReminders, setSessionReminders] = React.useState(true);
-  const [progressUpdates, setProgressUpdates] = React.useState(true);
-  const [coachMessages, setCoachMessages] = React.useState(true);
+  const [notifications, setNotifications] = useState(true);
+  const [sessionReminders, setSessionReminders] = useState(true);
+  const [progressUpdates, setProgressUpdates] = useState(true);
+  const [coachMessages, setCoachMessages] = useState(true);
+  const [testPushLoading, setTestPushLoading] = useState(false);
+  const [testFeedbackLoading, setTestFeedbackLoading] = useState(false);
+
+  const handleTestPushNotification = async () => {
+    setTestPushLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const response = await apiRequest("POST", "/api/push/test", {});
+      const data = response as unknown as { success: boolean; devicesNotified: number };
+      const message = `Test notification sent to ${data.devicesNotified} device(s). Check your phone!`;
+      if (Platform.OS === "web") {
+        window.alert(message);
+      } else {
+        Alert.alert("Success", message);
+      }
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : "Failed to send test notification";
+      if (Platform.OS === "web") {
+        window.alert(errMsg);
+      } else {
+        Alert.alert("Error", errMsg);
+      }
+    } finally {
+      setTestPushLoading(false);
+    }
+  };
+
+  const handleTestFeedback = async () => {
+    setTestFeedbackLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const response = await apiRequest("POST", "/api/player/test/feedback", {});
+      const data = response as unknown as { success: boolean; simulation: { coachName: string; xpGained: number; notificationSent: boolean } };
+      const message = data.simulation.notificationSent 
+        ? `Simulated: Feedback from "${data.simulation.coachName}" (+${data.simulation.xpGained} XP)! Push notification sent.`
+        : `Simulated feedback received. (No push token - open app on phone first)`;
+      if (Platform.OS === "web") {
+        window.alert(message);
+      } else {
+        Alert.alert("Simulation Complete", message);
+      }
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : "Failed to simulate feedback";
+      if (Platform.OS === "web") {
+        window.alert(errMsg);
+      } else {
+        Alert.alert("Error", errMsg);
+      }
+    } finally {
+      setTestFeedbackLoading(false);
+    }
+  };
 
   const notificationSettings: SettingItem[] = [
     {
@@ -184,6 +237,45 @@ export default function PlayerSettingsScreen() {
           </View>
         </View>
 
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: "#E67E22" }]}>Developer Tools</Text>
+          <View style={styles.devToolsCard}>
+            <Text style={styles.devToolsNote}>
+              Test push notifications and simulate events. Requires Expo Go with notifications enabled.
+            </Text>
+            
+            <Pressable
+              style={[styles.devToolsButton, testPushLoading && styles.devToolsButtonDisabled]}
+              onPress={handleTestPushNotification}
+              disabled={testPushLoading}
+            >
+              {testPushLoading ? (
+                <ActivityIndicator size="small" color="#E67E22" />
+              ) : (
+                <>
+                  <Ionicons name="notifications" size={20} color="#E67E22" />
+                  <Text style={styles.devToolsButtonText}>Test Push Notification</Text>
+                </>
+              )}
+            </Pressable>
+
+            <Pressable
+              style={[styles.devToolsButton, testFeedbackLoading && styles.devToolsButtonDisabled]}
+              onPress={handleTestFeedback}
+              disabled={testFeedbackLoading}
+            >
+              {testFeedbackLoading ? (
+                <ActivityIndicator size="small" color="#E67E22" />
+              ) : (
+                <>
+                  <Ionicons name="star" size={20} color="#E67E22" />
+                  <Text style={styles.devToolsButtonText}>Simulate Coach Feedback</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        </View>
+
         <Pressable 
           style={styles.logoutButton}
           onPress={() => {
@@ -284,6 +376,38 @@ const styles = StyleSheet.create({
   settingValue: {
     ...Typography.body,
     color: Colors.dark.textMuted,
+  },
+  devToolsCard: {
+    ...CardStyles.elevated,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(230, 126, 34, 0.3)",
+    backgroundColor: "rgba(230, 126, 34, 0.05)",
+    gap: Spacing.md,
+  },
+  devToolsNote: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+  },
+  devToolsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    backgroundColor: "rgba(230, 126, 34, 0.15)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(230, 126, 34, 0.3)",
+  },
+  devToolsButtonDisabled: {
+    opacity: 0.6,
+  },
+  devToolsButtonText: {
+    ...Typography.body,
+    color: "#E67E22",
+    fontWeight: "600",
   },
   logoutButton: {
     flexDirection: "row",

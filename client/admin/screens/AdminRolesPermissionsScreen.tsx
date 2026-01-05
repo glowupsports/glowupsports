@@ -16,7 +16,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
 interface Permission {
@@ -287,7 +287,7 @@ export default function AdminRolesPermissionsScreen() {
           disabled={!hasChanges || saveMutation.isPending}
         >
           {saveMutation.isPending ? (
-            <ActivityIndicator size="small" color={Colors.dark.background} />
+            <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
           ) : (
             <Text style={[styles.saveButtonText, !hasChanges && styles.saveButtonTextDisabled]}>
               Save
@@ -364,7 +364,7 @@ export default function AdminRolesPermissionsScreen() {
                     value={selectedRole.permissions[permission.key] || false}
                     onValueChange={() => handleTogglePermission(permission.key)}
                     trackColor={{
-                      false: Colors.dark.cardBackground,
+                      false: Colors.dark.backgroundDefault,
                       true: Colors.dark.orange,
                     }}
                     thumbColor={
@@ -392,7 +392,7 @@ export default function AdminRolesPermissionsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: Colors.dark.backgroundRoot,
   },
   headerGradient: {
     position: "absolute",
@@ -412,13 +412,13 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.dark.cardBackground,
+    backgroundColor: Colors.dark.backgroundDefault,
     alignItems: "center",
     justifyContent: "center",
   },
   headerTitle: {
-    fontSize: Typography.sizes.xl,
-    fontWeight: Typography.weights.bold as any,
+    fontSize: 20,
+    fontWeight: "700" as const,
     color: Colors.dark.text,
   },
   saveButton: {
@@ -430,12 +430,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   saveButtonDisabled: {
-    backgroundColor: Colors.dark.cardBackground,
+    backgroundColor: Colors.dark.backgroundDefault,
   },
   saveButtonText: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.semibold as any,
-    color: Colors.dark.background,
+    fontSize: 14,
+    fontWeight: "600" as const,
+    color: Colors.dark.backgroundRoot,
   },
   saveButtonTextDisabled: {
     color: Colors.dark.textSecondary,
@@ -448,24 +448,24 @@ const styles = StyleSheet.create({
   },
   rolesColumn: {
     width: "35%",
-    backgroundColor: Colors.dark.cardBackground,
+    backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
   },
   permissionsColumn: {
     flex: 1,
-    backgroundColor: Colors.dark.cardBackground,
+    backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
   },
   columnTitle: {
-    fontSize: Typography.sizes.md,
-    fontWeight: Typography.weights.semibold as any,
+    fontSize: 16,
+    fontWeight: "600" as const,
     color: Colors.dark.text,
     marginBottom: Spacing.sm,
   },
   roleDescription: {
-    fontSize: Typography.sizes.sm,
+    fontSize: 14,
     color: Colors.dark.textSecondary,
     marginBottom: Spacing.md,
   },
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: Colors.dark.backgroundRoot,
   },
   roleCardSelected: {
     backgroundColor: "rgba(255,152,0,0.15)",
@@ -486,7 +486,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.dark.cardBackground,
+    backgroundColor: Colors.dark.backgroundDefault,
     alignItems: "center",
     justifyContent: "center",
     marginRight: Spacing.sm,
@@ -495,15 +495,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   roleName: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.medium as any,
+    fontSize: 14,
+    fontWeight: "500" as const,
     color: Colors.dark.text,
   },
   roleNameSelected: {
     color: Colors.dark.orange,
   },
   rolePermissionCount: {
-    fontSize: Typography.sizes.xs,
+    fontSize: 12,
     color: Colors.dark.textSecondary,
     marginTop: 2,
   },
@@ -515,7 +515,7 @@ const styles = StyleSheet.create({
   },
   systemBadgeText: {
     fontSize: 10,
-    fontWeight: Typography.weights.medium as any,
+    fontWeight: "500" as const,
     color: Colors.dark.orange,
   },
   permissionsList: {
@@ -534,12 +534,12 @@ const styles = StyleSheet.create({
     marginRight: Spacing.md,
   },
   permissionLabel: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.medium as any,
+    fontSize: 14,
+    fontWeight: "500" as const,
     color: Colors.dark.text,
   },
   permissionDescription: {
-    fontSize: Typography.sizes.xs,
+    fontSize: 12,
     color: Colors.dark.textSecondary,
     marginTop: 2,
   },
@@ -547,10 +547,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: Spacing.xxl,
+    paddingVertical: Spacing["2xl"],
   },
   emptyStateText: {
-    fontSize: Typography.sizes.sm,
+    fontSize: 14,
     color: Colors.dark.textSecondary,
     marginTop: Spacing.md,
     textAlign: "center",
