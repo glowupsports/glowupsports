@@ -231,14 +231,10 @@ export default function CreateSessionDrawer({
     queryKey: ["/api/coach/calendar/day", coach?.id, selectedDateString],
     queryFn: async () => {
       if (!coach?.id) return { ownSessions: [], blockedSessions: [] };
-      // Use local midnight to midnight for the selected day
-      const dayStart = new Date(startTime);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(startTime);
-      dayEnd.setHours(23, 59, 59, 999);
       
+      // Use the correct API parameter: date (ISO date string)
       const res = await apiFetch(
-        `/api/coach/calendar?startDate=${dayStart.toISOString()}&endDate=${dayEnd.toISOString()}`
+        `/api/coach/calendar?date=${selectedDateString}&view=day`
       );
       if (!res.ok) return { ownSessions: [], blockedSessions: [] };
       const data = await res.json();
