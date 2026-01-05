@@ -15,6 +15,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
@@ -75,6 +80,27 @@ const CURRENCIES = [
   { label: "GBP (British Pound)", value: "GBP" },
   { label: "AUD (Australian Dollar)", value: "AUD" },
 ];
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+function AnimatedButton({ onPress, style, children, disabled }: any) {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={() => { scale.value = withSpring(0.95, { damping: 15, stiffness: 400 }); }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 15, stiffness: 400 }); }}
+      style={[animatedStyle, style]}
+      disabled={disabled}
+    >
+      {children}
+    </AnimatedPressable>
+  );
+}
 
 export default function AcademySettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -284,20 +310,20 @@ export default function AcademySettingsScreen() {
 
   const renderSettingsTab = () => (
     <View style={styles.tabContent}>
-      <View style={styles.joinCodeSection}>
+      <View style={styles.glassSection}>
         <View style={styles.joinCodeHeader}>
           <View style={styles.joinCodeIconContainer}>
-            <Ionicons name="qr-code" size={24} color={Colors.dark.primary} />
+            <Ionicons name="qr-code" size={24} color={Colors.dark.xpCyan} />
           </View>
           <View style={styles.joinCodeHeaderText}>
-            <Text style={styles.joinCodeTitle}>Player Join Code</Text>
+            <Text style={styles.joinCodeTitle}>PLAYER JOIN CODE</Text>
             <Text style={styles.joinCodeSubtitle}>Share this code with players to let them join your academy</Text>
           </View>
         </View>
         
         {joinCodeLoading ? (
           <View style={styles.joinCodeLoadingContainer}>
-            <ActivityIndicator size="small" color={Colors.dark.primary} />
+            <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
           </View>
         ) : joinCodeData?.joinCode ? (
           <>
@@ -306,11 +332,11 @@ export default function AcademySettingsScreen() {
             </View>
             <View style={styles.joinCodeActions}>
               <Pressable style={styles.joinCodeActionButton} onPress={handleCopyJoinCode}>
-                <Ionicons name="copy-outline" size={20} color={Colors.dark.primary} />
+                <Ionicons name="copy-outline" size={20} color={Colors.dark.xpCyan} />
                 <Text style={styles.joinCodeActionText}>Copy</Text>
               </Pressable>
               <Pressable style={styles.joinCodeActionButton} onPress={handleShareJoinCode}>
-                <Ionicons name="share-outline" size={20} color={Colors.dark.primary} />
+                <Ionicons name="share-outline" size={20} color={Colors.dark.xpCyan} />
                 <Text style={styles.joinCodeActionText}>Share</Text>
               </Pressable>
               <Pressable 
@@ -326,26 +352,33 @@ export default function AcademySettingsScreen() {
         ) : (
           <View style={styles.noJoinCodeContainer}>
             <Text style={styles.noJoinCodeText}>No join code yet</Text>
-            <Pressable 
+            <AnimatedButton 
               style={[styles.generateCodeButton, regenerateJoinCodeMutation.isPending && styles.buttonDisabled]}
               onPress={() => regenerateJoinCodeMutation.mutate()}
               disabled={regenerateJoinCodeMutation.isPending}
             >
-              {regenerateJoinCodeMutation.isPending ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="add" size={20} color="#fff" />
-                  <Text style={styles.generateCodeButtonText}>Generate Code</Text>
-                </>
-              )}
-            </Pressable>
+              <LinearGradient
+                colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.generateCodeGradient}
+              >
+                {regenerateJoinCodeMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="add" size={20} color="#fff" />
+                    <Text style={styles.generateCodeButtonText}>Generate Code</Text>
+                  </>
+                )}
+              </LinearGradient>
+            </AnimatedButton>
           </View>
         )}
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Business Information</Text>
+      <View style={styles.glassSection}>
+        <Text style={styles.sectionTitle}>BUSINESS INFORMATION</Text>
         
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Business Name</Text>
@@ -397,8 +430,8 @@ export default function AcademySettingsScreen() {
         </View>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Regional Settings</Text>
+      <View style={styles.glassSection}>
+        <Text style={styles.sectionTitle}>REGIONAL SETTINGS</Text>
         
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Timezone</Text>
@@ -435,8 +468,8 @@ export default function AcademySettingsScreen() {
         </View>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Invoice Settings</Text>
+      <View style={styles.glassSection}>
+        <Text style={styles.sectionTitle}>INVOICE SETTINGS</Text>
         
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Invoice Prefix</Text>
@@ -478,13 +511,15 @@ export default function AcademySettingsScreen() {
       </View>
 
       {hasChanges && (
-        <Pressable
+        <AnimatedButton
           style={[styles.saveButton, updateSettingsMutation.isPending && styles.buttonDisabled]}
           onPress={handleSaveSettings}
           disabled={updateSettingsMutation.isPending}
         >
           <LinearGradient
-            colors={[Colors.dark.primary, "#1EA030"]}
+            colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
             style={styles.buttonGradient}
           >
             {updateSettingsMutation.isPending ? (
@@ -496,25 +531,25 @@ export default function AcademySettingsScreen() {
               </>
             )}
           </LinearGradient>
-        </Pressable>
+        </AnimatedButton>
       )}
     </View>
   );
 
   const renderTeamTab = () => (
     <View style={styles.tabContent}>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Team Members ({members.length})</Text>
+      <View style={styles.glassSection}>
+        <Text style={styles.sectionTitle}>TEAM MEMBERS ({members.length})</Text>
         
         {membersLoading ? (
-          <ActivityIndicator color={Colors.dark.primary} />
+          <ActivityIndicator color={Colors.dark.xpCyan} />
         ) : members.length === 0 ? (
           <Text style={styles.emptyText}>No team members yet</Text>
         ) : (
           members.map((member) => (
             <View key={member.id} style={styles.memberCard}>
               <View style={styles.memberIcon}>
-                <Ionicons name="person" size={24} color={Colors.dark.primary} />
+                <Ionicons name="person" size={24} color={Colors.dark.xpCyan} />
               </View>
               <View style={styles.memberInfo}>
                 <Text style={styles.memberName}>{member.coach?.name || "Unknown"}</Text>
@@ -539,8 +574,8 @@ export default function AcademySettingsScreen() {
 
   const renderInvitesTab = () => (
     <View style={styles.tabContent}>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Invite New Coach</Text>
+      <View style={styles.glassSection}>
+        <Text style={styles.sectionTitle}>INVITE NEW COACH</Text>
         
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Email Address</Text>
@@ -572,13 +607,15 @@ export default function AcademySettingsScreen() {
           </View>
         </View>
 
-        <Pressable
+        <AnimatedButton
           style={[styles.sendButton, createInviteMutation.isPending && styles.buttonDisabled]}
           onPress={handleSendInvite}
           disabled={createInviteMutation.isPending}
         >
           <LinearGradient
-            colors={[Colors.dark.primary, "#1EA030"]}
+            colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
             style={styles.buttonGradient}
           >
             {createInviteMutation.isPending ? (
@@ -590,14 +627,14 @@ export default function AcademySettingsScreen() {
               </>
             )}
           </LinearGradient>
-        </Pressable>
+        </AnimatedButton>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Pending Invites ({invites.filter(i => i.status === "pending").length})</Text>
+      <View style={styles.glassSection}>
+        <Text style={styles.sectionTitle}>PENDING INVITES ({invites.filter(i => i.status === "pending").length})</Text>
         
         {invitesLoading ? (
-          <ActivityIndicator color={Colors.dark.primary} />
+          <ActivityIndicator color={Colors.dark.xpCyan} />
         ) : invites.filter(i => i.status === "pending").length === 0 ? (
           <Text style={styles.emptyText}>No pending invites</Text>
         ) : (
@@ -624,7 +661,7 @@ export default function AcademySettingsScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
+          <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
         </View>
       </View>
     );
@@ -632,13 +669,24 @@ export default function AcademySettingsScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Academy Settings</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <LinearGradient
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        style={styles.gamingHeader}
+      >
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerTopLine}
+        />
+        <View style={styles.header}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <Text style={styles.headerTitle}>ACADEMY SETTINGS</Text>
+          <View style={{ width: 40 }} />
+        </View>
+      </LinearGradient>
 
       <View style={styles.tabs}>
         {[
@@ -653,8 +701,8 @@ export default function AcademySettingsScreen() {
           >
             <Ionicons
               name={tab.icon as any}
-              size={20}
-              color={activeTab === tab.key ? Colors.dark.primary : Colors.dark.disabled}
+              size={18}
+              color={activeTab === tab.key ? Colors.dark.xpCyan : Colors.dark.disabled}
             />
             <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
               {tab.label}
@@ -663,11 +711,14 @@ export default function AcademySettingsScreen() {
         ))}
       </View>
 
-      <KeyboardAwareScrollViewCompat style={styles.content} showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollViewCompat 
+        style={styles.content} 
+        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+        showsVerticalScrollIndicator={false}
+      >
         {activeTab === "settings" && renderSettingsTab()}
         {activeTab === "team" && renderTeamTab()}
         {activeTab === "invites" && renderInvitesTab()}
-        <View style={{ height: insets.bottom + 20 }} />
       </KeyboardAwareScrollViewCompat>
     </View>
   );
@@ -683,12 +734,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  gamingHeader: {
+    paddingBottom: Spacing.md,
+  },
+  headerTopLine: {
+    height: 3,
+    width: "100%",
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingTop: Spacing.md,
   },
   backButton: {
     padding: Spacing.xs,
@@ -696,6 +754,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     ...Typography.h2,
     color: Colors.dark.text,
+    letterSpacing: 2,
   },
   tabs: {
     flexDirection: "row",
@@ -710,20 +769,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.xs,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
   },
   tabActive: {
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
-    borderWidth: 1,
-    borderColor: Colors.dark.primary,
+    backgroundColor: `${Colors.dark.xpCyan}15`,
+    borderColor: Colors.dark.xpCyan,
   },
   tabText: {
     ...Typography.small,
     color: Colors.dark.textMuted,
   },
   tabTextActive: {
-    color: Colors.dark.primary,
+    color: Colors.dark.xpCyan,
     fontWeight: "600",
   },
   content: {
@@ -731,72 +791,197 @@ const styles = StyleSheet.create({
   },
   tabContent: {
     paddingHorizontal: Spacing.lg,
+    gap: Spacing.lg,
   },
-  section: {
-    marginBottom: Spacing.xl,
+  glassSection: {
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
   },
   sectionTitle: {
-    ...Typography.h3,
+    ...Typography.h4,
     color: Colors.dark.text,
     marginBottom: Spacing.md,
+    letterSpacing: 1.5,
+  },
+  joinCodeHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  joinCodeIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: `${Colors.dark.xpCyan}20`,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  joinCodeHeaderText: {
+    flex: 1,
+  },
+  joinCodeTitle: {
+    ...Typography.h4,
+    color: Colors.dark.text,
+    letterSpacing: 1,
+  },
+  joinCodeSubtitle: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  joinCodeLoadingContainer: {
+    paddingVertical: Spacing.xl,
+    alignItems: "center",
+  },
+  joinCodeDisplay: {
+    backgroundColor: `${Colors.dark.xpCyan}15`,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
+    alignItems: "center",
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.xpCyan}40`,
+  },
+  joinCodeText: {
+    ...Typography.h1,
+    color: Colors.dark.xpCyan,
+    letterSpacing: 4,
+    fontWeight: "700",
+  },
+  joinCodeActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  joinCodeActionButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    backgroundColor: `${Colors.dark.xpCyan}15`,
+    borderRadius: BorderRadius.sm,
+  },
+  joinCodeActionText: {
+    ...Typography.small,
+    color: Colors.dark.xpCyan,
+    fontWeight: "500",
+  },
+  noJoinCodeContainer: {
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  noJoinCodeText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+  },
+  generateCodeButton: {
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  generateCodeGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  generateCodeButtonText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
   },
   inputGroup: {
     marginBottom: Spacing.md,
   },
   label: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
     marginBottom: Spacing.xs,
+    letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.sm,
+    backgroundColor: "rgba(30, 30, 35, 0.9)",
+    borderRadius: BorderRadius.md,
     padding: Spacing.md,
-    color: Colors.dark.text,
     ...Typography.body,
+    color: Colors.dark.text,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}30`,
   },
   multilineInput: {
-    minHeight: 80,
+    minHeight: 70,
     textAlignVertical: "top",
   },
   optionRow: {
     flexDirection: "row",
-    gap: Spacing.sm,
     flexWrap: "wrap",
+    gap: Spacing.sm,
   },
   optionButton: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.sm,
+    borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "transparent",
+    borderColor: `${Colors.dark.xpCyan}30`,
+    backgroundColor: "rgba(30, 30, 35, 0.9)",
   },
   optionButtonActive: {
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
-    borderColor: Colors.dark.primary,
+    backgroundColor: `${Colors.dark.xpCyan}25`,
+    borderColor: Colors.dark.xpCyan,
   },
   optionText: {
     ...Typography.small,
     color: Colors.dark.textMuted,
   },
   optionTextActive: {
-    color: Colors.dark.primary,
+    color: Colors.dark.xpCyan,
     fontWeight: "600",
+  },
+  saveButton: {
+    marginTop: Spacing.md,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  sendButton: {
+    marginTop: Spacing.md,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  buttonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+  },
+  buttonText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   memberCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.sm,
+    backgroundColor: "rgba(30, 30, 35, 0.8)",
+    borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
   },
   memberIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: `${Colors.dark.xpCyan}20`,
     justifyContent: "center",
     alignItems: "center",
     marginRight: Spacing.md,
@@ -810,7 +995,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   memberEmail: {
-    ...Typography.small,
+    ...Typography.caption,
     color: Colors.dark.textMuted,
   },
   memberActions: {
@@ -821,27 +1006,36 @@ const styles = StyleSheet.create({
   roleBadge: {
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
-    backgroundColor: Colors.dark.backgroundTertiary,
-    borderRadius: BorderRadius.xs,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: `${Colors.dark.primary}25`,
   },
   ownerBadge: {
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
+    backgroundColor: `${Colors.dark.gold}25`,
   },
   roleText: {
     ...Typography.caption,
-    color: Colors.dark.textMuted,
+    color: Colors.dark.primary,
+    fontWeight: "600",
     textTransform: "capitalize",
   },
   removeButton: {
     padding: Spacing.xs,
   },
+  emptyText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    paddingVertical: Spacing.lg,
+  },
   inviteCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.sm,
+    backgroundColor: "rgba(30, 30, 35, 0.8)",
+    borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
   },
   inviteInfo: {
     flex: 1,
@@ -849,10 +1043,11 @@ const styles = StyleSheet.create({
   inviteEmail: {
     ...Typography.body,
     color: Colors.dark.text,
+    fontWeight: "500",
   },
   inviteRole: {
-    ...Typography.small,
-    color: Colors.dark.primary,
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
     textTransform: "capitalize",
   },
   inviteExpiry: {
@@ -861,133 +1056,7 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     padding: Spacing.sm,
-    backgroundColor: "rgba(255, 68, 68, 0.1)",
-    borderRadius: BorderRadius.xs,
-  },
-  sendButton: {
-    marginTop: Spacing.md,
+    backgroundColor: `${Colors.dark.error}15`,
     borderRadius: BorderRadius.sm,
-    overflow: "hidden",
-  },
-  saveButton: {
-    marginTop: Spacing.md,
-    marginBottom: Spacing.xl,
-    borderRadius: BorderRadius.sm,
-    overflow: "hidden",
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
-    padding: Spacing.md,
-  },
-  buttonText: {
-    ...Typography.body,
-    color: "#fff",
-    fontWeight: "600",
-  },
-  emptyText: {
-    ...Typography.body,
-    color: Colors.dark.textMuted,
-    textAlign: "center",
-    paddingVertical: Spacing.xl,
-  },
-  joinCodeSection: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    marginBottom: Spacing.xl,
-    borderWidth: 1,
-    borderColor: Colors.dark.backgroundTertiary,
-  },
-  joinCodeHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: Spacing.md,
-    marginBottom: Spacing.lg,
-  },
-  joinCodeIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: BorderRadius.lg,
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  joinCodeHeaderText: {
-    flex: 1,
-  },
-  joinCodeTitle: {
-    ...Typography.h3,
-    color: Colors.dark.text,
-  },
-  joinCodeSubtitle: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
-    marginTop: 2,
-  },
-  joinCodeLoadingContainer: {
-    paddingVertical: Spacing.lg,
-    alignItems: "center",
-  },
-  joinCodeDisplay: {
-    backgroundColor: Colors.dark.backgroundRoot,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
-    alignItems: "center",
-    marginBottom: Spacing.md,
-    borderWidth: 2,
-    borderColor: Colors.dark.primary,
-    borderStyle: "dashed",
-  },
-  joinCodeText: {
-    ...Typography.h1,
-    color: Colors.dark.primary,
-    letterSpacing: 4,
-    fontWeight: "700",
-  },
-  joinCodeActions: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: Spacing.lg,
-  },
-  joinCodeActionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-  },
-  joinCodeActionText: {
-    ...Typography.small,
-    color: Colors.dark.primary,
-    fontWeight: "600",
-  },
-  noJoinCodeContainer: {
-    alignItems: "center",
-    gap: Spacing.md,
-  },
-  noJoinCodeText: {
-    ...Typography.body,
-    color: Colors.dark.textMuted,
-  },
-  generateCodeButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xl,
-    backgroundColor: Colors.dark.primary,
-    borderRadius: BorderRadius.lg,
-  },
-  generateCodeButtonText: {
-    ...Typography.body,
-    color: "#fff",
-    fontWeight: "600",
   },
 });

@@ -9,9 +9,16 @@ import {
   Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
@@ -47,6 +54,78 @@ interface Conversation {
 
 const REACTION_EMOJIS = ["thumbsup", "heart", "fire", "trophy", "star"];
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+function ConversationCard({
+  item,
+  onPress,
+  formatTime,
+}: {
+  item: Conversation;
+  onPress: () => void;
+  formatTime: (dateStr: string) => string;
+}) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.98, { damping: 15 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15 });
+  };
+
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={animatedStyle}
+    >
+      <View style={styles.conversationItem}>
+        <View style={styles.conversationItemInner}>
+          <View style={styles.conversationAvatar}>
+            <LinearGradient
+              colors={[Colors.dark.primary + "40", Colors.dark.xpCyan + "40"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.avatarGradient}
+            >
+              <Ionicons name="person" size={24} color={Colors.dark.xpCyan} />
+            </LinearGradient>
+          </View>
+          <View style={styles.conversationInfo}>
+            <View style={styles.conversationHeader}>
+              <ThemedText style={styles.conversationName}>
+                {item.playerName || item.title || "Chat"}
+              </ThemedText>
+              {item.lastMessageAt ? (
+                <ThemedText style={styles.conversationTime}>
+                  {formatTime(item.lastMessageAt)}
+                </ThemedText>
+              ) : null}
+            </View>
+            {item.lastMessagePreview ? (
+              <ThemedText numberOfLines={1} style={styles.conversationPreview}>
+                {item.lastMessagePreview}
+              </ThemedText>
+            ) : (
+              <ThemedText style={styles.conversationPreview}>No messages yet</ThemedText>
+            )}
+          </View>
+          <View style={styles.chevronContainer}>
+            <Ionicons name="chevron-forward" size={16} color={Colors.dark.xpCyan} />
+          </View>
+        </View>
+      </View>
+    </AnimatedPressable>
+  );
+}
+
 export default function ChatInboxScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -56,6 +135,12 @@ export default function ChatInboxScreen() {
   const [inputText, setInputText] = useState("");
   const [showReactions, setShowReactions] = useState<string | null>(null);
   const flatListRef = React.useRef<FlatList>(null);
+
+  const sendScale = useSharedValue(1);
+
+  const sendAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: sendScale.value }],
+  }));
 
   const { data: conversations = [], isLoading: loadingConversations } = useQuery<Conversation[]>({
     queryKey: ["/api/coaches", coach?.id, "conversations"],
@@ -100,6 +185,11 @@ export default function ChatInboxScreen() {
 
   const handleSend = async () => {
     if (inputText.trim() && selectedConversation) {
+      sendScale.value = withSpring(0.9, { damping: 15 });
+      setTimeout(() => {
+        sendScale.value = withSpring(1, { damping: 15 });
+      }, 100);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       sendMessageMutation.mutate(inputText.trim());
       setInputText("");
       setTimeout(() => {
@@ -155,7 +245,7 @@ export default function ChatInboxScreen() {
         {!isOwn ? (
           <View style={styles.senderInfo}>
             <View style={styles.playerAvatar}>
-              <Ionicons name="person" size={12} color={Colors.dark.text} />
+              <Ionicons name="person" size={12} color={Colors.dark.xpCyan} />
             </View>
             <ThemedText style={styles.senderName}>
               {selectedConversation?.playerName || "Player"}
@@ -173,7 +263,7 @@ export default function ChatInboxScreen() {
               }, {} as Record<string, number>)
             ).map(([emoji, count]) => (
               <View key={emoji} style={styles.reactionBadge}>
-                <Ionicons name={getReactionIcon(emoji)} size={12} color={Colors.dark.text} />
+                <Ionicons name={getReactionIcon(emoji)} size={12} color={Colors.dark.xpCyan} />
                 <ThemedText style={styles.reactionCount}>{count}</ThemedText>
               </View>
             ))}
@@ -190,7 +280,7 @@ export default function ChatInboxScreen() {
                 }}
                 style={styles.reactionOption}
               >
-                <Ionicons name={getReactionIcon(emoji)} size={18} color={Colors.dark.text} />
+                <Ionicons name={getReactionIcon(emoji)} size={18} color={Colors.dark.xpCyan} />
               </Pressable>
             ))}
           </View>
@@ -199,52 +289,33 @@ export default function ChatInboxScreen() {
     );
   };
 
-  const renderConversation = ({ item }: { item: Conversation }) => (
-    <Pressable
-      onPress={() => setSelectedConversation(item)}
-      style={styles.conversationItem}
-    >
-      <View style={styles.conversationAvatar}>
-        <Ionicons name="person" size={24} color={Colors.dark.text} />
-      </View>
-      <View style={styles.conversationInfo}>
-        <View style={styles.conversationHeader}>
-          <ThemedText style={styles.conversationName}>
-            {item.playerName || item.title || "Chat"}
-          </ThemedText>
-          {item.lastMessageAt ? (
-            <ThemedText style={styles.conversationTime}>
-              {formatTime(item.lastMessageAt)}
-            </ThemedText>
-          ) : null}
-        </View>
-        {item.lastMessagePreview ? (
-          <ThemedText numberOfLines={1} style={styles.conversationPreview}>
-            {item.lastMessagePreview}
-          </ThemedText>
-        ) : (
-          <ThemedText style={styles.conversationPreview}>No messages yet</ThemedText>
-        )}
-      </View>
-    </Pressable>
-  );
-
   if (selectedConversation) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <LinearGradient
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        style={[styles.container, { paddingTop: insets.top }]}
+      >
         <View style={styles.header}>
-          <Pressable onPress={() => setSelectedConversation(null)} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
-          </Pressable>
-          <View style={styles.headerCenter}>
-            <View style={styles.headerAvatar}>
-              <Ionicons name="person" size={20} color={Colors.dark.text} />
+          <LinearGradient
+            colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.headerGradientLine}
+          />
+          <View style={styles.headerContent}>
+            <Pressable onPress={() => setSelectedConversation(null)} style={styles.backButton}>
+              <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
+            </Pressable>
+            <View style={styles.headerCenter}>
+              <View style={styles.headerAvatar}>
+                <Ionicons name="person" size={18} color={Colors.dark.xpCyan} />
+              </View>
+              <ThemedText style={styles.headerTitle}>
+                {selectedConversation.playerName || "Chat"}
+              </ThemedText>
             </View>
-            <ThemedText style={styles.headerTitle}>
-              {selectedConversation.playerName || "Chat"}
-            </ThemedText>
+            <View style={styles.headerSpacer} />
           </View>
-          <View style={styles.headerSpacer} />
         </View>
 
         {loadingMessages ? (
@@ -264,38 +335,55 @@ export default function ChatInboxScreen() {
         )}
 
         <View style={[styles.inputContainer, { paddingBottom: insets.bottom + Spacing.sm }]}>
-          <TextInput
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder="Type a message..."
-            placeholderTextColor={Colors.dark.textMuted}
-            style={styles.input}
-            onSubmitEditing={handleSend}
-            returnKeyType="send"
-          />
-          <Pressable
+          <View style={styles.inputWrapper}>
+            <TextInput
+              value={inputText}
+              onChangeText={setInputText}
+              placeholder="Type a message..."
+              placeholderTextColor={Colors.dark.textMuted}
+              style={styles.input}
+              onSubmitEditing={handleSend}
+              returnKeyType="send"
+            />
+          </View>
+          <AnimatedPressable
             onPress={handleSend}
             disabled={sendMessageMutation.isPending}
-            style={({ pressed }) => [
-              styles.sendButton,
-              { opacity: pressed || sendMessageMutation.isPending ? 0.7 : 1 },
-            ]}
+            style={sendAnimatedStyle}
           >
-            <Ionicons name="send-outline" size={20} color={Colors.dark.buttonText} />
-          </Pressable>
+            <LinearGradient
+              colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.sendButton}
+            >
+              <Ionicons name="send-outline" size={20} color={Colors.dark.backgroundRoot} />
+            </LinearGradient>
+          </AnimatedPressable>
         </View>
-      </View>
+      </LinearGradient>
     );
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <LinearGradient
+      colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+      style={[styles.container, { paddingTop: insets.top }]}
+    >
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
-        </Pressable>
-        <ThemedText style={styles.headerTitle}>Glow Chat</ThemedText>
-        <View style={styles.headerSpacer} />
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradientLine}
+        />
+        <View style={styles.headerContent}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <ThemedText style={styles.headerTitle}>GLOW CHAT</ThemedText>
+          <View style={styles.headerSpacer} />
+        </View>
       </View>
 
       {loadingConversations ? (
@@ -305,7 +393,7 @@ export default function ChatInboxScreen() {
       ) : conversations.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={styles.emptyIcon}>
-            <Ionicons name="chatbubbles-outline" size={60} color={Colors.dark.primary} />
+            <Ionicons name="chatbubbles-outline" size={48} color={Colors.dark.xpCyan} />
           </View>
           <ThemedText style={styles.emptyTitle}>No conversations yet</ThemedText>
           <ThemedText style={styles.emptySubtitle}>
@@ -316,28 +404,40 @@ export default function ChatInboxScreen() {
         <FlatList
           data={conversations}
           keyExtractor={(item) => item.id}
-          renderItem={renderConversation}
-          contentContainerStyle={styles.conversationList}
+          renderItem={({ item }) => (
+            <ConversationCard
+              item={item}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setSelectedConversation(item);
+              }}
+              formatTime={formatTime}
+            />
+          )}
+          contentContainerStyle={[styles.conversationList, { paddingBottom: insets.bottom + Spacing.xl }]}
         />
       )}
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
   },
   header: {
+    marginBottom: Spacing.sm,
+  },
+  headerGradientLine: {
+    height: 3,
+    width: "100%",
+  },
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.headerBorder,
-    backgroundColor: Colors.dark.backgroundDefault,
   },
   backButton: {
     padding: Spacing.xs,
@@ -349,17 +449,21 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   headerAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.xpCyan + "20",
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "40",
   },
   headerTitle: {
     fontSize: Typography.h3.fontSize,
     fontWeight: "600",
     color: Colors.dark.text,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
   },
   headerSpacer: {
     width: 40,
@@ -379,10 +483,12 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: Colors.dark.primary + "15",
+    backgroundColor: Colors.dark.xpCyan + "15",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
   },
   emptyTitle: {
     fontSize: Typography.h3.fontSize,
@@ -397,19 +503,31 @@ const styles = StyleSheet.create({
   },
   conversationList: {
     paddingTop: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
   },
   conversationItem: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "20",
+    overflow: "hidden",
+  },
+  conversationItemInner: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     padding: Spacing.md,
-    paddingHorizontal: Spacing.lg,
     gap: Spacing.md,
   },
   conversationAvatar: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    overflow: "hidden",
+  },
+  avatarGradient: {
+    width: "100%",
+    height: "100%",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -429,11 +547,19 @@ const styles = StyleSheet.create({
   },
   conversationTime: {
     fontSize: Typography.caption.fontSize,
-    color: Colors.dark.tabIconDefault,
+    color: Colors.dark.xpCyan,
   },
   conversationPreview: {
     fontSize: Typography.small.fontSize,
     color: Colors.dark.tabIconDefault,
+  },
+  chevronContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    alignItems: "center",
+    justifyContent: "center",
   },
   messageList: {
     flex: 1,
@@ -454,8 +580,10 @@ const styles = StyleSheet.create({
   },
   otherMessage: {
     alignSelf: "flex-start",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(18, 18, 22, 0.95)",
     borderBottomLeftRadius: 4,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
   },
   senderInfo: {
     flexDirection: "row",
@@ -467,15 +595,14 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Colors.dark.xpCyan + "20",
     alignItems: "center",
     justifyContent: "center",
   },
   senderName: {
     fontSize: 12,
     fontWeight: "600",
-    color: Colors.dark.text,
-    opacity: 0.8,
+    color: Colors.dark.xpCyan,
   },
   messageText: {
     fontSize: 14,
@@ -510,22 +637,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 2,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Colors.dark.xpCyan + "20",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: BorderRadius.full,
   },
   reactionCount: {
     fontSize: 10,
-    color: Colors.dark.text,
+    color: Colors.dark.xpCyan,
   },
   reactionPicker: {
     flexDirection: "row",
     gap: Spacing.sm,
     marginTop: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: "rgba(18, 18, 22, 0.95)",
     padding: Spacing.sm,
     borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
   },
   reactionOption: {
     padding: 4,
@@ -539,14 +668,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: Spacing.md,
     gap: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: "rgba(18, 18, 22, 0.98)",
     borderTopWidth: 1,
-    borderTopColor: Colors.dark.headerBorder,
+    borderTopColor: Colors.dark.primary + "30",
+  },
+  inputWrapper: {
+    flex: 1,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+    overflow: "hidden",
   },
   input: {
-    flex: 1,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.full,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     paddingHorizontal: Spacing.lg,
     paddingVertical: Platform.OS === "ios" ? Spacing.md : Spacing.sm,
     color: Colors.dark.text,
@@ -556,7 +690,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.dark.primary,
     alignItems: "center",
     justifyContent: "center",
   },

@@ -10,10 +10,16 @@ import {
   Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
 
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
@@ -33,6 +39,27 @@ interface CoachInvitation {
   declinedAt: string | null;
   academyName?: string;
   academyCity?: string;
+}
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+function AnimatedButton({ onPress, style, children, disabled }: any) {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={() => { scale.value = withSpring(0.95, { damping: 15, stiffness: 400 }); }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 15, stiffness: 400 }); }}
+      style={[animatedStyle, style]}
+      disabled={disabled}
+    >
+      {children}
+    </AnimatedPressable>
+  );
 }
 
 function getStatusColor(status: string): string {
@@ -67,7 +94,6 @@ function SentInvitationCard({
   invitation: CoachInvitation; 
   onDelete: () => void;
 }) {
-  const statusColor = getStatusColor(invitation.status);
   const isExpired = new Date(invitation.expiresAt) < new Date();
   const displayStatus = isExpired && invitation.status === "pending" ? "expired" : invitation.status;
   
@@ -75,10 +101,10 @@ function SentInvitationCard({
     <View style={styles.invitationCard}>
       <View style={styles.cardHeader}>
         <View style={styles.emailBadge}>
-          <Ionicons name="mail-outline" size={16} color={Colors.dark.textMuted} />
+          <Ionicons name="mail-outline" size={16} color={Colors.dark.xpCyan} />
           <Text style={styles.emailText}>{invitation.email}</Text>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(displayStatus)}20` }]}>
+        <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(displayStatus)}25`, borderColor: getStatusColor(displayStatus) }]}>
           <Text style={[styles.statusText, { color: getStatusColor(displayStatus) }]}>
             {getStatusLabel(displayStatus)}
           </Text>
@@ -134,7 +160,9 @@ function ReceivedInvitationCard({
     <View style={[styles.invitationCard, styles.receivedCard]}>
       <View style={styles.cardHeader}>
         <View style={styles.academyBadge}>
-          <Ionicons name="school" size={18} color={Colors.dark.xpCyan} />
+          <View style={styles.academyIconContainer}>
+            <Ionicons name="school" size={18} color={Colors.dark.xpCyan} />
+          </View>
           <View>
             <Text style={styles.academyName}>{invitation.academyName}</Text>
             {invitation.academyCity ? (
@@ -172,13 +200,20 @@ function ReceivedInvitationCard({
           <Ionicons name="close" size={18} color={Colors.dark.error} />
           <Text style={styles.declineButtonText}>Decline</Text>
         </Pressable>
-        <Pressable 
+        <AnimatedButton 
           style={styles.acceptButton}
           onPress={() => onRespond("accept")}
         >
-          <Ionicons name="checkmark" size={18} color={Colors.dark.backgroundRoot} />
-          <Text style={styles.acceptButtonText}>Accept</Text>
-        </Pressable>
+          <LinearGradient
+            colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.acceptButtonGradient}
+          >
+            <Ionicons name="checkmark" size={18} color={Colors.dark.text} />
+            <Text style={styles.acceptButtonText}>Accept</Text>
+          </LinearGradient>
+        </AnimatedButton>
       </View>
     </View>
   );
@@ -279,12 +314,24 @@ export default function CoachInvitationsScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
-        </Pressable>
-        <Text style={styles.title}>Coach Invitations</Text>
-      </View>
+      <LinearGradient
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        style={styles.gamingHeader}
+      >
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerTopLine}
+        />
+        <View style={styles.header}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <Text style={styles.title}>COACH INVITATIONS</Text>
+          <View style={{ width: 40 }} />
+        </View>
+      </LinearGradient>
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
@@ -297,8 +344,13 @@ export default function CoachInvitationsScreen() {
         >
           {receivedInvitations.length > 0 ? (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Invitations for You</Text>
-              <Text style={styles.sectionSubtitle}>Other academies want you to join their team</Text>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="mail-unread" size={20} color={Colors.dark.xpCyan} />
+                <View>
+                  <Text style={styles.sectionTitle}>INVITATIONS FOR YOU</Text>
+                  <Text style={styles.sectionSubtitle}>Other academies want you to join their team</Text>
+                </View>
+              </View>
               {receivedInvitations.map((invitation) => (
                 <ReceivedInvitationCard
                   key={invitation.id}
@@ -311,18 +363,28 @@ export default function CoachInvitationsScreen() {
 
           {isAcademyOwner ? (
             <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <View>
-                  <Text style={styles.sectionTitle}>Invite Coaches</Text>
-                  <Text style={styles.sectionSubtitle}>Grow your coaching team</Text>
+              <View style={styles.sectionHeaderRow}>
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="people" size={20} color={Colors.dark.primary} />
+                  <View>
+                    <Text style={styles.sectionTitle}>INVITE COACHES</Text>
+                    <Text style={styles.sectionSubtitle}>Grow your coaching team</Text>
+                  </View>
                 </View>
                 {!showInviteForm ? (
-                  <Pressable 
+                  <AnimatedButton 
                     style={styles.addButton}
                     onPress={() => setShowInviteForm(true)}
                   >
-                    <Ionicons name="add" size={20} color={Colors.dark.backgroundRoot} />
-                  </Pressable>
+                    <LinearGradient
+                      colors={[Colors.dark.xpCyan, Colors.dark.primary]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.addButtonGradient}
+                    >
+                      <Ionicons name="add" size={20} color={Colors.dark.text} />
+                    </LinearGradient>
+                  </AnimatedButton>
                 ) : null}
               </View>
 
@@ -359,27 +421,34 @@ export default function CoachInvitationsScreen() {
                     >
                       <Text style={styles.cancelFormButtonText}>Cancel</Text>
                     </Pressable>
-                    <Pressable 
+                    <AnimatedButton 
                       style={[styles.sendButton, createMutation.isPending && styles.buttonDisabled]}
                       onPress={() => createMutation.mutate()}
                       disabled={createMutation.isPending || !newEmail.trim()}
                     >
-                      {createMutation.isPending ? (
-                        <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
-                      ) : (
-                        <>
-                          <Ionicons name="send" size={16} color={Colors.dark.backgroundRoot} />
-                          <Text style={styles.sendButtonText}>Send Invite</Text>
-                        </>
-                      )}
-                    </Pressable>
+                      <LinearGradient
+                        colors={[Colors.dark.xpCyan, Colors.dark.primary]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.sendButtonGradient}
+                      >
+                        {createMutation.isPending ? (
+                          <ActivityIndicator size="small" color={Colors.dark.text} />
+                        ) : (
+                          <>
+                            <Ionicons name="send" size={16} color={Colors.dark.text} />
+                            <Text style={styles.sendButtonText}>Send Invite</Text>
+                          </>
+                        )}
+                      </LinearGradient>
+                    </AnimatedButton>
                   </View>
                 </View>
               ) : null}
 
               {sentInvitations.length > 0 ? (
                 <View style={styles.sentList}>
-                  <Text style={styles.listTitle}>Sent Invitations</Text>
+                  <Text style={styles.listTitle}>SENT INVITATIONS</Text>
                   {sentInvitations.map((invitation) => (
                     <SentInvitationCard
                       key={invitation.id}
@@ -390,7 +459,7 @@ export default function CoachInvitationsScreen() {
                 </View>
               ) : !showInviteForm ? (
                 <View style={styles.emptyBox}>
-                  <Ionicons name="people-outline" size={32} color={Colors.dark.textMuted} />
+                  <Ionicons name="people-outline" size={32} color={Colors.dark.xpCyan} />
                   <Text style={styles.emptyText}>No invitations sent yet</Text>
                 </View>
               ) : null}
@@ -399,7 +468,9 @@ export default function CoachInvitationsScreen() {
 
           {receivedInvitations.length === 0 && (!isAcademyOwner || sentInvitations.length === 0) && !showInviteForm ? (
             <View style={styles.emptyContainer}>
-              <Ionicons name="mail-unread-outline" size={48} color={Colors.dark.textMuted} />
+              <View style={styles.emptyIconContainer}>
+                <Ionicons name="mail-unread-outline" size={48} color={Colors.dark.xpCyan} />
+              </View>
               <Text style={styles.emptyTitle}>No Invitations</Text>
               <Text style={styles.emptySub}>
                 {isAcademyOwner 
@@ -419,12 +490,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
   },
+  gamingHeader: {
+    paddingBottom: Spacing.md,
+  },
+  headerTopLine: {
+    height: 3,
+    width: "100%",
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    gap: Spacing.md,
+    paddingTop: Spacing.md,
   },
   backButton: {
     padding: Spacing.xs,
@@ -432,6 +510,7 @@ const styles = StyleSheet.create({
   title: {
     ...Typography.h2,
     color: Colors.dark.text,
+    letterSpacing: 2,
   },
   loadingContainer: {
     flex: 1,
@@ -440,19 +519,27 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
   },
   section: {
     marginBottom: Spacing.xl,
   },
-  sectionHeader: {
+  sectionHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: Spacing.md,
   },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
   sectionTitle: {
     ...Typography.h4,
     color: Colors.dark.text,
+    letterSpacing: 1.5,
   },
   sectionSubtitle: {
     ...Typography.small,
@@ -460,26 +547,33 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   addButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.dark.xpCyan,
+    borderRadius: BorderRadius.full,
+    overflow: "hidden",
+  },
+  addButtonGradient: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
   },
   inviteForm: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
   },
   input: {
-    backgroundColor: Colors.dark.backgroundTertiary,
+    backgroundColor: "rgba(30, 30, 35, 0.9)",
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     ...Typography.body,
     color: Colors.dark.text,
     marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.xpCyan}30`,
   },
   messageInput: {
     minHeight: 60,
@@ -493,8 +587,10 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.backgroundTertiary,
+    backgroundColor: "rgba(30, 30, 35, 0.9)",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
   },
   cancelFormButtonText: {
     ...Typography.body,
@@ -502,17 +598,19 @@ const styles = StyleSheet.create({
   },
   sendButton: {
     flex: 1,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  sendButtonGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
     paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.xpCyan,
   },
   sendButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.text,
     fontWeight: "600",
   },
   buttonDisabled: {
@@ -522,21 +620,22 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   listTitle: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
     marginBottom: Spacing.sm,
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 1,
   },
   invitationCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
   },
   receivedCard: {
-    borderWidth: 1,
-    borderColor: "rgba(0, 200, 200, 0.3)",
+    borderColor: `${Colors.dark.xpCyan}40`,
   },
   cardHeader: {
     flexDirection: "row",
@@ -560,6 +659,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
   },
+  academyIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: `${Colors.dark.xpCyan}20`,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   academyName: {
     ...Typography.body,
     color: Colors.dark.text,
@@ -567,12 +674,13 @@ const styles = StyleSheet.create({
   },
   academyCity: {
     ...Typography.caption,
-    color: Colors.dark.textMuted,
+    color: Colors.dark.xpCyan,
   },
   statusBadge: {
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
+    borderWidth: 1,
   },
   statusText: {
     ...Typography.caption,
@@ -595,13 +703,15 @@ const styles = StyleSheet.create({
   },
   messageBox: {
     marginTop: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundTertiary,
+    backgroundColor: "rgba(30, 30, 35, 0.8)",
     borderRadius: BorderRadius.md,
     padding: Spacing.sm,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}15`,
   },
   messageLabel: {
     ...Typography.caption,
-    color: Colors.dark.textMuted,
+    color: Colors.dark.xpCyan,
     marginBottom: 2,
   },
   messageText: {
@@ -617,7 +727,9 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
-    backgroundColor: "rgba(255, 59, 48, 0.1)",
+    backgroundColor: `${Colors.dark.error}15`,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.error}40`,
   },
   deleteButtonText: {
     ...Typography.small,
@@ -636,7 +748,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.md,
-    backgroundColor: "rgba(255, 59, 48, 0.1)",
+    backgroundColor: `${Colors.dark.error}15`,
     borderWidth: 1,
     borderColor: Colors.dark.error,
   },
@@ -647,25 +759,29 @@ const styles = StyleSheet.create({
   },
   acceptButton: {
     flex: 1,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  acceptButtonGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
     paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.primary,
   },
   acceptButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.text,
     fontWeight: "600",
   },
   emptyBox: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     borderRadius: BorderRadius.lg,
     padding: Spacing.xl,
     alignItems: "center",
     gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
   },
   emptyText: {
     ...Typography.body,
@@ -677,6 +793,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingTop: 100,
     gap: Spacing.md,
+  },
+  emptyIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: `${Colors.dark.xpCyan}15`,
+    justifyContent: "center",
+    alignItems: "center",
   },
   emptyTitle: {
     ...Typography.h3,

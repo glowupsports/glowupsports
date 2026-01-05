@@ -16,12 +16,19 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import CountryCodePicker, { getDefaultCountry, CountryCode } from "@/components/CountryCodePicker";
 import { TshirtSizePicker } from "@/components/TshirtSizePicker";
 import { TshirtSize } from "@shared/schema";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface InviteInfo {
   valid: boolean;
@@ -35,6 +42,66 @@ interface CoachInviteRegistrationScreenProps {
   token: string;
   onSuccess: () => void;
   onCancel: () => void;
+}
+
+function GamingButton({ 
+  onPress, 
+  title, 
+  icon,
+  isLoading = false,
+  disabled = false,
+  colors = [Colors.dark.primary, "#1FA030"],
+}: { 
+  onPress: () => void; 
+  title: string; 
+  icon?: string;
+  isLoading?: boolean;
+  disabled?: boolean;
+  colors?: string[];
+}) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    if (!disabled) {
+      scale.value = withSpring(0.97, { damping: 15, stiffness: 400 });
+    }
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+  };
+
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      disabled={disabled || isLoading}
+      style={[styles.gamingButton, animatedStyle, disabled && styles.gamingButtonDisabled]}
+    >
+      <LinearGradient
+        colors={colors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gamingButtonGradient}
+      >
+        {isLoading ? (
+          <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+        ) : (
+          <>
+            {icon ? (
+              <Ionicons name={icon as any} size={20} color={Colors.dark.backgroundRoot} />
+            ) : null}
+            <Text style={styles.gamingButtonText}>{title}</Text>
+          </>
+        )}
+      </LinearGradient>
+    </AnimatedPressable>
+  );
 }
 
 export default function CoachInviteRegistrationScreen({
@@ -103,7 +170,6 @@ export default function CoachInviteRegistrationScreen({
   });
 
   const handleRegister = () => {
-    // Normalize username to lowercase
     const normalizedUsername = username.trim().toLowerCase();
     
     if (!normalizedUsername) {
@@ -139,7 +205,6 @@ export default function CoachInviteRegistrationScreen({
       return;
     }
 
-    // Combine country code with phone number (E.164 format, no spaces)
     const fullPhone = `${countryCode.dial}${phone.trim().replace(/\s/g, '')}`;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -157,26 +222,53 @@ export default function CoachInviteRegistrationScreen({
 
   if (inviteLoading) {
     return (
-      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
-        <Text style={styles.loadingText}>Verifying invite...</Text>
+      <View style={styles.container}>
+        <LinearGradient
+          colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerTopLine}
+        />
+        <View style={[styles.centered, { paddingTop: insets.top }]}>
+          <ActivityIndicator size="large" color={Colors.dark.primary} />
+          <Text style={styles.loadingText}>Verifying invite...</Text>
+        </View>
       </View>
     );
   }
 
   if (inviteError || !inviteData?.valid) {
     return (
-      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <View style={styles.errorIcon}>
-          <Ionicons name="close-circle" size={64} color={Colors.dark.error} />
+      <View style={styles.container}>
+        <LinearGradient
+          colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerTopLine}
+        />
+        <View style={[styles.centered, { paddingTop: insets.top }]}>
+          <View style={styles.errorIconContainer}>
+            <Ionicons name="close-circle" size={64} color={Colors.dark.error} />
+          </View>
+          <Text style={styles.errorTitle}>INVALID INVITE</Text>
+          <Text style={styles.errorText}>
+            {(inviteError as Error)?.message || "This invite link is invalid or has expired."}
+          </Text>
+          <GamingButton
+            onPress={onCancel}
+            title="GO BACK"
+            icon="arrow-back"
+            colors={[Colors.dark.backgroundSecondary, Colors.dark.backgroundTertiary]}
+          />
         </View>
-        <Text style={styles.errorTitle}>Invalid Invite</Text>
-        <Text style={styles.errorText}>
-          {(inviteError as Error)?.message || "This invite link is invalid or has expired."}
-        </Text>
-        <Pressable style={styles.backButton} onPress={onCancel}>
-          <Text style={styles.backButtonText}>Go Back</Text>
-        </Pressable>
       </View>
     );
   }
@@ -190,6 +282,17 @@ export default function CoachInviteRegistrationScreen({
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
+      <LinearGradient
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        style={StyleSheet.absoluteFillObject}
+      />
+      <LinearGradient
+        colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerTopLine}
+      />
+      
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[
@@ -199,32 +302,32 @@ export default function CoachInviteRegistrationScreen({
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.header}>
+        <View style={styles.glassCard}>
           <LinearGradient
-            colors={[`${Colors.dark.primary}30`, "transparent"]}
-            style={styles.headerGradient}
+            colors={[`${Colors.dark.primary}20`, "transparent"]}
+            style={styles.cardGradientOverlay}
           />
-          <View style={[styles.academyIcon, { backgroundColor: `${Colors.dark.primary}20` }]}>
+          <View style={styles.academyIcon}>
             <Ionicons name="tennisball" size={32} color={Colors.dark.primary} />
           </View>
           <Text style={styles.welcomeText}>You're invited to join</Text>
           <Text style={styles.academyName}>{inviteData.academyName}</Text>
           <Text style={styles.roleText}>as a {inviteData.role}</Text>
           <View style={styles.expiryBadge}>
-            <Ionicons name="time-outline" size={14} color={Colors.dark.textMuted} />
+            <Ionicons name="time-outline" size={14} color={Colors.dark.xpCyan} />
             <Text style={styles.expiryText}>
-              Invite expires in {daysLeft} day{daysLeft !== 1 ? "s" : ""}
+              Expires in {daysLeft} day{daysLeft !== 1 ? "s" : ""}
             </Text>
           </View>
         </View>
 
         <View style={styles.form}>
-          <Text style={styles.formTitle}>Create Your Account</Text>
+          <Text style={styles.formTitle}>CREATE YOUR ACCOUNT</Text>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Username *</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="at-outline" size={18} color={Colors.dark.textMuted} />
+            <Text style={styles.inputLabel}>USERNAME *</Text>
+            <View style={styles.glassInput}>
+              <Ionicons name="at-outline" size={18} color={Colors.dark.xpCyan} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 value={username}
@@ -239,9 +342,9 @@ export default function CoachInviteRegistrationScreen({
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Full Name *</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="person-outline" size={18} color={Colors.dark.textMuted} />
+            <Text style={styles.inputLabel}>FULL NAME *</Text>
+            <View style={styles.glassInput}>
+              <Ionicons name="person-outline" size={18} color={Colors.dark.xpCyan} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 value={name}
@@ -254,9 +357,9 @@ export default function CoachInviteRegistrationScreen({
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Email *</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="mail-outline" size={18} color={Colors.dark.textMuted} />
+            <Text style={styles.inputLabel}>EMAIL *</Text>
+            <View style={[styles.glassInput, inviteData.invitedEmail && styles.inputDisabledWrapper]}>
+              <Ionicons name="mail-outline" size={18} color={Colors.dark.xpCyan} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, inviteData.invitedEmail && styles.inputDisabled]}
                 value={email}
@@ -276,11 +379,11 @@ export default function CoachInviteRegistrationScreen({
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Password *</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="lock-closed-outline" size={18} color={Colors.dark.textMuted} />
+            <Text style={styles.inputLabel}>PASSWORD *</Text>
+            <View style={styles.glassInput}>
+              <Ionicons name="lock-closed-outline" size={18} color={Colors.dark.xpCyan} style={styles.inputIcon} />
               <TextInput
-                style={styles.input}
+                style={[styles.input, styles.passwordInput]}
                 value={password}
                 onChangeText={setPassword}
                 placeholder="At least 8 characters"
@@ -298,9 +401,9 @@ export default function CoachInviteRegistrationScreen({
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Confirm Password *</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="lock-closed-outline" size={18} color={Colors.dark.textMuted} />
+            <Text style={styles.inputLabel}>CONFIRM PASSWORD *</Text>
+            <View style={styles.glassInput}>
+              <Ionicons name="lock-closed-outline" size={18} color={Colors.dark.xpCyan} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 value={confirmPassword}
@@ -313,13 +416,13 @@ export default function CoachInviteRegistrationScreen({
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Phone (for WhatsApp) *</Text>
+            <Text style={styles.inputLabel}>PHONE (FOR WHATSAPP) *</Text>
             <View style={styles.phoneRow}>
               <CountryCodePicker
                 selectedCountry={countryCode}
                 onSelect={setCountryCode}
               />
-              <View style={[styles.inputWrapper, styles.phoneInputWrapper]}>
+              <View style={[styles.glassInput, styles.phoneInputWrapper]}>
                 <TextInput
                   style={styles.input}
                   value={phone}
@@ -333,9 +436,9 @@ export default function CoachInviteRegistrationScreen({
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Specialty (optional)</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="tennisball-outline" size={18} color={Colors.dark.textMuted} />
+            <Text style={styles.inputLabel}>SPECIALTY (OPTIONAL)</Text>
+            <View style={styles.glassInput}>
+              <Ionicons name="tennisball-outline" size={18} color={Colors.dark.primary} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 value={specialty}
@@ -347,27 +450,20 @@ export default function CoachInviteRegistrationScreen({
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>T-Shirt Size (optional)</Text>
+            <Text style={styles.inputLabel}>T-SHIRT SIZE (OPTIONAL)</Text>
             <TshirtSizePicker value={tshirtSize} onChange={setTshirtSize} />
             <Text style={styles.inputHint}>For academy merchandise and giveaways</Text>
           </View>
         </View>
 
         <View style={styles.actions}>
-          <Pressable
-            style={[styles.registerButton, registerMutation.isPending && styles.buttonDisabled]}
+          <GamingButton
             onPress={handleRegister}
+            title="JOIN ACADEMY"
+            icon="checkmark-circle"
+            isLoading={registerMutation.isPending}
             disabled={registerMutation.isPending}
-          >
-            {registerMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle" size={20} color={Colors.dark.backgroundRoot} />
-                <Text style={styles.registerButtonText}>Join Academy</Text>
-              </>
-            )}
-          </Pressable>
+          />
 
           <Pressable style={styles.cancelButton} onPress={onCancel}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -383,7 +479,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
   },
+  headerTopLine: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    zIndex: 10,
+  },
   centered: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: Spacing.xl,
@@ -393,13 +498,14 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     marginTop: Spacing.lg,
   },
-  errorIcon: {
+  errorIconContainer: {
     marginBottom: Spacing.lg,
   },
   errorTitle: {
     ...Typography.h2,
     color: Colors.dark.text,
     marginBottom: Spacing.sm,
+    letterSpacing: 1,
   },
   errorText: {
     ...Typography.body,
@@ -407,32 +513,23 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: Spacing.xl,
   },
-  backButton: {
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xl,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
-  },
-  backButtonText: {
-    ...Typography.body,
-    color: Colors.dark.text,
-    fontWeight: "600",
-  },
   scrollView: {
     flex: 1,
   },
   content: {
     paddingHorizontal: Spacing.lg,
   },
-  header: {
+  glassCard: {
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
     alignItems: "center",
     marginBottom: Spacing.xl,
-    paddingVertical: Spacing.xl,
-    borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
     overflow: "hidden",
   },
-  headerGradient: {
+  cardGradientOverlay: {
     position: "absolute",
     top: 0,
     left: 0,
@@ -443,9 +540,12 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
+    backgroundColor: `${Colors.dark.primary}15`,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}30`,
   },
   welcomeText: {
     ...Typography.body,
@@ -469,12 +569,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: `${Colors.dark.xpCyan}15`,
     gap: Spacing.xs,
   },
   expiryText: {
     ...Typography.small,
-    color: Colors.dark.textMuted,
+    color: Colors.dark.xpCyan,
   },
   form: {
     marginBottom: Spacing.xl,
@@ -483,6 +583,7 @@ const styles = StyleSheet.create({
     ...Typography.h3,
     color: Colors.dark.text,
     marginBottom: Spacing.lg,
+    letterSpacing: 1,
   },
   inputGroup: {
     marginBottom: Spacing.md,
@@ -492,19 +593,24 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     fontWeight: "600",
     marginBottom: Spacing.xs,
+    letterSpacing: 0.5,
   },
   hintText: {
     ...Typography.small,
     color: Colors.dark.textMuted,
     marginTop: Spacing.xs,
   },
-  inputWrapper: {
+  glassInput: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
-    gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}30`,
+  },
+  inputIcon: {
+    marginRight: Spacing.sm,
   },
   phoneRow: {
     flexDirection: "row",
@@ -519,6 +625,12 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     fontSize: Typography.body.fontSize,
   },
+  passwordInput: {
+    paddingRight: Spacing.md,
+  },
+  inputDisabledWrapper: {
+    opacity: 0.7,
+  },
   inputDisabled: {
     color: Colors.dark.textMuted,
   },
@@ -531,31 +643,36 @@ const styles = StyleSheet.create({
   actions: {
     gap: Spacing.md,
   },
-  registerButton: {
+  gamingButton: {
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  gamingButtonDisabled: {
+    opacity: 0.6,
+  },
+  gamingButtonGradient: {
     flexDirection: "row",
     paddingVertical: Spacing.md,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.primary,
     gap: Spacing.sm,
   },
-  registerButtonText: {
+  gamingButtonText: {
     ...Typography.body,
     color: Colors.dark.backgroundRoot,
     fontWeight: "600",
+    letterSpacing: 0.5,
   },
   cancelButton: {
     paddingVertical: Spacing.md,
     alignItems: "center",
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
   },
   cancelButtonText: {
     ...Typography.body,
     color: Colors.dark.textMuted,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
   },
 });

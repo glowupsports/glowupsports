@@ -14,6 +14,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
@@ -61,6 +66,27 @@ interface BillingAccount {
 interface Player {
   id: string;
   name: string;
+}
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+function AnimatedButton({ onPress, style, children, disabled }: any) {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={() => { scale.value = withSpring(0.95, { damping: 15, stiffness: 400 }); }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 15, stiffness: 400 }); }}
+      style={[animatedStyle, style]}
+      disabled={disabled}
+    >
+      {children}
+    </AnimatedPressable>
+  );
 }
 
 export default function BillingScreen() {
@@ -169,31 +195,45 @@ export default function BillingScreen() {
   const renderOverviewTab = () => (
     <View style={styles.tabContent}>
       <View style={styles.statsRow}>
-        <View style={[styles.statCard, styles.revenueCard]}>
-          <Ionicons name="cash-outline" size={24} color={Colors.dark.primary} />
+        <LinearGradient
+          colors={[`${Colors.dark.primary}20`, "rgba(18, 18, 22, 0.95)"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.statCard}
+        >
+          <View style={styles.statIconContainer}>
+            <Ionicons name="cash-outline" size={24} color={Colors.dark.primary} />
+          </View>
           <Text style={styles.statValue}>{currency} {totalRevenue.toLocaleString()}</Text>
           <Text style={styles.statLabel}>Total Revenue</Text>
-        </View>
-        <View style={[styles.statCard, styles.pendingCard]}>
-          <Ionicons name="time-outline" size={24} color={Colors.dark.orange} />
-          <Text style={styles.statValue}>{currency} {pendingAmount.toLocaleString()}</Text>
+        </LinearGradient>
+        <LinearGradient
+          colors={[`${Colors.dark.orange}20`, "rgba(18, 18, 22, 0.95)"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.statCard}
+        >
+          <View style={[styles.statIconContainer, { backgroundColor: `${Colors.dark.orange}20` }]}>
+            <Ionicons name="time-outline" size={24} color={Colors.dark.orange} />
+          </View>
+          <Text style={[styles.statValue, { color: Colors.dark.orange }]}>{currency} {pendingAmount.toLocaleString()}</Text>
           <Text style={styles.statLabel}>Pending</Text>
-        </View>
+        </LinearGradient>
       </View>
 
-      <View style={styles.section}>
+      <View style={styles.glassSection}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent Invoices</Text>
+          <Text style={styles.sectionTitle}>RECENT INVOICES</Text>
           <Pressable onPress={() => setActiveTab("invoices")}>
             <Text style={styles.seeAllLink}>See All</Text>
           </Pressable>
         </View>
         
         {invoicesLoading ? (
-          <ActivityIndicator color={Colors.dark.primary} />
+          <ActivityIndicator color={Colors.dark.xpCyan} />
         ) : invoices.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Ionicons name="document-outline" size={40} color={Colors.dark.disabled} />
+            <Ionicons name="document-outline" size={40} color={Colors.dark.xpCyan} />
             <Text style={styles.emptyText}>No invoices yet</Text>
             <Text style={styles.emptySubtext}>Create your first invoice to get started</Text>
           </View>
@@ -221,19 +261,19 @@ export default function BillingScreen() {
         )}
       </View>
 
-      <View style={styles.section}>
+      <View style={styles.glassSection}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent Payments</Text>
+          <Text style={styles.sectionTitle}>RECENT PAYMENTS</Text>
           <Pressable onPress={() => setActiveTab("payments")}>
             <Text style={styles.seeAllLink}>See All</Text>
           </Pressable>
         </View>
         
         {paymentsLoading ? (
-          <ActivityIndicator color={Colors.dark.primary} />
+          <ActivityIndicator color={Colors.dark.xpCyan} />
         ) : payments.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Ionicons name="wallet-outline" size={40} color={Colors.dark.disabled} />
+            <Ionicons name="wallet-outline" size={40} color={Colors.dark.xpCyan} />
             <Text style={styles.emptyText}>No payments yet</Text>
           </View>
         ) : (
@@ -266,18 +306,25 @@ export default function BillingScreen() {
 
   const renderInvoicesTab = () => (
     <View style={styles.tabContent}>
-      <Pressable style={styles.createButton} onPress={() => setShowCreateModal(true)}>
-        <LinearGradient colors={[Colors.dark.primary, "#1EA030"]} style={styles.createButtonGradient}>
+      <AnimatedButton style={styles.createButton} onPress={() => setShowCreateModal(true)}>
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.createButtonGradient}
+        >
           <Ionicons name="add" size={20} color="#fff" />
           <Text style={styles.createButtonText}>Create Invoice</Text>
         </LinearGradient>
-      </Pressable>
+      </AnimatedButton>
 
       {invoicesLoading ? (
-        <ActivityIndicator color={Colors.dark.primary} style={{ marginTop: Spacing.xl }} />
+        <ActivityIndicator color={Colors.dark.xpCyan} style={{ marginTop: Spacing.xl }} />
       ) : invoices.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="document-text-outline" size={60} color={Colors.dark.disabled} />
+          <View style={styles.emptyIconContainer}>
+            <Ionicons name="document-text-outline" size={60} color={Colors.dark.xpCyan} />
+          </View>
           <Text style={styles.emptyStateTitle}>No invoices yet</Text>
           <Text style={styles.emptyStateText}>Create invoices to track payments from players</Text>
         </View>
@@ -321,10 +368,12 @@ export default function BillingScreen() {
   const renderPaymentsTab = () => (
     <View style={styles.tabContent}>
       {paymentsLoading ? (
-        <ActivityIndicator color={Colors.dark.primary} style={{ marginTop: Spacing.xl }} />
+        <ActivityIndicator color={Colors.dark.xpCyan} style={{ marginTop: Spacing.xl }} />
       ) : payments.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="wallet-outline" size={60} color={Colors.dark.disabled} />
+          <View style={styles.emptyIconContainer}>
+            <Ionicons name="wallet-outline" size={60} color={Colors.dark.xpCyan} />
+          </View>
           <Text style={styles.emptyStateTitle}>No payments yet</Text>
           <Text style={styles.emptyStateText}>Payments will appear here once recorded</Text>
         </View>
@@ -360,13 +409,24 @@ export default function BillingScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Billing</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <LinearGradient
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        style={styles.gamingHeader}
+      >
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerTopLine}
+        />
+        <View style={styles.header}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <Text style={styles.headerTitle}>BILLING</Text>
+          <View style={{ width: 40 }} />
+        </View>
+      </LinearGradient>
 
       <View style={styles.tabs}>
         {[
@@ -382,7 +442,7 @@ export default function BillingScreen() {
             <Ionicons
               name={tab.icon as any}
               size={18}
-              color={activeTab === tab.key ? Colors.dark.primary : Colors.dark.disabled}
+              color={activeTab === tab.key ? Colors.dark.xpCyan : Colors.dark.disabled}
             />
             <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
               {tab.label}
@@ -401,8 +461,14 @@ export default function BillingScreen() {
       <Modal visible={showCreateModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <LinearGradient
+              colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.modalTopLine}
+            />
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Create Invoice</Text>
+              <Text style={styles.modalTitle}>CREATE INVOICE</Text>
               <Pressable onPress={() => setShowCreateModal(false)}>
                 <Ionicons name="close" size={24} color={Colors.dark.text} />
               </Pressable>
@@ -410,7 +476,7 @@ export default function BillingScreen() {
 
             <KeyboardAwareScrollViewCompat style={styles.modalBody}>
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Amount</Text>
+                <Text style={styles.label}>AMOUNT</Text>
                 <TextInput
                   style={styles.input}
                   value={newInvoiceAmount}
@@ -422,7 +488,7 @@ export default function BillingScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Notes (Optional)</Text>
+                <Text style={styles.label}>NOTES (OPTIONAL)</Text>
                 <TextInput
                   style={[styles.input, styles.multilineInput]}
                   value={newInvoiceNotes}
@@ -435,7 +501,7 @@ export default function BillingScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Player (Optional)</Text>
+                <Text style={styles.label}>PLAYER (OPTIONAL)</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.playerScroll}>
                   <Pressable
                     style={[styles.playerChip, !selectedPlayerId && styles.playerChipActive]}
@@ -460,19 +526,24 @@ export default function BillingScreen() {
               </View>
             </KeyboardAwareScrollViewCompat>
 
-            <Pressable
+            <AnimatedButton
               style={[styles.modalButton, createInvoiceMutation.isPending && styles.buttonDisabled]}
               onPress={handleCreateInvoice}
               disabled={createInvoiceMutation.isPending}
             >
-              <LinearGradient colors={[Colors.dark.primary, "#1EA030"]} style={styles.modalButtonGradient}>
+              <LinearGradient
+                colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.modalButtonGradient}
+              >
                 {createInvoiceMutation.isPending ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={styles.modalButtonText}>Create Invoice</Text>
                 )}
               </LinearGradient>
-            </Pressable>
+            </AnimatedButton>
           </View>
         </View>
       </Modal>
@@ -485,12 +556,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
   },
+  gamingHeader: {
+    paddingBottom: Spacing.md,
+  },
+  headerTopLine: {
+    height: 3,
+    width: "100%",
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingTop: Spacing.md,
   },
   backButton: {
     padding: Spacing.xs,
@@ -498,6 +576,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     ...Typography.h2,
     color: Colors.dark.text,
+    letterSpacing: 2,
   },
   tabs: {
     flexDirection: "row",
@@ -512,20 +591,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.xs,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
   },
   tabActive: {
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
-    borderWidth: 1,
-    borderColor: Colors.dark.primary,
+    backgroundColor: `${Colors.dark.xpCyan}15`,
+    borderColor: Colors.dark.xpCyan,
   },
   tabText: {
     ...Typography.small,
     color: Colors.dark.textMuted,
   },
   tabTextActive: {
-    color: Colors.dark.primary,
+    color: Colors.dark.xpCyan,
     fontWeight: "600",
   },
   content: {
@@ -544,29 +624,34 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     borderRadius: BorderRadius.md,
     alignItems: "center",
-  },
-  revenueCard: {
-    backgroundColor: "rgba(46, 204, 64, 0.1)",
     borderWidth: 1,
-    borderColor: "rgba(46, 204, 64, 0.3)",
+    borderColor: `${Colors.dark.primary}20`,
   },
-  pendingCard: {
-    backgroundColor: "rgba(255, 133, 27, 0.1)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 133, 27, 0.3)",
+  statIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: `${Colors.dark.primary}20`,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
   },
   statValue: {
     ...Typography.h2,
-    color: Colors.dark.text,
-    marginTop: Spacing.sm,
+    color: Colors.dark.primary,
   },
   statLabel: {
     ...Typography.small,
     color: Colors.dark.textMuted,
     marginTop: Spacing.xs,
   },
-  section: {
-    marginBottom: Spacing.xl,
+  glassSection: {
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -575,21 +660,24 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   sectionTitle: {
-    ...Typography.h3,
+    ...Typography.h4,
     color: Colors.dark.text,
+    letterSpacing: 1.5,
   },
   seeAllLink: {
     ...Typography.small,
-    color: Colors.dark.primary,
+    color: Colors.dark.xpCyan,
   },
   invoiceCard: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(30, 30, 35, 0.8)",
     borderRadius: BorderRadius.sm,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}15`,
   },
   invoiceInfo: {},
   invoiceNumber: {
@@ -606,7 +694,7 @@ const styles = StyleSheet.create({
   },
   amountText: {
     ...Typography.body,
-    color: Colors.dark.text,
+    color: Colors.dark.xpCyan,
     fontWeight: "600",
   },
   statusBadge: {
@@ -616,15 +704,20 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   pendingBadge: {
-    backgroundColor: "rgba(255, 133, 27, 0.2)",
+    backgroundColor: `${Colors.dark.orange}25`,
+    borderWidth: 1,
+    borderColor: Colors.dark.orange,
   },
   paidBadge: {
-    backgroundColor: "rgba(46, 204, 64, 0.2)",
+    backgroundColor: `${Colors.dark.primary}25`,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary,
   },
   statusText: {
     ...Typography.caption,
     color: Colors.dark.orange,
     textTransform: "capitalize",
+    fontWeight: "600",
   },
   paidText: {
     color: Colors.dark.primary,
@@ -632,16 +725,18 @@ const styles = StyleSheet.create({
   paymentCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(30, 30, 35, 0.8)",
     borderRadius: BorderRadius.sm,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}15`,
   },
   paymentIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
+    backgroundColor: `${Colors.dark.primary}20`,
     justifyContent: "center",
     alignItems: "center",
     marginRight: Spacing.md,
@@ -652,6 +747,7 @@ const styles = StyleSheet.create({
   paymentMethod: {
     ...Typography.body,
     color: Colors.dark.text,
+    fontWeight: "500",
   },
   paymentDate: {
     ...Typography.caption,
@@ -665,20 +761,19 @@ const styles = StyleSheet.create({
   emptyCard: {
     alignItems: "center",
     paddingVertical: Spacing.xl,
+    gap: Spacing.sm,
   },
   emptyText: {
     ...Typography.body,
-    color: Colors.dark.textMuted,
-    marginTop: Spacing.sm,
+    color: Colors.dark.text,
   },
   emptySubtext: {
     ...Typography.small,
     color: Colors.dark.textMuted,
-    marginTop: Spacing.xs,
   },
   createButton: {
     marginBottom: Spacing.lg,
-    borderRadius: BorderRadius.sm,
+    borderRadius: BorderRadius.md,
     overflow: "hidden",
   },
   createButtonGradient: {
@@ -686,18 +781,42 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    padding: Spacing.md,
+    paddingVertical: Spacing.md,
   },
   createButtonText: {
     ...Typography.body,
-    color: "#fff",
+    color: Colors.dark.text,
     fontWeight: "600",
   },
+  emptyState: {
+    alignItems: "center",
+    paddingTop: Spacing["3xl"],
+    gap: Spacing.md,
+  },
+  emptyIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: `${Colors.dark.xpCyan}15`,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyStateTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  emptyStateText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
   invoiceListCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.sm,
-    padding: Spacing.md,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
     marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
   },
   invoiceListHeader: {
     flexDirection: "row",
@@ -709,10 +828,12 @@ const styles = StyleSheet.create({
     ...Typography.h4,
     color: Colors.dark.text,
   },
-  invoiceListDetails: {},
+  invoiceListDetails: {
+    gap: 2,
+  },
   invoiceListAmount: {
     ...Typography.h3,
-    color: Colors.dark.primary,
+    color: Colors.dark.xpCyan,
     marginBottom: Spacing.xs,
   },
   invoiceListDate: {
@@ -725,52 +846,42 @@ const styles = StyleSheet.create({
   },
   invoiceNotes: {
     ...Typography.small,
-    color: Colors.dark.textMuted,
+    color: Colors.dark.textSecondary,
     marginTop: Spacing.sm,
     fontStyle: "italic",
   },
   markPaidButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
+    justifyContent: "center",
+    gap: Spacing.sm,
     marginTop: Spacing.md,
-    paddingTop: Spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: Colors.dark.backgroundTertiary,
+    paddingVertical: Spacing.sm,
+    backgroundColor: `${Colors.dark.primary}15`,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}40`,
   },
   markPaidText: {
     ...Typography.small,
     color: Colors.dark.primary,
     fontWeight: "600",
   },
-  emptyState: {
-    alignItems: "center",
-    paddingVertical: Spacing["3xl"],
-  },
-  emptyStateTitle: {
-    ...Typography.h3,
-    color: Colors.dark.text,
-    marginTop: Spacing.md,
-  },
-  emptyStateText: {
-    ...Typography.body,
-    color: Colors.dark.textMuted,
-    marginTop: Spacing.xs,
-    textAlign: "center",
-  },
   paymentListCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.sm,
-    padding: Spacing.md,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
     marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
   },
   paymentListIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: `${Colors.dark.primary}20`,
     justifyContent: "center",
     alignItems: "center",
     marginRight: Spacing.md,
@@ -779,7 +890,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   paymentListAmount: {
-    ...Typography.h4,
+    ...Typography.h3,
     color: Colors.dark.primary,
   },
   paymentListMethod: {
@@ -792,86 +903,98 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    backgroundColor: "rgba(0,0,0,0.7)",
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: Colors.dark.backgroundDefault,
-    borderTopLeftRadius: BorderRadius.lg,
-    borderTopRightRadius: BorderRadius.lg,
-    padding: Spacing.lg,
+    backgroundColor: "rgba(18, 18, 22, 0.98)",
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+  },
+  modalTopLine: {
+    height: 3,
+    width: "100%",
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: `${Colors.dark.primary}30`,
   },
   modalTitle: {
-    ...Typography.h2,
+    ...Typography.h3,
     color: Colors.dark.text,
+    letterSpacing: 1.5,
   },
   modalBody: {
-    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
   },
   inputGroup: {
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.lg,
   },
   label: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
-    marginBottom: Spacing.xs,
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+    marginBottom: Spacing.sm,
+    letterSpacing: 1,
   },
   input: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.sm,
+    backgroundColor: "rgba(30, 30, 35, 0.9)",
+    borderRadius: BorderRadius.md,
     padding: Spacing.md,
-    color: Colors.dark.text,
     ...Typography.body,
+    color: Colors.dark.text,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}30`,
   },
   multilineInput: {
     minHeight: 80,
     textAlignVertical: "top",
   },
   playerScroll: {
-    marginTop: Spacing.xs,
+    flexDirection: "row",
   },
   playerChip: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.sm,
-    marginRight: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: "rgba(30, 30, 35, 0.9)",
     borderWidth: 1,
-    borderColor: "transparent",
+    borderColor: `${Colors.dark.xpCyan}30`,
+    marginRight: Spacing.sm,
   },
   playerChipActive: {
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
-    borderColor: Colors.dark.primary,
+    backgroundColor: `${Colors.dark.xpCyan}25`,
+    borderColor: Colors.dark.xpCyan,
   },
   playerChipText: {
     ...Typography.small,
     color: Colors.dark.textMuted,
   },
   playerChipTextActive: {
-    color: Colors.dark.primary,
+    color: Colors.dark.xpCyan,
     fontWeight: "600",
   },
   modalButton: {
-    borderRadius: BorderRadius.sm,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+    borderRadius: BorderRadius.md,
     overflow: "hidden",
+  },
+  modalButtonGradient: {
+    paddingVertical: Spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalButtonText: {
+    ...Typography.h4,
+    color: Colors.dark.text,
   },
   buttonDisabled: {
     opacity: 0.6,
-  },
-  modalButtonGradient: {
-    alignItems: "center",
-    justifyContent: "center",
-    padding: Spacing.md,
-  },
-  modalButtonText: {
-    ...Typography.body,
-    color: "#fff",
-    fontWeight: "600",
   },
 });

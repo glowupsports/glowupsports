@@ -13,6 +13,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { apiRequest } from "@/lib/query-client";
@@ -36,6 +43,60 @@ const FALLBACK_OPTIONS = [
   { value: "suggest", label: "Suggest alternatives", icon: "message-circle" },
   { value: "block", label: "Block booking", icon: "slash" },
 ];
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+function GamingHeader({ title, subtitle, onBack }: { title: string; subtitle?: string; onBack: () => void }) {
+  return (
+    <LinearGradient
+      colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+      style={styles.gamingHeader}
+    >
+      <LinearGradient
+        colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerTopLine}
+      />
+      <View style={styles.headerContent}>
+        <Pressable style={styles.backButton} onPress={onBack}>
+          <Feather name="arrow-left" size={24} color={Colors.dark.text} />
+        </Pressable>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.gamingHeaderTitle}>{title}</Text>
+          {subtitle ? <Text style={styles.gamingHeaderSubtitle}>{subtitle}</Text> : null}
+        </View>
+      </View>
+    </LinearGradient>
+  );
+}
+
+function AnimatedButton({ onPress, style, children, disabled }: any) {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+  };
+
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={[animatedStyle, style]}
+      disabled={disabled}
+    >
+      {children}
+    </AnimatedPressable>
+  );
+}
 
 export default function CourtPreferencesScreen() {
   const insets = useSafeAreaInsets();
@@ -62,36 +123,26 @@ export default function CourtPreferencesScreen() {
     enabled: !!coach?.id,
   });
 
-  // Track if initial hydration has completed
   const [isHydrated, setIsHydrated] = useState(false);
 
-  // Hydrate courts and preferences together when BOTH are available
-  // Only hydrate once initially, then on refetch after save (when not editing)
   useEffect(() => {
-    // Don't hydrate while saving or refetching after save
     if (isSaving || isFetchingPrefs) return;
-    // Don't re-hydrate if already hydrated and user has changes
     if (isHydrated && hasChanges) return;
-    // Need courts data to hydrate
     if (!courtsData || !Array.isArray(courtsData) || courtsData.length === 0) return;
-    // Wait for preferences query to complete (even if null) before hydrating
-    // This prevents hydrating with defaults before server preferences arrive
     if (coach?.id && preferencesData === undefined) return;
     
     const apiCourts = courtsData as any[];
     const prefs = preferencesData as any;
     
-    // Build courts with proper selection state from preferences
     const hydratedCourts = apiCourts.map((court: any, index: number) => {
       const baseCourt = {
         id: court.id,
         name: court.name,
         type: (court.type === "indoor" ? "indoor" : "outdoor") as "indoor" | "outdoor",
         priority: index + 1,
-        isSelected: true, // Default to selected for new users
+        isSelected: true,
       };
       
-      // If we have preferences data, apply it
       if (prefs?.courtPreferences && Array.isArray(prefs.courtPreferences)) {
         const pref = prefs.courtPreferences.find((p: any) => p.courtId === court.id);
         if (pref) {
@@ -101,7 +152,6 @@ export default function CourtPreferencesScreen() {
             priority: typeof pref.priority === "number" ? pref.priority : baseCourt.priority,
           };
         } else {
-          // Court exists but not in preferences = deselected
           return { ...baseCourt, isSelected: false };
         }
       }
@@ -109,7 +159,6 @@ export default function CourtPreferencesScreen() {
       return baseCourt;
     });
     
-    // Sort by priority if we have preferences
     if (prefs?.courtPreferences?.length > 0) {
       hydratedCourts.sort((a, b) => a.priority - b.priority);
     }
@@ -117,7 +166,6 @@ export default function CourtPreferencesScreen() {
     setCourts(hydratedCourts);
     setIsHydrated(true);
     
-    // Hydrate rules if available
     if (prefs?.rules) {
       const rules = prefs.rules;
       if (rules.preferredType) setPreferredType(rules.preferredType);
@@ -148,7 +196,6 @@ export default function CourtPreferencesScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/coaches", coach?.id] });
       setHasChanges(false);
-      // Delay resetting isSaving to allow refetch to complete
       setTimeout(() => setIsSaving(false), 500);
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -195,8 +242,6 @@ export default function CourtPreferencesScreen() {
 
   const selectedCount = courts.filter((c) => c.isSelected).length;
 
-  // Show loading state until hydration is complete
-  // This ensures we wait for both courts AND preferences before showing UI
   if (!isHydrated) {
     return (
       <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
@@ -208,15 +253,11 @@ export default function CourtPreferencesScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Feather name="arrow-left" size={24} color={Colors.dark.text} />
-        </Pressable>
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Court Preferences</Text>
-          <Text style={styles.headerSubtitle}>Where do you prefer to coach?</Text>
-        </View>
-      </View>
+      <GamingHeader
+        title="COURT PREFERENCES"
+        subtitle="Where do you prefer to coach?"
+        onBack={() => navigation.goBack()}
+      />
 
       <ScrollView
         style={styles.scrollView}
@@ -231,7 +272,7 @@ export default function CourtPreferencesScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Court Selection</Text>
+          <Text style={styles.sectionTitle}>COURT SELECTION</Text>
           <Text style={styles.sectionHint}>
             Select your preferred courts and drag to set priority
           </Text>
@@ -255,11 +296,10 @@ export default function CourtPreferencesScreen() {
                     {court.name}
                   </Text>
                   <View style={styles.courtTypeBadge}>
-                    <Feather
-                      name={court.type === "indoor" ? "home" : "sun"}
-                      size={12}
-                      color={Colors.dark.tabIconDefault}
-                    />
+                    <View style={[
+                      styles.courtTypeIndicator,
+                      { backgroundColor: court.type === "indoor" ? Colors.dark.xpCyan : Colors.dark.gold }
+                    ]} />
                     <Text style={styles.courtTypeText}>
                       {court.type === "indoor" ? "Indoor" : "Outdoor"}
                     </Text>
@@ -283,7 +323,7 @@ export default function CourtPreferencesScreen() {
                     <Feather
                       name="chevron-up"
                       size={18}
-                      color={index === 0 ? Colors.dark.backgroundTertiary : Colors.dark.text}
+                      color={index === 0 ? Colors.dark.backgroundTertiary : Colors.dark.xpCyan}
                     />
                   </Pressable>
                   <Pressable
@@ -294,7 +334,7 @@ export default function CourtPreferencesScreen() {
                     <Feather
                       name="chevron-down"
                       size={18}
-                      color={index === courts.length - 1 ? Colors.dark.backgroundTertiary : Colors.dark.text}
+                      color={index === courts.length - 1 ? Colors.dark.backgroundTertiary : Colors.dark.xpCyan}
                     />
                   </Pressable>
                 </View>
@@ -304,7 +344,7 @@ export default function CourtPreferencesScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Preferred Conditions</Text>
+          <Text style={styles.sectionTitle}>PREFERRED CONDITIONS</Text>
 
           <View style={styles.preferenceCard}>
             <Text style={styles.preferenceLabel}>Court Type</Text>
@@ -324,7 +364,7 @@ export default function CourtPreferencesScreen() {
                   <Feather
                     name={type.icon as any}
                     size={16}
-                    color={preferredType === type.value ? Colors.dark.backgroundRoot : Colors.dark.text}
+                    color={preferredType === type.value ? Colors.dark.backgroundRoot : Colors.dark.xpCyan}
                   />
                   <Text
                     style={[
@@ -360,11 +400,11 @@ export default function CourtPreferencesScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Load Limits</Text>
+          <Text style={styles.sectionTitle}>LOAD LIMITS</Text>
 
           <View style={styles.limitCard}>
             <View style={styles.limitRow}>
-              <Feather name="layers" size={18} color={Colors.dark.primary} />
+              <Feather name="layers" size={18} color={Colors.dark.xpCyan} />
               <Text style={styles.limitLabel}>Max sessions per court per day</Text>
             </View>
             <View style={styles.counterRow}>
@@ -392,7 +432,7 @@ export default function CourtPreferencesScreen() {
 
           <View style={styles.limitCard}>
             <View style={styles.limitRow}>
-              <Feather name="calendar" size={18} color={Colors.dark.primary} />
+              <Feather name="calendar" size={18} color={Colors.dark.xpCyan} />
               <Text style={styles.limitLabel}>Max total sessions per day</Text>
             </View>
             <View style={styles.counterRow}>
@@ -420,7 +460,7 @@ export default function CourtPreferencesScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Fallback Behavior</Text>
+          <Text style={styles.sectionTitle}>FALLBACK BEHAVIOR</Text>
           <Text style={styles.sectionHint}>What happens if preferred court is unavailable?</Text>
 
           <View style={styles.fallbackRow}>
@@ -439,7 +479,7 @@ export default function CourtPreferencesScreen() {
                 <Feather
                   name={option.icon as any}
                   size={24}
-                  color={fallbackBehavior === option.value ? Colors.dark.primary : Colors.dark.tabIconDefault}
+                  color={fallbackBehavior === option.value ? Colors.dark.primary : Colors.dark.xpCyan}
                 />
                 <Text
                   style={[
@@ -471,12 +511,19 @@ export default function CourtPreferencesScreen() {
           >
             <Text style={styles.resetButtonText}>Reset to Default</Text>
           </Pressable>
-          <Pressable
+          <AnimatedButton
             style={styles.saveButton}
             onPress={() => saveMutation.mutate()}
           >
-            <Text style={styles.saveButtonText}>Save Preferences</Text>
-          </Pressable>
+            <LinearGradient
+              colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.saveButtonGradient}
+            >
+              <Text style={styles.saveButtonText}>Save Preferences</Text>
+            </LinearGradient>
+          </AnimatedButton>
         </View>
       ) : null}
     </View>
@@ -497,13 +544,18 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.tabIconDefault,
   },
-  header: {
+  gamingHeader: {
+    paddingBottom: Spacing.md,
+  },
+  headerTopLine: {
+    height: 3,
+    width: "100%",
+  },
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.backgroundSecondary,
+    paddingTop: Spacing.md,
   },
   backButton: {
     padding: Spacing.sm,
@@ -512,13 +564,15 @@ const styles = StyleSheet.create({
   headerTitleContainer: {
     flex: 1,
   },
-  headerTitle: {
+  gamingHeaderTitle: {
     ...Typography.h2,
     color: Colors.dark.text,
+    letterSpacing: 2,
+    textTransform: "uppercase",
   },
-  headerSubtitle: {
+  gamingHeaderSubtitle: {
     ...Typography.caption,
-    color: Colors.dark.tabIconDefault,
+    color: Colors.dark.xpCyan,
     marginTop: 2,
   },
   scrollView: {
@@ -536,7 +590,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(0, 212, 255, 0.3)",
+    borderColor: `${Colors.dark.xpCyan}30`,
   },
   infoText: {
     ...Typography.small,
@@ -549,6 +603,8 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...Typography.h3,
     color: Colors.dark.text,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
   },
   sectionHint: {
     ...Typography.caption,
@@ -559,9 +615,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
   },
   courtCardLeft: {
     flexDirection: "row",
@@ -573,7 +631,7 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: BorderRadius.xs,
     borderWidth: 2,
-    borderColor: Colors.dark.tabIconDefault,
+    borderColor: Colors.dark.xpCyan,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -596,6 +654,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
+  },
+  courtTypeIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   courtTypeText: {
     ...Typography.caption,
@@ -627,10 +690,12 @@ const styles = StyleSheet.create({
     opacity: 0.3,
   },
   preferenceCard: {
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
   },
   preferenceLabel: {
     ...Typography.body,
@@ -647,16 +712,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.xs,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(0, 212, 255, 0.1)",
     padding: Spacing.md,
     borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.xpCyan}30`,
   },
   optionButtonActive: {
     backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
   },
   optionButtonText: {
     ...Typography.small,
-    color: Colors.dark.text,
+    color: Colors.dark.xpCyan,
   },
   optionButtonTextActive: {
     color: Colors.dark.backgroundRoot,
@@ -666,9 +734,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
   },
   toggleInfo: {
     flexDirection: "row",
@@ -685,19 +755,22 @@ const styles = StyleSheet.create({
     color: Colors.dark.tabIconDefault,
   },
   limitCard: {
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
   },
   limitRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: Spacing.md,
   },
   limitLabel: {
     ...Typography.body,
     color: Colors.dark.text,
+    flex: 1,
   },
   counterRow: {
     flexDirection: "row",
@@ -706,14 +779,17 @@ const styles = StyleSheet.create({
     gap: Spacing.lg,
   },
   counterButton: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.sm,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: `${Colors.dark.xpCyan}20`,
+    alignItems: "center",
+    justifyContent: "center",
   },
   counterValue: {
     ...Typography.h2,
-    color: Colors.dark.primary,
-    minWidth: 50,
+    color: Colors.dark.xpCyan,
+    minWidth: 40,
     textAlign: "center",
   },
   fallbackRow: {
@@ -722,27 +798,26 @@ const styles = StyleSheet.create({
   },
   fallbackCard: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundDefault,
-    padding: Spacing.xl,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     borderRadius: BorderRadius.md,
-    borderWidth: 2,
-    borderColor: "transparent",
+    padding: Spacing.lg,
+    alignItems: "center",
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.xpCyan}30`,
   },
   fallbackCardActive: {
     borderColor: Colors.dark.primary,
-    backgroundColor: "rgba(46, 204, 64, 0.1)",
+    backgroundColor: `${Colors.dark.primary}15`,
   },
   fallbackLabel: {
     ...Typography.small,
-    color: Colors.dark.tabIconDefault,
+    color: Colors.dark.xpCyan,
     textAlign: "center",
   },
   fallbackLabelActive: {
     color: Colors.dark.primary,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   footer: {
     position: "absolute",
@@ -754,30 +829,34 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     backgroundColor: Colors.dark.backgroundRoot,
     borderTopWidth: 1,
-    borderTopColor: Colors.dark.backgroundSecondary,
+    borderTopColor: `${Colors.dark.primary}30`,
   },
   resetButton: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
     alignItems: "center",
+    justifyContent: "center",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.tabIconDefault,
   },
   resetButtonText: {
     ...Typography.body,
-    color: Colors.dark.text,
-    fontWeight: "500",
+    color: Colors.dark.tabIconDefault,
   },
   saveButton: {
-    flex: 2,
-    backgroundColor: Colors.dark.primary,
-    padding: Spacing.lg,
+    flex: 1,
     borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  saveButtonGradient: {
+    paddingVertical: Spacing.md,
     alignItems: "center",
+    justifyContent: "center",
   },
   saveButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.text,
     fontWeight: "600",
   },
 });

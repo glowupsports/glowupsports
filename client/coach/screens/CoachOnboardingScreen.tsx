@@ -16,12 +16,17 @@ import * as Haptics from "expo-haptics";
 import Animated, { 
   FadeIn, 
   FadeInDown,
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
 } from "react-native-reanimated";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface OnboardingData {
   acknowledgements: {
@@ -69,15 +74,73 @@ function ProgressBar({ currentStep, totalSteps }: { currentStep: number; totalSt
   return (
     <View style={styles.progressContainer}>
       {Array.from({ length: totalSteps }).map((_, index) => (
-        <View
-          key={index}
-          style={[
-            styles.progressDot,
-            index <= currentStep ? styles.progressDotActive : null,
-          ]}
-        />
+        <View key={index} style={styles.progressDotWrapper}>
+          <LinearGradient
+            colors={index <= currentStep 
+              ? [Colors.dark.primary, Colors.dark.xpCyan] 
+              : [Colors.dark.backgroundSecondary, Colors.dark.backgroundSecondary]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[styles.progressDot, index <= currentStep && styles.progressDotActive]}
+          />
+          {index <= currentStep && (
+            <View style={styles.progressDotGlow} />
+          )}
+        </View>
       ))}
     </View>
+  );
+}
+
+function GamingButton({ 
+  onPress, 
+  title, 
+  icon,
+  disabled = false,
+  colors = [Colors.dark.primary, "#1FA030"],
+}: { 
+  onPress: () => void; 
+  title: string; 
+  icon?: string;
+  disabled?: boolean;
+  colors?: string[];
+}) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    if (!disabled) {
+      scale.value = withSpring(0.97, { damping: 15, stiffness: 400 });
+    }
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+  };
+
+  return (
+    <AnimatedPressable
+      onPress={disabled ? undefined : onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      disabled={disabled}
+      style={[styles.gamingButton, animatedStyle, disabled && styles.gamingButtonDisabled]}
+    >
+      <LinearGradient
+        colors={colors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gamingButtonGradient}
+      >
+        <Text style={styles.gamingButtonText}>{title}</Text>
+        {icon ? (
+          <Ionicons name={icon as any} size={20} color={Colors.dark.backgroundRoot} />
+        ) : null}
+      </LinearGradient>
+    </AnimatedPressable>
   );
 }
 
@@ -94,12 +157,29 @@ function SelectableCard({
   icon?: string;
   disabled?: boolean;
 }) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    if (!disabled) {
+      scale.value = withSpring(0.98, { damping: 15, stiffness: 400 });
+    }
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+  };
+
   return (
-    <Pressable
+    <AnimatedPressable
       style={[
         styles.selectableCard,
-        selected ? styles.selectableCardActive : null,
-        disabled ? styles.selectableCardDisabled : null,
+        selected && styles.selectableCardActive,
+        disabled && styles.selectableCardDisabled,
+        animatedStyle,
       ]}
       onPress={() => {
         if (!disabled) {
@@ -107,22 +187,30 @@ function SelectableCard({
           onPress();
         }
       }}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
     >
+      {selected && (
+        <LinearGradient
+          colors={[`${Colors.dark.primary}20`, "transparent"]}
+          style={styles.cardGradientOverlay}
+        />
+      )}
       {icon ? (
         <Ionicons
           name={icon as any}
           size={24}
-          color={selected ? Colors.dark.primary : Colors.dark.textSecondary}
+          color={selected ? Colors.dark.xpCyan : Colors.dark.textSecondary}
           style={styles.cardIcon}
         />
       ) : null}
-      <Text style={[styles.cardLabel, selected ? styles.cardLabelActive : null]}>
+      <Text style={[styles.cardLabel, selected && styles.cardLabelActive]}>
         {label}
       </Text>
       {selected ? (
         <Ionicons name="checkmark-circle" size={24} color={Colors.dark.primary} />
       ) : null}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -137,7 +225,7 @@ function CheckboxItem({
 }) {
   return (
     <Pressable style={styles.checkboxRow} onPress={onToggle}>
-      <View style={[styles.checkbox, checked ? styles.checkboxChecked : null]}>
+      <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
         {checked ? <Ionicons name="checkmark" size={16} color={Colors.dark.backgroundRoot} /> : null}
       </View>
       <Text style={styles.checkboxLabel}>{label}</Text>
@@ -150,37 +238,55 @@ function Step1Welcome({ onNext }: StepProps) {
   
   return (
     <View style={[styles.stepContainer, { paddingTop: insets.top + Spacing.xl }]}>
+      <LinearGradient
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        style={StyleSheet.absoluteFillObject}
+      />
+      <LinearGradient
+        colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerTopLine}
+      />
+      
       <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.welcomeContent}>
         <View style={styles.welcomeIconContainer}>
+          <LinearGradient
+            colors={[`${Colors.dark.primary}30`, `${Colors.dark.xpCyan}20`]}
+            style={StyleSheet.absoluteFillObject}
+          />
           <Ionicons name="hand-right-outline" size={60} color={Colors.dark.primary} />
         </View>
         
-        <Text style={styles.welcomeTitle}>Welcome, Coach</Text>
+        <Text style={styles.welcomeTitle}>WELCOME, COACH</Text>
         <Text style={styles.welcomeSubtitle}>
           You're not just training players — you're shaping their journey.
         </Text>
         
         <View style={styles.roleList}>
           <View style={styles.roleItem}>
-            <Ionicons name="checkmark-circle" size={20} color={Colors.dark.primary} />
+            <View style={styles.roleIconBg}>
+              <Ionicons name="checkmark-circle" size={20} color={Colors.dark.successNeon} />
+            </View>
             <Text style={styles.roleText}>You manage sessions</Text>
           </View>
           <View style={styles.roleItem}>
-            <Ionicons name="checkmark-circle" size={20} color={Colors.dark.primary} />
+            <View style={styles.roleIconBg}>
+              <Ionicons name="checkmark-circle" size={20} color={Colors.dark.successNeon} />
+            </View>
             <Text style={styles.roleText}>You validate progress</Text>
           </View>
           <View style={styles.roleItem}>
-            <Ionicons name="checkmark-circle" size={20} color={Colors.dark.primary} />
+            <View style={styles.roleIconBg}>
+              <Ionicons name="checkmark-circle" size={20} color={Colors.dark.successNeon} />
+            </View>
             <Text style={styles.roleText}>You influence motivation</Text>
           </View>
         </View>
       </Animated.View>
       
       <View style={styles.bottomAction}>
-        <Pressable style={styles.primaryButton} onPress={onNext}>
-          <Text style={styles.primaryButtonText}>Continue</Text>
-          <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
-        </Pressable>
+        <GamingButton onPress={onNext} title="CONTINUE" icon="arrow-forward" />
       </View>
     </View>
   );
@@ -192,14 +298,27 @@ function Step2HowGlowWorks({ data, setData, onNext }: StepProps) {
   
   return (
     <View style={[styles.stepContainer, { paddingTop: insets.top + Spacing.xl }]}>
+      <LinearGradient
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        style={StyleSheet.absoluteFillObject}
+      />
+      <LinearGradient
+        colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerTopLine}
+      />
+      
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Animated.View entering={FadeInDown.delay(200).duration(500)}>
-          <Text style={styles.stepTitle}>How Glow Works</Text>
+          <Text style={styles.stepTitle}>HOW GLOW WORKS</Text>
           <Text style={styles.stepSubtitle}>Understanding the system helps you coach effectively</Text>
           
-          <View style={styles.infoCard}>
+          <View style={styles.glassCard}>
             <View style={styles.infoRow}>
-              <Ionicons name="star-outline" size={24} color={Colors.dark.xpCyan} />
+              <View style={[styles.infoIconContainer, { backgroundColor: `${Colors.dark.xpCyan}15` }]}>
+                <Ionicons name="star-outline" size={24} color={Colors.dark.xpCyan} />
+              </View>
               <View style={styles.infoTextContainer}>
                 <Text style={styles.infoTitle}>Skills are not XP</Text>
                 <Text style={styles.infoDescription}>
@@ -209,9 +328,11 @@ function Step2HowGlowWorks({ data, setData, onNext }: StepProps) {
             </View>
           </View>
           
-          <View style={styles.infoCard}>
+          <View style={styles.glassCard}>
             <View style={styles.infoRow}>
-              <Ionicons name="analytics-outline" size={24} color={Colors.dark.primary} />
+              <View style={[styles.infoIconContainer, { backgroundColor: `${Colors.dark.primary}15` }]}>
+                <Ionicons name="analytics-outline" size={24} color={Colors.dark.primary} />
+              </View>
               <View style={styles.infoTextContainer}>
                 <Text style={styles.infoTitle}>XP is not Level</Text>
                 <Text style={styles.infoDescription}>
@@ -221,9 +342,11 @@ function Step2HowGlowWorks({ data, setData, onNext }: StepProps) {
             </View>
           </View>
           
-          <View style={styles.infoCard}>
+          <View style={styles.glassCard}>
             <View style={styles.infoRow}>
-              <Ionicons name="eye-off-outline" size={24} color={Colors.dark.textSecondary} />
+              <View style={[styles.infoIconContainer, { backgroundColor: `${Colors.dark.textSecondary}15` }]}>
+                <Ionicons name="eye-off-outline" size={24} color={Colors.dark.textSecondary} />
+              </View>
               <View style={styles.infoTextContainer}>
                 <Text style={styles.infoTitle}>Players don't see numbers</Text>
                 <Text style={styles.infoDescription}>
@@ -250,14 +373,12 @@ function Step2HowGlowWorks({ data, setData, onNext }: StepProps) {
       </ScrollView>
       
       <View style={styles.bottomAction}>
-        <Pressable
-          style={[styles.primaryButton, !canContinue ? styles.primaryButtonDisabled : null]}
-          onPress={canContinue ? onNext : undefined}
+        <GamingButton
+          onPress={canContinue ? onNext : () => {}}
+          title="CONTINUE"
+          icon="arrow-forward"
           disabled={!canContinue}
-        >
-          <Text style={styles.primaryButtonText}>Continue</Text>
-          <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
-        </Pressable>
+        />
       </View>
     </View>
   );
@@ -269,25 +390,40 @@ function Step3FeedbackExpectations({ data, setData, onNext }: StepProps) {
   
   return (
     <View style={[styles.stepContainer, { paddingTop: insets.top + Spacing.xl }]}>
+      <LinearGradient
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        style={StyleSheet.absoluteFillObject}
+      />
+      <LinearGradient
+        colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerTopLine}
+      />
+      
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Animated.View entering={FadeInDown.delay(200).duration(500)}>
-          <Text style={styles.stepTitle}>Giving Feedback</Text>
+          <Text style={styles.stepTitle}>GIVING FEEDBACK</Text>
           <Text style={styles.stepSubtitle}>Keep it simple and honest</Text>
           
-          <View style={styles.feedbackBox}>
+          <View style={styles.glassCard}>
+            <LinearGradient
+              colors={[`${Colors.dark.primary}15`, "transparent"]}
+              style={styles.cardGradientOverlay}
+            />
             <Text style={styles.feedbackTitle}>Feedback = Observation, not Judgment</Text>
             <Text style={styles.feedbackDescription}>
               Take 30-60 seconds per session. Focus on what moved, not everything.
             </Text>
           </View>
           
-          <Text style={styles.exampleLabel}>Good Examples:</Text>
+          <Text style={styles.exampleLabel}>GOOD EXAMPLES:</Text>
           <View style={styles.exampleCard}>
-            <Ionicons name="checkmark-circle" size={20} color={Colors.dark.primary} />
+            <Ionicons name="checkmark-circle" size={20} color={Colors.dark.successNeon} />
             <Text style={styles.exampleText}>"Footwork improved"</Text>
           </View>
           <View style={styles.exampleCard}>
-            <Ionicons name="alert-circle" size={20} color={Colors.dark.accentWarning} />
+            <Ionicons name="alert-circle" size={20} color={Colors.dark.gold} />
             <Text style={styles.exampleText}>"Focus needs work"</Text>
           </View>
           
@@ -308,14 +444,12 @@ function Step3FeedbackExpectations({ data, setData, onNext }: StepProps) {
       </ScrollView>
       
       <View style={styles.bottomAction}>
-        <Pressable
-          style={[styles.primaryButton, !canContinue ? styles.primaryButtonDisabled : null]}
-          onPress={canContinue ? onNext : undefined}
+        <GamingButton
+          onPress={canContinue ? onNext : () => {}}
+          title="CONTINUE"
+          icon="arrow-forward"
           disabled={!canContinue}
-        >
-          <Text style={styles.primaryButtonText}>Continue</Text>
-          <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
-        </Pressable>
+        />
       </View>
     </View>
   );
@@ -327,14 +461,27 @@ function Step4AttendanceFairness({ data, setData, onNext }: StepProps) {
   
   return (
     <View style={[styles.stepContainer, { paddingTop: insets.top + Spacing.xl }]}>
+      <LinearGradient
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        style={StyleSheet.absoluteFillObject}
+      />
+      <LinearGradient
+        colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerTopLine}
+      />
+      
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Animated.View entering={FadeInDown.delay(200).duration(500)}>
-          <Text style={styles.stepTitle}>Attendance & Fairness</Text>
+          <Text style={styles.stepTitle}>ATTENDANCE & FAIRNESS</Text>
           <Text style={styles.stepSubtitle}>Why accurate attendance matters</Text>
           
-          <View style={styles.infoCard}>
+          <View style={styles.glassCard}>
             <View style={styles.infoRow}>
-              <Ionicons name="flame-outline" size={24} color={Colors.dark.accentWarning} />
+              <View style={[styles.infoIconContainer, { backgroundColor: `${Colors.dark.gold}15` }]}>
+                <Ionicons name="flame-outline" size={24} color={Colors.dark.gold} />
+              </View>
               <View style={styles.infoTextContainer}>
                 <Text style={styles.infoTitle}>Attendance affects streaks</Text>
                 <Text style={styles.infoDescription}>
@@ -344,9 +491,11 @@ function Step4AttendanceFairness({ data, setData, onNext }: StepProps) {
             </View>
           </View>
           
-          <View style={styles.infoCard}>
+          <View style={styles.glassCard}>
             <View style={styles.infoRow}>
-              <Ionicons name="time-outline" size={24} color={Colors.dark.xpCyan} />
+              <View style={[styles.infoIconContainer, { backgroundColor: `${Colors.dark.xpCyan}15` }]}>
+                <Ionicons name="time-outline" size={24} color={Colors.dark.xpCyan} />
+              </View>
               <View style={styles.infoTextContainer}>
                 <Text style={styles.infoTitle}>Late vs Absent matters</Text>
                 <Text style={styles.infoDescription}>
@@ -356,8 +505,12 @@ function Step4AttendanceFairness({ data, setData, onNext }: StepProps) {
             </View>
           </View>
           
-          <View style={styles.scenarioBox}>
-            <Text style={styles.scenarioTitle}>Scenario:</Text>
+          <View style={[styles.glassCard, styles.scenarioBox]}>
+            <LinearGradient
+              colors={[`${Colors.dark.xpCyan}10`, "transparent"]}
+              style={styles.cardGradientOverlay}
+            />
+            <Text style={styles.scenarioTitle}>SCENARIO:</Text>
             <Text style={styles.scenarioText}>
               "A player is late 12 minutes — what do you do?"
             </Text>
@@ -383,14 +536,12 @@ function Step4AttendanceFairness({ data, setData, onNext }: StepProps) {
       </ScrollView>
       
       <View style={styles.bottomAction}>
-        <Pressable
-          style={[styles.primaryButton, !canContinue ? styles.primaryButtonDisabled : null]}
-          onPress={canContinue ? onNext : undefined}
+        <GamingButton
+          onPress={canContinue ? onNext : () => {}}
+          title="CONTINUE"
+          icon="arrow-forward"
           disabled={!canContinue}
-        >
-          <Text style={styles.primaryButtonText}>Continue</Text>
-          <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
-        </Pressable>
+        />
       </View>
     </View>
   );
@@ -423,28 +574,45 @@ function Step5CoachIdentity({ data, setData, onNext }: StepProps) {
   
   return (
     <View style={[styles.stepContainer, { paddingTop: insets.top + Spacing.xl }]}>
+      <LinearGradient
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        style={StyleSheet.absoluteFillObject}
+      />
+      <LinearGradient
+        colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerTopLine}
+      />
+      
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Animated.View entering={FadeInDown.delay(200).duration(500)}>
-          <Text style={styles.stepTitle}>Your Coaching Profile</Text>
+          <Text style={styles.stepTitle}>YOUR COACHING PROFILE</Text>
           <Text style={styles.stepSubtitle}>Players like to know who is guiding them</Text>
           
-          <Text style={styles.sectionLabel}>Years of Experience</Text>
+          <Text style={styles.sectionLabel}>YEARS OF EXPERIENCE</Text>
           <View style={styles.optionsGrid}>
             {EXPERIENCE_OPTIONS.map(option => (
               <Pressable
                 key={option.id}
                 style={[
                   styles.chipOption,
-                  data.yearsExperience === option.id ? styles.chipOptionActive : null,
+                  data.yearsExperience === option.id && styles.chipOptionActive,
                 ]}
                 onPress={() => {
                   if (Platform.OS !== "web") Haptics.selectionAsync();
                   setData(prev => ({ ...prev, yearsExperience: option.id }));
                 }}
               >
+                {data.yearsExperience === option.id && (
+                  <LinearGradient
+                    colors={[`${Colors.dark.primary}30`, `${Colors.dark.xpCyan}20`]}
+                    style={StyleSheet.absoluteFillObject}
+                  />
+                )}
                 <Text style={[
                   styles.chipText,
-                  data.yearsExperience === option.id ? styles.chipTextActive : null,
+                  data.yearsExperience === option.id && styles.chipTextActive,
                 ]}>
                   {option.label}
                 </Text>
@@ -452,7 +620,7 @@ function Step5CoachIdentity({ data, setData, onNext }: StepProps) {
             ))}
           </View>
           
-          <Text style={styles.sectionLabel}>Background (select all that apply)</Text>
+          <Text style={styles.sectionLabel}>BACKGROUND (SELECT ALL THAT APPLY)</Text>
           <View style={styles.optionsColumn}>
             {BACKGROUND_OPTIONS.map(option => (
               <SelectableCard
@@ -465,29 +633,37 @@ function Step5CoachIdentity({ data, setData, onNext }: StepProps) {
             ))}
           </View>
           
-          <Text style={styles.sectionLabel}>Coaching Philosophy (max 3)</Text>
-          <Text style={styles.sectionHint}>
-            {data.philosophyTags.length}/3 selected
-          </Text>
+          <Text style={styles.sectionLabel}>COACHING PHILOSOPHY (MAX 3)</Text>
+          <View style={styles.philosophyCounter}>
+            <Text style={styles.sectionHint}>
+              {data.philosophyTags.length}/3 selected
+            </Text>
+          </View>
           <View style={styles.optionsGrid}>
             {PHILOSOPHY_OPTIONS.map(option => (
               <Pressable
                 key={option.id}
                 style={[
                   styles.philosophyChip,
-                  data.philosophyTags.includes(option.id) ? styles.philosophyChipActive : null,
-                  data.philosophyTags.length >= 3 && !data.philosophyTags.includes(option.id) ? styles.chipDisabled : null,
+                  data.philosophyTags.includes(option.id) && styles.philosophyChipActive,
+                  data.philosophyTags.length >= 3 && !data.philosophyTags.includes(option.id) && styles.chipDisabled,
                 ]}
                 onPress={() => togglePhilosophy(option.id)}
               >
+                {data.philosophyTags.includes(option.id) && (
+                  <LinearGradient
+                    colors={[`${Colors.dark.primary}30`, `${Colors.dark.xpCyan}20`]}
+                    style={StyleSheet.absoluteFillObject}
+                  />
+                )}
                 <Ionicons
                   name={option.icon as any}
                   size={18}
-                  color={data.philosophyTags.includes(option.id) ? Colors.dark.primary : Colors.dark.textSecondary}
+                  color={data.philosophyTags.includes(option.id) ? Colors.dark.xpCyan : Colors.dark.textSecondary}
                 />
                 <Text style={[
                   styles.philosophyChipText,
-                  data.philosophyTags.includes(option.id) ? styles.philosophyChipTextActive : null,
+                  data.philosophyTags.includes(option.id) && styles.philosophyChipTextActive,
                 ]}>
                   {option.label}
                 </Text>
@@ -498,14 +674,12 @@ function Step5CoachIdentity({ data, setData, onNext }: StepProps) {
       </ScrollView>
       
       <View style={styles.bottomAction}>
-        <Pressable
-          style={[styles.primaryButton, !canContinue ? styles.primaryButtonDisabled : null]}
-          onPress={canContinue ? onNext : undefined}
+        <GamingButton
+          onPress={canContinue ? onNext : () => {}}
+          title="CONTINUE"
+          icon="arrow-forward"
           disabled={!canContinue}
-        >
-          <Text style={styles.primaryButtonText}>Continue</Text>
-          <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
-        </Pressable>
+        />
       </View>
     </View>
   );
@@ -517,9 +691,24 @@ function Step6FinalConfirmation({ data, setData, onNext }: StepProps) {
   
   return (
     <View style={[styles.stepContainer, { paddingTop: insets.top + Spacing.xl }]}>
+      <LinearGradient
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        style={StyleSheet.absoluteFillObject}
+      />
+      <LinearGradient
+        colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerTopLine}
+      />
+      
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Animated.View entering={FadeInDown.delay(200).duration(500)}>
           <View style={styles.finalIconContainer}>
+            <LinearGradient
+              colors={[`${Colors.dark.primary}30`, `${Colors.dark.xpCyan}20`]}
+              style={StyleSheet.absoluteFillObject}
+            />
             <Ionicons name="shield-checkmark" size={60} color={Colors.dark.primary} />
           </View>
           
@@ -542,8 +731,12 @@ function Step6FinalConfirmation({ data, setData, onNext }: StepProps) {
             />
           </View>
           
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryTitle}>Your Profile Summary</Text>
+          <View style={styles.glassCard}>
+            <LinearGradient
+              colors={[`${Colors.dark.xpCyan}15`, "transparent"]}
+              style={styles.cardGradientOverlay}
+            />
+            <Text style={styles.summaryTitle}>YOUR PROFILE SUMMARY</Text>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Experience:</Text>
               <Text style={styles.summaryValue}>{data.yearsExperience || "Not set"} years</Text>
@@ -571,14 +764,13 @@ function Step6FinalConfirmation({ data, setData, onNext }: StepProps) {
       </ScrollView>
       
       <View style={styles.bottomAction}>
-        <Pressable
-          style={[styles.primaryButton, styles.finalButton, !canContinue ? styles.primaryButtonDisabled : null]}
-          onPress={canContinue ? onNext : undefined}
+        <GamingButton
+          onPress={canContinue ? onNext : () => {}}
+          title="START COACHING"
+          icon="rocket"
           disabled={!canContinue}
-        >
-          <Text style={styles.primaryButtonText}>Start Coaching</Text>
-          <Ionicons name="rocket" size={20} color={Colors.dark.backgroundRoot} />
-        </Pressable>
+          colors={[Colors.dark.successNeon, Colors.dark.primary]}
+        />
       </View>
     </View>
   );
@@ -612,111 +804,116 @@ export default function CoachOnboardingScreen({ onComplete }: CoachOnboardingScr
         yearsExperience: data.yearsExperience,
         backgroundTags: data.backgroundTags,
         philosophyTags: data.philosophyTags,
-        acknowledgements: {
-          fairness: data.acknowledgements.fairness,
-          feedbackRules: data.acknowledgements.feedbackRules,
-          attendanceRules: data.acknowledgements.attendanceRules,
-        },
+        publicQuote: data.publicQuote,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/me"] });
       onComplete();
     },
     onError: (error) => {
-      console.error("Onboarding save error:", error);
+      console.error("Failed to save onboarding:", error);
+      onComplete();
     },
   });
   
-  const totalSteps = 6;
+  const STEPS = [
+    Step1Welcome,
+    Step2HowGlowWorks,
+    Step3FeedbackExpectations,
+    Step4AttendanceFairness,
+    Step5CoachIdentity,
+    Step6FinalConfirmation,
+  ];
   
-  const goToNext = () => {
-    if (currentStep < totalSteps - 1) {
-      const nextStep = currentStep + 1;
-      setCurrentStep(nextStep);
-      flatListRef.current?.scrollToIndex({ index: nextStep, animated: true });
+  const handleNext = () => {
+    if (currentStep < STEPS.length - 1) {
+      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setCurrentStep(prev => prev + 1);
+      flatListRef.current?.scrollToIndex({ index: currentStep + 1, animated: true });
     } else {
+      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       saveOnboardingMutation.mutate();
     }
   };
   
-  const steps = [
-    { key: "welcome", Component: Step1Welcome },
-    { key: "glow", Component: Step2HowGlowWorks },
-    { key: "feedback", Component: Step3FeedbackExpectations },
-    { key: "attendance", Component: Step4AttendanceFairness },
-    { key: "identity", Component: Step5CoachIdentity },
-    { key: "confirm", Component: Step6FinalConfirmation },
-  ];
-  
-  const renderStep = ({ item }: { item: typeof steps[0] }) => {
-    const { Component } = item;
-    return (
-      <View style={styles.stepWrapper}>
-        <Component data={data} setData={setData} onNext={goToNext} />
-      </View>
-    );
-  };
+  const renderStep = ({ item: StepComponent, index }: { item: React.FC<StepProps>; index: number }) => (
+    <View style={{ width: SCREEN_WIDTH }}>
+      <StepComponent data={data} setData={setData} onNext={handleNext} />
+    </View>
+  );
   
   return (
-    <LinearGradient
-      colors={[Colors.dark.backgroundRoot, "#0D1117", Colors.dark.backgroundRoot]}
-      style={styles.container}
-    >
-      <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
-        <ProgressBar currentStep={currentStep} totalSteps={totalSteps} />
-        <Text style={styles.stepIndicator}>
-          Step {currentStep + 1} of {totalSteps}
-        </Text>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        style={StyleSheet.absoluteFillObject}
+      />
+      <View style={[styles.progressWrapper, { paddingTop: insets.top + Spacing.md }]}>
+        <ProgressBar currentStep={currentStep} totalSteps={STEPS.length} />
       </View>
-      
       <FlatList
         ref={flatListRef}
-        data={steps}
+        data={STEPS}
         renderItem={renderStep}
-        keyExtractor={(item) => item.key}
         horizontal
         pagingEnabled
-        scrollEnabled={false}
         showsHorizontalScrollIndicator={false}
+        scrollEnabled={false}
+        keyExtractor={(_, index) => `step-${index}`}
         getItemLayout={(_, index) => ({
           length: SCREEN_WIDTH,
           offset: SCREEN_WIDTH * index,
           index,
         })}
       />
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
   },
-  header: {
-    paddingHorizontal: Spacing.lg,
-    alignItems: "center",
+  headerTopLine: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+  },
+  progressWrapper: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    paddingHorizontal: Spacing.xl,
   },
   progressContainer: {
     flexDirection: "row",
-    gap: 8,
-    marginBottom: Spacing.sm,
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingTop: Spacing.md,
+  },
+  progressDotWrapper: {
+    alignItems: "center",
   },
   progressDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Colors.dark.border,
+    width: 32,
+    height: 4,
+    borderRadius: 2,
   },
   progressDotActive: {
+  },
+  progressDotGlow: {
+    position: "absolute",
+    width: 32,
+    height: 4,
+    borderRadius: 2,
     backgroundColor: Colors.dark.primary,
-  },
-  stepIndicator: {
-    ...Typography.caption,
-    color: Colors.dark.textSecondary,
-  },
-  stepWrapper: {
-    width: SCREEN_WIDTH,
+    opacity: 0.3,
   },
   stepContainer: {
     flex: 1,
@@ -724,26 +921,31 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flex: 1,
+    paddingTop: Spacing.xl * 2,
   },
   welcomeContent: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    paddingTop: Spacing.xl * 2,
   },
   welcomeIconContainer: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: "rgba(46, 204, 64, 0.1)",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: Spacing.xl,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}30`,
   },
   welcomeTitle: {
     ...Typography.h1,
     color: Colors.dark.text,
     textAlign: "center",
     marginBottom: Spacing.md,
+    letterSpacing: 2,
   },
   welcomeSubtitle: {
     ...Typography.body,
@@ -753,16 +955,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
   },
   roleList: {
-    alignSelf: "stretch",
+    width: "100%",
     gap: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    marginTop: Spacing.lg,
   },
   roleItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
+    gap: Spacing.md,
+  },
+  roleIconBg: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: `${Colors.dark.successNeon}15`,
+    alignItems: "center",
+    justifyContent: "center",
   },
   roleText: {
     ...Typography.body,
@@ -771,23 +980,41 @@ const styles = StyleSheet.create({
   stepTitle: {
     ...Typography.h2,
     color: Colors.dark.text,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
+    letterSpacing: 1,
   },
   stepSubtitle: {
     ...Typography.body,
     color: Colors.dark.textSecondary,
     marginBottom: Spacing.xl,
   },
-  infoCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+  glassCard: {
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     borderRadius: BorderRadius.md,
-    padding: Spacing.md,
+    padding: Spacing.lg,
     marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
+    overflow: "hidden",
+  },
+  cardGradientOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   infoRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: Spacing.md,
+  },
+  infoIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
   },
   infoTextContainer: {
     flex: 1,
@@ -795,33 +1022,84 @@ const styles = StyleSheet.create({
   infoTitle: {
     ...Typography.h4,
     color: Colors.dark.text,
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
   },
   infoDescription: {
-    ...Typography.caption,
+    ...Typography.small,
     color: Colors.dark.textSecondary,
-    lineHeight: 18,
+    lineHeight: 20,
+  },
+  feedbackTitle: {
+    ...Typography.h3,
+    color: Colors.dark.xpCyan,
+    marginBottom: Spacing.sm,
+  },
+  feedbackDescription: {
+    ...Typography.body,
+    color: Colors.dark.textSecondary,
+    lineHeight: 22,
+  },
+  exampleLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.md,
+    letterSpacing: 1,
+  },
+  exampleCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}15`,
+  },
+  exampleText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontStyle: "italic",
+  },
+  scenarioBox: {
+  },
+  scenarioTitle: {
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+    marginBottom: Spacing.sm,
+    letterSpacing: 1,
+  },
+  scenarioText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontStyle: "italic",
+    marginBottom: Spacing.md,
+  },
+  scenarioAnswer: {
+    ...Typography.small,
+    color: Colors.dark.primary,
+    fontWeight: "600",
   },
   confirmSection: {
     marginTop: Spacing.xl,
-    marginBottom: Spacing.lg,
+    paddingTop: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: `${Colors.dark.primary}20`,
   },
   checkboxRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    padding: Spacing.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.md,
   },
   checkbox: {
     width: 24,
     height: 24,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: Colors.dark.border,
-    justifyContent: "center",
+    borderColor: Colors.dark.textSecondary,
     alignItems: "center",
+    justifyContent: "center",
   },
   checkboxChecked: {
     backgroundColor: Colors.dark.primary,
@@ -832,141 +1110,64 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     flex: 1,
   },
-  feedbackBox: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
-    marginBottom: Spacing.lg,
-  },
-  feedbackTitle: {
-    ...Typography.h4,
-    color: Colors.dark.text,
-    marginBottom: Spacing.sm,
-  },
-  feedbackDescription: {
-    ...Typography.body,
-    color: Colors.dark.textSecondary,
-  },
-  exampleLabel: {
-    ...Typography.caption,
-    color: Colors.dark.textSecondary,
-    marginBottom: Spacing.sm,
-    textTransform: "uppercase",
-  },
-  exampleCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.sm,
-    marginBottom: Spacing.sm,
-  },
-  exampleText: {
-    ...Typography.body,
-    color: Colors.dark.text,
-  },
-  scenarioBox: {
-    backgroundColor: "rgba(46, 204, 64, 0.1)",
-    borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
-    marginTop: Spacing.md,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.dark.primary,
-  },
-  scenarioTitle: {
-    fontSize: 12,
-    fontWeight: "600" as const,
-    color: Colors.dark.primary,
-    marginBottom: Spacing.sm,
-  },
-  scenarioText: {
-    ...Typography.body,
-    color: Colors.dark.text,
-    fontStyle: "italic",
-    marginBottom: Spacing.sm,
-  },
-  scenarioAnswer: {
-    ...Typography.caption,
-    color: Colors.dark.textSecondary,
-  },
   sectionLabel: {
-    ...Typography.h4,
-    color: Colors.dark.text,
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
     marginBottom: Spacing.sm,
-    marginTop: Spacing.md,
+    marginTop: Spacing.lg,
+    letterSpacing: 1,
+  },
+  philosophyCounter: {
+    marginBottom: Spacing.sm,
   },
   sectionHint: {
     ...Typography.caption,
-    color: Colors.dark.textSecondary,
-    marginBottom: Spacing.sm,
+    color: Colors.dark.xpCyan,
   },
   optionsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: Spacing.sm,
-    marginBottom: Spacing.md,
   },
   optionsColumn: {
     gap: Spacing.sm,
-    marginBottom: Spacing.md,
   },
   chipOption: {
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     borderWidth: 1,
-    borderColor: Colors.dark.border,
+    borderColor: `${Colors.dark.primary}20`,
+    overflow: "hidden",
   },
   chipOptionActive: {
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
     borderColor: Colors.dark.primary,
   },
   chipText: {
-    ...Typography.caption,
+    ...Typography.small,
     color: Colors.dark.textSecondary,
   },
   chipTextActive: {
-    color: Colors.dark.primary,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
   },
   chipDisabled: {
     opacity: 0.4,
   },
-  philosophyChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-  },
-  philosophyChipActive: {
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
-    borderColor: Colors.dark.primary,
-  },
-  philosophyChipText: {
-    ...Typography.caption,
-    color: Colors.dark.textSecondary,
-  },
-  philosophyChipTextActive: {
-    color: Colors.dark.primary,
-  },
   selectableCard: {
     flexDirection: "row",
     alignItems: "center",
-    padding: Spacing.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.dark.border,
+    borderColor: `${Colors.dark.primary}20`,
+    overflow: "hidden",
   },
   selectableCardActive: {
     borderColor: Colors.dark.primary,
-    backgroundColor: "rgba(46, 204, 64, 0.1)",
   },
   selectableCardDisabled: {
     opacity: 0.5,
@@ -980,18 +1181,43 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardLabelActive: {
-    color: Colors.dark.primary,
+    color: Colors.dark.xpCyan,
+  },
+  philosophyChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
+    overflow: "hidden",
+  },
+  philosophyChipActive: {
+    borderColor: Colors.dark.primary,
+  },
+  philosophyChipText: {
+    ...Typography.small,
+    color: Colors.dark.textSecondary,
+  },
+  philosophyChipTextActive: {
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
   },
   finalIconContainer: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: "rgba(46, 204, 64, 0.1)",
     justifyContent: "center",
     alignItems: "center",
     alignSelf: "center",
     marginBottom: Spacing.xl,
     marginTop: Spacing.xl,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}30`,
   },
   finalTitle: {
     ...Typography.h2,
@@ -1006,16 +1232,11 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
     paddingHorizontal: Spacing.md,
   },
-  summaryCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
-    marginTop: Spacing.lg,
-  },
   summaryTitle: {
-    ...Typography.h4,
-    color: Colors.dark.text,
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
     marginBottom: Spacing.md,
+    letterSpacing: 1,
   },
   summaryRow: {
     flexDirection: "row",
@@ -1036,24 +1257,24 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.lg,
     paddingBottom: Spacing.xl,
   },
-  primaryButton: {
+  gamingButton: {
+    borderRadius: BorderRadius.full,
+    overflow: "hidden",
+  },
+  gamingButtonDisabled: {
+    opacity: 0.5,
+  },
+  gamingButtonGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.dark.primary,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.xl,
-    borderRadius: BorderRadius.full,
   },
-  primaryButtonDisabled: {
-    opacity: 0.5,
-  },
-  primaryButtonText: {
+  gamingButtonText: {
     ...Typography.h4,
     color: Colors.dark.backgroundRoot,
-  },
-  finalButton: {
-    backgroundColor: Colors.dark.primary,
+    letterSpacing: 1,
   },
 });

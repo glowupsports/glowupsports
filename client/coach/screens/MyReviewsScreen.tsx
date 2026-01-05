@@ -5,6 +5,12 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import { Feather } from "@expo/vector-icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
@@ -42,36 +48,65 @@ interface ReviewsData {
   reviews: Review[];
 }
 
+function StarRating({ rating, size = 14 }: { rating: number; size?: number }) {
+  const stars = [];
+  for (let i = 1; i <= 5; i++) {
+    stars.push(
+      <Feather
+        key={i}
+        name={i <= rating ? "star" : "star"}
+        size={size}
+        color={i <= rating ? Colors.dark.gold : Colors.dark.textMuted}
+        style={{ opacity: i <= rating ? 1 : 0.3 }}
+      />
+    );
+  }
+  return <View style={styles.starRow}>{stars}</View>;
+}
+
 function StatsHeader({ stats }: { stats: ReviewStats | null }) {
   if (!stats) {
     return (
-      <View style={styles.statsEmpty}>
-        <Feather name="star" size={28} color={Colors.dark.textSubtle} />
-        <ThemedText style={styles.statsEmptyTitle}>No Reviews Yet</ThemedText>
-        <ThemedText style={styles.statsEmptyText}>
-          When players review you, their feedback will appear here
-        </ThemedText>
+      <View style={styles.glassCard}>
+        <View style={styles.statsEmpty}>
+          <View style={styles.emptyIconContainer}>
+            <Feather name="star" size={32} color={Colors.dark.xpCyan} />
+          </View>
+          <ThemedText style={styles.statsEmptyTitle}>NO REVIEWS YET</ThemedText>
+          <ThemedText style={styles.statsEmptyText}>
+            When players review you, their feedback will appear here
+          </ThemedText>
+        </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.statsContainer}>
-      <View style={styles.mainStat}>
-        <ThemedText style={styles.mainStatValue}>
-          {stats.averageOverall?.toFixed(1) || "N/A"}
-        </ThemedText>
-        <ThemedText style={styles.mainStatLabel}>Overall Rating</ThemedText>
-      </View>
-      <View style={styles.statsDivider} />
-      <View style={styles.secondaryStats}>
-        <View style={styles.secondaryStat}>
-          <ThemedText style={styles.secondaryStatValue}>{stats.totalReviews}</ThemedText>
-          <ThemedText style={styles.secondaryStatLabel}>Total</ThemedText>
+    <View style={styles.glassCard}>
+      <LinearGradient
+        colors={[`${Colors.dark.gold}15`, "transparent"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.cardGradientOverlay}
+      />
+      <View style={styles.statsContainer}>
+        <View style={styles.mainStat}>
+          <ThemedText style={styles.mainStatValue}>
+            {stats.averageOverall?.toFixed(1) || "N/A"}
+          </ThemedText>
+          <StarRating rating={Math.round(stats.averageOverall || 0)} size={16} />
+          <ThemedText style={styles.mainStatLabel}>OVERALL RATING</ThemedText>
         </View>
-        <View style={styles.secondaryStat}>
-          <ThemedText style={styles.secondaryStatValue}>{stats.visibleReviews}</ThemedText>
-          <ThemedText style={styles.secondaryStatLabel}>Visible</ThemedText>
+        <View style={styles.statsDivider} />
+        <View style={styles.secondaryStats}>
+          <View style={styles.secondaryStat}>
+            <ThemedText style={styles.secondaryStatValue}>{stats.totalReviews}</ThemedText>
+            <ThemedText style={styles.secondaryStatLabel}>TOTAL</ThemedText>
+          </View>
+          <View style={styles.secondaryStat}>
+            <ThemedText style={styles.secondaryStatValue}>{stats.visibleReviews}</ThemedText>
+            <ThemedText style={styles.secondaryStatLabel}>VISIBLE</ThemedText>
+          </View>
         </View>
       </View>
     </View>
@@ -105,8 +140,15 @@ function ReviewCard({ review, onRespond }: { review: Review; onRespond: (id: str
     return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
   };
 
+  const getRatingColor = (value: number) => {
+    if (value >= 4.5) return Colors.dark.successNeon;
+    if (value >= 4) return Colors.dark.primary;
+    if (value >= 3) return Colors.dark.gold;
+    return Colors.dark.text;
+  };
+
   return (
-    <View style={[styles.reviewCard, !review.isVisible && styles.reviewCardHidden]}>
+    <View style={[styles.glassCard, !review.isVisible && styles.reviewCardHidden]}>
       <View style={styles.reviewHeader}>
         <View style={styles.reviewerInfo}>
           <View style={[styles.levelDot, { backgroundColor: getLevelColor(review.reviewerLevel) }]} />
@@ -123,7 +165,7 @@ function ReviewCard({ review, onRespond }: { review: Review; onRespond: (id: str
 
       {!review.isVisible ? (
         <View style={styles.hiddenBadge}>
-          <Feather name="eye-off" size={12} color={Colors.dark.textMuted} />
+          <Feather name="eye-off" size={12} color={Colors.dark.xpCyan} />
           <ThemedText style={styles.hiddenBadgeText}>Not visible yet (needs 3+ reviews)</ThemedText>
         </View>
       ) : null}
@@ -131,31 +173,31 @@ function ReviewCard({ review, onRespond }: { review: Review; onRespond: (id: str
       <View style={styles.ratingsGrid}>
         <View style={styles.ratingItem}>
           <ThemedText style={styles.ratingLabel}>Coaching</ThemedText>
-          <ThemedText style={[styles.ratingValue, { color: review.coachingQuality >= 4 ? Colors.dark.primary : Colors.dark.text }]}>
+          <ThemedText style={[styles.ratingValue, { color: getRatingColor(review.coachingQuality) }]}>
             {review.coachingQuality}
           </ThemedText>
         </View>
         <View style={styles.ratingItem}>
           <ThemedText style={styles.ratingLabel}>Communication</ThemedText>
-          <ThemedText style={[styles.ratingValue, { color: review.communication >= 4 ? Colors.dark.primary : Colors.dark.text }]}>
+          <ThemedText style={[styles.ratingValue, { color: getRatingColor(review.communication) }]}>
             {review.communication}
           </ThemedText>
         </View>
         <View style={styles.ratingItem}>
           <ThemedText style={styles.ratingLabel}>With Beginners</ThemedText>
-          <ThemedText style={[styles.ratingValue, { color: review.withKidsBeginners >= 4 ? Colors.dark.primary : Colors.dark.text }]}>
+          <ThemedText style={[styles.ratingValue, { color: getRatingColor(review.withKidsBeginners) }]}>
             {review.withKidsBeginners}
           </ThemedText>
         </View>
         <View style={styles.ratingItem}>
           <ThemedText style={styles.ratingLabel}>Reliability</ThemedText>
-          <ThemedText style={[styles.ratingValue, { color: review.reliability >= 4 ? Colors.dark.primary : Colors.dark.text }]}>
+          <ThemedText style={[styles.ratingValue, { color: getRatingColor(review.reliability) }]}>
             {review.reliability}
           </ThemedText>
         </View>
         <View style={styles.ratingItem}>
           <ThemedText style={styles.ratingLabel}>Motivation</ThemedText>
-          <ThemedText style={[styles.ratingValue, { color: review.feedbackMotivation >= 4 ? Colors.dark.primary : Colors.dark.text }]}>
+          <ThemedText style={[styles.ratingValue, { color: getRatingColor(review.feedbackMotivation) }]}>
             {review.feedbackMotivation}
           </ThemedText>
         </View>
@@ -163,7 +205,7 @@ function ReviewCard({ review, onRespond }: { review: Review; onRespond: (id: str
 
       {review.whatDoesWell ? (
         <View style={styles.feedbackSection}>
-          <ThemedText style={styles.feedbackLabel}>What you do well</ThemedText>
+          <ThemedText style={styles.feedbackLabel}>WHAT YOU DO WELL</ThemedText>
           <ThemedText style={styles.feedbackText}>"{review.whatDoesWell}"</ThemedText>
         </View>
       ) : null}
@@ -188,8 +230,15 @@ function ReviewCard({ review, onRespond }: { review: Review; onRespond: (id: str
           style={({ pressed }) => [styles.replyButton, { opacity: pressed ? 0.8 : 1 }]}
           onPress={() => onRespond(review.id)}
         >
-          <Feather name="message-square" size={14} color={Colors.dark.primary} />
-          <ThemedText style={styles.replyButtonText}>Reply to this review</ThemedText>
+          <LinearGradient
+            colors={[`${Colors.dark.primary}20`, `${Colors.dark.xpCyan}10`]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.replyButtonGradient}
+          >
+            <Feather name="message-square" size={14} color={Colors.dark.primary} />
+            <ThemedText style={styles.replyButtonText}>Reply to this review</ThemedText>
+          </LinearGradient>
         </Pressable>
       )}
     </View>
@@ -235,8 +284,12 @@ function ResponseModal({
     <View style={styles.modalOverlay}>
       <View style={styles.modalBackdrop} />
       <View style={styles.modalContent}>
+        <LinearGradient
+          colors={[`${Colors.dark.primary}20`, "transparent"]}
+          style={styles.modalGradient}
+        />
         <View style={styles.modalHeader}>
-          <ThemedText style={styles.modalTitle}>Reply to Review</ThemedText>
+          <ThemedText style={styles.modalTitle}>REPLY TO REVIEW</ThemedText>
           <Pressable onPress={onClose} style={styles.modalCloseButton}>
             <Feather name="x" size={24} color={Colors.dark.text} />
           </Pressable>
@@ -268,14 +321,21 @@ function ResponseModal({
             disabled={!text.trim() || submitMutation.isPending}
             style={[styles.submitButton, (!text.trim() || submitMutation.isPending) && { opacity: 0.5 }]}
           >
-            {submitMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
-            ) : (
-              <>
-                <Feather name="send" size={16} color={Colors.dark.backgroundRoot} />
-                <ThemedText style={styles.submitButtonText}>Send Reply</ThemedText>
-              </>
-            )}
+            <LinearGradient
+              colors={[Colors.dark.primary, "#1FA030"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.submitButtonGradient}
+            >
+              {submitMutation.isPending ? (
+                <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+              ) : (
+                <>
+                  <Feather name="send" size={16} color={Colors.dark.backgroundRoot} />
+                  <ThemedText style={styles.submitButtonText}>Send Reply</ThemedText>
+                </>
+              )}
+            </LinearGradient>
           </Pressable>
         </View>
 
@@ -311,10 +371,25 @@ export default function MyReviewsScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: headerHeight }]}>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        style={[styles.headerContainer, { paddingTop: insets.top }]}
+      >
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerTopLine}
+        />
+        <View style={styles.header}>
+          <ThemedText style={styles.headerTitle}>MY REVIEWS</ThemedText>
+        </View>
+      </LinearGradient>
+
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl, paddingTop: Spacing.lg }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -335,7 +410,12 @@ export default function MyReviewsScreen() {
 
             {data?.reviews && data.reviews.length > 0 ? (
               <View style={styles.reviewsList}>
-                <ThemedText style={styles.sectionTitle}>All Reviews</ThemedText>
+                <View style={styles.sectionTitleRow}>
+                  <View style={styles.sectionIconContainer}>
+                    <Feather name="message-circle" size={16} color={Colors.dark.xpCyan} />
+                  </View>
+                  <ThemedText style={styles.sectionTitle}>ALL REVIEWS</ThemedText>
+                </View>
                 {data.reviews.map((review) => (
                   <ReviewCard 
                     key={review.id} 
@@ -370,6 +450,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
   },
+  headerContainer: {
+    paddingBottom: Spacing.md,
+  },
+  headerTopLine: {
+    height: 3,
+    width: "100%",
+  },
+  header: {
+    alignItems: "center",
+    paddingVertical: Spacing.md,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    letterSpacing: 2,
+  },
   scrollView: {
     flex: 1,
     paddingHorizontal: Spacing.lg,
@@ -382,12 +479,24 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     color: Colors.dark.textMuted,
   },
-  statsContainer: {
-    flexDirection: "row",
-    backgroundColor: Colors.dark.backgroundDefault,
+  glassCard: {
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
+    overflow: "hidden",
+  },
+  cardGradientOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 80,
+  },
+  statsContainer: {
+    flexDirection: "row",
     alignItems: "center",
   },
   mainStat: {
@@ -395,18 +504,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mainStatValue: {
-    fontSize: 42,
+    fontSize: 48,
     fontWeight: "700",
     color: Colors.dark.gold,
+    textShadowColor: Colors.dark.gold,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 15,
+  },
+  starRow: {
+    flexDirection: "row",
+    gap: 2,
+    marginVertical: Spacing.xs,
   },
   mainStatLabel: {
-    fontSize: 14,
+    fontSize: 12,
     color: Colors.dark.textMuted,
+    letterSpacing: 1,
   },
   statsDivider: {
     width: 1,
-    height: 50,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    height: 60,
+    backgroundColor: `${Colors.dark.primary}30`,
     marginHorizontal: Spacing.lg,
   },
   secondaryStats: {
@@ -417,26 +535,33 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   secondaryStatValue: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: "600",
-    color: Colors.dark.text,
+    color: Colors.dark.xpCyan,
   },
   secondaryStatLabel: {
-    fontSize: 12,
+    fontSize: 10,
     color: Colors.dark.textMuted,
+    letterSpacing: 1,
   },
   statsEmpty: {
-    backgroundColor: Colors.dark.backgroundDefault,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.xl,
     alignItems: "center",
-    marginBottom: Spacing.lg,
+    paddingVertical: Spacing.lg,
+  },
+  emptyIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: `${Colors.dark.xpCyan}15`,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.md,
   },
   statsEmptyTitle: {
     fontSize: 16,
     fontWeight: "600",
     color: Colors.dark.text,
-    marginTop: Spacing.md,
+    letterSpacing: 1,
   },
   statsEmptyText: {
     fontSize: 14,
@@ -444,24 +569,32 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: Spacing.sm,
   },
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+    marginTop: Spacing.md,
+  },
+  sectionIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: `${Colors.dark.xpCyan}15`,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     color: Colors.dark.text,
-    marginBottom: Spacing.md,
+    letterSpacing: 1,
   },
   reviewsList: {
-    gap: Spacing.md,
-  },
-  reviewCard: {
-    backgroundColor: Colors.dark.backgroundDefault,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
+    gap: Spacing.sm,
   },
   reviewCardHidden: {
-    opacity: 0.8,
-    borderWidth: 1,
-    borderColor: Colors.dark.backgroundTertiary,
+    opacity: 0.7,
     borderStyle: "dashed",
   },
   reviewHeader: {
@@ -511,7 +644,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: `${Colors.dark.xpCyan}15`,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: BorderRadius.xs,
@@ -520,7 +653,7 @@ const styles = StyleSheet.create({
   },
   hiddenBadgeText: {
     fontSize: 11,
-    color: Colors.dark.textMuted,
+    color: Colors.dark.xpCyan,
   },
   ratingsGrid: {
     flexDirection: "row",
@@ -529,28 +662,32 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   ratingItem: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: `${Colors.dark.backgroundSecondary}`,
     borderRadius: BorderRadius.xs,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 6,
     minWidth: 80,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}15`,
   },
   ratingLabel: {
     fontSize: 10,
     color: Colors.dark.textMuted,
     marginBottom: 2,
+    letterSpacing: 0.5,
   },
   ratingValue: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "600",
   },
   feedbackSection: {
     marginBottom: Spacing.sm,
   },
   feedbackLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.dark.textMuted,
     marginBottom: 4,
+    letterSpacing: 0.5,
   },
   feedbackText: {
     fontSize: 14,
@@ -569,10 +706,12 @@ const styles = StyleSheet.create({
     color: Colors.dark.xpCyan,
   },
   responseSection: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: `${Colors.dark.primary}10`,
     borderRadius: BorderRadius.sm,
     padding: Spacing.sm,
     marginTop: Spacing.sm,
+    borderLeftWidth: 2,
+    borderLeftColor: Colors.dark.primary,
   },
   responseHeader: {
     flexDirection: "row",
@@ -591,14 +730,16 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   replyButton: {
+    marginTop: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    overflow: "hidden",
+  },
+  replyButtonGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
     paddingVertical: Spacing.sm,
-    marginTop: Spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: Colors.dark.backgroundSecondary,
   },
   replyButtonText: {
     fontSize: 14,
@@ -623,14 +764,24 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
   },
   modalContent: {
     backgroundColor: Colors.dark.backgroundRoot,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     width: "100%",
     maxWidth: 400,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}30`,
+    overflow: "hidden",
+  },
+  modalGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 60,
   },
   modalHeader: {
     flexDirection: "row",
@@ -642,6 +793,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: Colors.dark.text,
+    letterSpacing: 1,
   },
   modalCloseButton: {
     padding: Spacing.xs,
@@ -653,7 +805,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   responseInput: {
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     borderRadius: BorderRadius.sm,
     padding: Spacing.md,
     color: Colors.dark.text,
@@ -661,7 +813,7 @@ const styles = StyleSheet.create({
     minHeight: 100,
     maxHeight: 150,
     borderWidth: 1,
-    borderColor: Colors.dark.backgroundTertiary,
+    borderColor: `${Colors.dark.primary}30`,
   },
   charCount: {
     fontSize: 12,
@@ -690,12 +842,15 @@ const styles = StyleSheet.create({
   submitButton: {
     flex: 2,
     height: 44,
+    borderRadius: BorderRadius.sm,
+    overflow: "hidden",
+  },
+  submitButtonGradient: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.dark.primary,
   },
   submitButtonText: {
     fontSize: 15,

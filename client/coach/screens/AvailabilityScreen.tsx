@@ -12,9 +12,15 @@ import {
   TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { apiRequest } from "@/lib/query-client";
@@ -52,6 +58,51 @@ const DEFAULT_AVAILABILITY: DayAvailability[] = WEEKDAYS.map((_, i) => ({
   timeBlocks: i >= 1 && i <= 5 ? [{ id: `default-${i}`, startTime: "09:00", endTime: "18:00" }] : [],
 }));
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+function OptionButton({
+  label,
+  isActive,
+  onPress,
+}: {
+  label: string;
+  isActive: boolean;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePress = () => {
+    scale.value = withSpring(0.95, { damping: 15 });
+    setTimeout(() => {
+      scale.value = withSpring(1, { damping: 15 });
+    }, 100);
+    onPress();
+  };
+
+  return (
+    <AnimatedPressable style={[styles.optionButton, animatedStyle]} onPress={handlePress}>
+      {isActive ? (
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.optionButtonGradient}
+        >
+          <Text style={styles.optionButtonTextActive}>{label}</Text>
+        </LinearGradient>
+      ) : (
+        <View style={styles.optionButtonInactive}>
+          <Text style={styles.optionButtonText}>{label}</Text>
+        </View>
+      )}
+    </AnimatedPressable>
+  );
+}
+
 export default function AvailabilityScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -70,6 +121,12 @@ export default function AvailabilityScreen() {
   const [exceptionEndDate, setExceptionEndDate] = useState("");
   const [exceptionReason, setExceptionReason] = useState("Holiday");
 
+  const saveScale = useSharedValue(1);
+
+  const saveAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: saveScale.value }],
+  }));
+
   const { data: availabilityData, isLoading } = useQuery({
     queryKey: ["/api/coaches", coach?.id, "availability"],
     enabled: !!coach?.id,
@@ -85,15 +142,12 @@ export default function AvailabilityScreen() {
     enabled: !!coach?.id,
   });
 
-  // Hydrate state from API data
   useEffect(() => {
     if (availabilityData && Array.isArray(availabilityData) && availabilityData.length > 0) {
       const hydratedAvailability = WEEKDAYS.map((_, i) => {
         const dayData = (availabilityData as any[]).find((d: any) => d.weekday === i);
         if (dayData) {
-          // Respect the isAvailable flag from backend
           const isAvailable = dayData.isAvailable === true;
-          // Handle both timeBlocks array format and single start/end format
           let timeBlocks: TimeBlock[] = [];
           if (dayData.timeBlocks && Array.isArray(dayData.timeBlocks) && dayData.timeBlocks.length > 0) {
             timeBlocks = dayData.timeBlocks;
@@ -154,6 +208,14 @@ export default function AvailabilityScreen() {
       Alert.alert("Error", "Failed to save availability. Please try again.");
     },
   });
+
+  const handleSavePress = () => {
+    saveScale.value = withSpring(0.95, { damping: 15 });
+    setTimeout(() => {
+      saveScale.value = withSpring(1, { damping: 15 });
+      saveMutation.mutate();
+    }, 100);
+  };
 
   const toggleDayAvailability = useCallback((weekday: number) => {
     setAvailability((prev) => {
@@ -260,35 +322,48 @@ export default function AvailabilityScreen() {
           style={styles.dayHeader}
           onPress={() => setSelectedDay(isExpanded ? null : day.weekday)}
         >
-          <View style={styles.dayHeaderLeft}>
-            <Pressable
-              style={[
-                styles.dayToggle,
-                day.isAvailable && styles.dayToggleActive,
-              ]}
-              onPress={() => toggleDayAvailability(day.weekday)}
-            >
-              {day.isAvailable ? (
-                <Feather name="check" size={14} color={Colors.dark.backgroundRoot} />
-              ) : null}
-            </Pressable>
-            <Text style={[styles.dayName, !day.isAvailable && styles.dayNameInactive]}>
-              {WEEKDAY_FULL[day.weekday]}
-            </Text>
-          </View>
-          <View style={styles.dayHeaderRight}>
-            {day.isAvailable && day.timeBlocks.length > 0 ? (
-              <Text style={styles.dayTimePreview}>
-                {day.timeBlocks[0].startTime} - {day.timeBlocks[day.timeBlocks.length - 1].endTime}
+          <View style={styles.dayCardInner}>
+            <View style={styles.dayHeaderLeft}>
+              <Pressable
+                style={[
+                  styles.dayToggle,
+                  day.isAvailable && styles.dayToggleActive,
+                ]}
+                onPress={() => toggleDayAvailability(day.weekday)}
+              >
+                {day.isAvailable ? (
+                  <LinearGradient
+                    colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.dayToggleGradient}
+                  >
+                    <Feather name="check" size={14} color={Colors.dark.backgroundRoot} />
+                  </LinearGradient>
+                ) : null}
+              </Pressable>
+              <Text style={[styles.dayName, !day.isAvailable && styles.dayNameInactive]}>
+                {WEEKDAY_FULL[day.weekday]}
               </Text>
-            ) : (
-              <Text style={styles.dayUnavailable}>Unavailable</Text>
-            )}
-            <Feather
-              name={isExpanded ? "chevron-up" : "chevron-down"}
-              size={20}
-              color={Colors.dark.tabIconDefault}
-            />
+            </View>
+            <View style={styles.dayHeaderRight}>
+              {day.isAvailable && day.timeBlocks.length > 0 ? (
+                <View style={styles.timePreviewBadge}>
+                  <Text style={styles.dayTimePreview}>
+                    {day.timeBlocks[0].startTime} - {day.timeBlocks[day.timeBlocks.length - 1].endTime}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.dayUnavailable}>Unavailable</Text>
+              )}
+              <View style={styles.chevronContainer}>
+                <Feather
+                  name={isExpanded ? "chevron-up" : "chevron-down"}
+                  size={18}
+                  color={Colors.dark.xpCyan}
+                />
+              </View>
+            </View>
           </View>
         </Pressable>
 
@@ -298,16 +373,18 @@ export default function AvailabilityScreen() {
               <View key={block.id} style={styles.timeBlockRow}>
                 <View style={styles.timeSelector}>
                   <Text style={styles.timeSelectorLabel}>From</Text>
-                  <Pressable style={styles.timeButton}>
+                  <View style={styles.timeButton}>
                     <Text style={styles.timeButtonText}>{block.startTime}</Text>
-                  </Pressable>
+                  </View>
                 </View>
-                <Feather name="arrow-right" size={16} color={Colors.dark.tabIconDefault} />
+                <View style={styles.arrowContainer}>
+                  <Feather name="arrow-right" size={16} color={Colors.dark.xpCyan} />
+                </View>
                 <View style={styles.timeSelector}>
                   <Text style={styles.timeSelectorLabel}>To</Text>
-                  <Pressable style={styles.timeButton}>
+                  <View style={styles.timeButton}>
                     <Text style={styles.timeButtonText}>{block.endTime}</Text>
-                  </Pressable>
+                  </View>
                 </View>
                 <Pressable
                   style={styles.removeBlockButton}
@@ -318,8 +395,15 @@ export default function AvailabilityScreen() {
               </View>
             ))}
             <Pressable style={styles.addBlockButton} onPress={() => addTimeBlock(day.weekday)}>
-              <Feather name="plus" size={16} color={Colors.dark.primary} />
-              <Text style={styles.addBlockText}>Add time block</Text>
+              <LinearGradient
+                colors={[Colors.dark.primary + "30", Colors.dark.xpCyan + "30"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.addBlockButtonGradient}
+              >
+                <Feather name="plus" size={16} color={Colors.dark.xpCyan} />
+                <Text style={styles.addBlockText}>Add time block</Text>
+              </LinearGradient>
             </Pressable>
           </View>
         ) : null}
@@ -327,39 +411,56 @@ export default function AvailabilityScreen() {
     );
   };
 
-  // Show loading state while fetching data
   if (isLoading && coach?.id) {
     return (
-      <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
-        <Feather name="clock" size={48} color={Colors.dark.primary} />
+      <LinearGradient
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}
+      >
+        <View style={styles.loadingIconContainer}>
+          <Feather name="clock" size={48} color={Colors.dark.xpCyan} />
+        </View>
         <Text style={styles.loadingText}>Loading availability...</Text>
-      </View>
+      </LinearGradient>
     );
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <LinearGradient
+      colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+      style={[styles.container, { paddingTop: insets.top }]}
+    >
       <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Feather name="arrow-left" size={24} color={Colors.dark.text} />
-        </Pressable>
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Availability</Text>
-          <Text style={styles.headerSubtitle}>Manage when you're available for sessions</Text>
-        </View>
-        <View style={styles.pauseToggle}>
-          <Text style={[styles.pauseLabel, isPaused && styles.pauseLabelActive]}>
-            {isPaused ? "Paused" : "Active"}
-          </Text>
-          <Switch
-            value={!isPaused}
-            onValueChange={(value) => {
-              setIsPaused(!value);
-              setHasChanges(true);
-            }}
-            trackColor={{ false: Colors.dark.backgroundTertiary, true: Colors.dark.primary }}
-            thumbColor={Colors.dark.text}
-          />
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradientLine}
+        />
+        <View style={styles.headerContent}>
+          <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Feather name="arrow-left" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle}>AVAILABILITY</Text>
+            <Text style={styles.headerSubtitle}>Manage when you're available</Text>
+          </View>
+          <View style={styles.pauseToggle}>
+            <View style={[styles.statusBadge, isPaused ? styles.statusBadgePaused : styles.statusBadgeActive]}>
+              <Text style={[styles.pauseLabel, isPaused && styles.pauseLabelPaused]}>
+                {isPaused ? "Paused" : "Active"}
+              </Text>
+            </View>
+            <Switch
+              value={!isPaused}
+              onValueChange={(value) => {
+                setIsPaused(!value);
+                setHasChanges(true);
+              }}
+              trackColor={{ false: Colors.dark.backgroundTertiary, true: Colors.dark.primary }}
+              thumbColor={Colors.dark.text}
+            />
+          </View>
         </View>
       </View>
 
@@ -369,112 +470,109 @@ export default function AvailabilityScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Weekly Schedule</Text>
+          <Text style={styles.sectionTitle}>WEEKLY SCHEDULE</Text>
           {availability.map(renderDayCard)}
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Smart Rules</Text>
+          <Text style={styles.sectionTitle}>SMART RULES</Text>
           <View style={styles.ruleCard}>
-            <View style={styles.ruleRow}>
-              <Feather name="clock" size={18} color={Colors.dark.primary} />
-              <Text style={styles.ruleLabel}>Minimum session length</Text>
-            </View>
-            <View style={styles.optionRow}>
-              {SESSION_LENGTHS.map((length) => (
-                <Pressable
-                  key={length}
-                  style={[
-                    styles.optionButton,
-                    minSessionLength === length && styles.optionButtonActive,
-                  ]}
-                  onPress={() => {
-                    setMinSessionLength(length);
-                    setHasChanges(true);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.optionButtonText,
-                      minSessionLength === length && styles.optionButtonTextActive,
-                    ]}
-                  >
-                    {length} min
-                  </Text>
-                </Pressable>
-              ))}
+            <View style={styles.ruleCardInner}>
+              <View style={styles.ruleRow}>
+                <View style={styles.ruleIconBadge}>
+                  <Feather name="clock" size={18} color={Colors.dark.xpCyan} />
+                </View>
+                <Text style={styles.ruleLabel}>Minimum session length</Text>
+              </View>
+              <View style={styles.optionRow}>
+                {SESSION_LENGTHS.map((length) => (
+                  <OptionButton
+                    key={length}
+                    label={`${length} min`}
+                    isActive={minSessionLength === length}
+                    onPress={() => {
+                      setMinSessionLength(length);
+                      setHasChanges(true);
+                    }}
+                  />
+                ))}
+              </View>
             </View>
           </View>
 
           <View style={styles.ruleCard}>
-            <View style={styles.ruleRow}>
-              <Feather name="pause-circle" size={18} color={Colors.dark.primary} />
-              <Text style={styles.ruleLabel}>Buffer between sessions</Text>
-            </View>
-            <View style={styles.optionRow}>
-              {BUFFER_OPTIONS.map((buffer) => (
-                <Pressable
-                  key={buffer}
-                  style={[
-                    styles.optionButton,
-                    bufferTime === buffer && styles.optionButtonActive,
-                  ]}
-                  onPress={() => {
-                    setBufferTime(buffer);
-                    setHasChanges(true);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.optionButtonText,
-                      bufferTime === buffer && styles.optionButtonTextActive,
-                    ]}
-                  >
-                    {buffer === 0 ? "None" : `${buffer} min`}
-                  </Text>
-                </Pressable>
-              ))}
+            <View style={styles.ruleCardInner}>
+              <View style={styles.ruleRow}>
+                <View style={[styles.ruleIconBadge, { backgroundColor: Colors.dark.gold + "20" }]}>
+                  <Feather name="pause-circle" size={18} color={Colors.dark.gold} />
+                </View>
+                <Text style={styles.ruleLabel}>Buffer between sessions</Text>
+              </View>
+              <View style={styles.optionRow}>
+                {BUFFER_OPTIONS.map((buffer) => (
+                  <OptionButton
+                    key={buffer}
+                    label={buffer === 0 ? "None" : `${buffer} min`}
+                    isActive={bufferTime === buffer}
+                    onPress={() => {
+                      setBufferTime(buffer);
+                      setHasChanges(true);
+                    }}
+                  />
+                ))}
+              </View>
             </View>
           </View>
         </View>
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Exceptions</Text>
+            <Text style={styles.sectionTitle}>EXCEPTIONS</Text>
             <Pressable
               style={styles.addExceptionButton}
               onPress={() => setShowAddException(true)}
             >
-              <Feather name="plus" size={16} color={Colors.dark.primary} />
-              <Text style={styles.addExceptionText}>Add</Text>
+              <LinearGradient
+                colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.addExceptionGradient}
+              >
+                <Feather name="plus" size={14} color={Colors.dark.backgroundRoot} />
+                <Text style={styles.addExceptionText}>Add</Text>
+              </LinearGradient>
             </Pressable>
           </View>
           <Text style={styles.sectionHint}>Exceptions override your weekly schedule</Text>
 
           {exceptions.length === 0 ? (
             <View style={styles.emptyExceptions}>
-              <Feather name="calendar" size={32} color={Colors.dark.tabIconDefault} />
+              <View style={styles.emptyIconContainer}>
+                <Feather name="calendar" size={32} color={Colors.dark.xpCyan} />
+              </View>
               <Text style={styles.emptyExceptionsText}>No exceptions set</Text>
             </View>
           ) : (
             exceptions.map((exc) => (
               <View key={exc.id} style={styles.exceptionCard}>
-                <View style={styles.exceptionInfo}>
-                  <View style={styles.exceptionReasonBadge}>
-                    <Feather
-                      name={exc.reason === "Holiday" ? "sun" : exc.reason === "Sick" ? "thermometer" : exc.reason === "Tournament" ? "award" : "user"}
-                      size={14}
-                      color={Colors.dark.primary}
-                    />
-                    <Text style={styles.exceptionReasonText}>{exc.reason}</Text>
+                <View style={styles.exceptionCardInner}>
+                  <View style={styles.exceptionInfo}>
+                    <View style={styles.exceptionReasonBadge}>
+                      <Feather
+                        name={exc.reason === "Holiday" ? "sun" : exc.reason === "Sick" ? "thermometer" : exc.reason === "Tournament" ? "award" : "user"}
+                        size={14}
+                        color={Colors.dark.gold}
+                      />
+                      <Text style={styles.exceptionReasonText}>{exc.reason}</Text>
+                    </View>
+                    <Text style={styles.exceptionDates}>
+                      {exc.startDate} - {exc.endDate}
+                    </Text>
                   </View>
-                  <Text style={styles.exceptionDates}>
-                    {exc.startDate} - {exc.endDate}
-                  </Text>
+                  <Pressable onPress={() => removeException(exc.id)} style={styles.deleteButton}>
+                    <Feather name="trash-2" size={18} color={Colors.dark.error} />
+                  </Pressable>
                 </View>
-                <Pressable onPress={() => removeException(exc.id)}>
-                  <Feather name="trash-2" size={18} color={Colors.dark.error} />
-                </Pressable>
               </View>
             ))
           )}
@@ -492,12 +590,16 @@ export default function AvailabilityScreen() {
           >
             <Text style={styles.discardButtonText}>Discard</Text>
           </Pressable>
-          <Pressable
-            style={styles.saveButton}
-            onPress={() => saveMutation.mutate()}
-          >
-            <Text style={styles.saveButtonText}>Save Changes</Text>
-          </Pressable>
+          <AnimatedPressable style={saveAnimatedStyle} onPress={handleSavePress}>
+            <LinearGradient
+              colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.saveButton}
+            >
+              <Text style={styles.saveButtonText}>Save Changes</Text>
+            </LinearGradient>
+          </AnimatedPressable>
         </View>
       ) : null}
 
@@ -509,8 +611,14 @@ export default function AvailabilityScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <LinearGradient
+              colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.modalGradientLine}
+            />
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Exception</Text>
+              <Text style={styles.modalTitle}>ADD EXCEPTION</Text>
               <Pressable onPress={() => setShowAddException(false)}>
                 <Feather name="x" size={24} color={Colors.dark.text} />
               </Pressable>
@@ -518,29 +626,33 @@ export default function AvailabilityScreen() {
             <Text style={styles.modalHint}>e.g. Dec 31 - unavailable for holiday</Text>
 
             <View style={styles.modalFormGroup}>
-              <Text style={styles.modalLabel}>Start Date</Text>
-              <TextInput
-                style={styles.modalInput}
-                value={exceptionStartDate}
-                onChangeText={setExceptionStartDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={Colors.dark.textMuted}
-              />
+              <Text style={styles.modalLabel}>START DATE</Text>
+              <View style={styles.modalInputWrapper}>
+                <TextInput
+                  style={styles.modalInput}
+                  value={exceptionStartDate}
+                  onChangeText={setExceptionStartDate}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor={Colors.dark.textMuted}
+                />
+              </View>
             </View>
 
             <View style={styles.modalFormGroup}>
-              <Text style={styles.modalLabel}>End Date</Text>
-              <TextInput
-                style={styles.modalInput}
-                value={exceptionEndDate}
-                onChangeText={setExceptionEndDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={Colors.dark.textMuted}
-              />
+              <Text style={styles.modalLabel}>END DATE</Text>
+              <View style={styles.modalInputWrapper}>
+                <TextInput
+                  style={styles.modalInput}
+                  value={exceptionEndDate}
+                  onChangeText={setExceptionEndDate}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor={Colors.dark.textMuted}
+                />
+              </View>
             </View>
 
             <View style={styles.modalFormGroup}>
-              <Text style={styles.modalLabel}>Reason</Text>
+              <Text style={styles.modalLabel}>REASON</Text>
               <View style={styles.reasonOptions}>
                 {REASON_OPTIONS.map((reason) => (
                   <Pressable
@@ -551,17 +663,30 @@ export default function AvailabilityScreen() {
                     ]}
                     onPress={() => setExceptionReason(reason)}
                   >
-                    <Feather
-                      name={reason === "Holiday" ? "sun" : reason === "Sick" ? "thermometer" : reason === "Tournament" ? "award" : "user"}
-                      size={16}
-                      color={exceptionReason === reason ? Colors.dark.backgroundRoot : Colors.dark.text}
-                    />
-                    <Text style={[
-                      styles.reasonOptionText,
-                      exceptionReason === reason && styles.reasonOptionTextActive,
-                    ]}>
-                      {reason}
-                    </Text>
+                    {exceptionReason === reason ? (
+                      <LinearGradient
+                        colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.reasonOptionGradient}
+                      >
+                        <Feather
+                          name={reason === "Holiday" ? "sun" : reason === "Sick" ? "thermometer" : reason === "Tournament" ? "award" : "user"}
+                          size={16}
+                          color={Colors.dark.backgroundRoot}
+                        />
+                        <Text style={styles.reasonOptionTextActive}>{reason}</Text>
+                      </LinearGradient>
+                    ) : (
+                      <View style={styles.reasonOptionInner}>
+                        <Feather
+                          name={reason === "Holiday" ? "sun" : reason === "Sick" ? "thermometer" : reason === "Tournament" ? "award" : "user"}
+                          size={16}
+                          color={Colors.dark.tabIconDefault}
+                        />
+                        <Text style={styles.reasonOptionText}>{reason}</Text>
+                      </View>
+                    )}
                   </Pressable>
                 ))}
               </View>
@@ -582,36 +707,57 @@ export default function AvailabilityScreen() {
               }}
               disabled={!exceptionStartDate || !exceptionEndDate}
             >
-              <Text style={styles.modalSaveButtonText}>Add Exception</Text>
+              <LinearGradient
+                colors={!exceptionStartDate || !exceptionEndDate ? [Colors.dark.disabled, Colors.dark.disabled] : [Colors.dark.primary, Colors.dark.xpCyan]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.modalSaveButtonGradient}
+              >
+                <Text style={styles.modalSaveButtonText}>Add Exception</Text>
+              </LinearGradient>
             </Pressable>
           </View>
         </View>
       </Modal>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
   },
   loadingContainer: {
     justifyContent: "center",
     alignItems: "center",
     gap: Spacing.lg,
   },
+  loadingIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+  },
   loadingText: {
     ...Typography.body,
     color: Colors.dark.tabIconDefault,
   },
   header: {
+    marginBottom: Spacing.sm,
+  },
+  headerGradientLine: {
+    height: 3,
+    width: "100%",
+  },
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.backgroundSecondary,
   },
   backButton: {
     padding: Spacing.sm,
@@ -621,12 +767,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    ...Typography.h2,
+    fontSize: Typography.h2.fontSize,
+    fontWeight: "700",
     color: Colors.dark.text,
+    letterSpacing: 2,
+    textTransform: "uppercase",
   },
   headerSubtitle: {
     ...Typography.caption,
-    color: Colors.dark.tabIconDefault,
+    color: Colors.dark.xpCyan,
     marginTop: 2,
   },
   pauseToggle: {
@@ -634,18 +783,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
   },
+  statusBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+  },
+  statusBadgeActive: {
+    backgroundColor: Colors.dark.primary + "30",
+  },
+  statusBadgePaused: {
+    backgroundColor: Colors.dark.error + "30",
+  },
   pauseLabel: {
     ...Typography.caption,
     color: Colors.dark.primary,
+    fontWeight: "600",
   },
-  pauseLabelActive: {
-    color: Colors.dark.orange,
+  pauseLabelPaused: {
+    color: Colors.dark.error,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
     gap: Spacing.xl,
   },
   section: {
@@ -653,28 +814,36 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
   },
   sectionTitle: {
-    ...Typography.h3,
-    color: Colors.dark.text,
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
   },
   sectionHint: {
-    ...Typography.caption,
+    ...Typography.small,
     color: Colors.dark.tabIconDefault,
     marginTop: -Spacing.sm,
   },
   dayCard: {
-    backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "20",
     overflow: "hidden",
   },
   dayHeader: {
+    borderRadius: BorderRadius.md,
+  },
+  dayCardInner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: Spacing.lg,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    padding: Spacing.md,
   },
   dayHeaderLeft: {
     flexDirection: "row",
@@ -682,22 +851,28 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   dayToggle: {
-    width: 24,
-    height: 24,
-    borderRadius: BorderRadius.xs,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     borderWidth: 2,
     borderColor: Colors.dark.tabIconDefault,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
   dayToggleActive: {
-    backgroundColor: Colors.dark.primary,
-    borderColor: Colors.dark.primary,
+    borderWidth: 0,
+  },
+  dayToggleGradient: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
   },
   dayName: {
     ...Typography.body,
-    color: Colors.dark.text,
     fontWeight: "600",
+    color: Colors.dark.text,
   },
   dayNameInactive: {
     color: Colors.dark.tabIconDefault,
@@ -707,142 +882,222 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
   },
+  timePreviewBadge: {
+    backgroundColor: Colors.dark.xpCyan + "15",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.xs,
+  },
   dayTimePreview: {
     ...Typography.small,
-    color: Colors.dark.primary,
+    color: Colors.dark.xpCyan,
+    fontWeight: "500",
   },
   dayUnavailable: {
     ...Typography.small,
     color: Colors.dark.tabIconDefault,
   },
+  chevronContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   dayContent: {
-    padding: Spacing.lg,
-    paddingTop: 0,
+    padding: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.primary + "20",
+    backgroundColor: "rgba(18, 18, 22, 0.95)",
     gap: Spacing.md,
   },
   timeBlockRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.md,
+    gap: Spacing.sm,
   },
   timeSelector: {
     flex: 1,
-    gap: Spacing.xs,
   },
   timeSelectorLabel: {
     ...Typography.caption,
     color: Colors.dark.tabIconDefault,
+    marginBottom: 4,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   timeButton: {
     backgroundColor: Colors.dark.backgroundSecondary,
-    padding: Spacing.md,
     borderRadius: BorderRadius.sm,
-    alignItems: "center",
+    padding: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
   },
   timeButtonText: {
     ...Typography.body,
     color: Colors.dark.text,
-    fontWeight: "500",
+    textAlign: "center",
+  },
+  arrowContainer: {
+    paddingTop: Spacing.lg,
   },
   removeBlockButton: {
+    paddingTop: Spacing.lg,
     padding: Spacing.sm,
   },
   addBlockButton: {
+    borderRadius: BorderRadius.sm,
+    overflow: "hidden",
+  },
+  addBlockButtonGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: Spacing.sm,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.dark.primary,
-    borderStyle: "dashed",
-    borderRadius: BorderRadius.sm,
+    gap: Spacing.xs,
+    padding: Spacing.sm,
   },
   addBlockText: {
     ...Typography.small,
-    color: Colors.dark.primary,
+    color: Colors.dark.xpCyan,
+    fontWeight: "500",
   },
   ruleCard: {
-    backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "20",
+    overflow: "hidden",
+  },
+  ruleCardInner: {
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    padding: Spacing.md,
     gap: Spacing.md,
   },
   ruleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: Spacing.md,
+  },
+  ruleIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    alignItems: "center",
+    justifyContent: "center",
   },
   ruleLabel: {
     ...Typography.body,
     color: Colors.dark.text,
+    fontWeight: "500",
   },
   optionRow: {
     flexDirection: "row",
     gap: Spacing.sm,
+    flexWrap: "wrap",
   },
   optionButton: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    padding: Spacing.md,
+    minWidth: 70,
+  },
+  optionButtonGradient: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.sm,
     alignItems: "center",
   },
-  optionButtonActive: {
-    backgroundColor: Colors.dark.primary,
+  optionButtonInactive: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "20",
   },
   optionButtonText: {
     ...Typography.small,
-    color: Colors.dark.text,
+    color: Colors.dark.tabIconDefault,
+    fontWeight: "500",
   },
   optionButtonTextActive: {
+    ...Typography.small,
     color: Colors.dark.backgroundRoot,
     fontWeight: "600",
   },
   addExceptionButton: {
+    borderRadius: BorderRadius.sm,
+    overflow: "hidden",
+  },
+  addExceptionGradient: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    padding: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
   },
   addExceptionText: {
     ...Typography.small,
-    color: Colors.dark.primary,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
   },
   emptyExceptions: {
     alignItems: "center",
-    justifyContent: "center",
     padding: Spacing.xl,
     gap: Spacing.md,
   },
+  emptyIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+  },
   emptyExceptionsText: {
-    ...Typography.small,
+    ...Typography.body,
     color: Colors.dark.tabIconDefault,
   },
   exceptionCard: {
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "30",
+    overflow: "hidden",
+  },
+  exceptionCardInner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: Colors.dark.backgroundDefault,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    padding: Spacing.md,
   },
   exceptionInfo: {
+    flex: 1,
     gap: Spacing.xs,
   },
   exceptionReasonBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
+    backgroundColor: Colors.dark.gold + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.xs,
+    alignSelf: "flex-start",
   },
   exceptionReasonText: {
     ...Typography.small,
-    color: Colors.dark.primary,
+    color: Colors.dark.gold,
     fontWeight: "500",
   },
   exceptionDates: {
-    ...Typography.caption,
+    ...Typography.small,
     color: Colors.dark.tabIconDefault,
+  },
+  deleteButton: {
+    padding: Spacing.sm,
   },
   footer: {
     position: "absolute",
@@ -852,27 +1107,28 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: Spacing.md,
     padding: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: "rgba(18, 18, 22, 0.98)",
     borderTopWidth: 1,
-    borderTopColor: Colors.dark.backgroundSecondary,
+    borderTopColor: Colors.dark.primary + "30",
   },
   discardButton: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundSecondary,
-    padding: Spacing.lg,
     borderRadius: BorderRadius.md,
+    padding: Spacing.md,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "20",
   },
   discardButtonText: {
     ...Typography.body,
-    color: Colors.dark.text,
+    color: Colors.dark.tabIconDefault,
     fontWeight: "500",
   },
   saveButton: {
     flex: 2,
-    backgroundColor: Colors.dark.primary,
-    padding: Spacing.lg,
     borderRadius: BorderRadius.md,
+    padding: Spacing.md,
     alignItems: "center",
   },
   saveButtonText: {
@@ -882,44 +1138,57 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Colors.dark.backgroundRoot,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
-    gap: Spacing.lg,
+    gap: Spacing.md,
+  },
+  modalGradientLine: {
+    height: 3,
+    width: "100%",
+    marginBottom: Spacing.md,
+    borderRadius: 2,
   },
   modalHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
   },
   modalTitle: {
-    ...Typography.h2,
+    ...Typography.h3,
     color: Colors.dark.text,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
   },
   modalHint: {
-    ...Typography.caption,
+    ...Typography.small,
     color: Colors.dark.tabIconDefault,
-    marginTop: -Spacing.sm,
   },
   modalFormGroup: {
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   modalLabel: {
-    ...Typography.small,
-    color: Colors.dark.text,
-    fontWeight: "500",
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  modalInputWrapper: {
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+    overflow: "hidden",
   },
   modalInput: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.md,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     padding: Spacing.md,
-    ...Typography.body,
     color: Colors.dark.text,
+    ...Typography.body,
   },
   reasonOptions: {
     flexDirection: "row",
@@ -927,34 +1196,46 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   reasonOption: {
+    borderRadius: BorderRadius.sm,
+    overflow: "hidden",
+  },
+  reasonOptionActive: {},
+  reasonOptionGradient: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    backgroundColor: Colors.dark.backgroundSecondary,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
   },
-  reasonOptionActive: {
-    backgroundColor: Colors.dark.primary,
+  reasonOptionInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "20",
+    borderRadius: BorderRadius.sm,
   },
   reasonOptionText: {
     ...Typography.small,
-    color: Colors.dark.text,
+    color: Colors.dark.tabIconDefault,
   },
   reasonOptionTextActive: {
+    ...Typography.small,
     color: Colors.dark.backgroundRoot,
     fontWeight: "600",
   },
   modalSaveButton: {
-    backgroundColor: Colors.dark.primary,
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    alignItems: "center",
     marginTop: Spacing.md,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
   },
-  modalSaveButtonDisabled: {
-    opacity: 0.5,
+  modalSaveButtonDisabled: {},
+  modalSaveButtonGradient: {
+    padding: Spacing.md,
+    alignItems: "center",
   },
   modalSaveButtonText: {
     ...Typography.body,

@@ -14,12 +14,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
 import { apiRequest, apiFetch, getApiUrl } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import { Card } from "@/components/Card";
 
 interface SessionTemplate {
   id: string;
@@ -54,6 +58,27 @@ const BALL_LEVELS: { value: BallLevel; label: string; color: string }[] = [
 ];
 
 const DURATIONS = [30, 45, 60, 90, 120];
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+function AnimatedButton({ onPress, style, children, disabled }: any) {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={() => { scale.value = withSpring(0.95, { damping: 15, stiffness: 400 }); }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 15, stiffness: 400 }); }}
+      style={[animatedStyle, style]}
+      disabled={disabled}
+    >
+      {children}
+    </AnimatedPressable>
+  );
+}
 
 export default function TemplatesScreen() {
   const insets = useSafeAreaInsets();
@@ -187,63 +212,88 @@ export default function TemplatesScreen() {
   };
 
   const renderTemplate = ({ item }: { item: SessionTemplate }) => (
-    <Card style={styles.templateCard}>
-      <View style={styles.templateHeader}>
-        <View style={styles.templateInfo}>
-          <Text style={styles.templateName}>{item.name}</Text>
-          <View style={styles.templateMeta}>
-            <View
-              style={[
-                styles.typeBadge,
-                { backgroundColor: getSessionTypeColor(item.sessionType) + "20" },
-              ]}
-            >
-              <Text
-                style={[styles.typeBadgeText, { color: getSessionTypeColor(item.sessionType) }]}
-              >
-                {getSessionTypeLabel(item.sessionType)}
-              </Text>
-            </View>
-            <Text style={styles.durationText}>{item.duration} min</Text>
-            {item.ballLevel ? (
+    <View style={styles.templateCard}>
+      <LinearGradient
+        colors={[`${getSessionTypeColor(item.sessionType)}15`, "rgba(18, 18, 22, 0.95)"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.templateCardGradient}
+      >
+        <View style={styles.templateHeader}>
+          <View style={styles.templateInfo}>
+            <Text style={styles.templateName}>{item.name}</Text>
+            <View style={styles.templateMeta}>
               <View
                 style={[
-                  styles.ballIndicator,
-                  { backgroundColor: getBallLevelColor(item.ballLevel) },
+                  styles.typeBadge,
+                  { backgroundColor: getSessionTypeColor(item.sessionType) + "25", borderColor: getSessionTypeColor(item.sessionType) },
                 ]}
-              />
-            ) : null}
+              >
+                <Text
+                  style={[styles.typeBadgeText, { color: getSessionTypeColor(item.sessionType) }]}
+                >
+                  {getSessionTypeLabel(item.sessionType)}
+                </Text>
+              </View>
+              <View style={styles.durationBadge}>
+                <Ionicons name="time-outline" size={12} color={Colors.dark.xpCyan} />
+                <Text style={styles.durationText}>{item.duration} min</Text>
+              </View>
+              {item.ballLevel ? (
+                <View
+                  style={[
+                    styles.ballIndicator,
+                    { backgroundColor: getBallLevelColor(item.ballLevel), shadowColor: getBallLevelColor(item.ballLevel) },
+                  ]}
+                />
+              ) : null}
+            </View>
           </View>
+          <Pressable
+            onPress={() => handleDelete(item)}
+            style={styles.deleteButton}
+            hitSlop={8}
+          >
+            <Ionicons name="trash-outline" size={20} color={Colors.dark.error} />
+          </Pressable>
         </View>
-        <Pressable
-          onPress={() => handleDelete(item)}
-          style={styles.deleteButton}
-          hitSlop={8}
-        >
-          <Ionicons name="trash-outline" size={20} color={Colors.dark.error} />
-        </Pressable>
-      </View>
-      {item.notes ? <Text style={styles.templateNotes}>{item.notes}</Text> : null}
-    </Card>
+        {item.notes ? <Text style={styles.templateNotes}>{item.notes}</Text> : null}
+      </LinearGradient>
+    </View>
   );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + Spacing.lg }]}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Session Templates</Text>
-        <Pressable onPress={() => openModal()} style={styles.addButton}>
-          <LinearGradient
-            colors={[Colors.dark.primary, Colors.dark.primary]}
-            style={styles.addButtonGradient}
-          >
-            <Ionicons name="add" size={24} color={Colors.dark.text} />
-          </LinearGradient>
-        </Pressable>
-      </View>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <LinearGradient
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        style={styles.gamingHeader}
+      >
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerTopLine}
+        />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>SESSION TEMPLATES</Text>
+          <AnimatedButton onPress={() => openModal()} style={styles.addButton}>
+            <LinearGradient
+              colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.addButtonGradient}
+            >
+              <Ionicons name="add" size={24} color={Colors.dark.text} />
+            </LinearGradient>
+          </AnimatedButton>
+        </View>
+      </LinearGradient>
 
       {templates.length === 0 && !isLoading ? (
         <View style={styles.emptyState}>
-          <Ionicons name="document-text-outline" size={64} color={Colors.dark.tabIconDefault} />
+          <View style={styles.emptyIconContainer}>
+            <Ionicons name="document-text-outline" size={64} color={Colors.dark.xpCyan} />
+          </View>
           <Text style={styles.emptyTitle}>No Templates Yet</Text>
           <Text style={styles.emptySubtitle}>
             Create templates to quickly book sessions with preset configurations
@@ -251,10 +301,17 @@ export default function TemplatesScreen() {
           <Text style={styles.emptyHint}>
             Most coaches create 3-5 templates for their common session types
           </Text>
-          <Pressable onPress={() => openModal()} style={styles.emptyAction}>
-            <Ionicons name="add-circle" size={20} color={Colors.dark.primary} />
-            <Text style={styles.emptyActionText}>Create your first template</Text>
-          </Pressable>
+          <AnimatedButton onPress={() => openModal()} style={styles.emptyAction}>
+            <LinearGradient
+              colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.emptyActionGradient}
+            >
+              <Ionicons name="add-circle" size={20} color={Colors.dark.text} />
+              <Text style={styles.emptyActionText}>Create your first template</Text>
+            </LinearGradient>
+          </AnimatedButton>
         </View>
       ) : (
         <FlatList
@@ -269,9 +326,15 @@ export default function TemplatesScreen() {
       <Modal visible={showModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <LinearGradient
+              colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.modalTopLine}
+            />
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                {editingTemplate ? "Edit Template" : "New Template"}
+                {editingTemplate ? "EDIT TEMPLATE" : "NEW TEMPLATE"}
               </Text>
               <Pressable onPress={closeModal} hitSlop={8}>
                 <Ionicons name="close" size={24} color={Colors.dark.tabIconDefault} />
@@ -279,7 +342,7 @@ export default function TemplatesScreen() {
             </View>
 
             <KeyboardAwareScrollViewCompat style={styles.modalScroll}>
-              <Text style={styles.label}>Template Name</Text>
+              <Text style={styles.label}>TEMPLATE NAME</Text>
               <TextInput
                 style={styles.input}
                 value={name}
@@ -288,7 +351,7 @@ export default function TemplatesScreen() {
                 placeholderTextColor={Colors.dark.tabIconDefault}
               />
 
-              <Text style={styles.label}>Session Type</Text>
+              <Text style={styles.label}>SESSION TYPE</Text>
               <View style={styles.optionRow}>
                 {SESSION_TYPES.map((type) => (
                   <Pressable
@@ -314,7 +377,7 @@ export default function TemplatesScreen() {
                 ))}
               </View>
 
-              <Text style={styles.label}>Duration</Text>
+              <Text style={styles.label}>DURATION</Text>
               <View style={styles.optionRow}>
                 {DURATIONS.map((d) => (
                   <Pressable
@@ -323,15 +386,15 @@ export default function TemplatesScreen() {
                     style={[
                       styles.durationButton,
                       duration === d && {
-                        backgroundColor: Colors.dark.primary + "30",
-                        borderColor: Colors.dark.primary,
+                        backgroundColor: Colors.dark.xpCyan + "30",
+                        borderColor: Colors.dark.xpCyan,
                       },
                     ]}
                   >
                     <Text
                       style={[
                         styles.durationButtonText,
-                        duration === d && { color: Colors.dark.primary },
+                        duration === d && { color: Colors.dark.xpCyan },
                       ]}
                     >
                       {d}m
@@ -340,7 +403,7 @@ export default function TemplatesScreen() {
                 ))}
               </View>
 
-              <Text style={styles.label}>Ball Level (Optional)</Text>
+              <Text style={styles.label}>BALL LEVEL (OPTIONAL)</Text>
               <View style={styles.optionRow}>
                 {BALL_LEVELS.map((ball) => (
                   <Pressable
@@ -367,7 +430,7 @@ export default function TemplatesScreen() {
                 ))}
               </View>
 
-              <Text style={styles.label}>Skill Level (Optional)</Text>
+              <Text style={styles.label}>SKILL LEVEL (OPTIONAL)</Text>
               <View style={styles.optionRow}>
                 {[1, 2, 3].map((level) => (
                   <Pressable
@@ -376,15 +439,15 @@ export default function TemplatesScreen() {
                     style={[
                       styles.skillButton,
                       skillLevel === level && {
-                        backgroundColor: Colors.dark.xpCyan + "30",
-                        borderColor: Colors.dark.xpCyan,
+                        backgroundColor: Colors.dark.gold + "30",
+                        borderColor: Colors.dark.gold,
                       },
                     ]}
                   >
                     <Text
                       style={[
                         styles.skillButtonText,
-                        skillLevel === level && { color: Colors.dark.xpCyan },
+                        skillLevel === level && { color: Colors.dark.gold },
                       ]}
                     >
                       {level === 1 ? "Beginner" : level === 2 ? "Intermediate" : "Advanced"}
@@ -393,7 +456,7 @@ export default function TemplatesScreen() {
                 ))}
               </View>
 
-              <Text style={styles.label}>Notes (Optional)</Text>
+              <Text style={styles.label}>NOTES (OPTIONAL)</Text>
               <TextInput
                 style={[styles.input, styles.notesInput]}
                 value={notes}
@@ -405,20 +468,22 @@ export default function TemplatesScreen() {
               />
             </KeyboardAwareScrollViewCompat>
 
-            <Pressable
+            <AnimatedButton
               onPress={handleSave}
               disabled={createMutation.isPending}
               style={styles.saveButton}
             >
               <LinearGradient
-                colors={[Colors.dark.primary, Colors.dark.primary]}
+                colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
                 style={styles.saveButtonGradient}
               >
                 <Text style={styles.saveButtonText}>
                   {createMutation.isPending ? "Saving..." : "Save Template"}
                 </Text>
               </LinearGradient>
-            </Pressable>
+            </AnimatedButton>
           </View>
         </View>
       </Modal>
@@ -431,16 +496,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
   },
+  gamingHeader: {
+    paddingBottom: Spacing.lg,
+  },
+  headerTopLine: {
+    height: 3,
+    width: "100%",
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: Spacing.lg,
-    marginBottom: Spacing.lg,
+    paddingTop: Spacing.lg,
   },
   headerTitle: {
     ...Typography.h2,
     color: Colors.dark.text,
+    letterSpacing: 2,
   },
   addButton: {
     borderRadius: BorderRadius.full,
@@ -455,9 +528,16 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
   },
   templateCard: {
     marginBottom: Spacing.md,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
+  },
+  templateCardGradient: {
     padding: Spacing.md,
   },
   templateHeader: {
@@ -482,18 +562,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs / 2,
     borderRadius: BorderRadius.sm,
+    borderWidth: 1,
   },
   typeBadgeText: {
     ...Typography.caption,
+    fontWeight: "600",
+  },
+  durationBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   durationText: {
     ...Typography.small,
-    color: Colors.dark.tabIconDefault,
+    color: Colors.dark.xpCyan,
   },
   ballIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 4,
   },
   templateNotes: {
     ...Typography.small,
@@ -509,10 +600,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: Spacing.xl,
   },
+  emptyIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: `${Colors.dark.xpCyan}15`,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
   emptyTitle: {
     ...Typography.h3,
     color: Colors.dark.text,
-    marginTop: Spacing.lg,
     marginBottom: Spacing.sm,
   },
   emptySubtitle: {
@@ -522,24 +621,26 @@ const styles = StyleSheet.create({
   },
   emptyHint: {
     ...Typography.caption,
-    color: Colors.dark.primary,
+    color: Colors.dark.xpCyan,
     textAlign: "center",
     marginTop: Spacing.lg,
     opacity: 0.8,
   },
   emptyAction: {
+    marginTop: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  emptyActionGradient: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    marginTop: Spacing.lg,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    backgroundColor: Colors.dark.primary + "15",
-    borderRadius: BorderRadius.md,
   },
   emptyActionText: {
     ...Typography.body,
-    color: Colors.dark.primary,
+    color: Colors.dark.text,
     fontWeight: "600",
   },
   modalOverlay: {
@@ -548,10 +649,16 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(18, 18, 22, 0.98)",
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     maxHeight: "85%",
+  },
+  modalTopLine: {
+    height: 3,
+    width: "100%",
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
   },
   modalHeader: {
     flexDirection: "row",
@@ -559,29 +666,31 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.headerBorder,
+    borderBottomColor: `${Colors.dark.primary}30`,
   },
   modalTitle: {
     ...Typography.h3,
     color: Colors.dark.text,
+    letterSpacing: 1.5,
   },
   modalScroll: {
     padding: Spacing.lg,
   },
   label: {
     ...Typography.caption,
-    color: Colors.dark.tabIconDefault,
+    color: Colors.dark.xpCyan,
     marginBottom: Spacing.sm,
     marginTop: Spacing.md,
+    letterSpacing: 1,
   },
   input: {
-    backgroundColor: Colors.dark.backgroundTertiary,
+    backgroundColor: "rgba(30, 30, 35, 0.9)",
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     ...Typography.body,
     color: Colors.dark.text,
     borderWidth: 1,
-    borderColor: Colors.dark.headerBorder,
+    borderColor: `${Colors.dark.primary}30`,
   },
   notesInput: {
     height: 80,
@@ -597,8 +706,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: Colors.dark.headerBorder,
-    backgroundColor: Colors.dark.backgroundTertiary,
+    borderColor: `${Colors.dark.xpCyan}30`,
+    backgroundColor: "rgba(30, 30, 35, 0.9)",
   },
   optionText: {
     ...Typography.small,
@@ -609,8 +718,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: Colors.dark.headerBorder,
-    backgroundColor: Colors.dark.backgroundTertiary,
+    borderColor: `${Colors.dark.xpCyan}30`,
+    backgroundColor: "rgba(30, 30, 35, 0.9)",
     minWidth: 50,
     alignItems: "center",
   },
@@ -625,8 +734,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: Colors.dark.headerBorder,
-    backgroundColor: Colors.dark.backgroundTertiary,
+    borderColor: `${Colors.dark.xpCyan}30`,
+    backgroundColor: "rgba(30, 30, 35, 0.9)",
     gap: Spacing.xs,
   },
   ballDot: {
@@ -643,8 +752,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: Colors.dark.headerBorder,
-    backgroundColor: Colors.dark.backgroundTertiary,
+    borderColor: `${Colors.dark.xpCyan}30`,
+    backgroundColor: "rgba(30, 30, 35, 0.9)",
   },
   skillButtonText: {
     ...Typography.small,

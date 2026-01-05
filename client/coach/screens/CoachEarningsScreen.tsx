@@ -14,6 +14,12 @@ import { useQuery } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 
 interface EarningsSummary {
@@ -91,6 +97,55 @@ interface PaymentRuleData {
   isDefault: boolean;
 }
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+function GamingButton({ 
+  onPress, 
+  title, 
+  icon,
+  colors = [Colors.dark.primary, "#1FA030"],
+}: { 
+  onPress: () => void; 
+  title: string; 
+  icon?: string;
+  colors?: string[];
+}) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+  };
+
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={[styles.gamingButton, animatedStyle]}
+    >
+      <LinearGradient
+        colors={colors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gamingButtonGradient}
+      >
+        {icon ? (
+          <Ionicons name={icon as any} size={18} color={Colors.dark.backgroundRoot} />
+        ) : null}
+        <Text style={styles.gamingButtonText}>{title}</Text>
+      </LinearGradient>
+    </AnimatedPressable>
+  );
+}
+
 export default function CoachEarningsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -150,17 +205,28 @@ export default function CoachEarningsScreen() {
   const projectedAmount = summary ? parseFloat(summary.projected.amount) : 0;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Pressable 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Coach Earnings</Text>
-        <View style={styles.headerRight} />
-      </View>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        style={[styles.headerContainer, { paddingTop: insets.top }]}
+      >
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerTopLine}
+        />
+        <View style={styles.header}>
+          <Pressable 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <Text style={styles.headerTitle}>COACH EARNINGS</Text>
+          <View style={styles.headerRight} />
+        </View>
+      </LinearGradient>
 
       <ScrollView 
         style={styles.content}
@@ -173,27 +239,32 @@ export default function CoachEarningsScreen() {
           </View>
         ) : summary ? (
           <>
-            <LinearGradient
-              colors={[`${Colors.dark.primary}30`, `${Colors.dark.primary}10`]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.summaryCard}
-            >
+            <View style={styles.glassCard}>
+              <LinearGradient
+                colors={[`${Colors.dark.primary}20`, `${Colors.dark.xpCyan}10`]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.cardGradientOverlay}
+              />
               <View style={styles.summaryHeader}>
                 <Text style={styles.summaryTitle}>{summary.period.monthName} {summary.period.year}</Text>
+                <View style={styles.periodBadge}>
+                  <Ionicons name="calendar" size={12} color={Colors.dark.xpCyan} />
+                  <Text style={styles.periodBadgeText}>CURRENT</Text>
+                </View>
               </View>
 
               <View style={styles.mainAmounts}>
                 <View style={styles.amountBlock}>
                   <View style={styles.amountHeader}>
-                    <Ionicons name="checkmark-circle" size={16} color={Colors.dark.successNeon} />
-                    <Text style={styles.amountLabel}>This month earned</Text>
+                    <View style={styles.neonDot} />
+                    <Text style={styles.amountLabel}>EARNED</Text>
                   </View>
-                  <Text style={styles.mainAmount}>
+                  <Text style={styles.neonAmount}>
                     {summary.realized.currency} {realizedAmount.toLocaleString()}
                   </Text>
                   <Text style={styles.amountSubtext}>
-                    {summary.realized.sessionsCount} completed lessons
+                    {summary.realized.sessionsCount} completed
                   </Text>
                 </View>
 
@@ -201,26 +272,28 @@ export default function CoachEarningsScreen() {
 
                 <View style={styles.amountBlock}>
                   <View style={styles.amountHeader}>
-                    <Ionicons name="time-outline" size={16} color={Colors.dark.gold} />
-                    <Text style={styles.amountLabel}>Expected this month</Text>
+                    <View style={[styles.neonDot, { backgroundColor: Colors.dark.gold }]} />
+                    <Text style={styles.amountLabel}>PROJECTED</Text>
                   </View>
-                  <Text style={[styles.mainAmount, styles.projectedColor]}>
+                  <Text style={[styles.neonAmount, styles.projectedColor]}>
                     {summary.projected.currency} {projectedAmount.toLocaleString()}
                   </Text>
                   <Text style={styles.amountSubtext}>
-                    {summary.projected.sessionsCount} upcoming lessons
+                    {summary.projected.sessionsCount} upcoming
                   </Text>
                 </View>
               </View>
-            </LinearGradient>
+            </View>
 
-            <View style={styles.paymentRuleCard}>
+            <View style={styles.glassCard}>
               <View style={styles.ruleHeader}>
-                <Ionicons name="card-outline" size={18} color={Colors.dark.primary} />
-                <Text style={styles.ruleTitle}>Payment Rule</Text>
+                <View style={styles.ruleIconContainer}>
+                  <Ionicons name="card" size={20} color={Colors.dark.xpCyan} />
+                </View>
+                <Text style={styles.ruleTitle}>PAYMENT RULE</Text>
                 {paymentRule?.isDefault ? (
                   <View style={styles.defaultBadge}>
-                    <Text style={styles.defaultBadgeText}>Default</Text>
+                    <Text style={styles.defaultBadgeText}>DEFAULT</Text>
                   </View>
                 ) : null}
               </View>
@@ -237,11 +310,11 @@ export default function CoachEarningsScreen() {
                 ) : null}
               </View>
               <Text style={styles.ruleNote}>
-                Payment rules are set by your academy owner
+                Set by academy owner
               </Text>
             </View>
 
-            <View style={styles.sectionCard}>
+            <View style={styles.glassCard}>
               <Pressable 
                 style={styles.sectionHeader}
                 onPress={() => {
@@ -250,13 +323,15 @@ export default function CoachEarningsScreen() {
                 }}
               >
                 <View style={styles.sectionTitleRow}>
-                  <Ionicons name="list-outline" size={18} color={Colors.dark.text} />
-                  <Text style={styles.sectionTitle}>Session Breakdown</Text>
+                  <View style={styles.sectionIconContainer}>
+                    <Ionicons name="list" size={18} color={Colors.dark.primary} />
+                  </View>
+                  <Text style={styles.sectionTitle}>SESSION BREAKDOWN</Text>
                 </View>
                 <Ionicons 
                   name={showBreakdown ? "chevron-up" : "chevron-down"} 
                   size={20} 
-                  color={Colors.dark.textMuted} 
+                  color={Colors.dark.xpCyan} 
                 />
               </Pressable>
 
@@ -310,11 +385,13 @@ export default function CoachEarningsScreen() {
               ) : null}
             </View>
 
-            <View style={styles.sectionCard}>
+            <View style={styles.glassCard}>
               <View style={styles.sectionHeader}>
                 <View style={styles.sectionTitleRow}>
-                  <Ionicons name="calendar-outline" size={18} color={Colors.dark.text} />
-                  <Text style={styles.sectionTitle}>History</Text>
+                  <View style={[styles.sectionIconContainer, { backgroundColor: `${Colors.dark.gold}20` }]}>
+                    <Ionicons name="time" size={18} color={Colors.dark.gold} />
+                  </View>
+                  <Text style={styles.sectionTitle}>HISTORY</Text>
                 </View>
               </View>
               
@@ -370,14 +447,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
   },
+  headerContainer: {
+    paddingBottom: Spacing.md,
+  },
+  headerTopLine: {
+    height: 3,
+    width: "100%",
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.headerBorder,
+    paddingTop: Spacing.md,
   },
   backButton: {
     width: 40,
@@ -386,10 +468,14 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}30`,
   },
   headerTitle: {
     ...Typography.h3,
     color: Colors.dark.text,
+    letterSpacing: 2,
+    textTransform: "uppercase",
   },
   headerRight: {
     width: 40,
@@ -407,19 +493,46 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 60,
   },
-  summaryCard: {
+  glassCard: {
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     borderRadius: BorderRadius.lg,
-    padding: Spacing.xl,
+    padding: Spacing.lg,
     marginBottom: Spacing.lg,
     borderWidth: 1,
-    borderColor: `${Colors.dark.primary}30`,
+    borderColor: `${Colors.dark.primary}20`,
+    overflow: "hidden",
+  },
+  cardGradientOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 100,
   },
   summaryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: Spacing.lg,
   },
   summaryTitle: {
     ...Typography.h3,
     color: Colors.dark.text,
+  },
+  periodBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: `${Colors.dark.xpCyan}15`,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  periodBadgeText: {
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+    fontWeight: "700",
+    letterSpacing: 1,
   },
   mainAmounts: {
     flexDirection: "row",
@@ -433,18 +546,29 @@ const styles = StyleSheet.create({
     gap: 6,
     marginBottom: Spacing.xs,
   },
-  amountLabel: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
+  neonDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.dark.successNeon,
   },
-  mainAmount: {
+  amountLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    letterSpacing: 1,
+  },
+  neonAmount: {
     fontSize: 28,
     fontWeight: "800",
-    color: Colors.dark.text,
+    color: Colors.dark.successNeon,
     marginBottom: 4,
+    textShadowColor: Colors.dark.successNeon,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
   },
   projectedColor: {
     color: Colors.dark.gold,
+    textShadowColor: Colors.dark.gold,
   },
   amountSubtext: {
     ...Typography.caption,
@@ -452,14 +576,8 @@ const styles = StyleSheet.create({
   },
   amountDivider: {
     width: 1,
-    backgroundColor: `${Colors.dark.text}20`,
+    backgroundColor: `${Colors.dark.primary}30`,
     marginHorizontal: Spacing.lg,
-  },
-  paymentRuleCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
-    marginBottom: Spacing.lg,
   },
   ruleHeader: {
     flexDirection: "row",
@@ -467,14 +585,23 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginBottom: Spacing.sm,
   },
+  ruleIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: `${Colors.dark.xpCyan}15`,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   ruleTitle: {
     ...Typography.body,
     fontWeight: "600",
     color: Colors.dark.text,
     flex: 1,
+    letterSpacing: 1,
   },
   defaultBadge: {
-    backgroundColor: `${Colors.dark.textMuted}30`,
+    backgroundColor: `${Colors.dark.textMuted}20`,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
@@ -482,6 +609,8 @@ const styles = StyleSheet.create({
   defaultBadgeText: {
     ...Typography.caption,
     color: Colors.dark.textMuted,
+    fontSize: 10,
+    letterSpacing: 0.5,
   },
   ruleContent: {
     flexDirection: "row",
@@ -496,34 +625,39 @@ const styles = StyleSheet.create({
   ruleValue: {
     ...Typography.body,
     fontWeight: "700",
-    color: Colors.dark.primary,
+    color: Colors.dark.xpCyan,
   },
   ruleNote: {
     ...Typography.caption,
     color: Colors.dark.textMuted,
     fontStyle: "italic",
   },
-  sectionCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.lg,
-    overflow: "hidden",
-  },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: Spacing.lg,
+    paddingBottom: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: `${Colors.dark.primary}15`,
   },
   sectionTitleRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
   },
+  sectionIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: `${Colors.dark.primary}15`,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   sectionTitle: {
     ...Typography.body,
     fontWeight: "600",
     color: Colors.dark.text,
+    letterSpacing: 1,
   },
   breakdownLoading: {
     padding: Spacing.xl,
@@ -539,8 +673,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   breakdownList: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.lg,
+    paddingTop: Spacing.md,
   },
   breakdownItem: {
     flexDirection: "row",
@@ -585,7 +718,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     paddingTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: `${Colors.dark.text}20`,
+    borderTopColor: `${Colors.dark.primary}20`,
   },
   summaryRow: {
     flexDirection: "row",
@@ -599,11 +732,10 @@ const styles = StyleSheet.create({
   summaryValue: {
     ...Typography.small,
     fontWeight: "600",
-    color: Colors.dark.text,
+    color: Colors.dark.xpCyan,
   },
   historyList: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.lg,
+    paddingTop: Spacing.md,
   },
   historyItem: {
     flexDirection: "row",
@@ -617,6 +749,8 @@ const styles = StyleSheet.create({
     marginHorizontal: -Spacing.lg,
     paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}30`,
   },
   historyLeft: {
     width: 100,
@@ -650,6 +784,23 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   historyCurrentAmount: {
-    color: Colors.dark.primary,
+    color: Colors.dark.successNeon,
+  },
+  gamingButton: {
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  gamingButtonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+  },
+  gamingButtonText: {
+    ...Typography.h4,
+    color: Colors.dark.backgroundRoot,
+    letterSpacing: 1,
   },
 });

@@ -13,6 +13,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -28,6 +33,8 @@ import {
 
 type AuthMode = "login" | "player_register" | "coach_info" | "academy_apply" | "invite_code";
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 interface RoleOptionProps {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
@@ -37,13 +44,29 @@ interface RoleOptionProps {
 }
 
 function RoleOption({ icon, title, description, color, onPress }: RoleOptionProps) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.97, { damping: 15, stiffness: 400 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+  };
+
   return (
-    <Pressable
-      style={styles.roleOption}
+    <AnimatedPressable
+      style={[styles.roleOption, animatedStyle]}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         onPress();
       }}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
     >
       <View style={[styles.roleIcon, { backgroundColor: `${color}20` }]}>
         <Ionicons name={icon} size={24} color={color} />
@@ -53,7 +76,60 @@ function RoleOption({ icon, title, description, color, onPress }: RoleOptionProp
         <Text style={styles.roleDescription}>{description}</Text>
       </View>
       <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
-    </Pressable>
+    </AnimatedPressable>
+  );
+}
+
+function GamingButton({ 
+  onPress, 
+  title, 
+  isLoading = false,
+  disabled = false,
+  colors = [Colors.dark.primary, "#1FA030"],
+}: { 
+  onPress: () => void; 
+  title: string; 
+  isLoading?: boolean;
+  disabled?: boolean;
+  colors?: string[];
+}) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    if (!disabled) {
+      scale.value = withSpring(0.97, { damping: 15, stiffness: 400 });
+    }
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+  };
+
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      disabled={disabled || isLoading}
+      style={[styles.gamingButton, animatedStyle, disabled && { opacity: 0.6 }]}
+    >
+      <LinearGradient
+        colors={colors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gamingButtonGradient}
+      >
+        {isLoading ? (
+          <ActivityIndicator color={Colors.dark.text} />
+        ) : (
+          <Text style={styles.gamingButtonText}>{title}</Text>
+        )}
+      </LinearGradient>
+    </AnimatedPressable>
   );
 }
 
@@ -241,7 +317,6 @@ export default function LoginScreen() {
       return;
     }
 
-    // Normalize username to lowercase
     const normalizedUsername = username.toLowerCase();
 
     if (normalizedUsername.length < 3) {
@@ -262,7 +337,6 @@ export default function LoginScreen() {
     setIsSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // Combine country code with phone number (E.164 format, no spaces)
     const fullPhone = `${countryCode.dial}${phone.trim().replace(/\s/g, '')}`;
 
     try {
@@ -482,7 +556,7 @@ export default function LoginScreen() {
 
     return (
       <View style={styles.savedAccountsSection}>
-        <Text style={styles.savedAccountsTitle}>Quick Login</Text>
+        <Text style={styles.savedAccountsTitle}>QUICK LOGIN</Text>
         <Text style={styles.savedAccountsHint}>
           Tap to select, hold to remove
         </Text>
@@ -525,21 +599,25 @@ export default function LoginScreen() {
       {renderSavedAccounts()}
       
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Username</Text>
-        <TextInput
-          value={username}
-          onChangeText={setUsername}
-          placeholder="Enter your username"
-          placeholderTextColor={Colors.dark.textMuted}
-          autoCapitalize="none"
-          autoComplete="username"
-          style={styles.input}
-        />
+        <Text style={styles.label}>USERNAME</Text>
+        <View style={styles.glassInput}>
+          <Ionicons name="person-outline" size={18} color={Colors.dark.xpCyan} style={styles.inputIcon} />
+          <TextInput
+            value={username}
+            onChangeText={setUsername}
+            placeholder="Enter your username"
+            placeholderTextColor={Colors.dark.textMuted}
+            autoCapitalize="none"
+            autoComplete="username"
+            style={styles.input}
+          />
+        </View>
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Password</Text>
-        <View style={styles.passwordContainer}>
+        <Text style={styles.label}>PASSWORD</Text>
+        <View style={styles.glassInput}>
+          <Ionicons name="lock-closed-outline" size={18} color={Colors.dark.xpCyan} style={styles.inputIcon} />
           <TextInput
             value={password}
             onChangeText={setPassword}
@@ -562,22 +640,12 @@ export default function LoginScreen() {
         </View>
       </View>
 
-      <Pressable
-        style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+      <GamingButton
         onPress={handleLogin}
+        title="SIGN IN"
+        isLoading={isSubmitting}
         disabled={isSubmitting}
-      >
-        <LinearGradient
-          colors={[Colors.dark.primary, "#1FA030"]}
-          style={styles.submitGradient}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator color={Colors.dark.text} />
-          ) : (
-            <Text style={styles.submitText}>Sign In</Text>
-          )}
-        </LinearGradient>
-      </Pressable>
+      />
 
       <View style={styles.divider}>
         <View style={styles.dividerLine} />
@@ -624,12 +692,13 @@ export default function LoginScreen() {
         <Pressable style={styles.backButton} onPress={() => handleModeChange("login")}>
           <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
         </Pressable>
-        <Text style={styles.formTitle}>Create Player Account</Text>
+        <Text style={styles.formTitle}>CREATE PLAYER ACCOUNT</Text>
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Username</Text>
-        <View style={styles.usernameInputContainer}>
+        <Text style={styles.label}>USERNAME</Text>
+        <View style={styles.glassInput}>
+          <Ionicons name="at-outline" size={18} color={Colors.dark.xpCyan} style={styles.inputIcon} />
           <TextInput
             value={username}
             onChangeText={handleUsernameChange}
@@ -645,11 +714,11 @@ export default function LoginScreen() {
             </View>
           ) : usernameStatus.available === true ? (
             <View style={styles.usernameStatusIcon}>
-              <Ionicons name="checkmark-circle" size={20} color="#2ECC71" />
+              <Ionicons name="checkmark-circle" size={20} color={Colors.dark.successNeon} />
             </View>
           ) : usernameStatus.available === false ? (
             <View style={styles.usernameStatusIcon}>
-              <Ionicons name="close-circle" size={20} color="#E74C3C" />
+              <Ionicons name="close-circle" size={20} color={Colors.dark.error} />
             </View>
           ) : null}
         </View>
@@ -678,64 +747,73 @@ export default function LoginScreen() {
 
       <View style={styles.inputRow}>
         <View style={[styles.inputGroup, { flex: 1 }]}>
-          <Text style={styles.label}>First Name</Text>
-          <TextInput
-            value={firstName}
-            onChangeText={setFirstName}
-            placeholder="First name"
-            placeholderTextColor={Colors.dark.textMuted}
-            autoCapitalize="words"
-            style={styles.input}
-          />
+          <Text style={styles.label}>FIRST NAME</Text>
+          <View style={styles.glassInput}>
+            <TextInput
+              value={firstName}
+              onChangeText={setFirstName}
+              placeholder="First name"
+              placeholderTextColor={Colors.dark.textMuted}
+              autoCapitalize="words"
+              style={styles.input}
+            />
+          </View>
         </View>
         <View style={[styles.inputGroup, { flex: 1 }]}>
-          <Text style={styles.label}>Last Name</Text>
+          <Text style={styles.label}>LAST NAME</Text>
+          <View style={styles.glassInput}>
+            <TextInput
+              value={lastName}
+              onChangeText={setLastName}
+              placeholder="Last name"
+              placeholderTextColor={Colors.dark.textMuted}
+              autoCapitalize="words"
+              style={styles.input}
+            />
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>EMAIL</Text>
+        <View style={styles.glassInput}>
+          <Ionicons name="mail-outline" size={18} color={Colors.dark.xpCyan} style={styles.inputIcon} />
           <TextInput
-            value={lastName}
-            onChangeText={setLastName}
-            placeholder="Last name"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="Enter your email"
             placeholderTextColor={Colors.dark.textMuted}
-            autoCapitalize="words"
+            keyboardType="email-address"
+            autoCapitalize="none"
             style={styles.input}
           />
         </View>
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          value={email}
-          onChangeText={setEmail}
-          placeholder="Enter your email"
-          placeholderTextColor={Colors.dark.textMuted}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoComplete="email"
-          style={styles.input}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Phone (for WhatsApp)</Text>
+        <Text style={styles.label}>PHONE (FOR WHATSAPP)</Text>
         <View style={styles.phoneRow}>
           <CountryCodePicker
             selectedCountry={countryCode}
             onSelect={setCountryCode}
           />
-          <TextInput
-            value={phone}
-            onChangeText={setPhone}
-            placeholder="Phone number"
-            placeholderTextColor={Colors.dark.textMuted}
-            keyboardType="phone-pad"
-            style={[styles.input, styles.phoneInput]}
-          />
+          <View style={[styles.glassInput, styles.phoneInput]}>
+            <TextInput
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="Phone number"
+              placeholderTextColor={Colors.dark.textMuted}
+              keyboardType="phone-pad"
+              style={styles.input}
+            />
+          </View>
         </View>
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Password</Text>
-        <View style={styles.passwordContainer}>
+        <Text style={styles.label}>PASSWORD</Text>
+        <View style={styles.glassInput}>
+          <Ionicons name="lock-closed-outline" size={18} color={Colors.dark.xpCyan} style={styles.inputIcon} />
           <TextInput
             value={password}
             onChangeText={setPassword}
@@ -756,70 +834,16 @@ export default function LoginScreen() {
             />
           </Pressable>
         </View>
-        <View style={styles.passwordRequirements}>
-          <View style={styles.requirementRow}>
-            <Ionicons
-              name={password.length >= 8 ? "checkmark-circle" : "ellipse-outline"}
-              size={14}
-              color={password.length >= 8 ? Colors.dark.primary : Colors.dark.disabled}
-            />
-            <Text style={[styles.requirementText, password.length >= 8 && styles.requirementMet]}>
-              At least 8 characters
-            </Text>
-          </View>
-          <View style={styles.requirementRow}>
-            <Ionicons
-              name={/[A-Z]/.test(password) ? "checkmark-circle" : "ellipse-outline"}
-              size={14}
-              color={/[A-Z]/.test(password) ? Colors.dark.primary : Colors.dark.disabled}
-            />
-            <Text style={[styles.requirementText, /[A-Z]/.test(password) && styles.requirementMet]}>
-              One uppercase letter
-            </Text>
-          </View>
-          <View style={styles.requirementRow}>
-            <Ionicons
-              name={/[a-z]/.test(password) ? "checkmark-circle" : "ellipse-outline"}
-              size={14}
-              color={/[a-z]/.test(password) ? Colors.dark.primary : Colors.dark.disabled}
-            />
-            <Text style={[styles.requirementText, /[a-z]/.test(password) && styles.requirementMet]}>
-              One lowercase letter
-            </Text>
-          </View>
-          <View style={styles.requirementRow}>
-            <Ionicons
-              name={/[0-9]/.test(password) ? "checkmark-circle" : "ellipse-outline"}
-              size={14}
-              color={/[0-9]/.test(password) ? Colors.dark.primary : Colors.dark.disabled}
-            />
-            <Text style={[styles.requirementText, /[0-9]/.test(password) && styles.requirementMet]}>
-              One number
-            </Text>
-          </View>
-        </View>
+        <Text style={styles.hintText}>At least 8 characters</Text>
       </View>
 
-      <Pressable
-        style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+      <GamingButton
         onPress={handlePlayerRegister}
+        title="CREATE ACCOUNT"
+        isLoading={isSubmitting}
         disabled={isSubmitting}
-      >
-        <LinearGradient
-          colors={[Colors.dark.xpCyan, "#00A0CC"]}
-          style={styles.submitGradient}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator color={Colors.dark.text} />
-          ) : (
-            <Text style={styles.submitText}>Create Account</Text>
-          )}
-        </LinearGradient>
-      </Pressable>
-
-      <Text style={styles.noteText}>
-        After creating your account, you can join an academy to start training with a coach.
-      </Text>
+        colors={[Colors.dark.xpCyan, "#00A8CC"]}
+      />
     </>
   );
 
@@ -829,21 +853,28 @@ export default function LoginScreen() {
         <Pressable style={styles.backButton} onPress={() => handleModeChange("login")}>
           <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
         </Pressable>
-        <Text style={styles.formTitle}>Coach Registration</Text>
+        <Text style={styles.formTitle}>JOIN AS COACH</Text>
       </View>
 
-      <View style={styles.infoCard}>
-        <View style={styles.infoIcon}>
-          <Ionicons name="mail" size={32} color={Colors.dark.primary} />
+      <View style={styles.glassCard}>
+        <LinearGradient
+          colors={[`${Colors.dark.primary}20`, "transparent"]}
+          style={styles.cardGradientOverlay}
+        />
+        <View style={styles.infoIconContainer}>
+          <Ionicons name="tennisball" size={40} color={Colors.dark.primary} />
         </View>
-        <Text style={styles.infoTitle}>Invite Required</Text>
+        <Text style={styles.infoTitle}>How to Join as Coach</Text>
         <Text style={styles.infoText}>
-          Coaches need an invitation from an academy to join. Contact your academy owner to receive an invite link.
-        </Text>
-        <Text style={styles.infoText}>
-          If you have an invite link, click on it to complete your registration.
+          Coaches are invited by their academy. Ask your academy owner to send you an invite link.
         </Text>
       </View>
+
+      <GamingButton
+        onPress={() => handleModeChange("invite_code")}
+        title="I HAVE AN INVITE"
+        colors={[Colors.dark.primary, "#1FA030"]}
+      />
 
       <Pressable
         style={styles.secondaryButton}
@@ -862,25 +893,27 @@ export default function LoginScreen() {
             <Pressable style={styles.backButton} onPress={() => handleModeChange("login")}>
               <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
             </Pressable>
-            <Text style={styles.formTitle}>Application Submitted</Text>
+            <Text style={styles.formTitle}>APPLICATION SENT</Text>
           </View>
 
-          <View style={styles.successCard}>
-            <View style={styles.successIcon}>
-              <Ionicons name="checkmark-circle" size={48} color={Colors.dark.primary} />
+          <View style={styles.glassCard}>
+            <LinearGradient
+              colors={[`${Colors.dark.successNeon}20`, "transparent"]}
+              style={styles.cardGradientOverlay}
+            />
+            <View style={[styles.infoIconContainer, { backgroundColor: `${Colors.dark.successNeon}20` }]}>
+              <Ionicons name="checkmark-circle" size={48} color={Colors.dark.successNeon} />
             </View>
-            <Text style={styles.successTitle}>Thank You!</Text>
-            <Text style={styles.successText}>
-              Your academy application has been submitted. We will review it and get back to you via email.
+            <Text style={[styles.infoTitle, { color: Colors.dark.successNeon }]}>Application Submitted!</Text>
+            <Text style={styles.infoText}>
+              Thank you for your interest. We'll review your application and get back to you via email within 48 hours.
             </Text>
           </View>
 
-          <Pressable
-            style={styles.secondaryButton}
+          <GamingButton
             onPress={() => handleModeChange("login")}
-          >
-            <Text style={styles.secondaryButtonText}>Back to Login</Text>
-          </Pressable>
+            title="BACK TO LOGIN"
+          />
         </>
       );
     }
@@ -891,102 +924,104 @@ export default function LoginScreen() {
           <Pressable style={styles.backButton} onPress={() => handleModeChange("login")}>
             <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
           </Pressable>
-          <Text style={styles.formTitle}>Apply for Academy</Text>
+          <Text style={styles.formTitle}>ACADEMY APPLICATION</Text>
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Academy Name</Text>
-          <TextInput
-            value={academyName}
-            onChangeText={setAcademyName}
-            placeholder="Your academy name"
-            placeholderTextColor={Colors.dark.textMuted}
-            autoCapitalize="words"
-            style={styles.input}
-          />
+          <Text style={styles.label}>ACADEMY NAME</Text>
+          <View style={styles.glassInput}>
+            <Ionicons name="business-outline" size={18} color={Colors.dark.gold} style={styles.inputIcon} />
+            <TextInput
+              value={academyName}
+              onChangeText={setAcademyName}
+              placeholder="Your academy name"
+              placeholderTextColor={Colors.dark.textMuted}
+              style={styles.input}
+            />
+          </View>
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Country</Text>
-          <TextInput
-            value={country}
-            onChangeText={setCountry}
-            placeholder="Country"
-            placeholderTextColor={Colors.dark.textMuted}
-            autoCapitalize="words"
-            style={styles.input}
-          />
+          <Text style={styles.label}>COUNTRY</Text>
+          <View style={styles.glassInput}>
+            <Ionicons name="globe-outline" size={18} color={Colors.dark.gold} style={styles.inputIcon} />
+            <TextInput
+              value={country}
+              onChangeText={setCountry}
+              placeholder="Country"
+              placeholderTextColor={Colors.dark.textMuted}
+              style={styles.input}
+            />
+          </View>
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Contact Person</Text>
-          <TextInput
-            value={contactPerson}
-            onChangeText={setContactPerson}
-            placeholder="Your name"
-            placeholderTextColor={Colors.dark.textMuted}
-            autoCapitalize="words"
-            style={styles.input}
-          />
+          <Text style={styles.label}>CONTACT PERSON</Text>
+          <View style={styles.glassInput}>
+            <Ionicons name="person-outline" size={18} color={Colors.dark.gold} style={styles.inputIcon} />
+            <TextInput
+              value={contactPerson}
+              onChangeText={setContactPerson}
+              placeholder="Your full name"
+              placeholderTextColor={Colors.dark.textMuted}
+              style={styles.input}
+            />
+          </View>
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="Contact email"
-            placeholderTextColor={Colors.dark.textMuted}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoComplete="email"
-            style={styles.input}
-          />
+          <Text style={styles.label}>EMAIL</Text>
+          <View style={styles.glassInput}>
+            <Ionicons name="mail-outline" size={18} color={Colors.dark.gold} style={styles.inputIcon} />
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Contact email"
+              placeholderTextColor={Colors.dark.textMuted}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              style={styles.input}
+            />
+          </View>
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Phone (optional)</Text>
-          <TextInput
-            value={phone}
-            onChangeText={setPhone}
-            placeholder="Contact phone"
-            placeholderTextColor={Colors.dark.textMuted}
-            keyboardType="phone-pad"
-            style={styles.input}
-          />
+          <Text style={styles.label}>PHONE (OPTIONAL)</Text>
+          <View style={styles.glassInput}>
+            <Ionicons name="call-outline" size={18} color={Colors.dark.gold} style={styles.inputIcon} />
+            <TextInput
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="Contact phone"
+              placeholderTextColor={Colors.dark.textMuted}
+              keyboardType="phone-pad"
+              style={styles.input}
+            />
+          </View>
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Description (optional)</Text>
-          <TextInput
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Tell us about your academy"
-            placeholderTextColor={Colors.dark.textMuted}
-            multiline
-            numberOfLines={3}
-            style={[styles.input, styles.textArea]}
-          />
+          <Text style={styles.label}>TELL US ABOUT YOUR ACADEMY</Text>
+          <View style={[styles.glassInput, styles.textAreaWrapper]}>
+            <TextInput
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Number of courts, coaches, players..."
+              placeholderTextColor={Colors.dark.textMuted}
+              multiline
+              numberOfLines={4}
+              style={[styles.input, styles.textArea]}
+            />
+          </View>
         </View>
 
-        <Pressable
-          style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+        <GamingButton
           onPress={handleAcademyApply}
+          title="SUBMIT APPLICATION"
+          isLoading={isSubmitting}
           disabled={isSubmitting}
-        >
-          <LinearGradient
-            colors={[Colors.dark.gold, "#CC9900"]}
-            style={styles.submitGradient}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color={Colors.dark.backgroundRoot} />
-            ) : (
-              <Text style={[styles.submitText, { color: Colors.dark.backgroundRoot }]}>
-                Submit Application
-              </Text>
-            )}
-          </LinearGradient>
-        </Pressable>
+          colors={[Colors.dark.gold, "#CC9900"]}
+        />
       </>
     );
   };
@@ -999,36 +1034,44 @@ export default function LoginScreen() {
             <Pressable style={styles.backButton} onPress={() => handleModeChange("login")}>
               <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
             </Pressable>
-            <Text style={styles.formTitle}>Create Your Account</Text>
+            <Text style={styles.formTitle}>CREATE YOUR ACCOUNT</Text>
           </View>
 
-          <View style={styles.successCard}>
-            <View style={[styles.successIcon, { backgroundColor: "#9B59B620" }]}>
+          <View style={styles.glassCard}>
+            <LinearGradient
+              colors={[`${"#9B59B6"}20`, "transparent"]}
+              style={styles.cardGradientOverlay}
+            />
+            <View style={[styles.infoIconContainer, { backgroundColor: "#9B59B620" }]}>
               <Ionicons name="checkmark-circle" size={32} color="#9B59B6" />
             </View>
-            <Text style={styles.successTitle}>Invite Verified!</Text>
-            <Text style={styles.successText}>
+            <Text style={[styles.infoTitle, { color: "#9B59B6" }]}>Invite Verified!</Text>
+            <Text style={styles.infoText}>
               You're joining {inviteData.academyName} as {inviteData.role === "academy_owner" ? "Academy Owner" : inviteData.role}
             </Text>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{inviteData.email ? "Email (from invite)" : "Email"}</Text>
-            <TextInput
-              value={email}
-              onChangeText={inviteData.email ? undefined : setEmail}
-              editable={!inviteData.email}
-              placeholder={inviteData.email ? undefined : "Enter your email"}
-              placeholderTextColor={Colors.dark.textMuted}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              style={[styles.input, inviteData.email ? { opacity: 0.7 } : undefined]}
-            />
+            <Text style={styles.label}>{inviteData.email ? "EMAIL (FROM INVITE)" : "EMAIL"}</Text>
+            <View style={[styles.glassInput, inviteData.email ? { opacity: 0.7 } : undefined]}>
+              <Ionicons name="mail-outline" size={18} color="#9B59B6" style={styles.inputIcon} />
+              <TextInput
+                value={email}
+                onChangeText={inviteData.email ? undefined : setEmail}
+                editable={!inviteData.email}
+                placeholder={inviteData.email ? undefined : "Enter your email"}
+                placeholderTextColor={Colors.dark.textMuted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                style={styles.input}
+              />
+            </View>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Username</Text>
-            <View style={styles.usernameInputContainer}>
+            <Text style={styles.label}>USERNAME</Text>
+            <View style={styles.glassInput}>
+              <Ionicons name="at-outline" size={18} color="#9B59B6" style={styles.inputIcon} />
               <TextInput
                 value={username}
                 onChangeText={handleUsernameChange}
@@ -1043,11 +1086,11 @@ export default function LoginScreen() {
                 </View>
               ) : usernameStatus.available === true ? (
                 <View style={styles.usernameStatusIcon}>
-                  <Ionicons name="checkmark-circle" size={20} color="#2ECC71" />
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.dark.successNeon} />
                 </View>
               ) : usernameStatus.available === false ? (
                 <View style={styles.usernameStatusIcon}>
-                  <Ionicons name="close-circle" size={20} color="#E74C3C" />
+                  <Ionicons name="close-circle" size={20} color={Colors.dark.error} />
                 </View>
               ) : null}
             </View>
@@ -1074,50 +1117,57 @@ export default function LoginScreen() {
 
           <View style={styles.inputRow}>
             <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={styles.label}>First Name</Text>
-              <TextInput
-                value={firstName}
-                onChangeText={setFirstName}
-                placeholder="First name"
-                placeholderTextColor={Colors.dark.textMuted}
-                autoCapitalize="words"
-                style={styles.input}
-              />
+              <Text style={styles.label}>FIRST NAME</Text>
+              <View style={styles.glassInput}>
+                <TextInput
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  placeholder="First name"
+                  placeholderTextColor={Colors.dark.textMuted}
+                  autoCapitalize="words"
+                  style={styles.input}
+                />
+              </View>
             </View>
             <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={styles.label}>Last Name</Text>
-              <TextInput
-                value={lastName}
-                onChangeText={setLastName}
-                placeholder="Last name"
-                placeholderTextColor={Colors.dark.textMuted}
-                autoCapitalize="words"
-                style={styles.input}
-              />
+              <Text style={styles.label}>LAST NAME</Text>
+              <View style={styles.glassInput}>
+                <TextInput
+                  value={lastName}
+                  onChangeText={setLastName}
+                  placeholder="Last name"
+                  placeholderTextColor={Colors.dark.textMuted}
+                  autoCapitalize="words"
+                  style={styles.input}
+                />
+              </View>
             </View>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Phone (optional)</Text>
+            <Text style={styles.label}>PHONE (OPTIONAL)</Text>
             <View style={styles.phoneRow}>
               <CountryCodePicker
                 selectedCountry={countryCode}
                 onSelect={setCountryCode}
               />
-              <TextInput
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="Phone number"
-                placeholderTextColor={Colors.dark.textMuted}
-                keyboardType="phone-pad"
-                style={[styles.input, styles.phoneInput]}
-              />
+              <View style={[styles.glassInput, styles.phoneInput]}>
+                <TextInput
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="Phone number"
+                  placeholderTextColor={Colors.dark.textMuted}
+                  keyboardType="phone-pad"
+                  style={styles.input}
+                />
+              </View>
             </View>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.passwordContainer}>
+            <Text style={styles.label}>PASSWORD</Text>
+            <View style={styles.glassInput}>
+              <Ionicons name="lock-closed-outline" size={18} color="#9B59B6" style={styles.inputIcon} />
               <TextInput
                 value={password}
                 onChangeText={setPassword}
@@ -1140,22 +1190,13 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          <Pressable
-            style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+          <GamingButton
             onPress={handleInviteRegister}
+            title="CREATE ACCOUNT"
+            isLoading={isSubmitting}
             disabled={isSubmitting}
-          >
-            <LinearGradient
-              colors={["#9B59B6", "#8E44AD"]}
-              style={styles.submitGradient}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color={Colors.dark.text} />
-              ) : (
-                <Text style={styles.submitText}>Create Account</Text>
-              )}
-            </LinearGradient>
-          </Pressable>
+            colors={["#9B59B6", "#8E44AD"]}
+          />
         </>
       );
     }
@@ -1166,11 +1207,15 @@ export default function LoginScreen() {
           <Pressable style={styles.backButton} onPress={() => handleModeChange("login")}>
             <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
           </Pressable>
-          <Text style={styles.formTitle}>Enter Invite Code</Text>
+          <Text style={styles.formTitle}>ENTER INVITE CODE</Text>
         </View>
 
-        <View style={styles.infoCard}>
-          <View style={[styles.infoIcon, { backgroundColor: "#9B59B620" }]}>
+        <View style={styles.glassCard}>
+          <LinearGradient
+            colors={[`${"#9B59B6"}20`, "transparent"]}
+            style={styles.cardGradientOverlay}
+          />
+          <View style={[styles.infoIconContainer, { backgroundColor: "#9B59B620" }]}>
             <Ionicons name="key" size={32} color="#9B59B6" />
           </View>
           <Text style={styles.infoTitle}>Join with Invite Code</Text>
@@ -1180,34 +1225,28 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Invite Code or Link</Text>
-          <TextInput
-            value={inviteCode}
-            onChangeText={setInviteCode}
-            placeholder="Paste your invite code or link"
-            placeholderTextColor={Colors.dark.textMuted}
-            autoCapitalize="none"
-            autoCorrect={false}
-            style={styles.input}
-          />
+          <Text style={styles.label}>INVITE CODE OR LINK</Text>
+          <View style={styles.glassInput}>
+            <Ionicons name="key-outline" size={18} color="#9B59B6" style={styles.inputIcon} />
+            <TextInput
+              value={inviteCode}
+              onChangeText={setInviteCode}
+              placeholder="Paste your invite code or link"
+              placeholderTextColor={Colors.dark.textMuted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={styles.input}
+            />
+          </View>
         </View>
 
-        <Pressable
-          style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+        <GamingButton
           onPress={handleValidateInvite}
+          title="VALIDATE CODE"
+          isLoading={isSubmitting}
           disabled={isSubmitting}
-        >
-          <LinearGradient
-            colors={["#9B59B6", "#8E44AD"]}
-            style={styles.submitGradient}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color={Colors.dark.text} />
-            ) : (
-              <Text style={styles.submitText}>Validate Code</Text>
-            )}
-          </LinearGradient>
-        </Pressable>
+          colors={["#9B59B6", "#8E44AD"]}
+        />
 
         <Pressable
           style={styles.secondaryButton}
@@ -1220,10 +1259,17 @@ export default function LoginScreen() {
   };
 
   return (
-    <LinearGradient
-      colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
-      style={styles.container}
-    >
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        style={StyleSheet.absoluteFillObject}
+      />
+      <LinearGradient
+        colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerTopLine}
+      />
       <KeyboardAwareScrollViewCompat
         style={styles.scrollView}
         contentContainerStyle={[
@@ -1234,9 +1280,13 @@ export default function LoginScreen() {
         {mode === "login" ? (
           <View style={styles.header}>
             <View style={styles.iconContainer}>
+              <LinearGradient
+                colors={[`${Colors.dark.primary}30`, `${Colors.dark.xpCyan}20`]}
+                style={styles.iconGradient}
+              />
               <Ionicons name="tennisball" size={48} color={Colors.dark.primary} />
             </View>
-            <Text style={styles.title}>Glow Up Sports</Text>
+            <Text style={styles.title}>GLOW UP SPORTS</Text>
             <Text style={styles.subtitle}>Welcome back</Text>
           </View>
         ) : null}
@@ -1255,13 +1305,22 @@ export default function LoginScreen() {
           </Pressable>
         ) : null}
       </KeyboardAwareScrollViewCompat>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  headerTopLine: {
+    height: 3,
+    width: "100%",
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
   },
   scrollView: {
     flex: 1,
@@ -1275,18 +1334,29 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}30`,
+    overflow: "hidden",
+  },
+  iconGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   title: {
     ...Typography.h1,
     color: Colors.dark.text,
     marginBottom: Spacing.xs,
+    letterSpacing: 2,
   },
   subtitle: {
     ...Typography.body,
@@ -1304,14 +1374,17 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     alignItems: "center",
     justifyContent: "center",
     marginRight: Spacing.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}30`,
   },
   formTitle: {
     ...Typography.h2,
     color: Colors.dark.text,
+    letterSpacing: 1,
   },
   inputGroup: {
     gap: Spacing.xs,
@@ -1331,22 +1404,27 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.text,
     fontWeight: "600",
+    letterSpacing: 1,
   },
-  input: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+  glassInput: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     borderRadius: BorderRadius.sm,
     paddingHorizontal: Spacing.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}30`,
+  },
+  inputIcon: {
+    marginRight: Spacing.sm,
+  },
+  input: {
+    flex: 1,
     paddingVertical: Spacing.md,
     color: Colors.dark.text,
     fontSize: Typography.body.fontSize,
   },
-  usernameInputContainer: {
-    position: "relative" as const,
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-  },
   usernameInput: {
-    flex: 1,
     paddingRight: 40,
   },
   usernameStatusIcon: {
@@ -1358,7 +1436,7 @@ const styles = StyleSheet.create({
   },
   usernameError: {
     ...Typography.caption,
-    color: "#E74C3C",
+    color: Colors.dark.error,
     marginTop: 4,
   },
   suggestionsContainer: {
@@ -1375,7 +1453,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   suggestionChip: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: `${Colors.dark.primary}20`,
     borderRadius: BorderRadius.sm,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 6,
@@ -1386,12 +1464,14 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.primary,
   },
+  textAreaWrapper: {
+    alignItems: "flex-start",
+    paddingVertical: Spacing.sm,
+  },
   textArea: {
     minHeight: 80,
     textAlignVertical: "top",
-  },
-  passwordContainer: {
-    position: "relative",
+    paddingTop: Spacing.sm,
   },
   passwordInput: {
     paddingRight: 48,
@@ -1403,37 +1483,19 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: "center",
   },
-  passwordRequirements: {
-    marginTop: Spacing.sm,
-    gap: 4,
-  },
-  requirementRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  requirementText: {
-    ...Typography.caption,
-    color: Colors.dark.textMuted,
-  },
-  requirementMet: {
-    color: Colors.dark.primary,
-  },
-  submitButton: {
+  gamingButton: {
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     marginTop: Spacing.md,
   },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitGradient: {
+  gamingButtonGradient: {
     paddingVertical: Spacing.md,
     alignItems: "center",
   },
-  submitText: {
+  gamingButtonText: {
     ...Typography.h4,
     color: Colors.dark.text,
+    letterSpacing: 1,
   },
   divider: {
     flexDirection: "row",
@@ -1444,7 +1506,7 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: `${Colors.dark.primary}30`,
   },
   dividerText: {
     ...Typography.small,
@@ -1457,9 +1519,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     borderRadius: BorderRadius.md,
     gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
   },
   roleIcon: {
     width: 48,
@@ -1480,29 +1544,28 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.textMuted,
   },
-  noteText: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
-    textAlign: "center",
-    marginTop: Spacing.lg,
-  },
-  hintText: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
-    marginTop: Spacing.xs,
-  },
-  infoCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+  glassCard: {
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     borderRadius: BorderRadius.lg,
     padding: Spacing.xl,
     alignItems: "center",
     gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
+    overflow: "hidden",
   },
-  infoIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: `${Colors.dark.primary}20`,
+  cardGradientOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 80,
+  },
+  infoIconContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: `${Colors.dark.primary}15`,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1515,24 +1578,10 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     textAlign: "center",
   },
-  successCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.xl,
-    alignItems: "center",
-    gap: Spacing.md,
-  },
-  successIcon: {
-    marginBottom: Spacing.sm,
-  },
-  successTitle: {
-    ...Typography.h2,
-    color: Colors.dark.primary,
-  },
-  successText: {
-    ...Typography.body,
+  hintText: {
+    ...Typography.small,
     color: Colors.dark.textMuted,
-    textAlign: "center",
+    marginTop: Spacing.xs,
   },
   secondaryButton: {
     paddingVertical: Spacing.md,
@@ -1560,6 +1609,7 @@ const styles = StyleSheet.create({
     ...Typography.h4,
     color: Colors.dark.text,
     marginBottom: Spacing.xs,
+    letterSpacing: 1,
   },
   savedAccountsHint: {
     ...Typography.caption,
@@ -1578,13 +1628,15 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   savedAccountItemSelected: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}30`,
   },
   savedAccountAvatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",

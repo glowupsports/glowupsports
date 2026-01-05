@@ -13,6 +13,11 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
@@ -28,6 +33,130 @@ interface Notification {
   actionUrl: string | null;
   metadata: unknown;
   createdAt: string;
+}
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+function NotificationCard({
+  notification,
+  onPress,
+  onLongPress,
+}: {
+  notification: Notification;
+  onPress: () => void;
+  onLongPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.98, { damping: 15 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15 });
+  };
+
+  const getIcon = (type: string) => {
+    switch (type) {
+      case "auto_renew":
+        return "refresh-outline";
+      case "payment":
+        return "card-outline";
+      case "feedback":
+        return "chatbubble-outline";
+      case "holiday":
+        return "airplane-outline";
+      case "absence":
+        return "person-remove-outline";
+      case "reminder":
+        return "alarm-outline";
+      default:
+        return "notifications-outline";
+    }
+  };
+
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case "payment":
+        return Colors.dark.gold;
+      case "feedback":
+        return Colors.dark.xpCyan;
+      case "auto_renew":
+        return Colors.dark.primary;
+      case "reminder":
+        return Colors.dark.orange;
+      default:
+        return Colors.dark.primary;
+    }
+  };
+
+  const getPriorityColor = (priority: string | null) => {
+    switch (priority) {
+      case "high":
+        return Colors.dark.error;
+      case "medium":
+        return Colors.dark.orange;
+      default:
+        return Colors.dark.primary;
+    }
+  };
+
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  const typeColor = getTypeColor(notification.type);
+
+  return (
+    <AnimatedPressable
+      style={animatedStyle}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+    >
+      <View style={[styles.notificationCard, !notification.isRead && styles.unreadCard]}>
+        <View style={styles.notificationCardInner}>
+          <View style={[styles.iconContainer, { backgroundColor: typeColor + "20" }]}>
+            <Ionicons
+              name={getIcon(notification.type) as any}
+              size={20}
+              color={typeColor}
+            />
+          </View>
+          <View style={styles.notificationContent}>
+            <View style={styles.notificationHeader}>
+              <Text style={styles.notificationTitle}>{notification.title}</Text>
+              <Text style={styles.notificationTime}>{formatTime(notification.createdAt)}</Text>
+            </View>
+            <Text style={styles.notificationMessage} numberOfLines={2}>
+              {notification.message}
+            </Text>
+          </View>
+          {!notification.isRead ? (
+            <View style={[styles.unreadDot, { backgroundColor: typeColor }]} />
+          ) : null}
+        </View>
+        {notification.priority === "high" ? (
+          <View style={[styles.priorityIndicator, { backgroundColor: getPriorityColor(notification.priority) }]} />
+        ) : null}
+      </View>
+    </AnimatedPressable>
+  );
 }
 
 export default function NotificationsScreen() {
@@ -64,79 +193,57 @@ export default function NotificationsScreen() {
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  const getIcon = (type: string) => {
-    switch (type) {
-      case "auto_renew":
-        return "refresh-outline";
-      case "payment":
-        return "card-outline";
-      case "feedback":
-        return "chatbubble-outline";
-      case "holiday":
-        return "airplane-outline";
-      case "absence":
-        return "person-remove-outline";
-      case "reminder":
-        return "alarm-outline";
-      default:
-        return "notifications-outline";
-    }
-  };
-
-  const getPriorityColor = (priority: string | null) => {
-    switch (priority) {
-      case "high":
-        return Colors.dark.error;
-      case "medium":
-        return Colors.dark.orange;
-      default:
-        return Colors.dark.primary;
-    }
-  };
-
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
-  };
-
   return (
     <LinearGradient
-      colors={[Colors.dark.backgroundRoot, "#0A0A0A"]}
+      colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
       style={[styles.container, { paddingTop: insets.top }]}
     >
       <View style={styles.header}>
-        <Pressable
-          style={styles.backButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            navigation.goBack();
-          }}
-        >
-          <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
-        </Pressable>
-        <Text style={styles.title}>Notifications</Text>
-        {unreadCount > 0 ? (
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradientLine}
+        />
+        <View style={styles.headerContent}>
           <Pressable
-            style={styles.markAllButton}
+            style={styles.backButton}
             onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              markAllReadMutation.mutate();
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.goBack();
             }}
           >
-            <Text style={styles.markAllText}>Mark all read</Text>
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
           </Pressable>
-        ) : (
-          <View style={{ width: 80 }} />
-        )}
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>NOTIFICATIONS</Text>
+            {unreadCount > 0 ? (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
+              </View>
+            ) : null}
+          </View>
+          {unreadCount > 0 ? (
+            <Pressable
+              style={styles.markAllButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                markAllReadMutation.mutate();
+              }}
+            >
+              <LinearGradient
+                colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.markAllGradient}
+              >
+                <Text style={styles.markAllText}>Clear</Text>
+              </LinearGradient>
+            </Pressable>
+          ) : (
+            <View style={{ width: 60 }} />
+          )}
+        </View>
       </View>
 
       {isLoading ? (
@@ -145,23 +252,22 @@ export default function NotificationsScreen() {
         </View>
       ) : notifications.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="notifications-off-outline" size={64} color={Colors.dark.disabled} />
+          <View style={styles.emptyIconContainer}>
+            <Ionicons name="notifications-off-outline" size={48} color={Colors.dark.xpCyan} />
+          </View>
           <Text style={styles.emptyText}>No notifications</Text>
           <Text style={styles.emptySubtext}>You are all caught up</Text>
         </View>
       ) : (
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + Spacing.xl }]}
           showsVerticalScrollIndicator={false}
         >
           {notifications.map((notification) => (
-            <Pressable
+            <NotificationCard
               key={notification.id}
-              style={[
-                styles.notificationCard,
-                !notification.isRead && styles.unreadCard,
-              ]}
+              notification={notification}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 if (!notification.isRead) {
@@ -172,27 +278,7 @@ export default function NotificationsScreen() {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
                 deleteMutation.mutate(notification.id);
               }}
-            >
-              <View style={[styles.iconContainer, { backgroundColor: getPriorityColor(notification.priority) + "20" }]}>
-                <Ionicons
-                  name={getIcon(notification.type) as any}
-                  size={20}
-                  color={getPriorityColor(notification.priority)}
-                />
-              </View>
-              <View style={styles.notificationContent}>
-                <View style={styles.notificationHeader}>
-                  <Text style={styles.notificationTitle}>{notification.title}</Text>
-                  <Text style={styles.notificationTime}>{formatTime(notification.createdAt)}</Text>
-                </View>
-                <Text style={styles.notificationMessage} numberOfLines={2}>
-                  {notification.message}
-                </Text>
-              </View>
-              {!notification.isRead ? (
-                <View style={styles.unreadDot} />
-              ) : null}
-            </Pressable>
+            />
           ))}
         </ScrollView>
       )}
@@ -205,6 +291,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    marginBottom: Spacing.sm,
+  },
+  headerGradientLine: {
+    height: 3,
+    width: "100%",
+  },
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -212,20 +305,48 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
   },
   backButton: {
-    padding: Spacing.xs,
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  titleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
   },
   title: {
     fontSize: Typography.h2.fontSize,
     fontWeight: "700",
     color: Colors.dark.text,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+  },
+  unreadBadge: {
+    backgroundColor: Colors.dark.xpCyan,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    minWidth: 24,
+    alignItems: "center",
+  },
+  unreadBadgeText: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
   },
   markAllButton: {
-    padding: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    overflow: "hidden",
+  },
+  markAllGradient: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
   },
   markAllText: {
     fontSize: Typography.small.fontSize,
-    color: Colors.dark.primary,
-    fontWeight: "500",
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
   },
   loadingContainer: {
     flex: 1,
@@ -238,11 +359,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: Spacing.xl,
   },
+  emptyIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+    marginBottom: Spacing.lg,
+  },
   emptyText: {
     fontSize: Typography.h4.fontSize,
     fontWeight: "600",
     color: Colors.dark.text,
-    marginTop: Spacing.lg,
   },
   emptySubtext: {
     fontSize: Typography.small.fontSize,
@@ -257,20 +388,29 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   notificationCard: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "20",
+    overflow: "hidden",
+  },
+  notificationCardInner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     padding: Spacing.md,
     gap: Spacing.md,
   },
   unreadCard: {
     borderLeftWidth: 3,
-    borderLeftColor: Colors.dark.primary,
+    borderLeftColor: Colors.dark.xpCyan,
+  },
+  priorityIndicator: {
+    height: 2,
+    width: "100%",
   },
   iconContainer: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: BorderRadius.md,
     alignItems: "center",
     justifyContent: "center",
@@ -292,7 +432,7 @@ const styles = StyleSheet.create({
   },
   notificationTime: {
     fontSize: Typography.caption.fontSize,
-    color: Colors.dark.textMuted,
+    color: Colors.dark.xpCyan,
   },
   notificationMessage: {
     fontSize: Typography.small.fontSize,
@@ -300,9 +440,8 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.dark.primary,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
 });

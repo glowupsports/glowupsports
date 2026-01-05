@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  ScrollView,
   TextInput,
   ActivityIndicator,
   Alert,
@@ -18,6 +17,11 @@ import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
@@ -40,6 +44,32 @@ interface CoachProfile {
   photoUrl: string | null;
 }
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+function StatBadge({
+  icon,
+  value,
+  label,
+  color,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  value: string;
+  label: string;
+  color: string;
+}) {
+  return (
+    <View style={[styles.statCard, { borderColor: color + "30" }]}>
+      <View style={styles.statCardInner}>
+        <View style={[styles.statIconBadge, { backgroundColor: color + "20" }]}>
+          <Ionicons name={icon} size={22} color={color} />
+        </View>
+        <Text style={styles.statValue}>{value}</Text>
+        <Text style={styles.statLabel}>{label}</Text>
+      </View>
+    </View>
+  );
+}
+
 export default function CoachProfileScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -49,6 +79,20 @@ export default function CoachProfileScreen() {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<Partial<CoachProfile>>({});
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+  const saveScale = useSharedValue(1);
+
+  const saveAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: saveScale.value }],
+  }));
+
+  const handleSavePress = () => {
+    saveScale.value = withSpring(0.95, { damping: 15 });
+    setTimeout(() => {
+      saveScale.value = withSpring(1, { damping: 15 });
+      handleSave();
+    }, 100);
+  };
 
   const handleChangePhoto = async () => {
     try {
@@ -74,25 +118,25 @@ export default function CoachProfileScreen() {
       setIsUploadingPhoto(true);
       const asset = result.assets[0];
       
-      const formData = new FormData();
+      const uploadFormData = new FormData();
       const filename = asset.uri.split("/").pop() || "photo.jpg";
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : "image/jpeg";
       
       if (Platform.OS === "web") {
         if ((asset as any).file) {
-          formData.append("photo", (asset as any).file);
+          uploadFormData.append("photo", (asset as any).file);
         } else if (asset.uri.startsWith("data:")) {
           const response = await fetch(asset.uri);
           const blob = await response.blob();
-          formData.append("photo", blob, filename);
+          uploadFormData.append("photo", blob, filename);
         } else {
           const response = await fetch(asset.uri);
           const blob = await response.blob();
-          formData.append("photo", blob, filename);
+          uploadFormData.append("photo", blob, filename);
         }
       } else {
-        formData.append("photo", {
+        uploadFormData.append("photo", {
           uri: asset.uri,
           name: filename,
           type,
@@ -103,7 +147,7 @@ export default function CoachProfileScreen() {
       
       const response = await fetch(`${getApiUrl()}/api/coach/profile/photo`, {
         method: "POST",
-        body: formData,
+        body: uploadFormData,
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
 
@@ -172,7 +216,7 @@ export default function CoachProfileScreen() {
   if (isLoading) {
     return (
       <LinearGradient
-        colors={[Colors.dark.backgroundRoot, "#0A0A0A"]}
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
         style={[styles.container, { paddingTop: insets.top }]}
       >
         <View style={styles.loadingContainer}>
@@ -184,42 +228,59 @@ export default function CoachProfileScreen() {
 
   return (
     <LinearGradient
-      colors={[Colors.dark.backgroundRoot, "#0A0A0A"]}
+      colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
       style={[styles.container, { paddingTop: insets.top }]}
     >
       <View style={styles.header}>
-        <Pressable
-          style={styles.backButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            navigation.goBack();
-          }}
-        >
-          <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
-        </Pressable>
-        <Text style={styles.title}>Coach Profile</Text>
-        {isEditing ? (
-          <View style={styles.editActions}>
-            <Pressable style={styles.cancelButton} onPress={handleCancel}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </Pressable>
-            <Pressable
-              style={styles.saveButton}
-              onPress={handleSave}
-              disabled={updateMutation.isPending}
-            >
-              {updateMutation.isPending ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <Text style={styles.saveText}>Save</Text>
-              )}
-            </Pressable>
-          </View>
-        ) : (
-          <Pressable style={styles.editButton} onPress={handleEdit}>
-            <Ionicons name="pencil-outline" size={20} color={Colors.dark.primary} />
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradientLine}
+        />
+        <View style={styles.headerContent}>
+          <Pressable
+            style={styles.backButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.goBack();
+            }}
+          >
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
           </Pressable>
-        )}
+          <Text style={styles.title}>COACH PROFILE</Text>
+          {isEditing ? (
+            <View style={styles.editActions}>
+              <Pressable style={styles.cancelButton} onPress={handleCancel}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </Pressable>
+              <AnimatedPressable
+                style={saveAnimatedStyle}
+                onPress={handleSavePress}
+                disabled={updateMutation.isPending}
+              >
+                <LinearGradient
+                  colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.saveButton}
+                >
+                  {updateMutation.isPending ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <Text style={styles.saveText}>Save</Text>
+                  )}
+                </LinearGradient>
+              </AnimatedPressable>
+            </View>
+          ) : (
+            <Pressable style={styles.editButton} onPress={handleEdit}>
+              <View style={styles.editButtonInner}>
+                <Ionicons name="pencil-outline" size={18} color={Colors.dark.xpCyan} />
+              </View>
+            </Pressable>
+          )}
+        </View>
       </View>
 
       <KeyboardAwareScrollViewCompat
@@ -227,169 +288,196 @@ export default function CoachProfileScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + Spacing.xl }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.avatarSection}>
-          <Pressable 
-            style={styles.avatarContainer} 
-            onPress={handleChangePhoto}
-            disabled={isUploadingPhoto}
+        <View style={styles.profileCard}>
+          <LinearGradient
+            colors={[Colors.dark.primary + "30", Colors.dark.xpCyan + "20"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.profileCardGradient}
           >
-            {profile?.photoUrl ? (
-              <Image
-                source={{ uri: `${getApiUrl()}${profile.photoUrl}` }}
-                style={styles.avatarImage}
-                contentFit="cover"
-              />
-            ) : (
-              <View style={styles.avatar}>
-                <Ionicons name="person" size={48} color={Colors.dark.primary} />
-              </View>
-            )}
-            <View style={styles.cameraIconOverlay}>
-              {isUploadingPhoto ? (
-                <ActivityIndicator size="small" color={Colors.dark.text} />
+            <View style={styles.avatarSection}>
+              <Pressable 
+                style={styles.avatarContainer} 
+                onPress={handleChangePhoto}
+                disabled={isUploadingPhoto}
+              >
+                <LinearGradient
+                  colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.avatarBorder}
+                >
+                  {profile?.photoUrl ? (
+                    <Image
+                      source={{ uri: `${getApiUrl()}${profile.photoUrl}` }}
+                      style={styles.avatarImage}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View style={styles.avatar}>
+                      <Ionicons name="person" size={48} color={Colors.dark.xpCyan} />
+                    </View>
+                  )}
+                </LinearGradient>
+                <View style={styles.cameraIconOverlay}>
+                  {isUploadingPhoto ? (
+                    <ActivityIndicator size="small" color={Colors.dark.text} />
+                  ) : (
+                    <Ionicons name="camera" size={16} color={Colors.dark.text} />
+                  )}
+                </View>
+              </Pressable>
+              <Text style={styles.avatarName}>{profile?.name || "Coach"}</Text>
+              {profile?.specialty ? (
+                <View style={styles.specialtyBadge}>
+                  <Ionicons name="star" size={12} color={Colors.dark.gold} />
+                  <Text style={styles.avatarSpecialty}>{profile.specialty}</Text>
+                </View>
+              ) : null}
+            </View>
+          </LinearGradient>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>PERSONAL INFORMATION</Text>
+          
+          <View style={styles.field}>
+            <View style={styles.fieldInner}>
+              <Text style={styles.fieldLabel}>Name</Text>
+              {isEditing ? (
+                <TextInput
+                  style={styles.input}
+                  value={formData.name}
+                  onChangeText={(text) => setFormData({ ...formData, name: text })}
+                  placeholder="Enter name"
+                  placeholderTextColor={Colors.dark.textMuted}
+                />
               ) : (
-                <Ionicons name="camera" size={16} color={Colors.dark.text} />
+                <Text style={styles.fieldValue}>{profile?.name || "Not set"}</Text>
               )}
             </View>
-          </Pressable>
-          <Text style={styles.avatarName}>{profile?.name || "Coach"}</Text>
-          {profile?.specialty ? (
-            <Text style={styles.avatarSpecialty}>{profile.specialty}</Text>
-          ) : null}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Personal Information</Text>
-          
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Name</Text>
-            {isEditing ? (
-              <TextInput
-                style={styles.input}
-                value={formData.name}
-                onChangeText={(text) => setFormData({ ...formData, name: text })}
-                placeholder="Enter name"
-                placeholderTextColor={Colors.dark.textMuted}
-              />
-            ) : (
-              <Text style={styles.fieldValue}>{profile?.name || "Not set"}</Text>
-            )}
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Email</Text>
-            {isEditing ? (
-              <TextInput
-                style={styles.input}
-                value={formData.email || ""}
-                onChangeText={(text) => setFormData({ ...formData, email: text })}
-                placeholder="Enter email"
-                placeholderTextColor={Colors.dark.textMuted}
-                keyboardType="email-address"
-              />
-            ) : (
-              <Text style={styles.fieldValue}>{profile?.email || "Not set"}</Text>
-            )}
+            <View style={styles.fieldInner}>
+              <Text style={styles.fieldLabel}>Email</Text>
+              {isEditing ? (
+                <TextInput
+                  style={styles.input}
+                  value={formData.email || ""}
+                  onChangeText={(text) => setFormData({ ...formData, email: text })}
+                  placeholder="Enter email"
+                  placeholderTextColor={Colors.dark.textMuted}
+                  keyboardType="email-address"
+                />
+              ) : (
+                <Text style={styles.fieldValue}>{profile?.email || "Not set"}</Text>
+              )}
+            </View>
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Phone</Text>
-            {isEditing ? (
-              <TextInput
-                style={styles.input}
-                value={formData.phone || ""}
-                onChangeText={(text) => setFormData({ ...formData, phone: text })}
-                placeholder="Enter phone"
-                placeholderTextColor={Colors.dark.textMuted}
-                keyboardType="phone-pad"
-              />
-            ) : (
-              <Text style={styles.fieldValue}>{profile?.phone || "Not set"}</Text>
-            )}
+            <View style={styles.fieldInner}>
+              <Text style={styles.fieldLabel}>Phone</Text>
+              {isEditing ? (
+                <TextInput
+                  style={styles.input}
+                  value={formData.phone || ""}
+                  onChangeText={(text) => setFormData({ ...formData, phone: text })}
+                  placeholder="Enter phone"
+                  placeholderTextColor={Colors.dark.textMuted}
+                  keyboardType="phone-pad"
+                />
+              ) : (
+                <Text style={styles.fieldValue}>{profile?.phone || "Not set"}</Text>
+              )}
+            </View>
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Specialty</Text>
-            {isEditing ? (
-              <TextInput
-                style={styles.input}
-                value={formData.specialty || ""}
-                onChangeText={(text) => setFormData({ ...formData, specialty: text })}
-                placeholder="e.g., Youth coaching, Advanced technique"
-                placeholderTextColor={Colors.dark.textMuted}
-              />
-            ) : (
-              <Text style={styles.fieldValue}>{profile?.specialty || "Not set"}</Text>
-            )}
+            <View style={styles.fieldInner}>
+              <Text style={styles.fieldLabel}>Specialty</Text>
+              {isEditing ? (
+                <TextInput
+                  style={styles.input}
+                  value={formData.specialty || ""}
+                  onChangeText={(text) => setFormData({ ...formData, specialty: text })}
+                  placeholder="e.g., Youth coaching, Advanced technique"
+                  placeholderTextColor={Colors.dark.textMuted}
+                />
+              ) : (
+                <Text style={styles.fieldValue}>{profile?.specialty || "Not set"}</Text>
+              )}
+            </View>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Bio</Text>
+          <Text style={styles.sectionTitle}>BIO</Text>
           <View style={styles.field}>
-            {isEditing ? (
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={formData.bio || ""}
-                onChangeText={(text) => setFormData({ ...formData, bio: text })}
-                placeholder="Tell us about yourself..."
-                placeholderTextColor={Colors.dark.textMuted}
-                multiline
-                numberOfLines={4}
-              />
-            ) : (
-              <Text style={styles.fieldValue}>
-                {profile?.bio || "No bio added yet"}
-              </Text>
-            )}
+            <View style={styles.fieldInner}>
+              {isEditing ? (
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={formData.bio || ""}
+                  onChangeText={(text) => setFormData({ ...formData, bio: text })}
+                  placeholder="Tell us about yourself..."
+                  placeholderTextColor={Colors.dark.textMuted}
+                  multiline
+                  numberOfLines={4}
+                />
+              ) : (
+                <Text style={styles.fieldValue}>
+                  {profile?.bio || "No bio added yet"}
+                </Text>
+              )}
+            </View>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Session Defaults</Text>
+          <Text style={styles.sectionTitle}>SESSION DEFAULTS</Text>
           
           <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Ionicons name="time-outline" size={24} color={Colors.dark.primary} />
-              <Text style={styles.statValue}>
-                {profile?.defaultSessionDuration || 60} min
-              </Text>
-              <Text style={styles.statLabel}>Default Duration</Text>
-            </View>
-
-            <View style={styles.statCard}>
-              <Ionicons name="car-outline" size={24} color={Colors.dark.orange} />
-              <Text style={styles.statValue}>
-                {profile?.defaultTravelTime || 0} min
-              </Text>
-              <Text style={styles.statLabel}>Travel Time</Text>
-            </View>
+            <StatBadge
+              icon="time-outline"
+              value={`${profile?.defaultSessionDuration || 60} min`}
+              label="Duration"
+              color={Colors.dark.xpCyan}
+            />
+            <StatBadge
+              icon="car-outline"
+              value={`${profile?.defaultTravelTime || 0} min`}
+              label="Travel"
+              color={Colors.dark.orange}
+            />
           </View>
 
           <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Ionicons name="sunny-outline" size={24} color="#00D4FF" />
-              <Text style={styles.statValue}>
-                {profile?.workingHoursStart || "08:00"}
-              </Text>
-              <Text style={styles.statLabel}>Start Time</Text>
-            </View>
-
-            <View style={styles.statCard}>
-              <Ionicons name="moon-outline" size={24} color={Colors.dark.tabIconDefault} />
-              <Text style={styles.statValue}>
-                {profile?.workingHoursEnd || "20:00"}
-              </Text>
-              <Text style={styles.statLabel}>End Time</Text>
-            </View>
+            <StatBadge
+              icon="sunny-outline"
+              value={profile?.workingHoursStart || "08:00"}
+              label="Start"
+              color={Colors.dark.gold}
+            />
+            <StatBadge
+              icon="moon-outline"
+              value={profile?.workingHoursEnd || "20:00"}
+              label="End"
+              color={Colors.dark.primary}
+            />
           </View>
 
           {profile?.hourlyRate ? (
             <View style={styles.rateCard}>
-              <Ionicons name="cash-outline" size={24} color={Colors.dark.primary} />
-              <View>
-                <Text style={styles.rateValue}>${profile.hourlyRate}/hr</Text>
-                <Text style={styles.rateLabel}>Hourly Rate</Text>
+              <View style={styles.rateCardInner}>
+                <View style={[styles.statIconBadge, { backgroundColor: Colors.dark.gold + "20" }]}>
+                  <Ionicons name="cash-outline" size={22} color={Colors.dark.gold} />
+                </View>
+                <View>
+                  <Text style={styles.rateValue}>${profile.hourlyRate}/hr</Text>
+                  <Text style={styles.rateLabel}>Hourly Rate</Text>
+                </View>
               </View>
             </View>
           ) : null}
@@ -404,6 +492,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    marginBottom: Spacing.sm,
+  },
+  headerGradientLine: {
+    height: 3,
+    width: "100%",
+  },
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -411,19 +506,33 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
   },
   backButton: {
-    padding: Spacing.xs,
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
   },
   title: {
     fontSize: Typography.h2.fontSize,
     fontWeight: "700",
     color: Colors.dark.text,
+    letterSpacing: 2,
+    textTransform: "uppercase",
   },
   editButton: {
-    padding: Spacing.sm,
+    padding: Spacing.xs,
+  },
+  editButtonInner: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    alignItems: "center",
+    justifyContent: "center",
   },
   editActions: {
     flexDirection: "row",
     gap: Spacing.sm,
+    alignItems: "center",
   },
   cancelButton: {
     padding: Spacing.sm,
@@ -433,7 +542,6 @@ const styles = StyleSheet.create({
     color: Colors.dark.tabIconDefault,
   },
   saveButton: {
-    backgroundColor: Colors.dark.primary,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
@@ -455,6 +563,15 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     gap: Spacing.xl,
   },
+  profileCard: {
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
+  },
+  profileCardGradient: {
+    padding: Spacing.xl,
+  },
   avatarSection: {
     alignItems: "center",
     gap: Spacing.sm,
@@ -462,11 +579,15 @@ const styles = StyleSheet.create({
   avatarContainer: {
     position: "relative",
   },
+  avatarBorder: {
+    padding: 3,
+    borderRadius: 55,
+  },
   avatar: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: Colors.dark.primary + "20",
+    backgroundColor: Colors.dark.backgroundRoot,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -479,42 +600,62 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 0,
     right: 0,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: Colors.dark.backgroundRoot,
+    borderColor: Colors.dark.xpCyan,
   },
   avatarName: {
     fontSize: Typography.h2.fontSize,
     fontWeight: "700",
     color: Colors.dark.text,
+    marginTop: Spacing.sm,
+  },
+  specialtyBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.gold + "20",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
   },
   avatarSpecialty: {
-    fontSize: Typography.body.fontSize,
-    color: Colors.dark.primary,
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.gold,
+    fontWeight: "500",
   },
   section: {
     gap: Spacing.md,
   },
   sectionTitle: {
-    fontSize: Typography.h4.fontSize,
+    fontSize: Typography.caption.fontSize,
     fontWeight: "600",
-    color: Colors.dark.text,
+    color: Colors.dark.xpCyan,
     marginBottom: Spacing.xs,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
   },
   field: {
-    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "20",
+    overflow: "hidden",
+  },
+  fieldInner: {
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     padding: Spacing.md,
   },
   fieldLabel: {
     fontSize: Typography.caption.fontSize,
     color: Colors.dark.tabIconDefault,
     marginBottom: Spacing.xs,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   fieldValue: {
     fontSize: Typography.body.fontSize,
@@ -535,11 +676,22 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  statCardInner: {
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     padding: Spacing.lg,
     alignItems: "center",
     gap: Spacing.sm,
+  },
+  statIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
   },
   statValue: {
     fontSize: Typography.h3.fontSize,
@@ -549,13 +701,20 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: Typography.caption.fontSize,
     color: Colors.dark.tabIconDefault,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   rateCard: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "30",
+    overflow: "hidden",
+  },
+  rateCardInner: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     padding: Spacing.lg,
   },
   rateValue: {
@@ -566,5 +725,7 @@ const styles = StyleSheet.create({
   rateLabel: {
     fontSize: Typography.caption.fontSize,
     color: Colors.dark.tabIconDefault,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
 });

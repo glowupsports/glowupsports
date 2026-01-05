@@ -12,6 +12,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 
@@ -27,6 +32,51 @@ interface Session {
 }
 
 type FilterType = "all" | "private" | "semi_private" | "group";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+function FilterChip({
+  label,
+  isActive,
+  onPress,
+}: {
+  label: string;
+  isActive: boolean;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePress = () => {
+    scale.value = withSpring(0.95, { damping: 15 });
+    setTimeout(() => {
+      scale.value = withSpring(1, { damping: 15 });
+    }, 100);
+    onPress();
+  };
+
+  return (
+    <AnimatedPressable style={animatedStyle} onPress={handlePress}>
+      {isActive ? (
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.filterChipActive}
+        >
+          <Text style={styles.filterChipTextActive}>{label}</Text>
+        </LinearGradient>
+      ) : (
+        <View style={styles.filterChip}>
+          <Text style={styles.filterChipText}>{label}</Text>
+        </View>
+      )}
+    </AnimatedPressable>
+  );
+}
 
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
@@ -97,6 +147,19 @@ export default function HistoryScreen() {
     }
   };
 
+  const getSessionTypeColor = (type: string) => {
+    switch (type) {
+      case "private":
+        return Colors.dark.xpCyan;
+      case "semi_private":
+        return Colors.dark.gold;
+      case "group":
+        return Colors.dark.primary;
+      default:
+        return Colors.dark.primary;
+    }
+  };
+
   const handleSelectSession = (session: Session) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedSession(session);
@@ -120,12 +183,18 @@ export default function HistoryScreen() {
       />
 
       <View style={styles.header}>
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradientLine}
+        />
         <View style={styles.headerRow}>
           <Pressable style={styles.backButton} onPress={handleGoBack}>
             <Ionicons name="close" size={24} color={Colors.dark.text} />
           </Pressable>
           <View style={styles.headerTitles}>
-            <Text style={styles.title}>History</Text>
+            <Text style={styles.title}>HISTORY</Text>
             <Text style={styles.subtitle}>{pastSessions.length} completed lessons</Text>
           </View>
           <View style={{ width: 40 }} />
@@ -140,20 +209,12 @@ export default function HistoryScreen() {
             { value: "semi_private", label: "Semi-Private" },
             { value: "group", label: "Group" },
           ] as const).map((filter) => (
-            <Pressable
+            <FilterChip
               key={filter.value}
-              style={[styles.filterChip, filterType === filter.value && styles.filterChipActive]}
+              label={filter.label}
+              isActive={filterType === filter.value}
               onPress={() => setFilterType(filter.value)}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  filterType === filter.value && styles.filterChipTextActive,
-                ]}
-              >
-                {filter.label}
-              </Text>
-            </Pressable>
+            />
           ))}
         </ScrollView>
       </View>
@@ -164,7 +225,9 @@ export default function HistoryScreen() {
         </View>
       ) : Object.keys(groupedSessions).length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="time-outline" size={64} color={Colors.dark.disabled} />
+          <View style={styles.emptyIconContainer}>
+            <Ionicons name="time-outline" size={48} color={Colors.dark.xpCyan} />
+          </View>
           <Text style={styles.emptyText}>No completed lessons</Text>
         </View>
       ) : (
@@ -178,16 +241,24 @@ export default function HistoryScreen() {
                   style={styles.sessionCard}
                   onPress={() => handleSelectSession(session)}
                 >
-                  <View style={styles.sessionTime}>
-                    <Text style={styles.sessionTimeText}>{formatTime(session.startTime)}</Text>
-                    <Text style={styles.sessionDuration}>{session.duration}m</Text>
+                  <View style={[styles.sessionCardBorder, { borderColor: getSessionTypeColor(session.sessionType) + "40" }]}>
+                    <View style={styles.sessionCardInner}>
+                      <View style={styles.sessionTime}>
+                        <Text style={styles.sessionTimeText}>{formatTime(session.startTime)}</Text>
+                        <View style={[styles.durationBadge, { backgroundColor: getSessionTypeColor(session.sessionType) + "20" }]}>
+                          <Text style={[styles.sessionDuration, { color: getSessionTypeColor(session.sessionType) }]}>{session.duration}m</Text>
+                        </View>
+                      </View>
+                      <View style={styles.sessionInfo}>
+                        <Text style={styles.sessionType}>
+                          {getSessionTypeLabel(session.sessionType)}
+                        </Text>
+                      </View>
+                      <View style={styles.chevronContainer}>
+                        <Ionicons name="chevron-forward" size={20} color={Colors.dark.xpCyan} />
+                      </View>
+                    </View>
                   </View>
-                  <View style={styles.sessionInfo}>
-                    <Text style={styles.sessionType}>
-                      {getSessionTypeLabel(session.sessionType)}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color={Colors.dark.tabIconDefault} />
                 </Pressable>
               ))}
             </View>
@@ -250,11 +321,19 @@ function SessionDetailView({
       />
 
       <View style={styles.detailHeader}>
-        <Pressable style={styles.backButton} onPress={onBack}>
-          <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
-        </Pressable>
-        <Text style={styles.detailTitle}>Session Details</Text>
-        <View style={{ width: 40 }} />
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradientLine}
+        />
+        <View style={styles.detailHeaderRow}>
+          <Pressable style={styles.backButton} onPress={onBack}>
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <Text style={styles.detailTitle}>SESSION DETAILS</Text>
+          <View style={{ width: 40 }} />
+        </View>
       </View>
 
       <ScrollView
@@ -270,30 +349,44 @@ function SessionDetailView({
         </View>
 
         <View style={styles.infoSection}>
-          <Text style={styles.sectionLabel}>Type</Text>
+          <Text style={styles.sectionLabel}>TYPE</Text>
           <View style={styles.infoCard}>
-            <Text style={styles.infoValue}>{getSessionTypeLabel(session.sessionType)}</Text>
+            <View style={styles.infoCardInner}>
+              <View style={styles.neonBadge}>
+                <Ionicons name="tennisball" size={16} color={Colors.dark.xpCyan} />
+              </View>
+              <Text style={styles.infoValue}>{getSessionTypeLabel(session.sessionType)}</Text>
+            </View>
           </View>
         </View>
 
         <View style={styles.infoSection}>
-          <Text style={styles.sectionLabel}>Duration</Text>
+          <Text style={styles.sectionLabel}>DURATION</Text>
           <View style={styles.infoCard}>
-            <Text style={styles.infoValue}>{session.duration} minutes</Text>
+            <View style={styles.infoCardInner}>
+              <View style={[styles.neonBadge, { backgroundColor: Colors.dark.gold + "20" }]}>
+                <Ionicons name="time" size={16} color={Colors.dark.gold} />
+              </View>
+              <Text style={styles.infoValue}>{session.duration} minutes</Text>
+            </View>
           </View>
         </View>
 
         <View style={styles.infoSection}>
-          <Text style={styles.sectionLabel}>Players</Text>
+          <Text style={styles.sectionLabel}>PLAYERS</Text>
           <View style={styles.infoCard}>
-            <Text style={styles.placeholderText}>No player data available</Text>
+            <View style={styles.infoCardInner}>
+              <Text style={styles.placeholderText}>No player data available</Text>
+            </View>
           </View>
         </View>
 
         <View style={styles.infoSection}>
-          <Text style={styles.sectionLabel}>Feedback</Text>
+          <Text style={styles.sectionLabel}>FEEDBACK</Text>
           <View style={styles.infoCard}>
-            <Text style={styles.placeholderText}>No feedback available</Text>
+            <View style={styles.infoCardInner}>
+              <Text style={styles.placeholderText}>No feedback available</Text>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -306,13 +399,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.md,
+  },
+  headerGradientLine: {
+    height: 3,
+    width: "100%",
   },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
   },
   headerTitles: {
     flex: 1,
@@ -325,33 +423,43 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   title: {
-    ...Typography.h1,
+    fontSize: Typography.h1.fontSize,
+    fontWeight: "700",
     color: Colors.dark.text,
+    letterSpacing: 2,
+    textTransform: "uppercase",
   },
   subtitle: {
     fontSize: Typography.small.fontSize,
-    color: Colors.dark.tabIconDefault,
+    color: Colors.dark.xpCyan,
+    marginTop: 2,
   },
   filterContainer: {
     paddingLeft: Spacing.lg,
     marginBottom: Spacing.md,
   },
   filterChip: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
+    paddingVertical: Spacing.xs + 2,
     marginRight: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "20",
   },
   filterChipActive: {
-    backgroundColor: Colors.dark.primary + "30",
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs + 2,
+    marginRight: Spacing.sm,
   },
   filterChipText: {
     fontSize: Typography.small.fontSize,
     color: Colors.dark.tabIconDefault,
   },
   filterChipTextActive: {
-    color: Colors.dark.primary,
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.backgroundRoot,
     fontWeight: "600",
   },
   loadingContainer: {
@@ -365,6 +473,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
   },
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+  },
   emptyText: {
     fontSize: Typography.body.fontSize,
     color: Colors.dark.tabIconDefault,
@@ -377,32 +495,46 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   dateHeader: {
-    ...Typography.h4,
-    color: Colors.dark.text,
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan,
     marginBottom: Spacing.sm,
-    textTransform: "capitalize",
+    textTransform: "uppercase",
+    letterSpacing: 1,
   },
   sessionCard: {
+    marginBottom: Spacing.sm,
+  },
+  sessionCardBorder: {
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  sessionCardInner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.md,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     padding: Spacing.md,
-    marginBottom: Spacing.sm,
     gap: Spacing.md,
   },
   sessionTime: {
     alignItems: "center",
-    minWidth: 50,
+    minWidth: 60,
   },
   sessionTimeText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
     color: Colors.dark.text,
   },
+  durationBadge: {
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+    marginTop: 4,
+  },
   sessionDuration: {
     fontSize: Typography.caption.fontSize,
-    color: Colors.dark.tabIconDefault,
+    fontWeight: "600",
   },
   sessionInfo: {
     flex: 1,
@@ -411,16 +543,30 @@ const styles = StyleSheet.create({
     fontSize: Typography.body.fontSize,
     color: Colors.dark.text,
   },
+  chevronContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   detailHeader: {
+    paddingBottom: Spacing.md,
+  },
+  detailHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingTop: Spacing.md,
   },
   detailTitle: {
-    ...Typography.h3,
+    fontSize: Typography.h3.fontSize,
+    fontWeight: "600",
     color: Colors.dark.text,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
   },
   detailContent: {
     flex: 1,
@@ -436,21 +582,40 @@ const styles = StyleSheet.create({
   },
   sessionTimeRange: {
     fontSize: Typography.body.fontSize,
-    color: Colors.dark.tabIconDefault,
+    color: Colors.dark.xpCyan,
     marginTop: Spacing.xs,
   },
   infoSection: {
     marginBottom: Spacing.lg,
   },
   sectionLabel: {
-    ...Typography.h4,
-    color: Colors.dark.text,
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.tabIconDefault,
     marginBottom: Spacing.sm,
+    letterSpacing: 1,
+    textTransform: "uppercase",
   },
   infoCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "20",
+    overflow: "hidden",
+  },
+  infoCardInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
     padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  neonBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    alignItems: "center",
+    justifyContent: "center",
   },
   infoValue: {
     fontSize: Typography.body.fontSize,
