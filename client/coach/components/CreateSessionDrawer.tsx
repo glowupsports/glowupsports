@@ -20,7 +20,7 @@ import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
-import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
+import { apiRequest, apiFetch, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
@@ -268,7 +268,6 @@ export default function CreateSessionDrawer({
       const endTime = new Date(startTime);
       endTime.setMinutes(endTime.getMinutes() + duration);
 
-      const baseUrl = getApiUrl();
       const params = new URLSearchParams({
         courtId: selectedCourtId,
         coachId: coach.id,
@@ -277,8 +276,7 @@ export default function CreateSessionDrawer({
       });
       selectedPlayers.forEach(p => params.append("playerIds", p.id));
 
-      const url = new URL(`/api/coach/sessions/check-conflict?${params.toString()}`, baseUrl);
-      const response = await fetch(url.href, { credentials: "include" });
+      const response = await apiFetch(`/api/coach/sessions/check-conflict?${params.toString()}`);
 
       if (!response.ok) {
         console.error("Conflict check failed:", response.statusText);
