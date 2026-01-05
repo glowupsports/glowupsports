@@ -738,7 +738,28 @@ export default function CreateSessionWizard({
       <View style={styles.slideContent}>
         {/* Date Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Date</Text>
+          <View style={styles.dateLabelRow}>
+            <Text style={styles.sectionLabel}>Date</Text>
+            {/* Prominent Calendar Button */}
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setCalendarViewDate(selectedDate);
+                setShowCalendarModal(true);
+              }}
+              style={styles.calendarBtnProminent}
+            >
+              <LinearGradient
+                colors={[Colors.dark.xpCyan, Colors.dark.primary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.calendarBtnGradient}
+              >
+                <Ionicons name="calendar" size={16} color={Colors.dark.backgroundRoot} />
+                <Text style={styles.calendarBtnText}>Pick Date</Text>
+              </LinearGradient>
+            </Pressable>
+          </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroll}>
             {days.map((day, idx) => {
               const isSelected = day.toDateString() === selectedDate.toDateString();
@@ -765,23 +786,6 @@ export default function CreateSessionWizard({
                 </Pressable>
               );
             })}
-            {/* Calendar picker button */}
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                setCalendarViewDate(selectedDate);
-                setShowCalendarModal(true);
-              }}
-              style={styles.calendarPickerBtn}
-            >
-              <LinearGradient
-                colors={[Colors.dark.xpCyan + "30", Colors.dark.primary + "20"]}
-                style={styles.calendarPickerGradient}
-              >
-                <Ionicons name="calendar" size={24} color={Colors.dark.xpCyan} />
-                <Text style={styles.calendarPickerText}>More</Text>
-              </LinearGradient>
-            </Pressable>
           </ScrollView>
         </View>
 
@@ -2191,7 +2195,32 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  // Calendar Picker Button
+  // Date Label Row with Calendar Button
+  dateLabelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  calendarBtnProminent: {
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  calendarBtnGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  calendarBtnText: {
+    ...Typography.small,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
+  },
+
+  // Calendar Picker Button (legacy)
   calendarPickerBtn: {
     marginRight: Spacing.sm,
     borderRadius: BorderRadius.md,
