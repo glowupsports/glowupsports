@@ -7445,7 +7445,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== OWNER PROFILE ENDPOINTS ====================
 
   // Get owner profile for the current academy
-  app.get("/api/owner/profile", authMiddleware, requireRole("owner", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/owner/profile", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user?.academyId;
       if (!academyId) {
@@ -7461,7 +7461,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Save/update owner profile
-  app.post("/api/owner/profile", authMiddleware, requireRole("owner", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/owner/profile", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user?.academyId;
       if (!academyId) {
@@ -7497,7 +7497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Complete academy owner onboarding
-  app.post("/api/owner/onboarding/complete", authMiddleware, requireRole("owner", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/owner/onboarding/complete", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user!.userId;
       const academyId = req.user?.academyId;
