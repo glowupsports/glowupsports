@@ -1,0 +1,188 @@
+🎮 COACH SESSION CREATION FLOW
+
+(Slide-based · clean · game-feel · no admin chaos)
+
+Doel:
+Een coach moet snel, visueel en foutloos een sessie kunnen aanmaken
+zonder zich een planner/admin te voelen.
+
+🧩 SLIDE 1 — Choose Session Type
+
+(Wat voor sessie ga je geven?)
+
+👉 ÉÉN KEUZE. GROTE KAARTEN.
+
+🎾 Session cards:
+
+Private Lesson
+1 speler · 1 coach
+
+Group Lesson
+Meerdere spelers · vaste groep
+
+Semi-Private
+2–3 spelers
+
+Physical
+Conditioning · fitness · off-court
+
+Activity
+Events, games, fun sessions
+
+⬇️
+🟢 NEXT
+
+Dit is de belangrijkste beslissing → alles hierna past zich hierop aan.
+
+🧩 SLIDE 2 — When & Where
+
+(Context bepalen, geen gepuzzel)
+
+Bovenaan:
+
+📅 Date picker (Today / Tomorrow / Calendar)
+
+📍 Location / Court
+
+Maple
+
+Sidra
+
+Jumeirah
+
+Safa
+
+etc.
+
+⬇️
+
+Beschikbare tijdslots (automatisch):
+
+08:00 · 08:30 · 09:00 · 09:30 · …
+
+Slots worden:
+
+geblokkeerd bij conflicts
+
+aangepast op sessietype & court
+
+⬇️
+🟢 NEXT
+
+🧩 SLIDE 3 — Session Setup
+
+(Dit is waar types verschillen, maar UI blijft clean)
+
+Afhankelijk van type:
+🔹 Private
+
+👤 Select player (optioneel)
+
+⛔ Max 1 speler (locked)
+
+🔹 Group
+
+👥 Max players (bv. 4 / 6 / 8)
+
+👶 Allowed levels (Red / Orange / Green / Yellow)
+
+🎾 Open / Closed group
+
+Open = spelers kunnen zelf joinen
+
+Closed = alleen coach invite
+
+🔹 Semi-Private
+
+👥 Max 2–3 spelers
+
+Zelfde logica als group, kleinere cap
+
+🔹 Physical
+
+👟 No racket
+
+👥 Group size
+
+🏋️ Type tag: strength / speed / agility
+
+🔹 Activity
+
+🎉 Event-achtig
+
+Geen levels verplicht
+
+Kan “fun only” zijn (Glow XP anders berekend)
+
+⬇️
+🟢 NEXT
+
+🧩 SLIDE 4 — Players & Visibility
+
+(Social + control)
+
+Coach kiest:
+
+🔓 Visible to players
+
+Yes → verschijnt in app
+
+No → alleen via invite
+
+Player management:
+
+➕ Add players (optioneel)
+
+⏳ Enable waitlist (voor groups)
+
+👀 Coach ziet:
+
+avatars
+
+levels
+
+ball color
+
+⬇️
+🟢 NEXT
+
+🧩 SLIDE 5 — Extras & Rules
+
+(Optioneel, clean gehouden)
+
+🔁 One-time / Weekly recurring
+
+⏱ Travel time (coach only)
+
+✍️ Internal notes (coach only)
+
+📜 Rules (auto / academy default)
+
+80% van de coaches klikt hier direct door — en dat is goed.
+
+⬇️
+🟢 NEXT
+
+🧩 SLIDE 6 — Confirm Session
+
+(Overzicht + confidence)
+
+Samenvatting card:
+
+SESSION TYPE: Group Lesson
+📍 Maple · Court 2
+🕒 Monday · 18:00 – 19:00
+👥 Max 6 players
+🎾 Green Ball
+
+
+⚡ XP logic klaar
+
+📊 Admin / finance koppelingen klaar
+
+❌ Conflicts al uitgesloten
+
+🟢 CREATE SESSION
+
+✨ Kleine success animation
+→ “Session is live”

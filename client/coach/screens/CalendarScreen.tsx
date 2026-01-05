@@ -31,7 +31,7 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { useRoute, RouteProp } from "@react-navigation/native";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 
-import CreateSessionDrawer from "@/coach/components/CreateSessionDrawer";
+import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
 import NowPlayingCard from "@/coach/components/NowPlayingCard";
 import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
 import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
@@ -2119,8 +2119,8 @@ export default function CalendarScreen() {
         </View>
       )}
 
-      {/* Create Session Drawer */}
-      <CreateSessionDrawer
+      {/* Create Session Wizard */}
+      <CreateSessionWizard
         visible={showCreateDrawer}
         onClose={() => {
           setShowCreateDrawer(false);
