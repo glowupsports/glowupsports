@@ -99,6 +99,8 @@ export default function CreateSessionDrawer({
   const [guestName, setGuestName] = useState("");
   const [showGuestInput, setShowGuestInput] = useState(false);
   const [playerSearch, setPlayerSearch] = useState("");
+  const [weekAvailability, setWeekAvailability] = useState<{ week: number; date: Date; available: boolean; conflict?: string }[]>([]);
+  const [isCheckingWeeks, setIsCheckingWeeks] = useState(false);
 
   // Get ball level color
   const getBallLevelColor = (level: string | null | undefined): string => {
@@ -169,6 +171,78 @@ export default function CreateSessionDrawer({
     },
     enabled: visible && !!coach?.id,
   });
+
+  // Fetch coach sessions for the selected day to show blocked time slots
+  interface ExistingSession {
+    id: string;
+    startTime: string;
+    endTime: string;
+    duration: number;
+  }
+
+  // Use local date components for query key to avoid timezone issues
+  const selectedDateString = `${startTime.getFullYear()}-${String(startTime.getMonth() + 1).padStart(2, '0')}-${String(startTime.getDate()).padStart(2, '0')}`;
+  
+  const { data: daySessions = [] } = useQuery<ExistingSession[]>({
+    queryKey: ["/api/coach/sessions/day", coach?.id, selectedDateString],
+    queryFn: async () => {
+      if (!coach?.id) return [];
+      // Use local midnight to midnight for the selected day
+      const dayStart = new Date(startTime);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(startTime);
+      dayEnd.setHours(23, 59, 59, 999);
+      
+      const res = await apiFetch(
+        `/api/coach/calendar?startDate=${dayStart.toISOString()}&endDate=${dayEnd.toISOString()}`
+      );
+      if (!res.ok) return [];
+      const data = await res.json();
+      // ownSessions contains sessions where this coach is the owner
+      return data.ownSessions || [];
+    },
+    enabled: visible && !!coach?.id,
+  });
+
+  // Calculate blocked time slots based on existing sessions
+  const getBlockedTimeSlots = useCallback((): Set<string> => {
+    const blocked = new Set<string>();
+    
+    for (const session of daySessions) {
+      // Parse UTC timestamps correctly
+      const sessionStartStr = session.startTime;
+      const sessionEndStr = session.endTime;
+      const sessionStart = new Date(sessionStartStr.endsWith("Z") ? sessionStartStr : sessionStartStr + "Z");
+      const sessionEnd = new Date(sessionEndStr.endsWith("Z") ? sessionEndStr : sessionEndStr + "Z");
+      
+      // Block all 30-minute slots that overlap with this session
+      const slotTimes = [
+        "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
+        "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
+        "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
+        "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
+        "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
+      ];
+      
+      for (const time of slotTimes) {
+        const [hours, mins] = time.split(":").map(Number);
+        const slotStart = new Date(startTime);
+        slotStart.setHours(hours, mins, 0, 0);
+        const slotEnd = new Date(slotStart);
+        slotEnd.setMinutes(slotEnd.getMinutes() + duration);
+        
+        // Check if this slot overlaps with the session
+        // Overlap: slotStart < sessionEnd AND slotEnd > sessionStart
+        if (slotStart < sessionEnd && slotEnd > sessionStart) {
+          blocked.add(time);
+        }
+      }
+    }
+    
+    return blocked;
+  }, [daySessions, startTime, duration]);
+
+  const blockedSlots = getBlockedTimeSlots();
 
   const applyTemplate = (template: SessionTemplate) => {
     setSessionType(template.sessionType as SessionType);
@@ -300,6 +374,67 @@ export default function CreateSessionDrawer({
       return () => clearTimeout(timer);
     }
   }, [visible, selectedCourtId, startTime, duration, selectedPlayers]);
+
+  // Check availability for all weeks when recurring is enabled (parallel requests)
+  const checkWeekAvailability = useCallback(async () => {
+    if (!isRecurring || !selectedCourtId || !coach?.id || weekCount <= 1) {
+      setWeekAvailability([]);
+      return;
+    }
+
+    setIsCheckingWeeks(true);
+
+    try {
+      // Build all week dates first
+      const weeks = Array.from({ length: weekCount }, (_, week) => {
+        const weekStart = new Date(startTime.getTime() + week * 7 * 24 * 60 * 60 * 1000);
+        const weekEnd = new Date(weekStart.getTime() + duration * 60000);
+        return { week: week + 1, weekStart, weekEnd };
+      });
+
+      // Make all API calls in parallel
+      const checkPromises = weeks.map(async ({ week, weekStart, weekEnd }) => {
+        const params = new URLSearchParams({
+          courtId: selectedCourtId!,
+          coachId: coach!.id,
+          startTime: weekStart.toISOString(),
+          endTime: weekEnd.toISOString(),
+        });
+
+        try {
+          const response = await apiFetch(`/api/coach/sessions/check-conflict?${params.toString()}`);
+          if (!response.ok) {
+            return { week, date: weekStart, available: true };
+          }
+
+          const data = await response.json();
+          const hasConflict = data.conflicts && data.conflicts.length > 0;
+          return {
+            week,
+            date: weekStart,
+            available: !hasConflict,
+            conflict: hasConflict ? data.conflicts[0] : undefined,
+          };
+        } catch {
+          return { week, date: weekStart, available: true };
+        }
+      });
+
+      const availability = await Promise.all(checkPromises);
+      setWeekAvailability(availability);
+    } finally {
+      setIsCheckingWeeks(false);
+    }
+  }, [isRecurring, selectedCourtId, coach?.id, weekCount, startTime, duration]);
+
+  useEffect(() => {
+    if (visible && isRecurring && selectedCourtId && weekCount > 1) {
+      const timer = setTimeout(checkWeekAvailability, 600);
+      return () => clearTimeout(timer);
+    } else {
+      setWeekAvailability([]);
+    }
+  }, [visible, isRecurring, selectedCourtId, weekCount, startTime, duration, checkWeekAvailability]);
 
   const handleSubmit = async () => {
     if (isOffline) {
@@ -460,10 +595,15 @@ export default function CreateSessionDrawer({
               ].map((time) => {
                 const [hours, mins] = time.split(":").map(Number);
                 const isSelected = startTime.getHours() === hours && startTime.getMinutes() === mins;
+                const isBlocked = blockedSlots.has(time);
                 return (
                   <Pressable
                     key={time}
                     onPress={() => {
+                      if (isBlocked) {
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                        return;
+                      }
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       const newTime = new Date(startTime);
                       newTime.setHours(hours, mins, 0, 0);
@@ -472,14 +612,22 @@ export default function CreateSessionDrawer({
                     style={[
                       styles.timeSlot,
                       isSelected && styles.timeSlotSelected,
+                      isBlocked && styles.timeSlotBlocked,
                     ]}
+                    disabled={isBlocked}
                   >
                     <Text style={[
                       styles.timeSlotText,
                       isSelected && styles.timeSlotTextSelected,
+                      isBlocked && styles.timeSlotTextBlocked,
                     ]}>
                       {time}
                     </Text>
+                    {isBlocked ? (
+                      <View style={styles.blockedIndicator}>
+                        <Ionicons name="close" size={10} color={Colors.dark.error} />
+                      </View>
+                    ) : null}
                   </Pressable>
                 );
               })}
@@ -908,6 +1056,57 @@ export default function CreateSessionDrawer({
                     </Pressable>
                   ))}
                 </View>
+                
+                {/* Week Availability Preview */}
+                {selectedCourtId && weekCount > 1 ? (
+                  <View style={styles.weekPreviewSection}>
+                    <Text style={styles.weekPreviewTitle}>Week Availability:</Text>
+                    {isCheckingWeeks ? (
+                      <View style={styles.weekPreviewLoading}>
+                        <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                        <Text style={styles.weekPreviewLoadingText}>Checking {weekCount} weeks...</Text>
+                      </View>
+                    ) : weekAvailability.length > 0 ? (
+                      <View style={styles.weekPreviewGrid}>
+                        {weekAvailability.map((w) => (
+                          <View
+                            key={w.week}
+                            style={[
+                              styles.weekPreviewItem,
+                              w.available ? styles.weekPreviewAvailable : styles.weekPreviewConflict,
+                            ]}
+                          >
+                            <Text style={[
+                              styles.weekPreviewWeekNum,
+                              !w.available && styles.weekPreviewConflictText,
+                            ]}>
+                              W{w.week}
+                            </Text>
+                            <Text style={[
+                              styles.weekPreviewDate,
+                              !w.available && styles.weekPreviewConflictText,
+                            ]}>
+                              {w.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            </Text>
+                            {!w.available ? (
+                              <Ionicons name="close-circle" size={12} color={Colors.dark.error} style={styles.weekPreviewIcon} />
+                            ) : (
+                              <Ionicons name="checkmark-circle" size={12} color={Colors.dark.primary} style={styles.weekPreviewIcon} />
+                            )}
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
+                    {weekAvailability.filter(w => !w.available).length > 0 ? (
+                      <View style={styles.weekConflictSummary}>
+                        <Ionicons name="warning" size={14} color={Colors.dark.orange} />
+                        <Text style={styles.weekConflictSummaryText}>
+                          {weekAvailability.filter(w => !w.available).length} week(s) will be skipped due to conflicts
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                ) : null}
               </View>
             )}
           </View>
@@ -1118,6 +1317,20 @@ const styles = StyleSheet.create({
   timeSlotTextSelected: {
     color: Colors.dark.text,
     fontWeight: "600",
+  },
+  timeSlotBlocked: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    opacity: 0.5,
+    borderColor: Colors.dark.error + "40",
+  },
+  timeSlotTextBlocked: {
+    color: Colors.dark.disabled,
+    textDecorationLine: "line-through",
+  },
+  blockedIndicator: {
+    position: "absolute",
+    top: 2,
+    right: 2,
   },
   optionsRow: {
     flexDirection: "row",
@@ -1395,6 +1608,81 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.textMuted,
     marginBottom: Spacing.sm,
+  },
+  weekPreviewSection: {
+    marginTop: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+  },
+  weekPreviewTitle: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+  },
+  weekPreviewLoading: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+  },
+  weekPreviewLoadingText: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+  },
+  weekPreviewGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.xs,
+  },
+  weekPreviewItem: {
+    flexDirection: "column",
+    alignItems: "center",
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderRadius: BorderRadius.sm,
+    minWidth: 50,
+    position: "relative",
+  },
+  weekPreviewAvailable: {
+    backgroundColor: Colors.dark.primary + "20",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  weekPreviewConflict: {
+    backgroundColor: Colors.dark.error + "20",
+    borderWidth: 1,
+    borderColor: Colors.dark.error + "40",
+  },
+  weekPreviewWeekNum: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  weekPreviewDate: {
+    fontSize: 9,
+    color: Colors.dark.textMuted,
+  },
+  weekPreviewConflictText: {
+    color: Colors.dark.error,
+  },
+  weekPreviewIcon: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+  },
+  weekConflictSummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  weekConflictSummaryText: {
+    fontSize: 11,
+    color: Colors.dark.orange,
   },
   calendarContainer: {
     backgroundColor: Colors.dark.backgroundSecondary,
