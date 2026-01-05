@@ -11,6 +11,7 @@ import {
   Modal,
   Platform,
   ActivityIndicator,
+  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -18,6 +19,13 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+  interpolate,
+} from "react-native-reanimated";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -26,6 +34,8 @@ import { apiRequest } from "@/lib/query-client";
 import { useNavigation } from "@react-navigation/native";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface Court {
   id: string;
@@ -36,14 +46,14 @@ interface Court {
 }
 
 const COURT_COLORS = [
-  "#2ECC40", // Green (primary)
-  "#00D4FF", // Cyan
-  "#FF6B35", // Orange
-  "#FFD700", // Gold
-  "#9B59B6", // Purple
-  "#E91E63", // Pink
-  "#3498DB", // Blue
-  "#95A5A6", // Gray
+  "#2ECC40",
+  "#00D4FF",
+  "#FF6B35",
+  "#FFD700",
+  "#9B59B6",
+  "#E91E63",
+  "#3498DB",
+  "#95A5A6",
 ];
 
 interface CoachSettings {
@@ -71,6 +81,103 @@ const defaultSettings: CoachSettings = {
   travelTimeWarning: true,
   offlineSyncAuto: true,
 };
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+function GlowSwitch({ value, onValueChange }: { value: boolean; onValueChange: (val: boolean) => void }) {
+  const glowOpacity = useSharedValue(value ? 1 : 0);
+
+  React.useEffect(() => {
+    glowOpacity.value = withTiming(value ? 1 : 0, { duration: 200 });
+  }, [value]);
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(glowOpacity.value, [0, 1], [0, 0.6]),
+  }));
+
+  return (
+    <View style={styles.switchContainer}>
+      <Animated.View style={[styles.switchGlow, glowStyle]} />
+      <Switch
+        value={value}
+        onValueChange={(val) => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onValueChange(val);
+        }}
+        trackColor={{ false: "rgba(80, 80, 80, 0.5)", true: "rgba(46, 204, 64, 0.4)" }}
+        thumbColor={value ? Colors.dark.primary : Colors.dark.tabIconDefault}
+        ios_backgroundColor="rgba(80, 80, 80, 0.5)"
+      />
+    </View>
+  );
+}
+
+function SectionHeader({ title, icon }: { title: string; icon?: string }) {
+  return (
+    <View style={styles.sectionHeaderContainer}>
+      <View style={styles.sectionHeaderContent}>
+        {icon ? (
+          <Ionicons name={icon as any} size={16} color={Colors.dark.xpCyan} style={styles.sectionIcon} />
+        ) : null}
+        <Text style={styles.sectionTitle}>{title}</Text>
+      </View>
+      <LinearGradient
+        colors={[Colors.dark.primary, Colors.dark.xpCyan, "transparent"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.sectionUnderline}
+      />
+    </View>
+  );
+}
+
+function GradientButton({ 
+  onPress, 
+  label, 
+  icon, 
+  colors = [Colors.dark.xpCyan, Colors.dark.primary],
+  disabled = false,
+  loading = false,
+}: { 
+  onPress: () => void; 
+  label: string; 
+  icon?: string;
+  colors?: string[];
+  disabled?: boolean;
+  loading?: boolean;
+}) {
+  const scale = useSharedValue(1);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      disabled={disabled || loading}
+      onPressIn={() => { scale.value = withSpring(0.96); }}
+      onPressOut={() => { scale.value = withSpring(1); }}
+      style={[animatedStyle, disabled && { opacity: 0.5 }]}
+    >
+      <LinearGradient
+        colors={colors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.gradientButton}
+      >
+        {loading ? (
+          <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+        ) : (
+          <>
+            {icon ? <Ionicons name={icon as any} size={18} color={Colors.dark.backgroundRoot} /> : null}
+            <Text style={styles.gradientButtonText}>{label}</Text>
+          </>
+        )}
+      </LinearGradient>
+    </AnimatedPressable>
+  );
+}
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -272,12 +379,25 @@ export default function SettingsScreen() {
       />
 
       <View style={styles.header}>
-        <View style={styles.headerTitleRow}>
-          <View style={styles.headerIconWrapper}>
-            <Ionicons name="settings" size={18} color={Colors.dark.primary} />
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerAccentLine}
+        />
+        <LinearGradient
+          colors={["rgba(46, 204, 64, 0.15)", "rgba(0, 212, 255, 0.08)", "transparent"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.headerGradientBg}
+        >
+          <View style={styles.headerContent}>
+            <View style={styles.headerIconWrapper}>
+              <Ionicons name="settings" size={20} color={Colors.dark.xpCyan} />
+            </View>
+            <Text style={styles.title}>SETTINGS</Text>
           </View>
-          <Text style={styles.title}>COMMAND CENTER</Text>
-        </View>
+        </LinearGradient>
       </View>
 
       <ScrollView
@@ -286,15 +406,19 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {coach ? (
-          <View style={styles.profileSectionContainer}>
+          <View style={styles.profileCard}>
             <LinearGradient
-              colors={[Colors.dark.primary + "80", Colors.dark.xpCyan + "60"]}
+              colors={[Colors.dark.primary, Colors.dark.xpCyan]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={styles.profileSectionTopLine}
+              style={styles.profileTopAccent}
             />
-            <View style={styles.profileSection}>
+            <View style={styles.profileContent}>
               <View style={styles.profileAvatar}>
+                <LinearGradient
+                  colors={[Colors.dark.primary + "40", Colors.dark.xpCyan + "20"]}
+                  style={StyleSheet.absoluteFill}
+                />
                 <Text style={styles.profileInitial}>{coach.name.charAt(0).toUpperCase()}</Text>
               </View>
               <View style={styles.profileInfo}>
@@ -306,55 +430,46 @@ export default function SettingsScreen() {
         ) : null}
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Default Settings</Text>
+          <SectionHeader title="Default Settings" icon="options-outline" />
 
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
-              <Ionicons name="time-outline" size={24} color={Colors.dark.tabIconDefault} />
+              <View style={styles.settingIconWrapper}>
+                <Ionicons name="time-outline" size={20} color={Colors.dark.xpCyan} />
+              </View>
               <View>
                 <Text style={styles.settingLabel}>Default lesson duration</Text>
                 <Text style={styles.settingDescription}>For new lessons</Text>
               </View>
             </View>
             <View style={styles.durationButtons}>
-              <Pressable
-                style={[
-                  styles.durationButton,
-                  settings.defaultDuration === 60 && styles.durationButtonActive,
-                ]}
-                onPress={() => updateSetting("defaultDuration", 60)}
-              >
-                <Text
+              {[60, 90].map((mins) => (
+                <Pressable
+                  key={mins}
                   style={[
-                    styles.durationButtonText,
-                    settings.defaultDuration === 60 && styles.durationButtonTextActive,
+                    styles.optionButton,
+                    settings.defaultDuration === mins && styles.optionButtonActive,
                   ]}
+                  onPress={() => updateSetting("defaultDuration", mins as 60 | 90)}
                 >
-                  60m
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.durationButton,
-                  settings.defaultDuration === 90 && styles.durationButtonActive,
-                ]}
-                onPress={() => updateSetting("defaultDuration", 90)}
-              >
-                <Text
-                  style={[
-                    styles.durationButtonText,
-                    settings.defaultDuration === 90 && styles.durationButtonTextActive,
-                  ]}
-                >
-                  90m
-                </Text>
-              </Pressable>
+                  <Text
+                    style={[
+                      styles.optionButtonText,
+                      settings.defaultDuration === mins && styles.optionButtonTextActive,
+                    ]}
+                  >
+                    {mins}m
+                  </Text>
+                </Pressable>
+              ))}
             </View>
           </View>
 
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
-              <Ionicons name="repeat-outline" size={24} color={Colors.dark.tabIconDefault} />
+              <View style={styles.settingIconWrapper}>
+                <Ionicons name="repeat-outline" size={20} color={Colors.dark.xpCyan} />
+              </View>
               <View>
                 <Text style={styles.settingLabel}>Default recurring</Text>
                 <Text style={styles.settingDescription}>{settings.defaultRecurringWeeks} weeks</Text>
@@ -365,15 +480,15 @@ export default function SettingsScreen() {
                 <Pressable
                   key={weeks}
                   style={[
-                    styles.weekButton,
-                    settings.defaultRecurringWeeks === weeks && styles.weekButtonActive,
+                    styles.circleButton,
+                    settings.defaultRecurringWeeks === weeks && styles.circleButtonActive,
                   ]}
                   onPress={() => updateSetting("defaultRecurringWeeks", weeks)}
                 >
                   <Text
                     style={[
-                      styles.weekButtonText,
-                      settings.defaultRecurringWeeks === weeks && styles.weekButtonTextActive,
+                      styles.circleButtonText,
+                      settings.defaultRecurringWeeks === weeks && styles.circleButtonTextActive,
                     ]}
                   >
                     {weeks}
@@ -385,7 +500,9 @@ export default function SettingsScreen() {
 
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
-              <Ionicons name="car-outline" size={24} color={Colors.dark.tabIconDefault} />
+              <View style={styles.settingIconWrapper}>
+                <Ionicons name="car-outline" size={20} color={Colors.dark.xpCyan} />
+              </View>
               <View>
                 <Text style={styles.settingLabel}>Default travel time</Text>
                 <Text style={styles.settingDescription}>{settings.defaultTravelTime} minutes</Text>
@@ -396,15 +513,15 @@ export default function SettingsScreen() {
                 <Pressable
                   key={mins}
                   style={[
-                    styles.travelButton,
-                    settings.defaultTravelTime === mins && styles.travelButtonActive,
+                    styles.smallCircleButton,
+                    settings.defaultTravelTime === mins && styles.smallCircleButtonActive,
                   ]}
                   onPress={() => updateSetting("defaultTravelTime", mins)}
                 >
                   <Text
                     style={[
-                      styles.travelButtonText,
-                      settings.defaultTravelTime === mins && styles.travelButtonTextActive,
+                      styles.smallCircleButtonText,
+                      settings.defaultTravelTime === mins && styles.smallCircleButtonTextActive,
                     ]}
                   >
                     {mins}
@@ -416,32 +533,51 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Courts</Text>
-            <Pressable style={styles.addButton} onPress={handleAddCourt}>
-              <Ionicons name="add" size={20} color={Colors.dark.primary} />
+          <View style={styles.sectionHeaderRow}>
+            <SectionHeader title="Courts" icon="tennisball-outline" />
+            <Pressable style={styles.addCourtButton} onPress={handleAddCourt}>
+              <LinearGradient
+                colors={[Colors.dark.xpCyan, Colors.dark.primary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.addCourtButtonGradient}
+              >
+                <Ionicons name="add" size={18} color={Colors.dark.backgroundRoot} />
+              </LinearGradient>
             </Pressable>
           </View>
 
           {courts.length === 0 ? (
             <View style={styles.emptyState}>
+              <Ionicons name="tennisball-outline" size={32} color={Colors.dark.tabIconDefault} />
               <Text style={styles.emptyStateText}>No courts yet</Text>
               <Text style={styles.emptyStateSubtext}>Add your first court to get started</Text>
             </View>
           ) : (
             courts.map((court) => (
-              <View key={court.id} style={styles.courtRow}>
-                <View style={styles.courtInfo}>
-                  <View style={[styles.courtColorDot, { backgroundColor: court.color || Colors.dark.primary }]} />
-                  <Text style={styles.courtName}>{court.name}</Text>
-                </View>
-                <View style={styles.courtActions}>
-                  <Pressable style={styles.courtActionButton} onPress={() => handleEditCourt(court)}>
-                    <Ionicons name="pencil" size={18} color={Colors.dark.tabIconDefault} />
-                  </Pressable>
-                  <Pressable style={styles.courtActionButton} onPress={() => handleDeleteCourt(court)}>
-                    <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
-                  </Pressable>
+              <View key={court.id} style={styles.courtCard}>
+                <View style={[styles.courtColorBar, { backgroundColor: court.color || Colors.dark.primary }]} />
+                <View style={styles.courtCardContent}>
+                  <View style={styles.courtInfo}>
+                    <View style={[styles.courtColorDot, { backgroundColor: court.color || Colors.dark.primary }]}>
+                      <View style={[styles.courtColorDotGlow, { backgroundColor: court.color || Colors.dark.primary }]} />
+                    </View>
+                    <Text style={styles.courtName}>{court.name}</Text>
+                  </View>
+                  <View style={styles.courtActions}>
+                    <Pressable 
+                      style={styles.courtActionButton} 
+                      onPress={() => handleEditCourt(court)}
+                    >
+                      <Ionicons name="pencil" size={16} color={Colors.dark.xpCyan} />
+                    </Pressable>
+                    <Pressable 
+                      style={[styles.courtActionButton, styles.courtDeleteButton]} 
+                      onPress={() => handleDeleteCourt(court)}
+                    >
+                      <Ionicons name="trash-outline" size={16} color={Colors.dark.error} />
+                    </Pressable>
+                  </View>
                 </View>
               </View>
             ))
@@ -449,203 +585,196 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Focus Mode</Text>
+          <SectionHeader title="Focus Mode" icon="eye-outline" />
 
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
-              <Ionicons name="eye-outline" size={24} color={Colors.dark.tabIconDefault} />
+              <View style={styles.settingIconWrapper}>
+                <Ionicons name="eye-outline" size={20} color={Colors.dark.xpCyan} />
+              </View>
               <View>
                 <Text style={styles.settingLabel}>Focus Mode now</Text>
                 <Text style={styles.settingDescription}>Hide distractions during lessons</Text>
               </View>
             </View>
-            <Switch
-              value={focusMode}
-              onValueChange={(value) => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setFocusMode(value);
-              }}
-              trackColor={{ false: Colors.dark.disabled, true: "rgba(46, 204, 64, 0.4)" }}
-              thumbColor={focusMode ? Colors.dark.primary : Colors.dark.tabIconDefault}
-            />
+            <GlowSwitch value={focusMode} onValueChange={setFocusMode} />
           </View>
 
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
-              <Ionicons name="flash-outline" size={24} color={Colors.dark.tabIconDefault} />
+              <View style={styles.settingIconWrapper}>
+                <Ionicons name="flash-outline" size={20} color={Colors.dark.gold} />
+              </View>
               <View>
                 <Text style={styles.settingLabel}>Auto Focus Mode</Text>
                 <Text style={styles.settingDescription}>Automatically enable at lesson start</Text>
               </View>
             </View>
-            <Switch
-              value={settings.focusModeAutoOn}
-              onValueChange={(value) => updateSetting("focusModeAutoOn", value)}
-              trackColor={{ false: Colors.dark.disabled, true: "rgba(46, 204, 64, 0.4)" }}
-              thumbColor={settings.focusModeAutoOn ? Colors.dark.primary : Colors.dark.tabIconDefault}
+            <GlowSwitch 
+              value={settings.focusModeAutoOn} 
+              onValueChange={(value) => updateSetting("focusModeAutoOn", value)} 
             />
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notifications</Text>
+          <SectionHeader title="Notifications" icon="notifications-outline" />
 
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
-              <Ionicons name="notifications-outline" size={24} color={Colors.dark.tabIconDefault} />
+              <View style={styles.settingIconWrapper}>
+                <Ionicons name="notifications-outline" size={20} color={Colors.dark.xpCyan} />
+              </View>
               <View>
                 <Text style={styles.settingLabel}>Notifications</Text>
                 <Text style={styles.settingDescription}>All notifications</Text>
               </View>
             </View>
-            <Switch
-              value={settings.notificationsEnabled}
-              onValueChange={(value) => updateSetting("notificationsEnabled", value)}
-              trackColor={{ false: Colors.dark.disabled, true: "rgba(46, 204, 64, 0.4)" }}
-              thumbColor={settings.notificationsEnabled ? Colors.dark.primary : Colors.dark.tabIconDefault}
+            <GlowSwitch 
+              value={settings.notificationsEnabled} 
+              onValueChange={(value) => updateSetting("notificationsEnabled", value)} 
             />
           </View>
 
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
-              <Ionicons name="alarm-outline" size={24} color={Colors.dark.tabIconDefault} />
+              <View style={styles.settingIconWrapper}>
+                <Ionicons name="alarm-outline" size={20} color={Colors.dark.orange} />
+              </View>
               <View>
                 <Text style={styles.settingLabel}>Lesson reminder</Text>
                 <Text style={styles.settingDescription}>{settings.lessonReminderMinutes} min before lesson</Text>
               </View>
             </View>
-            <Switch
-              value={settings.lessonReminder}
-              onValueChange={(value) => updateSetting("lessonReminder", value)}
-              trackColor={{ false: Colors.dark.disabled, true: "rgba(46, 204, 64, 0.4)" }}
-              thumbColor={settings.lessonReminder ? Colors.dark.primary : Colors.dark.tabIconDefault}
+            <GlowSwitch 
+              value={settings.lessonReminder} 
+              onValueChange={(value) => updateSetting("lessonReminder", value)} 
             />
           </View>
 
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
-              <Ionicons name="warning-outline" size={24} color={Colors.dark.tabIconDefault} />
+              <View style={styles.settingIconWrapper}>
+                <Ionicons name="warning-outline" size={20} color={Colors.dark.gold} />
+              </View>
               <View>
                 <Text style={styles.settingLabel}>Travel time warning</Text>
                 <Text style={styles.settingDescription}>Alert for short travel time</Text>
               </View>
             </View>
-            <Switch
-              value={settings.travelTimeWarning}
-              onValueChange={(value) => updateSetting("travelTimeWarning", value)}
-              trackColor={{ false: Colors.dark.disabled, true: "rgba(46, 204, 64, 0.4)" }}
-              thumbColor={settings.travelTimeWarning ? Colors.dark.primary : Colors.dark.tabIconDefault}
+            <GlowSwitch 
+              value={settings.travelTimeWarning} 
+              onValueChange={(value) => updateSetting("travelTimeWarning", value)} 
             />
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Offline & Sync</Text>
+          <SectionHeader title="Offline & Sync" icon="cloud-outline" />
 
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
-              <Ionicons name="cloud-outline" size={24} color={Colors.dark.tabIconDefault} />
+              <View style={styles.settingIconWrapper}>
+                <Ionicons name="cloud-outline" size={20} color={Colors.dark.xpCyan} />
+              </View>
               <View>
                 <Text style={styles.settingLabel}>Auto sync</Text>
                 <Text style={styles.settingDescription}>Sync when online</Text>
               </View>
             </View>
-            <Switch
-              value={settings.offlineSyncAuto}
-              onValueChange={(value) => updateSetting("offlineSyncAuto", value)}
-              trackColor={{ false: Colors.dark.disabled, true: "rgba(46, 204, 64, 0.4)" }}
-              thumbColor={settings.offlineSyncAuto ? Colors.dark.primary : Colors.dark.tabIconDefault}
+            <GlowSwitch 
+              value={settings.offlineSyncAuto} 
+              onValueChange={(value) => updateSetting("offlineSyncAuto", value)} 
             />
           </View>
 
-          <Pressable style={styles.syncButton}>
-            <Ionicons name="sync-outline" size={20} color={Colors.dark.primary} />
-            <Text style={styles.syncButtonText}>Sync manually</Text>
-          </Pressable>
+          <View style={styles.syncButtonContainer}>
+            <GradientButton
+              onPress={() => {}}
+              label="Sync manually"
+              icon="sync-outline"
+            />
+          </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Feedback & Reputation</Text>
+          <SectionHeader title="Feedback & Reputation" icon="star-outline" />
           <Pressable 
             style={styles.linkRow}
             onPress={() => (navigation.getParent() as any)?.navigate("MyReviews")}
           >
             <View style={styles.settingInfo}>
-              <Ionicons name="star-outline" size={24} color={Colors.dark.gold} />
+              <View style={[styles.settingIconWrapper, { backgroundColor: Colors.dark.gold + "20" }]}>
+                <Ionicons name="star" size={20} color={Colors.dark.gold} />
+              </View>
               <View>
                 <Text style={styles.settingLabel}>My Reviews</Text>
                 <Text style={styles.settingDescription}>View and respond to player feedback</Text>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.xpCyan} />
           </Pressable>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Team & Invitations</Text>
+          <SectionHeader title="Team & Invitations" icon="people-outline" />
           <Pressable 
             style={styles.linkRow}
             onPress={() => (navigation.getParent() as any)?.navigate("CoachInvitations")}
           >
             <View style={styles.settingInfo}>
-              <Ionicons name="mail-outline" size={24} color={Colors.dark.tabIconDefault} />
+              <View style={styles.settingIconWrapper}>
+                <Ionicons name="mail-outline" size={20} color={Colors.dark.xpCyan} />
+              </View>
               <View>
                 <Text style={styles.settingLabel}>Coach Invitations</Text>
                 <Text style={styles.settingDescription}>Manage invitations to/from academies</Text>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.xpCyan} />
           </Pressable>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>App Info</Text>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Version</Text>
-            <Text style={styles.infoValue}>1.0.0</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Build</Text>
-            <Text style={styles.infoValue}>2024.12.26</Text>
+          <SectionHeader title="App Info" icon="information-circle-outline" />
+          <View style={styles.infoCard}>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Version</Text>
+              <Text style={styles.infoValue}>1.0.0</Text>
+            </View>
+            <View style={styles.infoRowDivider} />
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Build</Text>
+              <Text style={styles.infoValue}>2024.12.26</Text>
+            </View>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: "#E67E22" }]}>Developer Tools</Text>
+          <View style={styles.devToolsHeader}>
+            <Ionicons name="code-slash" size={16} color="#E67E22" />
+            <Text style={styles.devToolsTitle}>DEVELOPER TOOLS</Text>
+          </View>
           <View style={styles.devToolsCard}>
             <Text style={styles.devToolsNote}>
               Test push notifications and simulate events. Requires Expo Go with notifications enabled.
             </Text>
             
-            <Pressable
-              style={[styles.devToolsButton, testPushLoading && styles.devToolsButtonDisabled]}
+            <GradientButton
               onPress={handleTestPushNotification}
-              disabled={testPushLoading}
-            >
-              {testPushLoading ? (
-                <ActivityIndicator size="small" color="#E67E22" />
-              ) : (
-                <>
-                  <Ionicons name="notifications" size={20} color="#E67E22" />
-                  <Text style={styles.devToolsButtonText}>Test Push Notification</Text>
-                </>
-              )}
-            </Pressable>
+              label="Test Push Notification"
+              icon="notifications"
+              colors={["#E67E22", "#D35400"]}
+              loading={testPushLoading}
+            />
 
-            <Pressable
-              style={[styles.devToolsButton, testBookingLoading && styles.devToolsButtonDisabled]}
+            <GradientButton
               onPress={handleTestBookingRequest}
-              disabled={testBookingLoading}
-            >
-              {testBookingLoading ? (
-                <ActivityIndicator size="small" color="#E67E22" />
-              ) : (
-                <>
-                  <Ionicons name="calendar" size={20} color="#E67E22" />
-                  <Text style={styles.devToolsButtonText}>Simulate Booking Request</Text>
-                </>
-              )}
-            </Pressable>
+              label="Simulate Booking Request"
+              icon="calendar"
+              colors={["#E67E22", "#D35400"]}
+              loading={testBookingLoading}
+            />
           </View>
         </View>
 
@@ -680,8 +809,16 @@ export default function SettingsScreen() {
               }
             }}
           >
-            <Ionicons name="log-out-outline" size={24} color={Colors.dark.error} />
-            <Text style={styles.logoutText}>Sign Out</Text>
+            <LinearGradient
+              colors={[Colors.dark.error, "#C0392B"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.logoutButtonGradient}
+            >
+              <Ionicons name="log-out-outline" size={22} color={Colors.dark.text} />
+              <Text style={styles.logoutText}>Sign Out</Text>
+            </LinearGradient>
+            <View style={styles.logoutGlow} />
           </Pressable>
         </View>
       </ScrollView>
@@ -694,7 +831,13 @@ export default function SettingsScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{editingCourt ? "Edit Court" : "Add Court"}</Text>
+            <LinearGradient
+              colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.modalAccent}
+            />
+            <Text style={styles.modalTitle}>{editingCourt ? "EDIT COURT" : "ADD COURT"}</Text>
             <TextInput
               style={styles.modalInput}
               placeholder="Court name"
@@ -703,7 +846,7 @@ export default function SettingsScreen() {
               onChangeText={setNewCourtName}
               autoFocus
             />
-            <Text style={styles.colorPickerLabel}>Court Color</Text>
+            <Text style={styles.colorPickerLabel}>COURT COLOR</Text>
             <View style={styles.colorPicker}>
               {COURT_COLORS.map((color) => (
                 <Pressable
@@ -729,11 +872,18 @@ export default function SettingsScreen() {
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </Pressable>
               <Pressable 
-                style={[styles.modalSaveButton, !newCourtName.trim() && styles.modalSaveButtonDisabled]} 
+                style={[styles.modalSaveButtonWrapper, !newCourtName.trim() && { opacity: 0.5 }]} 
                 onPress={handleSaveCourt}
                 disabled={!newCourtName.trim()}
               >
-                <Text style={styles.modalSaveText}>{editingCourt ? "Save" : "Add"}</Text>
+                <LinearGradient
+                  colors={[Colors.dark.xpCyan, Colors.dark.primary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.modalSaveButton}
+                >
+                  <Text style={styles.modalSaveText}>{editingCourt ? "Save" : "Add"}</Text>
+                </LinearGradient>
               </Pressable>
             </View>
           </View>
@@ -748,77 +898,71 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.md,
+    marginBottom: Spacing.md,
   },
-  headerTitleRow: {
+  headerAccentLine: {
+    height: 3,
+    width: "100%",
+  },
+  headerGradientBg: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
+  },
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: Spacing.md,
   },
   headerIconWrapper: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.primary + "25",
+    backgroundColor: "rgba(0, 212, 255, 0.15)",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "50",
+    borderColor: Colors.dark.xpCyan + "40",
   },
   title: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: "800",
     color: Colors.dark.text,
-    letterSpacing: 2,
+    letterSpacing: 3,
   },
   content: {
     flex: 1,
     paddingHorizontal: Spacing.lg,
   },
-  profileSectionContainer: {
+  profileCard: {
     marginBottom: Spacing.xl,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
-    ...Platform.select({
-      ios: {
-        shadowColor: Colors.dark.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
+    backgroundColor: "rgba(20, 20, 20, 0.9)",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
   },
-  profileSectionTopLine: {
+  profileTopAccent: {
     height: 3,
-    width: "100%",
   },
-  profileSection: {
+  profileContent: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(20, 20, 20, 0.95)",
     padding: Spacing.lg,
     gap: Spacing.md,
-    borderWidth: 2,
-    borderTopWidth: 0,
-    borderColor: Colors.dark.primary + "60",
-    borderBottomLeftRadius: BorderRadius.lg,
-    borderBottomRightRadius: BorderRadius.lg,
   },
   profileAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: Colors.dark.primary + "30",
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: Colors.dark.primary + "60",
   },
   profileInitial: {
-    fontSize: 24,
-    fontWeight: "600",
+    fontSize: 22,
+    fontWeight: "700",
     color: Colors.dark.primary,
   },
   profileInfo: {
@@ -827,88 +971,81 @@ const styles = StyleSheet.create({
   profileName: {
     ...Typography.h3,
     color: Colors.dark.text,
+    fontWeight: "700",
   },
   profileEmail: {
-    fontSize: Typography.body.fontSize,
-    color: Colors.dark.tabIconDefault,
-  },
-  switchAppButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    marginBottom: Spacing.xl,
-    borderWidth: 1,
-    borderColor: Colors.dark.primary + "40",
-  },
-  switchAppContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-  },
-  switchAppTitle: {
-    fontSize: Typography.body.fontSize,
-    fontWeight: "600",
-    color: Colors.dark.text,
-  },
-  switchAppDescription: {
     fontSize: Typography.small.fontSize,
-    color: Colors.dark.tabIconDefault,
+    color: Colors.dark.textMuted,
     marginTop: 2,
   },
   section: {
     marginBottom: Spacing.xl,
   },
-  sectionTitle: {
-    ...Typography.h4,
-    color: Colors.dark.text,
+  sectionHeaderContainer: {
     marginBottom: Spacing.md,
-    textTransform: "uppercase",
-    letterSpacing: 1.5,
+  },
+  sectionHeaderContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.xs,
+  },
+  sectionIcon: {
+    marginRight: Spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: 13,
     fontWeight: "700",
+    color: Colors.dark.text,
+    textTransform: "uppercase",
+    letterSpacing: 2,
+  },
+  sectionUnderline: {
+    height: 2,
+    width: "60%",
+    borderRadius: 1,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
   },
   settingRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "rgba(20, 20, 20, 0.95)",
+    backgroundColor: "rgba(20, 20, 20, 0.85)",
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     gap: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "55",
-    ...Platform.select({
-      ios: {
-        shadowColor: Colors.dark.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.4,
-        shadowRadius: 10,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   linkRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "rgba(20, 20, 20, 0.95)",
+    backgroundColor: "rgba(20, 20, 20, 0.85)",
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     gap: Spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(46, 204, 64, 0.3)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   settingInfo: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
+  },
+  settingIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: "rgba(0, 212, 255, 0.12)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   settingLabel: {
     fontSize: Typography.body.fontSize,
@@ -917,153 +1054,155 @@ const styles = StyleSheet.create({
   },
   settingDescription: {
     fontSize: Typography.caption.fontSize,
-    color: Colors.dark.tabIconDefault,
+    color: Colors.dark.textMuted,
+    marginTop: 1,
+  },
+  switchContainer: {
+    position: "relative",
+  },
+  switchGlow: {
+    position: "absolute",
+    top: -4,
+    left: -4,
+    right: -4,
+    bottom: -4,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.primary,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 8,
+      },
+    }),
   },
   durationButtons: {
     flexDirection: "row",
     gap: Spacing.xs,
   },
-  durationButton: {
+  optionButton: {
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
+    paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.dark.backgroundTertiary,
+    backgroundColor: "rgba(60, 60, 60, 0.5)",
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "20",
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
-  durationButtonActive: {
-    backgroundColor: Colors.dark.primary + "40",
+  optionButtonActive: {
+    backgroundColor: Colors.dark.primary + "30",
     borderColor: Colors.dark.primary,
   },
-  durationButtonText: {
+  optionButtonText: {
     fontSize: Typography.body.fontSize,
-    color: Colors.dark.tabIconDefault,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
   },
-  durationButtonTextActive: {
+  optionButtonTextActive: {
     color: Colors.dark.primary,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   weekButtons: {
     flexDirection: "row",
     gap: Spacing.xs,
   },
-  weekButton: {
+  circleButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.dark.backgroundTertiary,
+    backgroundColor: "rgba(60, 60, 60, 0.5)",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "20",
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
-  weekButtonActive: {
-    backgroundColor: Colors.dark.primary + "40",
+  circleButtonActive: {
+    backgroundColor: Colors.dark.primary + "30",
     borderColor: Colors.dark.primary,
   },
-  weekButtonText: {
+  circleButtonText: {
     fontSize: Typography.body.fontSize,
-    color: Colors.dark.tabIconDefault,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
   },
-  weekButtonTextActive: {
+  circleButtonTextActive: {
     color: Colors.dark.primary,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   travelButtons: {
     flexDirection: "row",
     gap: Spacing.xs,
   },
-  travelButton: {
+  smallCircleButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.dark.backgroundTertiary,
+    backgroundColor: "rgba(60, 60, 60, 0.5)",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "20",
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
-  travelButtonActive: {
-    backgroundColor: Colors.dark.primary + "40",
+  smallCircleButtonActive: {
+    backgroundColor: Colors.dark.primary + "30",
     borderColor: Colors.dark.primary,
   },
-  travelButtonText: {
+  smallCircleButtonText: {
     fontSize: Typography.small.fontSize,
-    color: Colors.dark.tabIconDefault,
+    color: Colors.dark.textMuted,
   },
-  travelButtonTextActive: {
+  smallCircleButtonTextActive: {
     color: Colors.dark.primary,
     fontWeight: "600",
   },
-  syncButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.dark.primary + "30",
-    borderStyle: "dashed",
+  addCourtButton: {
+    borderRadius: BorderRadius.full,
+    overflow: "hidden",
   },
-  syncButtonText: {
-    fontSize: Typography.body.fontSize,
-    color: Colors.dark.primary,
-  },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    marginBottom: Spacing.xs,
-  },
-  infoLabel: {
-    fontSize: Typography.body.fontSize,
-    color: Colors.dark.tabIconDefault,
-  },
-  infoValue: {
-    fontSize: Typography.body.fontSize,
-    color: Colors.dark.text,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: Spacing.md,
-  },
-  addButton: {
+  addCourtButtonGradient: {
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.dark.primary + "20",
     alignItems: "center",
     justifyContent: "center",
   },
   emptyState: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(20, 20, 20, 0.85)",
     borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
+    padding: Spacing.xl,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderStyle: "dashed",
   },
   emptyStateText: {
     fontSize: Typography.body.fontSize,
     color: Colors.dark.text,
-    marginBottom: Spacing.xs,
+    marginTop: Spacing.md,
+    fontWeight: "600",
   },
   emptyStateSubtext: {
     fontSize: Typography.caption.fontSize,
-    color: Colors.dark.tabIconDefault,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
   },
-  courtRow: {
+  courtCard: {
+    flexDirection: "row",
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+    marginBottom: Spacing.sm,
+    backgroundColor: "rgba(20, 20, 20, 0.85)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  courtColorBar: {
+    width: 4,
+  },
+  courtCardContent: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.md,
     padding: Spacing.md,
-    marginBottom: Spacing.sm,
   },
   courtInfo: {
     flexDirection: "row",
@@ -1071,14 +1210,23 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   courtColorDot: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  courtColorDotGlow: {
+    position: "absolute",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    opacity: 0.3,
   },
   courtName: {
     fontSize: Typography.body.fontSize,
     color: Colors.dark.text,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   courtActions: {
     flexDirection: "row",
@@ -1088,89 +1236,66 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.dark.backgroundTertiary,
+    backgroundColor: "rgba(0, 212, 255, 0.12)",
     alignItems: "center",
     justifyContent: "center",
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: Spacing.lg,
+  courtDeleteButton: {
+    backgroundColor: "rgba(255, 68, 68, 0.12)",
   },
-  modalContent: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    width: "100%",
-    maxWidth: 320,
+  syncButtonContainer: {
+    marginTop: Spacing.sm,
   },
-  modalTitle: {
-    ...Typography.h3,
-    color: Colors.dark.text,
-    marginBottom: Spacing.lg,
-    textAlign: "center",
-  },
-  modalInput: {
-    backgroundColor: Colors.dark.backgroundTertiary,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    fontSize: Typography.body.fontSize,
-    color: Colors.dark.text,
-    marginBottom: Spacing.lg,
-  },
-  modalButtons: {
+  gradientButton: {
     flexDirection: "row",
-    gap: Spacing.md,
-  },
-  modalCancelButton: {
-    flex: 1,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.backgroundTertiary,
     alignItems: "center",
-  },
-  modalCancelText: {
-    fontSize: Typography.body.fontSize,
-    color: Colors.dark.tabIconDefault,
-  },
-  modalSaveButton: {
-    flex: 1,
-    padding: Spacing.md,
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.primary,
-    alignItems: "center",
   },
-  modalSaveButtonDisabled: {
-    opacity: 0.5,
-  },
-  modalSaveText: {
+  gradientButtonText: {
     fontSize: Typography.body.fontSize,
-    color: Colors.dark.text,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
+  },
+  infoCard: {
+    backgroundColor: "rgba(20, 20, 20, 0.85)",
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    padding: Spacing.md,
+  },
+  infoRowDivider: {
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+  },
+  infoLabel: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.textMuted,
+  },
+  infoValue: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.xpCyan,
     fontWeight: "600",
   },
-  colorPickerLabel: {
-    ...Typography.small,
-    color: Colors.dark.tabIconDefault,
-    marginBottom: Spacing.sm,
-  },
-  colorPicker: {
+  devToolsHeader: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.sm,
-    marginBottom: Spacing.lg,
-  },
-  colorOption: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
     alignItems: "center",
-    justifyContent: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
   },
-  colorOptionSelected: {
-    borderWidth: 2,
-    borderColor: Colors.dark.text,
+  devToolsTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#E67E22",
+    letterSpacing: 2,
   },
   devToolsCard: {
     padding: Spacing.lg,
@@ -1182,42 +1307,147 @@ const styles = StyleSheet.create({
   },
   devToolsNote: {
     fontSize: Typography.small.fontSize,
-    color: Colors.dark.tabIconDefault,
+    color: Colors.dark.textMuted,
     marginBottom: Spacing.sm,
-  },
-  devToolsButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
-    padding: Spacing.md,
-    backgroundColor: "rgba(230, 126, 34, 0.15)",
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: "rgba(230, 126, 34, 0.3)",
-  },
-  devToolsButtonDisabled: {
-    opacity: 0.6,
-  },
-  devToolsButtonText: {
-    fontSize: Typography.body.fontSize,
-    color: "#E67E22",
-    fontWeight: "600",
+    lineHeight: 18,
   },
   logoutButton: {
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    position: "relative",
+  },
+  logoutButtonGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    borderWidth: 1,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
+  },
+  logoutGlow: {
+    position: "absolute",
+    top: -2,
+    left: -2,
+    right: -2,
+    bottom: -2,
+    borderRadius: BorderRadius.lg + 2,
+    borderWidth: 2,
     borderColor: Colors.dark.error + "40",
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.error,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.4,
+        shadowRadius: 12,
+      },
+    }),
   },
   logoutText: {
     fontSize: Typography.body.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    letterSpacing: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  modalContent: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    width: "100%",
+    maxWidth: 340,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  modalAccent: {
+    height: 3,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.lg,
+    textAlign: "center",
+    letterSpacing: 2,
+  },
+  modalInput: {
+    backgroundColor: "rgba(60, 60, 60, 0.5)",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  colorPickerLabel: {
+    fontSize: 11,
     fontWeight: "600",
-    color: Colors.dark.error,
+    color: Colors.dark.textMuted,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    letterSpacing: 1,
+  },
+  colorPicker: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  colorOption: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  colorOptionSelected: {
+    borderColor: Colors.dark.text,
+    transform: [{ scale: 1.1 }],
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    padding: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.05)",
+  },
+  modalCancelButton: {
+    flex: 1,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: "rgba(60, 60, 60, 0.5)",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  modalCancelText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
+  },
+  modalSaveButtonWrapper: {
+    flex: 1,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  modalSaveButton: {
+    padding: Spacing.md,
+    alignItems: "center",
+  },
+  modalSaveText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
   },
 });

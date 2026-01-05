@@ -1144,30 +1144,30 @@ export default function CalendarScreen() {
   const getSessionTypeColor = (type: string) => {
     switch (type) {
       case "private":
-        return Colors.dark.primary;
+        return "#00D4FF";
       case "semi_private":
-        return Colors.dark.xpCyan;
+        return "#FF6B35";
       case "group":
-        return Colors.dark.orange;
+        return "#FFD700";
       case "physical":
-        return Colors.dark.gold;
+        return "#9B59B6";
       default:
-        return Colors.dark.primary;
+        return "#00D4FF";
     }
   };
 
   const getSessionTypeGradient = (type: string): [string, string] => {
     switch (type) {
       case "private":
-        return ["#3AE374", "#1E8449"];
+        return ["#00D4FF", "#0097B8"];
       case "semi_private":
-        return ["#00E5FF", "#0097A7"];
+        return ["#FF6B35", "#CC4A1A"];
       case "group":
-        return ["#FF8A50", "#D84315"];
+        return ["#FFD700", "#CC9900"];
       case "physical":
-        return ["#FFD54F", "#F9A825"];
+        return ["#9B59B6", "#6C3483"];
       default:
-        return ["#3AE374", "#1E8449"];
+        return ["#00D4FF", "#0097B8"];
     }
   };
 
@@ -1223,10 +1223,22 @@ export default function CalendarScreen() {
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Header */}
-      <View style={styles.header}>
+      {/* Header - Gaming Glassmorphism */}
+      <View style={styles.headerGlass}>
+        <LinearGradient
+          colors={["#00D4FF", "#2ECC40"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerTopLine}
+        />
+        <LinearGradient
+          colors={["rgba(0, 212, 255, 0.08)", "rgba(46, 204, 64, 0.05)", "rgba(0, 0, 0, 0)"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.headerGradientOverlay}
+        />
         <View style={styles.headerTop}>
-          <Text style={styles.headerTitle}>Coach Calendar</Text>
+          <Text style={styles.headerTitle}>COACH CALENDAR</Text>
           {viewMode === "day" && (
             <View style={styles.headerActions}>
               {lastMove ? (
@@ -1279,58 +1291,71 @@ export default function CalendarScreen() {
           )}
         </View>
 
-        {/* Date Navigation */}
-        <View style={styles.dateNav}>
+        {/* Date Navigation - Gaming Style */}
+        <View style={styles.dateNavGaming}>
           <Pressable 
-            style={styles.dateNavButton} 
+            style={styles.dateNavButtonGaming} 
             onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               if (viewMode === "day") changeDate(-1);
               else if (viewMode === "week") changeWeek(-1);
               else changeMonth(-1);
             }}
           >
-            <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
+            <Ionicons name="chevron-back" size={22} color="#00D4FF" />
           </Pressable>
-          <Pressable style={styles.dateDisplay} onPress={goToToday}>
-            <Text style={styles.dateText}>
+          <Pressable style={styles.dateDisplayGaming} onPress={goToToday}>
+            <Text style={styles.dateTextGaming}>
               {viewMode === "day" && formatDate(selectedDate)}
               {viewMode === "week" && formatWeekRange(weekDates)}
               {viewMode === "month" && formatMonthYear(selectedDate)}
             </Text>
             {selectedDate.toDateString() === new Date().toDateString() && viewMode === "day" && (
-              <View style={styles.todayBadge}>
-                <Text style={styles.todayBadgeText}>TODAY</Text>
+              <View style={styles.todayBadgeGaming}>
+                <Text style={styles.todayBadgeTextGaming}>TODAY</Text>
               </View>
             )}
           </Pressable>
           <Pressable 
-            style={styles.dateNavButton} 
+            style={styles.dateNavButtonGaming} 
             onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               if (viewMode === "day") changeDate(1);
               else if (viewMode === "week") changeWeek(1);
               else changeMonth(1);
             }}
           >
-            <Ionicons name="chevron-forward" size={24} color={Colors.dark.text} />
+            <Ionicons name="chevron-forward" size={22} color="#00D4FF" />
           </Pressable>
         </View>
 
-        {/* View Mode Toggle */}
-        <View style={styles.viewToggle}>
+        {/* View Mode Toggle - Gaming Style */}
+        <View style={styles.viewToggleGaming}>
           {(["day", "week", "month"] as const).map((mode) => (
             <Pressable
               key={mode}
-              style={[styles.viewButton, viewMode === mode && styles.viewButtonActive]}
-              onPress={() => setViewMode(mode)}
+              style={[styles.viewButtonGaming, viewMode === mode && styles.viewButtonGamingActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setViewMode(mode);
+              }}
             >
-              <Text
-                style={[
-                  styles.viewButtonText,
-                  viewMode === mode && styles.viewButtonTextActive,
-                ]}
-              >
-                {mode.charAt(0).toUpperCase() + mode.slice(1)}
-              </Text>
+              {viewMode === mode ? (
+                <LinearGradient
+                  colors={["#00D4FF", "#2ECC40"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.viewButtonGamingGradient}
+                >
+                  <Text style={styles.viewButtonTextGamingActive}>
+                    {mode.toUpperCase()}
+                  </Text>
+                </LinearGradient>
+              ) : (
+                <Text style={styles.viewButtonTextGaming}>
+                  {mode.toUpperCase()}
+                </Text>
+              )}
             </Pressable>
           ))}
         </View>
@@ -2112,6 +2137,25 @@ export default function CalendarScreen() {
         </ScrollView>
       )}
 
+      {/* FAB Button - Gaming Style with Gradient */}
+      <Pressable
+        style={styles.fabContainer}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          setShowCreateDrawer(true);
+        }}
+      >
+        <Animated.View style={styles.fabGlow} />
+        <LinearGradient
+          colors={["#00D4FF", "#2ECC40"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.fabGradient}
+        >
+          <Ionicons name="add" size={28} color="#1A1A1A" />
+        </LinearGradient>
+      </Pressable>
+
       {/* Loading Overlay */}
       {isLoading && (
         <View style={styles.loadingOverlay}>
@@ -2200,6 +2244,40 @@ const styles = StyleSheet.create({
         elevation: 6,
       },
     }),
+  },
+  headerGlass: {
+    position: "relative",
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
+    backgroundColor: "rgba(15, 15, 20, 0.92)",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0, 212, 255, 0.2)",
+    overflow: "hidden",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#00D4FF",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  headerTopLine: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+  },
+  headerGradientOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 80,
   },
   headerTop: {
     flexDirection: "row",
@@ -2354,6 +2432,173 @@ const styles = StyleSheet.create({
   viewButtonTextActive: {
     color: Colors.dark.backgroundRoot,
     fontWeight: "700",
+  },
+  viewToggleGaming: {
+    flexDirection: "row",
+    backgroundColor: "rgba(15, 15, 20, 0.85)",
+    borderRadius: 14,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 255, 0.25)",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#00D4FF",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  viewButtonGaming: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+  viewButtonGamingActive: {
+    ...Platform.select({
+      ios: {
+        shadowColor: "#00D4FF",
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.7,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  viewButtonGamingGradient: {
+    flex: 1,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.sm,
+    borderRadius: 10,
+  },
+  viewButtonTextGaming: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "rgba(255, 255, 255, 0.6)",
+    letterSpacing: 1.5,
+  },
+  viewButtonTextGamingActive: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#1A1A1A",
+    letterSpacing: 1.5,
+  },
+  dateNavGaming: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  dateNavButtonGaming: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "rgba(0, 212, 255, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 255, 0.35)",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#00D4FF",
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  dateDisplayGaming: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
+    backgroundColor: "rgba(15, 15, 20, 0.85)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 255, 0.2)",
+  },
+  dateTextGaming: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    letterSpacing: 0.8,
+  },
+  todayBadgeGaming: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 8,
+    overflow: "hidden",
+    backgroundColor: "#00D4FF",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#00D4FF",
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.7,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  todayBadgeTextGaming: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#1A1A1A",
+    letterSpacing: 1.2,
+  },
+  fabContainer: {
+    position: "absolute",
+    bottom: 100,
+    right: Spacing.lg,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#00D4FF",
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.6,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 10,
+      },
+    }),
+  },
+  fabGlow: {
+    position: "absolute",
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "rgba(0, 212, 255, 0.25)",
+  },
+  fabGradient: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   courtHeaders: {
     flexDirection: "row",

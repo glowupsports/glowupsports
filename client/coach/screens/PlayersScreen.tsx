@@ -11,6 +11,7 @@ import {
   Modal,
   Platform,
   Image as RNImage,
+  Dimensions,
 } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,10 +20,20 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
+import Animated, { 
+  useAnimatedStyle, 
+  useSharedValue, 
+  withSpring,
+  withTiming,
+  interpolate,
+} from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
 import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
 import PackagesCard from "@/coach/components/PackagesCard";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface Player {
   id: string;
@@ -109,6 +120,129 @@ const NOTE_CATEGORIES = [
   { value: "next-lesson", label: "Next Lesson", icon: "arrow-forward-outline" as const },
   { value: "general", label: "General", icon: "document-text-outline" as const },
 ];
+
+function GamingPlayerCard({ 
+  player, 
+  onPress, 
+  getStatusBadge,
+  formatDate,
+}: { 
+  player: Player; 
+  onPress: () => void;
+  getStatusBadge: (status: string | null) => { color: string; icon: "airplane" | "bandage" | "sparkles"; label: string } | null;
+  formatDate: (date: string | null) => string;
+}) {
+  const levelColor = getPlayerLevelColor(player.ballLevel ?? "green");
+  const statusBadge = getStatusBadge(player.status);
+  const scale = useSharedValue(1);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+  
+  const handlePressIn = () => {
+    scale.value = withSpring(0.98, { damping: 15, stiffness: 300 });
+  };
+  
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 300 });
+  };
+
+  const xpProgress = Math.random() * 100;
+
+  return (
+    <AnimatedPressable
+      style={[styles.gamingCardContainer, animatedStyle]}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress();
+      }}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+    >
+      <LinearGradient
+        colors={[levelColor + "40", levelColor + "10"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gamingCardBorder}
+      >
+        <View style={styles.gamingCardInner}>
+          <View style={styles.gamingAvatarContainer}>
+            <View style={[styles.gamingAvatarGlow, { backgroundColor: levelColor + "30" }]} />
+            <View style={[styles.gamingAvatarRing, { borderColor: levelColor }]} />
+            {player.profilePhotoUrl ? (
+              Platform.OS === 'web' ? (
+                <RNImage
+                  source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                  style={styles.gamingAvatarPhoto}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Image
+                  source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                  style={styles.gamingAvatarPhoto}
+                  contentFit="cover"
+                />
+              )
+            ) : (
+              <LinearGradient
+                colors={[levelColor, levelColor + "80"]}
+                style={styles.gamingAvatar}
+              >
+                <Text style={styles.gamingAvatarText}>
+                  {player.name.charAt(0).toUpperCase()}
+                </Text>
+              </LinearGradient>
+            )}
+          </View>
+
+          <View style={styles.gamingCardInfo}>
+            <View style={styles.gamingCardNameRow}>
+              <Text style={styles.gamingCardName} numberOfLines={1}>
+                {player.name}
+              </Text>
+              {statusBadge ? (
+                <View style={[styles.gamingStatusBadge, { backgroundColor: statusBadge.color + "25", borderColor: statusBadge.color }]}>
+                  <Ionicons name={statusBadge.icon} size={10} color={statusBadge.color} />
+                </View>
+              ) : null}
+            </View>
+
+            <View style={styles.gamingXpContainer}>
+              <View style={styles.gamingXpBarBg}>
+                <LinearGradient
+                  colors={[Colors.dark.xpCyan, Colors.dark.primary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[styles.gamingXpBarFill, { width: `${xpProgress}%` }]}
+                />
+              </View>
+              <Text style={styles.gamingXpText}>
+                {Math.round(xpProgress)}%
+              </Text>
+            </View>
+
+            <View style={styles.gamingCardMeta}>
+              <View style={[styles.gamingLevelBadge, { borderColor: levelColor + "60" }]}>
+                <View style={[styles.gamingLevelDotSmall, { backgroundColor: levelColor }]} />
+                <Text style={[styles.gamingLevelText, { color: levelColor }]}>
+                  {(player.ballLevel ?? "green").toUpperCase()}
+                </Text>
+              </View>
+              <Text style={styles.gamingMetaText}>
+                {formatDate(player.lastLessonDate)}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.gamingChevron}>
+            <Ionicons name="chevron-forward" size={18} color={Colors.dark.tabIconDefault + "80"} />
+          </View>
+        </View>
+      </LinearGradient>
+    </AnimatedPressable>
+  );
+}
 
 export default function PlayersScreen() {
   const insets = useSafeAreaInsets();
@@ -217,56 +351,75 @@ export default function PlayersScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* === CALM HEADER (like Calendar/Settings) === */}
-      <View style={styles.calmHeader}>
-        <View style={styles.calmHeaderLeft}>
-          <Text style={styles.calmTitle}>Players</Text>
-          <Text style={styles.calmSubtitle}>{players.length} active</Text>
+      {/* === GAMING HEADER === */}
+      <LinearGradient
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        style={styles.gamingHeader}
+      >
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.gamingHeaderTopLine}
+        />
+        <View style={styles.gamingHeaderContent}>
+          <View style={styles.gamingHeaderLeft}>
+            <Text style={styles.gamingTitle}>PLAYERS</Text>
+            <View style={styles.gamingCountBadge}>
+              <View style={styles.gamingCountGlow} />
+              <Text style={styles.gamingCountText}>{players.length}</Text>
+              <Text style={styles.gamingCountLabel}>ACTIVE</Text>
+            </View>
+          </View>
         </View>
-        <Pressable
-          style={styles.calmAddButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            setShowAddModal(true);
-          }}
-        >
-          <Ionicons name="add" size={22} color={Colors.dark.text} />
-        </Pressable>
-      </View>
+      </LinearGradient>
 
-      {/* === CALM SEARCH BAR === */}
-      <View style={styles.calmSearchContainer}>
-        <View style={styles.calmSearchBar}>
-          <Ionicons name="search" size={18} color={Colors.dark.tabIconDefault} />
+      {/* === GAMING SEARCH BAR === */}
+      <View style={styles.gamingSearchContainer}>
+        <View style={styles.gamingSearchBar}>
+          <Ionicons name="search" size={18} color={Colors.dark.xpCyan} />
           <TextInput
-            style={styles.calmSearchInput}
-            placeholder="Search players..."
-            placeholderTextColor={Colors.dark.tabIconDefault}
+            style={styles.gamingSearchInput}
+            placeholder="Search roster..."
+            placeholderTextColor={Colors.dark.tabIconDefault + "80"}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery ? (
             <Pressable onPress={() => setSearchQuery("")}>
-              <Ionicons name="close-circle" size={18} color={Colors.dark.tabIconDefault} />
+              <Ionicons name="close-circle" size={18} color={Colors.dark.xpCyan} />
             </Pressable>
           ) : null}
         </View>
       </View>
 
-      {/* === CALM FILTER PILLS === */}
+      {/* === GAMING FILTER PILLS === */}
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false} 
-        style={styles.calmFilterScroll}
-        contentContainerStyle={styles.calmFilterContent}
+        style={styles.gamingFilterScroll}
+        contentContainerStyle={styles.gamingFilterContent}
       >
         <Pressable
-          style={[styles.calmFilterPill, !filterLevel && styles.calmFilterPillActive]}
+          style={[styles.gamingFilterPill, !filterLevel && styles.gamingFilterPillActive]}
           onPress={() => setFilterLevel(null)}
         >
-          <Text style={[styles.calmFilterText, !filterLevel && styles.calmFilterTextActive]}>
-            All ({players.length})
+          {!filterLevel ? (
+            <LinearGradient
+              colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={StyleSheet.absoluteFill}
+            />
+          ) : null}
+          <Text style={[styles.gamingFilterText, !filterLevel && styles.gamingFilterTextActive]}>
+            ALL
           </Text>
+          <View style={[styles.gamingFilterCount, !filterLevel && styles.gamingFilterCountActive]}>
+            <Text style={[styles.gamingFilterCountText, !filterLevel && styles.gamingFilterCountTextActive]}>
+              {players.length}
+            </Text>
+          </View>
         </Pressable>
         {ballLevels.map((level) => {
           const isActive = filterLevel === level;
@@ -276,18 +429,40 @@ export default function PlayersScreen() {
             <Pressable
               key={level}
               style={[
-                styles.calmFilterPill,
-                isActive && { backgroundColor: levelColor + "20", borderColor: levelColor },
+                styles.gamingFilterPill,
+                isActive && styles.gamingFilterPillActive,
+                isActive && Platform.select({
+                  ios: {
+                    shadowColor: levelColor,
+                    shadowOffset: { width: 0, height: 0 },
+                    shadowOpacity: 0.8,
+                    shadowRadius: 10,
+                  },
+                  android: { elevation: 8 },
+                }),
               ]}
               onPress={() => setFilterLevel(filterLevel === level ? null : level)}
             >
-              <View style={[styles.calmLevelDot, { backgroundColor: levelColor }]} />
+              {isActive ? (
+                <LinearGradient
+                  colors={[levelColor, levelColor + "80"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={StyleSheet.absoluteFill}
+                />
+              ) : null}
+              <View style={[styles.gamingLevelDot, { backgroundColor: levelColor }]} />
               <Text style={[
-                styles.calmFilterText,
-                isActive && { color: levelColor },
+                styles.gamingFilterText,
+                isActive && styles.gamingFilterTextActive,
               ]}>
-                {level.charAt(0).toUpperCase() + level.slice(1)} ({count})
+                {level.toUpperCase()}
               </Text>
+              <View style={[styles.gamingFilterCount, isActive && { backgroundColor: "rgba(0,0,0,0.3)" }]}>
+                <Text style={[styles.gamingFilterCountText, isActive && styles.gamingFilterCountTextActive]}>
+                  {count}
+                </Text>
+              </View>
             </Pressable>
           );
         })}
@@ -295,11 +470,11 @@ export default function PlayersScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
+          <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
         </View>
       ) : filteredPlayers.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="people-outline" size={48} color={Colors.dark.disabled} />
+          <Ionicons name="people-outline" size={48} color={Colors.dark.xpCyan + "60"} />
           <Text style={styles.emptyText}>
             {searchQuery ? "No players found" : "No players yet"}
           </Text>
@@ -309,73 +484,39 @@ export default function PlayersScreen() {
         </View>
       ) : (
         <ScrollView style={styles.playerList} showsVerticalScrollIndicator={false}>
-          {filteredPlayers.map((player) => {
-            const statusBadge = getStatusBadge(player.status);
-            const levelColor = getPlayerLevelColor(player.ballLevel ?? "green");
-            return (
-              <Pressable
-                key={player.id}
-                style={styles.calmPlayerCard}
-                onPress={() => handleSelectPlayer(player)}
-              >
-                {/* Simple Avatar */}
-                {player.profilePhotoUrl ? (
-                  Platform.OS === 'web' ? (
-                    <RNImage
-                      source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
-                      style={styles.calmAvatarPhoto}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <Image
-                      source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
-                      style={styles.calmAvatarPhoto}
-                      contentFit="cover"
-                    />
-                  )
-                ) : (
-                  <View style={[styles.calmAvatar, { backgroundColor: levelColor + "20" }]}>
-                    <Text style={[styles.calmAvatarText, { color: levelColor }]}>
-                      {player.name.charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Player Info */}
-                <View style={styles.calmPlayerInfo}>
-                  <View style={styles.calmPlayerNameRow}>
-                    <Text style={styles.calmPlayerName} numberOfLines={1}>
-                      {player.name}
-                    </Text>
-                    {statusBadge ? (
-                      <View style={[styles.calmStatusBadge, { backgroundColor: statusBadge.color + "20" }]}>
-                        <Text style={[styles.calmStatusText, { color: statusBadge.color }]}>
-                          {statusBadge.label}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-                  <View style={styles.calmPlayerMeta}>
-                    <View style={[styles.calmLevelBadge, { borderColor: levelColor }]}>
-                      <View style={[styles.calmLevelDotSmall, { backgroundColor: levelColor }]} />
-                      <Text style={[styles.calmLevelText, { color: levelColor }]}>
-                        {(player.ballLevel ?? "green").charAt(0).toUpperCase() + (player.ballLevel ?? "green").slice(1)}
-                      </Text>
-                    </View>
-                    <Text style={styles.calmMetaText}>
-                      {formatDate(player.lastLessonDate)}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Chevron */}
-                <Ionicons name="chevron-forward" size={20} color={Colors.dark.tabIconDefault} />
-              </Pressable>
-            );
-          })}
-          <View style={{ height: insets.bottom + Spacing.xl }} />
+          {filteredPlayers.map((player) => (
+            <GamingPlayerCard 
+              key={player.id} 
+              player={player} 
+              onPress={() => handleSelectPlayer(player)}
+              getStatusBadge={getStatusBadge}
+              formatDate={formatDate}
+            />
+          ))}
+          <View style={{ height: insets.bottom + Spacing.xl + 80 }} />
         </ScrollView>
       )}
+
+      {/* === GAMING FAB === */}
+      <Pressable
+        style={({ pressed }) => [
+          styles.gamingFab,
+          pressed && styles.gamingFabPressed,
+        ]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          setShowAddModal(true);
+        }}
+      >
+        <LinearGradient
+          colors={[Colors.dark.xpCyan, Colors.dark.primary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.gamingFabGradient}
+        >
+          <Ionicons name="add" size={28} color={Colors.dark.backgroundRoot} />
+        </LinearGradient>
+      </Pressable>
 
       <Modal visible={showAddModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
@@ -1021,6 +1162,329 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+
+  // === GAMING AESTHETIC STYLES ===
+  gamingHeader: {
+    paddingBottom: Spacing.md,
+  },
+  gamingHeaderTopLine: {
+    height: 3,
+    width: "100%",
+  },
+  gamingHeaderContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+  },
+  gamingHeaderLeft: {
+    gap: Spacing.sm,
+  },
+  gamingTitle: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    letterSpacing: 3,
+  },
+  gamingCountBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "40",
+    position: "relative",
+    overflow: "hidden",
+  },
+  gamingCountGlow: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: Colors.dark.xpCyan + "10",
+  },
+  gamingCountText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.xpCyan,
+  },
+  gamingCountLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan + "80",
+    letterSpacing: 1,
+  },
+  gamingSearchContainer: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  gamingSearchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    height: 48,
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.xpCyan,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+      android: { elevation: 2 },
+    }),
+  },
+  gamingSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.dark.text,
+    letterSpacing: 0.5,
+  },
+  gamingFilterScroll: {
+    marginBottom: Spacing.md,
+    maxHeight: 50,
+  },
+  gamingFilterContent: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+    alignItems: "flex-start",
+  },
+  gamingFilterPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: 36,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.xs,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    overflow: "hidden",
+  },
+  gamingFilterPillActive: {
+    borderWidth: 0,
+  },
+  gamingFilterText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.tabIconDefault,
+    letterSpacing: 1,
+  },
+  gamingFilterTextActive: {
+    color: Colors.dark.backgroundRoot,
+  },
+  gamingLevelDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  gamingFilterCount: {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    minWidth: 20,
+    alignItems: "center",
+  },
+  gamingFilterCountActive: {
+    backgroundColor: "rgba(0, 0, 0, 0.25)",
+  },
+  gamingFilterCountText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.tabIconDefault,
+  },
+  gamingFilterCountTextActive: {
+    color: Colors.dark.backgroundRoot,
+  },
+  gamingCardContainer: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  gamingCardBorder: {
+    padding: 2,
+    borderRadius: BorderRadius.lg,
+  },
+  gamingCardInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(15, 15, 15, 0.95)",
+    borderRadius: BorderRadius.lg - 2,
+    padding: Spacing.md,
+    gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.05)",
+  },
+  gamingAvatarContainer: {
+    width: 54,
+    height: 54,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  gamingAvatarGlow: {
+    position: "absolute",
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.6,
+        shadowRadius: 10,
+      },
+      android: {},
+    }),
+  },
+  gamingAvatarRing: {
+    position: "absolute",
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 6,
+      },
+      android: {},
+    }),
+  },
+  gamingAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  gamingAvatarPhoto: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+  },
+  gamingAvatarText: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: Colors.dark.backgroundRoot,
+  },
+  gamingCardInfo: {
+    flex: 1,
+    gap: 6,
+  },
+  gamingCardNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  gamingCardName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    flex: 1,
+    letterSpacing: 0.3,
+  },
+  gamingStatusBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  gamingXpContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  gamingXpBarBg: {
+    flex: 1,
+    height: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  gamingXpBarFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  gamingXpText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan,
+    minWidth: 30,
+    textAlign: "right",
+  },
+  gamingCardMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  gamingLevelBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  gamingLevelDotSmall: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  gamingLevelText: {
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  gamingMetaText: {
+    fontSize: 11,
+    color: Colors.dark.tabIconDefault + "80",
+  },
+  gamingChevron: {
+    padding: Spacing.xs,
+  },
+  gamingFab: {
+    position: "absolute",
+    bottom: 100,
+    right: Spacing.lg,
+    borderRadius: 28,
+    overflow: "hidden",
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.xpCyan,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.5,
+        shadowRadius: 12,
+      },
+      android: { elevation: 12 },
+    }),
+  },
+  gamingFabPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.95 }],
+  },
+  gamingFabGradient: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   // === CALM STYLES (60% - Gold Standard like Calendar/Settings) ===
