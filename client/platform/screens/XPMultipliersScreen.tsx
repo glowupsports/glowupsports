@@ -1,16 +1,15 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, TextInput, ActivityIndicator, Alert, Platform } from "react-native";
-import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { View, Text, StyleSheet, Pressable, ScrollView, Modal, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
 
 const PLATFORM_COLOR = "#9B59B6";
+
+const XP_OPTIONS = [10, 15, 20, 25, 30, 40, 50, 60, 75, 100, 125, 150, 175, 200, 250, 300, 400, 500];
 
 interface XPMultiplier {
   id: string;
@@ -22,7 +21,6 @@ interface XPMultiplier {
 export default function XPMultipliersScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const queryClient = useQueryClient();
 
   const defaultMultipliers: XPMultiplier[] = [
     { id: "attendance", source: "Session Attendance", baseXp: 50, description: "XP awarded for attending a session" },
@@ -35,11 +33,23 @@ export default function XPMultipliersScreen() {
 
   const [multipliers, setMultipliers] = useState<XPMultiplier[]>(defaultMultipliers);
   const [hasChanges, setHasChanges] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
+  const [selectedMultiplier, setSelectedMultiplier] = useState<string | null>(null);
 
-  const handleValueChange = (id: string, value: string) => {
-    const numValue = parseInt(value) || 0;
-    setMultipliers(prev => prev.map(m => m.id === id ? { ...m, baseXp: numValue } : m));
-    setHasChanges(true);
+  const handleOpenPicker = (id: string) => {
+    setSelectedMultiplier(id);
+    setShowPicker(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleSelectValue = (value: number) => {
+    if (selectedMultiplier) {
+      setMultipliers(prev => prev.map(m => m.id === selectedMultiplier ? { ...m, baseXp: value } : m));
+      setHasChanges(true);
+    }
+    setShowPicker(false);
+    setSelectedMultiplier(null);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleSave = () => {
@@ -51,6 +61,8 @@ export default function XPMultipliersScreen() {
       Alert.alert("Success", "XP multipliers saved successfully!");
     }
   };
+
+  const currentMultiplier = multipliers.find(m => m.id === selectedMultiplier);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -67,7 +79,7 @@ export default function XPMultipliersScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <KeyboardAwareScrollViewCompat
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
@@ -76,23 +88,21 @@ export default function XPMultipliersScreen() {
 
         <View style={[styles.card, CardStyles.elevated]}>
           {multipliers.map((multiplier) => (
-            <View key={multiplier.id} style={styles.row}>
+            <Pressable 
+              key={multiplier.id} 
+              style={styles.row}
+              onPress={() => handleOpenPicker(multiplier.id)}
+            >
               <View style={styles.rowInfo}>
                 <Text style={styles.rowLabel}>{multiplier.source}</Text>
                 <Text style={styles.rowDescription}>{multiplier.description}</Text>
               </View>
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.input}
-                  value={String(multiplier.baseXp)}
-                  onChangeText={(value) => handleValueChange(multiplier.id, value)}
-                  keyboardType="numeric"
-                  placeholder="0"
-                  placeholderTextColor={Colors.dark.textMuted}
-                />
-                <Text style={styles.inputSuffix}>XP</Text>
+              <View style={styles.valueContainer}>
+                <Text style={styles.valueText}>{multiplier.baseXp}</Text>
+                <Text style={styles.valueSuffix}>XP</Text>
+                <Ionicons name="chevron-down" size={16} color={Colors.dark.textMuted} />
               </View>
-            </View>
+            </Pressable>
           ))}
         </View>
 
@@ -101,7 +111,49 @@ export default function XPMultipliersScreen() {
             <Text style={styles.saveButtonText}>Save Changes</Text>
           </Pressable>
         ) : null}
-      </KeyboardAwareScrollViewCompat>
+      </ScrollView>
+
+      <Modal
+        visible={showPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPicker(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowPicker(false)}>
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select XP Value</Text>
+              {currentMultiplier ? (
+                <Text style={styles.modalSubtitle}>{currentMultiplier.source}</Text>
+              ) : null}
+            </View>
+            <ScrollView style={styles.optionsList} showsVerticalScrollIndicator={false}>
+              {XP_OPTIONS.map((value) => (
+                <Pressable
+                  key={value}
+                  style={[
+                    styles.optionItem,
+                    currentMultiplier?.baseXp === value && styles.optionItemSelected,
+                  ]}
+                  onPress={() => handleSelectValue(value)}
+                >
+                  <Text
+                    style={[
+                      styles.optionText,
+                      currentMultiplier?.baseXp === value && styles.optionTextSelected,
+                    ]}
+                  >
+                    {value} XP
+                  </Text>
+                  {currentMultiplier?.baseXp === value ? (
+                    <Ionicons name="checkmark" size={20} color={PLATFORM_COLOR} />
+                  ) : null}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -174,24 +226,23 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.textMuted,
   },
-  inputContainer: {
+  valueContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.dark.backgroundRoot,
     borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.xs,
   },
-  input: {
+  valueText: {
     ...Typography.body,
     color: Colors.dark.text,
-    width: 60,
-    textAlign: "right",
-    paddingVertical: Spacing.sm,
+    fontWeight: "600",
   },
-  inputSuffix: {
+  valueSuffix: {
     ...Typography.small,
     color: Colors.dark.textMuted,
-    marginLeft: Spacing.xs,
   },
   saveButton: {
     backgroundColor: PLATFORM_COLOR,
@@ -203,6 +254,58 @@ const styles = StyleSheet.create({
   saveButtonText: {
     ...Typography.body,
     color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    width: "85%",
+    maxHeight: "70%",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.xl,
+    overflow: "hidden",
+  },
+  modalHeader: {
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundRoot,
+    alignItems: "center",
+  },
+  modalTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  modalSubtitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
+  },
+  optionsList: {
+    maxHeight: 400,
+  },
+  optionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundRoot,
+  },
+  optionItemSelected: {
+    backgroundColor: PLATFORM_COLOR + "20",
+  },
+  optionText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  optionTextSelected: {
+    color: PLATFORM_COLOR,
     fontWeight: "600",
   },
 });

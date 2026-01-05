@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, TextInput, Switch, Alert, Platform } from "react-native";
-import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { View, Text, StyleSheet, Pressable, ScrollView, Switch, Modal, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -10,16 +9,41 @@ import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constan
 
 const PLATFORM_COLOR = "#9B59B6";
 
+const DAILY_XP_OPTIONS = [100, 200, 300, 400, 500, 600, 750, 1000, 1500, 2000];
+const WEEKLY_XP_OPTIONS = [500, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 7500, 10000];
+const MIN_DURATION_OPTIONS = [5, 10, 15, 20, 25, 30, 45, 60];
+
+type PickerType = "daily" | "weekly" | "duration" | null;
+
 export default function AntiAbuseRulesScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
 
-  const [dailyXpCap, setDailyXpCap] = useState("500");
-  const [weeklyXpCap, setWeeklyXpCap] = useState("2000");
+  const [dailyXpCap, setDailyXpCap] = useState(500);
+  const [weeklyXpCap, setWeeklyXpCap] = useState(2000);
   const [patternDetection, setPatternDetection] = useState(true);
   const [rapidFireProtection, setRapidFireProtection] = useState(true);
-  const [minSessionDuration, setMinSessionDuration] = useState("15");
+  const [minSessionDuration, setMinSessionDuration] = useState(15);
   const [hasChanges, setHasChanges] = useState(false);
+  const [showPicker, setShowPicker] = useState<PickerType>(null);
+
+  const handleOpenPicker = (type: PickerType) => {
+    setShowPicker(type);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleSelectValue = (value: number) => {
+    if (showPicker === "daily") {
+      setDailyXpCap(value);
+    } else if (showPicker === "weekly") {
+      setWeeklyXpCap(value);
+    } else if (showPicker === "duration") {
+      setMinSessionDuration(value);
+    }
+    setHasChanges(true);
+    setShowPicker(null);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
 
   const handleSave = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -28,6 +52,57 @@ export default function AntiAbuseRulesScreen() {
       window.alert("Anti-abuse rules saved successfully!");
     } else {
       Alert.alert("Success", "Anti-abuse rules saved successfully!");
+    }
+  };
+
+  const getPickerOptions = () => {
+    switch (showPicker) {
+      case "daily":
+        return DAILY_XP_OPTIONS;
+      case "weekly":
+        return WEEKLY_XP_OPTIONS;
+      case "duration":
+        return MIN_DURATION_OPTIONS;
+      default:
+        return [];
+    }
+  };
+
+  const getPickerTitle = () => {
+    switch (showPicker) {
+      case "daily":
+        return "Daily XP Cap";
+      case "weekly":
+        return "Weekly XP Cap";
+      case "duration":
+        return "Min Session Duration";
+      default:
+        return "";
+    }
+  };
+
+  const getPickerSuffix = () => {
+    switch (showPicker) {
+      case "daily":
+      case "weekly":
+        return "XP";
+      case "duration":
+        return "min";
+      default:
+        return "";
+    }
+  };
+
+  const getCurrentValue = () => {
+    switch (showPicker) {
+      case "daily":
+        return dailyXpCap;
+      case "weekly":
+        return weeklyXpCap;
+      case "duration":
+        return minSessionDuration;
+      default:
+        return 0;
     }
   };
 
@@ -46,7 +121,7 @@ export default function AntiAbuseRulesScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <KeyboardAwareScrollViewCompat
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
@@ -56,40 +131,28 @@ export default function AntiAbuseRulesScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>XP Caps</Text>
           <View style={[styles.card, CardStyles.elevated]}>
-            <View style={styles.row}>
+            <Pressable style={styles.row} onPress={() => handleOpenPicker("daily")}>
               <View style={styles.rowInfo}>
                 <Text style={styles.rowLabel}>Daily XP Cap</Text>
                 <Text style={styles.rowDescription}>Maximum XP a player can earn per day</Text>
               </View>
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.input}
-                  value={dailyXpCap}
-                  onChangeText={(v) => { setDailyXpCap(v); setHasChanges(true); }}
-                  keyboardType="numeric"
-                  placeholder="500"
-                  placeholderTextColor={Colors.dark.textMuted}
-                />
-                <Text style={styles.inputSuffix}>XP</Text>
+              <View style={styles.valueContainer}>
+                <Text style={styles.valueText}>{dailyXpCap}</Text>
+                <Text style={styles.valueSuffix}>XP</Text>
+                <Ionicons name="chevron-down" size={16} color={Colors.dark.textMuted} />
               </View>
-            </View>
-            <View style={styles.row}>
+            </Pressable>
+            <Pressable style={styles.row} onPress={() => handleOpenPicker("weekly")}>
               <View style={styles.rowInfo}>
                 <Text style={styles.rowLabel}>Weekly XP Cap</Text>
                 <Text style={styles.rowDescription}>Maximum XP a player can earn per week</Text>
               </View>
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.input}
-                  value={weeklyXpCap}
-                  onChangeText={(v) => { setWeeklyXpCap(v); setHasChanges(true); }}
-                  keyboardType="numeric"
-                  placeholder="2000"
-                  placeholderTextColor={Colors.dark.textMuted}
-                />
-                <Text style={styles.inputSuffix}>XP</Text>
+              <View style={styles.valueContainer}>
+                <Text style={styles.valueText}>{weeklyXpCap}</Text>
+                <Text style={styles.valueSuffix}>XP</Text>
+                <Ionicons name="chevron-down" size={16} color={Colors.dark.textMuted} />
               </View>
-            </View>
+            </Pressable>
           </View>
         </View>
 
@@ -120,23 +183,17 @@ export default function AntiAbuseRulesScreen() {
                 thumbColor={rapidFireProtection ? PLATFORM_COLOR : Colors.dark.textMuted}
               />
             </View>
-            <View style={styles.row}>
+            <Pressable style={styles.row} onPress={() => handleOpenPicker("duration")}>
               <View style={styles.rowInfo}>
                 <Text style={styles.rowLabel}>Min Session Duration</Text>
                 <Text style={styles.rowDescription}>Minimum session length to award XP</Text>
               </View>
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.input}
-                  value={minSessionDuration}
-                  onChangeText={(v) => { setMinSessionDuration(v); setHasChanges(true); }}
-                  keyboardType="numeric"
-                  placeholder="15"
-                  placeholderTextColor={Colors.dark.textMuted}
-                />
-                <Text style={styles.inputSuffix}>min</Text>
+              <View style={styles.valueContainer}>
+                <Text style={styles.valueText}>{minSessionDuration}</Text>
+                <Text style={styles.valueSuffix}>min</Text>
+                <Ionicons name="chevron-down" size={16} color={Colors.dark.textMuted} />
               </View>
-            </View>
+            </Pressable>
           </View>
         </View>
 
@@ -145,7 +202,46 @@ export default function AntiAbuseRulesScreen() {
             <Text style={styles.saveButtonText}>Save Changes</Text>
           </Pressable>
         ) : null}
-      </KeyboardAwareScrollViewCompat>
+      </ScrollView>
+
+      <Modal
+        visible={showPicker !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPicker(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowPicker(null)}>
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{getPickerTitle()}</Text>
+            </View>
+            <ScrollView style={styles.optionsList} showsVerticalScrollIndicator={false}>
+              {getPickerOptions().map((value) => (
+                <Pressable
+                  key={value}
+                  style={[
+                    styles.optionItem,
+                    getCurrentValue() === value && styles.optionItemSelected,
+                  ]}
+                  onPress={() => handleSelectValue(value)}
+                >
+                  <Text
+                    style={[
+                      styles.optionText,
+                      getCurrentValue() === value && styles.optionTextSelected,
+                    ]}
+                  >
+                    {value} {getPickerSuffix()}
+                  </Text>
+                  {getCurrentValue() === value ? (
+                    <Ionicons name="checkmark" size={20} color={PLATFORM_COLOR} />
+                  ) : null}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -226,35 +322,81 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.textMuted,
   },
-  inputContainer: {
+  valueContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.dark.backgroundRoot,
     borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.xs,
   },
-  input: {
+  valueText: {
     ...Typography.body,
     color: Colors.dark.text,
-    width: 60,
-    textAlign: "right",
-    paddingVertical: Spacing.sm,
+    fontWeight: "600",
   },
-  inputSuffix: {
+  valueSuffix: {
     ...Typography.small,
     color: Colors.dark.textMuted,
-    marginLeft: Spacing.xs,
   },
   saveButton: {
     backgroundColor: PLATFORM_COLOR,
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.lg,
     alignItems: "center",
-    marginTop: Spacing.md,
+    marginTop: Spacing.xl,
   },
   saveButtonText: {
     ...Typography.body,
     color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    width: "85%",
+    maxHeight: "60%",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.xl,
+    overflow: "hidden",
+  },
+  modalHeader: {
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundRoot,
+    alignItems: "center",
+  },
+  modalTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  optionsList: {
+    maxHeight: 350,
+  },
+  optionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundRoot,
+  },
+  optionItemSelected: {
+    backgroundColor: PLATFORM_COLOR + "20",
+  },
+  optionText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  optionTextSelected: {
+    color: PLATFORM_COLOR,
     fontWeight: "600",
   },
 });

@@ -7,7 +7,7 @@ import { BlurView } from "expo-blur";
 import AdminDashboardScreen from "@/admin/screens/AdminDashboardScreen";
 import AdminCoachesScreen from "@/admin/screens/AdminCoachesScreen";
 import AdminPlayersScreen from "@/admin/screens/AdminPlayersScreen";
-import AdminScheduleScreen from "@/admin/screens/AdminScheduleScreen";
+import AdminCalendarScreen from "@/admin/screens/AdminCalendarScreen";
 import AdminReportsScreen from "@/admin/screens/AdminReportsScreen";
 import AdminSettingsScreen from "@/admin/screens/AdminSettingsScreen";
 import AdminPaymentsScreen from "@/admin/screens/AdminPaymentsScreen";
@@ -96,7 +96,7 @@ function AdminTabs() {
       />
       <Tab.Screen
         name="AdminSchedule"
-        component={AdminScheduleScreen}
+        component={AdminCalendarScreen}
         options={{
           tabBarLabel: "Schedule",
           tabBarIcon: ({ color, size }) => (

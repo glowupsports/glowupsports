@@ -18,6 +18,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { useNavigation } from "@react-navigation/native";
 
 interface Payment {
   id: string;
@@ -53,6 +54,7 @@ type FilterMethod = "all" | "cash" | "bank_transfer";
 export default function AdminPaymentsScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const navigation = useNavigation();
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [filterMethod, setFilterMethod] = useState<FilterMethod>("all");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -240,7 +242,13 @@ export default function AdminPaymentsScreen() {
       <LinearGradient colors={["#1a1a0a", "#0a0a0a"]} style={StyleSheet.absoluteFill} />
 
       <View style={styles.header}>
-        <Text style={styles.title}>Payments</Text>
+        <View style={styles.headerTop}>
+          <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <Text style={styles.title}>Payments</Text>
+          <View style={{ width: 40 }} />
+        </View>
         <View style={styles.summaryRow}>
           <View style={styles.summaryItem}>
             <Text style={styles.summaryValue}>{pendingCount}</Text>
@@ -629,10 +637,23 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.md,
   },
+  headerTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 20,
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
   title: {
     ...Typography.h1,
     color: Colors.dark.text,
-    marginBottom: Spacing.md,
   },
   summaryRow: {
     flexDirection: "row",
