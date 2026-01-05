@@ -9086,6 +9086,199 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to get invites" });
     }
   });
+
+  // Platform Owner - List all users available to add to academies
+  app.get("/api/platform/users", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const allUsers = await storage.getAllUsers();
+      
+      // Return users with basic info for selection
+      const userList = allUsers.map(user => ({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+        academyId: user.academyId,
+        coachId: user.coachId,
+        playerId: user.playerId,
+        createdAt: user.createdAt,
+      }));
+      
+      res.json({ users: userList });
+    } catch (error) {
+      console.error("Get all users error:", error);
+      res.status(500).json({ error: "Failed to get users" });
+    }
+  });
+
+  // Platform Owner - Add existing user to academy as coach/owner
+  app.post("/api/platform/academies/:id/members", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.params.id;
+      const { userId, role } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+
+      if (!role || !["academy_owner", "coach", "assistant"].includes(role)) {
+        return res.status(400).json({ error: "Valid role (academy_owner, coach, assistant) is required" });
+      }
+
+      const academy = await storage.getAcademy(academyId);
+      if (!academy) {
+        return res.status(404).json({ error: "Academy not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Check if user already has a coach profile, if not create one
+      let coachId = user.coachId;
+      if (!coachId) {
+        // Create a coach profile for the user
+        const newCoach = await storage.createCoach({
+          name: user.username,
+          email: user.email,
+          academyId: academyId,
+          status: "active",
+        });
+        coachId = newCoach.id;
+        
+        // Update user with coach reference
+        await storage.updateUser(userId, { 
+          coachId: coachId,
+          role: role,
+          academyId: academyId,
+        });
+      }
+
+      // Check if membership already exists
+      const existingMembership = await storage.getCoachAcademyMembership(coachId, academyId);
+      if (existingMembership) {
+        // Update existing membership
+        await storage.updateCoachAcademyMembership(existingMembership.id, {
+          role,
+          isActive: true,
+        });
+      } else {
+        // Create new membership
+        await storage.createCoachAcademyMembership({
+          coachId,
+          academyId,
+          role,
+          isActive: true,
+          isPrimary: !user.academyId, // Make primary if user has no academy
+        });
+      }
+
+      // Update user's default academy if not set
+      if (!user.academyId) {
+        await storage.updateUser(userId, { academyId });
+      }
+
+      res.status(201).json({ 
+        success: true,
+        message: `User added to academy as ${role}`,
+        membership: { userId, coachId, academyId, role }
+      });
+    } catch (error) {
+      console.error("Add member to academy error:", error);
+      res.status(500).json({ error: "Failed to add member to academy" });
+    }
+  });
+
+  // Platform Owner - Create new user account for academy
+  app.post("/api/platform/academies/:id/users", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.params.id;
+      const { username, email, password, role, name } = req.body;
+
+      if (!username || !password) {
+        return res.status(400).json({ error: "Username and password are required" });
+      }
+
+      if (!role || !["academy_owner", "coach", "assistant", "player"].includes(role)) {
+        return res.status(400).json({ error: "Valid role is required" });
+      }
+
+      const academy = await storage.getAcademy(academyId);
+      if (!academy) {
+        return res.status(404).json({ error: "Academy not found" });
+      }
+
+      // Check if username already exists
+      const existingUser = await storage.getUserByUsername(username.toLowerCase());
+      if (existingUser) {
+        return res.status(400).json({ error: "Username already exists" });
+      }
+
+      // Hash password
+      const bcrypt = await import("bcrypt");
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create the user
+      const newUser = await storage.createUser({
+        username: username.toLowerCase(),
+        email: email || `${username.toLowerCase()}@glow.local`,
+        password: hashedPassword,
+        role: role,
+        status: "active",
+        academyId: academyId,
+      });
+
+      // If role is coach/owner/assistant, create a coach profile and membership
+      if (["academy_owner", "coach", "assistant"].includes(role)) {
+        const newCoach = await storage.createCoach({
+          name: name || username,
+          email: newUser.email,
+          academyId: academyId,
+          status: "active",
+        });
+
+        // Update user with coach reference
+        await storage.updateUser(newUser.id, { coachId: newCoach.id });
+
+        // Create academy membership
+        await storage.createCoachAcademyMembership({
+          coachId: newCoach.id,
+          academyId,
+          role,
+          isActive: true,
+          isPrimary: true,
+        });
+      }
+
+      // If role is player, create a player profile
+      if (role === "player") {
+        const newPlayer = await storage.createPlayer({
+          name: name || username,
+          academyId: academyId,
+          status: "active",
+          ballLevel: "green",
+        });
+
+        await storage.updateUser(newUser.id, { playerId: newPlayer.id });
+      }
+
+      res.status(201).json({
+        success: true,
+        message: `New ${role} account created`,
+        user: {
+          id: newUser.id,
+          username: newUser.username,
+          email: newUser.email,
+          role: newUser.role,
+        }
+      });
+    } catch (error) {
+      console.error("Create user for academy error:", error);
+      res.status(500).json({ error: "Failed to create user" });
+    }
+  });
   
   // Get player dashboard data
   app.get("/api/player/me/dashboard", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {

@@ -55,6 +55,16 @@ export default function AcademyDetailScreen() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [pendingInvite, setPendingInvite] = useState<{ token: string; role: string; url: string } | null>(null);
   const [modalCopied, setModalCopied] = useState(false);
+  
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [addMemberRole, setAddMemberRole] = useState<"academy_owner" | "coach">("coach");
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newRole, setNewRole] = useState<"academy_owner" | "coach" | "player">("coach");
 
   const { data: academy, isLoading } = useQuery<AcademyDetails>({
     queryKey: ["/api/platform/academies", academyId],
@@ -112,6 +122,79 @@ export default function AcademyDetailScreen() {
     queryFn: async () => {
       const res = await apiRequest("GET", `/api/platform/academies/${academyId}/invites`);
       return res.json();
+    },
+  });
+
+  interface PlatformUser {
+    id: string;
+    username: string;
+    email: string;
+    role: string;
+    academyId: string | null;
+  }
+
+  const { data: usersData } = useQuery<{ users: PlatformUser[] }>({
+    queryKey: ["/api/platform/users"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/platform/users");
+      return res.json();
+    },
+    enabled: showAddMemberModal,
+  });
+
+  const addMemberMutation = useMutation({
+    mutationFn: async (data: { userId: string; role: string }) => {
+      const response = await apiRequest("POST", `/api/platform/academies/${academyId}/members`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/platform/academies", academyId] });
+      setShowAddMemberModal(false);
+      setSelectedUserId(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS === "web") {
+        window.alert("Member added successfully!");
+      } else {
+        Alert.alert("Success", "Member added successfully!");
+      }
+    },
+    onError: (error: Error) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      if (Platform.OS === "web") {
+        window.alert(`Failed to add member: ${error.message}`);
+      } else {
+        Alert.alert("Error", `Failed to add member: ${error.message}`);
+      }
+    },
+  });
+
+  const createAccountMutation = useMutation({
+    mutationFn: async (data: { username: string; password: string; email?: string; name?: string; role: string }) => {
+      const response = await apiRequest("POST", `/api/platform/academies/${academyId}/users`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/platform/academies", academyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/platform/users"] });
+      setShowCreateAccountModal(false);
+      setNewUsername("");
+      setNewPassword("");
+      setNewEmail("");
+      setNewName("");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS === "web") {
+        window.alert("Account created successfully!");
+      } else {
+        Alert.alert("Success", "Account created successfully!");
+      }
+    },
+    onError: (error: Error) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      if (Platform.OS === "web") {
+        window.alert(`Failed to create account: ${error.message}`);
+      } else {
+        Alert.alert("Error", `Failed to create account: ${error.message}`);
+      }
     },
   });
 
@@ -210,6 +293,29 @@ export default function AcademyDetailScreen() {
   const handleCloseInviteModal = () => {
     setShowInviteModal(false);
     setPendingInvite(null);
+  };
+
+  const handleAddMember = () => {
+    if (!selectedUserId) return;
+    addMemberMutation.mutate({ userId: selectedUserId, role: addMemberRole });
+  };
+
+  const handleCreateAccount = () => {
+    if (!newUsername || !newPassword) {
+      if (Platform.OS === "web") {
+        window.alert("Username and password are required");
+      } else {
+        Alert.alert("Error", "Username and password are required");
+      }
+      return;
+    }
+    createAccountMutation.mutate({
+      username: newUsername,
+      password: newPassword,
+      email: newEmail || undefined,
+      name: newName || undefined,
+      role: newRole,
+    });
   };
 
   const handleDelete = () => {
@@ -384,6 +490,28 @@ export default function AcademyDetailScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Add Members</Text>
+          <View style={[styles.card, CardStyles.elevated]}>
+            <View style={styles.addMemberButtons}>
+              <Pressable
+                style={styles.addMemberButton}
+                onPress={() => setShowAddMemberModal(true)}
+              >
+                <Ionicons name="person-add-outline" size={20} color={PLATFORM_COLOR} />
+                <Text style={styles.addMemberButtonText}>Add Existing User</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.addMemberButton, styles.createAccountButton]}
+                onPress={() => setShowCreateAccountModal(true)}
+              >
+                <Ionicons name="create-outline" size={20} color={Colors.dark.text} />
+                <Text style={styles.createAccountButtonText}>Create Account</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Invite Links</Text>
           <View style={[styles.card, CardStyles.elevated]}>
             <View style={styles.inviteRoleSelector}>
@@ -553,6 +681,182 @@ export default function AcademyDetailScreen() {
               </Pressable>
             </View>
           </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showAddMemberModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowAddMemberModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setShowAddMemberModal(false)} />
+          <View style={[styles.addMemberModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <Text style={styles.modalTitle}>Add Existing User</Text>
+            <Text style={styles.modalSubtitle}>Select a user to add to this academy</Text>
+
+            <View style={styles.roleSelector}>
+              <Text style={styles.roleSelectorLabel}>Role:</Text>
+              <View style={styles.inviteRoleSelector}>
+                <Pressable
+                  style={[styles.roleButton, addMemberRole === "coach" && styles.roleButtonActive]}
+                  onPress={() => setAddMemberRole("coach")}
+                >
+                  <Text style={[styles.roleButtonText, addMemberRole === "coach" && styles.roleButtonTextActive]}>Coach</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.roleButton, addMemberRole === "academy_owner" && styles.roleButtonActive]}
+                  onPress={() => setAddMemberRole("academy_owner")}
+                >
+                  <Text style={[styles.roleButtonText, addMemberRole === "academy_owner" && styles.roleButtonTextActive]}>Owner</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <View style={styles.userList}>
+              {usersData?.users?.filter(u => u.academyId !== academyId).slice(0, 10).map((user) => (
+                <Pressable
+                  key={user.id}
+                  style={[styles.userItem, selectedUserId === user.id && styles.userItemSelected]}
+                  onPress={() => setSelectedUserId(user.id)}
+                >
+                  <Ionicons 
+                    name={selectedUserId === user.id ? "checkmark-circle" : "ellipse-outline"} 
+                    size={20} 
+                    color={selectedUserId === user.id ? PLATFORM_COLOR : Colors.dark.textMuted} 
+                  />
+                  <View style={styles.userItemInfo}>
+                    <Text style={styles.userItemName}>{user.username}</Text>
+                    <Text style={styles.userItemSub}>{user.email} - {user.role}</Text>
+                  </View>
+                </Pressable>
+              )) || <Text style={styles.emptyText}>No users available</Text>}
+            </View>
+
+            <View style={styles.modalButtons}>
+              <Pressable style={styles.cancelButton} onPress={() => setShowAddMemberModal(false)}>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.confirmButton, !selectedUserId && styles.confirmButtonDisabled]}
+                onPress={handleAddMember}
+                disabled={!selectedUserId || addMemberMutation.isPending}
+              >
+                {addMemberMutation.isPending ? (
+                  <ActivityIndicator size="small" color={Colors.dark.text} />
+                ) : (
+                  <Text style={styles.confirmButtonText}>Add Member</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showCreateAccountModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowCreateAccountModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setShowCreateAccountModal(false)} />
+          <KeyboardAwareScrollViewCompat style={styles.createAccountScrollView}>
+            <View style={[styles.createAccountModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+              <Text style={styles.modalTitle}>Create New Account</Text>
+              <Text style={styles.modalSubtitle}>Create a user with login credentials</Text>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Username *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={newUsername}
+                  onChangeText={setNewUsername}
+                  placeholder="Enter username"
+                  placeholderTextColor={Colors.dark.textMuted}
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Password *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  placeholder="Enter password"
+                  placeholderTextColor={Colors.dark.textMuted}
+                  secureTextEntry
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Display Name</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={newName}
+                  onChangeText={setNewName}
+                  placeholder="Enter name (optional)"
+                  placeholderTextColor={Colors.dark.textMuted}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Email</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={newEmail}
+                  onChangeText={setNewEmail}
+                  placeholder="Enter email (optional)"
+                  placeholderTextColor={Colors.dark.textMuted}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Role</Text>
+                <View style={styles.roleButtons}>
+                  <Pressable
+                    style={[styles.roleOption, newRole === "coach" && styles.roleOptionActive]}
+                    onPress={() => setNewRole("coach")}
+                  >
+                    <Text style={[styles.roleOptionText, newRole === "coach" && styles.roleOptionTextActive]}>Coach</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.roleOption, newRole === "academy_owner" && styles.roleOptionActive]}
+                    onPress={() => setNewRole("academy_owner")}
+                  >
+                    <Text style={[styles.roleOptionText, newRole === "academy_owner" && styles.roleOptionTextActive]}>Owner</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.roleOption, newRole === "player" && styles.roleOptionActive]}
+                    onPress={() => setNewRole("player")}
+                  >
+                    <Text style={[styles.roleOptionText, newRole === "player" && styles.roleOptionTextActive]}>Player</Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              <View style={styles.modalButtons}>
+                <Pressable style={styles.cancelButton} onPress={() => setShowCreateAccountModal(false)}>
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.confirmButton, (!newUsername || !newPassword) && styles.confirmButtonDisabled]}
+                  onPress={handleCreateAccount}
+                  disabled={!newUsername || !newPassword || createAccountMutation.isPending}
+                >
+                  {createAccountMutation.isPending ? (
+                    <ActivityIndicator size="small" color={Colors.dark.text} />
+                  ) : (
+                    <Text style={styles.confirmButtonText}>Create Account</Text>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          </KeyboardAwareScrollViewCompat>
         </View>
       </Modal>
     </View>
@@ -923,5 +1227,172 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.textMuted,
     fontWeight: "500",
+  },
+  addMemberButtons: {
+    gap: Spacing.md,
+  },
+  addMemberButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: `${PLATFORM_COLOR}20`,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    borderWidth: 1,
+    borderColor: PLATFORM_COLOR + "40",
+  },
+  addMemberButtonText: {
+    ...Typography.body,
+    color: PLATFORM_COLOR,
+    fontWeight: "600",
+  },
+  createAccountButton: {
+    backgroundColor: PLATFORM_COLOR,
+    borderColor: PLATFORM_COLOR,
+  },
+  createAccountButtonText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  addMemberModalContent: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    width: "90%",
+    maxWidth: 400,
+    maxHeight: "80%",
+  },
+  createAccountScrollView: {
+    width: "100%",
+    maxHeight: "90%",
+  },
+  createAccountModalContent: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    margin: Spacing.lg,
+  },
+  modalTitle: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+    textAlign: "center",
+    marginBottom: Spacing.xs,
+  },
+  modalSubtitle: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    marginBottom: Spacing.lg,
+  },
+  roleSelector: {
+    marginBottom: Spacing.md,
+  },
+  roleSelectorLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+  },
+  userList: {
+    maxHeight: 250,
+    marginBottom: Spacing.lg,
+  },
+  userItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.xs,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  userItemSelected: {
+    backgroundColor: `${PLATFORM_COLOR}20`,
+    borderWidth: 1,
+    borderColor: PLATFORM_COLOR,
+  },
+  userItemInfo: {
+    flex: 1,
+  },
+  userItemName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  userItemSub: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginTop: Spacing.md,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundRoot,
+    alignItems: "center",
+  },
+  cancelButtonText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
+  },
+  confirmButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: PLATFORM_COLOR,
+    alignItems: "center",
+  },
+  confirmButtonDisabled: {
+    opacity: 0.5,
+  },
+  confirmButtonText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  formGroup: {
+    marginBottom: Spacing.md,
+  },
+  formLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.xs,
+  },
+  formInput: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    color: Colors.dark.text,
+    ...Typography.body,
+  },
+  roleButtons: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  roleOption: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundRoot,
+    alignItems: "center",
+  },
+  roleOptionActive: {
+    backgroundColor: PLATFORM_COLOR,
+  },
+  roleOptionText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
+  },
+  roleOptionTextActive: {
+    color: Colors.dark.text,
   },
 });

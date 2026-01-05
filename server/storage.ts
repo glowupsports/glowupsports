@@ -302,6 +302,15 @@ export const storage = {
     return result[0];
   },
 
+  async getAllUsers(): Promise<User[]> {
+    return db.select().from(users).orderBy(desc(users.createdAt));
+  },
+
+  async getUser(id: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.id, id));
+    return result[0];
+  },
+
   // ==================== ACADEMIES ====================
   async getAcademy(id: string): Promise<Academy | undefined> {
     const result = await db.select().from(academies).where(eq(academies.id, id));
@@ -3965,6 +3974,25 @@ export const storage = {
         eq(coachAcademyMemberships.academyId, academyId),
         eq(coachAcademyMemberships.isActive, true)
       ));
+  },
+
+  async getCoachAcademyMembership(coachId: string, academyId: string): Promise<CoachAcademyMembership | undefined> {
+    const result = await db.select().from(coachAcademyMemberships)
+      .where(and(
+        eq(coachAcademyMemberships.coachId, coachId),
+        eq(coachAcademyMemberships.academyId, academyId)
+      ));
+    return result[0];
+  },
+
+  async createCoachAcademyMembership(data: InsertCoachAcademyMembership): Promise<CoachAcademyMembership> {
+    const result = await db.insert(coachAcademyMemberships).values(data).returning();
+    return result[0];
+  },
+
+  async updateCoachAcademyMembership(id: string, data: Partial<CoachAcademyMembership>): Promise<CoachAcademyMembership | undefined> {
+    const result = await db.update(coachAcademyMemberships).set(data).where(eq(coachAcademyMemberships.id, id)).returning();
+    return result[0];
   },
 
   async updateCoachMembership(id: string, data: Partial<CoachAcademyMembership>): Promise<CoachAcademyMembership | undefined> {
