@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Switch } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Switch, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -18,6 +18,157 @@ interface AcademySettings {
   requireConfirmation?: boolean;
   allowWaitlist?: boolean;
   maxWaitlistSize?: number;
+}
+
+const CANCELLATION_HOURS_OPTIONS = [
+  { value: 12, label: "12 hours" },
+  { value: 24, label: "24 hours" },
+  { value: 48, label: "48 hours" },
+  { value: 72, label: "72 hours (3 days)" },
+];
+
+const PENALTY_XP_OPTIONS = [
+  { value: 0, label: "No penalty" },
+  { value: 25, label: "-25 XP" },
+  { value: 50, label: "-50 XP" },
+  { value: 75, label: "-75 XP" },
+  { value: 100, label: "-100 XP" },
+  { value: 150, label: "-150 XP" },
+  { value: 200, label: "-200 XP" },
+];
+
+const XP_PER_SESSION_OPTIONS = [
+  { value: 5, label: "+5 XP" },
+  { value: 10, label: "+10 XP" },
+  { value: 15, label: "+15 XP" },
+  { value: 20, label: "+20 XP" },
+  { value: 25, label: "+25 XP" },
+  { value: 50, label: "+50 XP" },
+];
+
+const STREAK_BONUS_OPTIONS = [
+  { value: 0, label: "No bonus" },
+  { value: 2, label: "+2 XP per day" },
+  { value: 5, label: "+5 XP per day" },
+  { value: 10, label: "+10 XP per day" },
+  { value: 15, label: "+15 XP per day" },
+];
+
+const ATTENDANCE_THRESHOLD_OPTIONS = [
+  { value: 50, label: "50%" },
+  { value: 60, label: "60%" },
+  { value: 70, label: "70%" },
+  { value: 75, label: "75%" },
+  { value: 80, label: "80%" },
+  { value: 85, label: "85%" },
+  { value: 90, label: "90%" },
+];
+
+const WAITLIST_SIZE_OPTIONS = [
+  { value: 1, label: "1 player" },
+  { value: 2, label: "2 players" },
+  { value: 3, label: "3 players" },
+  { value: 5, label: "5 players" },
+  { value: 10, label: "10 players" },
+];
+
+interface DropdownPickerProps {
+  label: string;
+  description: string;
+  value: number;
+  options: { value: number; label: string }[];
+  onChange: (value: number) => void;
+  disabled?: boolean;
+  valuePrefix?: string;
+  valueSuffix?: string;
+  valueColor?: string;
+}
+
+function DropdownPicker({ 
+  label, 
+  description, 
+  value, 
+  options, 
+  onChange, 
+  disabled,
+  valuePrefix = "",
+  valueSuffix = "",
+  valueColor
+}: DropdownPickerProps) {
+  const [showPicker, setShowPicker] = useState(false);
+  const selectedOption = options.find(o => o.value === value) || options[0];
+  
+  return (
+    <>
+      <View style={[styles.settingCard, CardStyles.elevated]}>
+        <Pressable 
+          style={styles.settingRow} 
+          onPress={() => !disabled && setShowPicker(true)}
+          disabled={disabled}
+        >
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingLabel}>{label}</Text>
+            <Text style={styles.settingDescription}>{description}</Text>
+          </View>
+          <View style={styles.dropdownValue}>
+            <Text style={[
+              styles.settingValue, 
+              valueColor ? { color: valueColor } : null,
+              disabled && styles.disabledText
+            ]}>
+              {valuePrefix}{selectedOption.label}{valueSuffix}
+            </Text>
+            {!disabled ? <Ionicons name="chevron-down" size={16} color={Colors.dark.textMuted} /> : null}
+          </View>
+        </Pressable>
+      </View>
+      
+      <Modal
+        visible={showPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPicker(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setShowPicker(false)}
+        >
+          <View style={styles.pickerModal}>
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>{label}</Text>
+              <Pressable onPress={() => setShowPicker(false)}>
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+            <ScrollView style={styles.pickerList}>
+              {options.map((option) => (
+                <Pressable
+                  key={option.value}
+                  style={[
+                    styles.pickerOption,
+                    option.value === value && styles.pickerOptionSelected,
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onChange(option.value);
+                    setShowPicker(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.pickerOptionText,
+                    option.value === value && styles.pickerOptionTextSelected,
+                  ]}>{option.label}</Text>
+                  {option.value === value ? (
+                    <Ionicons name="checkmark-circle" size={20} color={Colors.dark.gold} />
+                  ) : null}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </Pressable>
+      </Modal>
+    </>
+  );
 }
 
 export default function RulesAndPoliciesScreen() {
@@ -113,29 +264,14 @@ export default function RulesAndPoliciesScreen() {
             <Text style={styles.sectionTitle}>Attendance Rules</Text>
           </View>
           
-          <View style={[styles.settingCard, CardStyles.elevated]}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Cancellation Window</Text>
-                <Text style={styles.settingDescription}>
-                  Hours before session for free cancellation
-                </Text>
-              </View>
-              {isEditing ? (
-                <TextInput
-                  style={styles.numberInput}
-                  value={String(formData.cancellationHours)}
-                  onChangeText={(text) => setFormData(prev => ({ 
-                    ...prev, 
-                    cancellationHours: parseInt(text) || 0 
-                  }))}
-                  keyboardType="number-pad"
-                />
-              ) : (
-                <Text style={styles.settingValue}>{displaySettings.cancellationHours}h</Text>
-              )}
-            </View>
-          </View>
+          <DropdownPicker
+            label="Cancellation Window"
+            description="Hours before session for free cancellation"
+            value={displaySettings.cancellationHours || 24}
+            options={CANCELLATION_HOURS_OPTIONS}
+            onChange={(value) => setFormData(prev => ({ ...prev, cancellationHours: value }))}
+            disabled={!isEditing}
+          />
 
           <View style={[styles.settingCard, CardStyles.elevated]}>
             <View style={styles.settingRow}>
@@ -158,32 +294,14 @@ export default function RulesAndPoliciesScreen() {
             </View>
           </View>
 
-          <View style={[styles.settingCard, CardStyles.elevated]}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Attendance Threshold</Text>
-                <Text style={styles.settingDescription}>
-                  Minimum attendance percentage to maintain status
-                </Text>
-              </View>
-              {isEditing ? (
-                <View style={styles.percentInput}>
-                  <TextInput
-                    style={styles.numberInput}
-                    value={String(formData.attendanceThreshold)}
-                    onChangeText={(text) => setFormData(prev => ({ 
-                      ...prev, 
-                      attendanceThreshold: parseInt(text) || 0 
-                    }))}
-                    keyboardType="number-pad"
-                  />
-                  <Text style={styles.percentSign}>%</Text>
-                </View>
-              ) : (
-                <Text style={styles.settingValue}>{displaySettings.attendanceThreshold}%</Text>
-              )}
-            </View>
-          </View>
+          <DropdownPicker
+            label="Attendance Threshold"
+            description="Minimum attendance percentage to maintain status"
+            value={displaySettings.attendanceThreshold || 80}
+            options={ATTENDANCE_THRESHOLD_OPTIONS}
+            onChange={(value) => setFormData(prev => ({ ...prev, attendanceThreshold: value }))}
+            disabled={!isEditing}
+          />
         </View>
 
         <View style={styles.section}>
@@ -192,57 +310,25 @@ export default function RulesAndPoliciesScreen() {
             <Text style={styles.sectionTitle}>Penalty Rules</Text>
           </View>
           
-          <View style={[styles.settingCard, CardStyles.elevated]}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>No-Show Penalty</Text>
-                <Text style={styles.settingDescription}>
-                  XP deduction for missing without notice
-                </Text>
-              </View>
-              {isEditing ? (
-                <TextInput
-                  style={styles.numberInput}
-                  value={String(formData.noShowPenalty)}
-                  onChangeText={(text) => setFormData(prev => ({ 
-                    ...prev, 
-                    noShowPenalty: parseInt(text) || 0 
-                  }))}
-                  keyboardType="number-pad"
-                />
-              ) : (
-                <Text style={[styles.settingValue, styles.penaltyValue]}>
-                  -{displaySettings.noShowPenalty} XP
-                </Text>
-              )}
-            </View>
-          </View>
+          <DropdownPicker
+            label="No-Show Penalty"
+            description="XP deduction for missing without notice"
+            value={displaySettings.noShowPenalty || 100}
+            options={PENALTY_XP_OPTIONS}
+            onChange={(value) => setFormData(prev => ({ ...prev, noShowPenalty: value }))}
+            disabled={!isEditing}
+            valueColor={Colors.dark.error}
+          />
 
-          <View style={[styles.settingCard, CardStyles.elevated]}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Late Cancellation Penalty</Text>
-                <Text style={styles.settingDescription}>
-                  XP deduction for cancelling after window
-                </Text>
-              </View>
-              {isEditing ? (
-                <TextInput
-                  style={styles.numberInput}
-                  value={String(formData.lateCancellationPenalty)}
-                  onChangeText={(text) => setFormData(prev => ({ 
-                    ...prev, 
-                    lateCancellationPenalty: parseInt(text) || 0 
-                  }))}
-                  keyboardType="number-pad"
-                />
-              ) : (
-                <Text style={[styles.settingValue, styles.penaltyValue]}>
-                  -{displaySettings.lateCancellationPenalty} XP
-                </Text>
-              )}
-            </View>
-          </View>
+          <DropdownPicker
+            label="Late Cancellation Penalty"
+            description="XP deduction for cancelling after window"
+            value={displaySettings.lateCancellationPenalty || 50}
+            options={PENALTY_XP_OPTIONS}
+            onChange={(value) => setFormData(prev => ({ ...prev, lateCancellationPenalty: value }))}
+            disabled={!isEditing}
+            valueColor={Colors.dark.error}
+          />
         </View>
 
         <View style={styles.section}>
@@ -251,57 +337,25 @@ export default function RulesAndPoliciesScreen() {
             <Text style={styles.sectionTitle}>XP Rules</Text>
           </View>
           
-          <View style={[styles.settingCard, CardStyles.elevated]}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>XP Per Session</Text>
-                <Text style={styles.settingDescription}>
-                  Base XP awarded for attending a session
-                </Text>
-              </View>
-              {isEditing ? (
-                <TextInput
-                  style={styles.numberInput}
-                  value={String(formData.xpPerSession)}
-                  onChangeText={(text) => setFormData(prev => ({ 
-                    ...prev, 
-                    xpPerSession: parseInt(text) || 0 
-                  }))}
-                  keyboardType="number-pad"
-                />
-              ) : (
-                <Text style={[styles.settingValue, styles.xpValue]}>
-                  +{displaySettings.xpPerSession} XP
-                </Text>
-              )}
-            </View>
-          </View>
+          <DropdownPicker
+            label="XP Per Session"
+            description="Base XP awarded for attending a session"
+            value={displaySettings.xpPerSession || 10}
+            options={XP_PER_SESSION_OPTIONS}
+            onChange={(value) => setFormData(prev => ({ ...prev, xpPerSession: value }))}
+            disabled={!isEditing}
+            valueColor={Colors.dark.primary}
+          />
 
-          <View style={[styles.settingCard, CardStyles.elevated]}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Streak Bonus</Text>
-                <Text style={styles.settingDescription}>
-                  Extra XP for consecutive session attendance
-                </Text>
-              </View>
-              {isEditing ? (
-                <TextInput
-                  style={styles.numberInput}
-                  value={String(formData.xpBonusStreak)}
-                  onChangeText={(text) => setFormData(prev => ({ 
-                    ...prev, 
-                    xpBonusStreak: parseInt(text) || 0 
-                  }))}
-                  keyboardType="number-pad"
-                />
-              ) : (
-                <Text style={[styles.settingValue, styles.xpValue]}>
-                  +{displaySettings.xpBonusStreak} XP
-                </Text>
-              )}
-            </View>
-          </View>
+          <DropdownPicker
+            label="Streak Bonus"
+            description="Extra XP for consecutive session attendance"
+            value={displaySettings.xpBonusStreak || 5}
+            options={STREAK_BONUS_OPTIONS}
+            onChange={(value) => setFormData(prev => ({ ...prev, xpBonusStreak: value }))}
+            disabled={!isEditing}
+            valueColor={Colors.dark.primary}
+          />
         </View>
 
         <View style={styles.section}>
@@ -331,29 +385,14 @@ export default function RulesAndPoliciesScreen() {
             </View>
           </View>
 
-          <View style={[styles.settingCard, CardStyles.elevated]}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Max Waitlist Size</Text>
-                <Text style={styles.settingDescription}>
-                  Maximum players on waitlist per session
-                </Text>
-              </View>
-              {isEditing ? (
-                <TextInput
-                  style={styles.numberInput}
-                  value={String(formData.maxWaitlistSize)}
-                  onChangeText={(text) => setFormData(prev => ({ 
-                    ...prev, 
-                    maxWaitlistSize: parseInt(text) || 0 
-                  }))}
-                  keyboardType="number-pad"
-                />
-              ) : (
-                <Text style={styles.settingValue}>{displaySettings.maxWaitlistSize}</Text>
-              )}
-            </View>
-          </View>
+          <DropdownPicker
+            label="Max Waitlist Size"
+            description="Maximum players on waitlist per session"
+            value={displaySettings.maxWaitlistSize || 3}
+            options={WAITLIST_SIZE_OPTIONS}
+            onChange={(value) => setFormData(prev => ({ ...prev, maxWaitlistSize: value }))}
+            disabled={!isEditing}
+          />
         </View>
 
         {isEditing ? (
@@ -446,33 +485,17 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   settingValue: {
-    ...Typography.h3,
-    color: Colors.dark.text,
-  },
-  penaltyValue: {
-    color: Colors.dark.error,
-  },
-  xpValue: {
-    color: Colors.dark.primary,
-  },
-  numberInput: {
     ...Typography.body,
     color: Colors.dark.text,
-    backgroundColor: Colors.dark.backgroundRoot,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.md,
-    minWidth: 60,
-    textAlign: "center",
+    fontWeight: "600",
   },
-  percentInput: {
+  disabledText: {
+    opacity: 0.7,
+  },
+  dropdownValue: {
     flexDirection: "row",
     alignItems: "center",
-  },
-  percentSign: {
-    ...Typography.body,
-    color: Colors.dark.textMuted,
-    marginLeft: Spacing.xs,
+    gap: Spacing.xs,
   },
   cancelButton: {
     alignItems: "center",
@@ -482,5 +505,53 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     ...Typography.body,
     color: Colors.dark.textMuted,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  pickerModal: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.xl,
+    width: "100%",
+    maxHeight: "60%",
+    overflow: "hidden",
+  },
+  pickerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundDefault,
+  },
+  pickerTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  pickerList: {
+    padding: Spacing.md,
+  },
+  pickerOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+  },
+  pickerOptionSelected: {
+    backgroundColor: Colors.dark.gold + "20",
+  },
+  pickerOptionText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  pickerOptionTextSelected: {
+    color: Colors.dark.gold,
+    fontWeight: "600",
   },
 });

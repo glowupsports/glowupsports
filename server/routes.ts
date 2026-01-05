@@ -12062,22 +12062,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Remove coach from academy (academy owner)
   app.delete("/api/owner/coaches/:id", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.academyId || req.header("X-Academy-Id");
       const coachId = req.params.id;
 
       if (!academyId) {
-        return res.status(400).json({ error: "Academy ID required" });
+        console.error("Coach deletion failed: No academyId in token or header. User:", JSON.stringify(req.user));
+        return res.status(400).json({ error: "Academy ID required. Please re-login or select an academy." });
       }
 
+      console.log(`Removing coach ${coachId} from academy ${academyId}`);
       const removed = await storage.removeCoachFromAcademy(coachId, academyId);
       if (!removed) {
         return res.status(404).json({ error: "Coach not found in this academy" });
       }
 
       res.json({ success: true, message: "Coach removed from academy" });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Remove coach error:", error);
-      res.status(500).json({ error: "Failed to remove coach" });
+      res.status(500).json({ error: error.message || "Failed to remove coach" });
     }
   });
 
@@ -12732,21 +12734,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Court not found" });
       }
 
-      await storage.deleteCourt(id, academyId || undefined);
+      // Soft delete - deactivate instead of hard delete to preserve references
+      await storage.updateCourt(id, { isActive: false }, academyId || undefined);
 
       await storage.createAuditLog({
         academyId,
         entityType: "court",
         entityId: id,
-        action: "delete",
+        action: "deactivate",
         performedBy: userId || null,
         performedByRole: req.user?.role || null,
         beforeState: existingCourt as any,
+        afterState: { ...existingCourt, isActive: false } as any,
       });
 
-      res.json({ success: true });
-    } catch (error) {
+      res.json({ success: true, message: "Court deactivated successfully" });
+    } catch (error: any) {
       console.error("Delete court error:", error);
+      if (error.code === "23503") {
+        return res.status(409).json({ 
+          error: "Cannot delete court with existing bookings. Please reassign or cancel bookings first." 
+        });
+      }
       res.status(500).json({ error: "Failed to delete court" });
     }
   });

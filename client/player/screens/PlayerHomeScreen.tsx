@@ -299,7 +299,7 @@ function GameCountdown({ targetDate }: { targetDate: Date }) {
 }
 
 interface MissionCardProps {
-  session: { id: string; date: string; type: string; courtName?: string };
+  session: { id: string; date: string; type: string; courtName?: string; duration?: number; time?: string };
   coach: { name: string } | null;
   isVacationActive: boolean;
   upcomingOverlapsSession: boolean;
@@ -308,12 +308,30 @@ interface MissionCardProps {
   onReportIssue: () => void;
 }
 
-function MissionCountdownRing({ targetDate, size = 140 }: { targetDate: Date; size?: number }) {
+function MissionCountdownRing({ targetDate, sessionDuration = 60, size = 140 }: { targetDate: Date; sessionDuration?: number; size?: number }) {
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
+  const [timeRemaining, setTimeRemaining] = useState({ minutes: 0, seconds: 0 });
+  const [isSessionEnded, setIsSessionEnded] = useState(false);
   
   useEffect(() => {
     const updateCountdown = () => {
       const now = new Date();
+      const sessionStart = targetDate.getTime();
+      const sessionEnd = sessionStart + (sessionDuration * 60 * 1000);
+      
+      if (now.getTime() >= sessionEnd) {
+        setIsSessionEnded(true);
+        setTimeRemaining({ minutes: 0, seconds: 0 });
+      } else if (now.getTime() >= sessionStart && now.getTime() < sessionEnd) {
+        setIsSessionEnded(false);
+        const remaining = Math.max(0, sessionEnd - now.getTime());
+        const mins = Math.floor(remaining / (1000 * 60));
+        const secs = Math.floor((remaining % (1000 * 60)) / 1000);
+        setTimeRemaining({ minutes: mins, seconds: secs });
+      } else {
+        setIsSessionEnded(false);
+      }
+      
       const diff = Math.max(0, targetDate.getTime() - now.getTime());
       const hours = Math.floor(diff / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
@@ -323,7 +341,7 @@ function MissionCountdownRing({ targetDate, size = 140 }: { targetDate: Date; si
     updateCountdown();
     const interval = setInterval(updateCountdown, 1000);
     return () => clearInterval(interval);
-  }, [targetDate]);
+  }, [targetDate, sessionDuration]);
   
   const status = getSessionStatus(targetDate);
   const statusColor = getStatusColor(status);
@@ -337,16 +355,56 @@ function MissionCountdownRing({ targetDate, size = 140 }: { targetDate: Date; si
   const middleRadius = (size - 24) / 2;
   const innerRadius = (size - 40) / 2;
   
-  if (status === "LIVE") {
+  if (status === "LIVE" && !isSessionEnded) {
+    const totalSessionSeconds = sessionDuration * 60;
+    const remainingSeconds = (timeRemaining.minutes * 60) + timeRemaining.seconds;
+    const progress = totalSessionSeconds > 0 ? remainingSeconds / totalSessionSeconds : 0;
+    
     return (
-      <View style={missionStyles.liveRing}>
+      <View style={[missionStyles.countdownRing, { width: size, height: size }]}>
+        <Svg width={size} height={size} style={{ position: "absolute" }}>
+          <Circle cx={size/2} cy={size/2} r={outerRadius} stroke={Colors.dark.backgroundSecondary} strokeWidth={4} fill="transparent" />
+          <Circle 
+            cx={size/2} cy={size/2} r={outerRadius} 
+            stroke={Colors.dark.error} strokeWidth={4} fill="transparent"
+            strokeDasharray={2 * Math.PI * outerRadius}
+            strokeDashoffset={2 * Math.PI * outerRadius * (1 - progress)}
+            strokeLinecap="round" rotation="-90" origin={`${size/2}, ${size/2}`}
+          />
+        </Svg>
         <LinearGradient
-          colors={[Colors.dark.error + "40", Colors.dark.error + "10"]}
-          style={missionStyles.liveRingGradient}
+          colors={[Colors.dark.error + "30", Colors.dark.error + "10"]}
+          style={[missionStyles.liveRingGradient, { width: size - 20, height: size - 20, borderRadius: (size - 20) / 2 }]}
         >
-          <Animated.View entering={FadeIn.duration(500)}>
-            <Text style={missionStyles.liveText}>LIVE</Text>
-            <Text style={missionStyles.liveSubtext}>IN SESSION</Text>
+          <Animated.View entering={FadeIn.duration(500)} style={{ alignItems: "center" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 2 }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.dark.error, marginRight: 6 }} />
+              <Text style={[missionStyles.liveText, { fontSize: 14 }]}>IN SESSION</Text>
+            </View>
+            <Text style={[missionStyles.countdownTime, { color: Colors.dark.error, fontSize: 28 }]}>
+              {formatNum(timeRemaining.minutes)}:{formatNum(timeRemaining.seconds)}
+            </Text>
+            <Text style={[missionStyles.liveSubtext, { fontSize: 10, marginTop: 2 }]}>TIME REMAINING</Text>
+          </Animated.View>
+        </LinearGradient>
+      </View>
+    );
+  }
+  
+  if (isSessionEnded) {
+    return (
+      <View style={[missionStyles.countdownRing, { width: size, height: size }]}>
+        <Svg width={size} height={size} style={{ position: "absolute" }}>
+          <Circle cx={size/2} cy={size/2} r={outerRadius} stroke={Colors.dark.primary + "40"} strokeWidth={4} fill="transparent" />
+        </Svg>
+        <LinearGradient
+          colors={[Colors.dark.primary + "30", Colors.dark.primary + "10"]}
+          style={[missionStyles.liveRingGradient, { width: size - 20, height: size - 20, borderRadius: (size - 20) / 2 }]}
+        >
+          <Animated.View entering={FadeIn.duration(500)} style={{ alignItems: "center" }}>
+            <Ionicons name="checkmark-circle" size={32} color={Colors.dark.primary} />
+            <Text style={[missionStyles.liveText, { fontSize: 12, color: Colors.dark.primary, marginTop: 4 }]}>SESSION</Text>
+            <Text style={[missionStyles.liveText, { fontSize: 12, color: Colors.dark.primary }]}>COMPLETE</Text>
           </Animated.View>
         </LinearGradient>
       </View>
@@ -439,7 +497,7 @@ function MissionCard({ session, coach, isVacationActive, upcomingOverlapsSession
             ) : null}
           </View>
           
-          <MissionCountdownRing targetDate={sessionDate} size={130} />
+          <MissionCountdownRing targetDate={sessionDate} sessionDuration={session.duration || 60} size={130} />
         </View>
         
         {shouldHideActions ? (
@@ -1408,12 +1466,32 @@ export default function PlayerHomeScreen() {
                   />
                 ) : null}
                 
-                <View style={styles.cancelNotice}>
-                  <Ionicons name="information-circle" size={16} color={Colors.dark.orange} />
-                  <Text style={styles.cancelNoticeText}>
-                    Cancellation policy applies. Late cancellations ({"\u003C"}24h) may still be charged.
-                  </Text>
-                </View>
+                {(() => {
+                  const sessionDate = nextSession?.date ? new Date(nextSession.date) : null;
+                  const hoursUntilSession = sessionDate ? (sessionDate.getTime() - Date.now()) / (1000 * 60 * 60) : 24;
+                  const isLateCancellation = hoursUntilSession < 24;
+                  
+                  return isLateCancellation ? (
+                    <View style={[styles.cancelNotice, { backgroundColor: Colors.dark.error + "25", borderWidth: 1, borderColor: Colors.dark.error }]}>
+                      <Ionicons name="warning" size={20} color={Colors.dark.error} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.cancelNoticeText, { color: Colors.dark.error, fontWeight: "700", fontSize: 14 }]}>
+                          LATE CANCELLATION - YOU WILL BE CHARGED
+                        </Text>
+                        <Text style={[styles.cancelNoticeText, { marginTop: 4 }]}>
+                          This session is within 24 hours. Cancelling now means you will still be charged the full session fee.
+                        </Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.cancelNotice}>
+                      <Ionicons name="information-circle" size={16} color={Colors.dark.orange} />
+                      <Text style={styles.cancelNoticeText}>
+                        Free cancellation available. Cancel at least 24 hours before to avoid charges.
+                      </Text>
+                    </View>
+                  );
+                })()}
                 
                 <View style={styles.modalActions}>
                   <Pressable 

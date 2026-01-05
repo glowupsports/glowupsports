@@ -34,11 +34,12 @@ function isAllowedOrigin(origin: string): boolean {
     const hostname = url.hostname;
     
     // Allow all Replit domains (both .replit.dev and .repl.co variants)
-    if (hostname.endsWith('.replit.dev') || hostname.endsWith('.repl.co') || hostname.endsWith('.replit.app')) {
+    // Also allow any port on these domains (e.g., :5000 for API calls)
+    if (hostname.endsWith('.replit.dev') || hostname.endsWith('.repl.co') || hostname.endsWith('.replit.app') || hostname.endsWith('.spock.replit.dev')) {
       return true;
     }
     
-    // Allow localhost for development
+    // Allow localhost for development (any port)
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return true;
     }
