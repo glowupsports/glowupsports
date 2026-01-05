@@ -226,8 +226,7 @@ function CoachStackNavigator() {
         name="MyReviews" 
         component={MyReviewsScreen}
         options={{
-          headerShown: true,
-          headerTitle: "My Reviews",
+          headerShown: false,
         }}
       />
     </Stack.Navigator>

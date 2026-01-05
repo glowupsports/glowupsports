@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { View, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
+import { useNavigation } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
@@ -352,7 +353,7 @@ function ResponseModal({
 
 export default function MyReviewsScreen() {
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
+  const navigation = useNavigation();
   const queryClient = useQueryClient();
   const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
   const [showResponseModal, setShowResponseModal] = useState(false);
@@ -383,7 +384,22 @@ export default function MyReviewsScreen() {
           style={styles.headerTopLine}
         />
         <View style={styles.header}>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.goBack();
+            }}
+            style={styles.backButton}
+          >
+            <LinearGradient
+              colors={[Colors.dark.primary + "30", Colors.dark.xpCyan + "20"]}
+              style={styles.backButtonGradient}
+            >
+              <Ionicons name="chevron-back" size={24} color={Colors.dark.xpCyan} />
+            </LinearGradient>
+          </Pressable>
           <ThemedText style={styles.headerTitle}>MY REVIEWS</ThemedText>
+          <View style={styles.headerSpacer} />
         </View>
       </LinearGradient>
 
@@ -458,14 +474,36 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   header: {
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: "hidden",
+  },
+  backButtonGradient: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "40",
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "700",
     color: Colors.dark.text,
-    letterSpacing: 2,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  headerSpacer: {
+    width: 40,
   },
   scrollView: {
     flex: 1,
