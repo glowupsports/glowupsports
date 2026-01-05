@@ -80,6 +80,12 @@ export const Colors = {
     accentWarning: "#FFD700",
     accentError: "#FF4444",
     accentInfo: "#00D4FF",
+    // Session type colors
+    sessionPrivate: "#2ECC40",
+    sessionSemiPrivate: "#00D4FF",
+    sessionGroup: "#F39C12",
+    sessionPhysical: "#9B59B6",
+    sessionActivity: "#888888",
   },
 };
 

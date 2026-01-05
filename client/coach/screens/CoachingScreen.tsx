@@ -167,7 +167,7 @@ export default function CoachingScreen() {
         style={StyleSheet.absoluteFill}
       />
 
-      {/* HUD Command Header - EPIC tier (only this section has glow) */}
+      {/* Mission Control Header - EPIC tier */}
       <View style={styles.hudHeader}>
         <NeoLoadoutPanel 
           variant="header" 
@@ -178,37 +178,37 @@ export default function CoachingScreen() {
           style={styles.headerPanel}
         >
           <View style={styles.hudHeaderContent}>
-            {/* Left: Animated Academy Sigil */}
+            {/* Left: Coach Avatar */}
             <View style={styles.hudSigilContainer}>
               <NeoGlowBadge size={42} accentColor={Colors.dark.primary}>
                 <Animated.View style={iconPulseStyle}>
-                  <Ionicons name="tennisball" size={22} color={Colors.dark.backgroundRoot} />
+                  <Ionicons name="person" size={20} color={Colors.dark.backgroundRoot} />
                 </Animated.View>
               </NeoGlowBadge>
             </View>
 
-            {/* Center: Title with glowing effect */}
+            {/* Center: HQ Title with Academy Name */}
             <View style={styles.hudTitleContainer}>
               <Animated.View style={[styles.hudTitleGlow, headerGlowStyle]} />
-              <Text style={styles.hudTitle}>COACHING</Text>
-              <Text style={styles.hudSubtitle}>COMMAND CENTER</Text>
+              <Text style={styles.hudTitle}>COACHING HQ</Text>
+              <Text style={styles.hudSubtitle}>Mission Control</Text>
             </View>
 
-            {/* Right: Status indicator */}
+            {/* Right: Animated LIVE indicator */}
             <View style={styles.hudStatusContainer}>
-              <View style={styles.hudStatusDot} />
+              <Animated.View style={[styles.hudStatusDot, { opacity: headerPulse }]} />
               <Text style={styles.hudStatusText}>LIVE</Text>
             </View>
           </View>
         </NeoLoadoutPanel>
       </View>
 
-      {/* Calm Tab Bar (simplified - no glow) */}
+      {/* Mission Tab Bar */}
       <View style={styles.calmTabBar}>
         {([
-          { id: "today", label: "Today", icon: "today-outline" },
-          { id: "progress", label: "Progress", icon: "trending-up-outline" },
-          { id: "plans", label: "Plans", icon: "document-text-outline" },
+          { id: "today", label: "Missions", icon: "flag-outline" },
+          { id: "progress", label: "Stats", icon: "stats-chart-outline" },
+          { id: "plans", label: "Plans", icon: "bulb-outline" },
         ] as const).map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -282,10 +282,8 @@ type FeedbackPeriod = "today" | "yesterday" | "this_week" | "last_week" | "last_
 
 const FEEDBACK_PERIODS: { id: FeedbackPeriod; label: string }[] = [
   { id: "today", label: "Today" },
-  { id: "yesterday", label: "Yesterday" },
   { id: "this_week", label: "This Week" },
-  { id: "last_week", label: "Last Week" },
-  { id: "last_month", label: "Last Month" },
+  { id: "last_month", label: "Archive" },
 ];
 
 // XP rewards for providing feedback (to motivate coaches)
@@ -1363,9 +1361,9 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
       >
         {([
           { id: "all" as const, label: "All", count: statusCounts.all, icon: null, color: Colors.dark.primary },
-          { id: "complete" as const, label: "Done", count: statusCounts.complete, icon: "checkmark-circle" as const, color: Colors.dark.primary },
-          { id: "open" as const, label: "Open", count: statusCounts.open, icon: "alert-circle" as const, color: "#F39C12" },
-          { id: "pending" as const, label: "Pending", count: statusCounts.pending, icon: "time" as const, color: Colors.dark.xpCyan },
+          { id: "open" as const, label: "Needs Feedback", count: statusCounts.open, icon: "alert-circle" as const, color: Colors.dark.gold },
+          { id: "complete" as const, label: "Completed", count: statusCounts.complete, icon: "checkmark-circle" as const, color: Colors.dark.primary },
+          { id: "pending" as const, label: "Upcoming", count: statusCounts.pending, icon: "time" as const, color: Colors.dark.xpCyan },
         ]).map((status) => {
           const isActive = statusFilter === status.id;
           return (
@@ -1395,24 +1393,39 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
         })}
       </ScrollView>
 
-      {/* XP Reward Banner - only show if pending feedback exists */}
+      {/* Epic XP Mission Banner - only show if pending feedback exists */}
       {pendingFeedbackStats.count > 0 ? (
-        <View style={styles.xpRewardBanner}>
-          <View style={styles.xpRewardLeft}>
-            <Ionicons name="star" size={20} color={Colors.dark.gold} />
-            <View style={styles.xpRewardTextContainer}>
-              <Text style={styles.xpRewardTitle}>
-                {pendingFeedbackStats.count} session{pendingFeedbackStats.count > 1 ? "s" : ""} awaiting feedback
-              </Text>
-              <Text style={styles.xpRewardSubtitle}>
-                Complete all for +{pendingFeedbackStats.totalXp} XP
-              </Text>
+        <LinearGradient
+          colors={[Colors.dark.gold + "15", Colors.dark.primary + "08"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.xpMissionBanner}
+        >
+          <View style={styles.xpMissionGlowEdge} />
+          <View style={styles.xpMissionContent}>
+            <View style={styles.xpMissionLeft}>
+              <View style={styles.xpMissionIconContainer}>
+                <Ionicons name="flash" size={22} color={Colors.dark.gold} />
+              </View>
+              <View style={styles.xpMissionTextContainer}>
+                <Text style={styles.xpMissionLabel}>FEEDBACK MISSIONS AVAILABLE</Text>
+                <Text style={styles.xpMissionStats}>
+                  {pendingFeedbackStats.count} Session{pendingFeedbackStats.count > 1 ? "s" : ""} · +{pendingFeedbackStats.totalXp} XP
+                </Text>
+              </View>
             </View>
+            <Pressable style={styles.xpMissionButton}>
+              <LinearGradient
+                colors={[Colors.dark.gold, Colors.dark.primary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.xpMissionButtonGradient}
+              >
+                <Text style={styles.xpMissionButtonText}>Complete All</Text>
+              </LinearGradient>
+            </Pressable>
           </View>
-          <View style={styles.xpRewardBadge}>
-            <Text style={styles.xpRewardBadgeText}>+{pendingFeedbackStats.totalXp} XP</Text>
-          </View>
-        </View>
+        </LinearGradient>
       ) : null}
 
       {/* Section Title with tactical styling */}
@@ -1445,51 +1458,88 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
           const sessionXp = getSessionXp(session.sessionType);
           const sessionDate = new Date(session.startTime);
           const showDate = feedbackPeriod !== "today" && feedbackPeriod !== "yesterday";
-          const accentColor = needsFeedback ? Colors.dark.gold : Colors.dark.primary;
+          
+          // Session type colors from theme
+          const getTypeColor = (type: string) => {
+            switch (type) {
+              case "private": return Colors.dark.sessionPrivate;
+              case "semi_private": return Colors.dark.sessionSemiPrivate;
+              case "group": return Colors.dark.sessionGroup;
+              case "physical": return Colors.dark.sessionPhysical;
+              case "activity": return Colors.dark.sessionActivity;
+              default: return Colors.dark.sessionPrivate;
+            }
+          };
+          
+          const typeColor = getTypeColor(session.sessionType);
+          
           return (
             <Pressable
               key={session.id}
               onPress={() => needsFeedback && setSelectedSession(session)}
               style={[
-                styles.calmSessionCard,
-                needsFeedback && styles.calmSessionCardNeedsFeedback,
+                styles.sessionCardV2,
+                { borderLeftColor: typeColor },
+                needsFeedback && styles.sessionCardV2NeedsFeedback,
               ]}
             >
-              {/* Left: Time Badge */}
-              <View style={styles.calmSessionTimeBadge}>
-                <Text style={styles.calmSessionTimeText}>{formatTime(session.startTime)}</Text>
-                <Text style={styles.calmSessionDuration}>{session.duration}m</Text>
+              {/* Left: Time Badge with type color accent */}
+              <View style={[styles.sessionTimeBadgeV2, { backgroundColor: typeColor + "15" }]}>
+                <Text style={[styles.sessionTimeTextV2, { color: typeColor }]}>{formatTime(session.startTime)}</Text>
+                <Text style={styles.sessionDurationV2}>{session.duration}m</Text>
               </View>
               
               {/* Center: Session Info */}
-              <View style={styles.calmSessionInfo}>
-                <Text style={styles.calmSessionType}>
-                  {session.sessionType === "private"
-                    ? "Private Session"
-                    : session.sessionType === "semi_private"
-                    ? "Semi-Private"
-                    : session.sessionType === "group"
-                    ? "Group Session"
-                    : session.sessionType}
-                </Text>
+              <View style={styles.sessionInfoV2}>
+                <View style={styles.sessionTypeRow}>
+                  <View style={[styles.sessionTypeDot, { backgroundColor: typeColor }]} />
+                  <Text style={styles.sessionTypeV2}>
+                    {session.sessionType === "private"
+                      ? "Private"
+                      : session.sessionType === "semi_private"
+                      ? "Semi-Private"
+                      : session.sessionType === "group"
+                      ? "Group"
+                      : session.sessionType === "physical"
+                      ? "Physical"
+                      : session.sessionType === "activity"
+                      ? "Activity"
+                      : session.sessionType}
+                  </Text>
+                </View>
+                
+                {/* Session Type Indicator */}
+                <View style={styles.playerAvatarsRow}>
+                  <View style={[styles.sessionTypeIndicator, { backgroundColor: typeColor + "20" }]}>
+                    <Ionicons 
+                      name={session.sessionType === "private" ? "person" : session.sessionType === "group" ? "people" : "tennisball"} 
+                      size={12} 
+                      color={typeColor} 
+                    />
+                  </View>
+                  <Text style={styles.playerCountText}>{session.duration} min session</Text>
+                </View>
+                
                 {showDate ? (
-                  <Text style={styles.calmSessionDate}>
+                  <Text style={styles.sessionDateV2}>
                     {sessionDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
                   </Text>
                 ) : null}
+                
+                {/* Status Badge */}
                 {needsFeedback ? (
-                  <View style={styles.calmSessionBadgeRow}>
-                    <View style={styles.calmPendingBadge}>
+                  <View style={styles.sessionBadgeRowV2}>
+                    <View style={styles.feedbackNeededBadge}>
                       <Ionicons name="alert-circle" size={12} color={Colors.dark.gold} />
-                      <Text style={styles.calmPendingText}>Needs Feedback</Text>
+                      <Text style={styles.feedbackNeededText}>Needs Feedback</Text>
                     </View>
-                    <Text style={styles.calmXpText}>+{sessionXp} XP</Text>
+                    <Text style={styles.xpBadgeText}>+{sessionXp} XP</Text>
                   </View>
                 ) : (
-                  <View style={styles.calmSessionBadgeRow}>
-                    <View style={styles.calmDoneBadge}>
+                  <View style={styles.sessionBadgeRowV2}>
+                    <View style={styles.completedBadge}>
                       <Ionicons name="checkmark-circle" size={12} color={Colors.dark.primary} />
-                      <Text style={styles.calmDoneText}>Complete</Text>
+                      <Text style={styles.completedText}>Complete</Text>
                     </View>
                   </View>
                 )}
@@ -1497,7 +1547,7 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
               
               {/* Right: Arrow */}
               {needsFeedback ? (
-                <Ionicons name="chevron-forward" size={22} color={accentColor} />
+                <Ionicons name="chevron-forward" size={22} color={Colors.dark.gold} />
               ) : null}
             </Pressable>
           );
@@ -2884,6 +2934,76 @@ const styles = StyleSheet.create({
     color: Colors.dark.backgroundRoot,
     fontWeight: "700",
   },
+  
+  // Epic XP Mission Banner
+  xpMissionBanner: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "40",
+    overflow: "hidden",
+  },
+  xpMissionGlowEdge: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: Colors.dark.gold,
+  },
+  xpMissionContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: Spacing.md,
+    paddingTop: Spacing.md + 2,
+  },
+  xpMissionLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    flex: 1,
+  },
+  xpMissionIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.gold + "25",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  xpMissionTextContainer: {
+    flex: 1,
+  },
+  xpMissionLabel: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.gold,
+    fontWeight: "700",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  xpMissionStats: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  xpMissionButton: {
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  xpMissionButtonGradient: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  xpMissionButtonText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
+  },
+
   feedbackRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -4362,6 +4482,131 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   calmDoneText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.primary,
+  },
+
+  // Session Card V2 - Gaming Style with Type Colors
+  sessionCardV2: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.dark.primary,
+  },
+  sessionCardV2NeedsFeedback: {
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "40",
+    shadowColor: Colors.dark.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  sessionTimeBadgeV2: {
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 56,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
+    borderRadius: BorderRadius.md,
+  },
+  sessionTimeTextV2: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "700",
+  },
+  sessionDurationV2: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.tabIconDefault,
+    marginTop: 2,
+  },
+  sessionInfoV2: {
+    flex: 1,
+  },
+  sessionTypeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: 4,
+  },
+  sessionTypeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  sessionTypeV2: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  playerAvatarsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  playerAvatarMini: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderWidth: 1,
+    borderColor: Colors.dark.textMuted + "40",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sessionTypeIndicator: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playerCountText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.tabIconDefault,
+    marginLeft: Spacing.sm,
+  },
+  sessionDateV2: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+    marginBottom: 4,
+  },
+  sessionBadgeRowV2: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: 4,
+  },
+  feedbackNeededBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.gold + "15",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  feedbackNeededText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.gold,
+    fontWeight: "500",
+  },
+  xpBadgeText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.gold,
+    fontWeight: "700",
+  },
+  completedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  completedText: {
     fontSize: Typography.caption.fontSize,
     color: Colors.dark.primary,
   },
