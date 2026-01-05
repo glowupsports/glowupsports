@@ -6953,6 +6953,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/push/test", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.userId;
+      const { sendPushNotification, getUserPushTokens } = await import("./pushNotifications");
+      
+      const tokens = await getUserPushTokens(userId);
+      
+      if (tokens.length === 0) {
+        return res.status(400).json({ 
+          error: "No push tokens registered", 
+          message: "Open the app on your phone with notifications enabled first" 
+        });
+      }
+      
+      const result = await sendPushNotification(
+        tokens,
+        "Test Notification",
+        "Push notifications are working! This is a test from Glow Up Sports.",
+        { type: "test", timestamp: new Date().toISOString() }
+      );
+      
+      console.log(`[PushTest] Sent test notification to user ${userId}, ${tokens.length} devices`);
+      res.json({ success: true, devicesNotified: tokens.length, result });
+    } catch (error) {
+      console.error("Error sending test push:", error);
+      res.status(500).json({ error: "Failed to send test notification" });
+    }
+  });
+
+  app.post("/api/platform/test/academy-signup", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userRole = req.user!.role;
+      if (userRole !== "platform_owner") {
+        return res.status(403).json({ error: "Platform owner access required" });
+      }
+      
+      const userId = req.user!.userId;
+      const { sendPushNotification, getUserPushTokens } = await import("./pushNotifications");
+      
+      const tokens = await getUserPushTokens(userId);
+      
+      const testAcademyName = `Test Academy ${Date.now().toString().slice(-4)}`;
+      const testOwnerName = "John Doe";
+      const testEmail = "john.doe@example.com";
+      
+      if (tokens.length > 0) {
+        await sendPushNotification(
+          tokens,
+          "New Academy Sign-up Request",
+          `${testOwnerName} (${testEmail}) wants to create "${testAcademyName}"`,
+          { type: "academy_signup_request", academyName: testAcademyName, ownerName: testOwnerName }
+        );
+      }
+      
+      console.log(`[PlatformTest] Simulated academy sign-up for user ${userId}`);
+      res.json({ 
+        success: true, 
+        simulation: {
+          academyName: testAcademyName,
+          ownerName: testOwnerName,
+          email: testEmail,
+          notificationSent: tokens.length > 0,
+        }
+      });
+    } catch (error) {
+      console.error("Error simulating academy sign-up:", error);
+      res.status(500).json({ error: "Failed to simulate academy sign-up" });
+    }
+  });
+
   // ==================== PHASE 3: BILLING ====================
 
   app.get("/api/billing/account", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {

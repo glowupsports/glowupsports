@@ -15,6 +15,7 @@ import type { PlatformStackParamList } from "@/platform/navigation/PlatformNavig
 type NavigationProp = NativeStackNavigationProp<PlatformStackParamList>;
 
 const PLATFORM_COLOR = "#9B59B6";
+const TEST_COLOR = "#E67E22";
 
 interface SettingRowProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -89,6 +90,61 @@ export default function SystemScreen() {
       queryClient.invalidateQueries({ queryKey: ["/api/maintenance/status"] });
     },
   });
+
+  const [testPushLoading, setTestPushLoading] = useState(false);
+  const [testSignupLoading, setTestSignupLoading] = useState(false);
+
+  const handleTestPushNotification = async () => {
+    setTestPushLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const response = await apiRequest("POST", "/api/push/test", {});
+      const data = response as unknown as { success: boolean; devicesNotified: number };
+      const message = `Test notification sent to ${data.devicesNotified} device(s). Check your phone!`;
+      if (Platform.OS === "web") {
+        window.alert(message);
+      } else {
+        Alert.alert("Success", message);
+      }
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      const message = error?.message || "Failed to send test notification. Make sure you have the app open on your phone with notifications enabled.";
+      if (Platform.OS === "web") {
+        window.alert(message);
+      } else {
+        Alert.alert("Error", message);
+      }
+    } finally {
+      setTestPushLoading(false);
+    }
+  };
+
+  const handleTestAcademySignup = async () => {
+    setTestSignupLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const response = await apiRequest("POST", "/api/platform/test/academy-signup", {});
+      const data = response as unknown as { success: boolean; simulation: { academyName: string; ownerName: string; email: string; notificationSent: boolean } };
+      const message = data.simulation.notificationSent 
+        ? `Simulated sign-up request from "${data.simulation.ownerName}" for "${data.simulation.academyName}". Push notification sent!`
+        : `Simulated sign-up: "${data.simulation.ownerName}" wants to create "${data.simulation.academyName}". (No push token - open app on phone first)`;
+      if (Platform.OS === "web") {
+        window.alert(message);
+      } else {
+        Alert.alert("Academy Sign-up Simulation", message);
+      }
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      const message = error?.message || "Failed to simulate academy sign-up.";
+      if (Platform.OS === "web") {
+        window.alert(message);
+      } else {
+        Alert.alert("Error", message);
+      }
+    } finally {
+      setTestSignupLoading(false);
+    }
+  };
 
   const isMaintenanceOn = maintenanceStatus?.maintenance ?? false;
 
@@ -339,6 +395,48 @@ export default function SystemScreen() {
               description="Data privacy and compliance"
               onPress={handleGDPR}
             />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: TEST_COLOR }]}>Developer Tools</Text>
+          <View style={[styles.settingsCard, CardStyles.elevated, { borderColor: TEST_COLOR + "40", borderWidth: 1 }]}>
+            <Pressable 
+              style={styles.settingRow}
+              onPress={handleTestPushNotification}
+              disabled={testPushLoading}
+            >
+              <View style={[styles.settingIcon, { backgroundColor: `${TEST_COLOR}20` }]}>
+                {testPushLoading ? (
+                  <ActivityIndicator size="small" color={TEST_COLOR} />
+                ) : (
+                  <Ionicons name="notifications" size={20} color={TEST_COLOR} />
+                )}
+              </View>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Test Push Notification</Text>
+                <Text style={styles.settingDescription}>Send a test notification to your phone</Text>
+              </View>
+              <Ionicons name="send" size={20} color={TEST_COLOR} />
+            </Pressable>
+            <Pressable 
+              style={styles.settingRow}
+              onPress={handleTestAcademySignup}
+              disabled={testSignupLoading}
+            >
+              <View style={[styles.settingIcon, { backgroundColor: `${TEST_COLOR}20` }]}>
+                {testSignupLoading ? (
+                  <ActivityIndicator size="small" color={TEST_COLOR} />
+                ) : (
+                  <Ionicons name="business-outline" size={20} color={TEST_COLOR} />
+                )}
+              </View>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Simulate Academy Sign-up</Text>
+                <Text style={styles.settingDescription}>Test new academy request notification</Text>
+              </View>
+              <Ionicons name="flask" size={20} color={TEST_COLOR} />
+            </Pressable>
           </View>
         </View>
 
