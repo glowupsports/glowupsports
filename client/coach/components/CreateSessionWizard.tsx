@@ -186,7 +186,7 @@ export default function CreateSessionWizard({
   
   // Loading states
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
-  const [weekAvailability, setWeekAvailability] = useState<{ week: number; date: Date; available: boolean; conflict?: string }[]>([]);
+  const [multiWeekBlockedSlots, setMultiWeekBlockedSlots] = useState<Set<string>>(new Set());
 
   // Animation values
   const slideProgress = useSharedValue(0);
@@ -281,7 +281,98 @@ export default function CreateSessionWizard({
     return blocked;
   }, [calendarData, selectedCourtId, selectedDate, duration]);
 
-  // Available time slots (HIDDEN if blocked)
+  // Generate dates for recurring weeks
+  const recurringDates = useMemo(() => {
+    if (!isRecurring || weekCount <= 1) return [];
+    const dates: string[] = [];
+    for (let week = 1; week < weekCount; week++) {
+      const futureDate = new Date(selectedDate);
+      futureDate.setDate(futureDate.getDate() + (week * 7));
+      const dateStr = `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}-${String(futureDate.getDate()).padStart(2, '0')}`;
+      dates.push(dateStr);
+    }
+    return dates;
+  }, [isRecurring, weekCount, selectedDate]);
+
+  // Fetch multi-week availability when recurring and court selected
+  useEffect(() => {
+    const fetchMultiWeekAvailability = async () => {
+      if (!isRecurring || !selectedCourtId || recurringDates.length === 0) {
+        setMultiWeekBlockedSlots(new Set());
+        return;
+      }
+      
+      setIsCheckingAvailability(true);
+      try {
+        const res = await apiFetch("/api/coach/sessions/multi-week-availability", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dates: recurringDates, courtId: selectedCourtId }),
+        });
+        
+        if (!res.ok) {
+          setMultiWeekBlockedSlots(new Set());
+          return;
+        }
+        
+        const data = await res.json();
+        const blockedTimes = new Set<string>();
+        
+        const slotTimes = [
+          "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
+          "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
+          "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
+          "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
+          "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
+        ];
+        
+        // For each future week, check which slots are blocked
+        for (const dateStr of recurringDates) {
+          const availability = data[dateStr];
+          if (!availability) continue;
+          
+          const allBlocked = [...(availability.blockedSlots || []), ...(availability.coachBlocked || [])];
+          
+          for (const blocked of allBlocked) {
+            const blockStart = new Date(blocked.start);
+            const blockEnd = new Date(blocked.end);
+            
+            // Check each time slot against this blocked period
+            for (const time of slotTimes) {
+              const [hours, mins] = time.split(":").map(Number);
+              // Use the original selected date to match time slot format
+              const slotDate = new Date(selectedDate);
+              slotDate.setHours(hours, mins, 0, 0);
+              const slotEnd = new Date(slotDate);
+              slotEnd.setMinutes(slotEnd.getMinutes() + duration);
+              
+              // Map to the future week's date for comparison
+              const [y, m, d] = dateStr.split("-").map(Number);
+              const futureSlotStart = new Date(y, m - 1, d, hours, mins, 0, 0);
+              const futureSlotEnd = new Date(futureSlotStart);
+              futureSlotEnd.setMinutes(futureSlotEnd.getMinutes() + duration);
+              
+              // Check overlap
+              if (futureSlotStart < blockEnd && futureSlotEnd > blockStart) {
+                blockedTimes.add(time);
+              }
+            }
+          }
+        }
+        
+        setMultiWeekBlockedSlots(blockedTimes);
+      } catch (error) {
+        console.error("Failed to fetch multi-week availability:", error);
+        setMultiWeekBlockedSlots(new Set());
+      } finally {
+        setIsCheckingAvailability(false);
+      }
+    };
+    
+    fetchMultiWeekAvailability();
+  }, [isRecurring, selectedCourtId, recurringDates, duration, selectedDate]);
+
+  // Available time slots (HIDDEN if blocked - includes both current day and future recurring days)
   const availableSlots = useMemo(() => {
     const allSlots = [
       "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
@@ -290,8 +381,9 @@ export default function CreateSessionWizard({
       "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
       "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
     ];
-    return allSlots.filter(time => !blockedSlots.has(time));
-  }, [blockedSlots]);
+    // Filter out slots blocked on current day AND slots blocked on any future recurring week
+    return allSlots.filter(time => !blockedSlots.has(time) && !multiWeekBlockedSlots.has(time));
+  }, [blockedSlots, multiWeekBlockedSlots]);
 
   // Reset form on close
   const resetForm = useCallback(() => {
@@ -313,7 +405,7 @@ export default function CreateSessionWizard({
     setEnableWaitlist(false);
     setTravelTime(0);
     setNotes("");
-    setWeekAvailability([]);
+    setMultiWeekBlockedSlots(new Set());
   }, []);
 
   useEffect(() => {
@@ -325,6 +417,22 @@ export default function CreateSessionWizard({
       resetForm();
     }
   }, [visible]);
+
+  // Clear startTime when court changes (to revalidate against new court's blocked slots)
+  useEffect(() => {
+    // Only clear if court was actively changed (not initial mount)
+    if (visible && selectedCourtId !== initialCourtId) {
+      setStartTime(null);
+    }
+  }, [selectedCourtId]);
+
+  // Clear startTime if it becomes blocked (due to multi-week availability updates)
+  useEffect(() => {
+    if (startTime && !availableSlots.includes(startTime)) {
+      setStartTime(null);
+      // Could show a toast here: "Selected time is no longer available"
+    }
+  }, [availableSlots, startTime]);
 
   // Animate slide progress
   useEffect(() => {

@@ -2179,6 +2179,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get multi-week availability for recurring session creation
+  app.post("/api/coach/sessions/multi-week-availability", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      const { dates, courtId } = req.body;
+
+      if (!dates || !Array.isArray(dates) || dates.length === 0) {
+        return res.status(400).json({ error: "dates array is required" });
+      }
+
+      // Build result: for each date, get blocked slots
+      const result: Record<string, { 
+        blockedSlots: Array<{ courtId: string | null; start: string; end: string }>;
+        coachBlocked: Array<{ start: string; end: string }>;
+      }> = {};
+
+      for (const dateStr of dates) {
+        const [year, month, day] = dateStr.split("-").map(Number);
+        const startDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+        const endDate = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+
+        // Get all sessions for this day (blocked slots = other coaches' sessions)
+        const blockedSessions = await storage.getBlockedSessions(coachId as string, startDate, endDate, academyId ?? undefined);
+        const ownSessions = await storage.getSessionsByCoach(coachId as string, startDate, endDate, academyId ?? undefined);
+
+        // Court blocked slots (other coaches)
+        const blockedSlots = blockedSessions
+          .filter(s => !courtId || s.courtId === courtId)
+          .map(s => ({
+            courtId: s.courtId,
+            start: new Date(s.startTime).toISOString(),
+            end: new Date(s.endTime).toISOString(),
+          }));
+
+        // Coach blocked (own sessions - coach can't be in two places)
+        const coachBlocked = ownSessions.map(s => ({
+          start: new Date(s.startTime).toISOString(),
+          end: new Date(s.endTime).toISOString(),
+        }));
+
+        // Also add other coaches' sessions to coachBlocked if on same court
+        if (courtId) {
+          const courtBlocked = blockedSessions
+            .filter(s => s.courtId === courtId)
+            .map(s => ({
+              start: new Date(s.startTime).toISOString(),
+              end: new Date(s.endTime).toISOString(),
+            }));
+          coachBlocked.push(...courtBlocked);
+        }
+
+        result[dateStr] = { blockedSlots, coachBlocked };
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching multi-week availability:", error);
+      res.status(500).json({ error: "Failed to fetch availability" });
+    }
+  });
+
   // Create session
   app.post("/api/coach/sessions", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
