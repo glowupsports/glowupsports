@@ -217,16 +217,23 @@ export default function CreateSessionDrawer({
     id: string;
     startTime: string;
     endTime: string;
-    duration: number;
+    duration?: number;
+    courtId?: string;
+    blocked?: boolean;
+  }
+
+  interface CalendarData {
+    ownSessions: ExistingSession[];
+    blockedSessions: ExistingSession[];
   }
 
   // Use local date components for query key to avoid timezone issues
   const selectedDateString = `${startTime.getFullYear()}-${String(startTime.getMonth() + 1).padStart(2, '0')}-${String(startTime.getDate()).padStart(2, '0')}`;
   
-  const { data: daySessions = [] } = useQuery<ExistingSession[]>({
-    queryKey: ["/api/coach/sessions/day", coach?.id, selectedDateString],
+  const { data: calendarData } = useQuery<CalendarData>({
+    queryKey: ["/api/coach/calendar/day", coach?.id, selectedDateString],
     queryFn: async () => {
-      if (!coach?.id) return [];
+      if (!coach?.id) return { ownSessions: [], blockedSessions: [] };
       // Use local midnight to midnight for the selected day
       const dayStart = new Date(startTime);
       dayStart.setHours(0, 0, 0, 0);
@@ -236,33 +243,42 @@ export default function CreateSessionDrawer({
       const res = await apiFetch(
         `/api/coach/calendar?startDate=${dayStart.toISOString()}&endDate=${dayEnd.toISOString()}`
       );
-      if (!res.ok) return [];
+      if (!res.ok) return { ownSessions: [], blockedSessions: [] };
       const data = await res.json();
-      // ownSessions contains sessions where this coach is the owner
-      return data.ownSessions || [];
+      return {
+        ownSessions: data.ownSessions || [],
+        blockedSessions: data.blockedSessions || [],
+      };
     },
     enabled: visible && !!coach?.id,
   });
+
+  // Coach's own sessions (blocks ALL time slots regardless of court)
+  const coachSessions = calendarData?.ownSessions || [];
+  
+  // Other coaches' sessions on the SELECTED court
+  const courtBlockedSessions = selectedCourtId 
+    ? (calendarData?.blockedSessions || []).filter(s => s.courtId === selectedCourtId)
+    : [];
 
   // Calculate blocked time slots based on existing sessions
   const getBlockedTimeSlots = useCallback((): Set<string> => {
     const blocked = new Set<string>();
     
-    for (const session of daySessions) {
-      // Parse UTC timestamps correctly
+    const slotTimes = [
+      "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
+      "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
+      "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
+      "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
+      "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
+    ];
+    
+    // Helper to check if a session overlaps with a time slot
+    const checkSessionOverlap = (session: ExistingSession) => {
       const sessionStartStr = session.startTime;
       const sessionEndStr = session.endTime;
       const sessionStart = new Date(sessionStartStr.endsWith("Z") ? sessionStartStr : sessionStartStr + "Z");
       const sessionEnd = new Date(sessionEndStr.endsWith("Z") ? sessionEndStr : sessionEndStr + "Z");
-      
-      // Block all 30-minute slots that overlap with this session
-      const slotTimes = [
-        "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
-        "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
-        "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
-        "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
-        "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
-      ];
       
       for (const time of slotTimes) {
         const [hours, mins] = time.split(":").map(Number);
@@ -271,16 +287,25 @@ export default function CreateSessionDrawer({
         const slotEnd = new Date(slotStart);
         slotEnd.setMinutes(slotEnd.getMinutes() + duration);
         
-        // Check if this slot overlaps with the session
         // Overlap: slotStart < sessionEnd AND slotEnd > sessionStart
         if (slotStart < sessionEnd && slotEnd > sessionStart) {
           blocked.add(time);
         }
       }
+    };
+    
+    // Block slots for coach's own sessions (can't double book coach)
+    for (const session of coachSessions) {
+      checkSessionOverlap(session);
+    }
+    
+    // Block slots for other coaches' sessions on the selected court (can't double book court)
+    for (const session of courtBlockedSessions) {
+      checkSessionOverlap(session);
     }
     
     return blocked;
-  }, [daySessions, startTime, duration]);
+  }, [coachSessions, courtBlockedSessions, startTime, duration]);
 
   const blockedSlots = getBlockedTimeSlots();
 
