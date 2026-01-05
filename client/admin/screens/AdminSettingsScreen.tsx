@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
@@ -32,6 +33,7 @@ interface Court {
 export default function AdminSettingsScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const navigation = useNavigation<any>();
   const { logout } = useAuth();
   const [showCourtModal, setShowCourtModal] = useState(false);
   const [editingCourt, setEditingCourt] = useState<Court | null>(null);
@@ -133,15 +135,7 @@ export default function AdminSettingsScreen() {
 
   const handleShowRolesPermissions = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (Platform.OS === "web") {
-      window.alert("Roles & Permissions feature is coming soon. You'll be able to customize access levels for coaches and staff members.");
-    } else {
-      Alert.alert(
-        "Coming Soon",
-        "Roles & Permissions feature is coming soon. You'll be able to customize access levels for coaches and staff members.",
-        [{ text: "OK" }]
-      );
-    }
+    navigation.navigate("AdminRolesPermissions");
   };
 
   const handleSaveProfile = () => {

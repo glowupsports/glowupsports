@@ -8458,6 +8458,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin Roles & Permissions - Get role configurations
+  app.get("/api/admin/roles", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const defaultRoles = [
+        {
+          id: "admin",
+          name: "admin",
+          displayName: "Admin",
+          description: "Full access to all academy features",
+          isSystemRole: true,
+          permissions: {
+            view_players: true, edit_players: true, delete_players: true,
+            view_sessions: true, create_sessions: true, edit_sessions: true, delete_sessions: true,
+            view_coaches: true, manage_coaches: true,
+            view_courts: true, manage_courts: true,
+            view_reports: true, manage_billing: true, send_notifications: true, manage_settings: true,
+          },
+        },
+        {
+          id: "coach",
+          name: "coach",
+          displayName: "Coach",
+          description: "Can manage own sessions and view players",
+          isSystemRole: true,
+          permissions: {
+            view_players: true, edit_players: false, delete_players: false,
+            view_sessions: true, create_sessions: true, edit_sessions: true, delete_sessions: false,
+            view_coaches: true, manage_coaches: false,
+            view_courts: true, manage_courts: false,
+            view_reports: false, manage_billing: false, send_notifications: true, manage_settings: false,
+          },
+        },
+        {
+          id: "assistant_coach",
+          name: "assistant_coach",
+          displayName: "Assistant Coach",
+          description: "Limited coaching capabilities",
+          isSystemRole: false,
+          permissions: {
+            view_players: true, edit_players: false, delete_players: false,
+            view_sessions: true, create_sessions: false, edit_sessions: false, delete_sessions: false,
+            view_coaches: true, manage_coaches: false,
+            view_courts: true, manage_courts: false,
+            view_reports: false, manage_billing: false, send_notifications: false, manage_settings: false,
+          },
+        },
+        {
+          id: "front_desk",
+          name: "front_desk",
+          displayName: "Front Desk",
+          description: "Reception and scheduling support",
+          isSystemRole: false,
+          permissions: {
+            view_players: true, edit_players: true, delete_players: false,
+            view_sessions: true, create_sessions: true, edit_sessions: true, delete_sessions: false,
+            view_coaches: true, manage_coaches: false,
+            view_courts: true, manage_courts: false,
+            view_reports: false, manage_billing: true, send_notifications: true, manage_settings: false,
+          },
+        },
+      ];
+
+      const settings = await storage.getAcademySettings(academyId);
+      const customRoles = settings?.roles || defaultRoles;
+
+      res.json({ roles: customRoles });
+    } catch (error) {
+      console.error("Get roles error:", error);
+      res.status(500).json({ error: "Failed to fetch roles" });
+    }
+  });
+
+  // Admin Roles & Permissions - Update role configurations
+  app.put("/api/admin/roles", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const { roles } = req.body;
+      if (!roles || !Array.isArray(roles)) {
+        return res.status(400).json({ error: "Invalid roles data" });
+      }
+
+      const settings = await storage.getAcademySettings(academyId) || {};
+      const updatedSettings = { ...settings, roles };
+      await storage.updateAcademySettings(academyId, updatedSettings);
+
+      res.json({ success: true, roles });
+    } catch (error) {
+      console.error("Update roles error:", error);
+      res.status(500).json({ error: "Failed to update roles" });
+    }
+  });
+
   // Admin Dashboard - Comprehensive stats and alerts for academy admins
   app.get("/api/admin/dashboard", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
