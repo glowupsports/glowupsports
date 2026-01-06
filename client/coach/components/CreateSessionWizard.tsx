@@ -126,7 +126,7 @@ const SKILL_LEVELS: { value: SkillLevel; label: string }[] = [
   { value: 3, label: "Advanced" },
 ];
 
-const WEEK_COUNTS = [1, 4, 8, 12, 16, 20];
+const WEEK_COUNTS = [1, 2, 5, 10, 15, 20, 30];
 const TRAVEL_TIMES = [0, 5, 10, 15, 20, 30];
 const DURATIONS = [30, 45, 60, 90, 120];
 const MAX_PLAYERS_OPTIONS = [2, 3, 4, 6, 8, 10, 12];
