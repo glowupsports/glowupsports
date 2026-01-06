@@ -115,12 +115,34 @@ export default function AcademyProfileScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.logoSection, CardStyles.elevated]}>
-          <View style={styles.logoPlaceholder}>
-            <Ionicons name="business" size={48} color={Colors.dark.gold} />
+        <View style={[
+          styles.logoSection, 
+          CardStyles.elevated,
+          isEditing && { borderWidth: 2, borderColor: formData.primaryColor || "#FFD700" }
+        ]}>
+          <View style={[
+            styles.logoPlaceholder, 
+            isEditing && { backgroundColor: `${formData.primaryColor || "#FFD700"}20` }
+          ]}>
+            <Ionicons 
+              name="business" 
+              size={48} 
+              color={isEditing ? (formData.primaryColor || Colors.dark.gold) : Colors.dark.gold} 
+            />
           </View>
-          <Text style={styles.academyName}>{academy?.name || "Your Academy"}</Text>
-          {isEditing ? null : (
+          <Text style={[
+            styles.academyName,
+            isEditing && { color: formData.primaryColor || Colors.dark.gold }
+          ]}>
+            {isEditing ? (formData.name || "Your Academy") : (academy?.name || "Your Academy")}
+          </Text>
+          {isEditing ? (
+            <View style={styles.previewBadge}>
+              <View style={[styles.previewDot, { backgroundColor: formData.primaryColor || "#FFD700" }]} />
+              <View style={[styles.previewDot, { backgroundColor: formData.secondaryColor || "#00CED1" }]} />
+              <Text style={styles.previewText}>Live Preview</Text>
+            </View>
+          ) : (
             <Text style={styles.academyDescription}>
               {academy?.description || "Add a description for your academy"}
             </Text>
@@ -399,6 +421,26 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.textMuted,
     textAlign: "center",
+  },
+  previewBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.full,
+  },
+  previewDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  previewText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontStyle: "italic",
   },
   section: {
     gap: Spacing.md,
