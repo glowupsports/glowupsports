@@ -51,11 +51,22 @@ interface Player {
   profilePhotoUrl?: string | null;
 }
 
+interface Coach {
+  id: string;
+  name: string;
+  profilePhotoUrl?: string | null;
+  color?: string | null;
+}
+
 interface CreateSessionWizardProps {
   visible: boolean;
   onClose: () => void;
   initialCourtId?: string;
   initialTime?: Date;
+  adminMode?: boolean;
+  coaches?: Coach[];
+  selectedCoachId?: string;
+  onCoachIdChange?: (coachId: string) => void;
 }
 
 type SessionType = "private" | "semi_private" | "group" | "physical" | "activity";
@@ -132,7 +143,17 @@ const DURATIONS = [30, 45, 60, 90, 120];
 const MAX_PLAYERS_OPTIONS = [2, 3, 4, 6, 8, 10, 12];
 
 const TOTAL_SLIDES = 6;
+const ADMIN_TOTAL_SLIDES = 7;
 const SLIDE_TITLES = [
+  "Choose Session Type",
+  "Schedule Pattern",
+  "When & Where",
+  "Session Setup",
+  "Players",
+  "Confirm",
+];
+const ADMIN_SLIDE_TITLES = [
+  "Select Coach",
   "Choose Session Type",
   "Schedule Pattern",
   "When & Where",
@@ -146,11 +167,22 @@ export default function CreateSessionWizard({
   onClose,
   initialCourtId,
   initialTime,
+  adminMode = false,
+  coaches = [],
+  selectedCoachId,
+  onCoachIdChange,
 }: CreateSessionWizardProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { coach, refetchCalendar } = useCoach();
+  const { coach: currentCoach, refetchCalendar } = useCoach();
   const { isOffline } = useNetwork();
+  
+  const totalSlides = adminMode ? ADMIN_TOTAL_SLIDES : TOTAL_SLIDES;
+  const slideTitles = adminMode ? ADMIN_SLIDE_TITLES : SLIDE_TITLES;
+  
+  const effectiveCoach = adminMode 
+    ? coaches.find(c => c.id === selectedCoachId) 
+    : currentCoach;
 
   // Current slide (0-5)
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -235,10 +267,11 @@ export default function CreateSessionWizard({
   }
 
   const { data: calendarData } = useQuery<{ ownSessions: ExistingSession[]; blockedSessions: ExistingSession[] }>({
-    queryKey: ["/api/coach/calendar/day", coach?.id, selectedDateString],
+    queryKey: ["/api/coach/calendar/day", effectiveCoach?.id, selectedDateString],
     queryFn: async () => {
-      if (!coach?.id) return { ownSessions: [], blockedSessions: [] };
-      const res = await apiFetch(`/api/coach/calendar?date=${selectedDateString}&view=day`);
+      if (!effectiveCoach?.id) return { ownSessions: [], blockedSessions: [] };
+      const coachIdParam = adminMode ? `&coachId=${effectiveCoach.id}` : '';
+      const res = await apiFetch(`/api/coach/calendar?date=${selectedDateString}&view=day${coachIdParam}`);
       if (!res.ok) return { ownSessions: [], blockedSessions: [] };
       const data = await res.json();
       return {
@@ -246,7 +279,7 @@ export default function CreateSessionWizard({
         blockedSessions: data.blockedSessions || [],
       };
     },
-    enabled: visible && !!coach?.id && currentSlide >= 2,
+    enabled: visible && !!effectiveCoach?.id && currentSlide >= (adminMode ? 3 : 2),
   });
 
   // Calculate blocked time slots
@@ -523,11 +556,11 @@ export default function CreateSessionWizard({
 
   // Animate slide progress
   useEffect(() => {
-    slideProgress.value = withSpring(currentSlide / (TOTAL_SLIDES - 1), {
+    slideProgress.value = withSpring(currentSlide / (totalSlides - 1), {
       damping: 20,
       stiffness: 90,
     });
-  }, [currentSlide]);
+  }, [currentSlide, totalSlides]);
 
   // Glow pulse animation
   useEffect(() => {
@@ -543,11 +576,11 @@ export default function CreateSessionWizard({
 
   // Navigation
   const goNext = useCallback(() => {
-    if (currentSlide < TOTAL_SLIDES - 1) {
+    if (currentSlide < totalSlides - 1) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setCurrentSlide(prev => prev + 1);
     }
-  }, [currentSlide]);
+  }, [currentSlide, totalSlides]);
 
   const goBack = useCallback(() => {
     if (currentSlide > 0) {
@@ -558,16 +591,29 @@ export default function CreateSessionWizard({
 
   // Can proceed to next slide?
   const canProceed = useMemo(() => {
-    switch (currentSlide) {
-      case 0: return !!sessionType;
-      case 1: return true; // Recurring is optional
-      case 2: return !!selectedCourtId && !!startTime;
-      case 3: return true; // Setup has defaults
-      case 4: return true; // Players optional
-      case 5: return true; // Confirm
-      default: return false;
+    if (adminMode) {
+      switch (currentSlide) {
+        case 0: return !!selectedCoachId;
+        case 1: return !!sessionType;
+        case 2: return true; // Recurring is optional
+        case 3: return !!selectedCourtId && !!startTime;
+        case 4: return true; // Setup has defaults
+        case 5: return true; // Players optional
+        case 6: return true; // Confirm
+        default: return false;
+      }
+    } else {
+      switch (currentSlide) {
+        case 0: return !!sessionType;
+        case 1: return true; // Recurring is optional
+        case 2: return !!selectedCourtId && !!startTime;
+        case 3: return true; // Setup has defaults
+        case 4: return true; // Players optional
+        case 5: return true; // Confirm
+        default: return false;
+      }
     }
-  }, [currentSlide, sessionType, selectedCourtId, startTime]);
+  }, [currentSlide, sessionType, selectedCourtId, startTime, adminMode, selectedCoachId]);
 
   // Create session mutation
   const createSessionMutation = useMutation({
@@ -611,7 +657,7 @@ export default function CreateSessionWizard({
     sessionEnd.setMinutes(sessionEnd.getMinutes() + duration);
 
     const sessionData = {
-      coachId: coach?.id,
+      coachId: effectiveCoach?.id,
       courtId: selectedCourtId,
       startTime: sessionStart.toISOString(),
       endTime: sessionEnd.toISOString(),
@@ -635,7 +681,7 @@ export default function CreateSessionWizard({
   }, [
     isOffline, selectedCourtId, startTime, selectedDate, duration,
     sessionType, ballLevel, skillLevel, notes, travelTime,
-    selectedPlayers, coach, isRecurring, weekCount, maxPlayers,
+    selectedPlayers, effectiveCoach, isRecurring, weekCount, maxPlayers,
     isOpenGroup, visibleToPlayers, enableWaitlist
   ]);
 
@@ -651,23 +697,87 @@ export default function CreateSessionWizard({
 
   // Render slide content
   const renderSlideContent = () => {
-    switch (currentSlide) {
-      case 0:
-        return renderSessionTypeSlide();
-      case 1:
-        return renderRecurringSlide();
-      case 2:
-        return renderWhenWhereSlide();
-      case 3:
-        return renderSessionSetupSlide();
-      case 4:
-        return renderPlayersSlide();
-      case 5:
-        return renderConfirmSlide();
-      default:
-        return null;
+    if (adminMode) {
+      switch (currentSlide) {
+        case 0:
+          return renderCoachSelectionSlide();
+        case 1:
+          return renderSessionTypeSlide();
+        case 2:
+          return renderRecurringSlide();
+        case 3:
+          return renderWhenWhereSlide();
+        case 4:
+          return renderSessionSetupSlide();
+        case 5:
+          return renderPlayersSlide();
+        case 6:
+          return renderConfirmSlide();
+        default:
+          return null;
+      }
+    } else {
+      switch (currentSlide) {
+        case 0:
+          return renderSessionTypeSlide();
+        case 1:
+          return renderRecurringSlide();
+        case 2:
+          return renderWhenWhereSlide();
+        case 3:
+          return renderSessionSetupSlide();
+        case 4:
+          return renderPlayersSlide();
+        case 5:
+          return renderConfirmSlide();
+        default:
+          return null;
+      }
     }
   };
+  
+  const renderCoachSelectionSlide = () => (
+    <View style={styles.slideContent}>
+      <Text style={styles.slideSubtitle}>Select the coach for this session</Text>
+      <ScrollView style={styles.coachList} showsVerticalScrollIndicator={false}>
+        {coaches.map(coachItem => (
+          <Pressable
+            key={coachItem.id}
+            style={[
+              styles.coachOption,
+              selectedCoachId === coachItem.id && styles.coachOptionSelected,
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onCoachIdChange?.(coachItem.id);
+            }}
+          >
+            <View style={styles.coachOptionLeft}>
+              {coachItem.profilePhotoUrl ? (
+                <Image
+                  source={{ uri: `${getStaticAssetsUrl()}${coachItem.profilePhotoUrl}` }}
+                  style={styles.coachOptionAvatar}
+                />
+              ) : (
+                <LinearGradient
+                  colors={[coachItem.color || Colors.dark.primary, Colors.dark.xpCyan]}
+                  style={styles.coachOptionAvatar}
+                >
+                  <Text style={styles.coachOptionAvatarText}>
+                    {coachItem.name.charAt(0).toUpperCase()}
+                  </Text>
+                </LinearGradient>
+              )}
+              <Text style={styles.coachOptionName}>{coachItem.name}</Text>
+            </View>
+            {selectedCoachId === coachItem.id && (
+              <Ionicons name="checkmark-circle" size={24} color={Colors.dark.primary} />
+            )}
+          </Pressable>
+        ))}
+      </ScrollView>
+    </View>
+  );
 
   // SLIDE 0: Session Type
   const renderSessionTypeSlide = () => (
@@ -1345,8 +1455,8 @@ export default function CreateSessionWizard({
           </Pressable>
           
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>{SLIDE_TITLES[currentSlide]}</Text>
-            <Text style={styles.headerSubtitle}>Step {currentSlide + 1} of {TOTAL_SLIDES}</Text>
+            <Text style={styles.headerTitle}>{slideTitles[currentSlide]}</Text>
+            <Text style={styles.headerSubtitle}>Step {currentSlide + 1} of {totalSlides}</Text>
           </View>
 
           <View style={styles.headerRight} />
@@ -1385,7 +1495,7 @@ export default function CreateSessionWizard({
           
           <View style={{ flex: 1 }} />
           
-          {currentSlide < TOTAL_SLIDES - 1 ? (
+          {currentSlide < totalSlides - 1 ? (
             <Pressable
               onPress={goNext}
               disabled={!canProceed}
@@ -2500,6 +2610,47 @@ const styles = StyleSheet.create({
   calendarQuickBtnText: {
     ...Typography.small,
     color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  coachList: {
+    flex: 1,
+    marginTop: Spacing.md,
+  },
+  coachOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  coachOptionSelected: {
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.primary + "15",
+  },
+  coachOptionLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  coachOptionAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  coachOptionAvatarText: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  coachOptionName: {
+    ...Typography.body,
+    color: Colors.dark.text,
     fontWeight: "600",
   },
 });

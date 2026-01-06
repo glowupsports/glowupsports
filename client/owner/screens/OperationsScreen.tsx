@@ -1,10 +1,19 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
+
+interface Coach {
+  id: string;
+  name: string;
+  profilePhotoUrl?: string | null;
+  color?: string | null;
+}
 
 type ViewType = "day" | "week" | "month";
 
@@ -92,9 +101,15 @@ function InsightCard({ icon, title, value, color, trend }: InsightCardProps) {
 export default function OperationsScreen() {
   const insets = useSafeAreaInsets();
   const [viewType, setViewType] = useState<ViewType>("day");
+  const [showCreateSession, setShowCreateSession] = useState(false);
+  const [selectedCoachId, setSelectedCoachId] = useState<string | undefined>();
 
   const { data: operationsData, isLoading, isError, refetch } = useQuery<OperationsData>({
     queryKey: [`/api/owner/operations?period=${viewType}`],
+  });
+  
+  const { data: coachesData = [] } = useQuery<Coach[]>({
+    queryKey: ["/api/coaches"],
   });
 
   const courts = operationsData?.courts || [];
@@ -189,6 +204,36 @@ export default function OperationsScreen() {
           </View>
         ) : null}
       </ScrollView>
+      
+      {/* FAB for creating sessions */}
+      <Pressable 
+        style={[styles.fab, { bottom: insets.bottom + 24 }]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          setShowCreateSession(true);
+        }}
+      >
+        <LinearGradient
+          colors={[Colors.dark.gold, Colors.dark.primary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.fabGradient}
+        >
+          <Ionicons name="add" size={28} color={Colors.dark.backgroundRoot} />
+        </LinearGradient>
+      </Pressable>
+      
+      <CreateSessionWizard
+        visible={showCreateSession}
+        onClose={() => {
+          setShowCreateSession(false);
+          setSelectedCoachId(undefined);
+        }}
+        adminMode={true}
+        coaches={coachesData}
+        selectedCoachId={selectedCoachId}
+        onCoachIdChange={setSelectedCoachId}
+      />
     </View>
   );
 }
@@ -362,5 +407,24 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.textMuted,
     marginTop: Spacing.md,
+  },
+  fab: {
+    position: "absolute",
+    right: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    overflow: "hidden",
+    shadowColor: Colors.dark.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  fabGradient: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
