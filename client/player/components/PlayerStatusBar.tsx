@@ -186,7 +186,7 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
                 style={styles.avatarGradient}
               >
                 <View style={styles.avatarInner}>
-                  <Text style={styles.avatarText}>{player.name.charAt(0)}</Text>
+                  <Text style={styles.avatarText}>{(player.name || "P").charAt(0)}</Text>
                 </View>
               </LinearGradient>
             )}
@@ -198,7 +198,7 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
 
         <View style={styles.infoSection}>
           <View style={styles.nameRow}>
-            <Text style={styles.playerName} numberOfLines={1}>{player.name}</Text>
+            <Text style={styles.playerName} numberOfLines={1}>{player.name || "Player"}</Text>
           </View>
           <View style={styles.titleRow}>
             <Ionicons name="ribbon-outline" size={12} color={Colors.dark.xpCyan} />
@@ -347,11 +347,11 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
                   style={styles.playerAvatarLarge}
                 >
                   <View style={styles.playerAvatarInner}>
-                    <Text style={styles.playerAvatarText}>{player.name.charAt(0)}</Text>
+                    <Text style={styles.playerAvatarText}>{(player.name || "P").charAt(0)}</Text>
                   </View>
                 </LinearGradient>
               )}
-              <Text style={styles.playerModalName}>{player.name}</Text>
+              <Text style={styles.playerModalName}>{player.name || "Player"}</Text>
               <View style={styles.titleBadge}>
                 <Ionicons name="ribbon-outline" size={14} color={Colors.dark.xpCyan} />
                 <Text style={styles.titleBadgeText}>{earnedTitle}</Text>
