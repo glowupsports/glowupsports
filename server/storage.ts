@@ -6711,7 +6711,13 @@ export const storage = {
 
   // Check if a coach has a time block conflict across ALL academies
   async checkUnifiedCoachConflict(coachId: string, date: string, startTime: string, endTime: string, excludeSessionId?: string, viewerAcademyId?: string): Promise<{ hasConflict: boolean; isOwnAcademy: boolean; }> {
-    // Use proper time casting to avoid string comparison issues
+    // Calculate UTC minutes for precise timezone-safe comparison
+    const [startHour, startMin] = startTime.split(':').map(Number);
+    const [endHour, endMin] = endTime.split(':').map(Number);
+    const startUtcMins = startHour * 60 + startMin;
+    const endUtcMins = endHour * 60 + endMin;
+    
+    // Use UTC minutes for comparison (with fallback to time extraction for legacy data without UTC columns)
     const result = await db.execute(sql`
       SELECT id, source_academy_id, source_session_id 
       FROM coach_time_blocks 
@@ -6719,7 +6725,8 @@ export const storage = {
         AND date = ${date}
         AND status = 'confirmed'
         AND (
-          (start_time::time < ${endTime}::time AND end_time::time > ${startTime}::time)
+          COALESCE(start_utc_minutes, EXTRACT(HOUR FROM start_time::time)::int * 60 + EXTRACT(MINUTE FROM start_time::time)::int) < ${endUtcMins}
+          AND COALESCE(end_utc_minutes, EXTRACT(HOUR FROM end_time::time)::int * 60 + EXTRACT(MINUTE FROM end_time::time)::int) > ${startUtcMins}
         )
         ${excludeSessionId ? sql`AND (source_session_id IS NULL OR source_session_id != ${excludeSessionId})` : sql``}
       LIMIT 1
@@ -6747,8 +6754,14 @@ export const storage = {
     isPrivate?: boolean;
     blockReason?: string;
   }): Promise<void> {
+    // Calculate UTC minutes from HH:MM strings for timezone-safe comparisons
+    const [startHour, startMin] = data.startTime.split(':').map(Number);
+    const [endHour, endMin] = data.endTime.split(':').map(Number);
+    const startUtcMinutes = startHour * 60 + startMin;
+    const endUtcMinutes = endHour * 60 + endMin;
+    
     await db.execute(sql`
-      INSERT INTO coach_time_blocks (id, coach_id, source_type, source_academy_id, source_session_id, date, start_time, end_time, status, is_private, block_reason)
+      INSERT INTO coach_time_blocks (id, coach_id, source_type, source_academy_id, source_session_id, date, start_time, end_time, start_utc_minutes, end_utc_minutes, status, is_private, block_reason)
       VALUES (
         gen_random_uuid(),
         ${data.coachId},
@@ -6758,6 +6771,8 @@ export const storage = {
         ${data.date},
         ${data.startTime},
         ${data.endTime},
+        ${startUtcMinutes},
+        ${endUtcMinutes},
         'confirmed',
         ${data.isPrivate ?? true},
         ${data.blockReason || null}

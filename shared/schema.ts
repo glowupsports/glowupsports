@@ -1735,10 +1735,14 @@ export const coachTimeBlocks = pgTable("coach_time_blocks", {
   sourceAcademyId: varchar("source_academy_id").references(() => academies.id), // Which academy owns this block
   sourceSessionId: varchar("source_session_id"), // references sessions.id if from session
   
-  // Time range
+  // Time range (HH:MM format for display)
   date: date("date").notNull(),
   startTime: text("start_time").notNull(), // "HH:MM"
   endTime: text("end_time").notNull(), // "HH:MM"
+  
+  // UTC minutes since midnight for precise timezone-safe comparisons
+  startUtcMinutes: integer("start_utc_minutes"), // minutes since midnight UTC
+  endUtcMinutes: integer("end_utc_minutes"), // minutes since midnight UTC
   
   // Status
   status: text("status").default("confirmed"), // confirmed | cancelled | tentative
