@@ -63,11 +63,15 @@ import {
   // Court Preferences System
   coachCourtPreferences,
   coachCourtRules,
+  // Location Travel Times
+  locationTravelTimes,
   // Player Booking System
   coachAvailability,
   availabilityExceptions,
   coachSettings,
   bookingRequests,
+  // Coach Time Blocks
+  coachTimeBlocks,
   // Player Social & Matches
   playerMatches,
   playerConnections,
@@ -1253,43 +1257,156 @@ export const storage = {
     );
     if (coach.length === 0) return false;
 
-    // Delete travel times for this coach
-    await db.delete(locationTravelTimes).where(
-      and(
-        eq(locationTravelTimes.coachId, coachId),
-        eq(locationTravelTimes.academyId, academyId)
-      )
-    );
+    try {
+      // Pre-batch: Delete availability exceptions before coach availability (FK dependency)
+      await db.delete(availabilityExceptions).where(eq(availabilityExceptions.coachId, coachId));
+      
+      // First batch: Delete all related records in parallel (no dependencies)
+      await Promise.all([
+        // Coach invitations
+        db.delete(coachInvitations).where(eq(coachInvitations.coachId, coachId)),
+        // Coach freelance profiles
+        db.delete(coachFreelanceProfiles).where(eq(coachFreelanceProfiles.coachId, coachId)),
+        // Coach notifications
+        db.delete(coachNotifications).where(eq(coachNotifications.coachId, coachId)),
+        // Coach stats rollup
+        db.delete(coachStatsRollup).where(eq(coachStatsRollup.coachId, coachId)),
+        // Coach XP transactions
+        db.delete(coachXpTransactions).where(eq(coachXpTransactions.coachId, coachId)),
+        // Coach availability (now safe after exceptions deleted)
+        db.delete(coachAvailability).where(eq(coachAvailability.coachId, coachId)),
+        // Coach court preferences
+        db.delete(coachCourtPreferences).where(eq(coachCourtPreferences.coachId, coachId)),
+        // Coach court rules
+        db.delete(coachCourtRules).where(eq(coachCourtRules.coachId, coachId)),
+        // Coach settings
+        db.delete(coachSettings).where(eq(coachSettings.coachId, coachId)),
+        // Push device tokens
+        db.delete(pushDeviceTokens).where(eq(pushDeviceTokens.coachId, coachId)),
+        // Notification preferences
+        db.delete(notificationPreferences).where(eq(notificationPreferences.coachId, coachId)),
+        // Scheduled notifications
+        db.delete(scheduledNotifications).where(eq(scheduledNotifications.coachId, coachId)),
+        // Offline queue
+        db.delete(offlineQueue).where(eq(offlineQueue.coachId, coachId)),
+        // Player notes by this coach
+        db.delete(playerNotes).where(eq(playerNotes.coachId, coachId)),
+        // Player progress entries by this coach
+        db.delete(playerProgress).where(eq(playerProgress.coachId, coachId)),
+        // Coach time blocks
+        db.delete(coachTimeBlocks).where(eq(coachTimeBlocks.coachId, coachId)),
+        // Coach payouts
+        db.delete(coachPayouts).where(eq(coachPayouts.coachId, coachId)),
+        // Coach payment rules
+        db.delete(coachPaymentRules).where(eq(coachPaymentRules.coachId, coachId)),
+        // Coach earnings
+        db.delete(coachEarnings).where(eq(coachEarnings.coachId, coachId)),
+        // Location travel times
+        db.delete(locationTravelTimes).where(
+          and(eq(locationTravelTimes.coachId, coachId), eq(locationTravelTimes.academyId, academyId))
+        ),
+        // Session skill observations (by coachId)
+        db.delete(sessionSkillObservations).where(eq(sessionSkillObservations.coachId, coachId)),
+        // Session templates
+        db.delete(sessionTemplates).where(eq(sessionTemplates.coachId, coachId)),
+        // Recurring series
+        db.delete(recurringSeries).where(eq(recurringSeries.coachId, coachId)),
+        // Booking requests
+        db.delete(bookingRequests).where(eq(bookingRequests.coachId, coachId)),
+        // Review prompts
+        db.delete(reviewPrompts).where(eq(reviewPrompts.coachId, coachId)),
+        // Coach academy membership
+        db.delete(coachAcademyMemberships).where(
+          and(eq(coachAcademyMemberships.coachId, coachId), eq(coachAcademyMemberships.academyId, academyId))
+        ),
+      ]);
 
-    // Delete coach availability
-    await db.delete(coachAvailability).where(eq(coachAvailability.coachId, coachId));
+      // Second batch: Chat related (sequential to avoid FK race conditions)
+      // First, get all message IDs sent by this coach
+      const coachMessageIds = await db.select({ id: messages.id })
+        .from(messages)
+        .where(eq(messages.senderCoachId, coachId));
+      const messageIdList = coachMessageIds.map(m => m.id);
+      
+      // Delete reactions: both reactions BY the coach AND reactions ON the coach's messages
+      await db.delete(messageReactions).where(eq(messageReactions.reactorCoachId, coachId));
+      if (messageIdList.length > 0) {
+        await db.delete(messageReactions).where(inArray(messageReactions.messageId, messageIdList));
+      }
+      
+      // Now delete the messages and participants
+      await db.delete(messages).where(eq(messages.senderCoachId, coachId));
+      await db.delete(conversationParticipants).where(eq(conversationParticipants.coachId, coachId));
+      
+      // Null out conversations where this coach is the context coach (preserve conversation history)
+      await db.update(conversations).set({ coachId: null }).where(eq(conversations.coachId, coachId));
 
-    // Delete coach academy membership
-    await db.delete(coachAcademyMemberships).where(
-      and(
-        eq(coachAcademyMemberships.coachId, coachId),
-        eq(coachAcademyMemberships.academyId, academyId)
-      )
-    );
+      // Third batch: Review system - first get review IDs, then delete dependents
+      const coachReviewIds = await db.select({ id: coachReviews.id })
+        .from(coachReviews)
+        .where(eq(coachReviews.coachId, coachId));
+      const reviewIdList = coachReviewIds.map(r => r.id);
+      
+      if (reviewIdList.length > 0) {
+        await db.delete(reviewResponses).where(inArray(reviewResponses.reviewId, reviewIdList));
+        await db.delete(reviewFlags).where(inArray(reviewFlags.reviewId, reviewIdList));
+      }
+      // Also delete any review responses written BY this coach (different from responses TO their reviews)
+      await db.delete(reviewResponses).where(eq(reviewResponses.coachId, coachId));
+      await db.delete(coachReviews).where(eq(coachReviews.coachId, coachId));
+      await db.delete(coachReviewStats).where(eq(coachReviewStats.coachId, coachId));
 
-    // Set past sessions coachId to null (keep history)
-    const now = new Date();
-    await db.update(sessions)
-      .set({ coachId: null })
-      .where(
-        and(
-          eq(sessions.coachId, coachId),
-          eq(sessions.academyId, academyId),
-          lt(sessions.startTime, now)
-        )
+      // Fourth batch: Sessions - set coachId to null (keep history but unlink coach)
+      await db.update(sessions)
+        .set({ coachId: null })
+        .where(
+          and(eq(sessions.coachId, coachId), eq(sessions.academyId, academyId))
+        );
+      
+      // Null out paidBy reference in coach payouts (for payouts paid by this coach to others)
+      await db.update(coachPayouts).set({ paidBy: null }).where(eq(coachPayouts.paidBy, coachId));
+      
+      // Null out respondedBy reference in booking requests
+      await db.update(bookingRequests).set({ respondedBy: null }).where(eq(bookingRequests.respondedBy, coachId));
+      
+      // Delete invitations where this coach was the inviter (invitedBy is notNull, so can't nullify)
+      await db.delete(coachInvitations).where(eq(coachInvitations.invitedBy, coachId));
+      
+      // Null out coachAcademyMemberships invitedBy/acceptedBy references
+      await db.update(coachAcademyMemberships).set({ invitedBy: null }).where(eq(coachAcademyMemberships.invitedBy, coachId));
+      await db.update(coachAcademyMemberships).set({ acceptedBy: null }).where(eq(coachAcademyMemberships.acceptedBy, coachId));
+      
+      // Null out payments receivedBy/confirmedBy/rejectedBy references
+      await db.update(payments).set({ receivedBy: null }).where(eq(payments.receivedBy, coachId));
+      await db.update(payments).set({ confirmedBy: null }).where(eq(payments.confirmedBy, coachId));
+      await db.update(payments).set({ rejectedBy: null }).where(eq(payments.rejectedBy, coachId));
+      
+      // Null out refunds.processedBy reference
+      await db.update(refunds).set({ processedBy: null }).where(eq(refunds.processedBy, coachId));
+      
+      // Null out academies.ownerId if this coach was an academy owner
+      await db.update(academies).set({ ownerId: null }).where(eq(academies.ownerId, coachId));
+
+      // Fifth batch: Update players to remove primary coach reference
+      await db.update(players)
+        .set({ coachId: null })
+        .where(
+          and(eq(players.coachId, coachId), eq(players.academyId, academyId))
+        );
+
+      // Sixth batch: Unlink user from coach profile
+      await db.update(users).set({ coachId: null }).where(eq(users.coachId, coachId));
+
+      // Finally: Delete the coach record
+      await db.delete(coaches).where(
+        and(eq(coaches.id, coachId), eq(coaches.academyId, academyId))
       );
 
-    // Delete the coach record
-    await db.delete(coaches).where(
-      and(eq(coaches.id, coachId), eq(coaches.academyId, academyId))
-    );
-
-    return true;
+      return true;
+    } catch (error) {
+      console.error("Error in fullyDeleteCoach transaction:", error);
+      throw error;
+    }
   },
 
   // ==================== LOCATIONS ====================
