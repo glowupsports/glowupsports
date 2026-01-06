@@ -956,13 +956,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log("[PlayerInviteRegister] Successfully created user for player:", playerId);
 
+      // Generate JWT token for immediate authentication
+      const jwtToken = generateToken({
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        academyId: user.academyId,
+        coachId: null,
+        playerId: playerId,
+      });
+
       res.status(201).json({
         success: true,
         message: "Welcome to the team!",
+        token: jwtToken,
         user: {
           id: user.id,
           username: user.username,
+          email: user.email,
           role: user.role,
+          academyId: user.academyId,
+          playerId: playerId,
         },
       });
     } catch (error) {

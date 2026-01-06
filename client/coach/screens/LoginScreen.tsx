@@ -22,6 +22,7 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest } from "@/lib/query-client";
+import { setAuthToken, saveAuthState } from "@/lib/auth";
 import CountryCodePicker, { getDefaultCountry, CountryCode } from "@/components/CountryCodePicker";
 import {
   SavedAccount,
@@ -135,7 +136,7 @@ function GamingButton({
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
-  const { login, registerPlayer } = useAuth();
+  const { login, registerPlayer, refreshAuth } = useAuth();
 
   const [mode, setMode] = useState<AuthMode>("login");
   const [username, setUsername] = useState("");
@@ -496,7 +497,27 @@ export default function LoginScreen() {
       });
       const data = await response.json();
       
-      if (data.token || data.user) {
+      if (data.token && data.user) {
+        // Auto-login: save the token and user, then refresh auth to navigate to app
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        resetForm();
+        
+        // Save auth state and immediately log in
+        setAuthToken(data.token);
+        await saveAuthState(data.token, {
+          id: data.user.id,
+          username: data.user.username,
+          email: data.user.email,
+          role: data.user.role,
+          academyId: data.user.academyId || null,
+          coachId: data.user.coachId || null,
+          playerId: data.user.playerId || null,
+        });
+        
+        // Trigger app navigation by refreshing auth
+        await refreshAuth();
+      } else if (data.user) {
+        // Fallback for endpoints that don't return a token (legacy)
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         resetForm();
         const message = inviteData?.isPlayerInvite
