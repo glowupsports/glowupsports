@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, and, gte, lte, lt, ne, or, inArray, ilike, sql, count, gt } from "drizzle-orm";
+import { eq, and, gte, lte, lt, ne, or, inArray, ilike, sql, count, gt, isNull } from "drizzle-orm";
 import { desc, asc } from "drizzle-orm";
 import {
   // Auth tables
@@ -1080,7 +1080,26 @@ export const storage = {
   },
 
   async getCoachesByAcademy(academyId: string): Promise<Coach[]> {
-    return db.select().from(coaches).where(eq(coaches.academyId, academyId));
+    // Get coaches that have an active membership in this academy (or no membership record for backwards compatibility)
+    const allCoaches = await db.select().from(coaches).where(eq(coaches.academyId, academyId));
+    
+    // Filter out coaches with inactive memberships
+    const activeCoaches: Coach[] = [];
+    for (const coach of allCoaches) {
+      const membership = await db.select().from(coachAcademyMemberships).where(
+        and(
+          eq(coachAcademyMemberships.coachId, coach.id),
+          eq(coachAcademyMemberships.academyId, academyId)
+        )
+      );
+      
+      // Include if no membership record exists (backwards compatibility) or if membership is active
+      if (membership.length === 0 || membership[0].isActive) {
+        activeCoaches.push(coach);
+      }
+    }
+    
+    return activeCoaches;
   },
 
   async createCoach(data: InsertCoach): Promise<Coach> {
