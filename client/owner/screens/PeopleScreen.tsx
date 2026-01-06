@@ -121,7 +121,7 @@ export default function PeopleScreen() {
   // Coach removal flow state
   const [coachToRemove, setCoachToRemove] = useState<PersonData | null>(null);
   const [showRemovalModal, setShowRemovalModal] = useState(false);
-  const [removalStep, setRemovalStep] = useState<"loading" | "has_sessions" | "no_sessions" | "reassigning" | "deleting">("loading");
+  const [removalStep, setRemovalStep] = useState<"loading" | "has_sessions" | "no_sessions" | "reassigning" | "deleting" | "error">("loading");
   const [selectedTargetCoach, setSelectedTargetCoach] = useState<string>("");
   const [coachSessions, setCoachSessions] = useState<CoachSession[]>([]);
 
@@ -227,12 +227,25 @@ export default function PeopleScreen() {
       const response = await fetch(new URL(`/api/owner/coaches/${coachId}/sessions`, getApiUrl()).toString(), {
         credentials: "include",
       });
+      
+      if (!response.ok) {
+        console.error("Failed to fetch coach sessions - server error:", response.status);
+        setRemovalStep("error");
+        return;
+      }
+      
       const data: CoachSessionsResponse = await response.json();
+      if (typeof data.count !== "number") {
+        console.error("Invalid response format for coach sessions");
+        setRemovalStep("error");
+        return;
+      }
+      
       setCoachSessions(data.sessions || []);
       setRemovalStep(data.count > 0 ? "has_sessions" : "no_sessions");
     } catch (error) {
       console.error("Failed to fetch coach sessions:", error);
-      setRemovalStep("no_sessions");
+      setRemovalStep("error");
     }
   };
 
@@ -727,6 +740,25 @@ export default function PeopleScreen() {
                   <View style={styles.removalLoading}>
                     <ActivityIndicator size="large" color={Colors.dark.error} />
                     <Text style={styles.removalLoadingText}>Deleting coach...</Text>
+                  </View>
+                ) : null}
+
+                {removalStep === "error" ? (
+                  <View style={styles.removalNoSessionsSection}>
+                    <View style={styles.warningBox}>
+                      <Ionicons name="alert-circle" size={24} color={Colors.dark.error} />
+                      <Text style={[styles.warningText, { color: Colors.dark.error }]}>
+                        Unable to check coach's sessions. Please try again.
+                      </Text>
+                    </View>
+
+                    <Pressable
+                      style={styles.primaryButton}
+                      onPress={() => coachToRemove && fetchCoachSessions(coachToRemove.id)}
+                    >
+                      <Ionicons name="refresh" size={20} color={Colors.dark.backgroundRoot} />
+                      <Text style={styles.primaryButtonText}>Retry</Text>
+                    </Pressable>
                   </View>
                 ) : null}
               </View>
