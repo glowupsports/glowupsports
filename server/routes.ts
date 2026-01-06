@@ -3518,8 +3518,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Build invite link using request headers with EXPO_PUBLIC_DOMAIN as override
+      const publicDomain = process.env.EXPO_PUBLIC_DOMAIN;
+      const forwardedHost = req.headers['x-forwarded-host'] as string;
+      const forwardedProto = req.headers['x-forwarded-proto'] as string || 'https';
+      const host = publicDomain || forwardedHost || req.headers.host || 'glowupsports.com';
+      const protocol = publicDomain ? 'https' : forwardedProto;
+      const inviteLink = `${protocol}://${host}/invite/player/${invite.inviteCode}`;
+      
       res.json({
         inviteCode: invite.inviteCode,
+        inviteLink,
         status: invite.status,
         createdAt: invite.createdAt,
       });

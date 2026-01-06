@@ -649,6 +649,11 @@ export default function CreateSessionWizard({
       return;
     }
 
+    if (adminMode && !effectiveCoach?.id) {
+      Alert.alert("Error", "Please select a coach");
+      return;
+    }
+
     if (!selectedCourtId || !startTime) {
       Alert.alert("Error", "Please select a court and time");
       return;

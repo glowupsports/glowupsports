@@ -17,6 +17,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
+import * as Clipboard from "expo-clipboard";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -124,6 +125,7 @@ export default function AdminPlayersScreen() {
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showReportIssueModal, setShowReportIssueModal] = useState(false);
+  const [inviteCopied, setInviteCopied] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -140,6 +142,17 @@ export default function AdminPlayersScreen() {
   const { data: playerStats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery<PlayerStats>({
     queryKey: ["/api/admin/players", selectedPlayerId, "stats"],
     enabled: !!selectedPlayerId && showDetailModal,
+  });
+
+  const { data: playerInvite, isLoading: inviteLoading, isError: inviteError, refetch: refetchInvite } = useQuery<{ 
+    inviteCode: string; 
+    inviteLink: string;
+    status: string;
+  }>({
+    queryKey: [`/api/players/${selectedPlayerId}/invite`],
+    enabled: !!selectedPlayerId && showDetailModal,
+    retry: 2,
+    retryDelay: 1000,
   });
 
   const selectedPlayer = players.find(p => p.id === selectedPlayerId);
@@ -202,6 +215,16 @@ export default function AdminPlayersScreen() {
   const closeDetailModal = () => {
     setShowDetailModal(false);
     setSelectedPlayerId(null);
+    setInviteCopied(false);
+  };
+
+  const handleCopyInviteLink = async () => {
+    if (playerInvite?.inviteLink) {
+      await Clipboard.setStringAsync(playerInvite.inviteLink);
+      setInviteCopied(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setTimeout(() => setInviteCopied(false), 3000);
+    }
   };
 
   const handleSubmit = () => {
@@ -505,6 +528,46 @@ export default function AdminPlayersScreen() {
                   <Text style={styles.medicalText}>{stats.player.medicalNotes}</Text>
                 </View>
               ) : null}
+
+              <View style={[styles.section, CardStyles.elevated]}>
+                <Text style={styles.sectionTitle}>Player Invite Link</Text>
+                <Text style={styles.inviteDescription}>
+                  Share this link so the player or parent can connect their account
+                </Text>
+                {inviteError ? (
+                  <Pressable 
+                    style={styles.inviteLoading} 
+                    onPress={() => refetchInvite()}
+                  >
+                    <Ionicons name="alert-circle" size={20} color={Colors.dark.error} />
+                    <Text style={[styles.inviteLoadingText, { color: Colors.dark.error }]}>
+                      Failed to load - tap to retry
+                    </Text>
+                  </Pressable>
+                ) : playerInvite?.inviteLink ? (
+                  <Pressable 
+                    style={[styles.inviteLinkButton, inviteCopied && styles.inviteLinkButtonCopied]}
+                    onPress={handleCopyInviteLink}
+                  >
+                    <View style={styles.inviteLinkContent}>
+                      <Ionicons 
+                        name={inviteCopied ? "checkmark-circle" : "link"} 
+                        size={20} 
+                        color={inviteCopied ? Colors.dark.successNeon : Colors.dark.orange} 
+                      />
+                      <Text style={[styles.inviteLinkText, inviteCopied && styles.inviteLinkTextCopied]}>
+                        {inviteCopied ? "Link Copied!" : "Copy Invite Link"}
+                      </Text>
+                    </View>
+                    <Ionicons name="copy-outline" size={18} color={Colors.dark.textMuted} />
+                  </Pressable>
+                ) : inviteLoading ? (
+                  <View style={styles.inviteLoading}>
+                    <ActivityIndicator size="small" color={Colors.dark.orange} />
+                    <Text style={styles.inviteLoadingText}>Generating invite link...</Text>
+                  </View>
+                ) : null}
+              </View>
 
               <Pressable style={styles.deleteButton} onPress={handleDelete}>
                 <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
@@ -1377,6 +1440,48 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.text,
     lineHeight: 22,
+  },
+  inviteDescription: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.md,
+  },
+  inviteLinkButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: `${Colors.dark.orange}15`,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.orange}30`,
+    padding: Spacing.md,
+  },
+  inviteLinkButtonCopied: {
+    backgroundColor: `${Colors.dark.successNeon}15`,
+    borderColor: `${Colors.dark.successNeon}30`,
+  },
+  inviteLinkContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  inviteLinkText: {
+    ...Typography.body,
+    color: Colors.dark.orange,
+    fontWeight: "600",
+  },
+  inviteLinkTextCopied: {
+    color: Colors.dark.successNeon,
+  },
+  inviteLoading: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+  },
+  inviteLoadingText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
   },
   deleteButton: {
     flexDirection: "row",

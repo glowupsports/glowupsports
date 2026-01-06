@@ -72,6 +72,7 @@ export default function AdminCalendarScreen() {
     hour: number;
     date: Date;
   } | null>(null);
+  const [wizardCoachId, setWizardCoachId] = useState<string | undefined>(undefined);
 
   const { data: sessions = [], isLoading: sessionsLoading } = useQuery<Session[]>({
     queryKey: ["/api/sessions"],
@@ -93,12 +94,14 @@ export default function AdminCalendarScreen() {
       hour,
       date: date || selectedDate,
     });
+    setWizardCoachId(coachId);
     setShowCreateSession(true);
   };
 
   const handleCloseWizard = () => {
     setShowCreateSession(false);
     setSelectedSlot(null);
+    setWizardCoachId(undefined);
     queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
   };
 
@@ -667,7 +670,8 @@ export default function AdminCalendarScreen() {
         onClose={handleCloseWizard}
         adminMode={true}
         coaches={coaches}
-        selectedCoachId={selectedSlot?.coachId}
+        selectedCoachId={wizardCoachId}
+        onCoachIdChange={setWizardCoachId}
         initialTime={selectedSlot ? (() => {
           const date = new Date(selectedSlot.date);
           date.setHours(selectedSlot.hour, 0, 0, 0);

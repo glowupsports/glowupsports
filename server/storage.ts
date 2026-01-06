@@ -1078,32 +1078,51 @@ export const storage = {
 
   async getAllCoaches(academyId?: string): Promise<Coach[]> {
     if (academyId) {
-      return db.select().from(coaches).where(eq(coaches.academyId, academyId));
+      // UNION approach: coaches with active membership OR legacy coaches (no membership but academy matches)
+      // This handles both modern multi-academy memberships and legacy single-academy records
+      const result = await db.execute(sql`
+        SELECT DISTINCT c.* FROM coaches c
+        INNER JOIN coach_academy_memberships cam 
+          ON cam.coach_id = c.id 
+          AND cam.academy_id = ${academyId} 
+          AND cam.is_active = true
+        WHERE c.is_active = true
+        UNION
+        SELECT c.* FROM coaches c
+        WHERE c.academy_id = ${academyId}
+          AND c.is_active = true
+          AND NOT EXISTS (
+            SELECT 1 FROM coach_academy_memberships cam2 
+            WHERE cam2.coach_id = c.id AND cam2.academy_id = ${academyId}
+          )
+      `);
+      
+      return result.rows as Coach[];
     }
-    return db.select().from(coaches);
+    // For all coaches (no academy filter), still filter by isActive
+    return db.select().from(coaches).where(eq(coaches.isActive, true));
   },
 
   async getCoachesByAcademy(academyId: string): Promise<Coach[]> {
-    // Get coaches that have an active membership in this academy (or no membership record for backwards compatibility)
-    const allCoaches = await db.select().from(coaches).where(eq(coaches.academyId, academyId));
-    
-    // Filter out coaches with inactive memberships
-    const activeCoaches: Coach[] = [];
-    for (const coach of allCoaches) {
-      const membership = await db.select().from(coachAcademyMemberships).where(
-        and(
-          eq(coachAcademyMemberships.coachId, coach.id),
-          eq(coachAcademyMemberships.academyId, academyId)
+    // UNION approach: coaches with active membership OR legacy coaches (no membership but academy matches)
+    const result = await db.execute(sql`
+      SELECT DISTINCT c.* FROM coaches c
+      INNER JOIN coach_academy_memberships cam 
+        ON cam.coach_id = c.id 
+        AND cam.academy_id = ${academyId} 
+        AND cam.is_active = true
+      WHERE c.is_active = true
+      UNION
+      SELECT c.* FROM coaches c
+      WHERE c.academy_id = ${academyId}
+        AND c.is_active = true
+        AND NOT EXISTS (
+          SELECT 1 FROM coach_academy_memberships cam2 
+          WHERE cam2.coach_id = c.id AND cam2.academy_id = ${academyId}
         )
-      );
-      
-      // Include if no membership record exists (backwards compatibility) or if membership is active
-      if (membership.length === 0 || membership[0].isActive) {
-        activeCoaches.push(coach);
-      }
-    }
+    `);
     
-    return activeCoaches;
+    return result.rows as Coach[];
   },
 
   async createCoach(data: InsertCoach): Promise<Coach> {
