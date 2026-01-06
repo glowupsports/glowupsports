@@ -691,34 +691,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Validate invite token (for checking before showing registration form)
+  // Supports both general invites (academy owner, coach) and player invites
   app.get("/auth/invite/:token", async (req: Request, res: Response) => {
     try {
       const { token } = req.params;
+      
+      // First, try to find a general invite (academy owner, coach)
       const invite = await storage.getInviteByToken(token);
 
-      if (!invite) {
-        return res.status(404).json({ error: "Invite not found" });
+      if (invite) {
+        if (invite.usedAt) {
+          return res.status(400).json({ error: "This invite has already been used" });
+        }
+
+        if (new Date() > new Date(invite.expiresAt)) {
+          return res.status(400).json({ error: "This invite has expired" });
+        }
+
+        // Get academy info
+        const academy = await storage.getAcademy(invite.academyId);
+
+        return res.json({
+          valid: true,
+          role: invite.role,
+          academyName: academy?.name || "Unknown Academy",
+          email: invite.invitedEmail,
+          invitedEmail: invite.invitedEmail,
+          expiresAt: invite.expiresAt,
+        });
       }
-
-      if (invite.usedAt) {
-        return res.status(400).json({ error: "This invite has already been used" });
+      
+      // If not found, try player invite
+      const playerInvite = await storage.getPlayerInvite(token);
+      
+      if (playerInvite) {
+        if (playerInvite.status !== "pending") {
+          return res.status(400).json({ error: "This invite has already been claimed or expired" });
+        }
+        
+        // Get player and academy info
+        const player = await storage.getPlayer(playerInvite.playerId);
+        const academy = await storage.getAcademy(playerInvite.academyId);
+        
+        return res.json({
+          valid: true,
+          role: "player",
+          academyName: academy?.name || "Unknown Academy",
+          playerName: player?.name || null,
+          playerId: playerInvite.playerId,
+          email: null,
+          invitedEmail: null,
+          isPlayerInvite: true,
+        });
       }
-
-      if (new Date() > new Date(invite.expiresAt)) {
-        return res.status(400).json({ error: "This invite has expired" });
-      }
-
-      // Get academy info
-      const academy = await storage.getAcademy(invite.academyId);
-
-      res.json({
-        valid: true,
-        role: invite.role,
-        academyName: academy?.name || "Unknown Academy",
-        email: invite.invitedEmail,
-        invitedEmail: invite.invitedEmail,
-        expiresAt: invite.expiresAt,
-      });
+      
+      // Neither found
+      return res.status(404).json({ error: "Invite not found" });
     } catch (error) {
       console.error("Invite validation error:", error);
       res.status(500).json({ error: "Failed to validate invite" });
@@ -842,6 +870,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error("Invite registration error:", error);
+      res.status(500).json({ error: "Registration failed" });
+    }
+  });
+
+  // Register user via player invite (for players invited by academy)
+  app.post("/auth/register/player-invite", authLimiter, async (req: Request, res: Response) => {
+    try {
+      const { token, username, email, firstName, lastName, password, phone, playerId } = req.body;
+
+      console.log("[PlayerInviteRegister] Attempting registration for username:", username, "playerId:", playerId);
+
+      if (!token || !username || !email || !firstName || !lastName || !password || !playerId) {
+        console.log("[PlayerInviteRegister] Missing fields");
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ error: "Invalid email address" });
+      }
+
+      const normalizedUsername = username.toLowerCase();
+
+      if (normalizedUsername.length < 3) {
+        return res.status(400).json({ error: "Username must be at least 3 characters" });
+      }
+
+      if (!/^[a-z0-9_]+$/.test(normalizedUsername)) {
+        return res.status(400).json({ error: "Username can only contain letters, numbers, and underscores" });
+      }
+
+      if (password.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters" });
+      }
+
+      // Validate player invite
+      const playerInvite = await storage.getPlayerInvite(token);
+      if (!playerInvite) {
+        return res.status(400).json({ error: "Invalid invite code" });
+      }
+
+      if (playerInvite.status !== "pending") {
+        return res.status(400).json({ error: "This invite has already been claimed or expired" });
+      }
+
+      if (playerInvite.playerId !== playerId) {
+        return res.status(400).json({ error: "Invalid player invite" });
+      }
+
+      // Check if username is taken
+      const existingUser = await storage.getUserByUsername(normalizedUsername);
+      if (existingUser) {
+        return res.status(409).json({ error: "Username already taken" });
+      }
+
+      const hashedPassword = await hashPassword(password);
+
+      // Get player details
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(400).json({ error: "Player not found" });
+      }
+
+      // Create user as player
+      const user = await storage.createUser({
+        username: normalizedUsername,
+        email: email.toLowerCase().trim(),
+        password: hashedPassword,
+        role: "player",
+        academyId: playerInvite.academyId,
+        playerId: playerId,
+      });
+
+      // Update player with user info
+      await storage.updatePlayer(playerId, {
+        email: email.toLowerCase().trim(),
+        firstName,
+        lastName,
+        phone: phone || undefined,
+      }, playerInvite.academyId);
+
+      // Mark invite as claimed
+      await storage.claimPlayerInvite(token, user.id);
+
+      console.log("[PlayerInviteRegister] Successfully created user for player:", playerId);
+
+      res.status(201).json({
+        success: true,
+        message: "Welcome to the team!",
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role,
+        },
+      });
+    } catch (error) {
+      console.error("Player invite registration error:", error);
       res.status(500).json({ error: "Registration failed" });
     }
   });

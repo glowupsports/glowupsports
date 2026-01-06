@@ -91,7 +91,7 @@ function GamingButton({
   title: string; 
   isLoading?: boolean;
   disabled?: boolean;
-  colors?: string[];
+  colors?: readonly [string, string, ...string[]];
 }) {
   const scale = useSharedValue(1);
 
@@ -153,7 +153,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [applicationSubmitted, setApplicationSubmitted] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
-  const [inviteData, setInviteData] = useState<{ academyName: string; email: string | null; role: string } | null>(null);
+  const [inviteData, setInviteData] = useState<{ academyName: string; email: string | null; role: string; isPlayerInvite?: boolean; playerId?: string; playerName?: string | null } | null>(null);
   const [inviteValidated, setInviteValidated] = useState(false);
 
   const [usernameStatus, setUsernameStatus] = useState<{
@@ -162,7 +162,7 @@ export default function LoginScreen() {
     error: string | null;
     suggestions: string[];
   }>({ checking: false, available: null, error: null, suggestions: [] });
-  const usernameCheckTimeout = useRef<NodeJS.Timeout | null>(null);
+  const usernameCheckTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInviteRegisteringRef = useRef(false);
 
   const [savedAccounts, setSavedAccounts] = useState<SavedAccount[]>([]);
@@ -405,6 +405,9 @@ export default function LoginScreen() {
           academyName: data.academyName,
           email: data.email,
           role: data.role,
+          isPlayerInvite: data.isPlayerInvite || false,
+          playerId: data.playerId,
+          playerName: data.playerName,
         });
         setEmail(data.email || "");
         setInviteValidated(true);
@@ -476,7 +479,12 @@ export default function LoginScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      const response = await apiRequest("POST", "/auth/register/invite", {
+      // Use different endpoint for player invites
+      const endpoint = inviteData?.isPlayerInvite 
+        ? "/auth/register/player-invite"
+        : "/auth/register/invite";
+      
+      const response = await apiRequest("POST", endpoint, {
         token: code,
         username: normalizedUsername,
         email: email.toLowerCase().trim(),
@@ -484,15 +492,19 @@ export default function LoginScreen() {
         lastName,
         password,
         phone: phone ? `${countryCode.dial}${phone.trim().replace(/\s/g, '')}` : undefined,
+        playerId: inviteData?.playerId,
       });
       const data = await response.json();
       
       if (data.token || data.user) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         resetForm();
+        const message = inviteData?.isPlayerInvite
+          ? `Your player account has been created successfully. You can now sign in with username "${normalizedUsername}".`
+          : `Your account has been created successfully. You can now sign in with username "${normalizedUsername}".`;
         Alert.alert(
           "Welcome to the team!",
-          `Your account has been created successfully. You can now sign in with username "${normalizedUsername}".`,
+          message,
           [{ text: "Sign In", onPress: () => handleModeChange("login") }]
         );
       } else {
@@ -1047,7 +1059,10 @@ export default function LoginScreen() {
             </View>
             <Text style={[styles.infoTitle, { color: "#9B59B6" }]}>Invite Verified!</Text>
             <Text style={styles.infoText}>
-              You're joining {inviteData.academyName} as {inviteData.role === "academy_owner" ? "Academy Owner" : inviteData.role}
+              {inviteData.isPlayerInvite 
+                ? `You're claiming the player profile "${inviteData.playerName}" at ${inviteData.academyName}`
+                : `You're joining ${inviteData.academyName} as ${inviteData.role === "academy_owner" ? "Academy Owner" : inviteData.role}`
+              }
             </Text>
           </View>
 
