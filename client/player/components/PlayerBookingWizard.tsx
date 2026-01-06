@@ -1356,7 +1356,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: Spacing.xxl,
+    paddingVertical: Spacing["2xl"],
     gap: Spacing.md,
   },
   emptyStateTitle: {

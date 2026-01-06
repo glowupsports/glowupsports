@@ -324,19 +324,10 @@ function PlayerStackNavigator() {
       <Stack.Screen 
         name="LessonBooking" 
         component={LessonBookingScreen}
-        options={({ navigation }) => ({
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Book a Lesson",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.text,
-          headerBackTitle: "Back",
-          headerRight: () => (
-            <HeaderButton onPress={() => navigation.navigate("MyLessonRequests")}>
-              <Ionicons name="list" size={22} color={Colors.dark.primary} />
-            </HeaderButton>
-          ),
-        })}
+        options={{
+          presentation: "fullScreenModal",
+          headerShown: false,
+        }}
       />
       <Stack.Screen 
         name="MyLessonRequests" 
