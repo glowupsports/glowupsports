@@ -487,7 +487,10 @@ export default function PlayScreen() {
 
       <Pressable 
         style={styles.findMatchButton}
-        onPress={() => Alert.alert("Find a Match", "Matchmaking is coming soon! For now, browse available sessions below.")}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          navigation.navigate("PlayerFinder" as never);
+        }}
       >
         <LinearGradient
           colors={[Colors.dark.primary, Colors.dark.primaryGlow]}

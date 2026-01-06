@@ -34,23 +34,10 @@ export default function PlayerMessagesScreen() {
         style={styles.content}
         contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
       >
-        <LinearGradient
-          colors={["rgba(46, 204, 64, 0.1)", "rgba(46, 204, 64, 0.03)"]}
-          style={styles.placeholderCard}
-        >
-          <View style={styles.iconContainer}>
-            <Ionicons name="chatbubbles" size={48} color={Colors.dark.primary} />
-          </View>
-          <Text style={styles.placeholderTitle}>Messages</Text>
-          <Text style={styles.placeholderText}>
-            Connect with your coaches, training partners, and academy staff. All your conversations in one place.
-          </Text>
-          <View style={styles.comingSoonBadge}>
-            <Text style={styles.comingSoonText}>Coming Soon</Text>
-          </View>
-        </LinearGradient>
-
         <View style={styles.emptyState}>
+          <View style={styles.iconContainer}>
+            <Ionicons name="chatbubbles-outline" size={48} color={Colors.dark.textMuted} />
+          </View>
           <Text style={styles.emptyTitle}>No Messages Yet</Text>
           <Text style={styles.emptyText}>
             Your conversations with coaches and players will appear here.
@@ -95,61 +82,29 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: Spacing.lg,
   },
-  placeholderCard: {
-    marginTop: Spacing.xl,
-    padding: Spacing["2xl"],
-    borderRadius: BorderRadius.xl,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-  },
   iconContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: Spacing.lg,
   },
-  placeholderTitle: {
-    ...Typography.h2,
-    color: Colors.dark.text,
-    marginBottom: Spacing.sm,
-  },
-  placeholderText: {
-    ...Typography.body,
-    color: Colors.dark.textMuted,
-    textAlign: "center",
-    lineHeight: 22,
-  },
-  comingSoonBadge: {
-    marginTop: Spacing.lg,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    borderColor: Colors.dark.primary + "40",
-  },
-  comingSoonText: {
-    ...Typography.caption,
-    color: Colors.dark.primary,
-    fontWeight: "600",
-  },
   emptyState: {
-    marginTop: Spacing.xl,
+    flex: 1,
+    marginTop: Spacing["3xl"],
     alignItems: "center",
     paddingHorizontal: Spacing.lg,
   },
   emptyTitle: {
-    ...Typography.body,
+    ...Typography.h3,
     color: Colors.dark.textMuted,
     fontWeight: "600",
     marginBottom: Spacing.sm,
   },
   emptyText: {
-    ...Typography.small,
+    ...Typography.body,
     color: Colors.dark.textMuted,
     textAlign: "center",
   },

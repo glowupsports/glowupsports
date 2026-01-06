@@ -43,9 +43,6 @@ export default function GlowLeaderboardScreen() {
           <Text style={styles.placeholderText}>
             Compete with players from your academy and beyond. Rise through the ranks and become a Glow Champion.
           </Text>
-          <View style={styles.comingSoonBadge}>
-            <Text style={styles.comingSoonText}>Coming Soon</Text>
-          </View>
         </LinearGradient>
 
         <View style={styles.rankPreview}>
@@ -126,20 +123,6 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     textAlign: "center",
     lineHeight: 22,
-  },
-  comingSoonBadge: {
-    marginTop: Spacing.lg,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    backgroundColor: "rgba(255, 193, 7, 0.15)",
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    borderColor: Colors.dark.gold + "40",
-  },
-  comingSoonText: {
-    ...Typography.caption,
-    color: Colors.dark.gold,
-    fontWeight: "600",
   },
   rankPreview: {
     marginTop: Spacing.xl,

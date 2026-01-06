@@ -43,9 +43,6 @@ export default function PlayerFinderScreen() {
           <Text style={styles.placeholderText}>
             Find and connect with other players at your skill level. Challenge them to matches and grow your network.
           </Text>
-          <View style={styles.comingSoonBadge}>
-            <Text style={styles.comingSoonText}>Coming Soon</Text>
-          </View>
         </LinearGradient>
 
         <View style={styles.featuresContainer}>
@@ -139,20 +136,6 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     textAlign: "center",
     lineHeight: 22,
-  },
-  comingSoonBadge: {
-    marginTop: Spacing.lg,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    borderColor: Colors.dark.primary + "40",
-  },
-  comingSoonText: {
-    ...Typography.caption,
-    color: Colors.dark.primary,
-    fontWeight: "600",
   },
   featuresContainer: {
     marginTop: Spacing.xl,
