@@ -1464,6 +1464,161 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== FREELANCE LICENSE ====================
+
+  // Get coach freelance profile
+  app.get("/api/coach/freelance-profile", authMiddleware, requireRole("coach", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      if (!coachId) {
+        return res.status(400).json({ error: "Coach profile not found" });
+      }
+
+      const profile = await storage.getCoachFreelanceProfile(coachId);
+      res.json({ profile: profile || null });
+    } catch (error) {
+      console.error("Get freelance profile error:", error);
+      res.status(500).json({ error: "Failed to get freelance profile" });
+    }
+  });
+
+  // Activate freelance license (creates freelance academy + profile)
+  app.post("/api/coach/freelance-license", authMiddleware, requireRole("coach", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      const coach = await storage.getCoach(coachId!);
+      
+      if (!coach) {
+        return res.status(400).json({ error: "Coach profile not found" });
+      }
+
+      // Check if already has freelance profile
+      const existingProfile = await storage.getCoachFreelanceProfile(coachId!);
+      if (existingProfile?.isActive) {
+        return res.status(400).json({ error: "Freelance license already active" });
+      }
+
+      const { businessName, tagline, contactEmail, contactPhone } = req.body;
+      
+      if (!businessName || businessName.trim().length < 2) {
+        return res.status(400).json({ error: "Business name is required (at least 2 characters)" });
+      }
+
+      // Generate slug from business name
+      const baseSlug = businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      let slug = baseSlug;
+      let counter = 1;
+      
+      // Ensure slug is unique
+      while (await storage.getAcademyBySlug(slug)) {
+        slug = `${baseSlug}-${counter}`;
+        counter++;
+      }
+
+      // Create freelance academy
+      const freelanceAcademy = await storage.createAcademy({
+        name: businessName.trim(),
+        slug,
+        ownerId: coachId!,
+        isFreelance: true,
+        freelanceOwnerCoachId: coachId!,
+        description: tagline || `Personal coaching by ${coach.name}`,
+        email: contactEmail || coach.email,
+        phone: contactPhone || coach.phone,
+      });
+
+      // Create or update freelance profile
+      let profile;
+      if (existingProfile) {
+        profile = await storage.updateCoachFreelanceProfile(coachId!, {
+          businessName: businessName.trim(),
+          slug,
+          tagline,
+          contactEmail: contactEmail || coach.email,
+          contactPhone: contactPhone || coach.phone,
+          freelanceAcademyId: freelanceAcademy.id,
+          isActive: true,
+          activatedAt: new Date(),
+        });
+      } else {
+        profile = await storage.createCoachFreelanceProfile({
+          coachId: coachId!,
+          businessName: businessName.trim(),
+          slug,
+          tagline,
+          contactEmail: contactEmail || coach.email,
+          contactPhone: contactPhone || coach.phone,
+          freelanceAcademyId: freelanceAcademy.id,
+          isActive: true,
+          activatedAt: new Date(),
+        });
+      }
+
+      // Auto-create membership for coach in their freelance academy
+      await storage.createCoachAcademyMembership({
+        coachId: coachId!,
+        academyId: freelanceAcademy.id,
+        role: "academy_owner",
+        isActive: true,
+        isPrimary: false,
+      });
+
+      res.status(201).json({ 
+        profile,
+        academy: freelanceAcademy,
+        message: "Freelance license activated successfully!"
+      });
+    } catch (error) {
+      console.error("Activate freelance license error:", error);
+      res.status(500).json({ error: "Failed to activate freelance license" });
+    }
+  });
+
+  // Update freelance profile
+  app.put("/api/coach/freelance-profile", authMiddleware, requireRole("coach", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      if (!coachId) {
+        return res.status(400).json({ error: "Coach profile not found" });
+      }
+
+      const profile = await storage.getCoachFreelanceProfile(coachId);
+      if (!profile) {
+        return res.status(404).json({ error: "Freelance profile not found. Activate your license first." });
+      }
+
+      const {
+        businessName, tagline, bio, primaryColor,
+        contactEmail, contactPhone, website, socialLinks,
+        serviceAreas, travelRadius, specialties, ageGroupsServed,
+        showPricing, hourlyRateMin, hourlyRateMax, currency
+      } = req.body;
+
+      const updated = await storage.updateCoachFreelanceProfile(coachId, {
+        businessName, tagline, bio, primaryColor,
+        contactEmail, contactPhone, website, socialLinks,
+        serviceAreas, travelRadius, specialties, ageGroupsServed,
+        showPricing, hourlyRateMin, hourlyRateMax, currency,
+        updatedAt: new Date(),
+      });
+
+      // Also update the freelance academy name if businessName changed
+      if (businessName && profile.freelanceAcademyId) {
+        await storage.updateAcademy(profile.freelanceAcademyId, {
+          name: businessName,
+          description: tagline || undefined,
+          email: contactEmail || undefined,
+          phone: contactPhone || undefined,
+        });
+      }
+
+      res.json({ profile: updated });
+    } catch (error) {
+      console.error("Update freelance profile error:", error);
+      res.status(500).json({ error: "Failed to update freelance profile" });
+    }
+  });
+
   // ==================== ACADEMY TRANSFER REQUESTS ====================
 
   // Player requests to transfer to another academy

@@ -80,6 +80,9 @@ import {
   academySettings,
   academyInvites,
   coachAcademyMemberships,
+  coachFreelanceProfiles,
+  type CoachFreelanceProfile,
+  type InsertCoachFreelanceProfile,
   academyOwnerProfiles,
   // Phase 3: Push Notifications
   pushDeviceTokens,
@@ -4274,6 +4277,36 @@ export const storage = {
         eq(coachAcademyMemberships.coachId, coachId),
         eq(coachAcademyMemberships.academyId, academyId)
       ));
+  },
+
+  // ==================== COACH FREELANCE PROFILES ====================
+
+  async getCoachFreelanceProfile(coachId: string): Promise<CoachFreelanceProfile | undefined> {
+    const result = await db.select().from(coachFreelanceProfiles)
+      .where(eq(coachFreelanceProfiles.coachId, coachId));
+    return result[0];
+  },
+
+  async createCoachFreelanceProfile(data: InsertCoachFreelanceProfile): Promise<CoachFreelanceProfile> {
+    const result = await db.insert(coachFreelanceProfiles).values(data).returning();
+    return result[0];
+  },
+
+  async updateCoachFreelanceProfile(coachId: string, data: Partial<CoachFreelanceProfile>): Promise<CoachFreelanceProfile | undefined> {
+    const result = await db.update(coachFreelanceProfiles)
+      .set(data)
+      .where(eq(coachFreelanceProfiles.coachId, coachId))
+      .returning();
+    return result[0];
+  },
+
+  async getFreelanceAcademyByCoachId(coachId: string): Promise<Academy | undefined> {
+    const result = await db.select().from(academies)
+      .where(and(
+        eq(academies.isFreelance, true),
+        eq(academies.freelanceOwnerCoachId, coachId)
+      ));
+    return result[0];
   },
 
   // ==================== ADMIN MANAGEMENT ====================
