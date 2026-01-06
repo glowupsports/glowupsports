@@ -13048,13 +13048,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const coachData = await Promise.all(
         coaches.map(async (coach) => {
+          // Calculate weekly session count dynamically
+          const now = new Date();
+          const weekStart = new Date(now);
+          weekStart.setDate(now.getDate() - now.getDay());
+          weekStart.setHours(0, 0, 0, 0);
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekStart.getDate() + 7);
+          
+          const sessions = await storage.getSessionsByCoach(coach.id, weekStart, weekEnd, academyId);
+          const weeklySessionCount = sessions.length;
+          
           return {
             id: coach.id,
             name: coach.name,
             role: coach.role || "Coach",
             status: coach.isActive !== false ? "active" : "paused",
             stats: [
-              { label: "Sessions/wk", value: String(coach.weeklySessionCount || 0) },
+              { label: "Sessions/wk", value: String(weeklySessionCount) },
               { label: "Feedback %", value: `${coach.feedbackRate || 0}%` },
               { label: "Level", value: String(coach.level || 1) },
             ],
