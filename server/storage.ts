@@ -1574,6 +1574,8 @@ export const storage = {
       // Delete all related records in order to satisfy foreign key constraints
       // First batch: tables with no further dependencies
       await Promise.all([
+        // Player invites (MUST be deleted to avoid FK constraint errors)
+        db.delete(playerInvites).where(eq(playerInvites.playerId, id)),
         // Progress Engine V2 tables
         db.delete(sessionSkillObservations).where(eq(sessionSkillObservations.playerId, id)),
         db.delete(playerSkillState).where(eq(playerSkillState.playerId, id)),
