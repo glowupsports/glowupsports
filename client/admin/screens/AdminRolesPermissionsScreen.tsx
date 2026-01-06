@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Platform,
   Alert,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -155,6 +156,8 @@ export default function AdminRolesPermissionsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const queryClient = useQueryClient();
+  const { width } = useWindowDimensions();
+  const isCompact = width < 600;
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>("coach");
   const [localRoles, setLocalRoles] = useState<Role[]>(DEFAULT_ROLES);
   const [hasChanges, setHasChanges] = useState(false);
@@ -296,15 +299,21 @@ export default function AdminRolesPermissionsScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.content}>
-        <View style={styles.rolesColumn}>
+      <View style={[styles.content, isCompact && styles.contentCompact]}>
+        <View style={[styles.rolesColumn, isCompact && styles.rolesColumnCompact]}>
           <Text style={styles.columnTitle}>Roles</Text>
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView 
+            horizontal={isCompact} 
+            showsHorizontalScrollIndicator={false}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={isCompact ? styles.rolesScrollCompact : undefined}
+          >
             {localRoles.map((role) => (
               <Pressable
                 key={role.id}
                 style={[
                   styles.roleCard,
+                  isCompact && styles.roleCardCompact,
                   selectedRoleId === role.id && styles.roleCardSelected,
                 ]}
                 onPress={() => {
@@ -325,24 +334,27 @@ export default function AdminRolesPermissionsScreen() {
                       styles.roleName,
                       selectedRoleId === role.id && styles.roleNameSelected,
                     ]}
+                    numberOfLines={1}
                   >
                     {role.displayName}
                   </Text>
-                  <Text style={styles.rolePermissionCount}>
-                    {getPermissionCount(role)} of {AVAILABLE_PERMISSIONS.length} permissions
-                  </Text>
+                  {!isCompact ? (
+                    <Text style={styles.rolePermissionCount}>
+                      {getPermissionCount(role)} of {AVAILABLE_PERMISSIONS.length} permissions
+                    </Text>
+                  ) : null}
                 </View>
-                {role.isSystemRole && (
+                {role.isSystemRole && !isCompact ? (
                   <View style={styles.systemBadge}>
                     <Text style={styles.systemBadgeText}>System</Text>
                   </View>
-                )}
+                ) : null}
               </Pressable>
             ))}
           </ScrollView>
         </View>
 
-        <View style={styles.permissionsColumn}>
+        <View style={[styles.permissionsColumn, isCompact && styles.permissionsColumnCompact]}>
           <Text style={styles.columnTitle}>
             {selectedRole ? `${selectedRole.displayName} Permissions` : "Select a Role"}
           </Text>
@@ -446,17 +458,31 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     gap: Spacing.md,
   },
+  contentCompact: {
+    flexDirection: "column",
+  },
   rolesColumn: {
     width: "35%",
     backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
   },
+  rolesColumnCompact: {
+    width: "100%",
+    maxHeight: 140,
+  },
+  rolesScrollCompact: {
+    gap: Spacing.sm,
+    paddingRight: Spacing.md,
+  },
   permissionsColumn: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
+  },
+  permissionsColumnCompact: {
+    flex: 1,
   },
   columnTitle: {
     fontSize: 16,
@@ -476,6 +502,11 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  roleCardCompact: {
+    marginBottom: 0,
+    marginRight: Spacing.sm,
+    minWidth: 120,
   },
   roleCardSelected: {
     backgroundColor: "rgba(255,152,0,0.15)",
