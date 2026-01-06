@@ -13193,27 +13193,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Remove player from academy (academy owner)
+  // Permanently delete player from academy (academy owner)
   app.delete("/api/owner/players/:id", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user?.academyId;
       const playerId = req.params.id;
+      const userId = req.user?.coachId || req.user?.userId;
 
       if (!academyId) {
         return res.status(400).json({ error: "Academy ID required" });
       }
 
-      // Soft delete - set player to inactive
-      const player = await storage.getPlayer(playerId, academyId);
-      if (!player) {
+      // Permanent delete - completely remove player and all related data
+      const deleted = await storage.deletePlayer(playerId, academyId);
+      if (!deleted) {
         return res.status(404).json({ error: "Player not found in this academy" });
       }
 
-      await storage.updatePlayer(playerId, { status: "inactive" }, academyId);
-      res.json({ success: true, message: "Player removed from academy" });
+      await storage.createAuditLog({
+        academyId,
+        entityType: "player",
+        entityId: playerId,
+        action: "delete",
+        performedBy: userId || null,
+        performedByRole: req.user?.role || null,
+        metadata: JSON.stringify({ deletedAt: new Date().toISOString() }),
+      });
+
+      res.json({ success: true, message: "Player permanently deleted" });
     } catch (error) {
-      console.error("Remove player error:", error);
-      res.status(500).json({ error: "Failed to remove player" });
+      console.error("Delete player error:", error);
+      res.status(500).json({ error: "Failed to delete player" });
     }
   });
 
