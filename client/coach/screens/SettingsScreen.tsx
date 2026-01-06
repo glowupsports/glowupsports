@@ -830,34 +830,6 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <SectionHeader title="Offline & Sync" icon="cloud-outline" />
-
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <View style={styles.settingIconWrapper}>
-                <Ionicons name="cloud-outline" size={20} color={Colors.dark.xpCyan} />
-              </View>
-              <View>
-                <Text style={styles.settingLabel}>Auto sync</Text>
-                <Text style={styles.settingDescription}>Sync when online</Text>
-              </View>
-            </View>
-            <GlowSwitch 
-              value={settings.offlineSyncAuto} 
-              onValueChange={(value) => updateSetting("offlineSyncAuto", value)} 
-            />
-          </View>
-
-          <View style={styles.syncButtonContainer}>
-            <GradientButton
-              onPress={() => {}}
-              label="Sync manually"
-              icon="sync-outline"
-            />
-          </View>
-        </View>
-
-        <View style={styles.section}>
           <SectionHeader title="Feedback & Reputation" icon="star-outline" />
           <Pressable 
             style={styles.linkRow}
