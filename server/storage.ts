@@ -6789,9 +6789,29 @@ export const storage = {
 
   // Get coach's time blocks for a date (shows "Busy" for other academies)
   // Only returns blocks from OTHER academies - own-academy sessions are already in ownSessions
+  // For platform owners (no viewerAcademyId), returns ALL blocks with anonymized academy info
   async getCoachTimeBlocksForDate(coachId: string, date: string, viewerAcademyId?: string): Promise<any[]> {
     if (!viewerAcademyId) {
-      return [];
+      // Platform owner view - return ALL blocks with anonymized academy info
+      const result = await db.execute(sql`
+        SELECT 
+          id,
+          source_type,
+          NULL as source_academy_id,
+          NULL as source_session_id,
+          date,
+          start_time,
+          end_time,
+          status,
+          true as is_private,
+          true as is_external
+        FROM coach_time_blocks 
+        WHERE coach_id = ${coachId}
+          AND date = ${date}
+          AND status = 'confirmed'
+        ORDER BY start_time::time
+      `);
+      return result.rows;
     }
     
     const result = await db.execute(sql`

@@ -2630,6 +2630,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updated = await storage.updateSession(id, updates);
 
+      // Recreate time block for rescheduled session (delete old, create new)
+      if (coachId && session.status !== 'cancelled' && (updates.startTime || updates.duration)) {
+        await storage.deleteCoachTimeBlockBySession(id);
+        const newStart = updates.startTime ? new Date(updates.startTime) : session.startTime;
+        const newEnd = updates.endTime || session.endTime;
+        const sessionDate = newStart.toISOString().split('T')[0];
+        const startTimeStr = newStart.toISOString().split('T')[1].substring(0, 5);
+        const endTimeStr = newEnd.toISOString().split('T')[1].substring(0, 5);
+        await storage.createCoachTimeBlock({
+          coachId,
+          sourceType: 'session',
+          sourceAcademyId: academyId || undefined,
+          sourceSessionId: id,
+          date: sessionDate,
+          startTime: startTimeStr,
+          endTime: endTimeStr,
+          isPrivate: true,
+        });
+      }
+
       // Sync to Google Calendar if event exists (non-blocking)
       if (session.googleCalendarEventId) {
         const sessionPlayers = await storage.getSessionPlayers(id);
@@ -4273,6 +4293,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (courtId !== undefined) updateData.courtId = newCourtId;
       
       const updatedSession = await storage.updateSession(sessionId, updateData);
+      
+      // Recreate time block for rescheduled session (delete old, create new)
+      if (session.coachId && session.status !== 'cancelled' && (startTime || endTime)) {
+        await storage.deleteCoachTimeBlockBySession(sessionId);
+        const sessionDate = newStartTime.toISOString().split('T')[0];
+        const startTimeStr = newStartTime.toISOString().split('T')[1].substring(0, 5);
+        const endTimeStr = newEndTime.toISOString().split('T')[1].substring(0, 5);
+        await storage.createCoachTimeBlock({
+          coachId: session.coachId,
+          sourceType: 'session',
+          sourceAcademyId: academyId || undefined,
+          sourceSessionId: sessionId,
+          date: sessionDate,
+          startTime: startTimeStr,
+          endTime: endTimeStr,
+          isPrivate: true,
+        });
+      }
+      
       res.json(updatedSession);
     } catch (error) {
       console.error("Error updating session:", error);
