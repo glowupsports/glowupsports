@@ -83,11 +83,9 @@ export default function SessionDetailDrawer({
   const [showExtendOptions, setShowExtendOptions] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
   const [cancelResult, setCancelResult] = useState<{
     success: boolean;
-    isLastMinute: boolean;
-    charged: boolean;
-    chargeAmount: number;
     message: string;
   } | null>(null);
 
@@ -111,6 +109,7 @@ export default function SessionDetailDrawer({
       setShowEndConfirm(false);
       setShowAddPlayer(false);
       setShowCancelConfirm(false);
+      setCancelReason("");
       setCancelResult(null);
     }
   }, [visible, initialAction]);
@@ -298,11 +297,13 @@ export default function SessionDetailDrawer({
     },
   });
 
-  // Last-minute cancellation mutation
-  const lastMinuteCancelMutation = useMutation({
-    mutationFn: async () => {
+  // Cancel session mutation (coach-initiated, no charge)
+  const cancelSessionMutation = useMutation({
+    mutationFn: async (reason: string) => {
       if (!session) throw new Error("No session selected");
-      const response = await apiRequest("POST", `/api/coach/sessions/${session.id}/last-minute-cancel`);
+      const response = await apiRequest("POST", `/api/coach/sessions/${session.id}/cancel`, {
+        reason: reason.trim() || "Cancelled by coach",
+      });
       return response.json();
     },
     onSuccess: (data) => {
@@ -872,7 +873,7 @@ export default function SessionDetailDrawer({
           onPress={() => setShowCancelConfirm(true)}
         >
           <Ionicons name="close-circle-outline" size={20} color={Colors.dark.orange} />
-          <Text style={[styles.actionButtonText, { color: Colors.dark.orange }]}>Last-Minute Cancel</Text>
+          <Text style={[styles.actionButtonText, { color: Colors.dark.orange }]}>Cancel Session</Text>
         </Pressable>
       </View>
     </>
@@ -961,7 +962,7 @@ export default function SessionDetailDrawer({
   const renderCancelConfirm = () => (
     <>
       <View style={styles.stepHeader}>
-        <Pressable onPress={() => { setShowCancelConfirm(false); setCancelResult(null); }}>
+        <Pressable onPress={() => { setShowCancelConfirm(false); setCancelReason(""); setCancelResult(null); }}>
           <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
         </Pressable>
         <Text style={styles.stepTitle}>Cancel Session</Text>
@@ -970,16 +971,27 @@ export default function SessionDetailDrawer({
       <View style={styles.endConfirmContent}>
         {!cancelResult ? (
           <>
-            <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.orange} />
+            <Ionicons name="close-circle-outline" size={48} color={Colors.dark.orange} />
             <Text style={styles.endConfirmText}>
-              Mark this session as cancelled?{"\n\n"}
-              If this is a last-minute cancellation (within the cancellation window), 
-              the lesson may still be charged according to your academy's policy.
+              Are you sure you want to cancel this session?
             </Text>
+            <Text style={styles.stepLabel}>REASON FOR CANCELLATION</Text>
+            <View style={styles.reasonInputContainer}>
+              <TextInput
+                style={styles.reasonInput}
+                placeholder="e.g., Personal emergency, Weather conditions, Court unavailable..."
+                placeholderTextColor={Colors.dark.tabIconDefault}
+                value={cancelReason}
+                onChangeText={setCancelReason}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+            </View>
             <View style={styles.endConfirmButtons}>
               <Pressable
                 style={styles.endCancelButton}
-                onPress={() => setShowCancelConfirm(false)}
+                onPress={() => { setShowCancelConfirm(false); setCancelReason(""); }}
               >
                 <Text style={styles.endCancelButtonText}>Go Back</Text>
               </Pressable>
@@ -987,15 +999,15 @@ export default function SessionDetailDrawer({
                 style={[styles.cancelConfirmButton, isOffline && { opacity: 0.5 }]}
                 onPress={async () => {
                   if (isOffline) {
-                    await logOfflineAttempt({ screen: "SessionDetailDrawer", action: "last_minute_cancel" });
+                    await logOfflineAttempt({ screen: "SessionDetailDrawer", action: "cancel_session" });
                     showOfflineAlert();
                     return;
                   }
-                  lastMinuteCancelMutation.mutate();
+                  cancelSessionMutation.mutate(cancelReason);
                 }}
-                disabled={lastMinuteCancelMutation.isPending || isOffline}
+                disabled={cancelSessionMutation.isPending || isOffline}
               >
-                {lastMinuteCancelMutation.isPending ? (
+                {cancelSessionMutation.isPending ? (
                   <ActivityIndicator size="small" color={Colors.dark.text} />
                 ) : (
                   <Text style={styles.cancelConfirmButtonText}>Confirm Cancel</Text>
@@ -1006,27 +1018,18 @@ export default function SessionDetailDrawer({
         ) : (
           <>
             <Ionicons 
-              name={cancelResult.charged ? "warning-outline" : "checkmark-circle-outline"} 
+              name="checkmark-circle-outline" 
               size={48} 
-              color={cancelResult.charged ? Colors.dark.orange : Colors.dark.primary} 
+              color={Colors.dark.primary} 
             />
             <Text style={styles.endConfirmText}>
               {cancelResult.message}
             </Text>
-            {cancelResult.charged && cancelResult.chargeAmount > 0 && (
-              <View style={styles.chargeInfo}>
-                <Text style={styles.chargeAmount}>
-                  Cancellation Fee: AED {Number(cancelResult.chargeAmount).toFixed(2)}
-                </Text>
-                <Text style={styles.chargeNote}>
-                  An invoice has been generated for the cancellation fee.
-                </Text>
-              </View>
-            )}
             <Pressable
               style={styles.cancelDoneButton}
               onPress={() => {
                 setShowCancelConfirm(false);
+                setCancelReason("");
                 setCancelResult(null);
                 onClose();
               }}
@@ -1744,22 +1747,21 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.text,
   },
-  chargeInfo: {
-    backgroundColor: Colors.dark.orange + "20",
+  reasonInputContainer: {
+    width: "100%",
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    marginTop: Spacing.md,
-    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.lg,
   },
-  chargeAmount: {
-    ...Typography.h3,
-    color: Colors.dark.orange,
-    marginBottom: Spacing.xs,
-  },
-  chargeNote: {
-    ...Typography.caption,
-    color: Colors.dark.textMuted,
-    textAlign: "center",
+  reasonInput: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    padding: Spacing.md,
+    minHeight: 80,
+    textAlignVertical: "top",
   },
   cancelDoneButton: {
     backgroundColor: Colors.dark.primary,

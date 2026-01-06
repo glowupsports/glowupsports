@@ -2996,9 +2996,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ==================== LAST-MINUTE CANCELLATION ====================
+  // ==================== SESSION CANCELLATION ====================
   
-  // Mark session as last-minute cancelled with policy enforcement
+  // Cancel session by coach (no charge, with reason)
+  app.post("/api/coach/sessions/:id/cancel", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      
+      // Validate session ownership
+      const { valid, session } = await validateSessionOwnership(id, academyId, storage);
+      if (!valid || !session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      // Check if session is already cancelled or completed
+      if (session.status === "cancelled" || session.status === "completed") {
+        return res.status(400).json({ error: `Session is already ${session.status}` });
+      }
+      
+      const now = new Date();
+      
+      // Update session with cancellation details (no charge for coach-initiated cancellations)
+      const updates: Record<string, unknown> = {
+        status: "cancelled",
+        cancelledAt: now,
+        cancelledBy: coachId,
+        cancellationReason: reason || "Cancelled by coach",
+        isLastMinuteCancellation: false,
+        cancellationCharged: false,
+        cancellationChargeAmount: null,
+      };
+      
+      await storage.updateSession(id, updates);
+      
+      // Audit log
+      await storage.createAuditLog({
+        entityType: "session",
+        entityId: id,
+        action: "cancelled",
+        performedBy: coachId || req.user!.userId,
+        details: JSON.stringify({
+          reason: reason || "Cancelled by coach",
+          cancelledBy: "coach",
+          noCharge: true,
+        }),
+        academyId: academyId!,
+      });
+      
+      res.json({
+        success: true,
+        message: "Session has been cancelled successfully.",
+      });
+    } catch (error) {
+      console.error("Error cancelling session:", error);
+      res.status(500).json({ error: "Failed to cancel session" });
+    }
+  });
+  
+  // Mark session as last-minute cancelled with policy enforcement (legacy - for student cancellations)
   app.post("/api/coach/sessions/:id/last-minute-cancel", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;

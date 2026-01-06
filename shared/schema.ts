@@ -861,6 +861,7 @@ export const sessions = pgTable("sessions", {
   // Cancellation tracking
   cancelledAt: timestamp("cancelled_at"),
   cancelledBy: varchar("cancelled_by"), // coach_id who marked the cancellation
+  cancellationReason: text("cancellation_reason"), // Reason provided by coach for cancellation
   isLastMinuteCancellation: boolean("is_last_minute_cancellation").default(false),
   cancellationCharged: boolean("cancellation_charged").default(false),
   cancellationChargeAmount: numeric("cancellation_charge_amount"),
