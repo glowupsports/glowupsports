@@ -6696,4 +6696,122 @@ export const storage = {
 
     return Number(higherRanked[0]?.count || 0) + 1;
   },
+
+  // ==================== UNIFIED COACH TIME BLOCKS ====================
+
+  // Check if a coach has a time block conflict across ALL academies
+  async checkUnifiedCoachConflict(coachId: string, date: string, startTime: string, endTime: string, excludeSessionId?: string, viewerAcademyId?: string): Promise<{ hasConflict: boolean; isOwnAcademy: boolean; }> {
+    // Use proper time casting to avoid string comparison issues
+    const result = await db.execute(sql`
+      SELECT id, source_academy_id, source_session_id 
+      FROM coach_time_blocks 
+      WHERE coach_id = ${coachId}
+        AND date = ${date}
+        AND status = 'confirmed'
+        AND (
+          (start_time::time < ${endTime}::time AND end_time::time > ${startTime}::time)
+        )
+        ${excludeSessionId ? sql`AND (source_session_id IS NULL OR source_session_id != ${excludeSessionId})` : sql``}
+      LIMIT 1
+    `);
+    
+    if (result.rows.length === 0) {
+      return { hasConflict: false, isOwnAcademy: false };
+    }
+    
+    const conflictingBlock = result.rows[0] as { source_academy_id: string | null };
+    const isOwnAcademy = viewerAcademyId ? conflictingBlock.source_academy_id === viewerAcademyId : false;
+    
+    return { hasConflict: true, isOwnAcademy };
+  },
+
+  // Create a time block when a session is booked
+  async createCoachTimeBlock(data: {
+    coachId: string;
+    sourceType: 'session' | 'personal' | 'travel';
+    sourceAcademyId?: string;
+    sourceSessionId?: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    isPrivate?: boolean;
+    blockReason?: string;
+  }): Promise<void> {
+    await db.execute(sql`
+      INSERT INTO coach_time_blocks (id, coach_id, source_type, source_academy_id, source_session_id, date, start_time, end_time, status, is_private, block_reason)
+      VALUES (
+        gen_random_uuid(),
+        ${data.coachId},
+        ${data.sourceType},
+        ${data.sourceAcademyId || null},
+        ${data.sourceSessionId || null},
+        ${data.date},
+        ${data.startTime},
+        ${data.endTime},
+        'confirmed',
+        ${data.isPrivate ?? true},
+        ${data.blockReason || null}
+      )
+    `);
+  },
+
+  // Delete a time block when a session is cancelled
+  async deleteCoachTimeBlockBySession(sessionId: string): Promise<void> {
+    await db.execute(sql`
+      DELETE FROM coach_time_blocks WHERE source_session_id = ${sessionId}
+    `);
+  },
+
+  // Get coach's time blocks for a date (shows "Busy" for other academies)
+  // Only returns blocks from OTHER academies - own-academy sessions are already in ownSessions
+  async getCoachTimeBlocksForDate(coachId: string, date: string, viewerAcademyId?: string): Promise<any[]> {
+    if (!viewerAcademyId) {
+      return [];
+    }
+    
+    const result = await db.execute(sql`
+      SELECT 
+        id,
+        source_type,
+        source_academy_id,
+        source_session_id,
+        date,
+        start_time,
+        end_time,
+        status,
+        is_private,
+        true as is_external
+      FROM coach_time_blocks 
+      WHERE coach_id = ${coachId}
+        AND date = ${date}
+        AND status = 'confirmed'
+        AND (source_academy_id IS NULL OR source_academy_id != ${viewerAcademyId})
+      ORDER BY start_time::time
+    `);
+    return result.rows;
+  },
+
+  // Get coach's external time blocks for a date range (for calendar view)
+  // Only returns blocks from OTHER academies
+  async getCoachExternalBlocksForRange(coachId: string, startDate: Date, endDate: Date, viewerAcademyId: string): Promise<any[]> {
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+    
+    const result = await db.execute(sql`
+      SELECT 
+        id,
+        source_type,
+        date,
+        start_time,
+        end_time
+      FROM coach_time_blocks 
+      WHERE coach_id = ${coachId}
+        AND date >= ${startDateStr}
+        AND date <= ${endDateStr}
+        AND status = 'confirmed'
+        AND (source_academy_id IS NULL OR source_academy_id != ${viewerAcademyId})
+      ORDER BY date, start_time::time
+    `);
+    return result.rows;
+  },
 };

@@ -584,7 +584,7 @@ export default function DashboardScreen() {
                 <Text style={styles.playerName}>{coach.name}</Text>
                 <View style={styles.academyRow}>
                   <Ionicons name="shield" size={12} color={Colors.dark.xpCyan} />
-                  <Text style={styles.academyName}>{academy?.name || "Academy"}</Text>
+                  <AcademySwitcher />
                 </View>
                 
                 {/* XP Progress Ring */}

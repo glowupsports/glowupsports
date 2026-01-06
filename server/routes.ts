@@ -2153,6 +2153,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         blocked: true,
       }));
 
+      // Get external time blocks (this coach at OTHER academies - show as "Busy")
+      // Use single range query for efficiency
+      let externalBlocks: { startTime: Date; endTime: Date; isExternal: true; label: string }[] = [];
+      if (academyId) {
+        const rawBlocks = await storage.getCoachExternalBlocksForRange(coachId as string, startDate, endDate, academyId);
+        externalBlocks = rawBlocks.map((block: any) => {
+          // Convert date + time to full Date objects
+          const [blockYear, blockMonth, blockDay] = block.date.split('-').map(Number);
+          const [startHour, startMin] = block.start_time.split(':').map(Number);
+          const [endHour, endMin] = block.end_time.split(':').map(Number);
+          
+          const blockStart = new Date(Date.UTC(blockYear, blockMonth - 1, blockDay, startHour, startMin, 0, 0));
+          const blockEnd = new Date(Date.UTC(blockYear, blockMonth - 1, blockDay, endHour, endMin, 0, 0));
+          
+          return {
+            startTime: blockStart,
+            endTime: blockEnd,
+            isExternal: true as const,
+            label: "Busy",
+          };
+        });
+      }
+
       // Get courts - filtered by academy
       const courts = await storage.getAllCourts(academyId ?? undefined);
       const locations = await storage.getAllLocations(academyId ?? undefined);
@@ -2160,6 +2183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         ownSessions: sessionsWithPlayers,
         blockedSessions: blockedSessionsMinimal,
+        externalBlocks,
         courts,
         locations,
         dateRange: { start: startDate, end: endDate },
@@ -2185,8 +2209,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const conflicts: string[] = [];
 
       const academyId = req.user?.academyId ?? undefined;
+      
+      // Check unified time block conflict (across ALL academies)
+      const dateStr = start.toISOString().split('T')[0];
+      const startTimeStr = start.toISOString().split('T')[1].slice(0, 5);
+      const endTimeStr = end.toISOString().split('T')[1].slice(0, 5);
+      const unifiedConflict = await storage.checkUnifiedCoachConflict(
+        coachId as string,
+        dateStr,
+        startTimeStr,
+        endTimeStr,
+        excludeSessionId as string | undefined,
+        academyId
+      );
+      if (unifiedConflict.hasConflict && !unifiedConflict.isOwnAcademy) {
+        conflicts.push("Coach is already booked at another academy for this time");
+      }
 
-      // Check coach conflict
+      // Check coach conflict within same academy
       const coachConflict = await storage.checkCoachConflict(
         coachId as string, 
         start, 
@@ -2390,8 +2430,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const start = new Date(startTime);
       const end = new Date(start.getTime() + duration * 60000);
+      const dateStr = start.toISOString().split('T')[0];
+      const startTimeStr = start.toISOString().split('T')[1].slice(0, 5);
+      const endTimeStr = end.toISOString().split('T')[1].slice(0, 5);
 
-      // Check conflicts
+      // Check unified time block conflict (across ALL academies)
+      const unifiedConflict = await storage.checkUnifiedCoachConflict(coachId, dateStr, startTimeStr, endTimeStr, undefined, academyId ?? undefined);
+      if (unifiedConflict.hasConflict && !unifiedConflict.isOwnAcademy) {
+        return res.status(409).json({ 
+          error: "Coach conflict", 
+          level: 3,
+          message: "Coach is already booked at another academy for this time slot" 
+        });
+      }
+
+      // Check conflicts within this academy
       const coachConflict = await storage.checkCoachConflict(coachId, start, end, undefined, academyId ?? undefined);
       if (coachConflict) {
         return res.status(409).json({ 
@@ -2419,12 +2472,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (let week = 0; week < sessionsToCreate; week++) {
         const weekStart = new Date(start.getTime() + week * 7 * 24 * 60 * 60 * 1000);
         const weekEnd = new Date(weekStart.getTime() + duration * 60000);
+        const weekDateStr = weekStart.toISOString().split('T')[0];
+        const weekStartTimeStr = weekStart.toISOString().split('T')[1].slice(0, 5);
+        const weekEndTimeStr = weekEnd.toISOString().split('T')[1].slice(0, 5);
 
-        // Check conflicts for each week
+        // Check unified time block conflicts for each week (across ALL academies)
+        const weekUnifiedConflict = await storage.checkUnifiedCoachConflict(coachId, weekDateStr, weekStartTimeStr, weekEndTimeStr, undefined, academyId ?? undefined);
         const weekCoachConflict = await storage.checkCoachConflict(coachId, weekStart, weekEnd, undefined, academyId ?? undefined);
         const weekCourtConflict = await storage.checkCourtConflict(courtId, weekStart, weekEnd, undefined, academyId ?? undefined);
         
-        if (weekCoachConflict || weekCourtConflict) {
+        // Skip if there's an external conflict or within-academy conflict
+        if ((weekUnifiedConflict.hasConflict && !weekUnifiedConflict.isOwnAcademy) || weekCoachConflict || weekCourtConflict) {
           skippedWeeks.push(week + 1);
           continue;
         }
@@ -2446,6 +2504,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           travelTime: travelTime || 0,
           paymentStatus: "unpaid",
           status: "scheduled",
+        });
+
+        // Create unified time block to prevent double-booking across academies
+        await storage.createCoachTimeBlock({
+          coachId,
+          sourceType: 'session',
+          sourceAcademyId: academyId ?? undefined,
+          sourceSessionId: session.id,
+          date: weekDateStr,
+          startTime: weekStartTimeStr,
+          endTime: weekEndTimeStr,
+          isPrivate: true,
         });
 
         // Add players if provided
@@ -2616,6 +2686,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const cancelled = await storage.cancelSession(id);
+
+      // Delete the unified time block to free up this time slot
+      await storage.deleteCoachTimeBlockBySession(id);
 
       // Remove from Google Calendar if event exists (non-blocking)
       if (session.googleCalendarEventId) {
@@ -3031,6 +3104,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       await storage.updateSession(id, updates);
+
+      // Delete the unified time block to free up this time slot
+      await storage.deleteCoachTimeBlockBySession(id);
       
       // Audit log
       await storage.createAuditLog({
@@ -3107,6 +3183,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       await storage.updateSession(id, updates);
+
+      // Delete the unified time block to free up this time slot
+      await storage.deleteCoachTimeBlockBySession(id);
       
       // If charged, create an invoice for the cancellation fee
       if (shouldCharge && chargeAmount > 0) {
