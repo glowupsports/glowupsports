@@ -3976,8 +3976,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const academyId = req.user?.academyId;
       const playerId = req.user?.playerId;
       
+      // If player doesn't have an academy yet, return empty array gracefully
       if (!academyId) {
-        return res.status(403).json({ error: "Academy membership required" });
+        return res.json([]);
       }
       
       // Get all players in the same academy
