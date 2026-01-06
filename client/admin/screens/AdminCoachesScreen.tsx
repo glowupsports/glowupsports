@@ -262,15 +262,15 @@ export default function AdminCoachesScreen() {
     };
 
     if (Platform.OS === "web") {
-      const confirmed = window.confirm(`Remove ${selectedCoach.name} from academy? They will be marked as inactive.`);
+      const confirmed = window.confirm(`Permanently remove ${selectedCoach.name} from academy? This will remove their access and cannot be undone.`);
       if (confirmed) confirmDelete();
     } else {
       Alert.alert(
-        "Remove Coach",
-        `Remove ${selectedCoach.name} from academy? They will be marked as inactive.`,
+        "Permanently Remove Coach",
+        `This will permanently remove ${selectedCoach.name} from this academy. They will lose access to all academy data. This action cannot be undone.`,
         [
           { text: "Cancel", style: "cancel" },
-          { text: "Remove", style: "destructive", onPress: confirmDelete },
+          { text: "Remove Forever", style: "destructive", onPress: confirmDelete },
         ]
       );
     }

@@ -89,9 +89,10 @@ interface PlayerHealthRowProps {
   level: string;
   risk: "low" | "medium" | "high";
   indicator: string;
+  reason: string;
 }
 
-function PlayerHealthRow({ name, level, risk, indicator }: PlayerHealthRowProps) {
+function PlayerHealthRow({ name, level, risk, indicator, reason }: PlayerHealthRowProps) {
   const riskColors = {
     low: Colors.dark.primary,
     medium: Colors.dark.orange,
@@ -103,6 +104,7 @@ function PlayerHealthRow({ name, level, risk, indicator }: PlayerHealthRowProps)
       <View style={styles.playerInfo}>
         <Text style={styles.playerName}>{name}</Text>
         <Text style={styles.playerLevel}>{level}</Text>
+        <Text style={[styles.playerReason, { color: riskColors[risk] }]}>{reason}</Text>
       </View>
       <View style={[styles.riskBadge, { backgroundColor: `${riskColors[risk]}20` }]}>
         <View style={[styles.riskDot, { backgroundColor: riskColors[risk] }]} />
@@ -229,6 +231,11 @@ export default function PerformanceScreen() {
                 const attValue = parseInt(attendance?.value || "0");
                 const risk = attValue >= 80 ? "low" : attValue >= 60 ? "medium" : "high";
                 const indicator = attValue >= 80 ? "On track" : attValue >= 60 ? "Needs attention" : "At risk";
+                const reason = attValue >= 80 
+                  ? `${attValue}% attendance - excellent`
+                  : attValue >= 60 
+                    ? `${attValue}% attendance - below target`
+                    : `${attValue}% attendance - needs intervention`;
                 return (
                   <PlayerHealthRow
                     key={player.id}
@@ -236,6 +243,7 @@ export default function PerformanceScreen() {
                     level={player.role}
                     risk={risk}
                     indicator={indicator}
+                    reason={reason}
                   />
                 );
               })
@@ -397,6 +405,11 @@ const styles = StyleSheet.create({
   playerLevel: {
     ...Typography.small,
     color: Colors.dark.textMuted,
+  },
+  playerReason: {
+    ...Typography.small,
+    fontSize: 11,
+    marginTop: 2,
   },
   riskBadge: {
     flexDirection: "row",

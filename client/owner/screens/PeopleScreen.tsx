@@ -376,15 +376,15 @@ export default function PeopleScreen() {
     };
 
     if (Platform.OS === "web") {
-      const confirmed = window.confirm(`Remove ${name} from academy? They will be marked as inactive.`);
+      const confirmed = window.confirm(`Permanently delete ${name}? This will remove ALL their data including progress, sessions, payments, and cannot be undone.`);
       if (confirmed) confirmDelete();
     } else {
       Alert.alert(
-        "Remove from Academy",
-        `Remove ${name} from academy? They will be marked as inactive.`,
+        "Permanently Delete Player",
+        `This will permanently delete ${name} and ALL their data including progress, sessions, payments. This action cannot be undone.`,
         [
           { text: "Cancel", style: "cancel" },
-          { text: "Remove", style: "destructive", onPress: confirmDelete },
+          { text: "Delete Forever", style: "destructive", onPress: confirmDelete },
         ]
       );
     }
