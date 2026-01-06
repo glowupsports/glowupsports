@@ -1353,6 +1353,15 @@ export const storage = {
     return db.select().from(courts);
   },
 
+  async getCourtByName(name: string, academyId: string): Promise<Court | undefined> {
+    const result = await db.select().from(courts)
+      .where(and(
+        eq(courts.academyId, academyId),
+        ilike(courts.name, name.trim())
+      ));
+    return result[0];
+  },
+
   async createCourt(data: InsertCourt): Promise<Court> {
     const result = await db.insert(courts).values(data).returning();
     return result[0];

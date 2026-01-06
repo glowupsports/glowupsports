@@ -3615,7 +3615,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/courts", authMiddleware, requireRole("academy_owner", "platform_owner", "admin", "coach"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId;
-      const court = await storage.createCourt({ ...req.body, academyId });
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+      
+      const { name } = req.body;
+      if (!name || !name.trim()) {
+        return res.status(400).json({ error: "Court name is required" });
+      }
+      
+      // Check for duplicate court name within academy
+      const existingCourt = await storage.getCourtByName(name.trim(), academyId);
+      if (existingCourt) {
+        return res.status(409).json({ error: `A court named "${name.trim()}" already exists` });
+      }
+      
+      const court = await storage.createCourt({ ...req.body, name: name.trim(), academyId });
       res.status(201).json(court);
     } catch (error) {
       console.error("Error creating court:", error);
@@ -13535,13 +13550,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { name, locationId, color, isActive } = req.body;
-      if (!name) {
+      if (!name || !name.trim()) {
         return res.status(400).json({ error: "Court name is required" });
+      }
+
+      // Check for duplicate court name within academy
+      const existingCourt = await storage.getCourtByName(name.trim(), academyId);
+      if (existingCourt) {
+        return res.status(409).json({ error: `A court named "${name.trim()}" already exists` });
       }
 
       const court = await storage.createCourt({
         academyId,
-        name,
+        name: name.trim(),
         locationId: locationId || null,
         color: color || "#2ECC40",
         isActive: isActive !== false,

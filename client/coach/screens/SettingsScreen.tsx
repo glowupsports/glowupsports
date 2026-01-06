@@ -265,6 +265,10 @@ export default function SettingsScreen() {
       setNewCourtColor(COURT_COLORS[0]);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
+    onError: (error: any) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Error", error?.message || "Failed to create court");
+    },
   });
 
   const updateCourtMutation = useMutation({
@@ -289,6 +293,10 @@ export default function SettingsScreen() {
       queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: any) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Cannot Delete Court", error?.message || "Failed to delete court. It may have sessions associated with it.");
     },
   });
 
