@@ -10,6 +10,7 @@ import {
   Platform,
   RefreshControl,
 } from "react-native";
+import { Image } from "expo-image";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -39,6 +40,7 @@ import { CoachEarningsCard } from "@/coach/components/CoachEarningsCard";
 import { AcademySwitcher } from "@/coach/components/AcademySwitcher";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import { filterSessionsByDate } from "@/lib/dateUtils";
+import { getApiUrl } from "@/lib/query-client";
 import { NextSessionCountdown } from "@/coach/components/NextSessionCountdown";
 
 interface Session {
@@ -561,9 +563,17 @@ export default function DashboardScreen() {
                     end={{ x: 1, y: 1 }}
                     style={styles.avatarBorder}
                   >
-                    <View style={styles.avatarInnerBg}>
-                      <Ionicons name="person" size={28} color={Colors.dark.primary} />
-                    </View>
+                    {coach?.photoUrl ? (
+                      <Image
+                        source={{ uri: `${getApiUrl()}${coach.photoUrl}` }}
+                        style={styles.avatarPhoto}
+                        contentFit="cover"
+                      />
+                    ) : (
+                      <View style={styles.avatarInnerBg}>
+                        <Ionicons name="person" size={28} color={Colors.dark.primary} />
+                      </View>
+                    )}
                   </LinearGradient>
                 </View>
                 
@@ -1540,6 +1550,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundRoot,
     alignItems: "center",
     justifyContent: "center",
+  },
+  avatarPhoto: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
   },
   levelEmblem: {
     position: "absolute" as const,

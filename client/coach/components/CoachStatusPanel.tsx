@@ -9,6 +9,7 @@ import {
   Dimensions,
   Modal,
 } from "react-native";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -23,7 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const PANEL_WIDTH = Math.min(SCREEN_WIDTH * 0.85, 340);
@@ -248,9 +249,17 @@ export function CoachStatusPanel({ visible, onClose, onNavigate }: CoachStatusPa
                     colors={[Colors.dark.primary, Colors.dark.xpCyan]}
                     style={styles.avatarGradient}
                   >
-                    <View style={styles.avatarInner}>
-                      <Ionicons name="person" size={32} color={Colors.dark.primary} />
-                    </View>
+                    {coach?.photoUrl ? (
+                      <Image
+                        source={{ uri: `${getApiUrl()}${coach.photoUrl}` }}
+                        style={styles.avatarImage}
+                        contentFit="cover"
+                      />
+                    ) : (
+                      <View style={styles.avatarInner}>
+                        <Ionicons name="person" size={32} color={Colors.dark.primary} />
+                      </View>
+                    )}
                   </LinearGradient>
                   <View style={styles.levelBadgeContainer}>
                     <Text style={styles.levelBadge}>{coachXP.level}</Text>
@@ -583,6 +592,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundDefault,
     justifyContent: "center",
     alignItems: "center",
+  },
+  avatarImage: {
+    width: 74,
+    height: 74,
+    borderRadius: 37,
   },
   levelBadgeContainer: {
     position: "absolute",

@@ -3656,6 +3656,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalXp: coach.totalXp,
           academyId: coach.academyId,
           onboardingCompleted: coach.onboardingCompleted,
+          photoUrl: coach.photoUrl,
+          specialty: coach.specialty,
+          bio: coach.bio,
         } : null,
         academy: academy ? {
           id: academy.id,

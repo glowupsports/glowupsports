@@ -156,6 +156,8 @@ export default function CoachProfileScreen() {
       }
 
       await queryClient.invalidateQueries({ queryKey: ["/api/coach/profile"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/me"] });
+      await refreshAuth();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert("Success", "Profile photo updated!");
     } catch (error) {
@@ -178,6 +180,7 @@ export default function CoachProfileScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/coach/profile"] });
       queryClient.invalidateQueries({ queryKey: ["/api/coaches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/me"] });
       await refreshAuth();
       setIsEditing(false);
       Alert.alert("Saved", "Profile updated successfully");

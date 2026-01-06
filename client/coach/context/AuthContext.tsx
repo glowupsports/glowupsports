@@ -21,6 +21,9 @@ interface Coach {
   level: number | null;
   totalXp: number | null;
   academyId: string | null;
+  photoUrl: string | null;
+  specialty: string | null;
+  bio: string | null;
 }
 
 interface Academy {

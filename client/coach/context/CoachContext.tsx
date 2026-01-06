@@ -14,6 +14,9 @@ interface Coach {
   level: number | null;
   totalXp: number | null;
   academyId: string | null;
+  photoUrl: string | null;
+  specialty: string | null;
+  bio: string | null;
 }
 
 interface Academy {
@@ -109,6 +112,9 @@ export function CoachProvider({ children }: { children: ReactNode }) {
     level: authCoach.level,
     totalXp: authCoach.totalXp,
     academyId: authCoach.academyId,
+    photoUrl: authCoach.photoUrl,
+    specialty: authCoach.specialty,
+    bio: authCoach.bio,
   } : null;
 
   const academy: Academy | null = authAcademy ? {
