@@ -1786,7 +1786,8 @@ export const storage = {
     const conditions = [
       eq(sessions.coachId, coachId),
       gte(sessions.startTime, startDate),
-      lte(sessions.startTime, endDate)
+      lte(sessions.startTime, endDate),
+      ne(sessions.status, "cancelled")
     ];
     if (academyId) {
       conditions.push(eq(sessions.academyId, academyId));

@@ -11,10 +11,23 @@ import {
   ActivityIndicator,
   Platform,
 } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+
+const CANCELLATION_REASONS = [
+  { label: "Select a reason...", value: "" },
+  { label: "Personal emergency", value: "Personal emergency" },
+  { label: "Weather conditions", value: "Weather conditions" },
+  { label: "Court unavailable", value: "Court unavailable" },
+  { label: "Player requested cancellation", value: "Player requested cancellation" },
+  { label: "Illness / Health issue", value: "Illness / Health issue" },
+  { label: "Schedule conflict", value: "Schedule conflict" },
+  { label: "Equipment issues", value: "Equipment issues" },
+  { label: "Other", value: "Other" },
+];
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
@@ -976,17 +989,23 @@ export default function SessionDetailDrawer({
               Are you sure you want to cancel this session?
             </Text>
             <Text style={styles.stepLabel}>REASON FOR CANCELLATION</Text>
-            <View style={styles.reasonInputContainer}>
-              <TextInput
-                style={styles.reasonInput}
-                placeholder="e.g., Personal emergency, Weather conditions, Court unavailable..."
-                placeholderTextColor={Colors.dark.tabIconDefault}
-                value={cancelReason}
-                onChangeText={setCancelReason}
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-              />
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={cancelReason}
+                onValueChange={(value) => setCancelReason(value)}
+                style={styles.picker}
+                dropdownIconColor={Colors.dark.orange}
+                itemStyle={styles.pickerItem}
+              >
+                {CANCELLATION_REASONS.map((reason) => (
+                  <Picker.Item 
+                    key={reason.value} 
+                    label={reason.label} 
+                    value={reason.value}
+                    color={Platform.OS === "ios" ? Colors.dark.text : undefined}
+                  />
+                ))}
+              </Picker>
             </View>
             <View style={styles.endConfirmButtons}>
               <Pressable
@@ -1762,6 +1781,24 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     minHeight: 80,
     textAlignVertical: "top",
+  },
+  pickerContainer: {
+    width: "100%",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.orange,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.lg,
+    overflow: "hidden",
+  },
+  picker: {
+    color: Colors.dark.text,
+    backgroundColor: "transparent",
+  },
+  pickerItem: {
+    color: Colors.dark.text,
+    fontSize: 16,
   },
   cancelDoneButton: {
     backgroundColor: Colors.dark.primary,
