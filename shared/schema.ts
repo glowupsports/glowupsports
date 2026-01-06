@@ -2176,7 +2176,7 @@ export const bookingRequests = pgTable("booking_requests", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertBookingRequestSchema = createInsertSchema(bookingRequests).omit({ id: true, createdAt: true, updatedAt: true, sessionId: true, respondedBy: true, respondedAt: true });
+export const insertBookingRequestSchema = createInsertSchema(bookingRequests).omit({ id: true, createdAt: true, updatedAt: true, respondedBy: true, respondedAt: true });
 export type InsertBookingRequest = z.infer<typeof insertBookingRequestSchema>;
 export type BookingRequest = typeof bookingRequests.$inferSelect;
 

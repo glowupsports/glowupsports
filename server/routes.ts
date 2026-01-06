@@ -14143,7 +14143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create a booking request
+  // Create a booking request (new session OR join existing session)
   app.post("/api/player/booking-requests", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const playerId = req.user?.playerId;
@@ -14156,10 +14156,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
 
-      const { coachId, locationId, courtId, requestedStart, requestedEnd, duration, sessionType, playerNote } = req.body;
+      const { coachId, locationId, courtId, requestedStart, requestedEnd, duration, sessionType, playerNote, sessionId, isJoinRequest } = req.body;
 
       if (!requestedStart || !requestedEnd || !duration || !sessionType) {
         return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // For join requests, validate the session exists and has spots
+      if (isJoinRequest && sessionId) {
+        const session = await storage.getSession(sessionId);
+        if (!session) {
+          return res.status(404).json({ error: "Session not found" });
+        }
+        
+        // Check if session belongs to player's academy
+        if (session.academyId !== player.academyId) {
+          return res.status(403).json({ error: "Session not in your academy" });
+        }
+        
+        // Check if session has available spots
+        const sessionPlayers = await storage.getSessionPlayers(sessionId);
+        const maxPlayers = session.maxPlayers || 6;
+        if (sessionPlayers.length >= maxPlayers) {
+          return res.status(400).json({ error: "Session is full" });
+        }
+        
+        // Check if player is already in the session
+        if (sessionPlayers.some((sp: any) => sp.id === playerId)) {
+          return res.status(400).json({ error: "Already enrolled in this session" });
+        }
       }
 
       const request = await storage.createBookingRequest({
@@ -14168,6 +14193,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         coachId: coachId || null,
         locationId: locationId || null,
         courtId: courtId || null,
+        sessionId: isJoinRequest ? sessionId : null,
         requestedStart: new Date(requestedStart),
         requestedEnd: new Date(requestedEnd),
         duration,
@@ -14180,7 +14206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         academyId: player.academyId,
         entityType: "booking_request",
         entityId: request.id,
-        action: "create",
+        action: isJoinRequest ? "join_request" : "create",
         performedBy: playerId,
         performedByRole: "player",
       });
@@ -14189,6 +14215,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Create booking request error:", error);
       res.status(500).json({ error: "Failed to create booking request" });
+    }
+  });
+
+  // Get joinable sessions for player (open groups with spots in their academy)
+  app.get("/api/player/joinable-sessions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const academyId = req.user?.academyId;
+      
+      if (!playerId || !academyId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+
+      const player = await storage.getPlayer(playerId, academyId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      const { date, sessionType } = req.query;
+      
+      // Get all future sessions for the academy
+      const allSessions = await storage.getSessionsByAcademy(academyId);
+      const now = new Date();
+      
+      // Filter joinable sessions
+      const joinable = await Promise.all(
+        allSessions.filter((s: any) => {
+          const sessionStart = new Date(s.startTime);
+          const isFuture = sessionStart > now;
+          const matchesType = !sessionType || s.sessionType === sessionType;
+          const matchesDate = !date || sessionStart.toISOString().split('T')[0] === date;
+          const isGroupType = s.sessionType === "group" || s.sessionType === "semi_private" || s.sessionType === "open_play";
+          return isFuture && matchesType && matchesDate && isGroupType;
+        }).map(async (s: any) => {
+          const players = await storage.getSessionPlayers(s.id);
+          const maxPlayers = s.maxPlayers || 6;
+          const hasSpots = players.length < maxPlayers;
+          const isEnrolled = players.some((p: any) => p.id === playerId);
+          
+          if (!hasSpots || isEnrolled) return null;
+          
+          return {
+            id: s.id,
+            sessionType: s.sessionType,
+            startTime: s.startTime,
+            endTime: s.endTime,
+            duration: s.duration,
+            coachId: s.coachId,
+            coachName: s.coachName || "Coach",
+            courtName: s.courtName || "Court",
+            locationName: s.locationName || s.location || "Location",
+            maxPlayers,
+            currentPlayers: players.length,
+            players: players.map((p: any) => ({ id: p.id, name: p.name })),
+            ballLevel: s.ballLevel,
+            skillLevel: s.skillLevel,
+          };
+        })
+      );
+      
+      res.json(joinable.filter(Boolean));
+    } catch (error) {
+      console.error("Player joinable sessions error:", error);
+      res.status(500).json({ error: "Failed to fetch joinable sessions" });
     }
   });
 

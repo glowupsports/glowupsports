@@ -1,0 +1,1526 @@
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+  Platform,
+  Dimensions,
+  ScrollView,
+} from "react-native";
+import { Image } from "expo-image";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Haptics from "expo-haptics";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  interpolate,
+  runOnJS,
+  FadeIn,
+  FadeOut,
+  SlideInRight,
+  SlideOutLeft,
+  withSequence,
+  withDelay,
+} from "react-native-reanimated";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
+import { apiRequest, apiFetch, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+interface Coach {
+  id: string;
+  name: string;
+  profilePhotoUrl?: string | null;
+  color?: string | null;
+}
+
+interface Location {
+  id: string;
+  name: string;
+  address?: string | null;
+}
+
+interface AvailableSlot {
+  coachId: string;
+  coachName: string;
+  coachPhotoUrl?: string | null;
+  courtId: string;
+  courtName: string;
+  locationId: string;
+  locationName: string;
+  startTime: string;
+  endTime: string;
+  duration: number;
+}
+
+interface JoinableSession {
+  id: string;
+  sessionType: string;
+  startTime: string;
+  endTime: string;
+  duration: number;
+  coachId: string;
+  coachName: string;
+  coachPhotoUrl?: string | null;
+  courtName: string;
+  locationName: string;
+  maxPlayers: number;
+  currentPlayers: number;
+  players: { id: string; name: string; profilePhotoUrl?: string | null }[];
+  ballLevel?: string | null;
+  skillLevel?: number | null;
+  hasWaitlist?: boolean;
+}
+
+interface PlayerBookingWizardProps {
+  visible: boolean;
+  onClose: () => void;
+  playerId?: string;
+  playerBallLevel?: string | null;
+}
+
+type SessionType = "private" | "semi_private" | "group" | "open_play";
+
+const SESSION_TYPE_CARDS: {
+  value: SessionType;
+  label: string;
+  subtitle: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  gradient: [string, string];
+}[] = [
+  {
+    value: "private",
+    label: "Private Lesson",
+    subtitle: "Train 1-on-1 with a coach",
+    icon: "person",
+    color: Colors.dark.primary,
+    gradient: [Colors.dark.primary + "40", Colors.dark.primary + "10"],
+  },
+  {
+    value: "group",
+    label: "Group Session",
+    subtitle: "Join other players",
+    icon: "people",
+    color: Colors.dark.orange,
+    gradient: [Colors.dark.orange + "40", Colors.dark.orange + "10"],
+  },
+  {
+    value: "semi_private",
+    label: "Semi-Private",
+    subtitle: "Train with 1 partner",
+    icon: "people-outline",
+    color: Colors.dark.xpCyan,
+    gradient: [Colors.dark.xpCyan + "40", Colors.dark.xpCyan + "10"],
+  },
+  {
+    value: "open_play",
+    label: "Open Play",
+    subtitle: "Just play & meet players",
+    icon: "tennisball",
+    color: Colors.dark.gold,
+    gradient: [Colors.dark.gold + "40", Colors.dark.gold + "10"],
+  },
+];
+
+const TOTAL_SLIDES = 5;
+const SLIDE_TITLES = [
+  "Choose Your Mode",
+  "When & Where",
+  "Pick Your Session",
+  "Details",
+  "Confirm & Book",
+];
+
+const DURATIONS = [30, 45, 60, 90, 120];
+
+export default function PlayerBookingWizard({
+  visible,
+  onClose,
+  playerId,
+  playerBallLevel,
+}: PlayerBookingWizardProps) {
+  const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+
+  // Current slide (0-4)
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  // Slide 0: Session Type
+  const [sessionType, setSessionType] = useState<SessionType>("private");
+
+  // Slide 1: When & Where
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+  const [duration, setDuration] = useState(60);
+
+  // Slide 2: Pick Session
+  const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
+  const [selectedSession, setSelectedSession] = useState<JoinableSession | null>(null);
+  const [isJoining, setIsJoining] = useState(false); // true = joining existing, false = requesting new
+
+  // Slide 3: Details
+  const [playerNote, setPlayerNote] = useState("");
+  const [friendEmail, setFriendEmail] = useState("");
+
+  // Slide 4: Confirm
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  // Calendar modal
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [calendarViewDate, setCalendarViewDate] = useState(new Date());
+
+  // Animation values
+  const slideProgress = useSharedValue(0);
+  const glowPulse = useSharedValue(0);
+  const xpGain = useSharedValue(0);
+
+  // Date string for API
+  const selectedDateString = useMemo(() => {
+    return `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`;
+  }, [selectedDate]);
+
+  // Fetch locations
+  const { data: locations = [] } = useQuery<Location[]>({
+    queryKey: ["/api/locations"],
+    enabled: visible,
+  });
+
+  // Build availability query URL with params
+  const availabilityQueryUrl = useMemo(() => {
+    const startDate = new Date(selectedDate);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(selectedDate);
+    endDate.setHours(23, 59, 59, 999);
+    
+    const params = new URLSearchParams({
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      duration: duration.toString(),
+    });
+    if (selectedLocationId) params.append("locationId", selectedLocationId);
+    
+    return `/api/player/availability?${params}`;
+  }, [selectedDate, duration, selectedLocationId]);
+
+  // Fetch available slots using default queryFn
+  const { data: availableSlots = [], isLoading: slotsLoading } = useQuery<AvailableSlot[]>({
+    queryKey: [availabilityQueryUrl],
+    enabled: visible && currentSlide >= 1,
+  });
+
+  // Build joinable sessions query URL with server-side filtering
+  const joinableSessionsUrl = useMemo(() => {
+    const params = new URLSearchParams({
+      date: selectedDateString,
+      sessionType,
+    });
+    return `/api/player/joinable-sessions?${params}`;
+  }, [selectedDateString, sessionType]);
+
+  // Fetch joinable sessions using the dedicated player endpoint (server-filtered)
+  const { data: joinableSessions = [], isLoading: sessionsLoading } = useQuery<JoinableSession[]>({
+    queryKey: [joinableSessionsUrl],
+    enabled: visible && currentSlide >= 1 && (sessionType === "group" || sessionType === "semi_private" || sessionType === "open_play"),
+  });
+
+  // Reset form on close
+  const resetForm = useCallback(() => {
+    setCurrentSlide(0);
+    setSessionType("private");
+    setSelectedDate(new Date());
+    setSelectedLocationId(null);
+    setDuration(60);
+    setSelectedSlot(null);
+    setSelectedSession(null);
+    setIsJoining(false);
+    setPlayerNote("");
+    setFriendEmail("");
+    setShowSuccess(false);
+  }, []);
+
+  useEffect(() => {
+    if (visible) {
+      slideProgress.value = 0;
+    } else {
+      resetForm();
+    }
+  }, [visible]);
+
+  // Animate slide progress
+  useEffect(() => {
+    slideProgress.value = withSpring(currentSlide / (TOTAL_SLIDES - 1), {
+      damping: 20,
+      stiffness: 90,
+    });
+  }, [currentSlide]);
+
+  // Glow pulse animation
+  useEffect(() => {
+    const pulse = () => {
+      glowPulse.value = withTiming(1, { duration: 1500 }, () => {
+        glowPulse.value = withTiming(0, { duration: 1500 }, () => {
+          runOnJS(pulse)();
+        });
+      });
+    };
+    if (visible) pulse();
+  }, [visible]);
+
+  // Navigation
+  const goNext = useCallback(() => {
+    if (currentSlide < TOTAL_SLIDES - 1) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setCurrentSlide((prev) => prev + 1);
+    }
+  }, [currentSlide]);
+
+  const goBack = useCallback(() => {
+    if (currentSlide > 0) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setCurrentSlide((prev) => prev - 1);
+    }
+  }, [currentSlide]);
+
+  // Can proceed to next slide?
+  const canProceed = useMemo(() => {
+    switch (currentSlide) {
+      case 0:
+        return !!sessionType;
+      case 1:
+        return true; // Date is always set
+      case 2:
+        return !!selectedSlot || !!selectedSession;
+      case 3:
+        return true; // Details optional
+      case 4:
+        return true; // Confirm
+      default:
+        return false;
+    }
+  }, [currentSlide, sessionType, selectedSlot, selectedSession]);
+
+  // Create booking request mutation - always uses booking request flow
+  // For joining an existing session, we include the sessionId in the request
+  const bookingMutation = useMutation({
+    mutationFn: async (bookingData: any) => {
+      // Both flows use booking requests - coach will approve
+      return apiRequest("POST", "/api/player/booking-requests", bookingData);
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowSuccess(true);
+      xpGain.value = withSequence(
+        withTiming(1, { duration: 500 }),
+        withDelay(2000, withTiming(0, { duration: 300 }))
+      );
+      queryClient.invalidateQueries({ queryKey: ["/api/player/booking-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+      setTimeout(() => {
+        onClose();
+        resetForm();
+      }, 2500);
+    },
+    onError: (error: Error) => {
+      Alert.alert("Error", error.message || "Failed to submit booking request");
+    },
+  });
+
+  // Handle booking - both flows create booking requests for coach approval
+  const handleBook = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    
+    if (isJoining && selectedSession) {
+      // Request to join existing session
+      const bookingData = {
+        sessionId: selectedSession.id,
+        coachId: selectedSession.coachId,
+        requestedStart: selectedSession.startTime,
+        requestedEnd: selectedSession.endTime,
+        duration: selectedSession.duration,
+        sessionType: selectedSession.sessionType,
+        playerNote: playerNote || null,
+        isJoinRequest: true,
+      };
+      bookingMutation.mutate(bookingData);
+    } else if (selectedSlot) {
+      // Request new session slot
+      const bookingData = {
+        coachId: selectedSlot.coachId,
+        locationId: selectedSlot.locationId,
+        courtId: selectedSlot.courtId,
+        requestedStart: selectedSlot.startTime,
+        requestedEnd: selectedSlot.endTime,
+        duration: selectedSlot.duration,
+        sessionType,
+        playerNote: playerNote || null,
+      };
+      bookingMutation.mutate(bookingData);
+    }
+  }, [selectedSlot, selectedSession, isJoining, sessionType, playerNote, bookingMutation]);
+
+  // Progress bar animated style
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${slideProgress.value * 100}%`,
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(glowPulse.value, [0, 1], [0.3, 0.8]),
+    transform: [{ scale: interpolate(glowPulse.value, [0, 1], [1, 1.02]) }],
+  }));
+
+  const xpStyle = useAnimatedStyle(() => ({
+    opacity: xpGain.value,
+    transform: [
+      { translateY: interpolate(xpGain.value, [0, 1], [20, 0]) },
+      { scale: interpolate(xpGain.value, [0, 1], [0.8, 1]) },
+    ],
+  }));
+
+  // Format time for display
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  // Format date for header
+  const formatDateHeader = (date: Date) => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    if (date.toDateString() === today.toDateString()) return "Today";
+    if (date.toDateString() === tomorrow.toDateString()) return "Tomorrow";
+    return date.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+  };
+
+  // SLIDE 0: Choose Your Mode
+  const renderSessionTypeSlide = () => (
+    <Animated.View entering={FadeIn} style={styles.slideContent}>
+      <Text style={styles.slideSubtitle}>What kind of session?</Text>
+      <View style={styles.sessionTypeGrid}>
+        {SESSION_TYPE_CARDS.map((type) => {
+          const isSelected = sessionType === type.value;
+          return (
+            <Pressable
+              key={type.value}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setSessionType(type.value);
+              }}
+              style={[
+                styles.sessionTypeCard,
+                isSelected && { borderColor: type.color, borderWidth: 2 },
+              ]}
+            >
+              <LinearGradient
+                colors={isSelected ? type.gradient : [Colors.dark.backgroundSecondary, Colors.dark.backgroundRoot]}
+                style={styles.sessionTypeCardGradient}
+              >
+                {isSelected && <View style={[styles.glowOrb, { backgroundColor: type.color }]} />}
+                <View style={[styles.sessionTypeIcon, { backgroundColor: type.color + "30" }]}>
+                  <Ionicons name={type.icon} size={32} color={type.color} />
+                </View>
+                <Text style={[styles.sessionTypeLabel, isSelected && { color: type.color }]}>
+                  {type.label}
+                </Text>
+                <Text style={styles.sessionTypeSubtitle}>{type.subtitle}</Text>
+              </LinearGradient>
+            </Pressable>
+          );
+        })}
+      </View>
+    </Animated.View>
+  );
+
+  // SLIDE 1: When & Where
+  const renderWhenWhereSlide = () => (
+    <Animated.View entering={FadeIn} style={styles.slideContent}>
+      <Text style={styles.slideSubtitle}>When do you want to play?</Text>
+
+      {/* Location Selector */}
+      <View style={styles.sectionHeader}>
+        <Ionicons name="location" size={18} color={Colors.dark.xpCyan} />
+        <Text style={styles.sectionTitle}>Location</Text>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.locationScroll}>
+        <Pressable
+          style={[styles.locationChip, !selectedLocationId && styles.locationChipSelected]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setSelectedLocationId(null);
+          }}
+        >
+          <Ionicons name="globe" size={16} color={!selectedLocationId ? Colors.dark.xpCyan : Colors.dark.textSecondary} />
+          <Text style={[styles.locationChipText, !selectedLocationId && styles.locationChipTextSelected]}>
+            All Locations
+          </Text>
+        </Pressable>
+        {locations.map((loc) => (
+          <Pressable
+            key={loc.id}
+            style={[styles.locationChip, selectedLocationId === loc.id && styles.locationChipSelected]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setSelectedLocationId(loc.id);
+            }}
+          >
+            <Ionicons name="pin" size={16} color={selectedLocationId === loc.id ? Colors.dark.xpCyan : Colors.dark.textSecondary} />
+            <Text style={[styles.locationChipText, selectedLocationId === loc.id && styles.locationChipTextSelected]}>
+              {loc.name}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+
+      {/* Date Selector */}
+      <View style={styles.sectionHeader}>
+        <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
+        <Text style={styles.sectionTitle}>Date</Text>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroll}>
+        {[0, 1, 2, 3, 4, 5, 6].map((offset) => {
+          const date = new Date();
+          date.setDate(date.getDate() + offset);
+          const isSelected = date.toDateString() === selectedDate.toDateString();
+          return (
+            <Pressable
+              key={offset}
+              style={[styles.dateChip, isSelected && styles.dateChipSelected]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setSelectedDate(date);
+              }}
+            >
+              <Text style={[styles.dateChipDay, isSelected && styles.dateChipTextSelected]}>
+                {offset === 0 ? "Today" : offset === 1 ? "Tomorrow" : date.toLocaleDateString([], { weekday: "short" })}
+              </Text>
+              <Text style={[styles.dateChipDate, isSelected && styles.dateChipTextSelected]}>
+                {date.getDate()}
+              </Text>
+            </Pressable>
+          );
+        })}
+        <Pressable style={styles.dateChip} onPress={() => setShowCalendarModal(true)}>
+          <Ionicons name="calendar-outline" size={20} color={Colors.dark.textSecondary} />
+          <Text style={styles.dateChipDay}>More</Text>
+        </Pressable>
+      </ScrollView>
+
+      {/* Duration Selector */}
+      <View style={styles.sectionHeader}>
+        <Ionicons name="time" size={18} color={Colors.dark.xpCyan} />
+        <Text style={styles.sectionTitle}>Duration</Text>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.durationScroll}>
+        {DURATIONS.map((dur) => {
+          const isSelected = duration === dur;
+          return (
+            <Pressable
+              key={dur}
+              style={[styles.durationChip, isSelected && styles.durationChipSelected]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setDuration(dur);
+              }}
+            >
+              <Text style={[styles.durationChipText, isSelected && styles.durationChipTextSelected]}>
+                {dur} min
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </Animated.View>
+  );
+
+  // SLIDE 2: Pick Your Session
+  const renderPickSessionSlide = () => {
+    const isLoading = slotsLoading || sessionsLoading;
+
+    // Combine joinable sessions and available slots for display
+    const showJoinable = sessionType === "group" || sessionType === "semi_private";
+
+    return (
+      <Animated.View entering={FadeIn} style={styles.slideContent}>
+        <Text style={styles.slideSubtitle}>
+          {showJoinable ? "Join a group or request new session" : "Available times"}
+        </Text>
+
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+            <Text style={styles.loadingText}>Finding sessions...</Text>
+          </View>
+        ) : (
+          <ScrollView showsVerticalScrollIndicator={false} style={styles.sessionsList}>
+            {/* Joinable Sessions */}
+            {showJoinable && joinableSessions.length > 0 && (
+              <>
+                <Text style={styles.sessionSectionTitle}>Join Existing Group</Text>
+                {joinableSessions.map((session) => {
+                  const isSelected = selectedSession?.id === session.id;
+                  const spotsLeft = (session.maxPlayers || 6) - session.currentPlayers;
+                  return (
+                    <Pressable
+                      key={session.id}
+                      style={[styles.sessionCard, isSelected && styles.sessionCardSelected]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        setSelectedSession(session);
+                        setSelectedSlot(null);
+                        setIsJoining(true);
+                      }}
+                    >
+                      <LinearGradient
+                        colors={isSelected ? [Colors.dark.primary + "30", Colors.dark.xpCyan + "10"] : [Colors.dark.backgroundSecondary, Colors.dark.backgroundRoot]}
+                        style={styles.sessionCardGradient}
+                      >
+                        <View style={styles.sessionCardHeader}>
+                          <View style={styles.sessionTimeRow}>
+                            <Ionicons name="time" size={16} color={Colors.dark.xpCyan} />
+                            <Text style={styles.sessionTime}>
+                              {formatTime(session.startTime)} - {formatTime(session.endTime)}
+                            </Text>
+                          </View>
+                          <View style={[styles.spotsBadge, spotsLeft <= 2 && styles.spotsBadgeHot]}>
+                            <Text style={styles.spotsText}>
+                              {spotsLeft} {spotsLeft === 1 ? "spot" : "spots"} left
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.sessionCardInfo}>
+                          <View style={styles.coachRow}>
+                            <View style={styles.coachAvatar}>
+                              <Text style={styles.coachAvatarText}>
+                                {(session.coachName || "C").charAt(0)}
+                              </Text>
+                            </View>
+                            <Text style={styles.coachName}>{session.coachName}</Text>
+                          </View>
+
+                          <View style={styles.locationRow}>
+                            <Ionicons name="location" size={14} color={Colors.dark.textSecondary} />
+                            <Text style={styles.locationText}>{session.locationName}</Text>
+                          </View>
+
+                          {/* Player avatars */}
+                          <View style={styles.playersRow}>
+                            {session.players.slice(0, 4).map((p, i) => (
+                              <View key={p.id} style={[styles.playerAvatar, { marginLeft: i > 0 ? -8 : 0, zIndex: 4 - i }]}>
+                                <Text style={styles.playerAvatarText}>{(p.name || "P").charAt(0)}</Text>
+                              </View>
+                            ))}
+                            {session.currentPlayers > 4 && (
+                              <View style={[styles.playerAvatar, { marginLeft: -8 }]}>
+                                <Text style={styles.playerAvatarText}>+{session.currentPlayers - 4}</Text>
+                              </View>
+                            )}
+                            <Text style={styles.playersLabel}>
+                              {session.currentPlayers}/{session.maxPlayers || 6} players
+                            </Text>
+                          </View>
+                        </View>
+
+                        {isSelected && (
+                          <View style={styles.selectedBadge}>
+                            <Ionicons name="checkmark-circle" size={24} color={Colors.dark.primary} />
+                          </View>
+                        )}
+                      </LinearGradient>
+                    </Pressable>
+                  );
+                })}
+              </>
+            )}
+
+            {/* Available Slots for New Booking */}
+            {availableSlots.length > 0 && (
+              <>
+                <Text style={styles.sessionSectionTitle}>
+                  {showJoinable ? "Or Request New Session" : "Available Times"}
+                </Text>
+                {availableSlots.map((slot, index) => {
+                  const isSelected = selectedSlot?.startTime === slot.startTime && selectedSlot?.coachId === slot.coachId;
+                  return (
+                    <Pressable
+                      key={`${slot.coachId}-${slot.startTime}-${index}`}
+                      style={[styles.slotCard, isSelected && styles.slotCardSelected]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        setSelectedSlot(slot);
+                        setSelectedSession(null);
+                        setIsJoining(false);
+                      }}
+                    >
+                      <View style={styles.slotTimeColumn}>
+                        <Text style={[styles.slotTime, isSelected && styles.slotTimeSelected]}>
+                          {formatTime(slot.startTime)}
+                        </Text>
+                        <Text style={styles.slotDuration}>{slot.duration}min</Text>
+                      </View>
+
+                      <View style={styles.slotInfoColumn}>
+                        <View style={styles.coachRow}>
+                          <View style={[styles.coachAvatarSmall, isSelected && { borderColor: Colors.dark.xpCyan }]}>
+                            <Text style={styles.coachAvatarTextSmall}>
+                              {(slot.coachName || "C").charAt(0)}
+                            </Text>
+                          </View>
+                          <Text style={styles.slotCoachName}>{slot.coachName}</Text>
+                        </View>
+                        <View style={styles.locationRow}>
+                          <Ionicons name="location" size={12} color={Colors.dark.textSecondary} />
+                          <Text style={styles.slotLocationText}>{slot.locationName} - {slot.courtName}</Text>
+                        </View>
+                      </View>
+
+                      {isSelected && (
+                        <Ionicons name="checkmark-circle" size={24} color={Colors.dark.xpCyan} />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </>
+            )}
+
+            {availableSlots.length === 0 && joinableSessions.length === 0 && !isLoading && (
+              <View style={styles.emptyState}>
+                <Ionicons name="calendar-outline" size={48} color={Colors.dark.textSecondary} />
+                <Text style={styles.emptyStateTitle}>No sessions available</Text>
+                <Text style={styles.emptyStateText}>
+                  Try a different date or location
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+        )}
+      </Animated.View>
+    );
+  };
+
+  // SLIDE 3: Details
+  const renderDetailsSlide = () => (
+    <Animated.View entering={FadeIn} style={styles.slideContent}>
+      <Text style={styles.slideSubtitle}>Any special requests? (Optional)</Text>
+
+      <View style={styles.detailsForm}>
+        <View style={styles.inputGroup}>
+          <View style={styles.inputLabel}>
+            <Ionicons name="chatbubble-outline" size={18} color={Colors.dark.xpCyan} />
+            <Text style={styles.inputLabelText}>Note for Coach</Text>
+          </View>
+          <TextInput
+            style={styles.textInput}
+            value={playerNote}
+            onChangeText={setPlayerNote}
+            placeholder="E.g., Working on backhand this week"
+            placeholderTextColor={Colors.dark.textSecondary}
+            multiline
+            numberOfLines={3}
+          />
+        </View>
+
+        {(sessionType === "semi_private" || sessionType === "group") && (
+          <View style={styles.inputGroup}>
+            <View style={styles.inputLabel}>
+              <Ionicons name="person-add-outline" size={18} color={Colors.dark.xpCyan} />
+              <Text style={styles.inputLabelText}>Invite a Friend</Text>
+            </View>
+            <TextInput
+              style={styles.textInput}
+              value={friendEmail}
+              onChangeText={setFriendEmail}
+              placeholder="Enter friend's email"
+              placeholderTextColor={Colors.dark.textSecondary}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
+        )}
+      </View>
+    </Animated.View>
+  );
+
+  // SLIDE 4: Confirm & Rewards
+  const renderConfirmSlide = () => {
+    const sessionInfo = selectedSession || selectedSlot;
+    if (!sessionInfo) return null;
+
+    const typeCard = SESSION_TYPE_CARDS.find((t) => t.value === sessionType);
+
+    return (
+      <Animated.View entering={FadeIn} style={styles.slideContent}>
+        {showSuccess ? (
+          <View style={styles.successContainer}>
+            <Animated.View style={[styles.successIcon, xpStyle]}>
+              <LinearGradient
+                colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                style={styles.successIconGradient}
+              >
+                <Ionicons name="checkmark" size={48} color="#FFF" />
+              </LinearGradient>
+            </Animated.View>
+            <Text style={styles.successTitle}>
+              {isJoining ? "You're In!" : "Request Sent!"}
+            </Text>
+            <Text style={styles.successSubtitle}>
+              {isJoining ? "See you on the court!" : "Coach will confirm soon"}
+            </Text>
+            <Animated.View style={[styles.xpReward, xpStyle]}>
+              <Ionicons name="flash" size={24} color={Colors.dark.xpCyan} />
+              <Text style={styles.xpRewardText}>+10 Glow XP</Text>
+            </Animated.View>
+          </View>
+        ) : (
+          <>
+            <Text style={styles.slideSubtitle}>Confirm your booking</Text>
+
+            <View style={styles.confirmCard}>
+              <LinearGradient
+                colors={[typeCard?.gradient[0] || Colors.dark.backgroundSecondary, typeCard?.gradient[1] || Colors.dark.backgroundRoot]}
+                style={styles.confirmCardGradient}
+              >
+                {/* Session Type Badge */}
+                <View style={styles.confirmTypeBadge}>
+                  <Ionicons name={typeCard?.icon || "tennisball"} size={20} color={typeCard?.color || Colors.dark.primary} />
+                  <Text style={[styles.confirmTypeText, { color: typeCard?.color }]}>
+                    {typeCard?.label}
+                  </Text>
+                </View>
+
+                {/* Time & Date */}
+                <View style={styles.confirmRow}>
+                  <Ionicons name="time" size={18} color={Colors.dark.xpCyan} />
+                  <Text style={styles.confirmText}>
+                    {formatDateHeader(selectedDate)} · {formatTime(sessionInfo.startTime)} - {formatTime(sessionInfo.endTime)}
+                  </Text>
+                </View>
+
+                {/* Location */}
+                <View style={styles.confirmRow}>
+                  <Ionicons name="location" size={18} color={Colors.dark.xpCyan} />
+                  <Text style={styles.confirmText}>
+                    {"locationName" in sessionInfo ? sessionInfo.locationName : ""}
+                    {" · "}
+                    {"courtName" in sessionInfo ? sessionInfo.courtName : ""}
+                  </Text>
+                </View>
+
+                {/* Coach */}
+                <View style={styles.confirmRow}>
+                  <Ionicons name="person" size={18} color={Colors.dark.xpCyan} />
+                  <Text style={styles.confirmText}>
+                    Coach: {"coachName" in sessionInfo ? sessionInfo.coachName : ""}
+                  </Text>
+                </View>
+
+                {/* Players for group */}
+                {isJoining && selectedSession && (
+                  <View style={styles.confirmRow}>
+                    <Ionicons name="people" size={18} color={Colors.dark.xpCyan} />
+                    <Text style={styles.confirmText}>
+                      {selectedSession.currentPlayers}/{selectedSession.maxPlayers || 6} players joining
+                    </Text>
+                  </View>
+                )}
+              </LinearGradient>
+            </View>
+
+            {/* XP Preview */}
+            <View style={styles.rewardPreview}>
+              <View style={styles.rewardItem}>
+                <Ionicons name="flash" size={20} color={Colors.dark.xpCyan} />
+                <Text style={styles.rewardText}>+10 Glow XP</Text>
+              </View>
+              <View style={styles.rewardItem}>
+                <Ionicons name="flame" size={20} color={Colors.dark.orange} />
+                <Text style={styles.rewardText}>Streak continues</Text>
+              </View>
+            </View>
+          </>
+        )}
+      </Animated.View>
+    );
+  };
+
+  // Render slide content
+  const renderSlideContent = () => {
+    switch (currentSlide) {
+      case 0:
+        return renderSessionTypeSlide();
+      case 1:
+        return renderWhenWhereSlide();
+      case 2:
+        return renderPickSessionSlide();
+      case 3:
+        return renderDetailsSlide();
+      case 4:
+        return renderConfirmSlide();
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        {/* Background blur */}
+        {Platform.OS === "ios" ? (
+          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
+        ) : (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.95)" }]} />
+        )}
+
+        {/* Header */}
+        <View style={styles.header}>
+          <Pressable style={styles.closeButton} onPress={onClose}>
+            <Ionicons name="close" size={24} color={Colors.dark.text} />
+          </Pressable>
+
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerTitle}>{SLIDE_TITLES[currentSlide]}</Text>
+            <Text style={styles.headerSlide}>
+              Step {currentSlide + 1} of {TOTAL_SLIDES}
+            </Text>
+          </View>
+
+          <View style={{ width: 40 }} />
+        </View>
+
+        {/* Progress Bar */}
+        <View style={styles.progressContainer}>
+          <Animated.View style={[styles.progressBar, progressStyle]}>
+            <Animated.View style={[styles.progressGlow, glowStyle]} />
+          </Animated.View>
+        </View>
+
+        {/* Slide Content */}
+        <View style={styles.contentContainer}>{renderSlideContent()}</View>
+
+        {/* Footer Navigation */}
+        {!showSuccess && (
+          <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]}>
+            {currentSlide > 0 && (
+              <Pressable style={styles.backButton} onPress={goBack}>
+                <Ionicons name="arrow-back" size={20} color={Colors.dark.text} />
+                <Text style={styles.backButtonText}>Back</Text>
+              </Pressable>
+            )}
+
+            <Pressable
+              style={[
+                styles.nextButton,
+                !canProceed && styles.nextButtonDisabled,
+                currentSlide === TOTAL_SLIDES - 1 && styles.confirmButton,
+              ]}
+              onPress={currentSlide === TOTAL_SLIDES - 1 ? handleBook : goNext}
+              disabled={!canProceed || bookingMutation.isPending}
+            >
+              {bookingMutation.isPending ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <Text style={styles.nextButtonText}>
+                    {currentSlide === TOTAL_SLIDES - 1
+                      ? isJoining
+                        ? "Join Session"
+                        : "Request Booking"
+                      : "Next"}
+                  </Text>
+                  {currentSlide < TOTAL_SLIDES - 1 && (
+                    <Ionicons name="arrow-forward" size={20} color="#FFF" />
+                  )}
+                </>
+              )}
+            </Pressable>
+          </View>
+        )}
+      </View>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerCenter: {
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 700,
+    color: Colors.dark.text,
+  },
+  headerSlide: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+    marginTop: 2,
+  },
+  progressContainer: {
+    height: 4,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    marginHorizontal: Spacing.lg,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  progressBar: {
+    height: "100%",
+    backgroundColor: Colors.dark.xpCyan,
+    borderRadius: 2,
+    position: "relative",
+  },
+  progressGlow: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    bottom: -2,
+    width: 20,
+    backgroundColor: Colors.dark.xpCyan,
+    borderRadius: 10,
+  },
+  contentContainer: {
+    flex: 1,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xl,
+  },
+  slideContent: {
+    flex: 1,
+  },
+  slideSubtitle: {
+    fontSize: 16,
+    color: Colors.dark.textSecondary,
+    marginBottom: Spacing.lg,
+    textAlign: "center",
+  },
+  sessionTypeGrid: {
+    gap: Spacing.md,
+  },
+  sessionTypeCard: {
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    marginBottom: Spacing.sm,
+  },
+  sessionTypeCardGradient: {
+    padding: Spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    position: "relative",
+  },
+  glowOrb: {
+    position: "absolute",
+    top: -20,
+    right: -20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    opacity: 0.3,
+  },
+  sessionTypeIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sessionTypeLabel: {
+    fontSize: 18,
+    fontWeight: 600,
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  sessionTypeSubtitle: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+    position: "absolute",
+    bottom: Spacing.md,
+    left: 88,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 600,
+    color: Colors.dark.text,
+  },
+  locationScroll: {
+    flexGrow: 0,
+    marginBottom: Spacing.sm,
+  },
+  locationChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    marginRight: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  locationChipSelected: {
+    borderColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.xpCyan + "20",
+  },
+  locationChipText: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+  },
+  locationChipTextSelected: {
+    color: Colors.dark.xpCyan,
+  },
+  dateScroll: {
+    flexGrow: 0,
+    marginBottom: Spacing.sm,
+  },
+  dateChip: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    marginRight: Spacing.sm,
+    minWidth: 70,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  dateChipSelected: {
+    borderColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.xpCyan + "20",
+  },
+  dateChipDay: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+  },
+  dateChipDate: {
+    fontSize: 20,
+    fontWeight: 700,
+    color: Colors.dark.text,
+    marginTop: 2,
+  },
+  dateChipTextSelected: {
+    color: Colors.dark.xpCyan,
+  },
+  durationScroll: {
+    flexGrow: 0,
+  },
+  durationChip: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    marginRight: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  durationChipSelected: {
+    borderColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.xpCyan + "20",
+  },
+  durationChipText: {
+    fontSize: 16,
+    color: Colors.dark.textSecondary,
+  },
+  durationChipTextSelected: {
+    color: Colors.dark.xpCyan,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.md,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: Colors.dark.textSecondary,
+  },
+  sessionsList: {
+    flex: 1,
+  },
+  sessionSectionTitle: {
+    fontSize: 16,
+    fontWeight: 600,
+    color: Colors.dark.xpCyan,
+    marginBottom: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  sessionCard: {
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  sessionCardSelected: {
+    borderColor: Colors.dark.primary,
+    borderWidth: 2,
+  },
+  sessionCardGradient: {
+    padding: Spacing.md,
+    position: "relative",
+  },
+  sessionCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  sessionTimeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  sessionTime: {
+    fontSize: 18,
+    fontWeight: 700,
+    color: Colors.dark.text,
+  },
+  spotsBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.primary + "30",
+  },
+  spotsBadgeHot: {
+    backgroundColor: Colors.dark.orange + "30",
+  },
+  spotsText: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: Colors.dark.primary,
+  },
+  sessionCardInfo: {
+    gap: Spacing.xs,
+  },
+  coachRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  coachAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  coachAvatarText: {
+    fontSize: 14,
+    fontWeight: 700,
+    color: "#FFF",
+  },
+  coachName: {
+    fontSize: 16,
+    fontWeight: 600,
+    color: Colors.dark.text,
+  },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  locationText: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+  },
+  playersRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: Spacing.sm,
+  },
+  playerAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.dark.xpCyan,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: Colors.dark.backgroundRoot,
+  },
+  playerAvatarText: {
+    fontSize: 10,
+    fontWeight: 700,
+    color: "#FFF",
+  },
+  playersLabel: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+    marginLeft: Spacing.sm,
+  },
+  selectedBadge: {
+    position: "absolute",
+    top: Spacing.md,
+    right: Spacing.md,
+  },
+  slotCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    gap: Spacing.md,
+  },
+  slotCardSelected: {
+    borderColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.xpCyan + "10",
+  },
+  slotTimeColumn: {
+    alignItems: "center",
+    minWidth: 60,
+  },
+  slotTime: {
+    fontSize: 18,
+    fontWeight: 700,
+    color: Colors.dark.text,
+  },
+  slotTimeSelected: {
+    color: Colors.dark.xpCyan,
+  },
+  slotDuration: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+  },
+  slotInfoColumn: {
+    flex: 1,
+    gap: 4,
+  },
+  coachAvatarSmall: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  coachAvatarTextSmall: {
+    fontSize: 10,
+    fontWeight: 700,
+    color: "#FFF",
+  },
+  slotCoachName: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: Colors.dark.text,
+  },
+  slotLocationText: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.xxl,
+    gap: Spacing.md,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: 600,
+    color: Colors.dark.text,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+  },
+  detailsForm: {
+    gap: Spacing.lg,
+  },
+  inputGroup: {
+    gap: Spacing.sm,
+  },
+  inputLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  inputLabelText: {
+    fontSize: 16,
+    fontWeight: 600,
+    color: Colors.dark.text,
+  },
+  textInput: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    fontSize: 16,
+    color: Colors.dark.text,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
+  confirmCard: {
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    marginBottom: Spacing.lg,
+  },
+  confirmCardGradient: {
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  confirmTypeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  confirmTypeText: {
+    fontSize: 18,
+    fontWeight: 700,
+  },
+  confirmRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  confirmText: {
+    fontSize: 16,
+    color: Colors.dark.text,
+  },
+  rewardPreview: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: Spacing.xl,
+    padding: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+  },
+  rewardItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  rewardText: {
+    fontSize: 16,
+    fontWeight: 600,
+    color: Colors.dark.text,
+  },
+  successContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.lg,
+  },
+  successIcon: {
+    marginBottom: Spacing.md,
+  },
+  successIconGradient: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  successTitle: {
+    fontSize: 28,
+    fontWeight: 700,
+    color: Colors.dark.text,
+  },
+  successSubtitle: {
+    fontSize: 16,
+    color: Colors.dark.textSecondary,
+  },
+  xpReward: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.full,
+    marginTop: Spacing.md,
+  },
+  xpRewardText: {
+    fontSize: 18,
+    fontWeight: 700,
+    color: Colors.dark.xpCyan,
+  },
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    gap: Spacing.md,
+  },
+  backButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: Colors.dark.text,
+  },
+  nextButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    backgroundColor: Colors.dark.xpCyan,
+    borderRadius: BorderRadius.full,
+  },
+  nextButtonDisabled: {
+    opacity: 0.5,
+  },
+  confirmButton: {
+    backgroundColor: Colors.dark.primary,
+  },
+  nextButtonText: {
+    fontSize: 16,
+    fontWeight: 700,
+    color: "#FFF",
+  },
+});
