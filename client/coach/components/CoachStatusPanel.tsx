@@ -20,9 +20,10 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { apiRequest } from "@/lib/query-client";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const PANEL_WIDTH = Math.min(SCREEN_WIDTH * 0.85, 340);
@@ -33,13 +34,51 @@ interface CoachStatusPanelProps {
   onNavigate?: (screen: string) => void;
 }
 
+interface Academy {
+  id: string;
+  name: string;
+}
+
+interface CoachMembership {
+  id: string;
+  coachId: string;
+  academyId: string;
+  role: string;
+  isActive: boolean;
+  academy: { id: string; name: string; slug: string } | null;
+}
+
 export function CoachStatusPanel({ visible, onClose, onNavigate }: CoachStatusPanelProps) {
   const insets = useSafeAreaInsets();
-  const { coach, focusMode, setFocusMode } = useCoach();
+  const queryClient = useQueryClient();
+  const { coach, academy, focusMode, setFocusMode } = useCoach();
   const [shouldRender, setShouldRender] = useState(visible);
+  const [showAcademyPicker, setShowAcademyPicker] = useState(false);
   
   const slideAnim = useSharedValue(PANEL_WIDTH);
   const overlayOpacity = useSharedValue(0);
+  
+  const { data: academies = [] } = useQuery<CoachMembership[]>({
+    queryKey: ["/api/coach/academies"],
+    enabled: !!coach?.id,
+  });
+  
+  const activeAcademies = academies.filter((m) => m.isActive && m.academy);
+  
+  const handleSwitchAcademy = async (academyId: string) => {
+    if (academyId === academy?.id) {
+      setShowAcademyPicker(false);
+      return;
+    }
+    try {
+      await apiRequest("POST", "/api/coach/switch-academy", { academyId });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowAcademyPicker(false);
+      queryClient.invalidateQueries();
+    } catch (error) {
+      console.error("Failed to switch academy:", error);
+    }
+  };
   
   const { data: coachXpData } = useQuery<{
     level: number;
@@ -220,6 +259,65 @@ export function CoachStatusPanel({ visible, onClose, onNavigate }: CoachStatusPa
                   <Text style={styles.statLabel}>Streak</Text>
                 </View>
               </View>
+
+              {activeAcademies.length > 1 ? (
+                <View style={styles.settingsSection}>
+                  <Text style={styles.sectionTitle}>ACADEMY</Text>
+                  <Pressable 
+                    style={styles.academySwitcherButton}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setShowAcademyPicker(!showAcademyPicker);
+                    }}
+                  >
+                    <View style={[styles.settingIcon, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
+                      <Ionicons name="business-outline" size={20} color={Colors.dark.xpCyan} />
+                    </View>
+                    <View style={styles.academySwitcherInfo}>
+                      <Text style={styles.menuLabel}>{academy?.name || "Select Academy"}</Text>
+                      <Text style={styles.academySwitcherSubtext}>{activeAcademies.length} academies</Text>
+                    </View>
+                    <Ionicons 
+                      name={showAcademyPicker ? "chevron-up" : "chevron-down"} 
+                      size={20} 
+                      color={Colors.dark.tabIconDefault} 
+                    />
+                  </Pressable>
+                  
+                  {showAcademyPicker ? (
+                    <View style={styles.academyPickerList}>
+                      {activeAcademies.map((membership) => (
+                        <Pressable
+                          key={membership.id}
+                          style={[
+                            styles.academyPickerItem,
+                            membership.academyId === academy?.id && styles.academyPickerItemActive,
+                          ]}
+                          onPress={() => handleSwitchAcademy(membership.academyId)}
+                        >
+                          <View style={[
+                            styles.academyPickerIcon,
+                            membership.academyId === academy?.id && styles.academyPickerIconActive,
+                          ]}>
+                            <Text style={styles.academyPickerInitial}>
+                              {membership.academy?.name?.charAt(0).toUpperCase() || "A"}
+                            </Text>
+                          </View>
+                          <Text style={[
+                            styles.academyPickerName,
+                            membership.academyId === academy?.id && styles.academyPickerNameActive,
+                          ]}>
+                            {membership.academy?.name || "Academy"}
+                          </Text>
+                          {membership.academyId === academy?.id ? (
+                            <Ionicons name="checkmark-circle" size={18} color={Colors.dark.primary} />
+                          ) : null}
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
 
               <View style={styles.settingsSection}>
                 <Text style={styles.sectionTitle}>COACH SETTINGS</Text>
@@ -548,5 +646,64 @@ const styles = StyleSheet.create({
     color: Colors.dark.tabIconDefault,
     textAlign: "center",
     opacity: 0.5,
+  },
+  
+  academySwitcherButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  academySwitcherInfo: {
+    flex: 1,
+  },
+  academySwitcherSubtext: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+    marginTop: 2,
+  },
+  academyPickerList: {
+    marginTop: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  academyPickerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    gap: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.headerBorder,
+  },
+  academyPickerItemActive: {
+    backgroundColor: Colors.dark.primary + "15",
+  },
+  academyPickerIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  academyPickerIconActive: {
+    backgroundColor: Colors.dark.primary + "30",
+  },
+  academyPickerInitial: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  academyPickerName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  academyPickerNameActive: {
+    color: Colors.dark.primary,
+    fontWeight: "600",
   },
 });
