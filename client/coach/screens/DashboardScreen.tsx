@@ -32,6 +32,7 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import MiniTimeline from "@/coach/components/MiniTimeline";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { CoachStatusPanel } from "@/coach/components/CoachStatusPanel";
+import { FreelanceLicenseWizard } from "@/coach/components/FreelanceLicenseWizard";
 import { BurnoutRiskCard } from "@/coach/components/BurnoutRiskCard";
 import { LoadForecastCard } from "@/coach/components/LoadForecastCard";
 import { CoachEarningsCard } from "@/coach/components/CoachEarningsCard";
@@ -72,6 +73,7 @@ export default function DashboardScreen() {
   const { coach, academy, calendarData, isLoading, refetchCalendar } = useCoach();
   const { logout } = useAuth();
   const [showStatusPanel, setShowStatusPanel] = useState(false);
+  const [showFreelanceWizard, setShowFreelanceWizard] = useState(false);
   const [sessionsCollapsed, setSessionsCollapsed] = useState(true);
   const [focusCollapsed, setFocusCollapsed] = useState(false);
   const [energyCollapsed, setEnergyCollapsed] = useState(false);
@@ -1328,7 +1330,20 @@ export default function DashboardScreen() {
             }
             return;
           }
+          if (screen === "FreelanceLicense") {
+            setShowFreelanceWizard(true);
+            return;
+          }
           handleNavigate(screen);
+        }}
+      />
+
+      <FreelanceLicenseWizard
+        visible={showFreelanceWizard}
+        onClose={() => setShowFreelanceWizard(false)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/coach/freelance-profile"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/coach/academies"] });
         }}
       />
     </View>

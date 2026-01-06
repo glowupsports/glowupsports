@@ -45,7 +45,7 @@ interface CoachMembership {
   academyId: string;
   role: string;
   isActive: boolean;
-  academy: { id: string; name: string; slug: string } | null;
+  academy: { id: string; name: string; slug: string; isFreelance?: boolean } | null;
 }
 
 export function CoachStatusPanel({ visible, onClose, onNavigate }: CoachStatusPanelProps) {
@@ -65,7 +65,13 @@ export function CoachStatusPanel({ visible, onClose, onNavigate }: CoachStatusPa
     enabled: !!coach?.id,
   });
   
-  const activeAcademies = academies.filter((m) => m.isActive && m.academy);
+  const activeAcademies = academies
+    .filter((m) => m.isActive && m.academy)
+    .sort((a, b) => {
+      if (a.academy?.isFreelance && !b.academy?.isFreelance) return -1;
+      if (!a.academy?.isFreelance && b.academy?.isFreelance) return 1;
+      return 0;
+    });
   
   const collapseAcademyPicker = () => {
     setShowAcademyPicker(false);
@@ -106,6 +112,15 @@ export function CoachStatusPanel({ visible, onClose, onNavigate }: CoachStatusPa
     totalSessionsScheduled: number;
   }>({
     queryKey: ["/api/coach", coach?.id, "stats"],
+    enabled: !!coach?.id,
+  });
+
+  const { data: freelanceData } = useQuery<{
+    hasFreelanceLicense: boolean;
+    freelanceAcademy: { id: string; name: string } | null;
+    profile: { businessName: string | null; slug: string | null } | null;
+  }>({
+    queryKey: ["/api/coach/freelance-profile"],
     enabled: !!coach?.id,
   });
 
@@ -321,17 +336,31 @@ export function CoachStatusPanel({ visible, onClose, onNavigate }: CoachStatusPa
                         <View style={[
                           styles.academyPickerIcon,
                           membership.academyId === academy?.id && styles.academyPickerIconActive,
+                          membership.academy?.isFreelance && styles.academyPickerIconFreelance,
                         ]}>
-                          <Text style={styles.academyPickerInitial}>
-                            {membership.academy?.name?.charAt(0).toUpperCase() || "A"}
-                          </Text>
+                          {membership.academy?.isFreelance ? (
+                            <Ionicons name="ribbon" size={16} color={Colors.dark.primary} />
+                          ) : (
+                            <Text style={styles.academyPickerInitial}>
+                              {membership.academy?.name?.charAt(0).toUpperCase() || "A"}
+                            </Text>
+                          )}
                         </View>
-                        <Text style={[
-                          styles.academyPickerName,
-                          membership.academyId === academy?.id && styles.academyPickerNameActive,
-                        ]}>
-                          {membership.academy?.name || "Academy"}
-                        </Text>
+                        <View style={styles.academyPickerTextContainer}>
+                          <View style={styles.academyPickerNameRow}>
+                            <Text style={[
+                              styles.academyPickerName,
+                              membership.academyId === academy?.id && styles.academyPickerNameActive,
+                            ]}>
+                              {membership.academy?.name || "Academy"}
+                            </Text>
+                            {membership.academy?.isFreelance ? (
+                              <View style={styles.freelancePickerBadge}>
+                                <Text style={styles.freelancePickerBadgeText}>FREELANCE</Text>
+                              </View>
+                            ) : null}
+                          </View>
+                        </View>
                         {membership.academyId === academy?.id ? (
                           <Ionicons name="checkmark-circle" size={18} color={Colors.dark.primary} />
                         ) : null}
@@ -404,6 +433,63 @@ export function CoachStatusPanel({ visible, onClose, onNavigate }: CoachStatusPa
                   </View>
                   <Text style={styles.menuLabel}>Edit Profile</Text>
                   <Ionicons name="chevron-forward" size={20} color={Colors.dark.tabIconDefault} />
+                </Pressable>
+              </View>
+
+              <View style={styles.settingsSection}>
+                <Text style={styles.sectionTitle}>FREELANCE LICENSE</Text>
+                
+                <Pressable 
+                  style={styles.freelanceCard}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    handleMenuPress("FreelanceLicense");
+                  }}
+                >
+                  <LinearGradient
+                    colors={freelanceData?.hasFreelanceLicense 
+                      ? [Colors.dark.primary + "30", Colors.dark.xpCyan + "20"]
+                      : [Colors.dark.backgroundTertiary, Colors.dark.backgroundSecondary]
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.freelanceCardGradient}
+                  >
+                    <View style={styles.freelanceCardContent}>
+                      <View style={[
+                        styles.freelanceIconContainer,
+                        freelanceData?.hasFreelanceLicense && styles.freelanceIconActive
+                      ]}>
+                        <Ionicons 
+                          name={freelanceData?.hasFreelanceLicense ? "ribbon" : "ribbon-outline"} 
+                          size={24} 
+                          color={freelanceData?.hasFreelanceLicense ? Colors.dark.primary : Colors.dark.tabIconDefault} 
+                        />
+                      </View>
+                      <View style={styles.freelanceTextContainer}>
+                        <Text style={styles.freelanceTitle}>
+                          {freelanceData?.hasFreelanceLicense ? "Freelance Active" : "Go Freelance"}
+                        </Text>
+                        <Text style={styles.freelanceSubtitle}>
+                          {freelanceData?.hasFreelanceLicense 
+                            ? freelanceData?.profile?.businessName || "Your personal brand"
+                            : "Create your own academy"
+                          }
+                        </Text>
+                      </View>
+                      <View style={[
+                        styles.freelanceStatusBadge,
+                        freelanceData?.hasFreelanceLicense ? styles.freelanceStatusActive : styles.freelanceStatusInactive
+                      ]}>
+                        <Text style={[
+                          styles.freelanceStatusText,
+                          freelanceData?.hasFreelanceLicense && styles.freelanceStatusTextActive
+                        ]}>
+                          {freelanceData?.hasFreelanceLicense ? "ACTIVE" : "INACTIVE"}
+                        </Text>
+                      </View>
+                    </View>
+                  </LinearGradient>
                 </Pressable>
               </View>
 
@@ -727,5 +813,88 @@ const styles = StyleSheet.create({
   academyPickerNameActive: {
     color: Colors.dark.primary,
     fontWeight: "600",
+  },
+  academyPickerIconFreelance: {
+    backgroundColor: Colors.dark.primary + "20",
+  },
+  academyPickerTextContainer: {
+    flex: 1,
+  },
+  academyPickerNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  freelancePickerBadge: {
+    backgroundColor: Colors.dark.primary + "25",
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+  },
+  freelancePickerBadgeText: {
+    fontSize: 8,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+    letterSpacing: 0.5,
+  },
+  
+  freelanceCard: {
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  freelanceCardGradient: {
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.headerBorder,
+  },
+  freelanceCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  freelanceIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  freelanceIconActive: {
+    backgroundColor: Colors.dark.primary + "25",
+  },
+  freelanceTextContainer: {
+    flex: 1,
+  },
+  freelanceTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  freelanceSubtitle: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+    marginTop: 2,
+  },
+  freelanceStatusBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.xs,
+  },
+  freelanceStatusActive: {
+    backgroundColor: Colors.dark.primary + "25",
+  },
+  freelanceStatusInactive: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+  },
+  freelanceStatusText: {
+    ...Typography.caption,
+    fontWeight: "700",
+    letterSpacing: 1,
+    color: Colors.dark.tabIconDefault,
+  },
+  freelanceStatusTextActive: {
+    color: Colors.dark.primary,
   },
 });

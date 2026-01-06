@@ -7563,7 +7563,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const academy = await storage.getAcademy(m.academyId);
           return {
             ...m,
-            academy: academy ? { id: academy.id, name: academy.name, slug: academy.slug } : null,
+            academy: academy ? { id: academy.id, name: academy.name, slug: academy.slug, isFreelance: academy.isFreelance } : null,
           };
         })
       );

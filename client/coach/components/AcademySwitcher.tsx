@@ -22,7 +22,7 @@ interface CoachMembership {
   academyId: string;
   role: string;
   isActive: boolean;
-  academy: { id: string; name: string; slug: string } | null;
+  academy: { id: string; name: string; slug: string; isFreelance?: boolean } | null;
 }
 
 export function AcademySwitcher() {
@@ -57,7 +57,13 @@ export function AcademySwitcher() {
     switchMutation.mutate(academyId);
   };
 
-  const activeAcademies = academies.filter((m) => m.isActive && m.academy);
+  const activeAcademies = academies
+    .filter((m) => m.isActive && m.academy)
+    .sort((a, b) => {
+      if (a.academy?.isFreelance && !b.academy?.isFreelance) return -1;
+      if (!a.academy?.isFreelance && b.academy?.isFreelance) return 1;
+      return 0;
+    });
 
   if (activeAcademies.length <= 1) {
     return (
@@ -101,16 +107,30 @@ export function AcademySwitcher() {
                     <View style={[
                       styles.academyIcon,
                       membership.academyId === academy?.id && styles.academyIconActive,
+                      membership.academy?.isFreelance && styles.freelanceIcon,
                     ]}>
-                      <Text style={styles.academyInitial}>
-                        {membership.academy?.name?.charAt(0).toUpperCase() || "A"}
-                      </Text>
+                      {membership.academy?.isFreelance ? (
+                        <Ionicons name="ribbon" size={18} color={Colors.dark.primary} />
+                      ) : (
+                        <Text style={styles.academyInitial}>
+                          {membership.academy?.name?.charAt(0).toUpperCase() || "A"}
+                        </Text>
+                      )}
                     </View>
                     <View style={styles.academyDetails}>
-                      <Text style={styles.academyOptionName}>
-                        {membership.academy?.name || "Academy"}
+                      <View style={styles.academyNameRow}>
+                        <Text style={styles.academyOptionName}>
+                          {membership.academy?.name || "Academy"}
+                        </Text>
+                        {membership.academy?.isFreelance ? (
+                          <View style={styles.freelanceBadge}>
+                            <Text style={styles.freelanceBadgeText}>FREELANCE</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <Text style={styles.academyRole}>
+                        {membership.academy?.isFreelance ? "Owner" : membership.role}
                       </Text>
-                      <Text style={styles.academyRole}>{membership.role}</Text>
                     </View>
                   </View>
                   {membership.academyId === academy?.id ? (
@@ -205,5 +225,25 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.textMuted,
     textTransform: "capitalize",
+  },
+  academyNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  freelanceIcon: {
+    backgroundColor: Colors.dark.primary + "20",
+  },
+  freelanceBadge: {
+    backgroundColor: Colors.dark.primary + "25",
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+  },
+  freelanceBadgeText: {
+    fontSize: 8,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+    letterSpacing: 0.5,
   },
 });
