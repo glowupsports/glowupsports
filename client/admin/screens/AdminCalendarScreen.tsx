@@ -8,13 +8,15 @@ import {
   Dimensions,
   ActivityIndicator,
   Platform,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
 
 const ADMIN_COLOR = "#F97316";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -58,9 +60,18 @@ const COACH_COLORS = [
 
 export default function AdminCalendarScreen() {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week">("day");
+  const [gridMode, setGridMode] = useState<"coach" | "court">("coach");
   const [selectedCoachFilter, setSelectedCoachFilter] = useState<string | null>(null);
+  const [showCreateSession, setShowCreateSession] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<{
+    coachId?: string;
+    courtId?: string;
+    hour: number;
+    date: Date;
+  } | null>(null);
 
   const { data: sessions = [], isLoading: sessionsLoading } = useQuery<Session[]>({
     queryKey: ["/api/sessions"],
@@ -73,6 +84,23 @@ export default function AdminCalendarScreen() {
   const { data: courts = [] } = useQuery<Court[]>({
     queryKey: ["/api/courts"],
   });
+
+  const handleSlotPress = (hour: number, coachId?: string, courtId?: string, date?: Date) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSelectedSlot({
+      coachId,
+      courtId,
+      hour,
+      date: date || selectedDate,
+    });
+    setShowCreateSession(true);
+  };
+
+  const handleCloseWizard = () => {
+    setShowCreateSession(false);
+    setSelectedSlot(null);
+    queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+  };
 
   const getCoachName = (coachId?: string) => {
     if (!coachId) return "Unassigned";
@@ -107,17 +135,19 @@ export default function AdminCalendarScreen() {
     return `${hour.toString().padStart(2, "0")}:00`;
   };
 
-  const todaySessions = useMemo(() => {
+  const allTodaySessions = useMemo(() => {
     const today = selectedDate.toDateString();
-    let filteredSessions = sessions.filter((s) => {
-      const sessionDate = new Date(s.startTime).toDateString();
-      return sessionDate === today;
-    });
-    if (selectedCoachFilter) {
-      filteredSessions = filteredSessions.filter((s) => s.coachId === selectedCoachFilter);
+    return sessions
+      .filter((s) => new Date(s.startTime).toDateString() === today)
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  }, [sessions, selectedDate]);
+
+  const todaySessions = useMemo(() => {
+    if (selectedCoachFilter && gridMode === "coach") {
+      return allTodaySessions.filter((s) => s.coachId === selectedCoachFilter);
     }
-    return filteredSessions.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-  }, [sessions, selectedDate, selectedCoachFilter]);
+    return allTodaySessions;
+  }, [allTodaySessions, selectedCoachFilter, gridMode]);
 
   const weekDays = useMemo(() => {
     const days: { date: Date; sessions: Session[] }[] = [];
@@ -213,18 +243,54 @@ export default function AdminCalendarScreen() {
   const coachLaneWidth = Math.max(80, (SCREEN_WIDTH - TIME_COLUMN_WIDTH - Spacing.lg * 2) / Math.max(coaches.length, 1));
   const weekDayWidth = (SCREEN_WIDTH - TIME_COLUMN_WIDTH - Spacing.lg * 2) / 7;
 
+  const isSlotOccupied = (hour: number, coachId?: string, courtId?: string) => {
+    const sessionsToCheck = gridMode === "court" ? allTodaySessions : todaySessions;
+    return sessionsToCheck.some((session) => {
+      const startHour = new Date(session.startTime).getHours();
+      const endHour = new Date(session.endTime).getHours();
+      const sessionMatches = hour >= startHour && hour < endHour;
+      if (gridMode === "coach") {
+        return sessionMatches && session.coachId === coachId;
+      } else {
+        return sessionMatches && session.courtId === courtId;
+      }
+    });
+  };
+
+  const COURT_COLORS = [
+    "#22C55E",
+    "#3B82F6",
+    "#A855F7",
+    "#EC4899",
+    "#14B8A6",
+    "#EAB308",
+    "#EF4444",
+    "#F97316",
+  ];
+
+  const courtLaneWidth = Math.max(80, (SCREEN_WIDTH - TIME_COLUMN_WIDTH - Spacing.lg * 2) / Math.max(courts.length, 1));
+
   const renderDayView = () => (
     <View style={styles.calendarGrid}>
       <View style={styles.coachHeaderRow}>
         <View style={[styles.timeColumnHeader, { width: TIME_COLUMN_WIDTH }]} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.coachHeaders}>
-            {(selectedCoachFilter ? coaches.filter(c => c.id === selectedCoachFilter) : coaches).map((coach, index) => (
-              <View key={coach.id} style={[styles.coachHeader, { width: coachLaneWidth }]}>
-                <View style={[styles.coachDot, { backgroundColor: COACH_COLORS[index % COACH_COLORS.length] }]} />
-                <Text style={styles.coachHeaderText} numberOfLines={1}>{coach.name}</Text>
-              </View>
-            ))}
+            {gridMode === "coach" ? (
+              (selectedCoachFilter ? coaches.filter(c => c.id === selectedCoachFilter) : coaches).map((coach, index) => (
+                <View key={coach.id} style={[styles.coachHeader, { width: coachLaneWidth }]}>
+                  <View style={[styles.coachDot, { backgroundColor: COACH_COLORS[index % COACH_COLORS.length] }]} />
+                  <Text style={styles.coachHeaderText} numberOfLines={1}>{coach.name}</Text>
+                </View>
+              ))
+            ) : (
+              courts.map((court, index) => (
+                <View key={court.id} style={[styles.coachHeader, { width: courtLaneWidth }]}>
+                  <View style={[styles.coachDot, { backgroundColor: COURT_COLORS[index % COURT_COLORS.length] }]} />
+                  <Text style={styles.coachHeaderText} numberOfLines={1}>{court.name}</Text>
+                </View>
+              ))
+            )}
           </View>
         </ScrollView>
       </View>
@@ -241,57 +307,139 @@ export default function AdminCalendarScreen() {
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.coachLanesContainer}>
-              {(selectedCoachFilter ? coaches.filter(c => c.id === selectedCoachFilter) : coaches).map((coach, coachIndex) => {
-                const coachSessions = todaySessions.filter(s => s.coachId === coach.id);
-                return (
-                  <View key={coach.id} style={[styles.coachLane, { width: coachLaneWidth }]}>
-                    {hours.map((hour) => (
-                      <View key={hour} style={[styles.hourSlot, { height: HOUR_HEIGHT }]} />
-                    ))}
-                    
-                    {coachSessions.map((session) => {
-                      const { top, height } = getSessionPosition(session);
-                      const color = COACH_COLORS[coachIndex % COACH_COLORS.length];
-                      return (
-                        <Pressable
-                          key={session.id}
-                          style={[
-                            styles.sessionBlock,
-                            {
-                              top,
-                              height: height - 4,
-                              opacity: session.status === "completed" ? 0.6 : 1,
-                            },
-                          ]}
-                          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-                        >
-                          <LinearGradient
-                            colors={[color, `${color}CC`]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.sessionGradient}
+              {gridMode === "coach" ? (
+                (selectedCoachFilter ? coaches.filter(c => c.id === selectedCoachFilter) : coaches).map((coach, coachIndex) => {
+                  const coachSessions = todaySessions.filter(s => s.coachId === coach.id);
+                  return (
+                    <View key={coach.id} style={[styles.coachLane, { width: coachLaneWidth }]}>
+                      {hours.map((hour) => {
+                        const occupied = isSlotOccupied(hour, coach.id, undefined);
+                        return (
+                          <Pressable
+                            key={hour}
+                            style={[styles.hourSlot, styles.clickableSlot, { height: HOUR_HEIGHT }]}
+                            onPress={occupied ? undefined : () => handleSlotPress(hour, coach.id, undefined)}
+                            disabled={occupied}
                           >
-                            <Text style={styles.sessionText} numberOfLines={1}>
-                              {session.sessionType || "Training"}
-                            </Text>
-                            <Text style={styles.sessionTime} numberOfLines={1}>
-                              {formatTime(session.startTime)}
-                            </Text>
-                            <Text style={styles.sessionCourt} numberOfLines={1}>
-                              {getCourtName(session.courtId)}
-                            </Text>
-                            {session.players && session.players.length > 0 ? (
-                              <Text style={styles.sessionPlayers} numberOfLines={1}>
-                                {session.players.length} player{session.players.length > 1 ? "s" : ""}
-                              </Text>
+                            {!occupied ? (
+                              <View style={styles.emptySlotIndicator}>
+                                <Ionicons name="add" size={14} color={Colors.dark.textMuted + "40"} />
+                              </View>
                             ) : null}
-                          </LinearGradient>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                );
-              })}
+                          </Pressable>
+                        );
+                      })}
+                      
+                      {coachSessions.map((session) => {
+                        const { top, height } = getSessionPosition(session);
+                        const color = COACH_COLORS[coachIndex % COACH_COLORS.length];
+                        return (
+                          <Pressable
+                            key={session.id}
+                            style={[
+                              styles.sessionBlock,
+                              {
+                                top,
+                                height: height - 4,
+                                opacity: session.status === "completed" ? 0.6 : 1,
+                              },
+                            ]}
+                            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+                          >
+                            <LinearGradient
+                              colors={[color, `${color}CC`]}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 1 }}
+                              style={styles.sessionGradient}
+                            >
+                              <Text style={styles.sessionText} numberOfLines={1}>
+                                {session.sessionType || "Training"}
+                              </Text>
+                              <Text style={styles.sessionTime} numberOfLines={1}>
+                                {formatTime(session.startTime)}
+                              </Text>
+                              <Text style={styles.sessionCourt} numberOfLines={1}>
+                                {getCourtName(session.courtId)}
+                              </Text>
+                              {session.players && session.players.length > 0 ? (
+                                <Text style={styles.sessionPlayers} numberOfLines={1}>
+                                  {session.players.length} player{session.players.length > 1 ? "s" : ""}
+                                </Text>
+                              ) : null}
+                            </LinearGradient>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  );
+                })
+              ) : (
+                courts.map((court, courtIndex) => {
+                  const courtSessions = allTodaySessions.filter(s => s.courtId === court.id);
+                  return (
+                    <View key={court.id} style={[styles.coachLane, { width: courtLaneWidth }]}>
+                      {hours.map((hour) => {
+                        const occupied = isSlotOccupied(hour, undefined, court.id);
+                        return (
+                          <Pressable
+                            key={hour}
+                            style={[styles.hourSlot, styles.clickableSlot, { height: HOUR_HEIGHT }]}
+                            onPress={occupied ? undefined : () => handleSlotPress(hour, undefined, court.id)}
+                            disabled={occupied}
+                          >
+                            {!occupied ? (
+                              <View style={styles.emptySlotIndicator}>
+                                <Ionicons name="add" size={14} color={Colors.dark.textMuted + "40"} />
+                              </View>
+                            ) : null}
+                          </Pressable>
+                        );
+                      })}
+                      
+                      {courtSessions.map((session) => {
+                        const { top, height } = getSessionPosition(session);
+                        const color = COURT_COLORS[courtIndex % COURT_COLORS.length];
+                        return (
+                          <Pressable
+                            key={session.id}
+                            style={[
+                              styles.sessionBlock,
+                              {
+                                top,
+                                height: height - 4,
+                                opacity: session.status === "completed" ? 0.6 : 1,
+                              },
+                            ]}
+                            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+                          >
+                            <LinearGradient
+                              colors={[color, `${color}CC`]}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 1 }}
+                              style={styles.sessionGradient}
+                            >
+                              <Text style={styles.sessionText} numberOfLines={1}>
+                                {session.sessionType || "Training"}
+                              </Text>
+                              <Text style={styles.sessionTime} numberOfLines={1}>
+                                {formatTime(session.startTime)}
+                              </Text>
+                              <Text style={styles.sessionCourt} numberOfLines={1}>
+                                {getCoachName(session.coachId)}
+                              </Text>
+                              {session.players && session.players.length > 0 ? (
+                                <Text style={styles.sessionPlayers} numberOfLines={1}>
+                                  {session.players.length} player{session.players.length > 1 ? "s" : ""}
+                                </Text>
+                              ) : null}
+                            </LinearGradient>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  );
+                })
+              )}
             </View>
           </ScrollView>
         </View>
@@ -391,21 +539,42 @@ export default function AdminCalendarScreen() {
 
       <View style={styles.header}>
         <Text style={styles.title}>Schedule</Text>
-        <View style={styles.viewToggle}>
-          <Pressable
-            style={[styles.viewButton, viewMode === "day" && styles.viewButtonActive]}
-            onPress={() => { setViewMode("day"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
-          >
-            <Text style={[styles.viewButtonText, viewMode === "day" && styles.viewButtonTextActive]}>Day</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.viewButton, viewMode === "week" && styles.viewButtonActive]}
-            onPress={() => { setViewMode("week"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
-          >
-            <Text style={[styles.viewButtonText, viewMode === "week" && styles.viewButtonTextActive]}>Week</Text>
-          </Pressable>
+        <View style={styles.headerToggles}>
+          <View style={styles.viewToggle}>
+            <Pressable
+              style={[styles.viewButton, viewMode === "day" && styles.viewButtonActive]}
+              onPress={() => { setViewMode("day"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+            >
+              <Text style={[styles.viewButtonText, viewMode === "day" && styles.viewButtonTextActive]}>Day</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.viewButton, viewMode === "week" && styles.viewButtonActive]}
+              onPress={() => { setViewMode("week"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+            >
+              <Text style={[styles.viewButtonText, viewMode === "week" && styles.viewButtonTextActive]}>Week</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
+
+      {viewMode === "day" ? (
+        <View style={styles.gridModeToggle}>
+          <Pressable
+            style={[styles.gridModeButton, gridMode === "coach" && styles.gridModeButtonActive]}
+            onPress={() => { setGridMode("coach"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+          >
+            <Ionicons name="people" size={14} color={gridMode === "coach" ? Colors.dark.text : Colors.dark.textMuted} />
+            <Text style={[styles.gridModeText, gridMode === "coach" && styles.gridModeTextActive]}>Coaches</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.gridModeButton, gridMode === "court" && styles.gridModeButtonActive]}
+            onPress={() => { setGridMode("court"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+          >
+            <Ionicons name="tennisball" size={14} color={gridMode === "court" ? Colors.dark.text : Colors.dark.textMuted} />
+            <Text style={[styles.gridModeText, gridMode === "court" && styles.gridModeTextActive]}>Courts</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       <View style={styles.dateNav}>
         <Pressable style={styles.navButton} onPress={() => navigateDate(-1)}>
@@ -474,6 +643,38 @@ export default function AdminCalendarScreen() {
       <View style={[styles.calendarContainer, { paddingBottom: insets.bottom + 80 }]}>
         {viewMode === "day" ? renderDayView() : renderWeekView()}
       </View>
+
+      <Pressable
+        style={[styles.fab, { bottom: insets.bottom + 90 }]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          setSelectedSlot(null);
+          setShowCreateSession(true);
+        }}
+      >
+        <LinearGradient
+          colors={[ADMIN_COLOR, "#EA580C"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.fabGradient}
+        >
+          <Ionicons name="add" size={28} color={Colors.dark.backgroundRoot} />
+        </LinearGradient>
+      </Pressable>
+
+      <CreateSessionWizard
+        visible={showCreateSession}
+        onClose={handleCloseWizard}
+        adminMode={true}
+        coaches={coaches}
+        selectedCoachId={selectedSlot?.coachId}
+        initialTime={selectedSlot ? (() => {
+          const date = new Date(selectedSlot.date);
+          date.setHours(selectedSlot.hour, 0, 0, 0);
+          return date;
+        })() : undefined}
+        initialCourtId={selectedSlot?.courtId}
+      />
     </View>
   );
 }
@@ -740,6 +941,71 @@ const styles = StyleSheet.create({
   hourSlot: {
     borderBottomWidth: 1,
     borderBottomColor: Colors.dark.backgroundRoot + "50",
+  },
+  clickableSlot: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptySlotIndicator: {
+    opacity: 0,
+  },
+  headerToggles: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  gridModeToggle: {
+    flexDirection: "row",
+    justifyContent: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: 4,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+  },
+  gridModeButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  gridModeButtonActive: {
+    backgroundColor: ADMIN_COLOR,
+  },
+  gridModeText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  gridModeTextActive: {
+    color: Colors.dark.text,
+  },
+  fab: {
+    position: "absolute",
+    right: Spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    overflow: "hidden",
+    ...Platform.select({
+      ios: {
+        shadowColor: ADMIN_COLOR,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  fabGradient: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   sessionBlock: {
     position: "absolute",
