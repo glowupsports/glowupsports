@@ -532,7 +532,12 @@ export default function CreateSessionWizard({
     if (visible) {
       slideProgress.value = 0;
       if (initialCourtId) setSelectedCourtId(initialCourtId);
-      if (initialTime) setSelectedDate(initialTime);
+      if (initialTime) {
+        setSelectedDate(initialTime);
+        const hours = initialTime.getHours().toString().padStart(2, "0");
+        const mins = initialTime.getMinutes().toString().padStart(2, "0");
+        setStartTime(`${hours}:${mins}`);
+      }
     } else {
       resetForm();
     }
