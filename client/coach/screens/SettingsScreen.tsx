@@ -215,6 +215,8 @@ export default function SettingsScreen() {
   const [showTravelTimeModal, setShowTravelTimeModal] = useState(false);
   const [fromLocationId, setFromLocationId] = useState<string>("");
   const [toLocationId, setToLocationId] = useState<string>("");
+  const [fromCourtId, setFromCourtId] = useState<string>("");
+  const [toCourtId, setToCourtId] = useState<string>("");
   const [selectedTravelTime, setSelectedTravelTime] = useState(30);
 
   const { data: courts = [], isLoading: courtsLoading } = useQuery<Court[]>({
@@ -345,12 +347,52 @@ export default function SettingsScreen() {
   };
 
   const handleAddTravelTime = () => {
-    if (locations.length >= 2) {
-      setFromLocationId(locations[0].id);
-      setToLocationId(locations[1].id);
+    const courtsWithLocation = courts.filter(c => c.locationId);
+    const uniqueLocationIds = [...new Set(courtsWithLocation.map(c => c.locationId))];
+    
+    if (uniqueLocationIds.length >= 2) {
+      const firstCourt = courtsWithLocation.find(c => c.locationId === uniqueLocationIds[0]);
+      const secondCourt = courtsWithLocation.find(c => c.locationId === uniqueLocationIds[1]);
+      
+      if (firstCourt && secondCourt) {
+        setFromCourtId(firstCourt.id);
+        setToCourtId(secondCourt.id);
+        setFromLocationId(firstCourt.locationId || "");
+        setToLocationId(secondCourt.locationId || "");
+      }
+    } else {
+      setFromCourtId("");
+      setToCourtId("");
+      setFromLocationId("");
+      setToLocationId("");
     }
     setSelectedTravelTime(30);
     setShowTravelTimeModal(true);
+  };
+
+  const handleSelectFromCourt = (court: Court) => {
+    const newFromLocationId = court.locationId || "";
+    setFromCourtId(court.id);
+    setFromLocationId(newFromLocationId);
+    
+    const toCourt = courts.find(c => c.id === toCourtId);
+    if (toCourt && toCourt.locationId === newFromLocationId) {
+      const courtsWithLocation = courts.filter(c => c.locationId && c.locationId !== newFromLocationId);
+      if (courtsWithLocation.length > 0) {
+        setToCourtId(courtsWithLocation[0].id);
+        setToLocationId(courtsWithLocation[0].locationId || "");
+      } else {
+        setToCourtId("");
+        setToLocationId("");
+      }
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleSelectToCourt = (court: Court) => {
+    setToCourtId(court.id);
+    setToLocationId(court.locationId || "");
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleSaveTravelTime = async () => {
@@ -360,7 +402,7 @@ export default function SettingsScreen() {
       return;
     }
     if (!fromLocationId || !toLocationId || fromLocationId === toLocationId) {
-      Alert.alert("Error", "Please select two different locations");
+      Alert.alert("Error", "Please select courts at different locations");
       return;
     }
     createTravelTimeMutation.mutate({
@@ -383,6 +425,23 @@ export default function SettingsScreen() {
 
   const getLocationName = (id: string) => {
     return locations.find(l => l.id === id)?.name || "Unknown";
+  };
+
+  const getCourtsByLocation = (locationId: string) => {
+    return courts.filter(c => c.locationId === locationId);
+  };
+
+  const getCourtLabel = (court: Court) => {
+    const location = locations.find(l => l.id === court.locationId);
+    return location ? `${court.name} @ ${location.name}` : court.name;
+  };
+
+  const getCourtsForTravelTimeDisplay = (locationId: string) => {
+    const locationCourts = getCourtsByLocation(locationId);
+    if (locationCourts.length > 0) {
+      return locationCourts.map(c => c.name).join(", ");
+    }
+    return getLocationName(locationId);
   };
 
   useEffect(() => {
@@ -772,61 +831,77 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <SectionHeader title="Location Travel Times" icon="car-outline" />
+          <SectionHeader title="Court Travel Times" icon="car-outline" />
           <Text style={styles.sectionDescription}>
-            Set travel time between your locations to prevent scheduling conflicts
+            Set travel time between courts at different locations to prevent scheduling conflicts
           </Text>
           
-          {locations.length < 2 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="location-outline" size={32} color={Colors.dark.tabIconDefault} />
-              <Text style={styles.emptyStateText}>Add at least 2 locations to configure travel times</Text>
-            </View>
-          ) : (
-            <>
-              {travelTimes.length > 0 ? (
-                <View style={styles.travelTimesList}>
-                  {travelTimes.map((tt) => (
-                    <View key={tt.id} style={styles.travelTimeCard}>
-                      <View style={styles.travelTimeInfo}>
-                        <View style={styles.travelTimeRoute}>
-                          <Text style={styles.travelTimeLocation}>{getLocationName(tt.fromLocationId)}</Text>
-                          <Ionicons name="arrow-forward" size={16} color={Colors.dark.xpCyan} />
-                          <Text style={styles.travelTimeLocation}>{getLocationName(tt.toLocationId)}</Text>
-                        </View>
-                        <View style={styles.travelTimeBadge}>
-                          <Ionicons name="time-outline" size={14} color={Colors.dark.gold} />
-                          <Text style={styles.travelTimeValue}>{tt.travelTimeMinutes} min</Text>
-                        </View>
-                      </View>
-                      <Pressable
-                        onPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          handleDeleteTravelTime(tt.id, getLocationName(tt.fromLocationId), getLocationName(tt.toLocationId));
-                        }}
-                        style={styles.travelTimeDeleteBtn}
-                      >
-                        <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
-                      </Pressable>
-                    </View>
-                  ))}
-                </View>
-              ) : (
+          {(() => {
+            const courtsWithLocation = courts.filter(c => c.locationId);
+            const uniqueLocationIds = [...new Set(courtsWithLocation.map(c => c.locationId))];
+            const hasMultipleLocations = uniqueLocationIds.length >= 2;
+            
+            if (!hasMultipleLocations) {
+              return (
                 <View style={styles.emptyState}>
-                  <Ionicons name="swap-horizontal-outline" size={32} color={Colors.dark.tabIconDefault} />
-                  <Text style={styles.emptyStateText}>No travel times configured yet</Text>
+                  <Ionicons name="location-outline" size={32} color={Colors.dark.tabIconDefault} />
+                  <Text style={styles.emptyStateText}>Add courts at 2+ different locations to configure travel times</Text>
                 </View>
-              )}
-              
-              <View style={styles.syncButtonContainer}>
-                <GradientButton
-                  onPress={handleAddTravelTime}
-                  label="Add Travel Time"
-                  icon="add-outline"
-                />
-              </View>
-            </>
-          )}
+              );
+            }
+            
+            return (
+              <>
+                {travelTimes.length > 0 ? (
+                  <View style={styles.travelTimesList}>
+                    {travelTimes.map((tt) => (
+                      <View key={tt.id} style={styles.travelTimeCard}>
+                        <View style={styles.travelTimeInfo}>
+                          <View style={styles.travelTimeRoute}>
+                            <View style={styles.travelTimeLocationGroup}>
+                              <Text style={styles.travelTimeLocationName}>{getLocationName(tt.fromLocationId)}</Text>
+                              <Text style={styles.travelTimeCourts}>{getCourtsForTravelTimeDisplay(tt.fromLocationId)}</Text>
+                            </View>
+                            <Ionicons name="arrow-forward" size={16} color={Colors.dark.xpCyan} />
+                            <View style={styles.travelTimeLocationGroup}>
+                              <Text style={styles.travelTimeLocationName}>{getLocationName(tt.toLocationId)}</Text>
+                              <Text style={styles.travelTimeCourts}>{getCourtsForTravelTimeDisplay(tt.toLocationId)}</Text>
+                            </View>
+                          </View>
+                          <View style={styles.travelTimeBadge}>
+                            <Ionicons name="time-outline" size={14} color={Colors.dark.gold} />
+                            <Text style={styles.travelTimeValue}>{tt.travelTimeMinutes} min</Text>
+                          </View>
+                        </View>
+                        <Pressable
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            handleDeleteTravelTime(tt.id, getLocationName(tt.fromLocationId), getLocationName(tt.toLocationId));
+                          }}
+                          style={styles.travelTimeDeleteBtn}
+                        >
+                          <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={styles.emptyState}>
+                    <Ionicons name="swap-horizontal-outline" size={32} color={Colors.dark.tabIconDefault} />
+                    <Text style={styles.emptyStateText}>No travel times configured yet</Text>
+                  </View>
+                )}
+                
+                <View style={styles.syncButtonContainer}>
+                  <GradientButton
+                    onPress={handleAddTravelTime}
+                    label="Add Travel Time"
+                    icon="add-outline"
+                  />
+                </View>
+              </>
+            );
+          })()}
         </View>
 
         <View style={styles.section}>
@@ -1038,53 +1113,53 @@ export default function SettingsScreen() {
             />
             <Text style={styles.modalTitle}>ADD TRAVEL TIME</Text>
             
-            <Text style={styles.colorPickerLabel}>FROM LOCATION</Text>
-            <View style={styles.locationPicker}>
-              {locations.map((loc) => (
-                <Pressable
-                  key={loc.id}
-                  style={[
-                    styles.locationOption,
-                    fromLocationId === loc.id && styles.locationOptionSelected,
-                  ]}
-                  onPress={() => {
-                    setFromLocationId(loc.id);
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }}
-                >
-                  <Text style={[
-                    styles.locationOptionText,
-                    fromLocationId === loc.id && styles.locationOptionTextSelected,
-                  ]}>
-                    {loc.name}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+            <Text style={styles.colorPickerLabel}>FROM COURT</Text>
+            <ScrollView style={styles.courtPickerScroll} nestedScrollEnabled>
+              <View style={styles.locationPicker}>
+                {courts.filter(c => c.locationId).map((court) => (
+                  <Pressable
+                    key={court.id}
+                    style={[
+                      styles.locationOption,
+                      fromCourtId === court.id && styles.locationOptionSelected,
+                    ]}
+                    onPress={() => handleSelectFromCourt(court)}
+                  >
+                    <View style={[styles.courtColorDot, { backgroundColor: court.color || Colors.dark.primary }]} />
+                    <Text style={[
+                      styles.locationOptionText,
+                      fromCourtId === court.id && styles.locationOptionTextSelected,
+                    ]}>
+                      {getCourtLabel(court)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </ScrollView>
 
-            <Text style={styles.colorPickerLabel}>TO LOCATION</Text>
-            <View style={styles.locationPicker}>
-              {locations.filter(loc => loc.id !== fromLocationId).map((loc) => (
-                <Pressable
-                  key={loc.id}
-                  style={[
-                    styles.locationOption,
-                    toLocationId === loc.id && styles.locationOptionSelected,
-                  ]}
-                  onPress={() => {
-                    setToLocationId(loc.id);
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }}
-                >
-                  <Text style={[
-                    styles.locationOptionText,
-                    toLocationId === loc.id && styles.locationOptionTextSelected,
-                  ]}>
-                    {loc.name}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+            <Text style={styles.colorPickerLabel}>TO COURT</Text>
+            <ScrollView style={styles.courtPickerScroll} nestedScrollEnabled>
+              <View style={styles.locationPicker}>
+                {courts.filter(c => c.locationId && c.locationId !== fromLocationId).map((court) => (
+                  <Pressable
+                    key={court.id}
+                    style={[
+                      styles.locationOption,
+                      toCourtId === court.id && styles.locationOptionSelected,
+                    ]}
+                    onPress={() => handleSelectToCourt(court)}
+                  >
+                    <View style={[styles.courtColorDot, { backgroundColor: court.color || Colors.dark.primary }]} />
+                    <Text style={[
+                      styles.locationOptionText,
+                      toCourtId === court.id && styles.locationOptionTextSelected,
+                    ]}>
+                      {getCourtLabel(court)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </ScrollView>
 
             <Text style={styles.colorPickerLabel}>TRAVEL TIME</Text>
             <View style={styles.locationPicker}>
@@ -1115,9 +1190,9 @@ export default function SettingsScreen() {
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </Pressable>
               <Pressable 
-                style={[styles.modalSaveButtonWrapper, (!fromLocationId || !toLocationId) && { opacity: 0.5 }]} 
+                style={[styles.modalSaveButtonWrapper, (!fromCourtId || !toCourtId || fromLocationId === toLocationId) && { opacity: 0.5 }]} 
                 onPress={handleSaveTravelTime}
-                disabled={!fromLocationId || !toLocationId}
+                disabled={!fromCourtId || !toCourtId || fromLocationId === toLocationId}
               >
                 <LinearGradient
                   colors={[Colors.dark.gold, Colors.dark.orange]}
@@ -1727,6 +1802,20 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.text,
   },
+  travelTimeLocationGroup: {
+    alignItems: "center",
+  },
+  travelTimeLocationName: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.xpCyan,
+    marginBottom: 2,
+  },
+  travelTimeCourts: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: Colors.dark.textMuted,
+  },
   travelTimeBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -1754,6 +1843,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   locationOption: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
@@ -1794,5 +1885,16 @@ const styles = StyleSheet.create({
   },
   travelTimeOptionTextSelected: {
     color: Colors.dark.xpCyan,
+  },
+  courtPickerScroll: {
+    maxHeight: 120,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  courtColorDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: Spacing.xs,
   },
 });

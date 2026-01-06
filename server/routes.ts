@@ -1467,7 +1467,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== FREELANCE LICENSE ====================
 
   // Get coach freelance profile
-  app.get("/api/coach/freelance-profile", authMiddleware, requireRole("coach", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/coach/freelance-profile", authMiddleware, requireRole("coach", "academy_owner", "admin"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
       if (!coachId) {
@@ -1483,7 +1483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Activate freelance license (creates freelance academy + profile)
-  app.post("/api/coach/freelance-license", authMiddleware, requireRole("coach", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/coach/freelance-license", authMiddleware, requireRole("coach", "academy_owner", "admin"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
       const coach = await storage.getCoach(coachId!);
@@ -1575,7 +1575,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update freelance profile
-  app.put("/api/coach/freelance-profile", authMiddleware, requireRole("coach", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+  app.put("/api/coach/freelance-profile", authMiddleware, requireRole("coach", "academy_owner", "admin"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
       if (!coachId) {
