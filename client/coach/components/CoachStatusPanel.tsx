@@ -253,7 +253,7 @@ export function CoachStatusPanel({ visible, onClose, onNavigate }: CoachStatusPa
                 </View>
                 <View style={styles.xpBarContainer}>
                   <LinearGradient
-                    colors={[Colors.dark.xpCyan, Colors.dark.primary]}
+                    colors={["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#4B0082", "#9400D3"]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={[styles.xpBarFill, { width: `${coachXP.xpPercent}%` }]}
