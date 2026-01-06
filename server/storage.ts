@@ -1078,51 +1078,88 @@ export const storage = {
 
   async getAllCoaches(academyId?: string): Promise<Coach[]> {
     if (academyId) {
-      // UNION approach: coaches with active membership OR legacy coaches (no membership but academy matches)
-      // This handles both modern multi-academy memberships and legacy single-academy records
-      const result = await db.execute(sql`
-        SELECT DISTINCT c.* FROM coaches c
-        INNER JOIN coach_academy_memberships cam 
-          ON cam.coach_id = c.id 
-          AND cam.academy_id = ${academyId} 
-          AND cam.is_active = true
-        WHERE c.is_active = true
-        UNION
-        SELECT c.* FROM coaches c
-        WHERE c.academy_id = ${academyId}
-          AND c.is_active = true
-          AND NOT EXISTS (
-            SELECT 1 FROM coach_academy_memberships cam2 
-            WHERE cam2.coach_id = c.id AND cam2.academy_id = ${academyId}
+      // Two-part approach: (1) coaches with active membership, (2) legacy coaches (no membership but academy matches)
+      // Part 1: Coaches with active membership for this academy
+      const withActiveMembership = await db
+        .selectDistinct({ coach: coaches })
+        .from(coaches)
+        .innerJoin(
+          coachAcademyMemberships,
+          and(
+            eq(coachAcademyMemberships.coachId, coaches.id),
+            eq(coachAcademyMemberships.academyId, academyId),
+            eq(coachAcademyMemberships.isActive, true)
           )
-      `);
+        );
       
-      return result.rows as Coach[];
+      // Part 2: Legacy coaches (academy matches, no membership exists)
+      const legacyCoaches = await db
+        .select()
+        .from(coaches)
+        .where(and(
+          eq(coaches.academyId, academyId),
+          sql`NOT EXISTS (
+            SELECT 1 FROM coach_academy_memberships cam 
+            WHERE cam.coach_id = coaches.id AND cam.academy_id = ${academyId}
+          )`
+        ));
+      
+      // Combine and deduplicate by ID
+      const coachMap = new Map<string, Coach>();
+      for (const row of withActiveMembership) {
+        coachMap.set(row.coach.id, row.coach);
+      }
+      for (const coach of legacyCoaches) {
+        if (!coachMap.has(coach.id)) {
+          coachMap.set(coach.id, coach);
+        }
+      }
+      
+      return Array.from(coachMap.values());
     }
-    // For all coaches (no academy filter), still filter by isActive
-    return db.select().from(coaches).where(eq(coaches.isActive, true));
+    // For all coaches (no academy filter), return all coaches
+    return db.select().from(coaches);
   },
 
   async getCoachesByAcademy(academyId: string): Promise<Coach[]> {
-    // UNION approach: coaches with active membership OR legacy coaches (no membership but academy matches)
-    const result = await db.execute(sql`
-      SELECT DISTINCT c.* FROM coaches c
-      INNER JOIN coach_academy_memberships cam 
-        ON cam.coach_id = c.id 
-        AND cam.academy_id = ${academyId} 
-        AND cam.is_active = true
-      WHERE c.is_active = true
-      UNION
-      SELECT c.* FROM coaches c
-      WHERE c.academy_id = ${academyId}
-        AND c.is_active = true
-        AND NOT EXISTS (
-          SELECT 1 FROM coach_academy_memberships cam2 
-          WHERE cam2.coach_id = c.id AND cam2.academy_id = ${academyId}
+    // Two-part approach: (1) coaches with active membership, (2) legacy coaches (no membership but academy matches)
+    // Part 1: Coaches with active membership for this academy
+    const withActiveMembership = await db
+      .selectDistinct({ coach: coaches })
+      .from(coaches)
+      .innerJoin(
+        coachAcademyMemberships,
+        and(
+          eq(coachAcademyMemberships.coachId, coaches.id),
+          eq(coachAcademyMemberships.academyId, academyId),
+          eq(coachAcademyMemberships.isActive, true)
         )
-    `);
+      );
     
-    return result.rows as Coach[];
+    // Part 2: Legacy coaches (academy matches, no membership exists)
+    const legacyCoaches = await db
+      .select()
+      .from(coaches)
+      .where(and(
+        eq(coaches.academyId, academyId),
+        sql`NOT EXISTS (
+          SELECT 1 FROM coach_academy_memberships cam 
+          WHERE cam.coach_id = coaches.id AND cam.academy_id = ${academyId}
+        )`
+      ));
+    
+    // Combine and deduplicate by ID
+    const coachMap = new Map<string, Coach>();
+    for (const row of withActiveMembership) {
+      coachMap.set(row.coach.id, row.coach);
+    }
+    for (const coach of legacyCoaches) {
+      if (!coachMap.has(coach.id)) {
+        coachMap.set(coach.id, coach);
+      }
+    }
+    
+    return Array.from(coachMap.values());
   },
 
   async createCoach(data: InsertCoach): Promise<Coach> {
