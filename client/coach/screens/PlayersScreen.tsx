@@ -582,26 +582,53 @@ export default function PlayersScreen() {
             <View style={styles.formGroup}>
               <Text style={styles.formLabel}>Ball Level</Text>
               <View style={styles.levelPicker}>
-                {ballLevels.map((level) => (
-                  <Pressable
-                    key={level}
-                    style={[
-                      styles.levelOption,
-                      newPlayerBallLevel === level && styles.levelOptionSelected,
-                    ]}
-                    onPress={() => setNewPlayerBallLevel(level)}
-                  >
-                    <View style={[styles.levelDot, { backgroundColor: getPlayerLevelColor(level) }]} />
-                    <Text
-                      style={[
-                        styles.levelOptionText,
-                        newPlayerBallLevel === level && styles.levelOptionTextSelected,
-                      ]}
-                    >
-                      {level.charAt(0).toUpperCase() + level.slice(1)}
-                    </Text>
-                  </Pressable>
-                ))}
+                {ballLevels.map((level) => {
+                  const ballColor = getPlayerLevelColor(level);
+                  const isSelected = newPlayerBallLevel === level;
+                  return (
+                    <View key={level} style={styles.levelOptionWrapper}>
+                      {isSelected ? (
+                        <View style={[styles.levelOptionGlowOuter, { backgroundColor: ballColor }]}>
+                          <LinearGradient
+                            colors={[ballColor, Colors.dark.backgroundRoot]}
+                            start={{ x: 0.5, y: 0 }}
+                            end={{ x: 0.5, y: 1 }}
+                            style={[
+                              styles.levelOptionGradient,
+                              { borderWidth: 2, borderColor: ballColor },
+                            ]}
+                          >
+                            <Pressable
+                              style={styles.levelOptionInner}
+                              onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                setNewPlayerBallLevel(level);
+                              }}
+                            >
+                              <View style={[styles.levelDot, { backgroundColor: ballColor }]} />
+                              <Text style={[styles.levelOptionText, { color: Colors.dark.text, fontWeight: "700" }]}>
+                                {level.charAt(0).toUpperCase() + level.slice(1)}
+                              </Text>
+                            </Pressable>
+                          </LinearGradient>
+                        </View>
+                      ) : (
+                        <Pressable
+                          style={[styles.levelOptionUnselected, { borderWidth: 2, borderColor: ballColor }]}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setNewPlayerBallLevel(level);
+                          }}
+                        >
+                          <View style={[styles.levelDot, { backgroundColor: ballColor }]} />
+                          <Text style={[styles.levelOptionText, { color: ballColor }]}>
+                            {level.charAt(0).toUpperCase() + level.slice(1)}
+                          </Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  );
+                })}
               </View>
             </View>
 
@@ -2834,14 +2861,38 @@ const styles = StyleSheet.create({
   levelOption: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundTertiary,
+    backgroundColor: "transparent",
     borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     gap: Spacing.xs,
   },
-  levelOptionSelected: {
-    backgroundColor: Colors.dark.primary + "30",
+  levelOptionWrapper: {
+    borderRadius: BorderRadius.full,
+  },
+  levelOptionGlowOuter: {
+    borderRadius: BorderRadius.full,
+    padding: 2,
+  },
+  levelOptionGradient: {
+    borderRadius: BorderRadius.full,
+    overflow: "hidden",
+  },
+  levelOptionInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    gap: Spacing.xs,
+  },
+  levelOptionUnselected: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "transparent",
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    gap: Spacing.xs,
   },
   levelOptionText: {
     fontSize: Typography.small.fontSize,

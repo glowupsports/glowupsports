@@ -1127,16 +1127,36 @@ export const storage = {
     );
     if (coach.length === 0) return false;
 
-    // Deactivate their academy membership (soft delete)
-    await db.update(coachAcademyMemberships).set({ 
-      isActive: false,
-      leftAt: new Date()
-    }).where(
+    // Check if membership record exists
+    const existingMembership = await db.select().from(coachAcademyMemberships).where(
       and(
         eq(coachAcademyMemberships.coachId, coachId),
         eq(coachAcademyMemberships.academyId, academyId)
       )
     );
+
+    if (existingMembership.length > 0) {
+      // Update existing membership to inactive
+      await db.update(coachAcademyMemberships).set({ 
+        isActive: false,
+        leftAt: new Date()
+      }).where(
+        and(
+          eq(coachAcademyMemberships.coachId, coachId),
+          eq(coachAcademyMemberships.academyId, academyId)
+        )
+      );
+    } else {
+      // Create an inactive membership record (for coaches without prior membership)
+      await db.insert(coachAcademyMemberships).values({
+        id: crypto.randomUUID(),
+        coachId,
+        academyId,
+        isActive: false,
+        joinedAt: new Date(),
+        leftAt: new Date()
+      });
+    }
 
     return true;
   },

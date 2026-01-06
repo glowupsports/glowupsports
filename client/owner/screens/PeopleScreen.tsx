@@ -5,6 +5,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import * as Clipboard from "expo-clipboard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
@@ -124,6 +125,11 @@ export default function PeopleScreen() {
   const [removalStep, setRemovalStep] = useState<"loading" | "has_sessions" | "no_sessions" | "reassigning" | "deleting" | "error">("loading");
   const [selectedTargetCoach, setSelectedTargetCoach] = useState<string>("");
   const [coachSessions, setCoachSessions] = useState<CoachSession[]>([]);
+  
+  // Player invite link state
+  const [generatedInviteLink, setGeneratedInviteLink] = useState<string | null>(null);
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const { data: peopleData, isLoading, isError, refetch } = useQuery<PeopleData>({
     queryKey: ["/api/owner/people"],
@@ -246,6 +252,55 @@ export default function PeopleScreen() {
     } catch (error) {
       console.error("Failed to fetch coach sessions:", error);
       setRemovalStep("error");
+    }
+  };
+
+  // Generate or get player invite link
+  const handleGenerateInviteLink = async (playerId: string) => {
+    try {
+      setIsGeneratingLink(true);
+      setLinkCopied(false);
+      const response = await fetch(new URL(`/api/player-invites/${playerId}`, getApiUrl()).toString(), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to generate invite link");
+      }
+      
+      const data = await response.json();
+      let baseUrl = process.env.EXPO_PUBLIC_DOMAIN || "";
+      if (!baseUrl) {
+        const apiUrl = process.env.EXPO_PUBLIC_API_URL || "https://localhost:5000";
+        baseUrl = apiUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
+      }
+      if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
+        baseUrl = `https://${baseUrl}`;
+      }
+      baseUrl = baseUrl.replace(/\/$/, "");
+      const inviteUrl = `${baseUrl}/player-invite/${data.inviteCode}`;
+      setGeneratedInviteLink(inviteUrl);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error("Failed to generate invite link:", error);
+      if (Platform.OS === "web") {
+        window.alert("Failed to generate invite link");
+      } else {
+        Alert.alert("Error", "Failed to generate invite link");
+      }
+    } finally {
+      setIsGeneratingLink(false);
+    }
+  };
+
+  const handleCopyInviteLink = async () => {
+    if (generatedInviteLink) {
+      await Clipboard.setStringAsync(generatedInviteLink);
+      setLinkCopied(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setTimeout(() => setLinkCopied(false), 2000);
     }
   };
 
@@ -570,16 +625,16 @@ export default function PeopleScreen() {
         visible={showDetailModal}
         animationType="slide"
         transparent
-        onRequestClose={() => setShowDetailModal(false)}
+        onRequestClose={() => { setShowDetailModal(false); setGeneratedInviteLink(null); }}
       >
         <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setShowDetailModal(false)} />
+          <Pressable style={styles.modalBackdrop} onPress={() => { setShowDetailModal(false); setGeneratedInviteLink(null); }} />
           <View style={[styles.detailModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
                 {activeTab === "coaches" ? "Coach Details" : "Player Details"}
               </Text>
-              <Pressable onPress={() => setShowDetailModal(false)}>
+              <Pressable onPress={() => { setShowDetailModal(false); setGeneratedInviteLink(null); }}>
                 <Ionicons name="close" size={24} color={Colors.dark.textMuted} />
               </Pressable>
             </View>
@@ -602,10 +657,43 @@ export default function PeopleScreen() {
                 </View>
 
                 <View style={styles.detailActions}>
+                  {activeTab === "players" ? (
+                    <View style={styles.inviteLinkSection}>
+                      {generatedInviteLink ? (
+                        <View style={styles.inviteLinkResult}>
+                          <Text style={styles.inviteLinkLabel}>Invite Link:</Text>
+                          <Text style={styles.inviteLinkText} numberOfLines={2}>{generatedInviteLink}</Text>
+                          <Pressable
+                            style={styles.copyLinkButton}
+                            onPress={handleCopyInviteLink}
+                          >
+                            <Ionicons name={linkCopied ? "checkmark" : "copy"} size={20} color={Colors.dark.text} />
+                            <Text style={styles.copyLinkButtonText}>{linkCopied ? "Copied!" : "Copy Link"}</Text>
+                          </Pressable>
+                        </View>
+                      ) : (
+                        <Pressable
+                          style={styles.inviteLinkButton}
+                          onPress={() => handleGenerateInviteLink(selectedPerson.id)}
+                          disabled={isGeneratingLink}
+                        >
+                          {isGeneratingLink ? (
+                            <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                          ) : (
+                            <>
+                              <Ionicons name="link" size={20} color={Colors.dark.xpCyan} />
+                              <Text style={styles.inviteLinkButtonText}>Generate Invite Link</Text>
+                            </>
+                          )}
+                        </Pressable>
+                      )}
+                    </View>
+                  ) : null}
                   <Pressable
                     style={styles.removeButton}
                     onPress={() => {
                       setShowDetailModal(false);
+                      setGeneratedInviteLink(null);
                       handleDelete(
                         selectedPerson.id,
                         activeTab === "coaches" ? "coach" : "player",
@@ -1036,6 +1124,54 @@ const styles = StyleSheet.create({
   detailActions: {
     width: "100%",
     gap: Spacing.md,
+  },
+  inviteLinkSection: {
+    marginBottom: Spacing.md,
+  },
+  inviteLinkButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: `${Colors.dark.xpCyan}15`,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.xpCyan}40`,
+  },
+  inviteLinkButtonText: {
+    color: Colors.dark.xpCyan,
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+  },
+  inviteLinkResult: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+  },
+  inviteLinkLabel: {
+    color: Colors.dark.textMuted,
+    fontSize: Typography.small.fontSize,
+    marginBottom: Spacing.xs,
+  },
+  inviteLinkText: {
+    color: Colors.dark.text,
+    fontSize: Typography.small.fontSize,
+    marginBottom: Spacing.sm,
+  },
+  copyLinkButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: `${Colors.dark.primary}20`,
+  },
+  copyLinkButtonText: {
+    color: Colors.dark.text,
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
   },
   removeButton: {
     flexDirection: "row",
