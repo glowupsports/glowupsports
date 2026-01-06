@@ -172,6 +172,11 @@ export const academies = pgTable("academies", {
   xpVisibleToPlayers: boolean("xp_visible_to_players").default(true),
   notificationsEnabled: boolean("notifications_enabled").default(true),
   
+  // Freelance Support
+  isFreelance: boolean("is_freelance").default(false), // True if this is a coach's personal freelance academy
+  freelanceOwnerCoachId: varchar("freelance_owner_coach_id"), // Coach ID who owns this freelance academy
+  allowFreelanceCoaches: text("allow_freelance_coaches").default("allow"), // allow | review_required | disallow
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -426,6 +431,53 @@ export const coaches = pgTable("coaches", {
 export const insertCoachSchema = createInsertSchema(coaches).omit({ id: true, createdAt: true });
 export type InsertCoach = z.infer<typeof insertCoachSchema>;
 export type Coach = typeof coaches.$inferSelect;
+
+// Coach Freelance Profiles - Personal branding for freelance coaches
+export const coachFreelanceProfiles = pgTable("coach_freelance_profiles", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull().unique(),
+  freelanceAcademyId: varchar("freelance_academy_id").references(() => academies.id), // The coach's personal academy
+  
+  // Branding
+  businessName: text("business_name").notNull(), // e.g., "The Law Tennis Academy"
+  slug: text("slug").unique(), // URL-friendly version
+  tagline: text("tagline"), // Short marketing tagline
+  bio: text("bio"), // Extended bio for freelance profile
+  logoUrl: text("logo_url"),
+  coverImageUrl: text("cover_image_url"),
+  primaryColor: text("primary_color"), // Brand color
+  
+  // Contact & Business Info
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
+  website: text("website"),
+  socialLinks: jsonb("social_links").$type<{ instagram?: string; facebook?: string; linkedin?: string; twitter?: string }>(),
+  
+  // Service Info
+  serviceAreas: jsonb("service_areas").$type<string[]>(), // Cities/regions they serve
+  travelRadius: integer("travel_radius"), // Miles willing to travel
+  specialties: jsonb("specialties").$type<string[]>(), // Advanced coaching specialties
+  ageGroupsServed: jsonb("age_groups_served").$type<string[]>(), // kids, juniors, adults, seniors
+  
+  // Pricing (displayed on profile)
+  showPricing: boolean("show_pricing").default(false),
+  hourlyRateMin: integer("hourly_rate_min"),
+  hourlyRateMax: integer("hourly_rate_max"),
+  currency: text("currency").default("USD"),
+  
+  // Status
+  isActive: boolean("is_active").default(false), // Freelance license activated
+  activatedAt: timestamp("activated_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCoachFreelanceProfileSchema = createInsertSchema(coachFreelanceProfiles).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCoachFreelanceProfile = z.infer<typeof insertCoachFreelanceProfileSchema>;
+export type CoachFreelanceProfile = typeof coachFreelanceProfiles.$inferSelect;
 
 // Locations
 export const locations = pgTable("locations", {
