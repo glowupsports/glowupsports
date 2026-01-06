@@ -3465,7 +3465,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/coaches", authMiddleware, requireRole("academy_owner", "platform_owner", "admin"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId;
-      const coach = await storage.createCoach({ ...req.body, academyId });
+      const { hourlyRate, ...coachData } = req.body;
+      
+      // Create the coach record (hourlyRate still saved on coach for backwards compatibility)
+      const coach = await storage.createCoach({ ...coachData, academyId, hourlyRate });
+      
+      // Also create the academy membership with the hourly rate
+      if (academyId) {
+        await storage.createCoachMembership({
+          coachId: coach.id,
+          academyId,
+          role: req.body.role || "coach",
+          isActive: true,
+          isPrimary: true,
+          hourlyRate: hourlyRate ? String(hourlyRate) : undefined,
+          sessionBillingMode: "academy_managed",
+          payoutType: "per_hour",
+        });
+      }
+      
       res.status(201).json(coach);
     } catch (error) {
       console.error("Error creating coach:", error);
