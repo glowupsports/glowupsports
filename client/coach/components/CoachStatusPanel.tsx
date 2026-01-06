@@ -57,6 +57,8 @@ export function CoachStatusPanel({ visible, onClose, onNavigate }: CoachStatusPa
   
   const slideAnim = useSharedValue(PANEL_WIDTH);
   const overlayOpacity = useSharedValue(0);
+  const academyPickerHeight = useSharedValue(0);
+  const academyPickerOpacity = useSharedValue(0);
   
   const { data: academies = [] } = useQuery<CoachMembership[]>({
     queryKey: ["/api/coach/academies"],
@@ -65,15 +67,21 @@ export function CoachStatusPanel({ visible, onClose, onNavigate }: CoachStatusPa
   
   const activeAcademies = academies.filter((m) => m.isActive && m.academy);
   
+  const collapseAcademyPicker = () => {
+    setShowAcademyPicker(false);
+    academyPickerHeight.value = withSpring(0, { damping: 20, stiffness: 200 });
+    academyPickerOpacity.value = withTiming(0, { duration: 150 });
+  };
+
   const handleSwitchAcademy = async (academyId: string) => {
     if (academyId === academy?.id) {
-      setShowAcademyPicker(false);
+      collapseAcademyPicker();
       return;
     }
     try {
       await apiRequest("POST", "/api/coach/switch-academy", { academyId });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setShowAcademyPicker(false);
+      collapseAcademyPicker();
       queryClient.invalidateQueries();
     } catch (error) {
       console.error("Failed to switch academy:", error);
@@ -143,6 +151,22 @@ export function CoachStatusPanel({ visible, onClose, onNavigate }: CoachStatusPa
   const overlayStyle = useAnimatedStyle(() => ({
     opacity: overlayOpacity.value,
   }));
+
+  const academyPickerStyle = useAnimatedStyle(() => ({
+    maxHeight: academyPickerHeight.value,
+    opacity: academyPickerOpacity.value,
+    overflow: "hidden" as const,
+  }));
+
+  const toggleAcademyPicker = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const isOpening = !showAcademyPicker;
+    setShowAcademyPicker(isOpening);
+    
+    const targetHeight = isOpening ? activeAcademies.length * 56 : 0;
+    academyPickerHeight.value = withSpring(targetHeight, { damping: 20, stiffness: 200 });
+    academyPickerOpacity.value = withTiming(isOpening ? 1 : 0, { duration: 150 });
+  };
 
   const handleClose = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -265,10 +289,7 @@ export function CoachStatusPanel({ visible, onClose, onNavigate }: CoachStatusPa
                   <Text style={styles.sectionTitle}>ACADEMY</Text>
                   <Pressable 
                     style={styles.academySwitcherButton}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setShowAcademyPicker(!showAcademyPicker);
-                    }}
+                    onPress={toggleAcademyPicker}
                   >
                     <View style={[styles.settingIcon, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
                       <Ionicons name="business-outline" size={20} color={Colors.dark.xpCyan} />
@@ -284,38 +305,39 @@ export function CoachStatusPanel({ visible, onClose, onNavigate }: CoachStatusPa
                     />
                   </Pressable>
                   
-                  {showAcademyPicker ? (
-                    <View style={styles.academyPickerList}>
-                      {activeAcademies.map((membership) => (
-                        <Pressable
-                          key={membership.id}
-                          style={[
-                            styles.academyPickerItem,
-                            membership.academyId === academy?.id && styles.academyPickerItemActive,
-                          ]}
-                          onPress={() => handleSwitchAcademy(membership.academyId)}
-                        >
-                          <View style={[
-                            styles.academyPickerIcon,
-                            membership.academyId === academy?.id && styles.academyPickerIconActive,
-                          ]}>
-                            <Text style={styles.academyPickerInitial}>
-                              {membership.academy?.name?.charAt(0).toUpperCase() || "A"}
-                            </Text>
-                          </View>
-                          <Text style={[
-                            styles.academyPickerName,
-                            membership.academyId === academy?.id && styles.academyPickerNameActive,
-                          ]}>
-                            {membership.academy?.name || "Academy"}
+                  <Animated.View style={[styles.academyPickerList, academyPickerStyle]}>
+                    {activeAcademies.map((membership) => (
+                      <Pressable
+                        key={membership.id}
+                        style={[
+                          styles.academyPickerItem,
+                          membership.academyId === academy?.id && styles.academyPickerItemActive,
+                        ]}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          handleSwitchAcademy(membership.academyId);
+                        }}
+                      >
+                        <View style={[
+                          styles.academyPickerIcon,
+                          membership.academyId === academy?.id && styles.academyPickerIconActive,
+                        ]}>
+                          <Text style={styles.academyPickerInitial}>
+                            {membership.academy?.name?.charAt(0).toUpperCase() || "A"}
                           </Text>
-                          {membership.academyId === academy?.id ? (
-                            <Ionicons name="checkmark-circle" size={18} color={Colors.dark.primary} />
-                          ) : null}
-                        </Pressable>
-                      ))}
-                    </View>
-                  ) : null}
+                        </View>
+                        <Text style={[
+                          styles.academyPickerName,
+                          membership.academyId === academy?.id && styles.academyPickerNameActive,
+                        ]}>
+                          {membership.academy?.name || "Academy"}
+                        </Text>
+                        {membership.academyId === academy?.id ? (
+                          <Ionicons name="checkmark-circle" size={18} color={Colors.dark.primary} />
+                        ) : null}
+                      </Pressable>
+                    ))}
+                  </Animated.View>
                 </View>
               ) : null}
 
