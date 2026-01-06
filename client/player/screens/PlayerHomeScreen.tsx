@@ -583,12 +583,30 @@ function NoSessionCard() {
   );
 }
 
-function MentorCard({ coach, onPress }: { coach: { id: string; name: string; yearsExperience?: number }; onPress: () => void }) {
+function MentorCard({ coach, onPress }: { coach: { id: string; name: string; avatar?: string | null; yearsExperience?: number }; onPress: () => void }) {
+  const coachPhotoUri = coach.avatar ? `${getStaticAssetsUrl()}${coach.avatar}` : null;
+  
   return (
     <Pressable style={mentorStyles.card} onPress={onPress}>
-      <View style={mentorStyles.avatar}>
-        <Text style={mentorStyles.avatarText}>{coach.name.charAt(0)}</Text>
-      </View>
+      {coachPhotoUri ? (
+        Platform.OS === 'web' ? (
+          <RNImage
+            source={{ uri: coachPhotoUri }}
+            style={mentorStyles.avatarImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <Image
+            source={{ uri: coachPhotoUri }}
+            style={mentorStyles.avatarImage}
+            contentFit="cover"
+          />
+        )
+      ) : (
+        <View style={mentorStyles.avatar}>
+          <Text style={mentorStyles.avatarText}>{coach.name.charAt(0)}</Text>
+        </View>
+      )}
       <View style={mentorStyles.info}>
         <Text style={mentorStyles.label}>Your Coach</Text>
         <Text style={mentorStyles.name}>{coach.name}</Text>
@@ -3516,6 +3534,11 @@ const mentorStyles = StyleSheet.create({
     backgroundColor: Colors.dark.primary,
     justifyContent: "center",
     alignItems: "center",
+  },
+  avatarImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
   avatarText: {
     ...Typography.h4,

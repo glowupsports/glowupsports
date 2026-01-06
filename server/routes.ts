@@ -10409,7 +10409,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         coach: coach ? {
           id: coach.id,
           name: coach.name,
-          avatar: null,
+          avatar: coach.profilePhotoUrl || null,
           yearsExperience: coach.yearsExperience,
           philosophyTags: coach.philosophyTags || [],
           publicQuote: coach.bioStatus === "approved" ? coach.publicQuote : null,
@@ -10461,6 +10461,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         playersCount: activePlayers,
         averageRating: reviewStats?.averageRating || null,
         reviewsCount: reviewStats?.totalReviews || 0,
+        profilePhotoUrl: coach.profilePhotoUrl || null,
       });
     } catch (error) {
       console.error("Error fetching coach profile:", error);

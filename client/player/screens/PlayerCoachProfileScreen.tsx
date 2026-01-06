@@ -1,13 +1,15 @@
 import React from "react";
-import { View, StyleSheet, ScrollView, Pressable, Linking, Platform } from "react-native";
+import { View, StyleSheet, ScrollView, Pressable, Linking, Platform, Image as RNImage } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { getStaticAssetsUrl } from "@/lib/query-client";
 
 interface CoachDetails {
   id: string;
@@ -21,6 +23,7 @@ interface CoachDetails {
   playersCount?: number;
   averageRating?: number;
   reviewsCount?: number;
+  profilePhotoUrl?: string | null;
 }
 
 export default function PlayerCoachProfileScreen() {
@@ -100,11 +103,27 @@ export default function PlayerCoachProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.profileHeader}>
-          <View style={styles.avatarLarge}>
-            <ThemedText style={styles.avatarText}>
-              {coach.name?.charAt(0).toUpperCase() || "C"}
-            </ThemedText>
-          </View>
+          {coach.profilePhotoUrl ? (
+            Platform.OS === 'web' ? (
+              <RNImage
+                source={{ uri: `${getStaticAssetsUrl()}${coach.profilePhotoUrl}` }}
+                style={styles.avatarLargeImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <Image
+                source={{ uri: `${getStaticAssetsUrl()}${coach.profilePhotoUrl}` }}
+                style={styles.avatarLargeImage}
+                contentFit="cover"
+              />
+            )
+          ) : (
+            <View style={styles.avatarLarge}>
+              <ThemedText style={styles.avatarText}>
+                {coach.name?.charAt(0).toUpperCase() || "C"}
+              </ThemedText>
+            </View>
+          )}
           <ThemedText style={styles.coachName}>{coach.name}</ThemedText>
           {coach.yearsExperience ? (
             <ThemedText style={styles.experience}>
@@ -241,6 +260,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: Spacing.md,
+  },
+  avatarLargeImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: Spacing.md,
+    borderWidth: 3,
+    borderColor: Colors.dark.primary,
   },
   avatarText: {
     fontSize: 40,
