@@ -3456,6 +3456,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const academyId = req.user!.academyId;
       const player = await storage.createPlayer({ ...req.body, academyId });
       
+      // Generate player invite code
+      const inviteCode = crypto.randomBytes(8).toString("hex"); // 16 char code
+      const playerInvite = await storage.createPlayerInvite({
+        playerId: player.id,
+        academyId: academyId!,
+        inviteCode,
+        status: "pending",
+        parentName: req.body.parentName || null,
+        parentPhone: req.body.parentPhone || null,
+        expiresAt: null, // No expiry for player invites
+      });
+      
       // Send welcome email if player has email (non-blocking)
       if (player.email) {
         const academy = academyId ? await storage.getAcademy(academyId) : null;
@@ -3468,10 +3480,155 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }).catch(err => console.error("Failed to send welcome email:", err));
       }
       
-      res.status(201).json(player);
+      // Return player with invite code
+      res.status(201).json({
+        ...player,
+        inviteCode: playerInvite.inviteCode,
+      });
     } catch (error) {
       console.error("Error creating player:", error);
       res.status(500).json({ error: "Failed to create player" });
+    }
+  });
+
+  // Get player invite link
+  app.get("/api/players/:id/invite", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      
+      // Validate player ownership
+      const { valid, player } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid || !player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Check for existing invite
+      let invite = await storage.getPlayerInviteByPlayerId(id);
+      
+      // If no pending invite exists, create one
+      if (!invite) {
+        const inviteCode = crypto.randomBytes(8).toString("hex");
+        invite = await storage.createPlayerInvite({
+          playerId: id,
+          academyId: academyId!,
+          inviteCode,
+          status: "pending",
+          expiresAt: null,
+        });
+      }
+      
+      res.json({
+        inviteCode: invite.inviteCode,
+        status: invite.status,
+        createdAt: invite.createdAt,
+      });
+    } catch (error) {
+      console.error("Error getting player invite:", error);
+      res.status(500).json({ error: "Failed to get player invite" });
+    }
+  });
+
+  // Regenerate player invite link
+  app.post("/api/players/:id/invite/regenerate", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      
+      // Validate player ownership
+      const { valid, player } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid || !player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Revoke existing pending invites
+      const existingInvite = await storage.getPlayerInviteByPlayerId(id);
+      if (existingInvite) {
+        await storage.updatePlayerInvite(existingInvite.id, { status: "revoked" });
+      }
+      
+      // Create new invite
+      const inviteCode = crypto.randomBytes(8).toString("hex");
+      const newInvite = await storage.createPlayerInvite({
+        playerId: id,
+        academyId: academyId!,
+        inviteCode,
+        status: "pending",
+        expiresAt: null,
+      });
+      
+      res.json({
+        inviteCode: newInvite.inviteCode,
+        status: newInvite.status,
+        createdAt: newInvite.createdAt,
+      });
+    } catch (error) {
+      console.error("Error regenerating player invite:", error);
+      res.status(500).json({ error: "Failed to regenerate player invite" });
+    }
+  });
+
+  // Claim player invite (public endpoint for parents/players to link their account)
+  app.post("/api/player-invite/claim", async (req: Request, res: Response) => {
+    try {
+      const { inviteCode, userId } = req.body;
+      
+      if (!inviteCode || !userId) {
+        return res.status(400).json({ error: "Invite code and user ID are required" });
+      }
+      
+      const invite = await storage.getPlayerInvite(inviteCode);
+      if (!invite) {
+        return res.status(404).json({ error: "Invalid invite code" });
+      }
+      
+      if (invite.status !== "pending") {
+        return res.status(400).json({ error: "This invite has already been claimed or expired" });
+      }
+      
+      // Claim the invite
+      const claimedInvite = await storage.claimPlayerInvite(inviteCode, userId);
+      if (!claimedInvite) {
+        return res.status(400).json({ error: "Failed to claim invite" });
+      }
+      
+      // Get player details
+      const player = await storage.getPlayer(invite.playerId);
+      
+      res.json({
+        success: true,
+        player: player ? { id: player.id, name: player.name } : null,
+        academyId: invite.academyId,
+      });
+    } catch (error) {
+      console.error("Error claiming player invite:", error);
+      res.status(500).json({ error: "Failed to claim invite" });
+    }
+  });
+
+  // Validate player invite (public endpoint to check if invite is valid)
+  app.get("/api/player-invite/:code", async (req: Request, res: Response) => {
+    try {
+      const { code } = req.params;
+      
+      const invite = await storage.getPlayerInvite(code);
+      if (!invite) {
+        return res.status(404).json({ error: "Invalid invite code" });
+      }
+      
+      // Get player and academy details
+      const player = await storage.getPlayer(invite.playerId);
+      const academy = await storage.getAcademy(invite.academyId);
+      
+      res.json({
+        valid: invite.status === "pending",
+        status: invite.status,
+        playerName: player?.name || null,
+        academyName: academy?.name || null,
+      });
+    } catch (error) {
+      console.error("Error validating player invite:", error);
+      res.status(500).json({ error: "Failed to validate invite" });
     }
   });
 

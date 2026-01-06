@@ -20,6 +20,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
+import * as Clipboard from "expo-clipboard";
 import Animated, { 
   useAnimatedStyle, 
   useSharedValue, 
@@ -28,7 +29,7 @@ import Animated, {
   interpolate,
 } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
-import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
+import { apiRequest, getStaticAssetsUrl, getApiUrl } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
 import PackagesCard from "@/coach/components/PackagesCard";
 
@@ -252,26 +253,40 @@ export default function PlayersScreen() {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [filterLevel, setFilterLevel] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [createdPlayerInvite, setCreatedPlayerInvite] = useState<{ name: string; inviteCode: string } | null>(null);
   const [newPlayerName, setNewPlayerName] = useState("");
   const [newPlayerEmail, setNewPlayerEmail] = useState("");
   const [newPlayerPhone, setNewPlayerPhone] = useState("");
   const [newPlayerBallLevel, setNewPlayerBallLevel] = useState<string>("green");
+  const [newPlayerParentName, setNewPlayerParentName] = useState("");
+  const [newPlayerParentPhone, setNewPlayerParentPhone] = useState("");
 
   const { data: players = [], isLoading } = useQuery<Player[]>({
     queryKey: ["/api/players"],
   });
 
   const createPlayerMutation = useMutation({
-    mutationFn: async (data: { name: string; email?: string; phone?: string; ballLevel?: string; coachId?: string }) => {
+    mutationFn: async (data: { name: string; email?: string; phone?: string; ballLevel?: string; coachId?: string; parentName?: string; parentPhone?: string }) => {
       return apiRequest("POST", "/api/players", data);
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/players"] });
       setShowAddModal(false);
+      
+      // Show invite modal with the code
+      if (data.inviteCode) {
+        setCreatedPlayerInvite({ name: data.name, inviteCode: data.inviteCode });
+        setShowInviteModal(true);
+      }
+      
+      // Reset form
       setNewPlayerName("");
       setNewPlayerEmail("");
       setNewPlayerPhone("");
       setNewPlayerBallLevel("green");
+      setNewPlayerParentName("");
+      setNewPlayerParentPhone("");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: () => {
@@ -590,6 +605,31 @@ export default function PlayersScreen() {
               </View>
             </View>
 
+            <Text style={styles.sectionHeader}>PARENT/GUARDIAN</Text>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Parent Name</Text>
+              <TextInput
+                style={styles.formInput}
+                placeholder="Parent name"
+                placeholderTextColor={Colors.dark.tabIconDefault}
+                value={newPlayerParentName}
+                onChangeText={setNewPlayerParentName}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Parent Phone</Text>
+              <TextInput
+                style={styles.formInput}
+                placeholder="+971 50 123 4567"
+                placeholderTextColor={Colors.dark.tabIconDefault}
+                value={newPlayerParentPhone}
+                onChangeText={setNewPlayerParentPhone}
+                keyboardType="phone-pad"
+              />
+            </View>
+
             <View style={styles.modalActions}>
               <Pressable
                 style={styles.addCancelButton}
@@ -610,6 +650,8 @@ export default function PlayersScreen() {
                       phone: newPlayerPhone.trim() || undefined,
                       ballLevel: newPlayerBallLevel,
                       coachId: coach?.id,
+                      parentName: newPlayerParentName.trim() || undefined,
+                      parentPhone: newPlayerParentPhone.trim() || undefined,
                     });
                   }
                 }}
@@ -622,6 +664,67 @@ export default function PlayersScreen() {
                 )}
               </Pressable>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Player Invite Success Modal */}
+      <Modal visible={showInviteModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.inviteModalContent}>
+            <View style={styles.inviteModalHeader}>
+              <View style={styles.inviteSuccessIcon}>
+                <Ionicons name="checkmark-circle" size={48} color={Colors.dark.primary} />
+              </View>
+              <Text style={styles.inviteModalTitle}>Player Added</Text>
+              <Text style={styles.inviteModalSubtitle}>
+                {createdPlayerInvite?.name} has been added to your roster
+              </Text>
+            </View>
+
+            <View style={styles.inviteCodeSection}>
+              <Text style={styles.inviteCodeLabel}>Share this invite link with the player/parent:</Text>
+              <View style={styles.inviteCodeBox}>
+                <Text style={styles.inviteCodeText} selectable>
+                  {`${getApiUrl()}/join/${createdPlayerInvite?.inviteCode}`}
+                </Text>
+              </View>
+              <Pressable 
+                style={styles.copyButton}
+                onPress={async () => {
+                  if (createdPlayerInvite?.inviteCode) {
+                    const inviteUrl = `${getApiUrl()}/join/${createdPlayerInvite.inviteCode}`;
+                    await Clipboard.setStringAsync(inviteUrl);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    if (Platform.OS === 'web') {
+                      window.alert('Invite link copied to clipboard!');
+                    } else {
+                      Alert.alert('Copied', 'Invite link copied to clipboard!');
+                    }
+                  }
+                }}
+              >
+                <LinearGradient
+                  colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.copyButtonGradient}
+                >
+                  <Ionicons name="copy-outline" size={18} color={Colors.dark.backgroundRoot} />
+                  <Text style={styles.copyButtonText}>Copy Invite Link</Text>
+                </LinearGradient>
+              </Pressable>
+            </View>
+
+            <Pressable 
+              style={styles.inviteDoneButton}
+              onPress={() => {
+                setShowInviteModal(false);
+                setCreatedPlayerInvite(null);
+              }}
+            >
+              <Text style={styles.inviteDoneButtonText}>Done</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>
@@ -2940,5 +3043,98 @@ const styles = StyleSheet.create({
   },
   onboardingTagGoalText: {
     color: Colors.dark.primary,
+  },
+  sectionHeader: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.tabIconDefault,
+    letterSpacing: 1,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  inviteModalContent: {
+    width: "100%",
+    maxWidth: 400,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+  },
+  inviteModalHeader: {
+    alignItems: "center",
+    marginBottom: Spacing.xl,
+  },
+  inviteSuccessIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.dark.primary + "20",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.md,
+  },
+  inviteModalTitle: {
+    fontSize: Typography.h2.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: Spacing.xs,
+  },
+  inviteModalSubtitle: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.tabIconDefault,
+    textAlign: "center",
+  },
+  inviteCodeSection: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  inviteCodeLabel: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+    marginBottom: Spacing.md,
+    textAlign: "center",
+  },
+  inviteCodeBox: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  inviteCodeText: {
+    fontSize: 13,
+    color: Colors.dark.text,
+    textAlign: "center",
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+  },
+  copyButton: {
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  copyButtonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+  },
+  copyButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.backgroundRoot,
+  },
+  inviteDoneButton: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    alignItems: "center",
+  },
+  inviteDoneButtonText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+    fontWeight: "500",
   },
 });

@@ -72,6 +72,10 @@ import {
   playerMatches,
   playerConnections,
   type PlayerConnection,
+  // Player Invites
+  playerInvites,
+  type PlayerInvite,
+  type InsertPlayerInvite,
   // Phase 3: Academy Management
   academySettings,
   academyInvites,
@@ -1352,6 +1356,53 @@ export const storage = {
 
   async getPlayersByAcademy(academyId: string): Promise<Player[]> {
     return db.select().from(players).where(eq(players.academyId, academyId));
+  },
+
+  // ==================== PLAYER INVITES ====================
+  async createPlayerInvite(data: InsertPlayerInvite): Promise<PlayerInvite> {
+    const result = await db.insert(playerInvites).values(data).returning();
+    return result[0];
+  },
+
+  async getPlayerInvite(inviteCode: string): Promise<PlayerInvite | undefined> {
+    const result = await db.select().from(playerInvites).where(eq(playerInvites.inviteCode, inviteCode));
+    return result[0];
+  },
+
+  async getPlayerInviteById(id: string): Promise<PlayerInvite | undefined> {
+    const result = await db.select().from(playerInvites).where(eq(playerInvites.id, id));
+    return result[0];
+  },
+
+  async getPlayerInviteByPlayerId(playerId: string): Promise<PlayerInvite | undefined> {
+    const result = await db.select().from(playerInvites)
+      .where(and(
+        eq(playerInvites.playerId, playerId),
+        eq(playerInvites.status, "pending")
+      ))
+      .orderBy(desc(playerInvites.createdAt))
+      .limit(1);
+    return result[0];
+  },
+
+  async updatePlayerInvite(id: string, data: Partial<InsertPlayerInvite>): Promise<PlayerInvite | undefined> {
+    const result = await db.update(playerInvites).set(data).where(eq(playerInvites.id, id)).returning();
+    return result[0];
+  },
+
+  async claimPlayerInvite(inviteCode: string, userId: string): Promise<PlayerInvite | undefined> {
+    const result = await db.update(playerInvites)
+      .set({ 
+        status: "claimed", 
+        claimedBy: userId, 
+        claimedAt: new Date() 
+      })
+      .where(and(
+        eq(playerInvites.inviteCode, inviteCode),
+        eq(playerInvites.status, "pending")
+      ))
+      .returning();
+    return result[0];
   },
 
   async searchPlayers(query: string, academyId?: string): Promise<Player[]> {

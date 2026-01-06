@@ -653,6 +653,31 @@ export type InsertPlayer = z.infer<typeof insertPlayerSchema>;
 export type UpdatePlayer = z.infer<typeof updatePlayerSchema>;
 export type Player = typeof players.$inferSelect;
 
+// Player Invites - For inviting players/parents to join the app
+export const playerInvites = pgTable("player_invites", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  
+  inviteCode: varchar("invite_code", { length: 32 }).notNull().unique(),
+  
+  status: text("status").default("pending"), // pending | claimed | expired | revoked
+  claimedBy: varchar("claimed_by").references(() => users.id),
+  
+  parentName: text("parent_name"),
+  parentPhone: text("parent_phone"),
+  
+  expiresAt: timestamp("expires_at"),
+  claimedAt: timestamp("claimed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPlayerInviteSchema = createInsertSchema(playerInvites).omit({ id: true, createdAt: true });
+export type InsertPlayerInvite = z.infer<typeof insertPlayerInviteSchema>;
+export type PlayerInvite = typeof playerInvites.$inferSelect;
+
 // Player Matches - Casual matches & challenges between players
 export const playerMatches = pgTable("player_matches", {
   id: varchar("id")
