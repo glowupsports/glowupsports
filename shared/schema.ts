@@ -415,6 +415,11 @@ export const coaches = pgTable("coaches", {
   parentDashboardPin: text("parent_dashboard_pin").default("1234"), // 4-digit PIN, default 1234
   pinChangedAt: timestamp("pin_changed_at"), // When PIN was last changed (null = never changed, must change on first use)
   
+  // Freelance Coach Support
+  isFreelance: boolean("is_freelance").default(false), // Coach can run their own personal academy
+  personalAcademyId: varchar("personal_academy_id"), // ID of auto-created personal academy for freelancers
+  selfServiceRate: numeric("self_service_rate"), // Rate for self-managed sessions (personal academy)
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -1700,9 +1705,14 @@ export const coachAcademyMemberships = pgTable("coach_academy_memberships", {
   coachId: varchar("coach_id").references(() => coaches.id).notNull(),
   academyId: varchar("academy_id").references(() => academies.id).notNull(),
   
-  role: text("role").default("coach"), // platform_owner | academy_owner | coach | assistant
+  role: text("role").default("coach"), // platform_owner | academy_owner | coach | assistant | head_coach | freelance_partner
   isActive: boolean("is_active").default(true),
   isPrimary: boolean("is_primary").default(false), // default academy for this coach
+  
+  // Per-academy pricing (each academy sets their own rate for this coach)
+  hourlyRate: numeric("hourly_rate"), // Rate this academy pays the coach
+  sessionBillingMode: text("session_billing_mode").default("academy_managed"), // academy_managed | self_service
+  payoutType: text("payout_type").default("per_hour"), // per_hour | per_session | monthly | custom
   
   joinedAt: timestamp("joined_at").defaultNow(),
   leftAt: timestamp("left_at"),
@@ -1711,6 +1721,42 @@ export const coachAcademyMemberships = pgTable("coach_academy_memberships", {
 export const insertCoachAcademyMembershipSchema = createInsertSchema(coachAcademyMemberships).omit({ id: true, joinedAt: true });
 export type InsertCoachAcademyMembership = z.infer<typeof insertCoachAcademyMembershipSchema>;
 export type CoachAcademyMembership = typeof coachAcademyMemberships.$inferSelect;
+
+// Coach Time Blocks - Unified availability ledger across ALL academies
+// Every session/block across all academies writes here to prevent double-booking
+export const coachTimeBlocks = pgTable("coach_time_blocks", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  
+  // Source of the block
+  sourceType: text("source_type").notNull(), // session | personal | travel | blocked
+  sourceAcademyId: varchar("source_academy_id").references(() => academies.id), // Which academy owns this block
+  sourceSessionId: varchar("source_session_id"), // references sessions.id if from session
+  
+  // Time range
+  date: date("date").notNull(),
+  startTime: text("start_time").notNull(), // "HH:MM"
+  endTime: text("end_time").notNull(), // "HH:MM"
+  
+  // Status
+  status: text("status").default("confirmed"), // confirmed | cancelled | tentative
+  
+  // Visibility to other academies
+  isPrivate: boolean("is_private").default(false), // If true, other academies see "Busy" only
+  blockReason: text("block_reason"), // For personal blocks: vacation, sick, personal, etc.
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  coachDateIdx: index("coach_time_blocks_coach_date_idx").on(table.coachId, table.date),
+  coachStatusIdx: index("coach_time_blocks_coach_status_idx").on(table.coachId, table.status),
+}));
+
+export const insertCoachTimeBlockSchema = createInsertSchema(coachTimeBlocks).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCoachTimeBlock = z.infer<typeof insertCoachTimeBlockSchema>;
+export type CoachTimeBlock = typeof coachTimeBlocks.$inferSelect;
 
 // ==================== PHASE 3: PUSH NOTIFICATIONS ====================
 
