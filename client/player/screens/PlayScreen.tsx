@@ -398,11 +398,8 @@ export default function PlayScreen() {
                   style={player.mutualSessions > 0 ? styles.epicInviteButtonGreen : styles.epicViewButton}
                   onPress={(e) => {
                     e.stopPropagation();
-                    if (player.mutualSessions > 0) {
-                      Alert.alert("Coming Soon", "Player invites will be available soon!");
-                    } else {
-                      navigation.navigate("PublicProfile", { playerId: player.id });
-                    }
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    navigation.navigate("PublicProfile", { playerId: player.id });
                   }}
                 >
                   {player.mutualSessions > 0 ? (
@@ -442,11 +439,8 @@ export default function PlayScreen() {
                 style={player.mutualSessions > 0 ? styles.epicInviteButtonGreen : styles.epicViewButton}
                 onPress={(e) => {
                   e.stopPropagation();
-                  if (player.mutualSessions > 0) {
-                    Alert.alert("Coming Soon", "Player invites will be available soon!");
-                  } else {
-                    navigation.navigate("PublicProfile", { playerId: player.id });
-                  }
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("PublicProfile", { playerId: player.id });
                 }}
               >
                 {player.mutualSessions > 0 ? (
