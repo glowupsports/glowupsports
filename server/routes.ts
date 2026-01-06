@@ -3878,7 +3878,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Academy membership required" });
       }
       
-      const effectiveAcademyId = role === "platform_owner" ? undefined : academyId;
+      // Always filter by academyId if set, even for platform_owner
+      // This ensures consistency with delete/edit operations that require academy membership
+      const effectiveAcademyId = academyId || undefined;
       const { search, paginated, withCredits } = req.query;
       const usePagination = paginated === 'true';
       const includeCredits = withCredits === 'true';
