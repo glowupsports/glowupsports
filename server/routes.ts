@@ -11542,7 +11542,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Create a new player profile for this user
-        const user = await storage.getUser(req.user!.id);
+        // Defensive: handle both userId (standard) and id (legacy) field names
+        const userIdValue = req.user!.userId ?? (req.user as any).id;
+        const user = await storage.getUser(userIdValue);
         if (!user) {
           return res.status(404).json({ error: "User not found" });
         }
