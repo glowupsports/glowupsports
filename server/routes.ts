@@ -12413,7 +12413,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Remove coach from academy (academy owner)
+  // Get coach's upcoming sessions (for reassignment before deletion)
+  app.get("/api/owner/coaches/:id/sessions", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId || req.header("X-Academy-Id");
+      const coachId = req.params.id;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      const sessions = await storage.getCoachUpcomingSessions(coachId, academyId);
+      res.json({ sessions, count: sessions.length });
+    } catch (error) {
+      console.error("Get coach sessions error:", error);
+      res.status(500).json({ error: "Failed to fetch coach sessions" });
+    }
+  });
+
+  // Reassign coach's sessions to another coach
+  app.post("/api/owner/coaches/:id/reassign-sessions", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId || req.header("X-Academy-Id");
+      const fromCoachId = req.params.id;
+      const { toCoachId } = req.body;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      if (!toCoachId) {
+        return res.status(400).json({ error: "Target coach ID required" });
+      }
+
+      // Verify target coach exists in this academy
+      const targetCoach = await storage.getCoach(toCoachId, academyId);
+      if (!targetCoach) {
+        return res.status(404).json({ error: "Target coach not found in this academy" });
+      }
+
+      const count = await storage.reassignCoachSessions(fromCoachId, toCoachId, academyId);
+      res.json({ success: true, reassignedCount: count, message: `${count} sessions reassigned` });
+    } catch (error) {
+      console.error("Reassign sessions error:", error);
+      res.status(500).json({ error: "Failed to reassign sessions" });
+    }
+  });
+
+  // Soft remove coach from academy (marks as inactive, keeps record)
   app.delete("/api/owner/coaches/:id", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user?.academyId || req.header("X-Academy-Id");
@@ -12434,6 +12481,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Remove coach error:", error);
       res.status(500).json({ error: error.message || "Failed to remove coach" });
+    }
+  });
+
+  // Fully delete coach (permanent deletion after session reassignment)
+  app.delete("/api/owner/coaches/:id/permanent", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId || req.header("X-Academy-Id");
+      const coachId = req.params.id;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+
+      // Check for upcoming sessions
+      const upcomingSessions = await storage.getCoachUpcomingSessions(coachId, academyId);
+      if (upcomingSessions.length > 0) {
+        return res.status(400).json({ 
+          error: "Coach has upcoming sessions that must be reassigned or cancelled first",
+          upcomingSessionCount: upcomingSessions.length
+        });
+      }
+
+      console.log(`Permanently deleting coach ${coachId} from academy ${academyId}`);
+      const deleted = await storage.fullyDeleteCoach(coachId, academyId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Coach not found in this academy" });
+      }
+
+      res.json({ success: true, message: "Coach permanently deleted" });
+    } catch (error: any) {
+      console.error("Permanent delete coach error:", error);
+      res.status(500).json({ error: error.message || "Failed to permanently delete coach" });
     }
   });
 

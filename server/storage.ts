@@ -1104,17 +1104,87 @@ export const storage = {
     );
     if (coach.length === 0) return false;
 
-    // Set coach status to inactive (soft delete)
-    await db.update(coaches).set({ status: "inactive" }).where(
-      and(eq(coaches.id, coachId), eq(coaches.academyId, academyId))
-    );
-
-    // Also deactivate their academy membership
-    await db.update(coachAcademyMemberships).set({ isActive: false }).where(
+    // Deactivate their academy membership (soft delete)
+    await db.update(coachAcademyMemberships).set({ 
+      isActive: false,
+      leftAt: new Date()
+    }).where(
       and(
         eq(coachAcademyMemberships.coachId, coachId),
         eq(coachAcademyMemberships.academyId, academyId)
       )
+    );
+
+    return true;
+  },
+
+  async getCoachUpcomingSessions(coachId: string, academyId: string): Promise<Session[]> {
+    const now = new Date();
+    return db.select().from(sessions).where(
+      and(
+        eq(sessions.coachId, coachId),
+        eq(sessions.academyId, academyId),
+        gte(sessions.startTime, now)
+      )
+    );
+  },
+
+  async reassignCoachSessions(fromCoachId: string, toCoachId: string, academyId: string): Promise<number> {
+    const now = new Date();
+    const result = await db.update(sessions)
+      .set({ coachId: toCoachId })
+      .where(
+        and(
+          eq(sessions.coachId, fromCoachId),
+          eq(sessions.academyId, academyId),
+          gte(sessions.startTime, now)
+        )
+      )
+      .returning();
+    return result.length;
+  },
+
+  async fullyDeleteCoach(coachId: string, academyId: string): Promise<boolean> {
+    // Verify coach belongs to this academy
+    const coach = await db.select().from(coaches).where(
+      and(eq(coaches.id, coachId), eq(coaches.academyId, academyId))
+    );
+    if (coach.length === 0) return false;
+
+    // Delete travel times for this coach
+    await db.delete(locationTravelTimes).where(
+      and(
+        eq(locationTravelTimes.coachId, coachId),
+        eq(locationTravelTimes.academyId, academyId)
+      )
+    );
+
+    // Delete coach availability
+    await db.delete(coachAvailability).where(eq(coachAvailability.coachId, coachId));
+
+    // Delete coach academy membership
+    await db.delete(coachAcademyMemberships).where(
+      and(
+        eq(coachAcademyMemberships.coachId, coachId),
+        eq(coachAcademyMemberships.academyId, academyId)
+      )
+    );
+
+    // Set past sessions coachId to null (keep history)
+    const now = new Date();
+    await db.update(sessions)
+      .set({ coachId: null })
+      .where(
+        and(
+          eq(sessions.coachId, coachId),
+          eq(sessions.academyId, academyId),
+          lt(sessions.startTime, now)
+        )
+      );
+
+    // Delete the coach record
+    await db.delete(coaches).where(
+      and(eq(coaches.id, coachId), eq(coaches.academyId, academyId))
     );
 
     return true;

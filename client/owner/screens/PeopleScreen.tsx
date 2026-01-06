@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -8,7 +8,8 @@ import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { Picker } from "@react-native-picker/picker";
 
 type TabType = "coaches" | "players" | "admins";
 
@@ -95,6 +96,19 @@ function PersonCard({ id, name, role, status, stats, onPress, onDelete, isDeleti
   );
 }
 
+interface CoachSession {
+  id: string;
+  startTime: string;
+  endTime: string;
+  title?: string;
+  sessionType: string;
+}
+
+interface CoachSessionsResponse {
+  sessions: CoachSession[];
+  count: number;
+}
+
 export default function PeopleScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<OwnerStackParamList>>();
@@ -103,6 +117,13 @@ export default function PeopleScreen() {
   const [selectedPerson, setSelectedPerson] = useState<PersonData | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  
+  // Coach removal flow state
+  const [coachToRemove, setCoachToRemove] = useState<PersonData | null>(null);
+  const [showRemovalModal, setShowRemovalModal] = useState(false);
+  const [removalStep, setRemovalStep] = useState<"loading" | "has_sessions" | "no_sessions" | "reassigning" | "deleting">("loading");
+  const [selectedTargetCoach, setSelectedTargetCoach] = useState<string>("");
+  const [coachSessions, setCoachSessions] = useState<CoachSession[]>([]);
 
   const { data: peopleData, isLoading, isError, refetch } = useQuery<PeopleData>({
     queryKey: ["/api/owner/people"],
@@ -170,6 +191,81 @@ export default function PeopleScreen() {
     },
   });
 
+  // Coach removal mutations
+  const reassignSessionsMutation = useMutation({
+    mutationFn: async ({ fromCoachId, toCoachId }: { fromCoachId: string; toCoachId: string }) => {
+      return apiRequest("POST", `/api/owner/coaches/${fromCoachId}/reassign-sessions`, { toCoachId });
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  const permanentDeleteCoachMutation = useMutation({
+    mutationFn: async (coachId: string) => {
+      return apiRequest("DELETE", `/api/owner/coaches/${coachId}/permanent`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/owner/people"] });
+      setShowRemovalModal(false);
+      setCoachToRemove(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (err: Error) => {
+      if (Platform.OS === "web") {
+        window.alert(`Failed to delete coach: ${err.message}`);
+      } else {
+        Alert.alert("Error", `Failed to delete coach: ${err.message}`);
+      }
+    },
+  });
+
+  // Fetch coach sessions when removal modal opens
+  const fetchCoachSessions = async (coachId: string) => {
+    try {
+      setRemovalStep("loading");
+      const response = await fetch(new URL(`/api/owner/coaches/${coachId}/sessions`, getApiUrl()).toString(), {
+        credentials: "include",
+      });
+      const data: CoachSessionsResponse = await response.json();
+      setCoachSessions(data.sessions || []);
+      setRemovalStep(data.count > 0 ? "has_sessions" : "no_sessions");
+    } catch (error) {
+      console.error("Failed to fetch coach sessions:", error);
+      setRemovalStep("no_sessions");
+    }
+  };
+
+  const handleStartCoachRemoval = (coach: PersonData) => {
+    setCoachToRemove(coach);
+    setShowRemovalModal(true);
+    setSelectedTargetCoach("");
+    fetchCoachSessions(coach.id);
+  };
+
+  const handleReassignAndDelete = async () => {
+    if (!coachToRemove || !selectedTargetCoach) return;
+    
+    setRemovalStep("reassigning");
+    try {
+      await reassignSessionsMutation.mutateAsync({
+        fromCoachId: coachToRemove.id,
+        toCoachId: selectedTargetCoach,
+      });
+      // Now delete the coach
+      setRemovalStep("deleting");
+      await permanentDeleteCoachMutation.mutateAsync(coachToRemove.id);
+    } catch (error) {
+      setRemovalStep("has_sessions");
+    }
+  };
+
+  const handlePermanentDelete = async () => {
+    if (!coachToRemove) return;
+    setRemovalStep("deleting");
+    await permanentDeleteCoachMutation.mutateAsync(coachToRemove.id);
+  };
+
   const coaches = peopleData?.coaches || [];
   const players = peopleData?.players || [];
   const admins = adminsData || [];
@@ -196,13 +292,19 @@ export default function PeopleScreen() {
   };
 
   const handleDelete = (id: string, type: "coach" | "player", name: string) => {
+    if (type === "coach") {
+      // Use the new coach removal flow with session handling
+      const coach = coaches.find(c => c.id === id);
+      if (coach) {
+        handleStartCoachRemoval(coach);
+      }
+      return;
+    }
+
+    // Player deletion remains the same
     const confirmDelete = () => {
       setDeletingId(id);
-      if (type === "coach") {
-        deleteCoachMutation.mutate(id);
-      } else {
-        deletePlayerMutation.mutate(id);
-      }
+      deletePlayerMutation.mutate(id);
     };
 
     if (Platform.OS === "web") {
@@ -502,6 +604,131 @@ export default function PeopleScreen() {
                     <Text style={styles.removeButtonText}>Remove from Academy</Text>
                   </Pressable>
                 </View>
+              </View>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Coach Removal Flow Modal */}
+      <Modal
+        visible={showRemovalModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowRemovalModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable 
+            style={styles.modalBackdrop} 
+            onPress={() => {
+              if (removalStep !== "reassigning" && removalStep !== "deleting") {
+                setShowRemovalModal(false);
+              }
+            }} 
+          />
+          <View style={[styles.removalModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Remove Coach</Text>
+              {removalStep !== "reassigning" && removalStep !== "deleting" ? (
+                <Pressable onPress={() => setShowRemovalModal(false)}>
+                  <Ionicons name="close" size={24} color={Colors.dark.textMuted} />
+                </Pressable>
+              ) : null}
+            </View>
+
+            {coachToRemove ? (
+              <View style={styles.removalContent}>
+                <View style={styles.removalCoachInfo}>
+                  <View style={styles.detailAvatar}>
+                    <Ionicons name="person" size={32} color={Colors.dark.error} />
+                  </View>
+                  <Text style={styles.removalCoachName}>{coachToRemove.name}</Text>
+                </View>
+
+                {removalStep === "loading" ? (
+                  <View style={styles.removalLoading}>
+                    <ActivityIndicator size="large" color={Colors.dark.gold} />
+                    <Text style={styles.removalLoadingText}>Checking for sessions...</Text>
+                  </View>
+                ) : null}
+
+                {removalStep === "has_sessions" ? (
+                  <View style={styles.removalSessionsSection}>
+                    <View style={styles.warningBox}>
+                      <Ionicons name="warning" size={24} color={Colors.dark.orange} />
+                      <Text style={styles.warningText}>
+                        This coach has {coachSessions.length} upcoming session{coachSessions.length !== 1 ? "s" : ""} that need to be reassigned before deletion.
+                      </Text>
+                    </View>
+
+                    <Text style={styles.removalLabel}>Reassign sessions to:</Text>
+                    <View style={styles.pickerContainer}>
+                      <Picker
+                        selectedValue={selectedTargetCoach}
+                        onValueChange={(value: string) => setSelectedTargetCoach(value)}
+                        style={styles.picker}
+                        dropdownIconColor={Colors.dark.textMuted}
+                      >
+                        <Picker.Item label="Select a coach..." value="" color={Colors.dark.textMuted} />
+                        {coaches
+                          .filter(c => c.id !== coachToRemove.id)
+                          .map(c => (
+                            <Picker.Item key={c.id} label={c.name} value={c.id} color={Colors.dark.text} />
+                          ))
+                        }
+                      </Picker>
+                    </View>
+
+                    <Pressable
+                      style={[
+                        styles.primaryButton,
+                        !selectedTargetCoach && styles.primaryButtonDisabled
+                      ]}
+                      onPress={handleReassignAndDelete}
+                      disabled={!selectedTargetCoach}
+                    >
+                      <Ionicons name="swap-horizontal" size={20} color={Colors.dark.backgroundRoot} />
+                      <Text style={styles.primaryButtonText}>Reassign & Delete Coach</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+
+                {removalStep === "no_sessions" ? (
+                  <View style={styles.removalNoSessionsSection}>
+                    <View style={styles.infoBox}>
+                      <Ionicons name="checkmark-circle" size={24} color={Colors.dark.primary} />
+                      <Text style={styles.infoText}>
+                        This coach has no upcoming sessions. You can safely delete them.
+                      </Text>
+                    </View>
+
+                    <Pressable
+                      style={styles.dangerButton}
+                      onPress={handlePermanentDelete}
+                    >
+                      <Ionicons name="trash" size={20} color="#fff" />
+                      <Text style={styles.dangerButtonText}>Permanently Delete Coach</Text>
+                    </Pressable>
+
+                    <Text style={styles.warningNote}>
+                      This action cannot be undone. Past session history will be preserved.
+                    </Text>
+                  </View>
+                ) : null}
+
+                {removalStep === "reassigning" ? (
+                  <View style={styles.removalLoading}>
+                    <ActivityIndicator size="large" color={Colors.dark.gold} />
+                    <Text style={styles.removalLoadingText}>Reassigning sessions...</Text>
+                  </View>
+                ) : null}
+
+                {removalStep === "deleting" ? (
+                  <View style={styles.removalLoading}>
+                    <ActivityIndicator size="large" color={Colors.dark.error} />
+                    <Text style={styles.removalLoadingText}>Deleting coach...</Text>
+                  </View>
+                ) : null}
               </View>
             ) : null}
           </View>
@@ -840,5 +1067,128 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.primary,
     fontWeight: "600",
+  },
+  // Coach Removal Modal Styles
+  removalModalContent: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    minHeight: 350,
+  },
+  removalContent: {
+    gap: Spacing.lg,
+  },
+  removalCoachInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingBottom: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundRoot,
+  },
+  removalCoachName: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  removalLoading: {
+    alignItems: "center",
+    paddingVertical: Spacing.xl,
+    gap: Spacing.md,
+  },
+  removalLoadingText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+  },
+  removalSessionsSection: {
+    gap: Spacing.md,
+  },
+  removalNoSessionsSection: {
+    gap: Spacing.md,
+    alignItems: "center",
+  },
+  warningBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: `${Colors.dark.orange}15`,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.orange}30`,
+  },
+  warningText: {
+    ...Typography.body,
+    color: Colors.dark.orange,
+    flex: 1,
+  },
+  infoBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: `${Colors.dark.primary}15`,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}30`,
+  },
+  infoText: {
+    ...Typography.body,
+    color: Colors.dark.primary,
+    flex: 1,
+  },
+  removalLabel: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  pickerContainer: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.textMuted + "30",
+    overflow: "hidden",
+  },
+  picker: {
+    color: Colors.dark.text,
+    backgroundColor: "transparent",
+  },
+  primaryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.gold,
+  },
+  primaryButtonDisabled: {
+    opacity: 0.5,
+  },
+  primaryButtonText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
+  },
+  dangerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.error,
+  },
+  dangerButtonText: {
+    ...Typography.body,
+    color: "#fff",
+    fontWeight: "700",
+  },
+  warningNote: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    fontStyle: "italic",
   },
 });
