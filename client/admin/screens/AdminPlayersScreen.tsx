@@ -36,6 +36,8 @@ interface Player {
   totalCredits?: number;
   age?: number;
   dateOfBirth?: string;
+  status?: string;
+  isActive?: boolean;
 }
 
 interface PlayerStats {
@@ -135,11 +137,13 @@ export default function AdminPlayersScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showReportIssueModal, setShowReportIssueModal] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
   const [ballLevelFilter, setBallLevelFilter] = useState<string>("all");
   const [levelFilter, setLevelFilter] = useState<string>("all");
   const [ageGroupFilter, setAgeGroupFilter] = useState<string>("all");
   const [coachFilter, setCoachFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [hasEmailFilter, setHasEmailFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<SortOption>("name_asc");
   const [formData, setFormData] = useState({
     name: "",
@@ -322,7 +326,13 @@ export default function AdminPlayersScreen() {
         (ageGroupFilter === "u16" && playerAge !== null && playerAge >= 14 && playerAge < 16) ||
         (ageGroupFilter === "adult" && playerAge !== null && playerAge >= 16);
       const matchesCoach = coachFilter === "all" || player.coachName === coachFilter;
-      return matchesSearch && matchesBall && matchesLevel && matchesAge && matchesCoach;
+      const matchesStatus = statusFilter === "all" || 
+        (statusFilter === "active" && (player.isActive !== false && player.status !== "inactive")) ||
+        (statusFilter === "inactive" && (player.isActive === false || player.status === "inactive"));
+      const matchesEmail = hasEmailFilter === "all" ||
+        (hasEmailFilter === "with" && player.email && player.email.length > 0) ||
+        (hasEmailFilter === "without" && (!player.email || player.email.length === 0));
+      return matchesSearch && matchesBall && matchesLevel && matchesAge && matchesCoach && matchesStatus && matchesEmail;
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -344,6 +354,8 @@ export default function AdminPlayersScreen() {
     levelFilter !== "all",
     ageGroupFilter !== "all",
     coachFilter !== "all",
+    statusFilter !== "all",
+    hasEmailFilter !== "all",
     sortBy !== "name_asc",
   ].filter(Boolean).length;
 
@@ -765,147 +777,184 @@ export default function AdminPlayersScreen() {
 
       {showFilters ? (
         <View style={styles.filterContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterLabel}>Ball</Text>
-              <View style={styles.filterChips}>
-                {["all", "red", "orange", "green", "yellow"].map((ball) => (
+          <View style={styles.filterRow}>
+            <Text style={styles.filterLabel}>Ball</Text>
+            <View style={styles.filterChipsWrap}>
+              {["all", "red", "orange", "green", "yellow"].map((ball) => (
+                <Pressable
+                  key={ball}
+                  style={[styles.filterChip, ballLevelFilter === ball && styles.filterChipActive]}
+                  onPress={() => {
+                    setBallLevelFilter(ball);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  {ball !== "all" ? (
+                    <View style={[styles.chipDot, { backgroundColor: getBallLevelColor(ball) }]} />
+                  ) : null}
+                  <Text style={[styles.filterChipText, ballLevelFilter === ball && styles.filterChipTextActive]}>
+                    {ball === "all" ? "All" : ball.charAt(0).toUpperCase() + ball.slice(1)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.filterRow}>
+            <Text style={styles.filterLabel}>Level</Text>
+            <View style={styles.filterChipsWrap}>
+              {[{ key: "all", label: "All" }, { key: "1-3", label: "1-3" }, { key: "4-6", label: "4-6" }, { key: "7-10", label: "7+" }].map((lvl) => (
+                <Pressable
+                  key={lvl.key}
+                  style={[styles.filterChip, levelFilter === lvl.key && styles.filterChipActive]}
+                  onPress={() => {
+                    setLevelFilter(lvl.key);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Text style={[styles.filterChipText, levelFilter === lvl.key && styles.filterChipTextActive]}>
+                    {lvl.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.filterRow}>
+            <Text style={styles.filterLabel}>Age</Text>
+            <View style={styles.filterChipsWrap}>
+              {[
+                { key: "all", label: "All" },
+                { key: "u8", label: "U8" },
+                { key: "u10", label: "U10" },
+                { key: "u12", label: "U12" },
+                { key: "u14", label: "U14" },
+                { key: "u16", label: "U16" },
+                { key: "adult", label: "18+" },
+              ].map((age) => (
+                <Pressable
+                  key={age.key}
+                  style={[styles.filterChip, ageGroupFilter === age.key && styles.filterChipActive]}
+                  onPress={() => {
+                    setAgeGroupFilter(age.key);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Text style={[styles.filterChipText, ageGroupFilter === age.key && styles.filterChipTextActive]}>
+                    {age.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          {coaches.length > 0 ? (
+            <View style={styles.filterRow}>
+              <Text style={styles.filterLabel}>Coach</Text>
+              <View style={styles.filterChipsWrap}>
+                <Pressable
+                  style={[styles.filterChip, coachFilter === "all" && styles.filterChipActive]}
+                  onPress={() => {
+                    setCoachFilter("all");
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Text style={[styles.filterChipText, coachFilter === "all" && styles.filterChipTextActive]}>All</Text>
+                </Pressable>
+                {coaches.slice(0, 4).map((coach) => (
                   <Pressable
-                    key={ball}
-                    style={[styles.filterChip, ballLevelFilter === ball && styles.filterChipActive]}
+                    key={coach.id}
+                    style={[styles.filterChip, coachFilter === coach.name && styles.filterChipActive]}
                     onPress={() => {
-                      setBallLevelFilter(ball);
+                      setCoachFilter(coach.name);
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     }}
                   >
-                    {ball !== "all" ? (
-                      <View style={[styles.chipDot, { backgroundColor: getBallLevelColor(ball) }]} />
-                    ) : null}
-                    <Text style={[styles.filterChipText, ballLevelFilter === ball && styles.filterChipTextActive]}>
-                      {ball === "all" ? "All" : ball.charAt(0).toUpperCase() + ball.slice(1)}
+                    <Text style={[styles.filterChipText, coachFilter === coach.name && styles.filterChipTextActive]}>
+                      {coach.name.split(" ")[0]}
                     </Text>
                   </Pressable>
                 ))}
               </View>
             </View>
+          ) : null}
 
-            <View style={styles.filterDivider} />
-
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterLabel}>Level</Text>
-              <View style={styles.filterChips}>
-                {[{ key: "all", label: "All" }, { key: "1-3", label: "1-3" }, { key: "4-6", label: "4-6" }, { key: "7-10", label: "7+" }].map((lvl) => (
-                  <Pressable
-                    key={lvl.key}
-                    style={[styles.filterChip, levelFilter === lvl.key && styles.filterChipActive]}
-                    onPress={() => {
-                      setLevelFilter(lvl.key);
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    }}
-                  >
-                    <Text style={[styles.filterChipText, levelFilter === lvl.key && styles.filterChipTextActive]}>
-                      {lvl.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+          <View style={styles.filterRow}>
+            <Text style={styles.filterLabel}>Status</Text>
+            <View style={styles.filterChipsWrap}>
+              {[
+                { key: "all", label: "All" },
+                { key: "active", label: "Active" },
+                { key: "inactive", label: "Inactive" },
+              ].map((status) => (
+                <Pressable
+                  key={status.key}
+                  style={[styles.filterChip, statusFilter === status.key && styles.filterChipActive]}
+                  onPress={() => {
+                    setStatusFilter(status.key);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Text style={[styles.filterChipText, statusFilter === status.key && styles.filterChipTextActive]}>
+                    {status.label}
+                  </Text>
+                </Pressable>
+              ))}
             </View>
+          </View>
 
-            <View style={styles.filterDivider} />
-
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterLabel}>Age</Text>
-              <View style={styles.filterChips}>
-                {[
-                  { key: "all", label: "All" },
-                  { key: "u8", label: "U8" },
-                  { key: "u10", label: "U10" },
-                  { key: "u12", label: "U12" },
-                  { key: "u14", label: "U14" },
-                  { key: "u16", label: "U16" },
-                  { key: "adult", label: "Adult" },
-                ].map((age) => (
-                  <Pressable
-                    key={age.key}
-                    style={[styles.filterChip, ageGroupFilter === age.key && styles.filterChipActive]}
-                    onPress={() => {
-                      setAgeGroupFilter(age.key);
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    }}
-                  >
-                    <Text style={[styles.filterChipText, ageGroupFilter === age.key && styles.filterChipTextActive]}>
-                      {age.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+          <View style={styles.filterRow}>
+            <Text style={styles.filterLabel}>Email</Text>
+            <View style={styles.filterChipsWrap}>
+              {[
+                { key: "all", label: "All" },
+                { key: "with", label: "Has Email" },
+                { key: "without", label: "No Email" },
+              ].map((email) => (
+                <Pressable
+                  key={email.key}
+                  style={[styles.filterChip, hasEmailFilter === email.key && styles.filterChipActive]}
+                  onPress={() => {
+                    setHasEmailFilter(email.key);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Text style={[styles.filterChipText, hasEmailFilter === email.key && styles.filterChipTextActive]}>
+                    {email.label}
+                  </Text>
+                </Pressable>
+              ))}
             </View>
+          </View>
 
-            {coaches.length > 0 ? (
-              <>
-                <View style={styles.filterDivider} />
-                <View style={styles.filterGroup}>
-                  <Text style={styles.filterLabel}>Coach</Text>
-                  <View style={styles.filterChips}>
-                    <Pressable
-                      style={[styles.filterChip, coachFilter === "all" && styles.filterChipActive]}
-                      onPress={() => {
-                        setCoachFilter("all");
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      }}
-                    >
-                      <Text style={[styles.filterChipText, coachFilter === "all" && styles.filterChipTextActive]}>All</Text>
-                    </Pressable>
-                    {coaches.slice(0, 5).map((coach) => (
-                      <Pressable
-                        key={coach.id}
-                        style={[styles.filterChip, coachFilter === coach.name && styles.filterChipActive]}
-                        onPress={() => {
-                          setCoachFilter(coach.name);
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        }}
-                      >
-                        <Text style={[styles.filterChipText, coachFilter === coach.name && styles.filterChipTextActive]}>
-                          {coach.name.split(" ")[0]}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
-              </>
-            ) : null}
-
-            <View style={styles.filterDivider} />
-
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterLabel}>Sort</Text>
-              <View style={styles.filterChips}>
-                {[
-                  { key: "name_asc", label: "A-Z", icon: "arrow-up" },
-                  { key: "name_desc", label: "Z-A", icon: "arrow-down" },
-                  { key: "level_high", label: "Level", icon: "trending-up" },
-                ].map((sort) => (
-                  <Pressable
-                    key={sort.key}
-                    style={[styles.filterChip, sortBy === sort.key && styles.filterChipActive]}
-                    onPress={() => {
-                      setSortBy(sort.key as SortOption);
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    }}
-                  >
-                    <Ionicons 
-                      name={sort.icon as keyof typeof Ionicons.glyphMap} 
-                      size={12} 
-                      color={sortBy === sort.key ? Colors.dark.orange : Colors.dark.textMuted} 
-                    />
-                    <Text style={[styles.filterChipText, sortBy === sort.key && styles.filterChipTextActive]}>
-                      {sort.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+          <View style={styles.filterRow}>
+            <Text style={styles.filterLabel}>Sort</Text>
+            <View style={styles.filterChipsWrap}>
+              {[
+                { key: "name_asc", label: "A-Z", icon: "arrow-up" },
+                { key: "name_desc", label: "Z-A", icon: "arrow-down" },
+                { key: "level_high", label: "Level", icon: "trending-up" },
+              ].map((sort) => (
+                <Pressable
+                  key={sort.key}
+                  style={[styles.filterChip, sortBy === sort.key && styles.filterChipActive]}
+                  onPress={() => {
+                    setSortBy(sort.key as SortOption);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Ionicons 
+                    name={sort.icon as keyof typeof Ionicons.glyphMap} 
+                    size={12} 
+                    color={sortBy === sort.key ? Colors.dark.orange : Colors.dark.textMuted} 
+                  />
+                  <Text style={[styles.filterChipText, sortBy === sort.key && styles.filterChipTextActive]}>
+                    {sort.label}
+                  </Text>
+                </Pressable>
+              ))}
             </View>
-          </ScrollView>
+          </View>
 
           {activeFilterCount > 0 ? (
             <Pressable 
@@ -915,12 +964,14 @@ export default function AdminPlayersScreen() {
                 setLevelFilter("all");
                 setAgeGroupFilter("all");
                 setCoachFilter("all");
+                setStatusFilter("all");
+                setHasEmailFilter("all");
                 setSortBy("name_asc");
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               }}
             >
               <Ionicons name="refresh-outline" size={14} color={Colors.dark.orange} />
-              <Text style={styles.clearFiltersText}>Clear filters</Text>
+              <Text style={styles.clearFiltersText}>Clear all filters</Text>
             </Pressable>
           ) : null}
         </View>
@@ -1284,17 +1335,17 @@ const styles = StyleSheet.create({
   },
   filterContainer: {
     paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
     backgroundColor: Colors.dark.backgroundSecondary,
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
     borderRadius: BorderRadius.md,
+    gap: Spacing.sm,
   },
-  filterScroll: {
-    paddingHorizontal: Spacing.md,
-    gap: Spacing.md,
-  },
-  filterGroup: {
-    gap: Spacing.xs,
+  filterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
   },
   filterLabel: {
     ...Typography.small,
@@ -1302,10 +1353,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textTransform: "uppercase",
     letterSpacing: 0.5,
+    width: 45,
   },
-  filterChips: {
+  filterChipsWrap: {
     flexDirection: "row",
-    gap: Spacing.xs,
+    flexWrap: "wrap",
+    gap: 4,
+    flex: 1,
   },
   filterChip: {
     flexDirection: "row",
