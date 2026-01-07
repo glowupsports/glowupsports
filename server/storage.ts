@@ -2287,6 +2287,54 @@ export const storage = {
       .returning();
     return result[0];
   },
+  
+  // Mark attendance for backfill - returns object with isNewAttendance flag
+  // isNewAttendance: true only if this call actually transitioned to 'present' (consume credit)
+  // isNewAttendance: false if already was 'present' (don't consume credit again)
+  async markAttendance(
+    sessionId: string,
+    playerId: string,
+    attended: boolean,
+    academyId?: string
+  ): Promise<{ record: SessionPlayer; isNewAttendance: boolean } | null> {
+    // Check if player already has attendance status for this session
+    const existing = await db.select().from(sessionPlayers)
+      .where(and(
+        eq(sessionPlayers.sessionId, sessionId),
+        eq(sessionPlayers.playerId, playerId)
+      ));
+    
+    const status = attended ? 'present' : 'absent';
+    
+    if (existing.length > 0) {
+      // If already marked as 'present', this is a duplicate - don't consume credits
+      if (existing[0].attendanceStatus === 'present' && attended) {
+        return { record: existing[0], isNewAttendance: false };
+      }
+      
+      // Update existing entry
+      const result = await db.update(sessionPlayers)
+        .set({ attendanceStatus: status })
+        .where(and(
+          eq(sessionPlayers.sessionId, sessionId),
+          eq(sessionPlayers.playerId, playerId)
+        ))
+        .returning();
+      // This is new attendance if we're marking as present (transition from absent/null to present)
+      return result[0] ? { record: result[0], isNewAttendance: attended } : null;
+    } else {
+      // Insert new session player entry
+      const result = await db.insert(sessionPlayers)
+        .values({
+          sessionId,
+          playerId,
+          attendanceStatus: status,
+        })
+        .returning();
+      // New record marked as present is new attendance
+      return result[0] ? { record: result[0], isNewAttendance: attended } : null;
+    }
+  },
 
   // ==================== PLAYER HOLIDAYS ====================
   async getPlayerHolidays(playerId: string, academyId?: string): Promise<PlayerHoliday[]> {
@@ -5117,6 +5165,87 @@ export const storage = {
     }));
     
     return { total, byPackage };
+  },
+
+  // Consume a single credit for a specific player+session (used for backfilling attendance)
+  // Returns true if credit was consumed, false if no credits available or already consumed
+  // linkedPackageId: If provided, prefer this package first (from series membership)
+  async consumeSingleCreditForSession(playerId: string, sessionId: string, academyId?: string, linkedPackageId?: string | null): Promise<boolean> {
+    try {
+      return await db.transaction(async (tx) => {
+        let packageToUse = null;
+        
+        // Priority 1: Check linkedPackageId first if provided
+        if (linkedPackageId) {
+          const linkedResult = await tx.execute(sql`
+            SELECT * FROM packages 
+            WHERE id = ${linkedPackageId} AND status = 'active' AND remaining_credits > 0
+            FOR UPDATE
+          `);
+          if (linkedResult.rows[0]) {
+            packageToUse = linkedResult.rows[0] as any;
+          }
+        }
+        
+        // Priority 2: Find any active package for this player with available credits
+        if (!packageToUse) {
+          const playerPackagesResult = await tx.execute(sql`
+            SELECT * FROM packages 
+            WHERE player_id = ${playerId} AND status = 'active' AND remaining_credits > 0
+            ORDER BY expiry_date ASC NULLS LAST
+            FOR UPDATE
+            LIMIT 1
+          `);
+          if (playerPackagesResult.rows[0]) {
+            packageToUse = playerPackagesResult.rows[0] as any;
+          }
+        }
+        
+        if (!packageToUse) {
+          console.log(`[Credits] No credits available for player ${playerId}`);
+          return false;
+        }
+        
+        const balanceBefore = packageToUse.remaining_credits;
+        const balanceAfter = balanceBefore - 1;
+        
+        // Try to insert ledger entry (prevents duplicate deductions)
+        try {
+          const insertResult = await tx.execute(sql`
+            INSERT INTO credit_transactions (player_id, academy_id, session_id, type, amount, reason, balance_before, balance_after, metadata)
+            VALUES (${playerId}, ${academyId || null}, ${sessionId}, 'debit', -1, 'session_join', ${balanceBefore}, ${balanceAfter}, 
+                   ${JSON.stringify({ packageId: packageToUse.id, description: "Credit consumed for attended session (backfill)" })}::jsonb)
+            ON CONFLICT DO NOTHING
+            RETURNING id
+          `);
+          
+          // If no row returned, already consumed
+          if (insertResult.rowCount === 0) {
+            console.log(`[Credits] Credit already consumed for session ${sessionId}, player ${playerId}`);
+            return false;
+          }
+        } catch (insertError: any) {
+          if (insertError.code === '23505') {
+            return false;
+          }
+          throw insertError;
+        }
+        
+        // Decrement package credits
+        await tx.update(packages)
+          .set({ 
+            remainingCredits: balanceAfter,
+            status: balanceAfter <= 0 ? "depleted" : "active",
+          })
+          .where(eq(packages.id, packageToUse.id));
+        
+        console.log(`[Credits] Consumed 1 credit for player ${playerId}, session ${sessionId}. Balance: ${balanceBefore} -> ${balanceAfter}`);
+        return true;
+      });
+    } catch (error) {
+      console.error(`[Credits] Error consuming credit for player ${playerId}:`, error);
+      return false;
+    }
   },
 
   // Player Subscriptions (contracts - what players SHOULD pay)

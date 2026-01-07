@@ -5877,12 +5877,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/coach/series/:id/players", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const { playerId, joinDate, joinedAt, packageId, attendedSessionIds = [] } = req.body;
+      const { playerId, joinDate, joinedAt, packageId, packageTemplateId, attendedSessionIds = [] } = req.body;
       const coachId = req.user!.coachId;
-      const academyId = req.user!.academyId;
+      const academyId = req.user!.academyId!;
       
       // Support both joinDate (new) and joinedAt (legacy) parameter names
       const effectiveJoinDate = joinDate || joinedAt;
+      
+      // If packageTemplateId provided, assign package to player first and get the package ID
+      let assignedPackageId = packageId || null;
+      if (packageTemplateId && !assignedPackageId) {
+        try {
+          const player = await storage.getPlayer(playerId);
+          if (player) {
+            const template = await storage.getPackageTemplate(packageTemplateId, academyId);
+            if (template) {
+              const expiryDate = new Date();
+              expiryDate.setDate(expiryDate.getDate() + (template.validityDays || 90));
+              
+              const pkg = await storage.createPackage({
+                academyId,
+                playerId,
+                templateId: packageTemplateId,
+                name: template.name,
+                totalCredits: template.credits,
+                remainingCredits: template.credits,
+                price: template.price,
+                currency: template.currency || 'AED',
+                expiryDate: expiryDate.toISOString().split('T')[0],
+                status: 'active',
+              });
+              assignedPackageId = pkg.id;
+              console.log(`[AddPlayer] Assigned package ${pkg.id} (${template.name}) to player ${playerId}`);
+            }
+          }
+        } catch (pkgError) {
+          console.error("[AddPlayer] Failed to assign package:", pkgError);
+          // Continue without package - don't fail the enrollment
+        }
+      }
       
       if (!playerId) {
         return res.status(400).json({ error: "playerId is required" });
@@ -5908,19 +5941,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status: "active",
             joinedAt: effectiveJoinDate ? new Date(effectiveJoinDate) : new Date(),
             leftAt: null,
-            linkedPackageId: packageId || null,
+            linkedPackageId: assignedPackageId,
           });
           
           // Backfill attendance for specified sessions
           if (attendedSessionIds && attendedSessionIds.length > 0) {
             for (const sessionId of attendedSessionIds) {
               try {
-                await storage.markAttendance(sessionId, playerId, true, academyId ?? undefined);
-                // Award XP for attended session
-                const session = await storage.getSession(sessionId);
-                if (session) {
-                  const xpAmount = session.xpValue || 20;
-                  await storage.addPlayerXP(playerId, xpAmount, sessionId, "session_attendance");
+                // Mark as attended - returns object with isNewAttendance flag
+                const attendanceResult = await storage.markAttendance(sessionId, playerId, true, academyId);
+                // Only consume credit if this is NEW attendance (not a duplicate)
+                if (attendanceResult && attendanceResult.isNewAttendance) {
+                  await storage.consumeSingleCreditForSession(playerId, sessionId, academyId, assignedPackageId);
+                  // Award XP for attended session
+                  const session = await storage.getSession(sessionId);
+                  if (session) {
+                    const xpAmount = session.xpValue || 20;
+                    await storage.addPlayerXP(playerId, xpAmount, sessionId, "session_attendance");
+                  }
                 }
               } catch (e) {
                 console.error(`Failed to backfill attendance for session ${sessionId}:`, e);
@@ -5928,7 +5966,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
           
-          return res.status(200).json(reactivated);
+          // Return with linkedPackageId explicitly included
+          return res.status(200).json({ 
+            ...reactivated, 
+            linkedPackageId: assignedPackageId,
+            packageAssigned: !!assignedPackageId,
+          });
         }
         return res.status(400).json({ error: "Player already in this class" });
       }
@@ -5943,7 +5986,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         playerId,
         status: "active",
         joinedAt: effectiveJoinDate ? new Date(effectiveJoinDate) : new Date(),
-        linkedPackageId: packageId || null,
+        linkedPackageId: assignedPackageId,
       });
       
       // Backfill attendance for specified sessions (for new players)
@@ -5951,17 +5994,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const sessionId of attendedSessionIds) {
           try {
             // First add player to session if not already
-            const sessionPlayers = await storage.getSessionPlayers(sessionId);
-            if (!sessionPlayers.some(p => p.id === playerId)) {
+            const sessionPlayersList = await storage.getSessionPlayers(sessionId);
+            if (!sessionPlayersList.some(p => p.id === playerId)) {
               await storage.addPlayerToSession(sessionId, playerId);
             }
-            // Mark as attended
-            await storage.markAttendance(sessionId, playerId, true, academyId ?? undefined);
-            // Award XP for attended session
-            const session = await storage.getSession(sessionId);
-            if (session) {
-              const xpAmount = session.xpValue || 20;
-              await storage.addPlayerXP(playerId, xpAmount, sessionId, "session_attendance");
+            // Mark as attended - returns object with isNewAttendance flag
+            const attendanceResult = await storage.markAttendance(sessionId, playerId, true, academyId);
+            // Only consume credit if this is NEW attendance (not a duplicate)
+            if (attendanceResult && attendanceResult.isNewAttendance) {
+              await storage.consumeSingleCreditForSession(playerId, sessionId, academyId, assignedPackageId);
+              // Award XP for attended session
+              const session = await storage.getSession(sessionId);
+              if (session) {
+                const xpAmount = session.xpValue || 20;
+                await storage.addPlayerXP(playerId, xpAmount, sessionId, "session_attendance");
+              }
             }
           } catch (e) {
             console.error(`Failed to backfill attendance for session ${sessionId}:`, e);
@@ -5969,7 +6016,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      res.status(201).json(seriesPlayer);
+      // Return the series player with linkedPackageId explicitly included
+      res.status(201).json({ 
+        ...seriesPlayer, 
+        linkedPackageId: assignedPackageId,
+        packageAssigned: !!assignedPackageId,
+      });
     } catch (error) {
       console.error("Error adding player to class:", error);
       res.status(500).json({ error: "Failed to add player to class" });

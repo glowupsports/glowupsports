@@ -145,6 +145,8 @@ export default function SeriesDetailDrawer({
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [joinDate, setJoinDate] = useState<Date>(new Date());
   const [playerSearch, setPlayerSearch] = useState("");
+  const [showPackageSelection, setShowPackageSelection] = useState(false);
+  const [selectedPackageTemplateId, setSelectedPackageTemplateId] = useState<string | null>(null);
   const [showAttendanceBackfill, setShowAttendanceBackfill] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState<Record<string, boolean>>({});
 
@@ -175,6 +177,20 @@ export default function SeriesDetailDrawer({
     enabled: showAddPlayerModal,
   });
 
+  // Query package templates for package assignment
+  interface PackageTemplate {
+    id: string;
+    name: string;
+    credits: number;
+    price: string;
+    currency: string;
+    validityDays: number;
+  }
+  const { data: packageTemplates = [] } = useQuery<PackageTemplate[]>({
+    queryKey: ["/api/billing/package-templates"],
+    enabled: showPackageSelection,
+  });
+
   // Filter players not already in the series
   const existingPlayerIds = new Set(series?.players?.map(p => p.id) || []);
   const filteredPlayers = allPlayers.filter(p => 
@@ -182,19 +198,33 @@ export default function SeriesDetailDrawer({
     p.name.toLowerCase().includes(playerSearch.toLowerCase())
   );
 
-  // Mutation to add player to series
+  // Mutation to add player to series (with optional package assignment)
   const addPlayerMutation = useMutation({
-    mutationFn: async (data: { playerId: string; joinDate: string; attendedSessionIds: string[] }) => {
+    mutationFn: async (data: { 
+      playerId: string; 
+      joinDate: string; 
+      attendedSessionIds: string[];
+      packageTemplateId?: string | null;
+    }) => {
+      // Add player to class - backend handles package creation if templateId provided
       return apiRequest(`/api/coach/series/${seriesId}/players`, {
         method: "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          playerId: data.playerId,
+          joinDate: data.joinDate,
+          attendedSessionIds: data.attendedSessionIds,
+          packageTemplateId: data.packageTemplateId,
+        }),
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/billing/package-templates"] });
       setShowAddPlayerModal(false);
+      setShowPackageSelection(false);
       setShowAttendanceBackfill(false);
       setSelectedPlayerId(null);
+      setSelectedPackageTemplateId(null);
       setJoinDate(new Date());
       setSelectedAttendance({});
       setPlayerSearch("");
@@ -221,6 +251,11 @@ export default function SeriesDetailDrawer({
     setSelectedPlayerId(playerId);
   };
 
+  const handleContinueToPackage = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowPackageSelection(true);
+  };
+
   const handleContinueToBackfill = () => {
     const pastSessions = getPastSessionsSinceJoinDate();
     if (pastSessions.length > 0) {
@@ -228,6 +263,18 @@ export default function SeriesDetailDrawer({
     } else {
       handleSavePlayer();
     }
+  };
+
+  const handleSkipPackage = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedPackageTemplateId(null);
+    handleContinueToBackfill();
+  };
+
+  const handleSelectPackage = (templateId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedPackageTemplateId(templateId);
+    handleContinueToBackfill();
   };
 
   const handleSavePlayer = () => {
@@ -240,6 +287,7 @@ export default function SeriesDetailDrawer({
       playerId: selectedPlayerId,
       joinDate: joinDate.toISOString().split("T")[0],
       attendedSessionIds,
+      packageTemplateId: selectedPackageTemplateId,
     });
   };
 
@@ -760,12 +808,14 @@ export default function SeriesDetailDrawer({
             
             <View style={styles.addPlayerHeader}>
               <Text style={styles.addPlayerTitle}>
-                {showAttendanceBackfill ? "Mark Attendance" : selectedPlayerId ? "Set Join Date" : "Add Player"}
+                {showAttendanceBackfill ? "Mark Attendance" : showPackageSelection ? "Assign Package" : selectedPlayerId ? "Set Join Date" : "Add Player"}
               </Text>
               <Pressable onPress={() => {
                 setShowAddPlayerModal(false);
+                setShowPackageSelection(false);
                 setShowAttendanceBackfill(false);
                 setSelectedPlayerId(null);
+                setSelectedPackageTemplateId(null);
                 setPlayerSearch("");
               }}>
                 <Ionicons name="close" size={24} color={Colors.dark.text} />
@@ -821,6 +871,49 @@ export default function SeriesDetailDrawer({
                   )}
                 </Pressable>
               </ScrollView>
+            ) : showPackageSelection ? (
+              // Package selection screen
+              <ScrollView style={styles.addPlayerContent} contentContainerStyle={{ paddingBottom: 100 }}>
+                <Text style={styles.backfillSubtitle}>
+                  Optionally assign a credit package to this player
+                </Text>
+                
+                {packageTemplates.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Ionicons name="cube-outline" size={40} color={Colors.dark.textMuted} />
+                    <Text style={styles.emptyText}>No packages available</Text>
+                    <Text style={styles.emptySubtext}>Create packages in billing settings</Text>
+                  </View>
+                ) : (
+                  packageTemplates.map((template) => (
+                    <Pressable
+                      key={template.id}
+                      style={[
+                        styles.packageCard,
+                        selectedPackageTemplateId === template.id && styles.packageCardSelected,
+                      ]}
+                      onPress={() => handleSelectPackage(template.id)}
+                    >
+                      <View style={styles.packageInfo}>
+                        <Text style={styles.packageName}>{template.name}</Text>
+                        <Text style={styles.packageDetails}>
+                          {template.credits} credits - Valid {template.validityDays} days
+                        </Text>
+                      </View>
+                      <Text style={styles.packagePrice}>
+                        {template.currency} {parseFloat(template.price).toFixed(0)}
+                      </Text>
+                    </Pressable>
+                  ))
+                )}
+                
+                <Pressable
+                  style={styles.skipButton}
+                  onPress={handleSkipPackage}
+                >
+                  <Text style={styles.skipButtonText}>Skip - Add Without Package</Text>
+                </Pressable>
+              </ScrollView>
             ) : selectedPlayerId ? (
               // Join date picker screen
               <View style={styles.addPlayerContent}>
@@ -852,7 +945,7 @@ export default function SeriesDetailDrawer({
                 
                 <Pressable
                   style={[styles.saveButton, { marginTop: Spacing.xl }]}
-                  onPress={handleContinueToBackfill}
+                  onPress={handleContinueToPackage}
                 >
                   <Text style={styles.saveButtonText}>Continue</Text>
                 </Pressable>
@@ -1461,5 +1554,47 @@ const styles = StyleSheet.create({
   attendanceWeek: {
     fontSize: Typography.caption.fontSize,
     color: Colors.dark.textMuted,
+  },
+  packageCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  packageCardSelected: {
+    borderColor: Colors.dark.successNeon,
+  },
+  packageInfo: {
+    flex: 1,
+  },
+  packageName: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  packageDetails: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
+  },
+  packagePrice: {
+    fontSize: Typography.h4.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.successNeon,
+  },
+  skipButton: {
+    paddingVertical: Spacing.lg,
+    alignItems: "center",
+    marginTop: Spacing.md,
+  },
+  skipButtonText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.textMuted,
+    textDecorationLine: "underline",
   },
 });
