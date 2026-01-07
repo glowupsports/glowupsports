@@ -233,16 +233,16 @@ export default function AdminCoachesScreen() {
 
   const deleteCoachMutation = useMutation({
     mutationFn: async (coachId: string) => {
-      return apiRequest("DELETE", `/api/admin/coaches/${coachId}`);
+      return apiRequest("DELETE", `/api/owner/coaches/${coachId}/permanent`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/coaches"] });
       closeDetailModal();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (Platform.OS === "web") {
-        window.alert("Coach removed from academy");
+        window.alert("Coach permanently deleted");
       } else {
-        Alert.alert("Success", "Coach removed from academy");
+        Alert.alert("Success", "Coach permanently deleted");
       }
     },
     onError: (err: Error) => {
