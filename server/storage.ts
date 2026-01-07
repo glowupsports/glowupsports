@@ -1319,6 +1319,8 @@ export const storage = {
         db.delete(coachAcademyMemberships).where(
           and(eq(coachAcademyMemberships.coachId, coachId), eq(coachAcademyMemberships.academyId, academyId))
         ),
+        // Domain assessments by this coach
+        db.delete(domainAssessments).where(eq(domainAssessments.coachId, coachId)),
       ]);
 
       // Second batch: Chat related (sequential to avoid FK race conditions)
@@ -1372,9 +1374,9 @@ export const storage = {
       // Delete invitations where this coach was the inviter (invitedBy is notNull, so can't nullify)
       await db.delete(coachInvitations).where(eq(coachInvitations.invitedBy, coachId));
       
-      // Null out coachAcademyMemberships invitedBy/acceptedBy references
-      await db.update(coachAcademyMemberships).set({ invitedBy: null }).where(eq(coachAcademyMemberships.invitedBy, coachId));
-      await db.update(coachAcademyMemberships).set({ acceptedBy: null }).where(eq(coachAcademyMemberships.acceptedBy, coachId));
+      // Null out academyInvites invitedBy/acceptedBy references (these columns are on academyInvites, not coachAcademyMemberships)
+      await db.update(academyInvites).set({ invitedBy: null }).where(eq(academyInvites.invitedBy, coachId));
+      await db.update(academyInvites).set({ acceptedBy: null }).where(eq(academyInvites.acceptedBy, coachId));
       
       // Null out payments receivedBy/confirmedBy/rejectedBy references
       await db.update(payments).set({ receivedBy: null }).where(eq(payments.receivedBy, coachId));
