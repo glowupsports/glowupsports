@@ -2281,7 +2281,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.primary,
   },
   playerList: {
-    maxHeight: 250,
+    flex: 1,
   },
   playerRow: {
     flexDirection: "row",
