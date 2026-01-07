@@ -42,6 +42,7 @@ import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import { filterSessionsByDate } from "@/lib/dateUtils";
 import { getApiUrl } from "@/lib/query-client";
 import { NextSessionCountdown } from "@/coach/components/NextSessionCountdown";
+import { SeriesSummaryCard } from "@/coach/components/SeriesSummaryCard";
 
 interface Session {
   id: string;
@@ -1059,6 +1060,18 @@ export default function DashboardScreen() {
             )}
           </LinearGradient>
         </View>
+
+        {/* === COACHING SERIES SUMMARY === */}
+        <SeriesSummaryCard 
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            handleNavigate("Coaching");
+          }}
+          onViewAll={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            handleNavigate("Coaching");
+          }}
+        />
 
         {/* === ACTION QUEUE - Gaming Alerts HUD === */}
         {alerts.length > 0 ? (
