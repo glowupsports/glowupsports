@@ -1,12 +1,16 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, ActivityIndicator, Platform, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+
+const CURRENCIES = ["AED", "EUR", "USD", "GBP"];
 
 interface CoachContract {
   id: string;
@@ -40,6 +44,7 @@ const COMPENSATION_TYPES = [
 
 export default function CoachCompensationScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const queryClient = useQueryClient();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingContract, setEditingContract] = useState<CoachContract | null>(null);
@@ -48,9 +53,10 @@ export default function CoachCompensationScreen() {
   const [hourlyRate, setHourlyRate] = useState("");
   const [sessionRate, setSessionRate] = useState("");
   const [revenueSharePercent, setRevenueSharePercent] = useState("");
-  const [currency, setCurrency] = useState("EUR");
+  const [currency, setCurrency] = useState("AED");
   const [effectiveFrom, setEffectiveFrom] = useState(new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const { data: contractsData, isLoading: contractsLoading } = useQuery<CoachContract[]>({
     queryKey: ["/api/coach-contracts"],
@@ -115,9 +121,10 @@ export default function CoachCompensationScreen() {
     setHourlyRate("");
     setSessionRate("");
     setRevenueSharePercent("");
-    setCurrency("EUR");
+    setCurrency("AED");
     setEffectiveFrom(new Date().toISOString().split("T")[0]);
     setNotes("");
+    setShowDatePicker(false);
   };
 
   const handleOpenAdd = () => {
@@ -277,13 +284,20 @@ export default function CoachCompensationScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.screenHeader}>
+        <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+        </Pressable>
+        <Text style={styles.screenTitle}>Coach Compensation</Text>
+        <View style={styles.backButton} />
+      </View>
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Coach Compensation</Text>
           <Text style={styles.subtitle}>Manage how coaches are paid</Text>
         </View>
 
@@ -474,7 +488,7 @@ export default function CoachCompensationScreen() {
 
             <Text style={styles.fieldLabel}>Currency</Text>
             <View style={styles.currencyOptions}>
-              {["EUR", "USD", "GBP"].map((curr) => (
+              {CURRENCIES.map((curr) => (
                 <Pressable
                   key={curr}
                   style={[
@@ -497,15 +511,38 @@ export default function CoachCompensationScreen() {
             </View>
 
             <Text style={styles.fieldLabel}>Effective From</Text>
-            <TextInput
-              style={styles.textInput}
-              value={effectiveFrom}
-              onChangeText={setEffectiveFrom}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={Colors.dark.textMuted}
-            />
+            <Pressable
+              style={styles.datePickerButton}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Ionicons name="calendar-outline" size={20} color={Colors.dark.gold} />
+              <Text style={styles.datePickerText}>
+                {new Date(effectiveFrom).toLocaleDateString()}
+              </Text>
+            </Pressable>
+            {showDatePicker ? (
+              <DateTimePicker
+                value={new Date(effectiveFrom)}
+                mode="date"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                onChange={(event, selectedDate) => {
+                  if (Platform.OS === "android") {
+                    setShowDatePicker(false);
+                  }
+                  if (selectedDate) {
+                    setEffectiveFrom(selectedDate.toISOString().split("T")[0]);
+                  }
+                }}
+                themeVariant="dark"
+              />
+            ) : null}
+            {Platform.OS === "ios" && showDatePicker ? (
+              <Pressable style={styles.datePickerDone} onPress={() => setShowDatePicker(false)}>
+                <Text style={styles.datePickerDoneText}>Done</Text>
+              </Pressable>
+            ) : null}
             <Text style={styles.fieldHint}>
-              Set a future date to schedule a rate change
+              Can be any date (past or future)
             </Text>
 
             <Text style={styles.fieldLabel}>Notes (Optional)</Text>
@@ -530,6 +567,25 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
   },
+  screenHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  screenTitle: {
+    ...Typography.h3,
+    color: Colors.dark.gold,
+  },
   scrollView: {
     flex: 1,
   },
@@ -538,11 +594,6 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: Spacing.xl,
-  },
-  title: {
-    ...Typography.h1,
-    color: Colors.dark.gold,
-    marginBottom: Spacing.xs,
   },
   subtitle: {
     ...Typography.body,
@@ -832,5 +883,27 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 80,
     textAlignVertical: "top",
+  },
+  datePickerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  datePickerText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  datePickerDone: {
+    alignSelf: "flex-end",
+    marginTop: Spacing.sm,
+  },
+  datePickerDoneText: {
+    ...Typography.h4,
+    color: Colors.dark.gold,
   },
 });

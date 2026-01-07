@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, ActivityIndicator, Platform, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, ActivityIndicator, Platform, Alert, Switch } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -25,24 +26,29 @@ interface AcademyPricing {
 }
 
 const SESSION_TYPES = [
-  { value: "private", label: "Private", icon: "person" },
-  { value: "semi", label: "Semi-Private", icon: "people" },
-  { value: "group", label: "Group", icon: "people-circle" },
-  { value: "physical", label: "Physical Training", icon: "fitness" },
-  { value: "activity", label: "Activity", icon: "football" },
+  { value: "private", label: "Private", icon: "person", perPerson: false },
+  { value: "semi", label: "Semi-Private", icon: "people", perPerson: true },
+  { value: "group", label: "Group", icon: "people-circle", perPerson: true },
+  { value: "physical", label: "Physical Training", icon: "fitness", perPerson: true },
+  { value: "activity", label: "Activity", icon: "football", perPerson: true },
 ];
+
+const CURRENCIES = ["AED", "EUR", "USD", "GBP"];
 
 export default function PricingScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const queryClient = useQueryClient();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingPricing, setEditingPricing] = useState<AcademyPricing | null>(null);
   const [selectedSessionType, setSelectedSessionType] = useState("private");
   const [pricePerSession, setPricePerSession] = useState("");
   const [pricePerHour, setPricePerHour] = useState("");
-  const [currency, setCurrency] = useState("EUR");
+  const [currency, setCurrency] = useState("AED");
   const [effectiveFrom, setEffectiveFrom] = useState(new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
+  const [isPerPerson, setIsPerPerson] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const { data: pricingData, isLoading } = useQuery<AcademyPricing[]>({
     queryKey: ["/api/academy-pricing"],
@@ -99,13 +105,17 @@ export default function PricingScreen() {
     setSelectedSessionType("private");
     setPricePerSession("");
     setPricePerHour("");
-    setCurrency("EUR");
+    setCurrency("AED");
     setEffectiveFrom(new Date().toISOString().split("T")[0]);
     setNotes("");
+    setIsPerPerson(false);
+    setShowDatePicker(false);
   };
 
   const handleOpenAdd = () => {
     handleCloseModal();
+    const defaultSessionType = SESSION_TYPES.find(t => t.value === "private");
+    setIsPerPerson(defaultSessionType?.perPerson || false);
     setShowAddModal(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
@@ -118,6 +128,8 @@ export default function PricingScreen() {
     setCurrency(pricing.currency);
     setEffectiveFrom(pricing.effectiveFrom);
     setNotes(pricing.notes || "");
+    const sessionTypeInfo = SESSION_TYPES.find(t => t.value === pricing.sessionType);
+    setIsPerPerson(sessionTypeInfo?.perPerson || false);
     setShowAddModal(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
@@ -196,7 +208,9 @@ export default function PricingScreen() {
           <Text style={styles.pricingPrice}>
             {formatCurrency(pricing.pricePerSession, pricing.currency)}
           </Text>
-          <Text style={styles.pricingLabel}>per session</Text>
+          <Text style={styles.pricingLabel}>
+            {SESSION_TYPES.find(t => t.value === pricing.sessionType)?.perPerson ? "per person" : "per session"}
+          </Text>
           {pricing.pricePerHour ? (
             <>
               <Text style={styles.pricingPriceSmall}>
@@ -218,13 +232,20 @@ export default function PricingScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.screenHeader}>
+        <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+        </Pressable>
+        <Text style={styles.screenTitle}>Pricing</Text>
+        <View style={styles.backButton} />
+      </View>
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Pricing</Text>
           <Text style={styles.subtitle}>Set session prices for your academy</Text>
         </View>
 
@@ -308,6 +329,7 @@ export default function PricingScreen() {
                   ]}
                   onPress={() => {
                     setSelectedSessionType(type.value);
+                    setIsPerPerson(type.perPerson);
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   }}
                 >
@@ -316,12 +338,17 @@ export default function PricingScreen() {
                     size={20}
                     color={selectedSessionType === type.value ? Colors.dark.gold : Colors.dark.textMuted}
                   />
-                  <Text style={[
-                    styles.sessionTypeLabel,
-                    selectedSessionType === type.value && styles.sessionTypeLabelSelected,
-                  ]}>
-                    {type.label}
-                  </Text>
+                  <View>
+                    <Text style={[
+                      styles.sessionTypeLabel,
+                      selectedSessionType === type.value && styles.sessionTypeLabelSelected,
+                    ]}>
+                      {type.label}
+                    </Text>
+                    {type.perPerson ? (
+                      <Text style={styles.perPersonHint}>per person</Text>
+                    ) : null}
+                  </View>
                 </Pressable>
               ))}
             </View>
@@ -352,9 +379,20 @@ export default function PricingScreen() {
               />
             </View>
 
+            <Text style={styles.fieldLabel}>Per Person Pricing</Text>
+            <View style={styles.toggleRow}>
+              <Text style={styles.toggleLabel}>Price is per person (for multi-player sessions)</Text>
+              <Switch
+                value={isPerPerson}
+                onValueChange={setIsPerPerson}
+                trackColor={{ false: Colors.dark.border, true: Colors.dark.gold }}
+                thumbColor={Colors.dark.text}
+              />
+            </View>
+
             <Text style={styles.fieldLabel}>Currency</Text>
             <View style={styles.currencyOptions}>
-              {["EUR", "USD", "GBP"].map((curr) => (
+              {CURRENCIES.map((curr) => (
                 <Pressable
                   key={curr}
                   style={[
@@ -377,15 +415,38 @@ export default function PricingScreen() {
             </View>
 
             <Text style={styles.fieldLabel}>Effective From</Text>
-            <TextInput
-              style={styles.textInput}
-              value={effectiveFrom}
-              onChangeText={setEffectiveFrom}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={Colors.dark.textMuted}
-            />
+            <Pressable
+              style={styles.datePickerButton}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Ionicons name="calendar-outline" size={20} color={Colors.dark.gold} />
+              <Text style={styles.datePickerText}>
+                {new Date(effectiveFrom).toLocaleDateString()}
+              </Text>
+            </Pressable>
+            {showDatePicker ? (
+              <DateTimePicker
+                value={new Date(effectiveFrom)}
+                mode="date"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                onChange={(event, selectedDate) => {
+                  if (Platform.OS === "android") {
+                    setShowDatePicker(false);
+                  }
+                  if (selectedDate) {
+                    setEffectiveFrom(selectedDate.toISOString().split("T")[0]);
+                  }
+                }}
+                themeVariant="dark"
+              />
+            ) : null}
+            {Platform.OS === "ios" && showDatePicker ? (
+              <Pressable style={styles.datePickerDone} onPress={() => setShowDatePicker(false)}>
+                <Text style={styles.datePickerDoneText}>Done</Text>
+              </Pressable>
+            ) : null}
             <Text style={styles.fieldHint}>
-              Set a future date to schedule a price change
+              Can be any date (past or future)
             </Text>
 
             <Text style={styles.fieldLabel}>Notes (Optional)</Text>
@@ -410,6 +471,25 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
   },
+  screenHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  screenTitle: {
+    ...Typography.h2,
+    color: Colors.dark.gold,
+  },
   scrollView: {
     flex: 1,
   },
@@ -418,11 +498,6 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: Spacing.xl,
-  },
-  title: {
-    ...Typography.h1,
-    color: Colors.dark.gold,
-    marginBottom: Spacing.xs,
   },
   subtitle: {
     ...Typography.body,
@@ -619,6 +694,11 @@ const styles = StyleSheet.create({
   sessionTypeLabelSelected: {
     color: Colors.dark.gold,
   },
+  perPersonHint: {
+    ...Typography.small,
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+  },
   priceInputContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -674,5 +754,43 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 80,
     textAlignVertical: "top",
+  },
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  toggleLabel: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    flex: 1,
+    marginRight: Spacing.sm,
+  },
+  datePickerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  datePickerText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  datePickerDone: {
+    alignSelf: "flex-end",
+    marginTop: Spacing.sm,
+  },
+  datePickerDoneText: {
+    ...Typography.h4,
+    color: Colors.dark.gold,
   },
 });
