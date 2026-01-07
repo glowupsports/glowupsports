@@ -1154,169 +1154,236 @@ export default function DashboardScreen() {
           </View>
         ) : null}
 
-        {/* === MATCH SCHEDULE - Gaming Timeline HUD === */}
+        {/* === TODAY'S SCHEDULE - Unified Gaming HUD === */}
         {todaysSessions.length > 0 ? (
-          <View style={styles.gamingCard}>
+          <View style={styles.todayScheduleCard}>
+            {/* Multi-color animated top border */}
             <LinearGradient
-              colors={[Colors.dark.primary + "60", "transparent", Colors.dark.xpCyan + "60"]}
+              colors={[Colors.dark.primary, Colors.dark.xpCyan, Colors.dark.gold, Colors.dark.orange]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={styles.gamingCardTopLine}
+              style={styles.todayScheduleTopLine}
             />
             
             <LinearGradient
-              colors={["rgba(0, 0, 0, 0.7)", "rgba(35, 35, 35, 0.9)"]}
-              style={styles.gamingCardGradient}
+              colors={["rgba(0, 0, 0, 0.85)", "rgba(20, 25, 30, 0.95)"]}
+              style={styles.todayScheduleGradient}
             >
+              {/* Header with stats */}
               <Pressable 
-                style={styles.gamingCardHeader}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setTimelineCollapsed(!timelineCollapsed);
-                }}
-              >
-                <View style={styles.gamingCardTitleRow}>
-                  <View style={styles.gamingIconWrapper}>
-                    <Ionicons name="time" size={14} color={Colors.dark.primary} />
-                  </View>
-                  <Text style={styles.gamingCardTitle}>COURT SCHEDULE</Text>
-                </View>
-                <Pressable style={styles.gamingCollapseBtn}>
-                  <Ionicons 
-                    name={timelineCollapsed ? "chevron-down" : "chevron-up"} 
-                    size={16} 
-                    color={Colors.dark.textSecondary} 
-                  />
-                </Pressable>
-              </Pressable>
-              
-              {timelineCollapsed ? (
-                <View style={styles.gamingCollapsedPreview}>
-                  <Text style={styles.gamingCollapsedText}>
-                    {(() => {
-                      const now = new Date();
-                      const nextSession = todaysSessions.find(s => new Date(s.startTime) > now);
-                      const currentSession = todaysSessions.find(s => 
-                        new Date(s.startTime) <= now && new Date(s.endTime) > now
-                      );
-                      if (currentSession) return "LIVE ON COURT";
-                      if (nextSession) return `Next: ${formatTime(nextSession.startTime)}`;
-                      return "All matches complete";
-                    })()}
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.gamingTimelineContent}>
-                  <MiniTimeline
-                    sessions={todaysSessions.map(s => ({
-                      ...s,
-                      players: (s as any).players || [],
-                    }))}
-                  />
-                </View>
-              )}
-            </LinearGradient>
-          </View>
-        ) : null}
-
-        {/* === LESSON ROSTER - Gaming Sessions HUD === */}
-        {todaysSessions.length > 0 ? (
-          <View style={styles.gamingCard}>
-            <LinearGradient
-              colors={[Colors.dark.gold + "60", "transparent", Colors.dark.orange + "60"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.gamingCardTopLine}
-            />
-            
-            <LinearGradient
-              colors={["rgba(0, 0, 0, 0.7)", "rgba(35, 35, 35, 0.9)"]}
-              style={styles.gamingCardGradient}
-            >
-              <Pressable 
-                style={styles.gamingCardHeader}
+                style={styles.todayScheduleHeader}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setSessionsCollapsed(!sessionsCollapsed);
                 }}
               >
-                <View style={styles.gamingCardTitleRow}>
-                  <View style={[styles.gamingIconWrapper, { backgroundColor: Colors.dark.gold + "20" }]}>
-                    <Ionicons name="tennisball" size={14} color={Colors.dark.gold} />
+                <View style={styles.todayScheduleTitleRow}>
+                  <View style={styles.todayScheduleIconStack}>
+                    <LinearGradient
+                      colors={[Colors.dark.primary + "30", Colors.dark.xpCyan + "20"]}
+                      style={styles.todayScheduleIconBg}
+                    >
+                      <Ionicons name="calendar" size={16} color={Colors.dark.primary} />
+                    </LinearGradient>
                   </View>
-                  <Text style={styles.gamingCardTitle}>LESSON ROSTER</Text>
+                  <View>
+                    <Text style={styles.todayScheduleTitle}>TODAY'S SCHEDULE</Text>
+                    <Text style={styles.todayScheduleSubtitle}>
+                      {(() => {
+                        const now = new Date();
+                        const currentSession = todaysSessions.find(s => 
+                          new Date(s.startTime) <= now && new Date(s.endTime) > now
+                        );
+                        const completed = todaysSessions.filter(s => new Date(s.endTime) < now).length;
+                        const upcoming = todaysSessions.filter(s => new Date(s.startTime) > now).length;
+                        if (currentSession) return "Session in progress";
+                        if (upcoming > 0) return `${completed} done, ${upcoming} upcoming`;
+                        return "All sessions complete";
+                      })()}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.gamingCardControls}>
-                  <View style={[styles.gamingAlertBadge, { backgroundColor: Colors.dark.gold + "20", borderColor: Colors.dark.gold }]}>
-                    <Text style={[styles.gamingAlertBadgeText, { color: Colors.dark.gold }]}>{todaysSessions.length}</Text>
+                <View style={styles.todayScheduleStats}>
+                  <View style={styles.todayScheduleStatBadge}>
+                    <Text style={styles.todayScheduleStatValue}>{todaysSessions.length}</Text>
+                    <Text style={styles.todayScheduleStatLabel}>sessions</Text>
                   </View>
-                  <Pressable style={styles.gamingCollapseBtn}>
+                  <View style={[styles.todayScheduleStatBadge, { backgroundColor: Colors.dark.gold + "15", borderColor: Colors.dark.gold + "40" }]}>
+                    <Text style={[styles.todayScheduleStatValue, { color: Colors.dark.gold }]}>
+                      {todaysSessions.reduce((sum, s) => sum + (s.duration || 0), 0)}m
+                    </Text>
+                    <Text style={[styles.todayScheduleStatLabel, { color: Colors.dark.gold + "80" }]}>court</Text>
+                  </View>
+                  <Pressable style={styles.todayScheduleCollapseBtn}>
                     <Ionicons 
                       name={sessionsCollapsed ? "chevron-down" : "chevron-up"} 
-                      size={16} 
+                      size={18} 
                       color={Colors.dark.textSecondary} 
                     />
                   </Pressable>
                 </View>
               </Pressable>
               
+              {/* Timeline preview when collapsed */}
               {sessionsCollapsed ? (
-                <View style={styles.gamingCollapsedPreview}>
-                  <Text style={styles.gamingCollapsedText}>
-                    {(() => {
-                      const totalDuration = todaysSessions.reduce((sum, s) => sum + (s.duration || 0), 0);
-                      const playerCount = todaysSessions.reduce((sum, s) => sum + ((s as any).players?.length || 0), 0);
-                      return `${totalDuration}m court time | ${playerCount} player${playerCount !== 1 ? 's' : ''}`;
-                    })()}
-                  </Text>
+                <View style={styles.todayScheduleCollapsed}>
+                  <View style={styles.todayScheduleTimelinePreview}>
+                    {todaysSessions.slice(0, 5).map((session, index) => {
+                      const now = new Date();
+                      const isPast = new Date(session.endTime) < now;
+                      const isCurrent = new Date(session.startTime) <= now && new Date(session.endTime) > now;
+                      return (
+                        <View key={session.id} style={styles.todayScheduleTimelineDot}>
+                          <View style={[
+                            styles.todayScheduleDot,
+                            isPast && styles.todayScheduleDotDone,
+                            isCurrent && styles.todayScheduleDotLive,
+                          ]}>
+                            {isCurrent && <View style={styles.todayScheduleDotPulse} />}
+                          </View>
+                          <Text style={[
+                            styles.todayScheduleDotTime,
+                            isPast && { color: Colors.dark.disabled },
+                            isCurrent && { color: Colors.dark.primary },
+                          ]}>{formatTime(session.startTime)}</Text>
+                        </View>
+                      );
+                    })}
+                    {todaysSessions.length > 5 && (
+                      <View style={styles.todayScheduleTimelineDot}>
+                        <Text style={styles.todayScheduleMoreText}>+{todaysSessions.length - 5}</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
-              ) : todaysSessions.map((session) => {
-                const isPast = new Date(session.endTime) < new Date();
-                const isCurrent =
-                  new Date(session.startTime) <= new Date() && new Date(session.endTime) > new Date();
-                return (
-                  <Pressable
-                    key={session.id}
-                    style={[
-                      styles.gamingSessionCard,
-                      isCurrent && styles.gamingSessionCardLive,
-                    ]}
-                  >
-                    <View style={styles.gamingSessionTime}>
-                      <Text style={[styles.gamingSessionTimeText, isPast && styles.gamingSessionTimePast]}>
-                        {formatTime(session.startTime)}
-                      </Text>
-                      <Text style={styles.gamingSessionDuration}>{session.duration}m</Text>
-                    </View>
-                    <View style={styles.gamingSessionInfo}>
-                      <Text style={[styles.gamingSessionType, isPast && styles.gamingSessionTypePast]}>
-                        {session.sessionType === "private"
-                          ? "1v1 Private"
-                          : session.sessionType === "semi_private"
-                          ? "Semi-Private"
-                          : session.sessionType === "group"
-                          ? "Group Rally"
-                          : session.sessionType}
-                      </Text>
-                      {isCurrent ? (
-                        <View style={styles.gamingLiveBadge}>
-                          <View style={styles.gamingLiveDot} />
-                          <Text style={styles.gamingLiveText}>LIVE</Text>
-                        </View>
-                      ) : isPast ? (
-                        <View style={styles.gamingDoneBadge}>
-                          <Text style={styles.gamingDoneText}>DONE</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={18}
-                      color={isPast ? Colors.dark.disabled : Colors.dark.primary}
+              ) : (
+                <View style={styles.todayScheduleExpanded}>
+                  {/* Visual Timeline */}
+                  <View style={styles.todayScheduleTimeline}>
+                    <MiniTimeline
+                      sessions={todaysSessions.map(s => ({
+                        ...s,
+                        players: (s as any).players || [],
+                      }))}
                     />
-                  </Pressable>
-                );
-              })}
+                  </View>
+                  
+                  {/* Divider */}
+                  <View style={styles.todayScheduleDivider}>
+                    <View style={styles.todayScheduleDividerLine} />
+                    <Text style={styles.todayScheduleDividerText}>SESSION DETAILS</Text>
+                    <View style={styles.todayScheduleDividerLine} />
+                  </View>
+                  
+                  {/* Session Cards - compute next session ID once */}
+                  {(() => {
+                    const now = new Date();
+                    const nextSessionId = todaysSessions.find(s => new Date(s.startTime) > now)?.id || null;
+                    
+                    return todaysSessions.map((session, index) => {
+                      const isPast = new Date(session.endTime) < now;
+                      const isCurrent = new Date(session.startTime) <= now && new Date(session.endTime) > now;
+                      const isNext = !isCurrent && !isPast && session.id === nextSessionId;
+                    
+                    return (
+                      <Pressable
+                        key={session.id}
+                        style={[
+                          styles.todayScheduleSession,
+                          isCurrent && styles.todayScheduleSessionLive,
+                          isNext && styles.todayScheduleSessionNext,
+                          isPast && styles.todayScheduleSessionPast,
+                        ]}
+                      >
+                        {/* Time block */}
+                        <View style={styles.todayScheduleTimeBlock}>
+                          <Text style={[
+                            styles.todayScheduleTimeText,
+                            isCurrent && { color: Colors.dark.primary },
+                            isPast && { color: Colors.dark.disabled },
+                          ]}>
+                            {formatTime(session.startTime)}
+                          </Text>
+                          <View style={[
+                            styles.todayScheduleDurationBadge,
+                            isCurrent && { backgroundColor: Colors.dark.primary + "20" },
+                          ]}>
+                            <Text style={[
+                              styles.todayScheduleDurationText,
+                              isCurrent && { color: Colors.dark.primary },
+                            ]}>{session.duration}m</Text>
+                          </View>
+                        </View>
+                        
+                        {/* Vertical connector line */}
+                        <View style={styles.todayScheduleConnector}>
+                          <View style={[
+                            styles.todayScheduleConnectorDot,
+                            isCurrent && { backgroundColor: Colors.dark.primary, shadowColor: Colors.dark.primary },
+                            isPast && { backgroundColor: Colors.dark.disabled },
+                            isNext && { backgroundColor: Colors.dark.gold },
+                          ]} />
+                          {index < todaysSessions.length - 1 && (
+                            <View style={[
+                              styles.todayScheduleConnectorLine,
+                              isPast && { backgroundColor: Colors.dark.disabled + "40" },
+                            ]} />
+                          )}
+                        </View>
+                        
+                        {/* Session info */}
+                        <View style={styles.todayScheduleSessionInfo}>
+                          <View style={styles.todayScheduleSessionHeader}>
+                            <Text style={[
+                              styles.todayScheduleSessionType,
+                              isPast && { color: Colors.dark.disabled },
+                            ]}>
+                              {session.sessionType === "private"
+                                ? "Private Lesson"
+                                : session.sessionType === "semi_private"
+                                ? "Semi-Private"
+                                : session.sessionType === "group"
+                                ? "Group Training"
+                                : session.sessionType}
+                            </Text>
+                            {isCurrent && (
+                              <View style={styles.todayScheduleLiveBadge}>
+                                <Animated.View style={[styles.todayScheduleLivePulse, pulseAnimatedStyle]} />
+                                <View style={styles.todayScheduleLiveDot} />
+                                <Text style={styles.todayScheduleLiveText}>LIVE</Text>
+                              </View>
+                            )}
+                            {isNext && (
+                              <View style={styles.todayScheduleNextBadge}>
+                                <Text style={styles.todayScheduleNextText}>UP NEXT</Text>
+                              </View>
+                            )}
+                            {isPast && (
+                              <View style={styles.todayScheduleDoneBadge}>
+                                <Ionicons name="checkmark" size={12} color={Colors.dark.disabled} />
+                                <Text style={styles.todayScheduleDoneText}>Done</Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text style={[
+                            styles.todayScheduleSessionTime,
+                            isPast && { color: Colors.dark.disabled },
+                          ]}>
+                            {formatTime(session.startTime)} - {formatTime(session.endTime)}
+                          </Text>
+                        </View>
+                        
+                        <Ionicons
+                          name="chevron-forward"
+                          size={18}
+                          color={isPast ? Colors.dark.disabled : isCurrent ? Colors.dark.primary : Colors.dark.textSecondary}
+                        />
+                      </Pressable>
+                    );
+                  });
+                  })()}
+                </View>
+              )}
             </LinearGradient>
           </View>
         ) : null}
@@ -2885,5 +2952,316 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.textMuted,
     letterSpacing: 0.5,
+  },
+  
+  // === TODAY'S SCHEDULE - Unified Gaming HUD ===
+  todayScheduleCard: {
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    marginBottom: Spacing.md,
+  },
+  todayScheduleTopLine: {
+    height: 3,
+  },
+  todayScheduleGradient: {
+    padding: Spacing.md,
+  },
+  todayScheduleHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  todayScheduleTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  todayScheduleIconStack: {
+    position: "relative" as const,
+  },
+  todayScheduleIconBg: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
+  },
+  todayScheduleTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    letterSpacing: 1.5,
+  },
+  todayScheduleSubtitle: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+    marginTop: 2,
+  },
+  todayScheduleStats: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  todayScheduleStatBadge: {
+    backgroundColor: Colors.dark.primary + "15",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+  },
+  todayScheduleStatValue: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  todayScheduleStatLabel: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: Colors.dark.primary + "80",
+    letterSpacing: 0.5,
+  },
+  todayScheduleCollapseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: Spacing.xs,
+  },
+  todayScheduleCollapsed: {
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.08)",
+  },
+  todayScheduleTimelinePreview: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    paddingVertical: Spacing.xs,
+  },
+  todayScheduleTimelineDot: {
+    alignItems: "center",
+    gap: 6,
+  },
+  todayScheduleDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: Colors.dark.textSecondary,
+    borderWidth: 2,
+    borderColor: Colors.dark.backgroundDefault,
+  },
+  todayScheduleDotDone: {
+    backgroundColor: Colors.dark.disabled,
+    borderColor: Colors.dark.disabled + "40",
+  },
+  todayScheduleDotLive: {
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary + "40",
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+  },
+  todayScheduleDotPulse: {
+    position: "absolute" as const,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.dark.primary + "30",
+    top: -6,
+    left: -6,
+  },
+  todayScheduleDotTime: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
+  },
+  todayScheduleMoreText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  todayScheduleExpanded: {
+    marginTop: Spacing.md,
+  },
+  todayScheduleTimeline: {
+    backgroundColor: "rgba(0, 0, 0, 0.2)",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.05)",
+  },
+  todayScheduleDivider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginVertical: Spacing.md,
+  },
+  todayScheduleDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+  },
+  todayScheduleDividerText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+    letterSpacing: 1,
+  },
+  todayScheduleSession: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.25)",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    marginBottom: Spacing.xs,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.05)",
+  },
+  todayScheduleSessionLive: {
+    borderColor: Colors.dark.primary + "50",
+    backgroundColor: Colors.dark.primary + "08",
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  todayScheduleSessionNext: {
+    borderColor: Colors.dark.gold + "40",
+    backgroundColor: Colors.dark.gold + "05",
+  },
+  todayScheduleSessionPast: {
+    opacity: 0.6,
+  },
+  todayScheduleTimeBlock: {
+    alignItems: "center",
+    minWidth: 50,
+    marginRight: Spacing.xs,
+  },
+  todayScheduleTimeText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  todayScheduleDurationBadge: {
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 2,
+  },
+  todayScheduleDurationText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
+  },
+  todayScheduleConnector: {
+    width: 24,
+    alignItems: "center",
+    alignSelf: "stretch",
+    paddingVertical: 4,
+  },
+  todayScheduleConnectorDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.dark.textSecondary,
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 4,
+  },
+  todayScheduleConnectorLine: {
+    flex: 1,
+    width: 2,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    marginTop: 4,
+  },
+  todayScheduleSessionInfo: {
+    flex: 1,
+    paddingLeft: Spacing.xs,
+  },
+  todayScheduleSessionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    flexWrap: "wrap",
+  },
+  todayScheduleSessionType: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  todayScheduleSessionTime: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+    marginTop: 2,
+  },
+  todayScheduleLiveBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.primary + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "50",
+    position: "relative" as const,
+    overflow: "hidden" as const,
+  },
+  todayScheduleLivePulse: {
+    position: "absolute" as const,
+    width: "100%",
+    height: "100%",
+    backgroundColor: Colors.dark.primary + "30",
+    borderRadius: BorderRadius.sm,
+  },
+  todayScheduleLiveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.dark.primary,
+  },
+  todayScheduleLiveText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+    letterSpacing: 1,
+  },
+  todayScheduleNextBadge: {
+    backgroundColor: Colors.dark.gold + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "40",
+  },
+  todayScheduleNextText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.gold,
+    letterSpacing: 0.5,
+  },
+  todayScheduleDoneBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: Colors.dark.disabled + "15",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+  },
+  todayScheduleDoneText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.disabled,
   },
 });
