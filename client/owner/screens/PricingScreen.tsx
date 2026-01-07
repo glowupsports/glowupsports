@@ -17,6 +17,7 @@ interface AcademyPricing {
   currency: string;
   pricePerSession: string;
   pricePerHour: string | null;
+  isPerPerson: boolean | null;
   effectiveFrom: string;
   effectiveUntil: string | null;
   isActive: boolean;
@@ -51,7 +52,7 @@ export default function PricingScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const { data: pricingData, isLoading } = useQuery<AcademyPricing[]>({
-    queryKey: ["/api/academy-pricing"],
+    queryKey: ["/api/admin/pricing"],
   });
 
   const createMutation = useMutation({
@@ -64,10 +65,10 @@ export default function PricingScreen() {
       notes?: string;
       isPerPerson?: boolean;
     }) => {
-      return apiRequest("POST", "/api/academy-pricing", data);
+      return apiRequest("POST", "/api/admin/pricing", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/academy-pricing"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/pricing"] });
       handleCloseModal();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
@@ -83,10 +84,10 @@ export default function PricingScreen() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<AcademyPricing> }) => {
-      return apiRequest("PATCH", `/api/academy-pricing/${id}`, data);
+      return apiRequest("PATCH", `/api/admin/pricing/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/academy-pricing"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/pricing"] });
       handleCloseModal();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },

@@ -18186,7 +18186,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Academy context required" });
       }
       
-      const { sessionType, pricePerSession, currency, duration, pricePerHour, effectiveFrom, notes } = req.body;
+      const { sessionType, pricePerSession, currency, duration, pricePerHour, effectiveFrom, notes, isPerPerson } = req.body;
       
       if (!sessionType || !pricePerSession) {
         return res.status(400).json({ error: "Session type and price per session are required" });
@@ -18199,6 +18199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         currency: currency || "AED",
         duration,
         pricePerHour,
+        isPerPerson: isPerPerson ?? false,
         effectiveFrom: effectiveFrom || new Date().toISOString().split('T')[0],
         notes,
       });
@@ -18219,7 +18220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const { id } = req.params;
-      const { pricePerSession, currency, duration, pricePerHour, notes, sessionType } = req.body;
+      const { pricePerSession, currency, duration, pricePerHour, notes, sessionType, isPerPerson, effectiveFrom: inputEffectiveFrom } = req.body;
       
       // Get old pricing to copy values from
       const existingPricing = await storage.getAcademyPricing(academyId);
@@ -18229,10 +18230,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Pricing not found" });
       }
       
-      // Create new pricing record starting tomorrow
+      // Create new pricing record starting from provided date or tomorrow
       // createAcademyPricing will automatically close the old version
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
+      let effectiveFromDate: string;
+      if (inputEffectiveFrom) {
+        effectiveFromDate = inputEffectiveFrom;
+      } else {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        effectiveFromDate = tomorrow.toISOString().split('T')[0];
+      }
       
       const newPricing = await storage.createAcademyPricing({
         academyId,
@@ -18241,7 +18248,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         currency: currency || oldPricing.currency || "AED",
         duration: duration !== undefined ? duration : oldPricing.duration,
         pricePerHour: pricePerHour !== undefined ? pricePerHour : oldPricing.pricePerHour,
-        effectiveFrom: tomorrow.toISOString().split('T')[0],
+        isPerPerson: isPerPerson !== undefined ? isPerPerson : (oldPricing.isPerPerson ?? false),
+        effectiveFrom: effectiveFromDate,
         notes,
       });
       
