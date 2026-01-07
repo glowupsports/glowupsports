@@ -31,8 +31,9 @@ interface CoachContract {
 
 interface Coach {
   id: string;
-  userId: string;
-  displayName: string;
+  userId?: string;
+  name: string;
+  displayName?: string;
   email?: string;
 }
 
@@ -220,7 +221,7 @@ export default function CoachCompensationScreen() {
 
   const getCoachName = (coachId: string) => {
     const coach = coachesData?.find((c) => c.id === coachId);
-    return coach?.displayName || "Unknown Coach";
+    return coach?.name || coach?.displayName || "Unknown Coach";
   };
 
   const getCompensationLabel = (type: string) => {
@@ -398,7 +399,7 @@ export default function CoachCompensationScreen() {
                     ]}
                     numberOfLines={1}
                   >
-                    {coach.displayName || "Coach"}
+                    {coach.name || coach.displayName || "Coach"}
                   </Text>
                 </Pressable>
               ))}
@@ -529,6 +530,8 @@ export default function CoachCompensationScreen() {
                     marginLeft: 8,
                     outline: "none",
                     cursor: "pointer",
+                    WebkitAppearance: "none",
+                    MozAppearance: "textfield",
                   }}
                 />
               </View>

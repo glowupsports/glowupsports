@@ -434,6 +434,8 @@ export default function PricingScreen() {
                     marginLeft: 8,
                     outline: "none",
                     cursor: "pointer",
+                    WebkitAppearance: "none",
+                    MozAppearance: "textfield",
                   }}
                 />
               </View>
