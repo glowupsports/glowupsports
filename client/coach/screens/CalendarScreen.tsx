@@ -583,6 +583,7 @@ export default function CalendarScreen() {
     originalCourtId: string | null;
   } | null>(null);
   const [dragConflict, setDragConflict] = useState<string | null>(null);
+  const [selectedLocationFilter, setSelectedLocationFilter] = useState<string | null>(null); // null = all locations
   const [selectedCourtFilter, setSelectedCourtFilter] = useState<string | null>(null); // null = all courts
 
   // Fetch travel times for this coach
@@ -597,9 +598,34 @@ export default function CalendarScreen() {
   
   const hourHeight = timeGrid === 30 ? HOUR_HEIGHT_30 : HOUR_HEIGHT_60;
   const allCourts = calendarData?.courts || [];
-  const courts = selectedCourtFilter 
-    ? allCourts.filter(c => c.id === selectedCourtFilter) 
+  const allLocations = calendarData?.locations || [];
+  
+  // Apply filters: location filter first, then court filter
+  const locationFilteredCourts = selectedLocationFilter 
+    ? allCourts.filter(c => c.locationId === selectedLocationFilter)
     : allCourts;
+  const courts = selectedCourtFilter 
+    ? locationFilteredCourts.filter(c => c.id === selectedCourtFilter) 
+    : locationFilteredCourts;
+  
+  // Group courts by location for visual separators
+  const getLocationForCourt = (courtId: string) => {
+    const court = allCourts.find(c => c.id === courtId);
+    return court?.locationId || null;
+  };
+  
+  // Returns true if this is the first court in a new location group
+  // For index 0: true only if it has a locationId (to show header for first group)
+  // For other indices: true if locationId differs from previous court
+  const isFirstCourtInNewLocation = (index: number) => {
+    const currentLocationId = courts[index]?.locationId;
+    if (index === 0) {
+      // Show location header for first court only if it has a location
+      return !!currentLocationId;
+    }
+    const prevLocationId = courts[index - 1]?.locationId;
+    return currentLocationId !== prevLocationId;
+  };
   
   // Calculate dynamic lane width based on number of visible courts
   const dynamicLaneWidth = courts.length === 1 
@@ -1460,62 +1486,125 @@ export default function CalendarScreen() {
       {/* DAY VIEW */}
       {viewMode === "day" && (
         <>
-          {/* Court Filter */}
-          {allCourts.length > 1 && (
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              style={styles.courtFilterContainer}
-              contentContainerStyle={styles.courtFilterContent}
-            >
-              <Pressable
-                style={[
-                  styles.courtFilterChip,
-                  !selectedCourtFilter && styles.courtFilterChipActive,
-                ]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setSelectedCourtFilter(null);
-                }}
-              >
-                <Text style={[
-                  styles.courtFilterText,
-                  !selectedCourtFilter && styles.courtFilterTextActive,
-                ]}>All Courts</Text>
-              </Pressable>
-              {allCourts.map((court) => (
-                <Pressable
-                  key={court.id}
-                  style={[
-                    styles.courtFilterChip,
-                    selectedCourtFilter === court.id && styles.courtFilterChipActive,
-                  ]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSelectedCourtFilter(court.id);
-                  }}
+          {/* Location & Court Filters */}
+          {(allLocations.length > 0 || allCourts.length > 1) && (
+            <View style={styles.filterSection}>
+              {/* Location Filter Row */}
+              {allLocations.length > 0 && (
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.locationFilterContainer}
+                  contentContainerStyle={styles.courtFilterContent}
                 >
-                  <Text style={[
-                    styles.courtFilterText,
-                    selectedCourtFilter === court.id && styles.courtFilterTextActive,
-                  ]}>{court.name}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
+                  <Pressable
+                    style={[
+                      styles.locationFilterChip,
+                      !selectedLocationFilter && styles.locationFilterChipActive,
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSelectedLocationFilter(null);
+                      setSelectedCourtFilter(null); // Reset court filter when changing location
+                    }}
+                  >
+                    <Ionicons name="location" size={12} color={!selectedLocationFilter ? Colors.dark.gold : Colors.dark.textMuted} style={{ marginRight: 4 }} />
+                    <Text style={[
+                      styles.locationFilterText,
+                      !selectedLocationFilter && styles.locationFilterTextActive,
+                    ]}>All Locations</Text>
+                  </Pressable>
+                  {allLocations.map((location) => (
+                    <Pressable
+                      key={location.id}
+                      style={[
+                        styles.locationFilterChip,
+                        selectedLocationFilter === location.id && styles.locationFilterChipActive,
+                      ]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSelectedLocationFilter(location.id);
+                        setSelectedCourtFilter(null); // Reset court filter when changing location
+                      }}
+                    >
+                      <Ionicons name="location" size={12} color={selectedLocationFilter === location.id ? Colors.dark.gold : Colors.dark.textMuted} style={{ marginRight: 4 }} />
+                      <Text style={[
+                        styles.locationFilterText,
+                        selectedLocationFilter === location.id && styles.locationFilterTextActive,
+                      ]}>{location.name}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              )}
+              
+              {/* Court Filter Row */}
+              {locationFilteredCourts.length > 1 && (
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.courtFilterContainer}
+                  contentContainerStyle={styles.courtFilterContent}
+                >
+                  <Pressable
+                    style={[
+                      styles.courtFilterChip,
+                      !selectedCourtFilter && styles.courtFilterChipActive,
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSelectedCourtFilter(null);
+                    }}
+                  >
+                    <Text style={[
+                      styles.courtFilterText,
+                      !selectedCourtFilter && styles.courtFilterTextActive,
+                    ]}>All Courts</Text>
+                  </Pressable>
+                  {locationFilteredCourts.map((court) => (
+                    <Pressable
+                      key={court.id}
+                      style={[
+                        styles.courtFilterChip,
+                        selectedCourtFilter === court.id && styles.courtFilterChipActive,
+                      ]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSelectedCourtFilter(court.id);
+                      }}
+                    >
+                      <Text style={[
+                        styles.courtFilterText,
+                        selectedCourtFilter === court.id && styles.courtFilterTextActive,
+                      ]}>{court.name}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
           )}
 
           {/* Court Headers */}
           <View style={styles.courtHeaders}>
             <View style={styles.timeColumnHeader} />
-            {courts.map((court, index) => (
-              <View key={court.id} style={[
-                styles.courtHeader,
-                { width: dynamicLaneWidth },
-                index > 0 && styles.courtHeaderWithDivider,
-              ]}>
-                <Text style={styles.courtHeaderText}>{court.name}</Text>
-              </View>
-            ))}
+            {courts.map((court, index) => {
+              const isNewLocation = isFirstCourtInNewLocation(index);
+              const locationName = allLocations.find(l => l.id === court.locationId)?.name;
+              return (
+                <View key={court.id} style={[
+                  styles.courtHeader,
+                  { width: dynamicLaneWidth },
+                  index > 0 && styles.courtHeaderWithDivider,
+                  isNewLocation && styles.courtHeaderWithLocationDivider,
+                ]}>
+                  {isNewLocation && locationName && (
+                    <View style={styles.locationDividerBadge}>
+                      <Text style={styles.locationDividerText}>{locationName}</Text>
+                    </View>
+                  )}
+                  <Text style={styles.courtHeaderText}>{court.name}</Text>
+                </View>
+              );
+            })}
           </View>
 
           {/* Calendar Grid */}
@@ -1537,6 +1626,7 @@ export default function CalendarScreen() {
                     styles.courtLane,
                     { width: dynamicLaneWidth },
                     courtIndex > 0 && styles.courtLaneWithDivider,
+                    isFirstCourtInNewLocation(courtIndex) && styles.courtLaneWithLocationDivider,
                   ]}>
                     {/* Hour grid lines and clickable slots */}
                     {hours.map((hour, hourIndex) => (
@@ -2716,12 +2806,54 @@ const styles = StyleSheet.create({
   timeColumnHeader: {
     width: TIME_COLUMN_WIDTH,
   },
-  courtFilterContainer: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
+  filterSection: {
     backgroundColor: "rgba(12, 12, 15, 0.95)",
     borderBottomWidth: 1,
     borderBottomColor: Colors.dark.primary + "20",
+  },
+  locationFilterContainer: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.gold + "15",
+    maxHeight: 46,
+  },
+  locationFilterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "rgba(25, 25, 30, 0.95)",
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "25",
+  },
+  locationFilterChipActive: {
+    backgroundColor: Colors.dark.gold + "20",
+    borderColor: Colors.dark.gold,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.gold,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.4,
+        shadowRadius: 6,
+      },
+    }),
+  },
+  locationFilterText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  locationFilterTextActive: {
+    color: Colors.dark.gold,
+    fontWeight: "700",
+  },
+  courtFilterContainer: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
     maxHeight: 46,
   },
   courtFilterContent: {
@@ -2768,6 +2900,28 @@ const styles = StyleSheet.create({
     borderLeftWidth: 1,
     borderLeftColor: Colors.dark.primary + "20",
   },
+  courtHeaderWithLocationDivider: {
+    borderLeftWidth: 2,
+    borderLeftColor: Colors.dark.gold,
+    marginLeft: 4,
+    paddingLeft: 4,
+  },
+  locationDividerBadge: {
+    position: "absolute",
+    top: -8,
+    left: 2,
+    backgroundColor: Colors.dark.gold + "30",
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  locationDividerText: {
+    fontSize: 8,
+    fontWeight: "700",
+    color: Colors.dark.gold,
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
+  },
   courtHeaderText: {
     fontSize: 11,
     fontWeight: "700",
@@ -2811,6 +2965,10 @@ const styles = StyleSheet.create({
   courtLaneWithDivider: {
     borderLeftWidth: 3,
     borderLeftColor: "#FFFFFF",
+  },
+  courtLaneWithLocationDivider: {
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.dark.gold,
   },
   hourSlot: {
     height: HOUR_HEIGHT_60,

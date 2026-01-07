@@ -212,6 +212,11 @@ export default function SettingsScreen() {
   const [newCourtName, setNewCourtName] = useState("");
   const [newCourtColor, setNewCourtColor] = useState(COURT_COLORS[0]);
   const [newCourtLocationId, setNewCourtLocationId] = useState<string | null>(null);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [editingLocation, setEditingLocation] = useState<Location | null>(null);
+  const [newLocationName, setNewLocationName] = useState("");
+  const [newLocationAddress, setNewLocationAddress] = useState("");
+  const [locationsCollapsed, setLocationsCollapsed] = useState(false);
   const [testPushLoading, setTestPushLoading] = useState(false);
   const [testBookingLoading, setTestBookingLoading] = useState(false);
   const [showTravelTimeModal, setShowTravelTimeModal] = useState(false);
@@ -303,6 +308,52 @@ export default function SettingsScreen() {
     onError: (error: any) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert("Cannot Delete Court", error?.message || "Failed to delete court. It may have sessions associated with it.");
+    },
+  });
+
+  const createLocationMutation = useMutation({
+    mutationFn: async ({ name, address }: { name: string; address?: string }) => {
+      return apiRequest("POST", "/api/locations", { name, address });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
+      setShowLocationModal(false);
+      setNewLocationName("");
+      setNewLocationAddress("");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: any) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Error", error?.message || "Failed to create location");
+    },
+  });
+
+  const updateLocationMutation = useMutation({
+    mutationFn: async ({ id, name, address }: { id: string; name: string; address?: string }) => {
+      return apiRequest("PATCH", `/api/locations/${id}`, { name, address });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
+      setShowLocationModal(false);
+      setEditingLocation(null);
+      setNewLocationName("");
+      setNewLocationAddress("");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  const deleteLocationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/locations/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: any) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Cannot Delete Location", error?.message || "Failed to delete location. It may have courts associated with it.");
     },
   });
 
@@ -439,6 +490,58 @@ export default function SettingsScreen() {
       updateCourtMutation.mutate({ id: editingCourt.id, name: newCourtName.trim(), color: newCourtColor, locationId: newCourtLocationId });
     } else {
       createCourtMutation.mutate({ name: newCourtName.trim(), color: newCourtColor, locationId: newCourtLocationId });
+    }
+  };
+
+  const handleAddLocation = () => {
+    setEditingLocation(null);
+    setNewLocationName("");
+    setNewLocationAddress("");
+    setShowLocationModal(true);
+  };
+
+  const handleEditLocation = (location: Location) => {
+    setEditingLocation(location);
+    setNewLocationName(location.name);
+    setNewLocationAddress("");
+    setShowLocationModal(true);
+  };
+
+  const handleDeleteLocation = async (location: Location) => {
+    if (isOffline) {
+      await logOfflineAttempt({ screen: "SettingsScreen", action: "delete_location" });
+      showOfflineAlert();
+      return;
+    }
+    const courtsAtLocation = courts.filter(c => c.locationId === location.id);
+    if (courtsAtLocation.length > 0) {
+      Alert.alert(
+        "Cannot Delete Location",
+        `This location has ${courtsAtLocation.length} court(s) assigned. Please reassign or remove them first.`
+      );
+      return;
+    }
+    Alert.alert(
+      "Delete Location",
+      `Are you sure you want to delete "${location.name}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: () => deleteLocationMutation.mutate(location.id) },
+      ]
+    );
+  };
+
+  const handleSaveLocation = async () => {
+    if (isOffline) {
+      await logOfflineAttempt({ screen: "SettingsScreen", action: editingLocation ? "update_location" : "create_location" });
+      showOfflineAlert();
+      return;
+    }
+    if (!newLocationName.trim()) return;
+    if (editingLocation) {
+      updateLocationMutation.mutate({ id: editingLocation.id, name: newLocationName.trim(), address: newLocationAddress.trim() || undefined });
+    } else {
+      createLocationMutation.mutate({ name: newLocationName.trim(), address: newLocationAddress.trim() || undefined });
     }
   };
 
@@ -787,6 +890,89 @@ export default function SettingsScreen() {
               ))}
             </View>
           </View>
+        </View>
+
+        <View style={styles.section}>
+          <Pressable 
+            style={styles.sectionHeaderRow}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setLocationsCollapsed(!locationsCollapsed);
+            }}
+          >
+            <View style={styles.sectionHeaderWithChevron}>
+              <SectionHeader title="Locations" icon="location-outline" />
+              <Ionicons 
+                name={locationsCollapsed ? "chevron-down" : "chevron-up"} 
+                size={20} 
+                color={Colors.dark.tabIconDefault} 
+                style={{ marginLeft: Spacing.sm }}
+              />
+              <Text style={styles.courtCount}>({locations.length})</Text>
+            </View>
+            <Pressable 
+              style={styles.addCourtButton} 
+              onPress={(e) => {
+                e.stopPropagation?.();
+                handleAddLocation();
+              }}
+            >
+              <LinearGradient
+                colors={[Colors.dark.gold, Colors.dark.orange]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.addCourtButtonGradient}
+              >
+                <Ionicons name="add" size={18} color={Colors.dark.backgroundRoot} />
+              </LinearGradient>
+            </Pressable>
+          </Pressable>
+
+          {!locationsCollapsed ? (
+            locations.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="location-outline" size={32} color={Colors.dark.tabIconDefault} />
+                <Text style={styles.emptyStateText}>No locations yet</Text>
+                <Text style={styles.emptyStateSubtext}>Add locations to group your courts</Text>
+              </View>
+            ) : (
+              locations.map((location) => {
+                const courtsAtLocation = courts.filter(c => c.locationId === location.id);
+                return (
+                  <View key={location.id} style={styles.courtCard}>
+                    <View style={[styles.courtColorBar, { backgroundColor: Colors.dark.gold }]} />
+                    <View style={styles.courtCardContent}>
+                      <View style={styles.courtInfo}>
+                        <View style={[styles.courtColorDot, { backgroundColor: Colors.dark.gold }]}>
+                          <Ionicons name="location" size={14} color={Colors.dark.backgroundRoot} />
+                        </View>
+                        <View>
+                          <Text style={styles.courtName}>{location.name}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.courtActions}>
+                        <View style={styles.locationCourtBadge}>
+                          <Text style={styles.locationCourtBadgeText}>{courtsAtLocation.length} courts</Text>
+                        </View>
+                        <Pressable 
+                          style={styles.courtActionButton} 
+                          onPress={() => handleEditLocation(location)}
+                        >
+                          <Ionicons name="pencil" size={16} color={Colors.dark.xpCyan} />
+                        </Pressable>
+                        <Pressable 
+                          style={[styles.courtActionButton, styles.courtDeleteButton]} 
+                          onPress={() => handleDeleteLocation(location)}
+                        >
+                          <Ionicons name="trash-outline" size={16} color={Colors.dark.error} />
+                        </Pressable>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })
+            )
+          ) : null}
         </View>
 
         <View style={styles.section}>
@@ -1286,6 +1472,52 @@ export default function SettingsScreen() {
                   style={styles.modalSaveButton}
                 >
                   <Text style={styles.modalSaveText}>{editingCourt ? "Save" : "Add"}</Text>
+                </LinearGradient>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showLocationModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLocationModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <LinearGradient
+              colors={[Colors.dark.gold, Colors.dark.orange]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.modalAccent}
+            />
+            <Text style={styles.modalTitle}>{editingLocation ? "EDIT LOCATION" : "ADD LOCATION"}</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Location name (e.g., Safa Park Tennis)"
+              placeholderTextColor={Colors.dark.textMuted}
+              value={newLocationName}
+              onChangeText={setNewLocationName}
+              autoFocus
+            />
+            <View style={styles.modalButtons}>
+              <Pressable style={styles.modalCancelButton} onPress={() => setShowLocationModal(false)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.modalSaveButtonWrapper, !newLocationName.trim() && { opacity: 0.5 }]} 
+                onPress={handleSaveLocation}
+                disabled={!newLocationName.trim()}
+              >
+                <LinearGradient
+                  colors={[Colors.dark.gold, Colors.dark.orange]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.modalSaveButton}
+                >
+                  <Text style={styles.modalSaveText}>{editingLocation ? "Save" : "Add"}</Text>
                 </LinearGradient>
               </Pressable>
             </View>
@@ -2128,10 +2360,17 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
   },
-  courtColorDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: Spacing.xs,
+  locationCourtBadge: {
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: "rgba(255, 215, 0, 0.3)",
+  },
+  locationCourtBadgeText: {
+    fontSize: 11,
+    color: Colors.dark.gold,
+    fontWeight: "600",
   },
 });
