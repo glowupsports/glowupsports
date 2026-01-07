@@ -1467,11 +1467,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== FREELANCE LICENSE ====================
 
   // Get coach freelance profile
-  app.get("/api/coach/freelance-profile", authMiddleware, requireRole("coach", "academy_owner", "admin"), async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/coach/freelance-profile", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
       if (!coachId) {
-        return res.status(400).json({ error: "Coach profile not found" });
+        return res.status(200).json({ profile: null });
       }
 
       const profile = await storage.getCoachFreelanceProfile(coachId);
