@@ -4306,13 +4306,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===================== PACKAGES / CREDITS =====================
-  app.get("/api/players/:playerId/packages", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/players/:playerId/packages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { playerId } = req.params;
-      const academyId = req.user!.academyId;
+      const coachId = req.user!.coachId;
+      let academyId = req.user!.academyId;
       
-      const { valid } = await validatePlayerOwnership(playerId, academyId, storage);
-      if (!valid) {
+      // For coaches without direct academyId, get their primary academy from memberships
+      if (!academyId && coachId) {
+        const memberships = await storage.getCoachAcademyMemberships(coachId);
+        if (memberships.length > 0) {
+          academyId = memberships[0].academyId;
+        }
+      }
+      
+      // Verify player exists and coach has access (either direct academyId or through player visibility)
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
         return res.status(404).json({ error: "Player not found" });
       }
       
@@ -4324,13 +4334,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/players/:playerId/packages/active", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/players/:playerId/packages/active", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { playerId } = req.params;
-      const academyId = req.user!.academyId;
+      const coachId = req.user!.coachId;
+      let academyId = req.user!.academyId;
       
-      const { valid } = await validatePlayerOwnership(playerId, academyId, storage);
-      if (!valid) {
+      // For coaches without direct academyId, get their primary academy from memberships
+      if (!academyId && coachId) {
+        const memberships = await storage.getCoachAcademyMemberships(coachId);
+        if (memberships.length > 0) {
+          academyId = memberships[0].academyId;
+        }
+      }
+      
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
         return res.status(404).json({ error: "Player not found" });
       }
       
@@ -5854,12 +5873,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Add a player to a class (with optional joinedAt date for backdating and package linking)
+  // Add a player to a class (with optional joinedAt date for backdating, package linking, and attendance backfill)
   app.post("/api/coach/series/:id/players", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const { playerId, joinedAt, packageId } = req.body;
+      const { playerId, joinDate, joinedAt, packageId, attendedSessionIds = [] } = req.body;
       const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      
+      // Support both joinDate (new) and joinedAt (legacy) parameter names
+      const effectiveJoinDate = joinDate || joinedAt;
       
       if (!playerId) {
         return res.status(400).json({ error: "playerId is required" });
@@ -5883,10 +5906,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (existingMembership.status === "left") {
           const reactivated = await storage.updateSeriesPlayer(id, playerId, {
             status: "active",
-            joinedAt: joinedAt ? new Date(joinedAt) : new Date(),
+            joinedAt: effectiveJoinDate ? new Date(effectiveJoinDate) : new Date(),
             leftAt: null,
             linkedPackageId: packageId || null,
           });
+          
+          // Backfill attendance for specified sessions
+          if (attendedSessionIds && attendedSessionIds.length > 0) {
+            for (const sessionId of attendedSessionIds) {
+              try {
+                await storage.markAttendance(sessionId, playerId, true, academyId ?? undefined);
+                // Award XP for attended session
+                const session = await storage.getSession(sessionId);
+                if (session) {
+                  const xpAmount = session.xpValue || 20;
+                  await storage.addPlayerXP(playerId, xpAmount, sessionId, "session_attendance");
+                }
+              } catch (e) {
+                console.error(`Failed to backfill attendance for session ${sessionId}:`, e);
+              }
+            }
+          }
+          
           return res.status(200).json(reactivated);
         }
         return res.status(400).json({ error: "Player already in this class" });
@@ -5901,9 +5942,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         seriesId: id,
         playerId,
         status: "active",
-        joinedAt: joinedAt ? new Date(joinedAt) : new Date(),
+        joinedAt: effectiveJoinDate ? new Date(effectiveJoinDate) : new Date(),
         linkedPackageId: packageId || null,
       });
+      
+      // Backfill attendance for specified sessions (for new players)
+      if (attendedSessionIds && attendedSessionIds.length > 0) {
+        for (const sessionId of attendedSessionIds) {
+          try {
+            // First add player to session if not already
+            const sessionPlayers = await storage.getSessionPlayers(sessionId);
+            if (!sessionPlayers.some(p => p.id === playerId)) {
+              await storage.addPlayerToSession(sessionId, playerId);
+            }
+            // Mark as attended
+            await storage.markAttendance(sessionId, playerId, true, academyId ?? undefined);
+            // Award XP for attended session
+            const session = await storage.getSession(sessionId);
+            if (session) {
+              const xpAmount = session.xpValue || 20;
+              await storage.addPlayerXP(playerId, xpAmount, sessionId, "session_attendance");
+            }
+          } catch (e) {
+            console.error(`Failed to backfill attendance for session ${sessionId}:`, e);
+          }
+        }
+      }
       
       res.status(201).json(seriesPlayer);
     } catch (error) {

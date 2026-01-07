@@ -7,13 +7,16 @@ import {
   Modal,
   ScrollView,
   ActivityIndicator,
+  TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { apiRequest } from "@/lib/query-client";
 
 interface Player {
   id: string;
@@ -135,7 +138,15 @@ export default function SeriesDetailDrawer({
   onClose,
 }: SeriesDetailDrawerProps) {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [joinDate, setJoinDate] = useState<Date>(new Date());
+  const [playerSearch, setPlayerSearch] = useState("");
+  const [showAttendanceBackfill, setShowAttendanceBackfill] = useState(false);
+  const [selectedAttendance, setSelectedAttendance] = useState<Record<string, boolean>>({});
 
   const { data: series, isLoading } = useQuery<SeriesDetail>({
     queryKey: [`/api/coach/series/${seriesId}`],
@@ -151,6 +162,86 @@ export default function SeriesDetailDrawer({
     queryKey: [`/api/coach/series/${seriesId}/progress`],
     enabled: !!seriesId && visible && activeTab === "progress",
   });
+
+  // Query all players for the add player modal
+  interface AvailablePlayer {
+    id: string;
+    name: string;
+    ballLevel?: string | null;
+    profilePhotoUrl?: string | null;
+  }
+  const { data: allPlayers = [] } = useQuery<AvailablePlayer[]>({
+    queryKey: ["/api/players"],
+    enabled: showAddPlayerModal,
+  });
+
+  // Filter players not already in the series
+  const existingPlayerIds = new Set(series?.players?.map(p => p.id) || []);
+  const filteredPlayers = allPlayers.filter(p => 
+    !existingPlayerIds.has(p.id) && 
+    p.name.toLowerCase().includes(playerSearch.toLowerCase())
+  );
+
+  // Mutation to add player to series
+  const addPlayerMutation = useMutation({
+    mutationFn: async (data: { playerId: string; joinDate: string; attendedSessionIds: string[] }) => {
+      return apiRequest(`/api/coach/series/${seriesId}/players`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      setShowAddPlayerModal(false);
+      setShowAttendanceBackfill(false);
+      setSelectedPlayerId(null);
+      setJoinDate(new Date());
+      setSelectedAttendance({});
+      setPlayerSearch("");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  // Get past sessions for attendance backfill
+  const getPastSessionsSinceJoinDate = () => {
+    if (!series) return [];
+    return series.sessions.filter(s => {
+      const sessionDate = new Date(s.startTime);
+      return sessionDate >= joinDate && sessionDate < new Date() && s.status === "completed";
+    });
+  };
+
+  const handleAddPlayerPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowAddPlayerModal(true);
+  };
+
+  const handlePlayerSelect = (playerId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedPlayerId(playerId);
+  };
+
+  const handleContinueToBackfill = () => {
+    const pastSessions = getPastSessionsSinceJoinDate();
+    if (pastSessions.length > 0) {
+      setShowAttendanceBackfill(true);
+    } else {
+      handleSavePlayer();
+    }
+  };
+
+  const handleSavePlayer = () => {
+    if (!selectedPlayerId) return;
+    const attendedSessionIds = Object.entries(selectedAttendance)
+      .filter(([_, attended]) => attended)
+      .map(([sessionId]) => sessionId);
+    
+    addPlayerMutation.mutate({
+      playerId: selectedPlayerId,
+      joinDate: joinDate.toISOString().split("T")[0],
+      attendedSessionIds,
+    });
+  };
 
   const handleTabPress = (tabId: TabId) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -239,14 +330,29 @@ export default function SeriesDetailDrawer({
             const activePlayers = series.players.filter(p => p.status === "active");
             const pausedPlayers = series.players.filter(p => p.status === "paused");
             const formerPlayers = series.players.filter(p => p.status === "left");
+            const canAddMore = activePlayers.length < series.maxPlayers;
             
             return (
               <>
-                <Text style={styles.sectionTitle}>
-                  Active Players ({activePlayers.length}/{series.maxPlayers})
-                </Text>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionTitle}>
+                    Active Players ({activePlayers.length}/{series.maxPlayers})
+                  </Text>
+                  {canAddMore ? (
+                    <Pressable 
+                      onPress={handleAddPlayerPress}
+                      style={styles.addPlayerButton}
+                    >
+                      <Ionicons name="add-circle" size={20} color={Colors.dark.successNeon} />
+                      <Text style={styles.addPlayerButtonText}>Add</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
                 {activePlayers.length === 0 ? (
-                  <Text style={styles.emptyText}>No active players</Text>
+                  <Pressable onPress={handleAddPlayerPress} style={styles.emptyAddButton}>
+                    <Ionicons name="person-add-outline" size={24} color={Colors.dark.successNeon} />
+                    <Text style={styles.emptyAddText}>Tap to add a player</Text>
+                  </Pressable>
                 ) : (
                   activePlayers.map((player) => (
                     <View key={player.id} style={styles.playerRow}>
@@ -637,6 +743,167 @@ export default function SeriesDetailDrawer({
           )}
         </View>
       </View>
+
+      {/* Add Player Modal */}
+      <Modal
+        visible={showAddPlayerModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowAddPlayerModal(false)}
+      >
+        <View style={styles.overlay}>
+          <Pressable style={styles.backdrop} onPress={() => setShowAddPlayerModal(false)} />
+          <View style={[styles.drawer, { paddingBottom: insets.bottom + Spacing.md }]}>
+            <View style={styles.handleContainer}>
+              <View style={styles.handle} />
+            </View>
+            
+            <View style={styles.addPlayerHeader}>
+              <Text style={styles.addPlayerTitle}>
+                {showAttendanceBackfill ? "Mark Attendance" : selectedPlayerId ? "Set Join Date" : "Add Player"}
+              </Text>
+              <Pressable onPress={() => {
+                setShowAddPlayerModal(false);
+                setShowAttendanceBackfill(false);
+                setSelectedPlayerId(null);
+                setPlayerSearch("");
+              }}>
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+
+            {showAttendanceBackfill ? (
+              // Attendance backfill screen
+              <ScrollView style={styles.addPlayerContent} contentContainerStyle={{ paddingBottom: 100 }}>
+                <Text style={styles.backfillSubtitle}>
+                  Mark which past sessions this player attended since {joinDate.toLocaleDateString()}
+                </Text>
+                {getPastSessionsSinceJoinDate().map((session) => (
+                  <Pressable
+                    key={session.id}
+                    style={[
+                      styles.attendanceRow,
+                      selectedAttendance[session.id] && styles.attendanceRowSelected,
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSelectedAttendance(prev => ({
+                        ...prev,
+                        [session.id]: !prev[session.id],
+                      }));
+                    }}
+                  >
+                    <View style={styles.attendanceCheck}>
+                      {selectedAttendance[session.id] ? (
+                        <Ionicons name="checkmark-circle" size={24} color={Colors.dark.successNeon} />
+                      ) : (
+                        <Ionicons name="ellipse-outline" size={24} color={Colors.dark.textMuted} />
+                      )}
+                    </View>
+                    <View style={styles.attendanceInfo}>
+                      <Text style={styles.attendanceDate}>{formatDate(session.startTime)}</Text>
+                      <Text style={styles.attendanceWeek}>Week {session.weekNumber || "?"}</Text>
+                    </View>
+                  </Pressable>
+                ))}
+                
+                <Pressable
+                  style={[styles.saveButton, addPlayerMutation.isPending && styles.saveButtonDisabled]}
+                  onPress={handleSavePlayer}
+                  disabled={addPlayerMutation.isPending}
+                >
+                  {addPlayerMutation.isPending ? (
+                    <ActivityIndicator size="small" color={Colors.dark.background} />
+                  ) : (
+                    <Text style={styles.saveButtonText}>
+                      Save ({Object.values(selectedAttendance).filter(Boolean).length} sessions attended)
+                    </Text>
+                  )}
+                </Pressable>
+              </ScrollView>
+            ) : selectedPlayerId ? (
+              // Join date picker screen
+              <View style={styles.addPlayerContent}>
+                <Text style={styles.selectedPlayerName}>
+                  {allPlayers.find(p => p.id === selectedPlayerId)?.name}
+                </Text>
+                
+                <Text style={styles.dateLabel}>When did they join this class?</Text>
+                <Pressable 
+                  style={styles.datePickerButton}
+                  onPress={() => setShowDatePicker(true)}
+                >
+                  <Ionicons name="calendar-outline" size={20} color={Colors.dark.successNeon} />
+                  <Text style={styles.datePickerText}>{joinDate.toLocaleDateString()}</Text>
+                </Pressable>
+                
+                {showDatePicker ? (
+                  <DateTimePicker
+                    value={joinDate}
+                    mode="date"
+                    display="spinner"
+                    onChange={(_, date) => {
+                      setShowDatePicker(false);
+                      if (date) setJoinDate(date);
+                    }}
+                    maximumDate={new Date()}
+                  />
+                ) : null}
+                
+                <Pressable
+                  style={[styles.saveButton, { marginTop: Spacing.xl }]}
+                  onPress={handleContinueToBackfill}
+                >
+                  <Text style={styles.saveButtonText}>Continue</Text>
+                </Pressable>
+              </View>
+            ) : (
+              // Player selection screen
+              <View style={styles.addPlayerContent}>
+                <View style={styles.searchContainer}>
+                  <Ionicons name="search" size={18} color={Colors.dark.textMuted} />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search players..."
+                    placeholderTextColor={Colors.dark.textMuted}
+                    value={playerSearch}
+                    onChangeText={setPlayerSearch}
+                  />
+                </View>
+                
+                <ScrollView style={styles.playerList}>
+                  {filteredPlayers.length === 0 ? (
+                    <Text style={styles.noPlayersText}>
+                      {playerSearch ? "No matching players" : "No available players"}
+                    </Text>
+                  ) : (
+                    filteredPlayers.map((player) => (
+                      <Pressable
+                        key={player.id}
+                        style={styles.selectablePlayerRow}
+                        onPress={() => handlePlayerSelect(player.id)}
+                      >
+                        <View style={[styles.playerAvatar, { backgroundColor: Colors.dark.successNeon + "30" }]}>
+                          <Text style={[styles.playerInitial, { color: Colors.dark.successNeon }]}>
+                            {player.name.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={styles.playerInfo}>
+                          <Text style={styles.playerName}>{player.name}</Text>
+                          {player.ballLevel ? (
+                            <Text style={styles.playerStats}>{player.ballLevel}</Text>
+                          ) : null}
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+                      </Pressable>
+                    ))
+                  )}
+                </ScrollView>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 }
@@ -1033,5 +1300,166 @@ const styles = StyleSheet.create({
     fontSize: Typography.small.fontSize,
     fontWeight: "600",
     color: Colors.dark.gold,
+  },
+  // Add Player Modal styles
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  addPlayerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    backgroundColor: Colors.dark.successNeon + "20",
+    borderRadius: BorderRadius.md,
+  },
+  addPlayerButtonText: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.successNeon,
+  },
+  emptyAddButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: Colors.dark.successNeon + "50",
+  },
+  emptyAddText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.successNeon,
+  },
+  addPlayerHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundRoot,
+  },
+  addPlayerTitle: {
+    fontSize: Typography.h4.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  addPlayerContent: {
+    flex: 1,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    paddingLeft: Spacing.sm,
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+  },
+  playerList: {
+    flex: 1,
+  },
+  noPlayersText: {
+    textAlign: "center",
+    color: Colors.dark.textMuted,
+    paddingVertical: Spacing.xl,
+  },
+  selectablePlayerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  selectedPlayerName: {
+    fontSize: Typography.h3.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textAlign: "center",
+    marginBottom: Spacing.xl,
+  },
+  dateLabel: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+  },
+  datePickerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.successNeon + "30",
+  },
+  datePickerText: {
+    fontSize: Typography.h4.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  saveButton: {
+    backgroundColor: Colors.dark.successNeon,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    alignItems: "center",
+    marginTop: Spacing.md,
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
+  },
+  saveButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.background,
+  },
+  backfillSubtitle: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.lg,
+  },
+  attendanceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  attendanceRowSelected: {
+    borderWidth: 1,
+    borderColor: Colors.dark.successNeon,
+  },
+  attendanceCheck: {
+    marginRight: Spacing.md,
+  },
+  attendanceInfo: {
+    flex: 1,
+  },
+  attendanceDate: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "500",
+    color: Colors.dark.text,
+  },
+  attendanceWeek: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
   },
 });
