@@ -18121,6 +18121,261 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== 3-LAYER PRICING SYSTEM ====================
+
+  // Academy Pricing (Layer 1) - What players pay
+  app.get("/api/admin/pricing", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+      
+      const pricing = await storage.getAcademyPricing(academyId);
+      res.json(pricing);
+    } catch (error) {
+      console.error("Get academy pricing error:", error);
+      res.status(500).json({ error: "Failed to fetch pricing" });
+    }
+  });
+
+  app.post("/api/admin/pricing", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+      
+      const { sessionType, pricePerSession, currency, duration, pricePerHour, effectiveFrom, notes } = req.body;
+      
+      if (!sessionType || !pricePerSession) {
+        return res.status(400).json({ error: "Session type and price per session are required" });
+      }
+      
+      const pricing = await storage.createAcademyPricing({
+        academyId,
+        sessionType,
+        pricePerSession,
+        currency: currency || "AED",
+        duration,
+        pricePerHour,
+        effectiveFrom: effectiveFrom || new Date().toISOString().split('T')[0],
+        notes,
+      });
+      
+      res.json(pricing);
+    } catch (error) {
+      console.error("Create academy pricing error:", error);
+      res.status(500).json({ error: "Failed to create pricing" });
+    }
+  });
+
+  // PATCH creates a new version starting tomorrow - old version automatically closed by createAcademyPricing
+  app.patch("/api/admin/pricing/:id", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+      
+      const { id } = req.params;
+      const { pricePerSession, currency, duration, pricePerHour, notes, sessionType } = req.body;
+      
+      // Get old pricing to copy values from
+      const existingPricing = await storage.getAcademyPricing(academyId);
+      const oldPricing = existingPricing.find(p => p.id === id);
+      
+      if (!oldPricing) {
+        return res.status(404).json({ error: "Pricing not found" });
+      }
+      
+      // Create new pricing record starting tomorrow
+      // createAcademyPricing will automatically close the old version
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      const newPricing = await storage.createAcademyPricing({
+        academyId,
+        sessionType: sessionType || oldPricing.sessionType,
+        pricePerSession: pricePerSession || oldPricing.pricePerSession,
+        currency: currency || oldPricing.currency || "AED",
+        duration: duration !== undefined ? duration : oldPricing.duration,
+        pricePerHour: pricePerHour !== undefined ? pricePerHour : oldPricing.pricePerHour,
+        effectiveFrom: tomorrow.toISOString().split('T')[0],
+        notes,
+      });
+      
+      res.json(newPricing);
+    } catch (error) {
+      console.error("Update academy pricing error:", error);
+      res.status(500).json({ error: "Failed to update pricing" });
+    }
+  });
+
+  // DELETE soft-deletes by setting isActive = false (preserves history)
+  app.delete("/api/admin/pricing/:id", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Soft delete: close the record
+      await storage.updateAcademyPricing(id, {
+        effectiveUntil: today,
+        isActive: false,
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete academy pricing error:", error);
+      res.status(500).json({ error: "Failed to delete pricing" });
+    }
+  });
+
+  // Coach Contracts (Layer 2) - What coaches earn
+  app.get("/api/admin/coach-contracts", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+      
+      const contracts = await storage.getCoachContracts(academyId);
+      res.json(contracts);
+    } catch (error) {
+      console.error("Get coach contracts error:", error);
+      res.status(500).json({ error: "Failed to fetch contracts" });
+    }
+  });
+
+  app.post("/api/admin/coach-contracts", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+      
+      const { 
+        coachId, payType, hourlyRate, sessionRate, percentageRate, 
+        currency, privateRate, semiPrivateRate, groupRate, 
+        effectiveFrom, notes 
+      } = req.body;
+      
+      if (!coachId) {
+        return res.status(400).json({ error: "Coach ID is required" });
+      }
+      
+      const contract = await storage.createCoachContract({
+        coachId,
+        academyId,
+        payType: payType || "hourly",
+        hourlyRate,
+        sessionRate,
+        percentageRate,
+        currency: currency || "AED",
+        privateRate,
+        semiPrivateRate,
+        groupRate,
+        effectiveFrom: effectiveFrom || new Date().toISOString().split('T')[0],
+        notes,
+      });
+      
+      res.json(contract);
+    } catch (error) {
+      console.error("Create coach contract error:", error);
+      res.status(500).json({ error: "Failed to create contract" });
+    }
+  });
+
+  // PATCH creates a new version starting tomorrow - old version automatically closed by createCoachContract
+  app.patch("/api/admin/coach-contracts/:id", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+      
+      const { id } = req.params;
+      const { 
+        payType, hourlyRate, sessionRate, percentageRate, 
+        currency, privateRate, semiPrivateRate, groupRate, notes 
+      } = req.body;
+      
+      // Get old contract to copy values from
+      const existingContracts = await storage.getCoachContracts(academyId);
+      const oldContract = existingContracts.find(c => c.id === id);
+      
+      if (!oldContract) {
+        return res.status(404).json({ error: "Contract not found" });
+      }
+      
+      // Create new contract starting tomorrow
+      // createCoachContract will automatically close the old version
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      const newContract = await storage.createCoachContract({
+        coachId: oldContract.coachId,
+        academyId,
+        payType: payType || oldContract.payType,
+        hourlyRate: hourlyRate !== undefined ? hourlyRate : oldContract.hourlyRate,
+        sessionRate: sessionRate !== undefined ? sessionRate : oldContract.sessionRate,
+        percentageRate: percentageRate !== undefined ? percentageRate : oldContract.percentageRate,
+        currency: currency || oldContract.currency || "AED",
+        privateRate: privateRate !== undefined ? privateRate : oldContract.privateRate,
+        semiPrivateRate: semiPrivateRate !== undefined ? semiPrivateRate : oldContract.semiPrivateRate,
+        groupRate: groupRate !== undefined ? groupRate : oldContract.groupRate,
+        effectiveFrom: tomorrow.toISOString().split('T')[0],
+        notes,
+      });
+      
+      res.json(newContract);
+    } catch (error) {
+      console.error("Update coach contract error:", error);
+      res.status(500).json({ error: "Failed to update contract" });
+    }
+  });
+
+  // DELETE soft-deletes by terminating the contract (preserves history)
+  app.delete("/api/admin/coach-contracts/:id", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Soft delete: terminate the contract
+      await storage.updateCoachContract(id, {
+        effectiveUntil: today,
+        status: "terminated",
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete coach contract error:", error);
+      res.status(500).json({ error: "Failed to delete contract" });
+    }
+  });
+
+  // Calculate session pricing - preview before creating session
+  app.post("/api/admin/calculate-pricing", authMiddleware, requireRole("admin", "academy_owner", "platform_owner", "coach"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+      
+      const { coachId, sessionType, durationMinutes } = req.body;
+      
+      if (!coachId || !sessionType || !durationMinutes) {
+        return res.status(400).json({ error: "Coach ID, session type, and duration are required" });
+      }
+      
+      const pricing = await storage.calculateSessionPricing(academyId, coachId, sessionType, durationMinutes);
+      res.json(pricing);
+    } catch (error) {
+      console.error("Calculate pricing error:", error);
+      res.status(500).json({ error: "Failed to calculate pricing" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat

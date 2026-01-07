@@ -925,6 +925,12 @@ export const sessions = pgTable("sessions", {
   paymentStatus: text("payment_status").default("unpaid"), // paid/unpaid/partial/package
   price: numeric("price"),
   
+  // Layer 3: Price Snapshots - frozen at booking time
+  academyPrice: numeric("academy_price"), // What player pays (snapshot from academyPricing)
+  coachPayout: numeric("coach_payout"), // What coach earns (snapshot from coachContracts)
+  academyMargin: numeric("academy_margin"), // academyPrice - coachPayout (calculated)
+  pricingCurrency: text("pricing_currency").default("AED"),
+  
   status: text("status").default("scheduled"), // scheduled/cancelled/completed
   
   // Cancellation tracking
@@ -2716,3 +2722,89 @@ export const coachReviewStats = pgTable("coach_review_stats", {
 export const insertCoachReviewStatsSchema = createInsertSchema(coachReviewStats).omit({ id: true, lastUpdated: true });
 export type InsertCoachReviewStats = z.infer<typeof insertCoachReviewStatsSchema>;
 export type CoachReviewStats = typeof coachReviewStats.$inferSelect;
+
+// ==================== 3-LAYER PRICING SYSTEM ====================
+// Layer 1: Academy Pricing - What players/parents pay per session type
+// Layer 2: Coach Compensation - What coaches earn (per academy contract)
+// Layer 3: Session Snapshots - Frozen prices at booking time
+
+// Layer 1: Academy Pricing - Set by academy admin, visible to players
+export const academyPricing = pgTable("academy_pricing", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  
+  sessionType: text("session_type").notNull(), // private | semi_private | group | physical | activity
+  
+  pricePerSession: numeric("price_per_session").notNull(),
+  currency: text("currency").default("AED"),
+  
+  // Duration-based pricing (optional - for hourly rates)
+  duration: integer("duration"), // minutes - if null, flat rate per session
+  pricePerHour: numeric("price_per_hour"), // Alternative: hourly rate
+  
+  // For versioning - when prices change, old sessions keep old prices
+  effectiveFrom: date("effective_from").notNull(),
+  effectiveUntil: date("effective_until"), // null = currently active
+  
+  isActive: boolean("is_active").default(true),
+  
+  notes: text("notes"), // Internal notes (e.g., "Summer discount rate")
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("academy_pricing_academy_idx").on(table.academyId),
+  index("academy_pricing_type_idx").on(table.sessionType),
+  index("academy_pricing_active_idx").on(table.isActive),
+]);
+
+export const insertAcademyPricingSchema = createInsertSchema(academyPricing).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertAcademyPricing = z.infer<typeof insertAcademyPricingSchema>;
+export type AcademyPricing = typeof academyPricing.$inferSelect;
+
+// Layer 2: Coach Compensation - What coaches earn per academy (contract)
+// One coach can work for multiple academies with different rates
+export const coachContracts = pgTable("coach_contracts", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  
+  // Payment type
+  payType: text("pay_type").notNull().default("hourly"), // hourly | per_session | percentage
+  
+  // Rate based on pay type
+  hourlyRate: numeric("hourly_rate"), // If payType = hourly
+  sessionRate: numeric("session_rate"), // If payType = per_session
+  percentageRate: numeric("percentage_rate"), // If payType = percentage (e.g., 60 = 60% of session price)
+  
+  currency: text("currency").default("AED"),
+  
+  // Session type specific rates (optional - overrides default)
+  privateRate: numeric("private_rate"),
+  semiPrivateRate: numeric("semi_private_rate"),
+  groupRate: numeric("group_rate"),
+  
+  // Contract period
+  effectiveFrom: date("effective_from").notNull(),
+  effectiveUntil: date("effective_until"), // null = ongoing
+  
+  // Status
+  status: text("status").default("active"), // active | paused | terminated
+  
+  notes: text("notes"), // Internal notes about the contract
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("coach_contracts_coach_idx").on(table.coachId),
+  index("coach_contracts_academy_idx").on(table.academyId),
+  index("coach_contracts_status_idx").on(table.status),
+]);
+
+export const insertCoachContractSchema = createInsertSchema(coachContracts).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCoachContract = z.infer<typeof insertCoachContractSchema>;
+export type CoachContract = typeof coachContracts.$inferSelect;

@@ -124,6 +124,13 @@ import {
   type ReviewPrompt,
   type InsertReviewPrompt,
   type CoachReviewStats,
+  // 3-Layer Pricing System
+  academyPricing,
+  coachContracts,
+  type AcademyPricing,
+  type InsertAcademyPricing,
+  type CoachContract,
+  type InsertCoachContract,
   type InsertCoachReviewStats,
   // Court Booking Marketplace
   courtAvailability,
@@ -7421,5 +7428,737 @@ export const storage = {
       ORDER BY date, start_time::time
     `);
     return result.rows;
+  },
+
+  // ==================== 3-LAYER PRICING SYSTEM ====================
+
+  // Academy Pricing (Layer 1) - What players pay
+  // Enforces single active version per (academyId, sessionType)
+  // Future-dated versions are created as scheduled (isActive=false) and activated lazily
+  async createAcademyPricing(data: InsertAcademyPricing): Promise<AcademyPricing> {
+    const today = new Date().toISOString().split('T')[0];
+    const effectiveFrom = data.effectiveFrom || today;
+    const startsToday = effectiveFrom <= today;
+    
+    // Calculate the day before the new pricing starts
+    const dayBefore = new Date(effectiveFrom);
+    dayBefore.setDate(dayBefore.getDate() - 1);
+    const dayBeforeStr = dayBefore.toISOString().split('T')[0];
+    
+    // Insert new pricing FIRST to get its ID
+    // - If starts today: isActive=true
+    // - If starts in future: isActive=false (scheduled, will be activated lazily)
+    const result = await db.insert(academyPricing).values({
+      ...data,
+      effectiveFrom,
+      isActive: startsToday,
+    }).returning();
+    const newRecord = result[0];
+    
+    if (startsToday) {
+      // New version starts today: fully deactivate all existing active versions (except new one)
+      await db.update(academyPricing)
+        .set({ effectiveUntil: dayBeforeStr, isActive: false, updatedAt: new Date() })
+        .where(and(
+          eq(academyPricing.academyId, data.academyId),
+          eq(academyPricing.sessionType, data.sessionType),
+          ne(academyPricing.id, newRecord.id),
+          eq(academyPricing.isActive, true)
+        ));
+      
+      // Terminate scheduled versions that would start BEFORE this one (superseded)
+      // Same-day and future scheduled versions are left intact for later activation
+      await db.update(academyPricing)
+        .set({ isActive: false, effectiveUntil: dayBeforeStr, updatedAt: new Date() })
+        .where(and(
+          eq(academyPricing.academyId, data.academyId),
+          eq(academyPricing.sessionType, data.sessionType),
+          ne(academyPricing.id, newRecord.id),
+          eq(academyPricing.isActive, false),
+          lt(academyPricing.effectiveFrom, effectiveFrom),
+          isNull(academyPricing.effectiveUntil)
+        ));
+    } else {
+      // New version starts in FUTURE
+      // 1. Set effectiveUntil on active version (keep active until end date)
+      await db.update(academyPricing)
+        .set({ effectiveUntil: dayBeforeStr, updatedAt: new Date() })
+        .where(and(
+          eq(academyPricing.academyId, data.academyId),
+          eq(academyPricing.sessionType, data.sessionType),
+          ne(academyPricing.id, newRecord.id),
+          eq(academyPricing.isActive, true),
+          or(
+            isNull(academyPricing.effectiveUntil),
+            gte(academyPricing.effectiveUntil, effectiveFrom)
+          )
+        ));
+      
+      // 2. Close any existing scheduled versions with earlier/same effectiveFrom (except new one)
+      await db.update(academyPricing)
+        .set({ effectiveUntil: dayBeforeStr, updatedAt: new Date() })
+        .where(and(
+          eq(academyPricing.academyId, data.academyId),
+          eq(academyPricing.sessionType, data.sessionType),
+          ne(academyPricing.id, newRecord.id),
+          eq(academyPricing.isActive, false),
+          lte(academyPricing.effectiveFrom, effectiveFrom),
+          isNull(academyPricing.effectiveUntil)
+        ));
+    }
+    
+    return newRecord;
+  },
+  
+  // Lazy activation: Activate scheduled pricing that should now be active
+  // Also deactivates any old versions that have expired
+  // Ensures exactly one active row per scope
+  async activateScheduledPricing(academyId: string, sessionType: string): Promise<void> {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // First: Deactivate any expired active pricing (effectiveUntil < today)
+    await db.update(academyPricing)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(and(
+        eq(academyPricing.academyId, academyId),
+        eq(academyPricing.sessionType, sessionType),
+        eq(academyPricing.isActive, true),
+        lt(academyPricing.effectiveUntil, today)
+      ));
+    
+    // Check if there's already an active version
+    const currentActive = await db.select().from(academyPricing)
+      .where(and(
+        eq(academyPricing.academyId, academyId),
+        eq(academyPricing.sessionType, sessionType),
+        eq(academyPricing.isActive, true)
+      ))
+      .limit(1);
+    
+    // Find scheduled pricing that should activate today (or was overdue)
+    // "Scheduled" means: isActive=false AND effectiveUntil IS NULL
+    // Order by effectiveFrom DESC, then createdAt DESC for deterministic tie-breaking
+    const toActivate = await db.select().from(academyPricing)
+      .where(and(
+        eq(academyPricing.academyId, academyId),
+        eq(academyPricing.sessionType, sessionType),
+        eq(academyPricing.isActive, false),
+        lte(academyPricing.effectiveFrom, today),
+        isNull(academyPricing.effectiveUntil)  // Only truly scheduled, not terminated
+      ))
+      .orderBy(desc(academyPricing.effectiveFrom), desc(academyPricing.createdAt))
+      .limit(1);
+    
+    if (toActivate.length > 0) {
+      const candidate = toActivate[0];
+      
+      // Skip if current active has same or later effectiveFrom (already newest)
+      if (currentActive.length > 0 && currentActive[0].effectiveFrom >= candidate.effectiveFrom) {
+        // Just stamp the candidate as closed since it's superseded
+        const dayBefore = new Date(currentActive[0].effectiveFrom);
+        dayBefore.setDate(dayBefore.getDate() - 1);
+        const dayBeforeStr = dayBefore.toISOString().split('T')[0];
+        await db.update(academyPricing)
+          .set({ effectiveUntil: dayBeforeStr, updatedAt: new Date() })
+          .where(eq(academyPricing.id, candidate.id));
+        return;
+      }
+      
+      // Calculate day before new version starts for predecessors
+      const dayBefore = new Date(candidate.effectiveFrom);
+      dayBefore.setDate(dayBefore.getDate() - 1);
+      const dayBeforeStr = dayBefore.toISOString().split('T')[0];
+      
+      // Stamp effectiveUntil on ALL predecessors (active or inactive with null/overlapping effectiveUntil)
+      await db.update(academyPricing)
+        .set({ isActive: false, effectiveUntil: dayBeforeStr, updatedAt: new Date() })
+        .where(and(
+          eq(academyPricing.academyId, academyId),
+          eq(academyPricing.sessionType, sessionType),
+          ne(academyPricing.id, candidate.id),
+          lt(academyPricing.effectiveFrom, candidate.effectiveFrom),
+          or(
+            isNull(academyPricing.effectiveUntil),
+            gte(academyPricing.effectiveUntil, candidate.effectiveFrom)
+          )
+        ));
+      
+      // Stamp any other scheduled rows with same or earlier effectiveFrom (except candidate)
+      await db.update(academyPricing)
+        .set({ effectiveUntil: dayBeforeStr, updatedAt: new Date() })
+        .where(and(
+          eq(academyPricing.academyId, academyId),
+          eq(academyPricing.sessionType, sessionType),
+          ne(academyPricing.id, candidate.id),
+          eq(academyPricing.isActive, false),
+          lte(academyPricing.effectiveFrom, candidate.effectiveFrom),
+          isNull(academyPricing.effectiveUntil)
+        ));
+      
+      // Activate the newest scheduled version
+      await db.update(academyPricing)
+        .set({ isActive: true, updatedAt: new Date() })
+        .where(eq(academyPricing.id, candidate.id));
+    }
+  },
+
+  // Bulk lazy activation for all pricing in an academy
+  // Processes each session type individually to ensure single-active-row per scope
+  async activateAllScheduledPricing(academyId: string): Promise<void> {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // First: Deactivate all expired pricing
+    await db.update(academyPricing)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(and(
+        eq(academyPricing.academyId, academyId),
+        eq(academyPricing.isActive, true),
+        lt(academyPricing.effectiveUntil, today)
+      ));
+    
+    // Get all current active pricing by session type
+    const currentActives = await db.select().from(academyPricing)
+      .where(and(
+        eq(academyPricing.academyId, academyId),
+        eq(academyPricing.isActive, true)
+      ));
+    const activeBySessionType = new Map<string, typeof currentActives[0]>();
+    for (const active of currentActives) {
+      activeBySessionType.set(active.sessionType, active);
+    }
+    
+    // Find all scheduled pricing that should activate today (or was overdue)
+    // "Scheduled" means: isActive=false AND effectiveUntil IS NULL
+    // Order by effectiveFrom DESC, then createdAt DESC for deterministic tie-breaking
+    const toActivate = await db.select().from(academyPricing)
+      .where(and(
+        eq(academyPricing.academyId, academyId),
+        eq(academyPricing.isActive, false),
+        lte(academyPricing.effectiveFrom, today),
+        isNull(academyPricing.effectiveUntil)  // Only truly scheduled, not terminated
+      ))
+      .orderBy(desc(academyPricing.effectiveFrom), desc(academyPricing.createdAt));
+    
+    // Group by sessionType and take the newest for each
+    const candidatesBySessionType = new Map<string, typeof toActivate[0]>();
+    for (const pricing of toActivate) {
+      if (!candidatesBySessionType.has(pricing.sessionType)) {
+        candidatesBySessionType.set(pricing.sessionType, pricing);
+      }
+    }
+    
+    // Process each candidate
+    for (const [sessionType, candidate] of candidatesBySessionType) {
+      const currentActive = activeBySessionType.get(sessionType);
+      
+      // Skip if current active has same or later effectiveFrom (already newest)
+      if (currentActive && currentActive.effectiveFrom >= candidate.effectiveFrom) {
+        // Just stamp the candidate as closed since it's superseded
+        const dayBefore = new Date(currentActive.effectiveFrom);
+        dayBefore.setDate(dayBefore.getDate() - 1);
+        const dayBeforeStr = dayBefore.toISOString().split('T')[0];
+        await db.update(academyPricing)
+          .set({ effectiveUntil: dayBeforeStr, updatedAt: new Date() })
+          .where(eq(academyPricing.id, candidate.id));
+        continue;
+      }
+      
+      // Calculate day before new version starts
+      const dayBefore = new Date(candidate.effectiveFrom);
+      dayBefore.setDate(dayBefore.getDate() - 1);
+      const dayBeforeStr = dayBefore.toISOString().split('T')[0];
+      
+      // Stamp effectiveUntil on ALL predecessors (active or inactive with null effectiveUntil)
+      await db.update(academyPricing)
+        .set({ isActive: false, effectiveUntil: dayBeforeStr, updatedAt: new Date() })
+        .where(and(
+          eq(academyPricing.academyId, academyId),
+          eq(academyPricing.sessionType, sessionType),
+          ne(academyPricing.id, candidate.id),
+          lt(academyPricing.effectiveFrom, candidate.effectiveFrom),
+          or(
+            isNull(academyPricing.effectiveUntil),
+            gte(academyPricing.effectiveUntil, candidate.effectiveFrom)
+          )
+        ));
+      
+      // Stamp any other scheduled rows with same or earlier effectiveFrom (except candidate)
+      await db.update(academyPricing)
+        .set({ effectiveUntil: dayBeforeStr, updatedAt: new Date() })
+        .where(and(
+          eq(academyPricing.academyId, academyId),
+          eq(academyPricing.sessionType, sessionType),
+          ne(academyPricing.id, candidate.id),
+          eq(academyPricing.isActive, false),
+          lte(academyPricing.effectiveFrom, candidate.effectiveFrom),
+          isNull(academyPricing.effectiveUntil)
+        ));
+      
+      // Activate the newest
+      await db.update(academyPricing)
+        .set({ isActive: true, updatedAt: new Date() })
+        .where(eq(academyPricing.id, candidate.id));
+    }
+  },
+
+  // Get current active pricing for an academy (with lazy activation)
+  async getAcademyPricing(academyId: string): Promise<AcademyPricing[]> {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Lazy activation before listing
+    await this.activateAllScheduledPricing(academyId);
+    
+    return db.select().from(academyPricing)
+      .where(and(
+        eq(academyPricing.academyId, academyId),
+        eq(academyPricing.isActive, true),
+        lte(academyPricing.effectiveFrom, today),
+        or(
+          isNull(academyPricing.effectiveUntil),
+          gte(academyPricing.effectiveUntil, today)
+        )
+      ))
+      .orderBy(academyPricing.sessionType);
+  },
+
+  async getAcademyPricingByType(academyId: string, sessionType: string): Promise<AcademyPricing | null> {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Lazy activation: activate any scheduled pricing that should now be active
+    await this.activateScheduledPricing(academyId, sessionType);
+    
+    const result = await db.select().from(academyPricing)
+      .where(and(
+        eq(academyPricing.academyId, academyId),
+        eq(academyPricing.sessionType, sessionType),
+        eq(academyPricing.isActive, true),
+        lte(academyPricing.effectiveFrom, today),
+        or(
+          isNull(academyPricing.effectiveUntil),
+          gte(academyPricing.effectiveUntil, today)
+        )
+      ))
+      .limit(1);
+    return result[0] || null;
+  },
+
+  async updateAcademyPricing(id: string, data: Partial<InsertAcademyPricing>): Promise<AcademyPricing | null> {
+    const result = await db.update(academyPricing)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(academyPricing.id, id))
+      .returning();
+    return result[0] || null;
+  },
+
+  // Soft-delete: set isActive=false and effectiveUntil=today (preserves history)
+  async deleteAcademyPricing(id: string): Promise<void> {
+    const today = new Date().toISOString().split('T')[0];
+    await db.update(academyPricing)
+      .set({ isActive: false, effectiveUntil: today, updatedAt: new Date() })
+      .where(eq(academyPricing.id, id));
+  },
+
+  // Coach Contracts (Layer 2) - What coaches earn
+  // Enforces single active version per (academyId, coachId)
+  // Future-dated versions are created as scheduled and activated lazily
+  async createCoachContract(data: InsertCoachContract): Promise<CoachContract> {
+    const today = new Date().toISOString().split('T')[0];
+    const effectiveFrom = data.effectiveFrom || today;
+    const startsToday = effectiveFrom <= today;
+    
+    // Calculate the day before the new contract starts
+    const dayBefore = new Date(effectiveFrom);
+    dayBefore.setDate(dayBefore.getDate() - 1);
+    const dayBeforeStr = dayBefore.toISOString().split('T')[0];
+    
+    // Insert new contract FIRST to get its ID
+    // - If starts today: status="active"
+    // - If starts in future: status="scheduled" (will be activated lazily)
+    const result = await db.insert(coachContracts).values({
+      ...data,
+      effectiveFrom,
+      status: startsToday ? "active" : "scheduled",
+    }).returning();
+    const newRecord = result[0];
+    
+    if (startsToday) {
+      // New version starts today: fully terminate all active contracts (except new one)
+      await db.update(coachContracts)
+        .set({ effectiveUntil: dayBeforeStr, status: "terminated", updatedAt: new Date() })
+        .where(and(
+          eq(coachContracts.academyId, data.academyId),
+          eq(coachContracts.coachId, data.coachId),
+          ne(coachContracts.id, newRecord.id),
+          eq(coachContracts.status, "active")
+        ));
+      
+      // Terminate scheduled contracts that would start BEFORE this one (superseded)
+      // Same-day and future scheduled contracts are left intact for later activation
+      await db.update(coachContracts)
+        .set({ status: "terminated", effectiveUntil: dayBeforeStr, updatedAt: new Date() })
+        .where(and(
+          eq(coachContracts.academyId, data.academyId),
+          eq(coachContracts.coachId, data.coachId),
+          ne(coachContracts.id, newRecord.id),
+          eq(coachContracts.status, "scheduled"),
+          lt(coachContracts.effectiveFrom, effectiveFrom),
+          isNull(coachContracts.effectiveUntil)
+        ));
+    } else {
+      // New version starts in FUTURE
+      // 1. Set effectiveUntil on active contract (keep active until end date)
+      await db.update(coachContracts)
+        .set({ effectiveUntil: dayBeforeStr, updatedAt: new Date() })
+        .where(and(
+          eq(coachContracts.academyId, data.academyId),
+          eq(coachContracts.coachId, data.coachId),
+          ne(coachContracts.id, newRecord.id),
+          eq(coachContracts.status, "active"),
+          or(
+            isNull(coachContracts.effectiveUntil),
+            gte(coachContracts.effectiveUntil, effectiveFrom)
+          )
+        ));
+      
+      // 2. Close any existing scheduled contracts with earlier/same effectiveFrom (except new one)
+      await db.update(coachContracts)
+        .set({ effectiveUntil: dayBeforeStr, status: "terminated", updatedAt: new Date() })
+        .where(and(
+          eq(coachContracts.academyId, data.academyId),
+          eq(coachContracts.coachId, data.coachId),
+          ne(coachContracts.id, newRecord.id),
+          eq(coachContracts.status, "scheduled"),
+          lte(coachContracts.effectiveFrom, effectiveFrom),
+          isNull(coachContracts.effectiveUntil)
+        ));
+    }
+    
+    return newRecord;
+  },
+  
+  // Lazy activation: Activate scheduled contracts that should now be active
+  // Also terminates any old contracts that have expired
+  // Ensures exactly one active contract per scope
+  async activateScheduledContract(coachId: string, academyId: string): Promise<void> {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // First: Terminate any expired active contracts (effectiveUntil < today)
+    await db.update(coachContracts)
+      .set({ status: "terminated", updatedAt: new Date() })
+      .where(and(
+        eq(coachContracts.coachId, coachId),
+        eq(coachContracts.academyId, academyId),
+        eq(coachContracts.status, "active"),
+        lt(coachContracts.effectiveUntil, today)
+      ));
+    
+    // Check if there's already an active contract
+    const currentActive = await db.select().from(coachContracts)
+      .where(and(
+        eq(coachContracts.coachId, coachId),
+        eq(coachContracts.academyId, academyId),
+        eq(coachContracts.status, "active")
+      ))
+      .limit(1);
+    
+    // Second: Find scheduled contracts that should activate today
+    // Order by effectiveFrom DESC, then createdAt DESC for deterministic tie-breaking
+    const toActivate = await db.select().from(coachContracts)
+      .where(and(
+        eq(coachContracts.coachId, coachId),
+        eq(coachContracts.academyId, academyId),
+        eq(coachContracts.status, "scheduled"),
+        lte(coachContracts.effectiveFrom, today),
+        or(
+          isNull(coachContracts.effectiveUntil),
+          gte(coachContracts.effectiveUntil, today)
+        )
+      ))
+      .orderBy(desc(coachContracts.effectiveFrom), desc(coachContracts.createdAt))
+      .limit(1);
+    
+    if (toActivate.length > 0) {
+      const candidate = toActivate[0];
+      
+      // Skip if current active has same or later effectiveFrom (already newest)
+      if (currentActive.length > 0 && currentActive[0].effectiveFrom >= candidate.effectiveFrom) {
+        // Just stamp the candidate as closed since it's superseded
+        const dayBefore = new Date(currentActive[0].effectiveFrom);
+        dayBefore.setDate(dayBefore.getDate() - 1);
+        const dayBeforeStr = dayBefore.toISOString().split('T')[0];
+        await db.update(coachContracts)
+          .set({ effectiveUntil: dayBeforeStr, status: "terminated", updatedAt: new Date() })
+          .where(eq(coachContracts.id, candidate.id));
+        return;
+      }
+      
+      // Calculate day before new version starts
+      const dayBefore = new Date(candidate.effectiveFrom);
+      dayBefore.setDate(dayBefore.getDate() - 1);
+      const dayBeforeStr = dayBefore.toISOString().split('T')[0];
+      
+      // Stamp effectiveUntil on ALL predecessors (active, terminated, or scheduled with null effectiveUntil)
+      await db.update(coachContracts)
+        .set({ status: "terminated", effectiveUntil: dayBeforeStr, updatedAt: new Date() })
+        .where(and(
+          eq(coachContracts.coachId, coachId),
+          eq(coachContracts.academyId, academyId),
+          ne(coachContracts.id, candidate.id),
+          lt(coachContracts.effectiveFrom, candidate.effectiveFrom),
+          or(
+            isNull(coachContracts.effectiveUntil),
+            gte(coachContracts.effectiveUntil, candidate.effectiveFrom)
+          )
+        ));
+      
+      // Stamp any other scheduled rows with same or earlier effectiveFrom (except candidate)
+      await db.update(coachContracts)
+        .set({ effectiveUntil: dayBeforeStr, status: "terminated", updatedAt: new Date() })
+        .where(and(
+          eq(coachContracts.coachId, coachId),
+          eq(coachContracts.academyId, academyId),
+          ne(coachContracts.id, candidate.id),
+          eq(coachContracts.status, "scheduled"),
+          lte(coachContracts.effectiveFrom, candidate.effectiveFrom),
+          isNull(coachContracts.effectiveUntil)
+        ));
+      
+      // Activate the newest scheduled contract
+      await db.update(coachContracts)
+        .set({ status: "active", updatedAt: new Date() })
+        .where(eq(coachContracts.id, candidate.id));
+    }
+  },
+
+  // Bulk lazy activation for all contracts in an academy
+  // Processes each coach individually to ensure single-active-row per scope
+  async activateAllScheduledContracts(academyId: string): Promise<void> {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // First: Terminate all expired contracts
+    await db.update(coachContracts)
+      .set({ status: "terminated", updatedAt: new Date() })
+      .where(and(
+        eq(coachContracts.academyId, academyId),
+        eq(coachContracts.status, "active"),
+        lt(coachContracts.effectiveUntil, today)
+      ));
+    
+    // Get all current active contracts by coach
+    const currentActives = await db.select().from(coachContracts)
+      .where(and(
+        eq(coachContracts.academyId, academyId),
+        eq(coachContracts.status, "active")
+      ));
+    const activeByCoachId = new Map<string, typeof currentActives[0]>();
+    for (const active of currentActives) {
+      activeByCoachId.set(active.coachId, active);
+    }
+    
+    // Find all scheduled contracts that should activate today
+    // Order by effectiveFrom DESC, then createdAt DESC for deterministic tie-breaking
+    const toActivate = await db.select().from(coachContracts)
+      .where(and(
+        eq(coachContracts.academyId, academyId),
+        eq(coachContracts.status, "scheduled"),
+        lte(coachContracts.effectiveFrom, today),
+        or(
+          isNull(coachContracts.effectiveUntil),
+          gte(coachContracts.effectiveUntil, today)
+        )
+      ))
+      .orderBy(desc(coachContracts.effectiveFrom), desc(coachContracts.createdAt));
+    
+    // Group by coachId and take the newest for each
+    const candidatesByCoachId = new Map<string, typeof toActivate[0]>();
+    for (const contract of toActivate) {
+      if (!candidatesByCoachId.has(contract.coachId)) {
+        candidatesByCoachId.set(contract.coachId, contract);
+      }
+    }
+    
+    // Process each candidate
+    for (const [coachId, candidate] of candidatesByCoachId) {
+      const currentActive = activeByCoachId.get(coachId);
+      
+      // Skip if current active has same or later effectiveFrom (already newest)
+      if (currentActive && currentActive.effectiveFrom >= candidate.effectiveFrom) {
+        // Just stamp the candidate as closed since it's superseded
+        const dayBefore = new Date(currentActive.effectiveFrom);
+        dayBefore.setDate(dayBefore.getDate() - 1);
+        const dayBeforeStr = dayBefore.toISOString().split('T')[0];
+        await db.update(coachContracts)
+          .set({ effectiveUntil: dayBeforeStr, status: "terminated", updatedAt: new Date() })
+          .where(eq(coachContracts.id, candidate.id));
+        continue;
+      }
+      
+      // Calculate day before new version starts
+      const dayBefore = new Date(candidate.effectiveFrom);
+      dayBefore.setDate(dayBefore.getDate() - 1);
+      const dayBeforeStr = dayBefore.toISOString().split('T')[0];
+      
+      // Stamp effectiveUntil on ALL predecessors (active, terminated, or scheduled with null effectiveUntil)
+      await db.update(coachContracts)
+        .set({ status: "terminated", effectiveUntil: dayBeforeStr, updatedAt: new Date() })
+        .where(and(
+          eq(coachContracts.academyId, academyId),
+          eq(coachContracts.coachId, coachId),
+          ne(coachContracts.id, candidate.id),
+          lt(coachContracts.effectiveFrom, candidate.effectiveFrom),
+          or(
+            isNull(coachContracts.effectiveUntil),
+            gte(coachContracts.effectiveUntil, candidate.effectiveFrom)
+          )
+        ));
+      
+      // Stamp any other scheduled rows with same or earlier effectiveFrom (except candidate)
+      await db.update(coachContracts)
+        .set({ effectiveUntil: dayBeforeStr, status: "terminated", updatedAt: new Date() })
+        .where(and(
+          eq(coachContracts.coachId, coachId),
+          eq(coachContracts.academyId, academyId),
+          ne(coachContracts.id, candidate.id),
+          eq(coachContracts.status, "scheduled"),
+          lte(coachContracts.effectiveFrom, candidate.effectiveFrom),
+          isNull(coachContracts.effectiveUntil)
+        ));
+      
+      // Activate the newest
+      await db.update(coachContracts)
+        .set({ status: "active", updatedAt: new Date() })
+        .where(eq(coachContracts.id, candidate.id));
+    }
+  },
+
+  // Get current active contracts for an academy (with lazy activation)
+  async getCoachContracts(academyId: string): Promise<CoachContract[]> {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Lazy activation before listing
+    await this.activateAllScheduledContracts(academyId);
+    
+    return db.select().from(coachContracts)
+      .where(and(
+        eq(coachContracts.academyId, academyId),
+        eq(coachContracts.status, "active"),
+        lte(coachContracts.effectiveFrom, today),
+        or(
+          isNull(coachContracts.effectiveUntil),
+          gte(coachContracts.effectiveUntil, today)
+        )
+      ));
+  },
+
+  async getCoachContract(coachId: string, academyId: string): Promise<CoachContract | null> {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Lazy activation: activate any scheduled contract that should now be active
+    await this.activateScheduledContract(coachId, academyId);
+    
+    const result = await db.select().from(coachContracts)
+      .where(and(
+        eq(coachContracts.coachId, coachId),
+        eq(coachContracts.academyId, academyId),
+        eq(coachContracts.status, "active"),
+        lte(coachContracts.effectiveFrom, today),
+        or(
+          isNull(coachContracts.effectiveUntil),
+          gte(coachContracts.effectiveUntil, today)
+        )
+      ))
+      .limit(1);
+    return result[0] || null;
+  },
+
+  async getCoachContractsByCoach(coachId: string): Promise<CoachContract[]> {
+    return db.select().from(coachContracts)
+      .where(and(
+        eq(coachContracts.coachId, coachId),
+        eq(coachContracts.status, "active")
+      ));
+  },
+
+  async updateCoachContract(id: string, data: Partial<InsertCoachContract>): Promise<CoachContract | null> {
+    const result = await db.update(coachContracts)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(coachContracts.id, id))
+      .returning();
+    return result[0] || null;
+  },
+
+  // Soft-delete: set status=terminated and effectiveUntil=today (preserves history)
+  async deleteCoachContract(id: string): Promise<void> {
+    const today = new Date().toISOString().split('T')[0];
+    await db.update(coachContracts)
+      .set({ status: "terminated", effectiveUntil: today, updatedAt: new Date() })
+      .where(eq(coachContracts.id, id));
+  },
+
+  // Calculate session pricing (Layer 3) - Snapshot at booking time
+  // Throws error if currencies don't match to prevent incorrect margins
+  async calculateSessionPricing(academyId: string, coachId: string, sessionType: string, durationMinutes: number): Promise<{
+    academyPrice: number;
+    coachPayout: number;
+    academyMargin: number;
+    currency: string;
+  }> {
+    // Get academy price for this session type
+    const pricing = await this.getAcademyPricingByType(academyId, sessionType);
+    let academyPrice = 0;
+    let academyCurrency = "AED";
+    
+    if (pricing) {
+      academyCurrency = pricing.currency || "AED";
+      if (pricing.pricePerHour && durationMinutes) {
+        academyPrice = Number(pricing.pricePerHour) * (durationMinutes / 60);
+      } else {
+        academyPrice = Number(pricing.pricePerSession);
+      }
+    }
+    
+    // Get coach contract for this academy
+    const contract = await this.getCoachContract(coachId, academyId);
+    let coachPayout = 0;
+    
+    if (contract) {
+      const contractCurrency = contract.currency || academyCurrency;
+      
+      // HARD ENFORCEMENT: Throw error if currencies don't match
+      if (contractCurrency !== academyCurrency) {
+        throw new Error(`Currency mismatch: Academy pricing in ${academyCurrency}, contract in ${contractCurrency}. Please align currencies before creating sessions.`);
+      }
+      
+      // Check for session-type specific rate first
+      if (sessionType === "private" && contract.privateRate) {
+        coachPayout = Number(contract.privateRate);
+      } else if (sessionType === "semi_private" && contract.semiPrivateRate) {
+        coachPayout = Number(contract.semiPrivateRate);
+      } else if (sessionType === "group" && contract.groupRate) {
+        coachPayout = Number(contract.groupRate);
+      } else {
+        // Use default rate based on pay type
+        switch (contract.payType) {
+          case "hourly":
+            coachPayout = Number(contract.hourlyRate || 0) * (durationMinutes / 60);
+            break;
+          case "per_session":
+            coachPayout = Number(contract.sessionRate || 0);
+            break;
+          case "percentage":
+            coachPayout = academyPrice * (Number(contract.percentageRate || 0) / 100);
+            break;
+        }
+      }
+    }
+    
+    const academyMargin = academyPrice - coachPayout;
+    
+    return {
+      academyPrice: Math.round(academyPrice * 100) / 100,
+      coachPayout: Math.round(coachPayout * 100) / 100,
+      academyMargin: Math.round(academyMargin * 100) / 100,
+      currency: academyCurrency,
+    };
   },
 };
