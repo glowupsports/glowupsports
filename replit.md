@@ -38,6 +38,11 @@ The application features a dark-themed gaming aesthetic, utilizing neon green an
     - When creating session instances, the backend uses `server/utils/timezone.ts` to convert local academy time to UTC.
     - Display utilities in `client/lib/dateUtils.ts` format UTC timestamps back to local academy time.
     - Academy timezone is included in `/api/me` response and available via CoachContext.
+    - **DST Handling Policy**:
+      - **Spring Forward (Gap)**: Times that don't exist due to DST transition are rejected with HTTP 400 and a suggested alternative time.
+      - **Fall Back (Ambiguous)**: Times that occur twice use the first occurrence (standard calendar behavior).
+      - The consolidated helper `ensureResolvableLocalTime()` in `server/utils/timezone.ts` handles all time resolution consistently.
+      - Returns type-safe discriminated union: `{ ok: true, utcDate, ambiguity? }` or `{ ok: false, error }`.
 
 - **Role-Specific Applications**:
     - **Coach App**: Player and session management, feedback, progress tracking, notifications, dashboard with coach level/XP, and offline sync.

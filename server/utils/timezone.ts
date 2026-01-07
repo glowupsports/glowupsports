@@ -1,4 +1,11 @@
-function formatLocalDateTime(date: Date, timezone: string): { year: number; month: number; day: number; hour: number; minute: number; dayOfWeek: number } {
+function formatLocalDateTime(date: Date, timezone: string): { 
+  year: number; 
+  month: number; 
+  day: number; 
+  hour: number; 
+  minute: number; 
+  dayOfWeek: number 
+} {
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,
     year: "numeric",
@@ -33,74 +40,138 @@ function formatLocalDateTime(date: Date, timezone: string): { year: number; mont
   };
 }
 
-export interface LocalTimeToUTCResult {
-  utcDate: Date;
-  wasAdjusted: boolean;
-  adjustedLocalTime?: string;
+function toLocalMinutes(local: { hour: number; minute: number }): number {
+  return local.hour * 60 + local.minute;
 }
 
-export function localTimeToUTC(
+function targetMatches(
+  local: { year: number; month: number; day: number; hour: number; minute: number },
+  year: number, month: number, day: number, hours: number, minutes: number
+): boolean {
+  return local.year === year && local.month === month && local.day === day &&
+         local.hour === hours && local.minute === minutes;
+}
+
+export type LocalTimeResolution = 
+  | { status: "ok"; utcDate: Date }
+  | { status: "gap"; suggestedTime: string; suggestedUtc: Date }
+  | { status: "ambiguous"; utcDate: Date; alternateUtc: Date; note: string }
+  | { status: "error"; message: string };
+
+export function resolveLocalTimeToUTC(
   dateStr: string,
   timeStr: string,
   timezone: string
-): Date {
-  const result = localTimeToUTCWithValidation(dateStr, timeStr, timezone);
-  return result.utcDate;
-}
-
-export function localTimeToUTCWithValidation(
-  dateStr: string,
-  timeStr: string,
-  timezone: string
-): LocalTimeToUTCResult {
+): LocalTimeResolution {
   const [year, month, day] = dateStr.split("-").map(Number);
   const [hours, minutes] = timeStr.split(":").map(Number);
-  
-  const startOfDayUtc = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
   const targetMinutes = hours * 60 + minutes;
   
-  for (let offsetMinutes = -14 * 60; offsetMinutes <= 14 * 60; offsetMinutes += 15) {
-    const candidateUtc = new Date(startOfDayUtc.getTime() + targetMinutes * 60 * 1000 - offsetMinutes * 60 * 1000);
-    const local = formatLocalDateTime(candidateUtc, timezone);
+  const startUtc = new Date(Date.UTC(year, month - 1, day - 1, 0, 0, 0, 0));
+  const endUtc = new Date(Date.UTC(year, month - 1, day + 2, 0, 0, 0, 0));
+  
+  const matches: Date[] = [];
+  
+  for (let ms = startUtc.getTime(); ms < endUtc.getTime(); ms += 60000) {
+    const candidate = new Date(ms);
+    const local = formatLocalDateTime(candidate, timezone);
     
-    if (
-      local.year === year &&
-      local.month === month &&
-      local.day === day &&
-      local.hour === hours &&
-      local.minute === minutes
-    ) {
-      return { utcDate: candidateUtc, wasAdjusted: false };
+    if (targetMatches(local, year, month, day, hours, minutes)) {
+      matches.push(candidate);
     }
   }
   
-  for (let searchMinutes = targetMinutes; searchMinutes < 24 * 60; searchMinutes++) {
-    for (let offsetMinutes = -14 * 60; offsetMinutes <= 14 * 60; offsetMinutes += 15) {
-      const candidateUtc = new Date(startOfDayUtc.getTime() + searchMinutes * 60 * 1000 - offsetMinutes * 60 * 1000);
-      const local = formatLocalDateTime(candidateUtc, timezone);
-      
-      if (
-        local.year === year &&
-        local.month === month &&
-        local.day === day
-      ) {
-        const localMinutes = local.hour * 60 + local.minute;
-        if (localMinutes >= targetMinutes) {
-          const adjustedHour = String(local.hour).padStart(2, "0");
-          const adjustedMin = String(local.minute).padStart(2, "0");
-          return {
-            utcDate: candidateUtc,
-            wasAdjusted: true,
-            adjustedLocalTime: `${adjustedHour}:${adjustedMin}`,
-          };
+  if (matches.length === 1) {
+    return { status: "ok", utcDate: matches[0] };
+  }
+  
+  if (matches.length > 1) {
+    return { 
+      status: "ambiguous", 
+      utcDate: matches[0],
+      alternateUtc: matches[1],
+      note: `Time occurs twice due to DST. First occurrence selected.`
+    };
+  }
+  
+  let closestAfter: { suggestedUtc: Date; suggestedTime: string } | null = null;
+  
+  for (let ms = startUtc.getTime(); ms < endUtc.getTime(); ms += 60000) {
+    const candidate = new Date(ms);
+    const local = formatLocalDateTime(candidate, timezone);
+    
+    if (local.year === year && local.month === month && local.day === day) {
+      const localMinutes = toLocalMinutes(local);
+      if (localMinutes > targetMinutes) {
+        if (!closestAfter || localMinutes < toLocalMinutes(formatLocalDateTime(closestAfter.suggestedUtc, timezone))) {
+          const h = String(local.hour).padStart(2, "0");
+          const m = String(local.minute).padStart(2, "0");
+          closestAfter = { suggestedUtc: candidate, suggestedTime: `${h}:${m}` };
         }
       }
     }
   }
   
-  const fallbackUtc = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0, 0));
-  return { utcDate: fallbackUtc, wasAdjusted: false };
+  if (closestAfter) {
+    return {
+      status: "gap",
+      suggestedTime: closestAfter.suggestedTime,
+      suggestedUtc: closestAfter.suggestedUtc,
+    };
+  }
+  
+  return { status: "error", message: `Cannot resolve ${timeStr} on ${dateStr} in ${timezone}` };
 }
+
+export class TimezoneGapError extends Error {
+  constructor(
+    public readonly requestedTime: string,
+    public readonly requestedDate: string,
+    public readonly suggestedTime: string,
+    public readonly timezone: string
+  ) {
+    super(`Time ${requestedTime} does not exist on ${requestedDate} in ${timezone}. Suggested: ${suggestedTime}`);
+    this.name = "TimezoneGapError";
+  }
+}
+
+export class TimezoneAmbiguousError extends Error {
+  constructor(
+    public readonly requestedTime: string,
+    public readonly requestedDate: string,
+    public readonly timezone: string
+  ) {
+    super(`Time ${requestedTime} on ${requestedDate} is ambiguous in ${timezone} (DST fall-back)`);
+    this.name = "TimezoneAmbiguousError";
+  }
+}
+
+export function localTimeToUTC(
+  dateStr: string,
+  timeStr: string,
+  timezone: string,
+  options?: { allowAmbiguous?: boolean }
+): Date {
+  const result = resolveLocalTimeToUTC(dateStr, timeStr, timezone);
+  
+  if (result.status === "error") {
+    throw new Error(result.message);
+  }
+  
+  if (result.status === "gap") {
+    throw new TimezoneGapError(timeStr, dateStr, result.suggestedTime, timezone);
+  }
+  
+  if (result.status === "ambiguous") {
+    if (!options?.allowAmbiguous) {
+      throw new TimezoneAmbiguousError(timeStr, dateStr, timezone);
+    }
+    return result.utcDate;
+  }
+  
+  return result.utcDate;
+}
+
 
 export function utcToLocalTime(
   utcDate: Date,
@@ -138,9 +209,21 @@ export function utcToLocalTime(
 }
 
 export function getLocalDayOfWeek(dateStr: string, timezone: string): number {
-  const utcDate = localTimeToUTC(dateStr, "12:00", timezone);
-  const local = formatLocalDateTime(utcDate, timezone);
-  return local.dayOfWeek;
+  const result = resolveLocalTimeToUTC(dateStr, "12:00", timezone);
+  if (result.status === "ok") {
+    const local = formatLocalDateTime(result.utcDate, timezone);
+    return local.dayOfWeek;
+  }
+  if (result.status === "ambiguous") {
+    const local = formatLocalDateTime(result.utcDate, timezone);
+    return local.dayOfWeek;
+  }
+  if (result.status === "gap") {
+    const local = formatLocalDateTime(result.suggestedUtc, timezone);
+    return local.dayOfWeek;
+  }
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
 }
 
 export function addDaysToLocalDate(dateStr: string, daysToAdd: number): string {
@@ -150,12 +233,17 @@ export function addDaysToLocalDate(dateStr: string, daysToAdd: number): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
 }
 
+export type FirstSessionResult = 
+  | { status: "ok"; dateStr: string; utcDate: Date }
+  | { status: "gap"; dateStr: string; suggestedTime: string }
+  | { status: "error"; message: string };
+
 export function getFirstSessionDate(
   seriesStartDate: string,
   targetDayOfWeek: number,
   timeStr: string,
   timezone: string
-): { dateStr: string; utcDate: Date } {
+): FirstSessionResult {
   const startDayOfWeek = getLocalDayOfWeek(seriesStartDate, timezone);
   
   let daysUntilTarget = (targetDayOfWeek - startDayOfWeek + 7) % 7;
@@ -164,15 +252,33 @@ export function getFirstSessionDate(
     ? seriesStartDate 
     : addDaysToLocalDate(seriesStartDate, daysUntilTarget);
   
-  let firstUtcDate = localTimeToUTC(firstDateStr, timeStr, timezone);
+  const firstResolution = resolveLocalTimeToUTC(firstDateStr, timeStr, timezone);
+  if (firstResolution.status === "gap") {
+    return { status: "gap", dateStr: firstDateStr, suggestedTime: firstResolution.suggestedTime };
+  }
+  if (firstResolution.status === "error") {
+    return { status: "error", message: firstResolution.message };
+  }
   
-  const seriesStartUtc = localTimeToUTC(seriesStartDate, timeStr, timezone);
-  if (firstUtcDate.getTime() < seriesStartUtc.getTime()) {
-    firstDateStr = addDaysToLocalDate(firstDateStr, 7);
-    firstUtcDate = localTimeToUTC(firstDateStr, timeStr, timezone);
+  let firstUtcDate = firstResolution.utcDate;
+  
+  const seriesStartResolution = resolveLocalTimeToUTC(seriesStartDate, timeStr, timezone);
+  if (seriesStartResolution.status === "ok" || seriesStartResolution.status === "ambiguous") {
+    if (firstUtcDate.getTime() < seriesStartResolution.utcDate.getTime()) {
+      firstDateStr = addDaysToLocalDate(firstDateStr, 7);
+      const nextResolution = resolveLocalTimeToUTC(firstDateStr, timeStr, timezone);
+      if (nextResolution.status === "gap") {
+        return { status: "gap", dateStr: firstDateStr, suggestedTime: nextResolution.suggestedTime };
+      }
+      if (nextResolution.status === "error") {
+        return { status: "error", message: nextResolution.message };
+      }
+      firstUtcDate = nextResolution.utcDate;
+    }
   }
   
   return {
+    status: "ok",
     dateStr: firstDateStr,
     utcDate: firstUtcDate,
   };
@@ -211,5 +317,56 @@ export function getLocalDateParts(dateStr: string, timezone: string): {
     month,
     day,
     dayOfWeek: getLocalDayOfWeek(dateStr, timezone),
+  };
+}
+
+export type EnsureResolvableResult = 
+  | { ok: true; utcDate: Date; ambiguity?: { alternateUtc: Date; note: string } }
+  | { ok: false; error: { code: "TIME_UNRESOLVABLE"; requestedTime: string; date: string; suggestedTime: string; message: string } };
+
+export function ensureResolvableLocalTime(
+  dateStr: string,
+  timeStr: string,
+  timezone: string
+): EnsureResolvableResult {
+  const resolution = resolveLocalTimeToUTC(dateStr, timeStr, timezone);
+  
+  if (resolution.status === "ok") {
+    return { ok: true, utcDate: resolution.utcDate };
+  }
+  
+  if (resolution.status === "ambiguous") {
+    return { 
+      ok: true, 
+      utcDate: resolution.utcDate,
+      ambiguity: {
+        alternateUtc: resolution.alternateUtc,
+        note: resolution.note
+      }
+    };
+  }
+  
+  if (resolution.status === "gap") {
+    return {
+      ok: false,
+      error: {
+        code: "TIME_UNRESOLVABLE",
+        requestedTime: timeStr,
+        date: dateStr,
+        suggestedTime: resolution.suggestedTime,
+        message: `Time ${timeStr} does not exist on ${dateStr} in ${timezone} (DST transition). Please use ${resolution.suggestedTime} instead.`
+      }
+    };
+  }
+  
+  return {
+    ok: false,
+    error: {
+      code: "TIME_UNRESOLVABLE",
+      requestedTime: timeStr,
+      date: dateStr,
+      suggestedTime: timeStr,
+      message: resolution.message
+    }
   };
 }

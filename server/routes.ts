@@ -44,7 +44,7 @@ import crypto from "crypto";
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "./utils/sanitize";
-import { localTimeToUTC, utcToLocalTime, getTimezoneOffset, getFirstSessionDate, addDaysToLocalDate, getLocalDateParts } from "./utils/timezone";
+import { localTimeToUTC, utcToLocalTime, getTimezoneOffset, getFirstSessionDate, addDaysToLocalDate, getLocalDateParts, resolveLocalTimeToUTC, ensureResolvableLocalTime } from "./utils/timezone";
 import { sendFeedbackNotification, sendLevelUpNotification, sendBadgeEarnedNotification, sendXPGainNotification } from "./pushNotifications";
 import { sendFeedbackNotificationEmail, sendLevelUpEmail, sendWelcomeEmail, sendSessionReminderEmail, sendCoachInviteEmail } from "./emailService";
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, checkConnection as checkCalendarConnection, SessionEventData } from "./googleCalendarService";
@@ -4868,19 +4868,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const academyData = await storage.getAcademy(academyId!);
       const academyTimezone = academyData?.timezone || "Asia/Dubai";
       
+      // Validate that the start time is resolvable in the academy timezone using consolidated helper
+      const initialResolution = ensureResolvableLocalTime(seriesStartDate, startTime, academyTimezone);
+      if (!initialResolution.ok) {
+        return res.status(400).json({ error: initialResolution.error });
+      }
+      // Note: ambiguity is acceptable - first occurrence used (standard calendar behavior)
+      
       // Calculate the first session date using timezone-aware helper
-      const { dateStr: firstRecurringDateStr, utcDate: firstRecurringDate } = getFirstSessionDate(
+      const firstRecurringResult = getFirstSessionDate(
         seriesStartDate,
         dayOfWeek,
         startTime,
         academyTimezone
       );
       
+      if (firstRecurringResult.status === "error") {
+        return res.status(400).json({
+          error: { code: "TIME_UNRESOLVABLE", message: firstRecurringResult.message }
+        });
+      }
+      if (firstRecurringResult.status === "gap") {
+        return res.status(400).json({
+          error: {
+            code: "TIME_UNRESOLVABLE",
+            requestedTime: startTime,
+            suggestedNext: firstRecurringResult.suggestedTime,
+            date: firstRecurringResult.dateStr,
+            message: `The time ${startTime} does not exist on ${firstRecurringResult.dateStr} in timezone ${academyTimezone} (DST transition). Please use ${firstRecurringResult.suggestedTime} instead.`
+          }
+        });
+      }
+      
+      const { dateStr: firstRecurringDateStr, utcDate: firstRecurringDate } = firstRecurringResult;
+      
       // Check for conflicts for all weeks
       for (let week = 0; week < weekCount; week++) {
         // Calculate session date for this week
         const sessionDateStr = addDaysToLocalDate(firstRecurringDateStr, week * 7);
-        const sessionStartTime = localTimeToUTC(sessionDateStr, startTime, academyTimezone);
+        
+        // Validate each session date for DST transitions using consolidated helper
+        const weekResolution = ensureResolvableLocalTime(sessionDateStr, startTime, academyTimezone);
+        if (!weekResolution.ok) {
+          return res.status(400).json({
+            error: {
+              ...weekResolution.error,
+              week: week + 1,
+              message: `Week ${week + 1}: ${weekResolution.error.message}`
+            }
+          });
+        }
+        
+        const sessionStartTime = weekResolution.utcDate;
         const sessionEndTime = new Date(sessionStartTime.getTime() + duration * 60000);
         
         // Check coach conflict (pass undefined for excludeSessionId, academyId for tenant isolation)
@@ -4889,7 +4928,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(409).json({ 
             error: `Coach has a conflicting session on week ${week + 1}`,
             conflictWeek: week + 1,
-            conflictDate: sessionDate.toISOString()
+            conflictDate: sessionStartTime.toISOString()
           });
         }
         
@@ -4900,14 +4939,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return res.status(409).json({ 
               error: `Court has a conflicting booking on week ${week + 1}`,
               conflictWeek: week + 1,
-              conflictDate: sessionDate.toISOString()
+              conflictDate: sessionStartTime.toISOString()
             });
           }
         }
       }
       
       // Calculate end date
-      const endDate = new Date(startDate);
+      const endDate = new Date(firstRecurringDate);
       endDate.setDate(endDate.getDate() + ((weekCount - 1) * 7));
       
       // Create the recurring series
@@ -5557,19 +5596,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const academy = await storage.getAcademy(academyId);
       const academyTimezone = academy?.timezone || "Asia/Dubai";
       
+      // Validate that the start time is resolvable in the academy timezone using consolidated helper
+      const initialResolution = ensureResolvableLocalTime(seriesStartDate, startTime, academyTimezone);
+      if (!initialResolution.ok) {
+        return res.status(400).json({ error: initialResolution.error });
+      }
+      // Note: ambiguity is acceptable - first occurrence used (standard calendar behavior)
+      
       // Calculate the first session date using timezone-aware helper
-      const { dateStr: firstDateStr, utcDate: firstSessionDate } = getFirstSessionDate(
+      const firstSessionResult = getFirstSessionDate(
         seriesStartDate,
         dayOfWeek,
         startTime,
         academyTimezone
       );
       
+      if (firstSessionResult.status === "error") {
+        return res.status(400).json({
+          error: { code: "TIME_UNRESOLVABLE", message: firstSessionResult.message }
+        });
+      }
+      if (firstSessionResult.status === "gap") {
+        return res.status(400).json({
+          error: {
+            code: "TIME_UNRESOLVABLE",
+            requestedTime: startTime,
+            suggestedNext: firstSessionResult.suggestedTime,
+            date: firstSessionResult.dateStr,
+            message: `The time ${startTime} does not exist on ${firstSessionResult.dateStr} in timezone ${academyTimezone} (DST transition). Please use ${firstSessionResult.suggestedTime} instead.`
+          }
+        });
+      }
+      
+      const { dateStr: firstDateStr, utcDate: firstSessionDate } = firstSessionResult;
+      
       // Track current local date for week iteration
       let currentLocalDateStr = firstDateStr;
       
-      // Parse series end date if provided
-      const seriesEnd = seriesEndDate ? localTimeToUTC(seriesEndDate, "23:59", academyTimezone) : null;
+      // Parse series end date if provided using consolidated helper
+      let seriesEnd: Date | null = null;
+      if (seriesEndDate) {
+        const endResolution = ensureResolvableLocalTime(seriesEndDate, "23:59", academyTimezone);
+        if (endResolution.ok) {
+          seriesEnd = endResolution.utcDate;
+        }
+        // If gap, we simply don't set seriesEnd - sessions will be bounded by weekCount instead
+      }
       
       // Calculate maximum number of sessions considering both weekCount and seriesEndDate
       let calculatedMaxWeeks = weekCount || 52; // Default to 52 weeks if not specified
@@ -5589,8 +5661,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Calculate the local date for this session (add weeks to first session)
         const sessionDateStr = addDaysToLocalDate(currentLocalDateStr, weekIndex * 7);
         
-        // Convert to UTC using academy timezone
-        const sessionDate = localTimeToUTC(sessionDateStr, startTime, academyTimezone);
+        // Validate and convert to UTC using academy timezone with consolidated helper
+        const weekResolution = ensureResolvableLocalTime(sessionDateStr, startTime, academyTimezone);
+        if (!weekResolution.ok) {
+          // Skip weeks with DST gaps but track them
+          skippedWeeks.push({
+            week: weekIndex + 1,
+            reason: weekResolution.error.message
+          });
+          continue;
+        }
+        
+        const sessionDate = weekResolution.utcDate;
         
         // Check if this session would be after the series end date
         if (seriesEnd && sessionDate.getTime() > seriesEnd.getTime()) {
