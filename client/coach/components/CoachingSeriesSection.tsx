@@ -12,6 +12,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
+import Animated, { 
+  useAnimatedStyle, 
+  withTiming, 
+  useSharedValue,
+  interpolate,
+} from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { CoachingSeriesCard } from "./CoachingSeriesCard";
 import { NeoLoadoutPanel, NeoGlowBadge } from "@/components/NeoLoadoutPanel";
@@ -43,8 +49,127 @@ interface Props {
 
 type FilterType = "all" | "active" | "paused" | "ended";
 
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+interface CollapsibleDaySectionProps {
+  dayOfWeek: number;
+  series: CoachingSeries[];
+  isExpanded: boolean;
+  onToggle: () => void;
+  onSeriesPress: (series: CoachingSeries) => void;
+}
+
+function CollapsibleDaySection({ 
+  dayOfWeek, 
+  series, 
+  isExpanded, 
+  onToggle, 
+  onSeriesPress 
+}: CollapsibleDaySectionProps) {
+  const rotation = useSharedValue(isExpanded ? 1 : 0);
+  const height = useSharedValue(isExpanded ? 1 : 0);
+
+  React.useEffect(() => {
+    rotation.value = withTiming(isExpanded ? 1 : 0, { duration: 200 });
+    height.value = withTiming(isExpanded ? 1 : 0, { duration: 250 });
+  }, [isExpanded]);
+
+  const arrowStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${interpolate(rotation.value, [0, 1], [-90, 0])}deg` }],
+  }));
+
+  const contentStyle = useAnimatedStyle(() => ({
+    opacity: height.value,
+    maxHeight: interpolate(height.value, [0, 1], [0, 5000]),
+    overflow: "hidden" as const,
+  }));
+
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onToggle();
+  };
+
+  const sortedSeries = [...series].sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+  return (
+    <View style={collapsibleStyles.container}>
+      <Pressable onPress={handlePress} style={collapsibleStyles.header}>
+        <View style={collapsibleStyles.headerLeft}>
+          <Animated.View style={arrowStyle}>
+            <Ionicons name="chevron-down" size={20} color={Colors.dark.gold} />
+          </Animated.View>
+          <Text style={collapsibleStyles.dayTitle}>{DAY_NAMES[dayOfWeek]}</Text>
+        </View>
+        <View style={collapsibleStyles.headerRight}>
+          <Text style={collapsibleStyles.classCount}>{series.length}</Text>
+          <Text style={collapsibleStyles.classLabel}>
+            {series.length === 1 ? "class" : "classes"}
+          </Text>
+        </View>
+      </Pressable>
+      
+      <Animated.View style={contentStyle}>
+        <View style={collapsibleStyles.content}>
+          {sortedSeries.map((s) => (
+            <CoachingSeriesCard
+              key={s.id}
+              series={s}
+              onPress={onSeriesPress}
+            />
+          ))}
+        </View>
+      </Animated.View>
+    </View>
+  );
+}
+
+const collapsibleStyles = StyleSheet.create({
+  container: {
+    marginBottom: Spacing.md,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.gold}30`,
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  dayTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  classCount: {
+    ...Typography.body,
+    fontWeight: "700",
+    color: Colors.dark.gold,
+  },
+  classLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  content: {
+    paddingTop: Spacing.sm,
+    paddingLeft: Spacing.md,
+  },
+});
+
 export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
   const [filter, setFilter] = useState<FilterType>("active");
+  const [expandedDays, setExpandedDays] = useState<Set<number>>(new Set([0, 1, 2, 3, 4, 5, 6]));
   const queryClient = useQueryClient();
 
   const { data: seriesList, isLoading, error, refetch } = useQuery<CoachingSeries[]>({
@@ -96,7 +221,18 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
   }, {} as Record<number, CoachingSeries[]>);
 
   const sortedDays = Object.keys(groupedByDay).map(Number).sort((a, b) => a - b);
-  const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+  const toggleDay = (day: number) => {
+    setExpandedDays(prev => {
+      const next = new Set(prev);
+      if (next.has(day)) {
+        next.delete(day);
+      } else {
+        next.add(day);
+      }
+      return next;
+    });
+  };
 
   const statusCounts = {
     active: seriesList?.filter(s => s.status === "active").length || 0,
@@ -207,22 +343,14 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
       ) : (
         <View style={styles.seriesListContainer}>
           {sortedDays.map((dayOfWeek) => (
-            <View key={dayOfWeek} style={styles.dayGroup}>
-              <View style={styles.dayHeader}>
-                <Ionicons name="calendar-outline" size={16} color={Colors.dark.gold} />
-                <Text style={styles.dayTitle}>{DAY_NAMES[dayOfWeek]}</Text>
-                <Text style={styles.dayCount}>{groupedByDay[dayOfWeek].length} classes</Text>
-              </View>
-              {groupedByDay[dayOfWeek]
-                .sort((a, b) => a.startTime.localeCompare(b.startTime))
-                .map((series) => (
-                  <CoachingSeriesCard
-                    key={series.id}
-                    series={series}
-                    onPress={onSeriesPress}
-                  />
-                ))}
-            </View>
+            <CollapsibleDaySection
+              key={dayOfWeek}
+              dayOfWeek={dayOfWeek}
+              series={groupedByDay[dayOfWeek]}
+              isExpanded={expandedDays.has(dayOfWeek)}
+              onToggle={() => toggleDay(dayOfWeek)}
+              onSeriesPress={onSeriesPress}
+            />
           ))}
           
           <Pressable 
