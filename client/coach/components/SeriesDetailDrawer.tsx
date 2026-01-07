@@ -19,9 +19,15 @@ interface Player {
   id: string;
   name: string;
   ballLevel?: string | null;
-  status?: string;
+  status?: string; // active | paused | left
   sessionsAttended?: number;
   totalXpEarned?: number;
+  joinedAt?: string;
+  leftAt?: string | null;
+  pauseFrom?: string | null;
+  pauseUntil?: string | null;
+  pauseReason?: string | null;
+  linkedPackageId?: string | null;
 }
 
 interface FeedbackData {
@@ -229,26 +235,89 @@ export default function SeriesDetailDrawer({
         </View>
 
         <View style={styles.infoSection}>
-          <Text style={styles.sectionTitle}>Players ({series.players.length}/{series.maxPlayers})</Text>
-          {series.players.length === 0 ? (
-            <Text style={styles.emptyText}>No players assigned yet</Text>
-          ) : (
-            series.players.map((player) => (
-              <View key={player.id} style={styles.playerRow}>
-                <View style={styles.playerAvatar}>
-                  <Text style={styles.playerInitial}>
-                    {player.name.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-                <View style={styles.playerInfo}>
-                  <Text style={styles.playerName}>{player.name}</Text>
-                  <Text style={styles.playerStats}>
-                    {player.sessionsAttended || 0} sessions, {player.totalXpEarned || 0} XP
-                  </Text>
-                </View>
-              </View>
-            ))
-          )}
+          {(() => {
+            const activePlayers = series.players.filter(p => p.status === "active");
+            const pausedPlayers = series.players.filter(p => p.status === "paused");
+            const formerPlayers = series.players.filter(p => p.status === "left");
+            
+            return (
+              <>
+                <Text style={styles.sectionTitle}>
+                  Active Players ({activePlayers.length}/{series.maxPlayers})
+                </Text>
+                {activePlayers.length === 0 ? (
+                  <Text style={styles.emptyText}>No active players</Text>
+                ) : (
+                  activePlayers.map((player) => (
+                    <View key={player.id} style={styles.playerRow}>
+                      <View style={[styles.playerAvatar, { backgroundColor: Colors.dark.successNeon + "30" }]}>
+                        <Text style={[styles.playerInitial, { color: Colors.dark.successNeon }]}>
+                          {player.name.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={styles.playerInfo}>
+                        <Text style={styles.playerName}>{player.name}</Text>
+                        <Text style={styles.playerStats}>
+                          {player.joinedAt ? `Since ${formatDate(player.joinedAt)}` : ""} 
+                          {player.sessionsAttended ? ` - ${player.sessionsAttended} sessions` : ""}
+                        </Text>
+                      </View>
+                    </View>
+                  ))
+                )}
+                
+                {pausedPlayers.length > 0 ? (
+                  <>
+                    <Text style={[styles.sectionTitle, { marginTop: Spacing.lg }]}>
+                      On Vacation ({pausedPlayers.length})
+                    </Text>
+                    {pausedPlayers.map((player) => (
+                      <View key={player.id} style={[styles.playerRow, { opacity: 0.7 }]}>
+                        <View style={[styles.playerAvatar, { backgroundColor: Colors.dark.gold + "30" }]}>
+                          <Ionicons name="airplane-outline" size={16} color={Colors.dark.gold} />
+                        </View>
+                        <View style={styles.playerInfo}>
+                          <Text style={styles.playerName}>{player.name}</Text>
+                          <Text style={[styles.playerStats, { color: Colors.dark.gold }]}>
+                            {player.pauseFrom && player.pauseUntil 
+                              ? `${formatDate(player.pauseFrom)} - ${formatDate(player.pauseUntil)}`
+                              : player.pauseReason || "On vacation"}
+                          </Text>
+                        </View>
+                      </View>
+                    ))}
+                  </>
+                ) : null}
+                
+                {formerPlayers.length > 0 ? (
+                  <>
+                    <Text style={[styles.sectionTitle, { marginTop: Spacing.lg }]}>
+                      Former Players ({formerPlayers.length})
+                    </Text>
+                    {formerPlayers.map((player) => (
+                      <View key={player.id} style={[styles.playerRow, { opacity: 0.5 }]}>
+                        <View style={[styles.playerAvatar, { backgroundColor: Colors.dark.backgroundTertiary }]}>
+                          <Text style={[styles.playerInitial, { color: Colors.dark.textMuted }]}>
+                            {player.name.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={styles.playerInfo}>
+                          <Text style={[styles.playerName, { color: Colors.dark.textMuted }]}>
+                            {player.name}
+                          </Text>
+                          <Text style={styles.playerStats}>
+                            {player.joinedAt && player.leftAt 
+                              ? `${formatDate(player.joinedAt)} - ${formatDate(player.leftAt)}`
+                              : player.sessionsAttended ? `${player.sessionsAttended} sessions attended` : ""}
+                          </Text>
+                        </View>
+                      </View>
+                    ))}
+                  </>
+                ) : null}
+              </>
+            );
+          })()}
         </View>
       </View>
     );

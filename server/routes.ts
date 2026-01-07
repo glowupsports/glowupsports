@@ -3113,6 +3113,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Mark session as completed
       await storage.updateSession(id, { status: "completed" });
 
+      // If this is a class session, consume credits for active members
+      let creditConsumptionResult = null;
+      if (session.seriesId) {
+        try {
+          creditConsumptionResult = await storage.consumeCreditsForClassSession(
+            session.seriesId,
+            id,
+            new Date(session.startTime)
+          );
+          console.log(`[Credits] Session ${id}: consumed ${creditConsumptionResult.consumed}, skipped ${creditConsumptionResult.skipped}, errors: ${creditConsumptionResult.errors.length}`);
+        } catch (creditError) {
+          console.error("[Credits] Error consuming credits for class session:", creditError);
+          // Don't fail the whole request, just log the error
+        }
+      }
+
       // Award Coach XP based on session type
       const COACH_XP_REWARDS: Record<string, number> = {
         private: 25,
@@ -5364,7 +5380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get players in this series
       const seriesPlayers = await storage.getSeriesPlayers(id);
       
-      // Get player details - flatten for frontend consumption
+      // Get player details with full membership data for frontend consumption
       const playerDetails = await Promise.all(seriesPlayers.map(async (sp) => {
         const player = await storage.getPlayer(sp.playerId);
         return {
@@ -5374,6 +5390,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: sp.status,
           sessionsAttended: sp.sessionsAttended || 0,
           totalXpEarned: sp.totalXpEarned || 0,
+          joinedAt: sp.joinedAt?.toISOString() || null,
+          leftAt: sp.leftAt?.toISOString() || null,
+          pauseFrom: sp.pauseFrom || null,
+          pauseUntil: sp.pauseUntil || null,
+          pauseReason: sp.pauseReason || null,
+          linkedPackageId: sp.linkedPackageId || null,
         };
       }));
       
@@ -5792,11 +5814,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Add a player to a series
+  // Add a player to a class (with optional joinedAt date for backdating and package linking)
   app.post("/api/coach/series/:id/players", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const { playerId } = req.body;
+      const { playerId, joinedAt, packageId } = req.body;
       const coachId = req.user!.coachId;
       
       if (!playerId) {
@@ -5805,38 +5827,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const existing = await storage.getCoachingSeriesById(id);
       if (!existing) {
-        return res.status(404).json({ error: "Series not found" });
+        return res.status(404).json({ error: "Class not found" });
       }
       
       if (existing.coachId !== coachId) {
-        return res.status(403).json({ error: "Not authorized to add players to this series" });
+        return res.status(403).json({ error: "Not authorized to add players to this class" });
       }
       
-      // Check if player already in series
+      // Check if player already in class (including former players)
       const currentPlayers = await storage.getSeriesPlayers(id);
-      if (currentPlayers.some(p => p.playerId === playerId)) {
-        return res.status(400).json({ error: "Player already in this series" });
+      const existingMembership = currentPlayers.find(p => p.playerId === playerId);
+      
+      if (existingMembership) {
+        // If player previously left, allow re-adding by updating status
+        if (existingMembership.status === "left") {
+          const reactivated = await storage.updateSeriesPlayer(id, playerId, {
+            status: "active",
+            joinedAt: joinedAt ? new Date(joinedAt) : new Date(),
+            leftAt: null,
+            linkedPackageId: packageId || null,
+          });
+          return res.status(200).json(reactivated);
+        }
+        return res.status(400).json({ error: "Player already in this class" });
       }
       
-      // Check max players
+      // Check max players (only active players count)
       if (existing.maxPlayers && currentPlayers.filter(p => p.status === "active").length >= existing.maxPlayers) {
-        return res.status(400).json({ error: "Series is at maximum capacity" });
+        return res.status(400).json({ error: "Class is at maximum capacity" });
       }
       
       const seriesPlayer = await storage.addPlayerToSeries({
         seriesId: id,
         playerId,
         status: "active",
+        joinedAt: joinedAt ? new Date(joinedAt) : new Date(),
+        linkedPackageId: packageId || null,
       });
       
       res.status(201).json(seriesPlayer);
     } catch (error) {
-      console.error("Error adding player to series:", error);
-      res.status(500).json({ error: "Failed to add player to series" });
+      console.error("Error adding player to class:", error);
+      res.status(500).json({ error: "Failed to add player to class" });
     }
   });
 
-  // Remove a player from a series
+  // Remove a player from a series (permanent delete - use leave endpoint for history preservation)
   app.delete("/api/coach/series/:id/players/:playerId", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id, playerId } = req.params;
@@ -5856,6 +5892,163 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error removing player from series:", error);
       res.status(500).json({ error: "Failed to remove player from series" });
+    }
+  });
+
+  // Mark a player as left (keeps history - preferred over delete)
+  app.post("/api/coach/series/:id/players/:playerId/leave", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id, playerId } = req.params;
+      const coachId = req.user!.coachId;
+      
+      const existing = await storage.getCoachingSeriesById(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+      
+      if (existing.coachId !== coachId) {
+        return res.status(403).json({ error: "Not authorized to manage this class" });
+      }
+      
+      const updated = await storage.markPlayerLeftSeries(id, playerId);
+      if (!updated) {
+        return res.status(404).json({ error: "Player not found in this class" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error marking player as left:", error);
+      res.status(500).json({ error: "Failed to update player status" });
+    }
+  });
+
+  // Pause a player's membership (vacation/injury)
+  app.post("/api/coach/series/:id/players/:playerId/pause", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id, playerId } = req.params;
+      const { pauseFrom, pauseUntil, reason } = req.body;
+      const coachId = req.user!.coachId;
+      
+      if (!pauseFrom || !pauseUntil) {
+        return res.status(400).json({ error: "pauseFrom and pauseUntil dates are required" });
+      }
+      
+      const existing = await storage.getCoachingSeriesById(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+      
+      if (existing.coachId !== coachId) {
+        return res.status(403).json({ error: "Not authorized to manage this class" });
+      }
+      
+      const updated = await storage.pauseSeriesPlayer(
+        id, 
+        playerId, 
+        new Date(pauseFrom), 
+        new Date(pauseUntil), 
+        reason
+      );
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Player not found in this class" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error pausing player membership:", error);
+      res.status(500).json({ error: "Failed to pause membership" });
+    }
+  });
+
+  // Unpause a player's membership (early return from vacation)
+  app.post("/api/coach/series/:id/players/:playerId/unpause", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id, playerId } = req.params;
+      const coachId = req.user!.coachId;
+      
+      const existing = await storage.getCoachingSeriesById(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+      
+      if (existing.coachId !== coachId) {
+        return res.status(403).json({ error: "Not authorized to manage this class" });
+      }
+      
+      const updated = await storage.unpauseSeriesPlayer(id, playerId);
+      if (!updated) {
+        return res.status(404).json({ error: "Player not found in this class" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error unpausing player membership:", error);
+      res.status(500).json({ error: "Failed to unpause membership" });
+    }
+  });
+
+  // Link a package to a player's class membership (for credit consumption)
+  app.post("/api/coach/series/:id/players/:playerId/link-package", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id, playerId } = req.params;
+      const { packageId } = req.body;
+      const coachId = req.user!.coachId;
+      
+      if (!packageId) {
+        return res.status(400).json({ error: "packageId is required" });
+      }
+      
+      const existing = await storage.getCoachingSeriesById(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+      
+      if (existing.coachId !== coachId) {
+        return res.status(403).json({ error: "Not authorized to manage this class" });
+      }
+      
+      const updated = await storage.linkPackageToMembership(id, playerId, packageId);
+      if (!updated) {
+        return res.status(404).json({ error: "Player not found in this class" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error linking package to membership:", error);
+      res.status(500).json({ error: "Failed to link package" });
+    }
+  });
+
+  // Get active players for a specific session date (excludes paused players)
+  app.get("/api/coach/series/:id/active-players", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { date } = req.query;
+      const coachId = req.user!.coachId;
+      
+      const existing = await storage.getCoachingSeriesById(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+      
+      if (existing.coachId !== coachId) {
+        return res.status(403).json({ error: "Not authorized to view this class" });
+      }
+      
+      const sessionDate = date ? new Date(date as string) : new Date();
+      const activePlayers = await storage.getActiveSeriesPlayersForDate(id, sessionDate);
+      
+      // Enrich with player details
+      const playerDetails = await Promise.all(activePlayers.map(async (sp) => {
+        const player = await storage.getPlayer(sp.playerId);
+        return { ...sp, player };
+      }));
+      
+      res.json(playerDetails);
+    } catch (error) {
+      console.error("Error getting active players:", error);
+      res.status(500).json({ error: "Failed to get active players" });
     }
   });
 

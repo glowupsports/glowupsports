@@ -849,6 +849,7 @@ export type InsertPackageTemplate = z.infer<typeof insertPackageTemplateSchema>;
 export type PackageTemplate = typeof packageTemplates.$inferSelect;
 
 // Packages (Credits) - Assigned to players
+// Can be linked to a specific class (seriesId) or be a general credit pool
 export const packages = pgTable("packages", {
   id: varchar("id")
     .primaryKey()
@@ -858,6 +859,10 @@ export const packages = pgTable("packages", {
   templateId: varchar("template_id").references(() => packageTemplates.id),
   
   name: text("name"), // Copy from template or custom name
+  
+  // Optional: Link package to specific class - credits only valid for this class
+  // If null, credits can be used for any class the player is member of
+  seriesId: varchar("series_id"),
   
   totalCredits: integer("total_credits").notNull(),
   remainingCredits: integer("remaining_credits").notNull(),
@@ -871,7 +876,11 @@ export const packages = pgTable("packages", {
   status: text("status").default("active"), // active | expired | depleted
   
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  playerIdx: index("packages_player_idx").on(table.playerId),
+  seriesIdx: index("packages_series_idx").on(table.seriesId),
+  statusIdx: index("packages_status_idx").on(table.status),
+}));
 
 export const insertPackageSchema = createInsertSchema(packages).omit({ id: true, createdAt: true });
 export type InsertPackage = z.infer<typeof insertPackageSchema>;
@@ -985,7 +994,12 @@ export const insertCoachingSeriesSchema = createInsertSchema(coachingSeries).omi
 export type InsertCoachingSeries = z.infer<typeof insertCoachingSeriesSchema>;
 export type CoachingSeries = typeof coachingSeries.$inferSelect;
 
-// Series Players - Players assigned to a coaching series
+// Series Players (Class Memberships) - Players assigned to a coaching series/class
+// This is THE key table for the membership model:
+// - Players join a class on a specific date
+// - Can pause for vacation periods
+// - Can leave/switch classes
+// - Credits are consumed per active membership when sessions occur
 export const seriesPlayers = pgTable("series_players", {
   id: varchar("id")
     .primaryKey()
@@ -994,14 +1008,27 @@ export const seriesPlayers = pgTable("series_players", {
   playerId: varchar("player_id").references(() => players.id).notNull(),
   
   // Player's status in the series
-  status: text("status").default("active"), // active/paused/dropped
+  status: text("status").default("active"), // active/paused/left
   joinedAt: timestamp("joined_at").defaultNow(),
   leftAt: timestamp("left_at"),
+  
+  // Vacation/Pause tracking - player stays in class but credits not consumed
+  pauseFrom: date("pause_from"),
+  pauseUntil: date("pause_until"),
+  pauseReason: text("pause_reason"), // holiday/injury/travel/other
   
   // Progress tracking
   sessionsAttended: integer("sessions_attended").default(0),
   totalXpEarned: integer("total_xp_earned").default(0),
-});
+  
+  // Credit tracking - which package to consume credits from for this membership
+  linkedPackageId: varchar("linked_package_id").references(() => packages.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  seriesPlayerIdx: index("series_players_series_player_idx").on(table.seriesId, table.playerId),
+  statusIdx: index("series_players_status_idx").on(table.status),
+}));
 
 export const insertSeriesPlayerSchema = createInsertSchema(seriesPlayers).omit({ id: true });
 export type InsertSeriesPlayer = z.infer<typeof insertSeriesPlayerSchema>;
@@ -2138,7 +2165,11 @@ export const creditTransactions = pgTable("credit_transactions", {
   metadata: jsonb("metadata"), // Additional context like session type, payment method
   
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  // Prevent duplicate credit transactions for the same player/session/reason combination
+  // This is critical for billing correctness under concurrent writes
+  index("credit_transactions_player_session_idx").on(table.playerId, table.sessionId),
+]);
 
 export const insertCreditTransactionSchema = createInsertSchema(creditTransactions).omit({ id: true, createdAt: true });
 export type InsertCreditTransaction = z.infer<typeof insertCreditTransactionSchema>;

@@ -2666,6 +2666,105 @@ export const storage = {
       ));
   },
 
+  // Pause a player's membership (vacation/injury) - credits not consumed during pause
+  async pauseSeriesPlayer(seriesId: string, playerId: string, pauseFrom: Date, pauseUntil: Date, reason?: string): Promise<SeriesPlayer | undefined> {
+    const result = await db
+      .update(seriesPlayers)
+      .set({
+        status: "paused",
+        pauseFrom: pauseFrom.toISOString().split('T')[0],
+        pauseUntil: pauseUntil.toISOString().split('T')[0],
+        pauseReason: reason || null,
+      })
+      .where(and(
+        eq(seriesPlayers.seriesId, seriesId),
+        eq(seriesPlayers.playerId, playerId)
+      ))
+      .returning();
+    return result[0];
+  },
+
+  // Unpause a player (early return from vacation)
+  async unpauseSeriesPlayer(seriesId: string, playerId: string): Promise<SeriesPlayer | undefined> {
+    const result = await db
+      .update(seriesPlayers)
+      .set({
+        status: "active",
+        pauseFrom: null,
+        pauseUntil: null,
+        pauseReason: null,
+      })
+      .where(and(
+        eq(seriesPlayers.seriesId, seriesId),
+        eq(seriesPlayers.playerId, playerId)
+      ))
+      .returning();
+    return result[0];
+  },
+
+  // Mark a player as left (not deleted - keeps history)
+  async markPlayerLeftSeries(seriesId: string, playerId: string): Promise<SeriesPlayer | undefined> {
+    const result = await db
+      .update(seriesPlayers)
+      .set({
+        status: "left",
+        leftAt: new Date(),
+      })
+      .where(and(
+        eq(seriesPlayers.seriesId, seriesId),
+        eq(seriesPlayers.playerId, playerId)
+      ))
+      .returning();
+    return result[0];
+  },
+
+  // Get active players for a session date (excludes paused players during their pause period)
+  async getActiveSeriesPlayersForDate(seriesId: string, sessionDate: Date): Promise<SeriesPlayer[]> {
+    const dateStr = sessionDate.toISOString().split('T')[0];
+    const allPlayers = await db
+      .select()
+      .from(seriesPlayers)
+      .where(and(
+        eq(seriesPlayers.seriesId, seriesId),
+        inArray(seriesPlayers.status, ["active", "paused"])
+      ));
+    
+    // Filter out players who are paused on this specific date
+    return allPlayers.filter(player => {
+      if (player.status === "left") return false;
+      if (player.status === "paused" && player.pauseFrom && player.pauseUntil) {
+        // Check if sessionDate falls within pause period
+        return dateStr < player.pauseFrom || dateStr > player.pauseUntil;
+      }
+      return true;
+    });
+  },
+
+  // Link a package to a series membership
+  async linkPackageToMembership(seriesId: string, playerId: string, packageId: string): Promise<SeriesPlayer | undefined> {
+    const result = await db
+      .update(seriesPlayers)
+      .set({ linkedPackageId: packageId })
+      .where(and(
+        eq(seriesPlayers.seriesId, seriesId),
+        eq(seriesPlayers.playerId, playerId)
+      ))
+      .returning();
+    return result[0];
+  },
+
+  // Get a single series player membership
+  async getSeriesPlayer(seriesId: string, playerId: string): Promise<SeriesPlayer | undefined> {
+    const result = await db
+      .select()
+      .from(seriesPlayers)
+      .where(and(
+        eq(seriesPlayers.seriesId, seriesId),
+        eq(seriesPlayers.playerId, playerId)
+      ));
+    return result[0];
+  },
+
   // ==================== COACH NOTIFICATIONS ====================
   async getCoachNotifications(coachId: string): Promise<CoachNotification[]> {
     return db
@@ -4876,6 +4975,141 @@ export const storage = {
     return db.select().from(creditTransactions)
       .where(eq(creditTransactions.sessionId, sessionId))
       .orderBy(desc(creditTransactions.createdAt));
+  },
+
+  // Consume credits for all active class members when a session is completed
+  // This is the core billing logic for class-based memberships
+  // Uses transactions to ensure atomicity and prevent race conditions
+  async consumeCreditsForClassSession(seriesId: string, sessionId: string, sessionDate: Date): Promise<{ 
+    consumed: number; 
+    skipped: number; 
+    errors: string[];
+  }> {
+    const results = { consumed: 0, skipped: 0, errors: [] as string[] };
+    
+    // Get the series to find academyId
+    const series = await this.getCoachingSeriesById(seriesId);
+    const academyId = series?.academyId || null;
+    
+    // Get active players for this date (excludes paused players)
+    const activeMembers = await this.getActiveSeriesPlayersForDate(seriesId, sessionDate);
+    
+    for (const member of activeMembers) {
+      try {
+        // Use a transaction for each member to ensure atomicity
+        // The key insight: INSERT the ledger entry FIRST (with ON CONFLICT), then decrement credits only if insert succeeded
+        // This guarantees exactly-once debit semantics
+        await db.transaction(async (tx) => {
+          // Find the package to deduct from
+          // Priority: 1) Linked package on membership, 2) Any active package for this series, 3) Any active general package
+          let packageToUse = null;
+          
+          if (member.linkedPackageId) {
+            // Lock the package row with FOR UPDATE to prevent concurrent modifications
+            const linked = await tx.execute(sql`
+              SELECT * FROM packages 
+              WHERE id = ${member.linkedPackageId} AND status = 'active'
+              FOR UPDATE
+            `);
+            if (linked.rows[0] && (linked.rows[0] as any).remaining_credits > 0) {
+              packageToUse = {
+                id: (linked.rows[0] as any).id,
+                remainingCredits: (linked.rows[0] as any).remaining_credits,
+              };
+            }
+          }
+          
+          if (!packageToUse) {
+            // Find any active package for this player (preferring series-specific), with FOR UPDATE lock
+            const playerPackagesResult = await tx.execute(sql`
+              SELECT * FROM packages 
+              WHERE player_id = ${member.playerId} AND status = 'active' AND remaining_credits > 0
+              ORDER BY CASE WHEN series_id = ${seriesId} THEN 1 ELSE 0 END DESC, expiry_date ASC NULLS LAST
+              FOR UPDATE
+              LIMIT 1
+            `);
+            
+            if (playerPackagesResult.rows[0]) {
+              const p = playerPackagesResult.rows[0] as any;
+              packageToUse = {
+                id: p.id,
+                remainingCredits: p.remaining_credits,
+              };
+            }
+          }
+          
+          if (!packageToUse) {
+            results.errors.push(`No credits available for player ${member.playerId}`);
+            return;
+          }
+          
+          const balanceBefore = packageToUse.remainingCredits;
+          const balanceAfter = balanceBefore - 1;
+          
+          // STEP 1: Try to claim the ledger entry FIRST using ON CONFLICT with the partial unique index
+          // The index credit_transactions_unique_session_join enforces uniqueness on (player_id, session_id) where reason='session_join'
+          // This is the authoritative race-condition guard at the database level
+          // Note: PostgreSQL doesn't allow ON CONFLICT ON CONSTRAINT with indexes (only constraints)
+          // So we use ON CONFLICT DO NOTHING without a target - the partial index handles it
+          try {
+            const insertResult = await tx.execute(sql`
+              INSERT INTO credit_transactions (player_id, academy_id, session_id, type, amount, reason, balance_before, balance_after, metadata)
+              VALUES (${member.playerId}, ${academyId}, ${sessionId}, 'debit', -1, 'session_join', ${balanceBefore}, ${balanceAfter}, 
+                     ${JSON.stringify({ packageId: packageToUse.id, seriesId, description: "Credit consumed for class session" })}::jsonb)
+              ON CONFLICT DO NOTHING
+              RETURNING id
+            `);
+            
+            // If no row returned, a duplicate already exists (conflict occurred)
+            if (insertResult.rowCount === 0) {
+              results.skipped++;
+              return;
+            }
+          } catch (insertError: any) {
+            // Handle unique constraint violation as fallback
+            if (insertError.code === '23505') { // PostgreSQL unique violation
+              results.skipped++;
+              return;
+            }
+            throw insertError;
+          }
+          
+          // STEP 2: Ledger entry claimed successfully, now decrement the package credits
+          await tx.update(packages)
+            .set({ 
+              remainingCredits: balanceAfter,
+              status: balanceAfter <= 0 ? "depleted" : "active",
+            })
+            .where(eq(packages.id, packageToUse.id));
+          
+          results.consumed++;
+        });
+      } catch (txError) {
+        console.error(`[Credits] Transaction error for player ${member.playerId}:`, txError);
+        results.errors.push(`Transaction failed for player ${member.playerId}`);
+      }
+    }
+    
+    return results;
+  },
+
+  // Get available credits for a player (across all packages)
+  async getPlayerCredits(playerId: string): Promise<{ total: number; byPackage: { id: string; name: string | null; remaining: number; expiry: string | null }[] }> {
+    const playerPackages = await db.select().from(packages)
+      .where(and(
+        eq(packages.playerId, playerId),
+        eq(packages.status, "active")
+      ));
+    
+    const total = playerPackages.reduce((sum, p) => sum + p.remainingCredits, 0);
+    const byPackage = playerPackages.map(p => ({
+      id: p.id,
+      name: p.name,
+      remaining: p.remainingCredits,
+      expiry: p.expiryDate,
+    }));
+    
+    return { total, byPackage };
   },
 
   // Player Subscriptions (contracts - what players SHOULD pay)
