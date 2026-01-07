@@ -5394,7 +5394,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get court name if applicable
       let courtName = null;
       if (series.courtId) {
-        const court = await storage.getCourtById(series.courtId);
+        const court = await storage.getCourt(series.courtId);
         courtName = court?.name;
       }
       
