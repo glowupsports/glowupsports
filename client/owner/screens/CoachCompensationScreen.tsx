@@ -391,11 +391,14 @@ export default function CoachCompensationScreen() {
                       color={selectedCoachId === coach.id ? Colors.dark.gold : Colors.dark.textMuted}
                     />
                   </View>
-                  <Text style={[
-                    styles.coachOptionName,
-                    selectedCoachId === coach.id && styles.coachOptionNameSelected,
-                  ]}>
-                    {coach.displayName}
+                  <Text 
+                    style={[
+                      styles.coachOptionName,
+                      selectedCoachId === coach.id && styles.coachOptionNameSelected,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {coach.displayName || "Coach"}
                   </Text>
                 </Pressable>
               ))}
@@ -764,13 +767,14 @@ const styles = StyleSheet.create({
   },
   coachOption: {
     alignItems: "center",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: Colors.dark.border,
     marginRight: Spacing.sm,
+    minWidth: 80,
   },
   coachOptionSelected: {
     borderColor: Colors.dark.gold,
@@ -790,7 +794,9 @@ const styles = StyleSheet.create({
   },
   coachOptionName: {
     ...Typography.small,
-    color: Colors.dark.textMuted,
+    color: Colors.dark.text,
+    marginTop: Spacing.xs,
+    textAlign: "center" as const,
   },
   coachOptionNameSelected: {
     color: Colors.dark.gold,
