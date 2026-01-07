@@ -34,6 +34,8 @@ interface Player {
   coachName?: string;
   remainingCredits?: number;
   totalCredits?: number;
+  age?: number;
+  dateOfBirth?: string;
 }
 
 interface PlayerStats {
@@ -115,6 +117,13 @@ function SkillBar({ label, value, color }: { label: string; value: number; color
   );
 }
 
+type SortOption = "name_asc" | "name_desc" | "level_high" | "level_low" | "newest";
+
+interface Coach {
+  id: string;
+  name: string;
+}
+
 export default function AdminPlayersScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -126,6 +135,12 @@ export default function AdminPlayersScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showReportIssueModal, setShowReportIssueModal] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [ballLevelFilter, setBallLevelFilter] = useState<string>("all");
+  const [levelFilter, setLevelFilter] = useState<string>("all");
+  const [ageGroupFilter, setAgeGroupFilter] = useState<string>("all");
+  const [coachFilter, setCoachFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<SortOption>("name_asc");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -137,6 +152,10 @@ export default function AdminPlayersScreen() {
 
   const { data: players = [], isLoading, error, refetch } = useQuery<Player[]>({
     queryKey: ["/api/players?withCredits=true"],
+  });
+
+  const { data: coaches = [] } = useQuery<Coach[]>({
+    queryKey: ["/api/coaches"],
   });
 
   const { data: playerStats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery<PlayerStats>({
@@ -269,10 +288,64 @@ export default function AdminPlayersScreen() {
     }
   };
 
-  const filteredPlayers = players.filter((player) =>
-    player.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    player.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const getPlayerAge = (player: Player): number | null => {
+    if (player.age) return player.age;
+    if (player.dateOfBirth) {
+      const birthDate = new Date(player.dateOfBirth);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      return age;
+    }
+    return null;
+  };
+
+  const filteredPlayers = players
+    .filter((player) => {
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch = (player.name ?? "").toLowerCase().includes(searchLower) ||
+        (player.email ?? "").toLowerCase().includes(searchLower);
+      const matchesBall = ballLevelFilter === "all" || player.ballLevel?.toLowerCase() === ballLevelFilter;
+      const matchesLevel = levelFilter === "all" || 
+        (levelFilter === "1-3" && (player.level || 1) <= 3) ||
+        (levelFilter === "4-6" && (player.level || 1) >= 4 && (player.level || 1) <= 6) ||
+        (levelFilter === "7-10" && (player.level || 1) >= 7);
+      const playerAge = getPlayerAge(player);
+      const matchesAge = ageGroupFilter === "all" || 
+        (ageGroupFilter === "u8" && playerAge !== null && playerAge < 8) ||
+        (ageGroupFilter === "u10" && playerAge !== null && playerAge >= 8 && playerAge < 10) ||
+        (ageGroupFilter === "u12" && playerAge !== null && playerAge >= 10 && playerAge < 12) ||
+        (ageGroupFilter === "u14" && playerAge !== null && playerAge >= 12 && playerAge < 14) ||
+        (ageGroupFilter === "u16" && playerAge !== null && playerAge >= 14 && playerAge < 16) ||
+        (ageGroupFilter === "adult" && playerAge !== null && playerAge >= 16);
+      const matchesCoach = coachFilter === "all" || player.coachName === coachFilter;
+      return matchesSearch && matchesBall && matchesLevel && matchesAge && matchesCoach;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "name_asc":
+          return (a.name || "").localeCompare(b.name || "");
+        case "name_desc":
+          return (b.name || "").localeCompare(a.name || "");
+        case "level_high":
+          return (b.level || 0) - (a.level || 0);
+        case "level_low":
+          return (a.level || 0) - (b.level || 0);
+        default:
+          return 0;
+      }
+    });
+
+  const activeFilterCount = [
+    ballLevelFilter !== "all",
+    levelFilter !== "all",
+    ageGroupFilter !== "all",
+    coachFilter !== "all",
+    sortBy !== "name_asc",
+  ].filter(Boolean).length;
 
   const getCreditsColor = (remaining?: number, total?: number) => {
     if (!remaining || !total || total === 0) return Colors.dark.textMuted;
@@ -674,7 +747,184 @@ export default function AdminPlayersScreen() {
             <Ionicons name="close-circle" size={20} color={Colors.dark.textMuted} />
           </Pressable>
         ) : null}
+        <Pressable 
+          style={[styles.filterToggle, showFilters && styles.filterToggleActive]} 
+          onPress={() => {
+            setShowFilters(!showFilters);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
+        >
+          <Ionicons name="options-outline" size={20} color={showFilters ? Colors.dark.orange : Colors.dark.textMuted} />
+          {activeFilterCount > 0 ? (
+            <View style={styles.filterBadge}>
+              <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+            </View>
+          ) : null}
+        </Pressable>
       </View>
+
+      {showFilters ? (
+        <View style={styles.filterContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterLabel}>Ball</Text>
+              <View style={styles.filterChips}>
+                {["all", "red", "orange", "green", "yellow"].map((ball) => (
+                  <Pressable
+                    key={ball}
+                    style={[styles.filterChip, ballLevelFilter === ball && styles.filterChipActive]}
+                    onPress={() => {
+                      setBallLevelFilter(ball);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    {ball !== "all" ? (
+                      <View style={[styles.chipDot, { backgroundColor: getBallLevelColor(ball) }]} />
+                    ) : null}
+                    <Text style={[styles.filterChipText, ballLevelFilter === ball && styles.filterChipTextActive]}>
+                      {ball === "all" ? "All" : ball.charAt(0).toUpperCase() + ball.slice(1)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.filterDivider} />
+
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterLabel}>Level</Text>
+              <View style={styles.filterChips}>
+                {[{ key: "all", label: "All" }, { key: "1-3", label: "1-3" }, { key: "4-6", label: "4-6" }, { key: "7-10", label: "7+" }].map((lvl) => (
+                  <Pressable
+                    key={lvl.key}
+                    style={[styles.filterChip, levelFilter === lvl.key && styles.filterChipActive]}
+                    onPress={() => {
+                      setLevelFilter(lvl.key);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    <Text style={[styles.filterChipText, levelFilter === lvl.key && styles.filterChipTextActive]}>
+                      {lvl.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.filterDivider} />
+
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterLabel}>Age</Text>
+              <View style={styles.filterChips}>
+                {[
+                  { key: "all", label: "All" },
+                  { key: "u8", label: "U8" },
+                  { key: "u10", label: "U10" },
+                  { key: "u12", label: "U12" },
+                  { key: "u14", label: "U14" },
+                  { key: "u16", label: "U16" },
+                  { key: "adult", label: "Adult" },
+                ].map((age) => (
+                  <Pressable
+                    key={age.key}
+                    style={[styles.filterChip, ageGroupFilter === age.key && styles.filterChipActive]}
+                    onPress={() => {
+                      setAgeGroupFilter(age.key);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    <Text style={[styles.filterChipText, ageGroupFilter === age.key && styles.filterChipTextActive]}>
+                      {age.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
+            {coaches.length > 0 ? (
+              <>
+                <View style={styles.filterDivider} />
+                <View style={styles.filterGroup}>
+                  <Text style={styles.filterLabel}>Coach</Text>
+                  <View style={styles.filterChips}>
+                    <Pressable
+                      style={[styles.filterChip, coachFilter === "all" && styles.filterChipActive]}
+                      onPress={() => {
+                        setCoachFilter("all");
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                    >
+                      <Text style={[styles.filterChipText, coachFilter === "all" && styles.filterChipTextActive]}>All</Text>
+                    </Pressable>
+                    {coaches.slice(0, 5).map((coach) => (
+                      <Pressable
+                        key={coach.id}
+                        style={[styles.filterChip, coachFilter === coach.name && styles.filterChipActive]}
+                        onPress={() => {
+                          setCoachFilter(coach.name);
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        }}
+                      >
+                        <Text style={[styles.filterChipText, coachFilter === coach.name && styles.filterChipTextActive]}>
+                          {coach.name.split(" ")[0]}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              </>
+            ) : null}
+
+            <View style={styles.filterDivider} />
+
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterLabel}>Sort</Text>
+              <View style={styles.filterChips}>
+                {[
+                  { key: "name_asc", label: "A-Z", icon: "arrow-up" },
+                  { key: "name_desc", label: "Z-A", icon: "arrow-down" },
+                  { key: "level_high", label: "Level", icon: "trending-up" },
+                ].map((sort) => (
+                  <Pressable
+                    key={sort.key}
+                    style={[styles.filterChip, sortBy === sort.key && styles.filterChipActive]}
+                    onPress={() => {
+                      setSortBy(sort.key as SortOption);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    <Ionicons 
+                      name={sort.icon as keyof typeof Ionicons.glyphMap} 
+                      size={12} 
+                      color={sortBy === sort.key ? Colors.dark.orange : Colors.dark.textMuted} 
+                    />
+                    <Text style={[styles.filterChipText, sortBy === sort.key && styles.filterChipTextActive]}>
+                      {sort.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          </ScrollView>
+
+          {activeFilterCount > 0 ? (
+            <Pressable 
+              style={styles.clearFiltersButton}
+              onPress={() => {
+                setBallLevelFilter("all");
+                setLevelFilter("all");
+                setAgeGroupFilter("all");
+                setCoachFilter("all");
+                setSortBy("name_asc");
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              }}
+            >
+              <Ionicons name="refresh-outline" size={14} color={Colors.dark.orange} />
+              <Text style={styles.clearFiltersText}>Clear filters</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
 
       <FlatList
         data={filteredPlayers}
@@ -1006,6 +1256,106 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.text,
     paddingVertical: Spacing.md,
+  },
+  filterToggle: {
+    padding: Spacing.xs,
+    marginLeft: Spacing.xs,
+  },
+  filterToggleActive: {
+    backgroundColor: `${Colors.dark.orange}20`,
+    borderRadius: BorderRadius.sm,
+  },
+  filterBadge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.dark.orange,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterBadgeText: {
+    ...Typography.small,
+    fontSize: 10,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  filterContainer: {
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  filterScroll: {
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.md,
+  },
+  filterGroup: {
+    gap: Spacing.xs,
+  },
+  filterLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontSize: 10,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  filterChips: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+  },
+  filterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  filterChipActive: {
+    backgroundColor: `${Colors.dark.orange}20`,
+    borderColor: Colors.dark.orange,
+  },
+  filterChipText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontSize: 12,
+  },
+  filterChipTextActive: {
+    color: Colors.dark.orange,
+    fontWeight: "600",
+  },
+  chipDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  filterDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: Colors.dark.border,
+    marginHorizontal: Spacing.xs,
+  },
+  clearFiltersButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    marginTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  clearFiltersText: {
+    ...Typography.small,
+    color: Colors.dark.orange,
+    fontSize: 12,
   },
   list: {
     padding: Spacing.lg,
