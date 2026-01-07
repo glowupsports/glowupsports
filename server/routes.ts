@@ -44,6 +44,7 @@ import crypto from "crypto";
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "./utils/sanitize";
+import { localTimeToUTC, utcToLocalTime, getTimezoneOffset, getFirstSessionDate, addDaysToLocalDate, getLocalDateParts } from "./utils/timezone";
 import { sendFeedbackNotification, sendLevelUpNotification, sendBadgeEarnedNotification, sendXPGainNotification } from "./pushNotifications";
 import { sendFeedbackNotificationEmail, sendLevelUpEmail, sendWelcomeEmail, sendSessionReminderEmail, sendCoachInviteEmail } from "./emailService";
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, checkConnection as checkCalendarConnection, SessionEventData } from "./googleCalendarService";
@@ -3700,6 +3701,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: academy.id,
           name: academy.name,
           slug: academy.slug,
+          timezone: academy.timezone || "Asia/Dubai",
         } : null,
       });
     } catch (error) {
@@ -4862,23 +4864,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Check for conflicts for all weeks
-      const startDate = new Date(seriesStartDate);
-      const [hours, minutes] = startTime.split(':').map(Number);
+      // Get academy timezone for proper time handling
+      const academyData = await storage.getAcademy(academyId!);
+      const academyTimezone = academyData?.timezone || "Asia/Dubai";
       
+      // Calculate the first session date using timezone-aware helper
+      const { dateStr: firstRecurringDateStr, utcDate: firstRecurringDate } = getFirstSessionDate(
+        seriesStartDate,
+        dayOfWeek,
+        startTime,
+        academyTimezone
+      );
+      
+      // Check for conflicts for all weeks
       for (let week = 0; week < weekCount; week++) {
-        const sessionDate = new Date(startDate);
-        sessionDate.setDate(sessionDate.getDate() + (week * 7));
-        
-        const currentDay = sessionDate.getDay();
-        const daysToAdd = dayOfWeek - currentDay;
-        sessionDate.setDate(sessionDate.getDate() + daysToAdd);
-        
-        const sessionStartTime = new Date(sessionDate);
-        sessionStartTime.setHours(hours, minutes, 0, 0);
-        
-        const sessionEndTime = new Date(sessionStartTime);
-        sessionEndTime.setMinutes(sessionEndTime.getMinutes() + duration);
+        // Calculate session date for this week
+        const sessionDateStr = addDaysToLocalDate(firstRecurringDateStr, week * 7);
+        const sessionStartTime = localTimeToUTC(sessionDateStr, startTime, academyTimezone);
+        const sessionEndTime = new Date(sessionStartTime.getTime() + duration * 60000);
         
         // Check coach conflict (pass undefined for excludeSessionId, academyId for tenant isolation)
         const coachConflict = await storage.checkCoachConflict(coachId, sessionStartTime, sessionEndTime, undefined, academyId || undefined);
@@ -5550,32 +5553,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const createdSessions: any[] = [];
       const skippedWeeks: { week: number; reason: string }[] = [];
       
-      // Parse the startTime (HH:mm format) first
-      const [hours, minutes] = startTime.split(":").map(Number);
+      // Get academy timezone for proper time handling
+      const academy = await storage.getAcademy(academyId);
+      const academyTimezone = academy?.timezone || "Asia/Dubai";
       
-      // Parse series date range
-      const seriesStartDateTime = new Date(seriesStartDate);
-      seriesStartDateTime.setHours(hours, minutes, 0, 0); // Use session time for comparison
+      // Calculate the first session date using timezone-aware helper
+      const { dateStr: firstDateStr, utcDate: firstSessionDate } = getFirstSessionDate(
+        seriesStartDate,
+        dayOfWeek,
+        startTime,
+        academyTimezone
+      );
       
-      const seriesEnd = seriesEndDate ? new Date(seriesEndDate) : null;
-      if (seriesEnd) {
-        seriesEnd.setHours(23, 59, 59, 999); // End of end date
-      }
+      // Track current local date for week iteration
+      let currentLocalDateStr = firstDateStr;
       
-      // Calculate the first session date: find first occurrence of target day on or after seriesStartDate
-      const firstSessionDate = new Date(seriesStartDate);
-      firstSessionDate.setHours(0, 0, 0, 0);
-      const currentDayOfWeek = firstSessionDate.getDay();
-      let daysUntilTarget = (dayOfWeek - currentDayOfWeek + 7) % 7;
-      
-      // If the target day is today, use this week
-      firstSessionDate.setDate(firstSessionDate.getDate() + daysUntilTarget);
-      firstSessionDate.setHours(hours, minutes, 0, 0);
-      
-      // If first session is before series start (comparing full DateTime), advance one week
-      if (firstSessionDate < seriesStartDateTime) {
-        firstSessionDate.setDate(firstSessionDate.getDate() + 7);
-      }
+      // Parse series end date if provided
+      const seriesEnd = seriesEndDate ? localTimeToUTC(seriesEndDate, "23:59", academyTimezone) : null;
       
       // Calculate maximum number of sessions considering both weekCount and seriesEndDate
       let calculatedMaxWeeks = weekCount || 52; // Default to 52 weeks if not specified
@@ -5592,21 +5586,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Generate sessions for each week
       for (let weekIndex = 0; weekIndex < maxSessions; weekIndex++) {
-        const sessionDate = new Date(firstSessionDate);
-        sessionDate.setDate(sessionDate.getDate() + weekIndex * 7);
-        sessionDate.setHours(hours, minutes, 0, 0);
+        // Calculate the local date for this session (add weeks to first session)
+        const sessionDateStr = addDaysToLocalDate(currentLocalDateStr, weekIndex * 7);
+        
+        // Convert to UTC using academy timezone
+        const sessionDate = localTimeToUTC(sessionDateStr, startTime, academyTimezone);
         
         // Check if this session would be after the series end date
-        if (seriesEnd && sessionDate > seriesEnd) {
+        if (seriesEnd && sessionDate.getTime() > seriesEnd.getTime()) {
           break;
         }
         
         const weekNumber = weekIndex + 1; // 1-indexed week number
         
         const sessionEndTime = new Date(sessionDate.getTime() + duration * 60000);
-        const dateStr = sessionDate.toISOString().split("T")[0];
-        const startTimeStr = `${String(sessionDate.getHours()).padStart(2, "0")}:${String(sessionDate.getMinutes()).padStart(2, "0")}`;
-        const endTimeStr = `${String(sessionEndTime.getHours()).padStart(2, "0")}:${String(sessionEndTime.getMinutes()).padStart(2, "0")}`;
+        
+        // For display purposes, convert back to local time
+        const localSession = utcToLocalTime(sessionDate, academyTimezone);
+        const localEndSession = utcToLocalTime(sessionEndTime, academyTimezone);
+        const dateStr = localSession.date;
+        const startTimeStr = localSession.time;
+        const endTimeStr = localEndSession.time;
         
         // Check for conflicts - track both types
         const coachConflict = await storage.checkCoachConflict(coachId, sessionDate, sessionEndTime, undefined, academyId);

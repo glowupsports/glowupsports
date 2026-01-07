@@ -30,6 +30,7 @@ interface Academy {
   id: string;
   name: string;
   slug: string;
+  timezone?: string | null;
 }
 
 interface PlayerRegisterData {

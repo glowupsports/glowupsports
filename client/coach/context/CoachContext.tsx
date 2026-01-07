@@ -24,6 +24,7 @@ interface Academy {
   id: string;
   name: string;
   slug: string;
+  timezone?: string | null;
 }
 
 interface Location {
@@ -126,6 +127,7 @@ export function CoachProvider({ children }: { children: ReactNode }) {
     id: authAcademy.id,
     name: authAcademy.name,
     slug: authAcademy.slug,
+    timezone: authAcademy.timezone || "Asia/Dubai",
   } : null;
 
   useEffect(() => {

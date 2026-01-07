@@ -32,6 +32,13 @@ The application features a dark-themed gaming aesthetic, utilizing neon green an
     - **Maintenance Mode**: System-wide maintenance toggle with role-based bypass and status endpoints.
     - **Diagnostics System**: Client-side error reporting with a dedicated inbox and resolution workflow for Platform Owners. Includes user-reported UI issues via "Report an Issue" in drawer menu (rate-limited to 3 reports/hour, tracks last interaction context).
 
+- **Timezone Handling**:
+    - Each academy has a `timezone` field stored as IANA format (e.g., "Asia/Dubai").
+    - Series `startTime` is stored as "HH:MM" text representing local academy time.
+    - When creating session instances, the backend uses `server/utils/timezone.ts` to convert local academy time to UTC.
+    - Display utilities in `client/lib/dateUtils.ts` format UTC timestamps back to local academy time.
+    - Academy timezone is included in `/api/me` response and available via CoachContext.
+
 - **Role-Specific Applications**:
     - **Coach App**: Player and session management, feedback, progress tracking, notifications, dashboard with coach level/XP, and offline sync.
     - **Player App**: 5-tab navigation (Home, Journey, Progress, Schedule, Profile) with cyan accent, showcasing progress visualization (skill radar, XP bar, Glow Score), session schedules, and milestones.

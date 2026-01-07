@@ -177,6 +177,9 @@ export const academies = pgTable("academies", {
   freelanceOwnerCoachId: varchar("freelance_owner_coach_id"), // Coach ID who owns this freelance academy
   allowFreelanceCoaches: text("allow_freelance_coaches").default("allow"), // allow | review_required | disallow
   
+  // Timezone (IANA format like "Asia/Dubai", "Europe/Amsterdam")
+  timezone: text("timezone").default("Asia/Dubai"),
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 
