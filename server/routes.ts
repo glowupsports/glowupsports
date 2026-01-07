@@ -7,7 +7,7 @@ import fs from "fs";
 import { storage } from "./storage";
 import { db } from "./db";
 import { playerHolidays } from "@shared/schema";
-import { eq, sql, desc, and, ne, gt, asc, inArray } from "drizzle-orm";
+import { eq, sql, desc, and, ne, gt, asc, inArray, isNull, isNotNull, or } from "drizzle-orm";
 import { invoices, payments, sessionPlayers, sessionWaitlist, creditTransactions, players, locationTravelTimes, sessions, sessionFeedback } from "@shared/schema";
 import { setupWebSocket, broadcastNewMessage } from "./websocket";
 import { 
@@ -6230,8 +6230,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const uniquePlayerIds = [...new Set(allSessionPlayers.map(sp => sp.playerId).filter(Boolean))];
         
         for (const playerId of uniquePlayerIds) {
-          if (playerId) {
-            await storage.addPlayerToSeries(newSeries.id, playerId);
+          if (playerId && newSeries.id) {
+            await storage.addPlayerToSeries({
+              seriesId: newSeries.id,
+              playerId: playerId,
+              status: "active",
+            });
           }
         }
         
