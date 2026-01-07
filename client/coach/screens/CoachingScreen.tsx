@@ -208,7 +208,7 @@ export default function CoachingScreen() {
       {/* Mission Tab Bar */}
       <View style={styles.calmTabBar}>
         {([
-          { id: "series", label: "Series", icon: "layers-outline" },
+          { id: "series", label: "Classes", icon: "layers-outline" },
           { id: "today", label: "Sessions", icon: "flag-outline" },
           { id: "progress", label: "Stats", icon: "stats-chart-outline" },
           { id: "plans", label: "Plans", icon: "bulb-outline" },
@@ -318,8 +318,8 @@ function SeriesTab({ insets, tabBarHeight }: { insets: { bottom: number }; tabBa
 
   const handleCreatePress = () => {
     Alert.alert(
-      "Create Series",
-      "Series creation coming soon! This will allow you to set up recurring training blocks.",
+      "Create Class",
+      "Class creation coming soon! This will allow you to set up recurring training blocks.",
       [{ text: "OK" }]
     );
   };

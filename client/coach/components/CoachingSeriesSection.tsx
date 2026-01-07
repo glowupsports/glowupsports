@@ -66,13 +66,13 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
       if (data.migratedCount > 0) {
         Alert.alert(
           "Migration Complete",
-          `Successfully migrated ${data.migratedCount} recurring session groups into series.`,
+          `Successfully imported ${data.migratedCount} recurring session groups into classes.`,
           [{ text: "OK" }]
         );
       } else {
         Alert.alert(
-          "No Sessions to Migrate",
-          "All recurring sessions have already been migrated to series.",
+          "No Sessions to Import",
+          "All recurring sessions have already been imported as classes.",
           [{ text: "OK" }]
         );
       }
@@ -108,7 +108,7 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.dark.primary} />
-        <Text style={styles.loadingText}>Loading series...</Text>
+        <Text style={styles.loadingText}>Loading classes...</Text>
       </View>
     );
   }
@@ -117,7 +117,7 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
     return (
       <View style={styles.emptyContainer}>
         <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.error} />
-        <Text style={styles.emptyTitle}>Error loading series</Text>
+        <Text style={styles.emptyTitle}>Error loading classes</Text>
         <Pressable onPress={() => refetch()} style={styles.retryButton}>
           <Text style={styles.retryText}>Try Again</Text>
         </Pressable>
@@ -154,11 +154,11 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
               <NeoGlowBadge accentColor={Colors.dark.primary}>
                 <Ionicons name="layers-outline" size={24} color={Colors.dark.primary} />
               </NeoGlowBadge>
-              <Text style={styles.emptyTitle}>No Coaching Series</Text>
+              <Text style={styles.emptyTitle}>No Classes</Text>
               <Text style={styles.emptySubtitle}>
                 {filter === "all" 
-                  ? "Create your first recurring training block to get started"
-                  : `No ${filter} series found`}
+                  ? "Create your first recurring class to get started"
+                  : `No ${filter} classes found`}
               </Text>
               <Pressable 
                 onPress={() => {
@@ -174,15 +174,15 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
                   style={styles.createButtonGradient}
                 >
                   <Ionicons name="add" size={20} color={Colors.dark.buttonText} />
-                  <Text style={styles.createButtonText}>Create Series</Text>
+                  <Text style={styles.createButtonText}>Create Class</Text>
                 </LinearGradient>
               </Pressable>
               <Pressable 
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                   Alert.alert(
-                    "Migrate Recurring Sessions",
-                    "This will convert your existing recurring sessions into the new series format. Sessions will be grouped by their recurring pattern.",
+                    "Import Recurring Sessions",
+                    "This will convert your existing recurring sessions into classes. Sessions will be grouped by their recurring pattern.",
                     [
                       { text: "Cancel", style: "cancel" },
                       { text: "Migrate", onPress: () => migrateMutation.mutate() },
@@ -211,7 +211,7 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
               <View style={styles.dayHeader}>
                 <Ionicons name="calendar-outline" size={16} color={Colors.dark.gold} />
                 <Text style={styles.dayTitle}>{DAY_NAMES[dayOfWeek]}</Text>
-                <Text style={styles.dayCount}>{groupedByDay[dayOfWeek].length} series</Text>
+                <Text style={styles.dayCount}>{groupedByDay[dayOfWeek].length} classes</Text>
               </View>
               {groupedByDay[dayOfWeek]
                 .sort((a, b) => a.startTime.localeCompare(b.startTime))
@@ -233,7 +233,7 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
             style={styles.addMoreButton}
           >
             <Ionicons name="add-circle-outline" size={24} color={Colors.dark.primary} />
-            <Text style={styles.addMoreText}>Add New Series</Text>
+            <Text style={styles.addMoreText}>Add New Class</Text>
           </Pressable>
         </View>
       )}

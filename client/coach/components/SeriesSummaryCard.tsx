@@ -51,7 +51,7 @@ export function SeriesSummaryCard({ onPress, onViewAll }: SeriesSummaryCardProps
           style={styles.gradient}
         >
           <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading series...</Text>
+            <Text style={styles.loadingText}>Loading classes...</Text>
           </View>
         </LinearGradient>
       </View>
@@ -75,8 +75,8 @@ export function SeriesSummaryCard({ onPress, onViewAll }: SeriesSummaryCardProps
             <View style={styles.iconWrapper}>
               <Ionicons name="layers-outline" size={24} color={SERIES_PURPLE} />
             </View>
-            <Text style={styles.emptyTitle}>No Coaching Series</Text>
-            <Text style={styles.emptySubtitle}>Create your first recurring training block</Text>
+            <Text style={styles.emptyTitle}>No Classes</Text>
+            <Text style={styles.emptySubtitle}>Create your first recurring class</Text>
           </View>
         </LinearGradient>
       </Pressable>
@@ -107,7 +107,7 @@ export function SeriesSummaryCard({ onPress, onViewAll }: SeriesSummaryCardProps
             <View style={[styles.iconWrapper, { backgroundColor: SERIES_PURPLE + "25" }]}>
               <Ionicons name="layers" size={14} color={SERIES_PURPLE} />
             </View>
-            <Text style={styles.title}>COACHING SERIES</Text>
+            <Text style={styles.title}>MY CLASSES</Text>
           </View>
           <View style={styles.viewAllBtn}>
             <Text style={styles.viewAllText}>View All</Text>
@@ -143,7 +143,7 @@ export function SeriesSummaryCard({ onPress, onViewAll }: SeriesSummaryCardProps
 
         {todaysSeries.length > 0 ? (
           <View style={styles.todaySection}>
-            <Text style={styles.todayLabel}>Today's Series</Text>
+            <Text style={styles.todayLabel}>Today's Classes</Text>
             {todaysSeries.slice(0, 2).map((series, index) => (
               <Pressable 
                 key={series.id} 
@@ -172,7 +172,7 @@ export function SeriesSummaryCard({ onPress, onViewAll }: SeriesSummaryCardProps
           </View>
         ) : (
           <View style={styles.noTodaySection}>
-            <Text style={styles.noTodayText}>No series scheduled for today</Text>
+            <Text style={styles.noTodayText}>No classes scheduled for today</Text>
           </View>
         )}
       </LinearGradient>

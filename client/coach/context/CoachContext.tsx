@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/coach/context/AuthContext";
+import { apiRequest } from "@/lib/query-client";
 
 interface Coach {
   id: string;
@@ -93,6 +94,8 @@ const CoachContext = createContext<CoachContextType | undefined>(undefined);
 
 const FOCUS_MODE_KEY = "@focus_mode";
 
+const AUTO_MIGRATE_KEY = "@auto_migrate_done";
+
 export function CoachProvider({ children }: { children: ReactNode }) {
   const { coach: authCoach, academy: authAcademy } = useAuth();
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -100,6 +103,8 @@ export function CoachProvider({ children }: { children: ReactNode }) {
   const [timeGrid, setTimeGrid] = useState<30 | 60>(60);
   const [focusMode, setFocusModeState] = useState(false);
   const [insightsMode, setInsightsMode] = useState(false);
+  const queryClient = useQueryClient();
+  const hasMigrated = useRef(false);
 
   const coach: Coach | null = authCoach ? {
     id: authCoach.id,
@@ -137,6 +142,42 @@ export function CoachProvider({ children }: { children: ReactNode }) {
     
     loadFocusMode();
   }, []);
+
+  // Auto-migrate recurring sessions to classes on coach login
+  useEffect(() => {
+    const autoMigrate = async () => {
+      if (!authCoach?.id || hasMigrated.current) return;
+      
+      try {
+        // Check if we've already migrated for this coach
+        const migrated = await AsyncStorage.getItem(`${AUTO_MIGRATE_KEY}_${authCoach.id}`);
+        if (migrated) {
+          hasMigrated.current = true;
+          return;
+        }
+        
+        // Call migration endpoint silently
+        const response = await apiRequest("POST", "/api/coach/series/migrate");
+        if (response.ok) {
+          const data = await response.json();
+          console.log(`Auto-migrated ${data.migratedCount} recurring sessions to classes`);
+          
+          // Mark as migrated for this coach
+          await AsyncStorage.setItem(`${AUTO_MIGRATE_KEY}_${authCoach.id}`, "true");
+          hasMigrated.current = true;
+          
+          // Invalidate series query to refresh the list
+          if (data.migratedCount > 0) {
+            queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
+          }
+        }
+      } catch (error) {
+        console.error("Auto-migration failed:", error);
+      }
+    };
+    
+    autoMigrate();
+  }, [authCoach?.id, queryClient]);
 
   const setFocusMode = async (mode: boolean) => {
     setFocusModeState(mode);
