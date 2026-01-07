@@ -904,6 +904,8 @@ export const sessions = pgTable("sessions", {
   
   isRecurring: boolean("is_recurring").default(false),
   recurringGroupId: varchar("recurring_group_id"),
+  seriesId: varchar("series_id"), // References coachingSeries.id - links session to its parent series
+  weekNumber: integer("week_number"), // Which week in the series (1, 2, 3...)
   weekCount: integer("week_count"), // 1/5/10/15/20
   isModifiedFromSeries: boolean("is_modified_from_series").default(false), // edited individually
   isSkipped: boolean("is_skipped").default(false), // manually skipped
@@ -933,7 +935,80 @@ export const insertSessionSchema = createInsertSchema(sessions).omit({ id: true,
 export type InsertSession = z.infer<typeof insertSessionSchema>;
 export type Session = typeof sessions.$inferSelect;
 
-// Recurring Session Series
+// Coaching Series - The primary entity for recurring training blocks
+// Coaches think in series: "Monday 17:00 Green Kids for 30 weeks"
+// Sessions are derived instances of a series
+export const coachingSeries = pgTable("coaching_series", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id),
+  coachId: varchar("coach_id").references(() => coaches.id),
+  courtId: varchar("court_id").references(() => courts.id),
+  locationId: varchar("location_id").references(() => locations.id),
+  
+  // Display name like "Monday Green Group", "Private Kevin"
+  title: text("title").notNull(),
+  
+  // Schedule
+  dayOfWeek: integer("day_of_week").notNull(), // 0=Sunday, 1=Monday, etc.
+  startTime: text("start_time").notNull(), // "HH:MM" format
+  duration: integer("duration").notNull(), // minutes
+  
+  // Series details
+  sessionType: text("session_type").notNull(), // private/semi/group/physical/activity
+  ballLevel: text("ball_level"),
+  skillLevel: integer("skill_level"),
+  maxPlayers: integer("max_players").default(4), // Max capacity
+  
+  // Timeline
+  weekCount: integer("week_count"), // total weeks in series (null = open-ended)
+  seriesStartDate: date("series_start_date").notNull(),
+  seriesEndDate: date("series_end_date"), // calculated from weekCount or set manually
+  
+  // Gamification
+  xpPerSession: integer("xp_per_session").default(20),
+  vibe: text("vibe").default("casual"), // casual/competitive
+  
+  // Pricing
+  price: numeric("price"), // Price per session
+  
+  // Status: active/paused/ended
+  status: text("status").default("active"),
+  pausedAt: timestamp("paused_at"),
+  endedAt: timestamp("ended_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCoachingSeriesSchema = createInsertSchema(coachingSeries).omit({ id: true, createdAt: true });
+export type InsertCoachingSeries = z.infer<typeof insertCoachingSeriesSchema>;
+export type CoachingSeries = typeof coachingSeries.$inferSelect;
+
+// Series Players - Players assigned to a coaching series
+export const seriesPlayers = pgTable("series_players", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  seriesId: varchar("series_id").references(() => coachingSeries.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  
+  // Player's status in the series
+  status: text("status").default("active"), // active/paused/dropped
+  joinedAt: timestamp("joined_at").defaultNow(),
+  leftAt: timestamp("left_at"),
+  
+  // Progress tracking
+  sessionsAttended: integer("sessions_attended").default(0),
+  totalXpEarned: integer("total_xp_earned").default(0),
+});
+
+export const insertSeriesPlayerSchema = createInsertSchema(seriesPlayers).omit({ id: true });
+export type InsertSeriesPlayer = z.infer<typeof insertSeriesPlayerSchema>;
+export type SeriesPlayer = typeof seriesPlayers.$inferSelect;
+
+// Legacy: Keep recurringSeries for backwards compatibility
+// TODO: Migrate existing data to coachingSeries
 export const recurringSeries = pgTable("recurring_series", {
   id: varchar("id")
     .primaryKey()

@@ -7,8 +7,8 @@ import fs from "fs";
 import { storage } from "./storage";
 import { db } from "./db";
 import { playerHolidays } from "@shared/schema";
-import { eq, sql, desc, and, ne, gt, asc } from "drizzle-orm";
-import { invoices, payments, sessionPlayers, sessionWaitlist, creditTransactions, players, locationTravelTimes } from "@shared/schema";
+import { eq, sql, desc, and, ne, gt, asc, inArray } from "drizzle-orm";
+import { invoices, payments, sessionPlayers, sessionWaitlist, creditTransactions, players, locationTravelTimes, sessions, sessionFeedback } from "@shared/schema";
 import { setupWebSocket, broadcastNewMessage } from "./websocket";
 import { 
   hashPassword, 
@@ -5279,6 +5279,478 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting template:", error);
       res.status(500).json({ error: "Failed to delete template" });
+    }
+  });
+
+  // ==================== COACHING SERIES API ====================
+  // Series-first approach: coaches manage training blocks, not individual sessions
+
+  // Get all coaching series for the logged-in coach
+  app.get("/api/coach/series", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      
+      if (!coachId) {
+        return res.status(400).json({ error: "Coach ID required" });
+      }
+      
+      const { status } = req.query;
+      
+      let series;
+      if (status === "active") {
+        series = await storage.getActiveCoachingSeries(coachId, academyId || undefined);
+      } else {
+        series = await storage.getCoachingSeries(coachId, academyId || undefined);
+      }
+      
+      // Enrich each series with player count and sessions completed
+      const enrichedSeries = await Promise.all(series.map(async (s) => {
+        const players = await storage.getSeriesPlayers(s.id);
+        const activePlayers = players.filter(p => p.status === "active");
+        
+        // Count completed sessions for this series
+        const sessionsForSeries = await db
+          .select()
+          .from(sessions)
+          .where(and(
+            eq(sessions.seriesId, s.id),
+            eq(sessions.status, "completed")
+          ));
+        
+        // Count pending feedback (completed sessions without feedback)
+        const completedSessionIds = sessionsForSeries.map(sess => sess.id);
+        let pendingFeedback = 0;
+        if (completedSessionIds.length > 0) {
+          const feedbackCount = await db
+            .select({ count: sql<number>`count(distinct ${sessionFeedback.sessionId})` })
+            .from(sessionFeedback)
+            .where(inArray(sessionFeedback.sessionId, completedSessionIds));
+          pendingFeedback = sessionsForSeries.length - (feedbackCount[0]?.count || 0);
+        }
+        
+        return {
+          ...s,
+          playerCount: activePlayers.length,
+          sessionsCompleted: sessionsForSeries.length,
+          pendingFeedback: Math.max(0, pendingFeedback),
+        };
+      }));
+      
+      res.json(enrichedSeries);
+    } catch (error) {
+      console.error("Error fetching coaching series:", error);
+      res.status(500).json({ error: "Failed to fetch coaching series" });
+    }
+  });
+
+  // Get a single coaching series by ID with full details
+  app.get("/api/coach/series/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user!.coachId;
+      
+      const series = await storage.getCoachingSeriesById(id);
+      
+      if (!series) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+      
+      // Verify ownership
+      if (series.coachId !== coachId) {
+        return res.status(403).json({ error: "Not authorized to view this series" });
+      }
+      
+      // Get players in this series
+      const seriesPlayers = await storage.getSeriesPlayers(id);
+      
+      // Get player details
+      const playerDetails = await Promise.all(seriesPlayers.map(async (sp) => {
+        const player = await storage.getPlayer(sp.playerId);
+        return {
+          ...sp,
+          player,
+        };
+      }));
+      
+      // Get all sessions for this series
+      const seriesSessions = await db
+        .select()
+        .from(sessions)
+        .where(eq(sessions.seriesId, id))
+        .orderBy(asc(sessions.startTime));
+      
+      // Get location name if applicable
+      let locationName = null;
+      if (series.locationId) {
+        const location = await storage.getLocationById(series.locationId);
+        locationName = location?.name;
+      }
+      
+      // Get court name if applicable
+      let courtName = null;
+      if (series.courtId) {
+        const court = await storage.getCourtById(series.courtId);
+        courtName = court?.name;
+      }
+      
+      res.json({
+        ...series,
+        locationName,
+        courtName,
+        players: playerDetails,
+        sessions: seriesSessions,
+        stats: {
+          totalSessions: series.weekCount || seriesSessions.length,
+          completedSessions: seriesSessions.filter(s => s.status === "completed").length,
+          upcomingSessions: seriesSessions.filter(s => s.status === "scheduled" && new Date(s.startTime) > new Date()).length,
+          cancelledSessions: seriesSessions.filter(s => s.status === "cancelled").length,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching coaching series details:", error);
+      res.status(500).json({ error: "Failed to fetch series details" });
+    }
+  });
+
+  // Create a new coaching series
+  app.post("/api/coach/series", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      
+      if (!coachId || !academyId) {
+        return res.status(400).json({ error: "Coach and academy required" });
+      }
+      
+      const {
+        title,
+        dayOfWeek,
+        startTime,
+        duration,
+        sessionType,
+        ballLevel,
+        skillLevel,
+        maxPlayers,
+        weekCount,
+        seriesStartDate,
+        seriesEndDate,
+        xpPerSession,
+        vibe,
+        price,
+        courtId,
+        locationId,
+        playerIds,
+      } = req.body;
+      
+      if (!title || dayOfWeek === undefined || !startTime || !duration || !sessionType || !seriesStartDate) {
+        return res.status(400).json({ error: "title, dayOfWeek, startTime, duration, sessionType, and seriesStartDate are required" });
+      }
+      
+      // Create the series
+      const series = await storage.createCoachingSeries({
+        academyId,
+        coachId,
+        courtId: courtId || null,
+        locationId: locationId || null,
+        title: sanitizeTemplateName(title),
+        dayOfWeek,
+        startTime,
+        duration,
+        sessionType,
+        ballLevel,
+        skillLevel,
+        maxPlayers: maxPlayers || 4,
+        weekCount: weekCount || null,
+        seriesStartDate,
+        seriesEndDate: seriesEndDate || null,
+        xpPerSession: xpPerSession || 20,
+        vibe: vibe || "casual",
+        price: price || null,
+        status: "active",
+      });
+      
+      // Add players if provided
+      if (playerIds && Array.isArray(playerIds) && playerIds.length > 0) {
+        for (const playerId of playerIds) {
+          await storage.addPlayerToSeries({
+            seriesId: series.id,
+            playerId,
+            status: "active",
+          });
+        }
+      }
+      
+      res.status(201).json(series);
+    } catch (error) {
+      console.error("Error creating coaching series:", error);
+      res.status(500).json({ error: "Failed to create coaching series" });
+    }
+  });
+
+  // Update a coaching series
+  app.patch("/api/coach/series/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user!.coachId;
+      
+      const existing = await storage.getCoachingSeriesById(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+      
+      if (existing.coachId !== coachId) {
+        return res.status(403).json({ error: "Not authorized to update this series" });
+      }
+      
+      const updates: any = {};
+      const allowedFields = ["title", "courtId", "locationId", "startTime", "duration", "ballLevel", "skillLevel", "maxPlayers", "xpPerSession", "vibe", "price", "seriesEndDate"];
+      
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) {
+          updates[field] = field === "title" ? sanitizeTemplateName(req.body[field]) : req.body[field];
+        }
+      }
+      
+      const updated = await storage.updateCoachingSeries(id, updates);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating coaching series:", error);
+      res.status(500).json({ error: "Failed to update coaching series" });
+    }
+  });
+
+  // Pause a coaching series
+  app.post("/api/coach/series/:id/pause", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user!.coachId;
+      
+      const existing = await storage.getCoachingSeriesById(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+      
+      if (existing.coachId !== coachId) {
+        return res.status(403).json({ error: "Not authorized to pause this series" });
+      }
+      
+      const paused = await storage.pauseCoachingSeries(id);
+      res.json(paused);
+    } catch (error) {
+      console.error("Error pausing coaching series:", error);
+      res.status(500).json({ error: "Failed to pause series" });
+    }
+  });
+
+  // Resume a paused coaching series
+  app.post("/api/coach/series/:id/resume", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user!.coachId;
+      
+      const existing = await storage.getCoachingSeriesById(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+      
+      if (existing.coachId !== coachId) {
+        return res.status(403).json({ error: "Not authorized to resume this series" });
+      }
+      
+      const resumed = await storage.resumeCoachingSeries(id);
+      res.json(resumed);
+    } catch (error) {
+      console.error("Error resuming coaching series:", error);
+      res.status(500).json({ error: "Failed to resume series" });
+    }
+  });
+
+  // End a coaching series
+  app.post("/api/coach/series/:id/end", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user!.coachId;
+      
+      const existing = await storage.getCoachingSeriesById(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+      
+      if (existing.coachId !== coachId) {
+        return res.status(403).json({ error: "Not authorized to end this series" });
+      }
+      
+      const ended = await storage.endCoachingSeries(id);
+      res.json(ended);
+    } catch (error) {
+      console.error("Error ending coaching series:", error);
+      res.status(500).json({ error: "Failed to end series" });
+    }
+  });
+
+  // Delete a coaching series (PERMANENT - no soft delete)
+  app.delete("/api/coach/series/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user!.coachId;
+      
+      const existing = await storage.getCoachingSeriesById(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+      
+      if (existing.coachId !== coachId) {
+        return res.status(403).json({ error: "Not authorized to delete this series" });
+      }
+      
+      await storage.deleteCoachingSeries(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting coaching series:", error);
+      res.status(500).json({ error: "Failed to delete series" });
+    }
+  });
+
+  // Add a player to a series
+  app.post("/api/coach/series/:id/players", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { playerId } = req.body;
+      const coachId = req.user!.coachId;
+      
+      if (!playerId) {
+        return res.status(400).json({ error: "playerId is required" });
+      }
+      
+      const existing = await storage.getCoachingSeriesById(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+      
+      if (existing.coachId !== coachId) {
+        return res.status(403).json({ error: "Not authorized to add players to this series" });
+      }
+      
+      // Check if player already in series
+      const currentPlayers = await storage.getSeriesPlayers(id);
+      if (currentPlayers.some(p => p.playerId === playerId)) {
+        return res.status(400).json({ error: "Player already in this series" });
+      }
+      
+      // Check max players
+      if (existing.maxPlayers && currentPlayers.filter(p => p.status === "active").length >= existing.maxPlayers) {
+        return res.status(400).json({ error: "Series is at maximum capacity" });
+      }
+      
+      const seriesPlayer = await storage.addPlayerToSeries({
+        seriesId: id,
+        playerId,
+        status: "active",
+      });
+      
+      res.status(201).json(seriesPlayer);
+    } catch (error) {
+      console.error("Error adding player to series:", error);
+      res.status(500).json({ error: "Failed to add player to series" });
+    }
+  });
+
+  // Remove a player from a series
+  app.delete("/api/coach/series/:id/players/:playerId", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id, playerId } = req.params;
+      const coachId = req.user!.coachId;
+      
+      const existing = await storage.getCoachingSeriesById(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+      
+      if (existing.coachId !== coachId) {
+        return res.status(403).json({ error: "Not authorized to remove players from this series" });
+      }
+      
+      await storage.removePlayerFromSeries(id, playerId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing player from series:", error);
+      res.status(500).json({ error: "Failed to remove player from series" });
+    }
+  });
+
+  // Get series timeline (weekly breakdown)
+  app.get("/api/coach/series/:id/timeline", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user!.coachId;
+      
+      const series = await storage.getCoachingSeriesById(id);
+      if (!series) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+      
+      if (series.coachId !== coachId) {
+        return res.status(403).json({ error: "Not authorized to view this series" });
+      }
+      
+      // Get all sessions for this series
+      const seriesSessions = await db
+        .select()
+        .from(sessions)
+        .where(eq(sessions.seriesId, id))
+        .orderBy(asc(sessions.weekNumber), asc(sessions.startTime));
+      
+      // Get feedback for these sessions
+      const sessionIds = seriesSessions.map(s => s.id);
+      let feedbackMap: Record<string, boolean> = {};
+      
+      if (sessionIds.length > 0) {
+        const feedback = await db
+          .select({ sessionId: sessionFeedback.sessionId })
+          .from(sessionFeedback)
+          .where(inArray(sessionFeedback.sessionId, sessionIds));
+        
+        feedback.forEach(f => {
+          if (f.sessionId) feedbackMap[f.sessionId] = true;
+        });
+      }
+      
+      // Build timeline
+      const timeline = seriesSessions.map(session => {
+        const now = new Date();
+        const sessionDate = new Date(session.startTime);
+        const isToday = sessionDate.toDateString() === now.toDateString();
+        const isPast = sessionDate < now;
+        const hasFeedback = feedbackMap[session.id] || false;
+        
+        let status: "completed" | "needs_feedback" | "today" | "upcoming" | "skipped" | "cancelled" = "upcoming";
+        
+        if (session.status === "cancelled") {
+          status = "cancelled";
+        } else if (session.isSkipped) {
+          status = "skipped";
+        } else if (isToday) {
+          status = "today";
+        } else if (session.status === "completed") {
+          status = hasFeedback ? "completed" : "needs_feedback";
+        } else if (isPast) {
+          status = hasFeedback ? "completed" : "needs_feedback";
+        }
+        
+        return {
+          sessionId: session.id,
+          weekNumber: session.weekNumber || 1,
+          date: session.startTime,
+          status,
+          hasFeedback,
+        };
+      });
+      
+      res.json(timeline);
+    } catch (error) {
+      console.error("Error fetching series timeline:", error);
+      res.status(500).json({ error: "Failed to fetch timeline" });
     }
   });
 

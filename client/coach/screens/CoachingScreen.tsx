@@ -30,6 +30,7 @@ import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { ObservationTrendChart } from "@/components/ObservationTrendChart";
 import { NeoLoadoutPanel, NeoGlowBadge } from "@/components/NeoLoadoutPanel";
+import { CoachingSeriesSection } from "@/coach/components/CoachingSeriesSection";
 
 interface ProgressSummary {
   skillArea: string;
@@ -51,7 +52,7 @@ interface PlayerWithProgress {
   };
 }
 
-type TabType = "today" | "progress" | "plans";
+type TabType = "series" | "today" | "progress" | "plans";
 type ProgressTrend = "up" | "stable" | "down";
 type EffortLevel = "high" | "normal" | "low";
 type Intensity = "light" | "normal" | "intense";
@@ -128,7 +129,7 @@ interface ObservationTrend {
 export default function CoachingScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
-  const [activeTab, setActiveTab] = useState<TabType>("today");
+  const [activeTab, setActiveTab] = useState<TabType>("series");
 
   const headerPulse = useSharedValue(0.4);
   const iconGlow = useSharedValue(1);
@@ -206,7 +207,8 @@ export default function CoachingScreen() {
       {/* Mission Tab Bar */}
       <View style={styles.calmTabBar}>
         {([
-          { id: "today", label: "Missions", icon: "flag-outline" },
+          { id: "series", label: "Series", icon: "layers-outline" },
+          { id: "today", label: "Sessions", icon: "flag-outline" },
           { id: "progress", label: "Stats", icon: "stats-chart-outline" },
           { id: "plans", label: "Plans", icon: "bulb-outline" },
         ] as const).map((tab) => {
@@ -233,7 +235,9 @@ export default function CoachingScreen() {
         })}
       </View>
 
-      {activeTab === "today" ? (
+      {activeTab === "series" ? (
+        <SeriesTab insets={insets} tabBarHeight={tabBarHeight} />
+      ) : activeTab === "today" ? (
         <TodayFeedbackTab insets={insets} tabBarHeight={tabBarHeight} />
       ) : activeTab === "progress" ? (
         <ProgressTab insets={insets} tabBarHeight={tabBarHeight} />
@@ -300,6 +304,49 @@ const FEEDBACK_XP_REWARDS: Record<string, number> = {
   // Default fallback for unknown types
   default: 20,
 };
+
+function SeriesTab({ insets, tabBarHeight }: { insets: { bottom: number }; tabBarHeight: number }) {
+  const handleSeriesPress = (series: any) => {
+    Alert.alert(
+      series.title,
+      `${series.sessionType} series on ${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][series.dayOfWeek]} at ${series.startTime}\n\n${series.playerCount} players, ${series.sessionsCompleted} sessions completed`,
+      [{ text: "OK" }]
+    );
+  };
+
+  const handleCreatePress = () => {
+    Alert.alert(
+      "Create Series",
+      "Series creation coming soon! This will allow you to set up recurring training blocks.",
+      [{ text: "OK" }]
+    );
+  };
+
+  return (
+    <ScrollView
+      style={seriesStyles.scrollView}
+      contentContainerStyle={[
+        seriesStyles.scrollContent,
+        { paddingBottom: tabBarHeight + Spacing.xl },
+      ]}
+      showsVerticalScrollIndicator={false}
+    >
+      <CoachingSeriesSection
+        onSeriesPress={handleSeriesPress}
+        onCreatePress={handleCreatePress}
+      />
+    </ScrollView>
+  );
+}
+
+const seriesStyles = StyleSheet.create({
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingTop: Spacing.md,
+  },
+});
 
 function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }; tabBarHeight: number }) {
   const { calendarData, isLoading } = useCoach();

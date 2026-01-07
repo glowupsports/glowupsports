@@ -41,6 +41,12 @@ import {
   sessionTemplates,
   coachNotifications,
   recurringSeries,
+  coachingSeries,
+  seriesPlayers,
+  type CoachingSeries,
+  type InsertCoachingSeries,
+  type SeriesPlayer,
+  type InsertSeriesPlayer,
   playerSessionCancellations,
   type PlayerSessionCancellation,
   type InsertPlayerSessionCancellation,
@@ -2508,6 +2514,156 @@ export const storage = {
 
   async deleteSessionTemplate(id: string): Promise<void> {
     await db.delete(sessionTemplates).where(eq(sessionTemplates.id, id));
+  },
+
+  // ==================== COACHING SERIES ====================
+  // Series-first approach: coaches manage training blocks, not individual sessions
+  
+  async getCoachingSeries(coachId: string, academyId?: string): Promise<CoachingSeries[]> {
+    const conditions = [eq(coachingSeries.coachId, coachId)];
+    if (academyId) {
+      conditions.push(eq(coachingSeries.academyId, academyId));
+    }
+    return db
+      .select()
+      .from(coachingSeries)
+      .where(and(...conditions))
+      .orderBy(desc(coachingSeries.createdAt));
+  },
+
+  async getCoachingSeriesById(id: string): Promise<CoachingSeries | undefined> {
+    const result = await db.select().from(coachingSeries).where(eq(coachingSeries.id, id));
+    return result[0];
+  },
+
+  async getActiveCoachingSeries(coachId: string, academyId?: string): Promise<CoachingSeries[]> {
+    const conditions = [
+      eq(coachingSeries.coachId, coachId),
+      eq(coachingSeries.status, "active")
+    ];
+    if (academyId) {
+      conditions.push(eq(coachingSeries.academyId, academyId));
+    }
+    return db
+      .select()
+      .from(coachingSeries)
+      .where(and(...conditions))
+      .orderBy(asc(coachingSeries.dayOfWeek), asc(coachingSeries.startTime));
+  },
+
+  async createCoachingSeries(data: InsertCoachingSeries): Promise<CoachingSeries> {
+    const result = await db.insert(coachingSeries).values(data).returning();
+    return result[0];
+  },
+
+  async updateCoachingSeries(id: string, data: Partial<InsertCoachingSeries>): Promise<CoachingSeries | undefined> {
+    const result = await db
+      .update(coachingSeries)
+      .set(data)
+      .where(eq(coachingSeries.id, id))
+      .returning();
+    return result[0];
+  },
+
+  async pauseCoachingSeries(id: string): Promise<CoachingSeries | undefined> {
+    const result = await db
+      .update(coachingSeries)
+      .set({ status: "paused", pausedAt: new Date() })
+      .where(eq(coachingSeries.id, id))
+      .returning();
+    return result[0];
+  },
+
+  async resumeCoachingSeries(id: string): Promise<CoachingSeries | undefined> {
+    const result = await db
+      .update(coachingSeries)
+      .set({ status: "active", pausedAt: null })
+      .where(eq(coachingSeries.id, id))
+      .returning();
+    return result[0];
+  },
+
+  async endCoachingSeries(id: string): Promise<CoachingSeries | undefined> {
+    const result = await db
+      .update(coachingSeries)
+      .set({ status: "ended", endedAt: new Date() })
+      .where(eq(coachingSeries.id, id))
+      .returning();
+    return result[0];
+  },
+
+  async deleteCoachingSeries(id: string): Promise<void> {
+    // First delete all series players
+    await db.delete(seriesPlayers).where(eq(seriesPlayers.seriesId, id));
+    // Then delete the series
+    await db.delete(coachingSeries).where(eq(coachingSeries.id, id));
+  },
+
+  // ==================== SERIES PLAYERS ====================
+  async getSeriesPlayers(seriesId: string): Promise<SeriesPlayer[]> {
+    return db
+      .select()
+      .from(seriesPlayers)
+      .where(eq(seriesPlayers.seriesId, seriesId))
+      .orderBy(asc(seriesPlayers.joinedAt));
+  },
+
+  async addPlayerToSeries(data: InsertSeriesPlayer): Promise<SeriesPlayer> {
+    const result = await db.insert(seriesPlayers).values(data).returning();
+    return result[0];
+  },
+
+  async removePlayerFromSeries(seriesId: string, playerId: string): Promise<void> {
+    await db
+      .delete(seriesPlayers)
+      .where(and(
+        eq(seriesPlayers.seriesId, seriesId),
+        eq(seriesPlayers.playerId, playerId)
+      ));
+  },
+
+  async updateSeriesPlayer(seriesId: string, playerId: string, data: Partial<InsertSeriesPlayer>): Promise<SeriesPlayer | undefined> {
+    const result = await db
+      .update(seriesPlayers)
+      .set(data)
+      .where(and(
+        eq(seriesPlayers.seriesId, seriesId),
+        eq(seriesPlayers.playerId, playerId)
+      ))
+      .returning();
+    return result[0];
+  },
+
+  async getPlayerSeries(playerId: string): Promise<CoachingSeries[]> {
+    const playerSeriesIds = await db
+      .select({ seriesId: seriesPlayers.seriesId })
+      .from(seriesPlayers)
+      .where(and(
+        eq(seriesPlayers.playerId, playerId),
+        eq(seriesPlayers.status, "active")
+      ));
+    
+    if (playerSeriesIds.length === 0) return [];
+    
+    const seriesIds = playerSeriesIds.map(p => p.seriesId);
+    return db
+      .select()
+      .from(coachingSeries)
+      .where(inArray(coachingSeries.id, seriesIds))
+      .orderBy(asc(coachingSeries.dayOfWeek), asc(coachingSeries.startTime));
+  },
+
+  async incrementSeriesPlayerAttendance(seriesId: string, playerId: string, xpEarned: number): Promise<void> {
+    await db
+      .update(seriesPlayers)
+      .set({
+        sessionsAttended: sql`${seriesPlayers.sessionsAttended} + 1`,
+        totalXpEarned: sql`${seriesPlayers.totalXpEarned} + ${xpEarned}`
+      })
+      .where(and(
+        eq(seriesPlayers.seriesId, seriesId),
+        eq(seriesPlayers.playerId, playerId)
+      ));
   },
 
   // ==================== COACH NOTIFICATIONS ====================
