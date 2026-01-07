@@ -24,6 +24,42 @@ interface Player {
   totalXpEarned?: number;
 }
 
+interface FeedbackData {
+  feedback: {
+    id: string;
+    sessionId: string;
+    intensity: string | null;
+    mood: string | null;
+    coachNotes: string | null;
+    sessionDate?: string;
+  }[];
+  playerFeedback: {
+    id: string;
+    playerId: string;
+    sessionId: string;
+    progressTrend: string | null;
+    effortLevel: string | null;
+    note: string | null;
+  }[];
+  summary: {
+    total: number;
+    withFeedback: number;
+    intensity: Record<string, number>;
+  };
+}
+
+interface ProgressData {
+  players: {
+    id: string;
+    name: string;
+    xpEarned: number;
+    sessionsAttended: number;
+  }[];
+  totalXp: number;
+  sessionsCompleted: number;
+  totalSessions: number;
+}
+
 interface SessionInstance {
   id: string;
   startTime: string;
@@ -98,6 +134,16 @@ export default function SeriesDetailDrawer({
   const { data: series, isLoading } = useQuery<SeriesDetail>({
     queryKey: [`/api/coach/series/${seriesId}`],
     enabled: !!seriesId && visible,
+  });
+
+  const { data: feedbackData, isLoading: feedbackLoading } = useQuery<FeedbackData>({
+    queryKey: [`/api/coach/series/${seriesId}/feedback`],
+    enabled: !!seriesId && visible && activeTab === "feedback",
+  });
+
+  const { data: progressData, isLoading: progressLoading } = useQuery<ProgressData>({
+    queryKey: [`/api/coach/series/${seriesId}/progress`],
+    enabled: !!seriesId && visible && activeTab === "progress",
   });
 
   const handleTabPress = (tabId: TabId) => {
@@ -284,29 +330,137 @@ export default function SeriesDetailDrawer({
   };
 
   const renderFeedbackTab = () => {
+    if (feedbackLoading) {
+      return (
+        <View style={styles.tabContent}>
+          <ActivityIndicator size="large" color={Colors.dark.successNeon} />
+        </View>
+      );
+    }
+
+    if (!feedbackData || feedbackData.summary.withFeedback === 0) {
+      return (
+        <View style={styles.tabContent}>
+          <View style={styles.emptyState}>
+            <Ionicons name="chatbubble-outline" size={48} color={Colors.dark.textMuted} />
+            <Text style={styles.emptyText}>No feedback recorded yet</Text>
+            <Text style={styles.emptySubtext}>
+              Complete sessions and add feedback to track progress
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
+    const { summary, feedback } = feedbackData;
+
     return (
       <View style={styles.tabContent}>
-        <View style={styles.emptyState}>
-          <Ionicons name="chatbubble-outline" size={48} color={Colors.dark.textMuted} />
-          <Text style={styles.emptyText}>Feedback aggregation coming soon</Text>
-          <Text style={styles.emptySubtext}>
-            View all feedback given during this series
-          </Text>
+        <View style={styles.feedbackSummary}>
+          <View style={styles.feedbackStat}>
+            <Text style={styles.feedbackStatValue}>{summary.withFeedback}</Text>
+            <Text style={styles.feedbackStatLabel}>Sessions with Feedback</Text>
+          </View>
+          <View style={styles.feedbackStat}>
+            <Text style={styles.feedbackStatValue}>{summary.total - summary.withFeedback}</Text>
+            <Text style={styles.feedbackStatLabel}>Pending Feedback</Text>
+          </View>
         </View>
+        
+        {Object.keys(summary.intensity).length > 0 ? (
+          <View style={styles.intensityBreakdown}>
+            <Text style={styles.sectionTitle}>Intensity Breakdown</Text>
+            <View style={styles.intensityRow}>
+              {Object.entries(summary.intensity).map(([level, count]) => (
+                <View key={level} style={styles.intensityChip}>
+                  <Ionicons 
+                    name={level === "intense" ? "flame" : level === "normal" ? "fitness" : "leaf"} 
+                    size={16} 
+                    color={level === "intense" ? Colors.dark.error : level === "normal" ? Colors.dark.gold : Colors.dark.successNeon} 
+                  />
+                  <Text style={styles.intensityText}>{level}: {count}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        <Text style={styles.sectionTitle}>Recent Feedback</Text>
+        {feedback.slice(0, 5).map((fb) => (
+          <View key={fb.id} style={styles.feedbackCard}>
+            <View style={styles.feedbackHeader}>
+              <Text style={styles.feedbackDate}>
+                {fb.sessionDate ? formatDate(fb.sessionDate) : "Session"}
+              </Text>
+              {fb.intensity ? (
+                <View style={[styles.intensityBadge, { backgroundColor: fb.intensity === "intense" ? Colors.dark.error + "20" : fb.intensity === "normal" ? Colors.dark.gold + "20" : Colors.dark.successNeon + "20" }]}>
+                  <Text style={[styles.intensityBadgeText, { color: fb.intensity === "intense" ? Colors.dark.error : fb.intensity === "normal" ? Colors.dark.gold : Colors.dark.successNeon }]}>
+                    {fb.intensity}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+            {fb.coachNotes ? (
+              <Text style={styles.feedbackNote} numberOfLines={2}>{fb.coachNotes}</Text>
+            ) : null}
+          </View>
+        ))}
       </View>
     );
   };
 
   const renderProgressTab = () => {
+    if (progressLoading) {
+      return (
+        <View style={styles.tabContent}>
+          <ActivityIndicator size="large" color={Colors.dark.gold} />
+        </View>
+      );
+    }
+
+    if (!progressData || progressData.players.length === 0) {
+      return (
+        <View style={styles.tabContent}>
+          <View style={styles.emptyState}>
+            <Ionicons name="trending-up-outline" size={48} color={Colors.dark.textMuted} />
+            <Text style={styles.emptyText}>No progress data yet</Text>
+            <Text style={styles.emptySubtext}>
+              Complete sessions to track player XP gains
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.tabContent}>
-        <View style={styles.emptyState}>
-          <Ionicons name="trending-up-outline" size={48} color={Colors.dark.textMuted} />
-          <Text style={styles.emptyText}>Progress tracking coming soon</Text>
-          <Text style={styles.emptySubtext}>
-            Track player skill development over the series
-          </Text>
+        <View style={styles.progressSummary}>
+          <View style={styles.progressStat}>
+            <Text style={styles.progressStatValue}>{progressData.totalXp.toLocaleString()}</Text>
+            <Text style={styles.progressStatLabel}>Total XP Earned</Text>
+          </View>
+          <View style={styles.progressStat}>
+            <Text style={styles.progressStatValue}>{progressData.sessionsCompleted}/{progressData.totalSessions}</Text>
+            <Text style={styles.progressStatLabel}>Sessions Complete</Text>
+          </View>
         </View>
+
+        <Text style={styles.sectionTitle}>Player Leaderboard</Text>
+        {progressData.players.map((player, index) => (
+          <View key={player.id} style={styles.playerProgressCard}>
+            <View style={styles.playerRank}>
+              <Text style={styles.rankNumber}>{index + 1}</Text>
+            </View>
+            <View style={styles.playerProgressInfo}>
+              <Text style={styles.playerProgressName}>{player.name}</Text>
+              <Text style={styles.playerProgressSessions}>{player.sessionsAttended} sessions</Text>
+            </View>
+            <View style={styles.playerXpBadge}>
+              <Ionicons name="star" size={14} color={Colors.dark.gold} />
+              <Text style={styles.playerXpValue}>{player.xpEarned.toLocaleString()}</Text>
+            </View>
+          </View>
+        ))}
       </View>
     );
   };
@@ -661,5 +815,154 @@ const styles = StyleSheet.create({
     fontSize: Typography.caption.fontSize,
     color: Colors.dark.textMuted,
     marginTop: Spacing.xs,
+  },
+  feedbackSummary: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  feedbackStat: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    alignItems: "center",
+  },
+  feedbackStatValue: {
+    fontSize: Typography.h2.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.successNeon,
+  },
+  feedbackStatLabel: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
+    textAlign: "center",
+  },
+  intensityBreakdown: {
+    marginBottom: Spacing.lg,
+  },
+  intensityRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  intensityChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.backgroundRoot,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  intensityText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.text,
+    textTransform: "capitalize",
+  },
+  feedbackCard: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  feedbackHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.xs,
+  },
+  feedbackDate: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  intensityBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  intensityBadgeText: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "500",
+    textTransform: "capitalize",
+  },
+  feedbackNote: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
+  },
+  progressSummary: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  progressStat: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    alignItems: "center",
+  },
+  progressStatValue: {
+    fontSize: Typography.h2.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.gold,
+  },
+  progressStatLabel: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
+    textAlign: "center",
+  },
+  playerProgressCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  playerRank: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.dark.gold + "20",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.sm,
+  },
+  rankNumber: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.gold,
+  },
+  playerProgressInfo: {
+    flex: 1,
+  },
+  playerProgressName: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  playerProgressSessions: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+  },
+  playerXpBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.gold + "15",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+  },
+  playerXpValue: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.gold,
   },
 });

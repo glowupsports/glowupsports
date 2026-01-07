@@ -5859,6 +5859,172 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get series feedback (aggregated from all sessions)
+  app.get("/api/coach/series/:id/feedback", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user!.coachId;
+      
+      const series = await storage.getCoachingSeriesById(id);
+      if (!series) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+      
+      if (series.coachId !== coachId) {
+        return res.status(403).json({ error: "Not authorized to view this series" });
+      }
+      
+      // Get all sessions for this series
+      const seriesSessions = await db
+        .select()
+        .from(sessions)
+        .where(eq(sessions.seriesId, id));
+      
+      const sessionIds = seriesSessions.map(s => s.id);
+      
+      if (sessionIds.length === 0) {
+        return res.json({ feedback: [], summary: { total: 0, withFeedback: 0, intensity: {} } });
+      }
+      
+      // Get all feedback for these sessions
+      const feedbackList = await db
+        .select()
+        .from(sessionFeedback)
+        .where(inArray(sessionFeedback.sessionId, sessionIds));
+      
+      // Get player feedback for these sessions
+      const playerFeedbackList = await db
+        .select()
+        .from(playerFeedback)
+        .where(inArray(playerFeedback.sessionId, sessionIds));
+      
+      // Calculate summary stats
+      const intensityCounts: Record<string, number> = {};
+      feedbackList.forEach(f => {
+        if (f.intensity) {
+          intensityCounts[f.intensity] = (intensityCounts[f.intensity] || 0) + 1;
+        }
+      });
+      
+      res.json({
+        feedback: feedbackList.map(f => ({
+          ...f,
+          sessionDate: seriesSessions.find(s => s.id === f.sessionId)?.startTime,
+        })),
+        playerFeedback: playerFeedbackList,
+        summary: {
+          total: seriesSessions.length,
+          withFeedback: feedbackList.length,
+          intensity: intensityCounts,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching series feedback:", error);
+      res.status(500).json({ error: "Failed to fetch feedback" });
+    }
+  });
+
+  // Get series progress (XP and skill data for all players)
+  app.get("/api/coach/series/:id/progress", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user!.coachId;
+      
+      const series = await storage.getCoachingSeriesById(id);
+      if (!series) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+      
+      if (series.coachId !== coachId) {
+        return res.status(403).json({ error: "Not authorized to view this series" });
+      }
+      
+      // Get all sessions for this series
+      const seriesSessions = await db
+        .select()
+        .from(sessions)
+        .where(eq(sessions.seriesId, id));
+      
+      const sessionIds = seriesSessions.map(s => s.id);
+      
+      // Get players in this series
+      const seriesPlayersData = await storage.getSeriesPlayers(id);
+      const playerIds = seriesPlayersData.map(sp => sp.playerId);
+      
+      if (playerIds.length === 0 || sessionIds.length === 0) {
+        return res.json({ players: [], totalXp: 0 });
+      }
+      
+      // Get XP transactions for these sessions
+      const xpData = await db
+        .select()
+        .from(xpTransactions)
+        .where(and(
+          inArray(xpTransactions.playerId, playerIds),
+          inArray(xpTransactions.sessionId, sessionIds)
+        ));
+      
+      // Aggregate XP by player
+      const playerXpMap: Record<string, number> = {};
+      xpData.forEach(tx => {
+        playerXpMap[tx.playerId] = (playerXpMap[tx.playerId] || 0) + tx.xpAmount;
+      });
+      
+      // Get per-player attendance from sessionPlayers table
+      const completedSessionIds = seriesSessions
+        .filter(s => s.status === "completed")
+        .map(s => s.id);
+      
+      let playerAttendanceMap: Record<string, number> = {};
+      if (completedSessionIds.length > 0) {
+        // Count players with attendanceStatus of "present" or "late" (both count as attended)
+        // Also count if attendanceStatus is null but they're enrolled (legacy data)
+        const attendanceData = await db
+          .select({
+            playerId: sessionPlayers.playerId,
+            sessionCount: sql<number>`count(*)::int`,
+          })
+          .from(sessionPlayers)
+          .where(and(
+            inArray(sessionPlayers.playerId, playerIds),
+            inArray(sessionPlayers.sessionId, completedSessionIds),
+            or(
+              inArray(sessionPlayers.attendanceStatus, ["present", "late"]),
+              isNull(sessionPlayers.attendanceStatus)  // Legacy data without attendance tracking
+            )
+          ))
+          .groupBy(sessionPlayers.playerId);
+        
+        attendanceData.forEach(att => {
+          if (att.playerId) {
+            playerAttendanceMap[att.playerId] = att.sessionCount;
+          }
+        });
+      }
+      
+      // Get player details
+      const playerDetails = await Promise.all(playerIds.map(async (playerId) => {
+        const player = await storage.getPlayer(playerId);
+        return {
+          id: playerId,
+          name: player?.name || "Unknown",
+          xpEarned: playerXpMap[playerId] || 0,
+          sessionsAttended: playerAttendanceMap[playerId] || 0,
+        };
+      }));
+      
+      res.json({
+        players: playerDetails.sort((a, b) => b.xpEarned - a.xpEarned),
+        totalXp: Object.values(playerXpMap).reduce((sum, xp) => sum + xp, 0),
+        sessionsCompleted: seriesSessions.filter(s => s.status === "completed").length,
+        totalSessions: seriesSessions.length,
+      });
+    } catch (error) {
+      console.error("Error fetching series progress:", error);
+      res.status(500).json({ error: "Failed to fetch progress" });
+    }
+  });
+
   // Get series timeline (weekly breakdown)
   app.get("/api/coach/series/:id/timeline", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -5931,6 +6097,160 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching series timeline:", error);
       res.status(500).json({ error: "Failed to fetch timeline" });
+    }
+  });
+
+  // Migrate existing recurring sessions to series format
+  app.post("/api/coach/series/migrate", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      
+      if (!coachId) {
+        return res.status(400).json({ error: "Coach ID required" });
+      }
+      
+      // Find all unique recurring_group_ids for this coach that haven't been migrated
+      const recurringGroups = await db
+        .select({
+          recurringGroupId: sessions.recurringGroupId,
+        })
+        .from(sessions)
+        .where(and(
+          eq(sessions.coachId, coachId),
+          eq(sessions.isRecurring, true),
+          isNotNull(sessions.recurringGroupId),
+          isNull(sessions.seriesId)
+        ))
+        .groupBy(sessions.recurringGroupId);
+      
+      if (recurringGroups.length === 0) {
+        return res.json({ 
+          message: "No recurring sessions to migrate",
+          migratedCount: 0,
+          seriesCreated: []
+        });
+      }
+      
+      const migratedSeries: any[] = [];
+      
+      for (const group of recurringGroups) {
+        if (!group.recurringGroupId) continue;
+        
+        // Get all sessions in this group
+        const groupSessions = await db
+          .select()
+          .from(sessions)
+          .where(eq(sessions.recurringGroupId, group.recurringGroupId))
+          .orderBy(asc(sessions.startTime));
+        
+        if (groupSessions.length === 0) continue;
+        
+        const firstSession = groupSessions[0];
+        const lastSession = groupSessions[groupSessions.length - 1];
+        
+        // Derive series properties from first session using UTC-safe calculation
+        const startDate = new Date(firstSession.startTime);
+        const endDate = new Date(lastSession.startTime);
+        
+        // Use UTC day to avoid timezone shift issues
+        const dayOfWeek = startDate.getUTCDay();
+        
+        // Extract time as HH:mm from the stored timestamp (sessions store local time in the timestamp)
+        const hours = startDate.getHours();
+        const minutes = startDate.getMinutes();
+        const startTimeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+        const duration = firstSession.duration || 60;
+        
+        // Generate title from session type
+        const sessionTypeLabels: Record<string, string> = {
+          "private": "Private Lesson",
+          "semi_private": "Semi-Private",
+          "group": "Group Session",
+          "squad": "Squad Training",
+          "clinic": "Clinic",
+          "camp": "Camp",
+        };
+        const title = `${sessionTypeLabels[firstSession.sessionType || "group"] || "Training"} - ${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][dayOfWeek]} ${startTimeStr}`;
+        
+        // Create the series
+        const newSeries = await storage.createCoachingSeries({
+          coachId: firstSession.coachId,
+          academyId: firstSession.academyId || academyId || "default-academy",
+          title,
+          sessionType: firstSession.sessionType || "group",
+          dayOfWeek,
+          startTime: startTimeStr,
+          duration,
+          maxSessions: groupSessions.length,
+          seriesStartDate: startDate,
+          seriesEndDate: endDate,
+          courtId: firstSession.courtId || null,
+          locationId: firstSession.locationId || null,
+          ballLevel: firstSession.ballLevel || null,
+          skillLevel: firstSession.skillLevel || null,
+          maxPlayers: firstSession.maxPlayers || 4,
+          xpPerSession: firstSession.xpReward || 100,
+          vibe: firstSession.vibe || null,
+          price: firstSession.price ? String(firstSession.price) : null,
+          status: "active",
+        });
+        
+        // Update all sessions with proper week number based on actual week offsets
+        // Calculate week numbers based on difference from first session
+        const firstWeekStart = new Date(startDate);
+        firstWeekStart.setUTCHours(0, 0, 0, 0);
+        
+        for (const session of groupSessions) {
+          const sessionDate = new Date(session.startTime);
+          sessionDate.setUTCHours(0, 0, 0, 0);
+          
+          // Calculate weeks elapsed since first session
+          const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+          const weeksElapsed = Math.round((sessionDate.getTime() - firstWeekStart.getTime()) / msPerWeek);
+          const weekNumber = weeksElapsed + 1; // Week 1 is the first week
+          
+          await db
+            .update(sessions)
+            .set({ 
+              seriesId: newSeries.id,
+              weekNumber,
+            })
+            .where(eq(sessions.id, session.id));
+        }
+        
+        // Gather all unique players from ALL sessions in the group (not just first)
+        const allSessionIds = groupSessions.map(s => s.id);
+        const allSessionPlayers = await db
+          .select({ playerId: sessionPlayers.playerId })
+          .from(sessionPlayers)
+          .where(inArray(sessionPlayers.sessionId, allSessionIds));
+        
+        // Deduplicate player IDs
+        const uniquePlayerIds = [...new Set(allSessionPlayers.map(sp => sp.playerId).filter(Boolean))];
+        
+        for (const playerId of uniquePlayerIds) {
+          if (playerId) {
+            await storage.addPlayerToSeries(newSeries.id, playerId);
+          }
+        }
+        
+        migratedSeries.push({
+          seriesId: newSeries.id,
+          title: newSeries.title,
+          sessionCount: groupSessions.length,
+          playerCount: uniquePlayerIds.length,
+        });
+      }
+      
+      res.json({
+        message: `Successfully migrated ${migratedSeries.length} recurring session groups to series`,
+        migratedCount: migratedSeries.length,
+        seriesCreated: migratedSeries,
+      });
+    } catch (error) {
+      console.error("Error migrating recurring sessions:", error);
+      res.status(500).json({ error: "Failed to migrate recurring sessions" });
     }
   });
 

@@ -4657,11 +4657,6 @@ const styles = StyleSheet.create({
     color: Colors.dark.gold,
     fontWeight: "500",
   },
-  xpBadgeText: {
-    fontSize: Typography.caption.fontSize,
-    color: Colors.dark.gold,
-    fontWeight: "700",
-  },
   completedBadge: {
     flexDirection: "row",
     alignItems: "center",

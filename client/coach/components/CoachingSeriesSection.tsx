@@ -6,14 +6,16 @@ import {
   Pressable,
   ActivityIndicator,
   FlatList,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { CoachingSeriesCard } from "./CoachingSeriesCard";
 import { NeoLoadoutPanel, NeoGlowBadge } from "@/components/NeoLoadoutPanel";
+import { apiRequest } from "@/lib/query-client";
 
 interface CoachingSeries {
   id: string;
@@ -43,9 +45,42 @@ type FilterType = "all" | "active" | "paused" | "ended";
 
 export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
   const [filter, setFilter] = useState<FilterType>("active");
+  const queryClient = useQueryClient();
 
   const { data: seriesList, isLoading, error, refetch } = useQuery<CoachingSeries[]>({
     queryKey: ["/api/coach/series"],
+  });
+
+  const migrateMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/coach/series/migrate");
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Migration failed");
+      }
+      return response.json() as Promise<{ message: string; migratedCount: number; seriesCreated: any[] }>;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (data.migratedCount > 0) {
+        Alert.alert(
+          "Migration Complete",
+          `Successfully migrated ${data.migratedCount} recurring session groups into series.`,
+          [{ text: "OK" }]
+        );
+      } else {
+        Alert.alert(
+          "No Sessions to Migrate",
+          "All recurring sessions have already been migrated to series.",
+          [{ text: "OK" }]
+        );
+      }
+    },
+    onError: (error: Error) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Migration Failed", error.message);
+    },
   });
 
   const filteredSeries = seriesList?.filter(series => {
@@ -141,6 +176,30 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
                   <Ionicons name="add" size={20} color={Colors.dark.buttonText} />
                   <Text style={styles.createButtonText}>Create Series</Text>
                 </LinearGradient>
+              </Pressable>
+              <Pressable 
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  Alert.alert(
+                    "Migrate Recurring Sessions",
+                    "This will convert your existing recurring sessions into the new series format. Sessions will be grouped by their recurring pattern.",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      { text: "Migrate", onPress: () => migrateMutation.mutate() },
+                    ]
+                  );
+                }}
+                disabled={migrateMutation.isPending}
+                style={styles.migrateButton}
+              >
+                {migrateMutation.isPending ? (
+                  <ActivityIndicator size="small" color={Colors.dark.gold} />
+                ) : (
+                  <>
+                    <Ionicons name="sync-outline" size={16} color={Colors.dark.gold} />
+                    <Text style={styles.migrateButtonText}>Import Recurring Sessions</Text>
+                  </>
+                )}
               </Pressable>
             </View>
           </NeoLoadoutPanel>
@@ -260,6 +319,23 @@ const styles = StyleSheet.create({
     ...Typography.body,
     fontWeight: "600",
     color: Colors.dark.buttonText,
+  },
+  migrateButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    backgroundColor: `${Colors.dark.gold}15`,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.gold}40`,
+  },
+  migrateButtonText: {
+    ...Typography.caption,
+    color: Colors.dark.gold,
+    fontWeight: "500",
   },
   retryButton: {
     backgroundColor: Colors.dark.backgroundSecondary,
