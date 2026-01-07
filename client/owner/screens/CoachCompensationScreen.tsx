@@ -514,36 +514,58 @@ export default function CoachCompensationScreen() {
             </View>
 
             <Text style={styles.fieldLabel}>Effective From</Text>
-            <Pressable
-              style={styles.datePickerButton}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <Ionicons name="calendar-outline" size={20} color={Colors.dark.gold} />
-              <Text style={styles.datePickerText}>
-                {new Date(effectiveFrom).toLocaleDateString()}
-              </Text>
-            </Pressable>
-            {showDatePicker ? (
-              <DateTimePicker
-                value={new Date(effectiveFrom)}
-                mode="date"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={(event, selectedDate) => {
-                  if (Platform.OS === "android") {
-                    setShowDatePicker(false);
-                  }
-                  if (selectedDate) {
-                    setEffectiveFrom(selectedDate.toISOString().split("T")[0]);
-                  }
-                }}
-                themeVariant="dark"
-              />
-            ) : null}
-            {Platform.OS === "ios" && showDatePicker ? (
-              <Pressable style={styles.datePickerDone} onPress={() => setShowDatePicker(false)}>
-                <Text style={styles.datePickerDoneText}>Done</Text>
-              </Pressable>
-            ) : null}
+            {Platform.OS === "web" ? (
+              <View style={styles.datePickerButton}>
+                <Ionicons name="calendar-outline" size={20} color={Colors.dark.gold} />
+                <input
+                  type="date"
+                  value={effectiveFrom}
+                  onChange={(e) => setEffectiveFrom(e.target.value)}
+                  style={{
+                    backgroundColor: "transparent",
+                    border: "none",
+                    color: Colors.dark.text,
+                    fontSize: 16,
+                    marginLeft: 8,
+                    outline: "none",
+                    cursor: "pointer",
+                  }}
+                />
+              </View>
+            ) : (
+              <>
+                <Pressable
+                  style={styles.datePickerButton}
+                  onPress={() => setShowDatePicker(true)}
+                >
+                  <Ionicons name="calendar-outline" size={20} color={Colors.dark.gold} />
+                  <Text style={styles.datePickerText}>
+                    {new Date(effectiveFrom).toLocaleDateString()}
+                  </Text>
+                </Pressable>
+                {showDatePicker ? (
+                  <DateTimePicker
+                    value={new Date(effectiveFrom)}
+                    mode="date"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    onChange={(event, selectedDate) => {
+                      if (Platform.OS === "android") {
+                        setShowDatePicker(false);
+                      }
+                      if (selectedDate) {
+                        setEffectiveFrom(selectedDate.toISOString().split("T")[0]);
+                      }
+                    }}
+                    themeVariant="dark"
+                  />
+                ) : null}
+                {Platform.OS === "ios" && showDatePicker ? (
+                  <Pressable style={styles.datePickerDone} onPress={() => setShowDatePicker(false)}>
+                    <Text style={styles.datePickerDoneText}>Done</Text>
+                  </Pressable>
+                ) : null}
+              </>
+            )}
             <Text style={styles.fieldHint}>
               Can be any date (past or future)
             </Text>
