@@ -16,11 +16,11 @@ interface CoachContract {
   id: string;
   academyId: string;
   coachId: string;
-  compensationType: string;
+  payType: string;
   currency: string;
   hourlyRate: string | null;
   sessionRate: string | null;
-  revenueSharePercent: string | null;
+  percentageRate: string | null;
   effectiveFrom: string;
   effectiveUntil: string | null;
   status: string;
@@ -40,7 +40,7 @@ interface Coach {
 const COMPENSATION_TYPES = [
   { value: "hourly", label: "Hourly Rate", icon: "time" },
   { value: "per_session", label: "Per Session", icon: "calendar" },
-  { value: "revenue_share", label: "Revenue Share", icon: "pie-chart" },
+  { value: "percentage", label: "Revenue Share", icon: "pie-chart" },
 ];
 
 export default function CoachCompensationScreen() {
@@ -50,17 +50,17 @@ export default function CoachCompensationScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingContract, setEditingContract] = useState<CoachContract | null>(null);
   const [selectedCoachId, setSelectedCoachId] = useState("");
-  const [compensationType, setCompensationType] = useState("hourly");
+  const [payType, setPayType] = useState("hourly");
   const [hourlyRate, setHourlyRate] = useState("");
   const [sessionRate, setSessionRate] = useState("");
-  const [revenueSharePercent, setRevenueSharePercent] = useState("");
+  const [percentageRate, setPercentageRate] = useState("");
   const [currency, setCurrency] = useState("AED");
   const [effectiveFrom, setEffectiveFrom] = useState(new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const { data: contractsData, isLoading: contractsLoading } = useQuery<CoachContract[]>({
-    queryKey: ["/api/coach-contracts"],
+    queryKey: ["/api/admin/coach-contracts"],
   });
 
   const { data: coachesData } = useQuery<Coach[]>({
@@ -70,18 +70,18 @@ export default function CoachCompensationScreen() {
   const createMutation = useMutation({
     mutationFn: async (data: {
       coachId: string;
-      compensationType: string;
+      payType: string;
       currency: string;
       hourlyRate?: string;
       sessionRate?: string;
-      revenueSharePercent?: string;
+      percentageRate?: string;
       effectiveFrom: string;
       notes?: string;
     }) => {
-      return apiRequest("POST", "/api/coach-contracts", data);
+      return apiRequest("POST", "/api/admin/coach-contracts", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coach-contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/coach-contracts"] });
       handleCloseModal();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
@@ -97,10 +97,10 @@ export default function CoachCompensationScreen() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<CoachContract> }) => {
-      return apiRequest("PATCH", `/api/coach-contracts/${id}`, data);
+      return apiRequest("PATCH", `/api/admin/coach-contracts/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coach-contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/coach-contracts"] });
       handleCloseModal();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
@@ -118,10 +118,10 @@ export default function CoachCompensationScreen() {
     setShowAddModal(false);
     setEditingContract(null);
     setSelectedCoachId("");
-    setCompensationType("hourly");
+    setPayType("hourly");
     setHourlyRate("");
     setSessionRate("");
-    setRevenueSharePercent("");
+    setPercentageRate("");
     setCurrency("AED");
     setEffectiveFrom(new Date().toISOString().split("T")[0]);
     setNotes("");
@@ -137,10 +137,10 @@ export default function CoachCompensationScreen() {
   const handleOpenEdit = (contract: CoachContract) => {
     setEditingContract(contract);
     setSelectedCoachId(contract.coachId);
-    setCompensationType(contract.compensationType);
+    setPayType(contract.payType);
     setHourlyRate(contract.hourlyRate || "");
     setSessionRate(contract.sessionRate || "");
-    setRevenueSharePercent(contract.revenueSharePercent || "");
+    setPercentageRate(contract.percentageRate || "");
     setCurrency(contract.currency);
     setEffectiveFrom(contract.effectiveFrom);
     setNotes(contract.notes || "");
@@ -159,7 +159,7 @@ export default function CoachCompensationScreen() {
       return;
     }
 
-    if (compensationType === "hourly" && (!hourlyRate || parseFloat(hourlyRate) <= 0)) {
+    if (payType === "hourly" && (!hourlyRate || parseFloat(hourlyRate) <= 0)) {
       const message = "Please enter a valid hourly rate";
       if (Platform.OS === "web") {
         window.alert(message);
@@ -169,7 +169,7 @@ export default function CoachCompensationScreen() {
       return;
     }
 
-    if (compensationType === "per_session" && (!sessionRate || parseFloat(sessionRate) <= 0)) {
+    if (payType === "per_session" && (!sessionRate || parseFloat(sessionRate) <= 0)) {
       const message = "Please enter a valid session rate";
       if (Platform.OS === "web") {
         window.alert(message);
@@ -179,7 +179,7 @@ export default function CoachCompensationScreen() {
       return;
     }
 
-    if (compensationType === "revenue_share" && (!revenueSharePercent || parseFloat(revenueSharePercent) <= 0 || parseFloat(revenueSharePercent) > 100)) {
+    if (payType === "percentage" && (!percentageRate || parseFloat(percentageRate) <= 0 || parseFloat(percentageRate) > 100)) {
       const message = "Please enter a valid revenue share percentage (1-100)";
       if (Platform.OS === "web") {
         window.alert(message);
@@ -191,11 +191,11 @@ export default function CoachCompensationScreen() {
 
     const data = {
       coachId: selectedCoachId,
-      compensationType,
+      payType,
       currency,
-      hourlyRate: compensationType === "hourly" ? hourlyRate : undefined,
-      sessionRate: compensationType === "per_session" ? sessionRate : undefined,
-      revenueSharePercent: compensationType === "revenue_share" ? revenueSharePercent : undefined,
+      hourlyRate: payType === "hourly" ? hourlyRate : undefined,
+      sessionRate: payType === "per_session" ? sessionRate : undefined,
+      percentageRate: payType === "percentage" ? percentageRate : undefined,
       effectiveFrom,
       notes: notes || undefined,
     };
@@ -234,13 +234,13 @@ export default function CoachCompensationScreen() {
   };
 
   const getCompensationDisplay = (contract: CoachContract) => {
-    switch (contract.compensationType) {
+    switch (contract.payType) {
       case "hourly":
         return `${formatCurrency(contract.hourlyRate || "0", contract.currency)}/hr`;
       case "per_session":
         return `${formatCurrency(contract.sessionRate || "0", contract.currency)}/session`;
-      case "revenue_share":
-        return `${contract.revenueSharePercent}% revenue`;
+      case "percentage":
+        return `${contract.percentageRate}% revenue`;
       default:
         return "-";
     }
@@ -259,7 +259,7 @@ export default function CoachCompensationScreen() {
           </View>
           <View>
             <Text style={styles.coachName}>{getCoachName(contract.coachId)}</Text>
-            <Text style={styles.compensationType}>{getCompensationLabel(contract.compensationType)}</Text>
+            <Text style={styles.compensationType}>{getCompensationLabel(contract.payType)}</Text>
           </View>
         </View>
         <View style={styles.compensationAmount}>
@@ -412,21 +412,21 @@ export default function CoachCompensationScreen() {
                   key={type.value}
                   style={[
                     styles.compTypeOption,
-                    compensationType === type.value && styles.compTypeSelected,
+                    payType === type.value && styles.compTypeSelected,
                   ]}
                   onPress={() => {
-                    setCompensationType(type.value);
+                    setPayType(type.value);
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   }}
                 >
                   <Ionicons
                     name={type.icon as keyof typeof Ionicons.glyphMap}
                     size={20}
-                    color={compensationType === type.value ? Colors.dark.gold : Colors.dark.textMuted}
+                    color={payType === type.value ? Colors.dark.gold : Colors.dark.textMuted}
                   />
                   <Text style={[
                     styles.compTypeLabel,
-                    compensationType === type.value && styles.compTypeLabelSelected,
+                    payType === type.value && styles.compTypeLabelSelected,
                   ]}>
                     {type.label}
                   </Text>
@@ -434,7 +434,7 @@ export default function CoachCompensationScreen() {
               ))}
             </View>
 
-            {compensationType === "hourly" ? (
+            {payType === "hourly" ? (
               <>
                 <Text style={styles.fieldLabel}>Hourly Rate *</Text>
                 <View style={styles.priceInputContainer}>
@@ -452,7 +452,7 @@ export default function CoachCompensationScreen() {
               </>
             ) : null}
 
-            {compensationType === "per_session" ? (
+            {payType === "per_session" ? (
               <>
                 <Text style={styles.fieldLabel}>Session Rate *</Text>
                 <View style={styles.priceInputContainer}>
@@ -470,14 +470,14 @@ export default function CoachCompensationScreen() {
               </>
             ) : null}
 
-            {compensationType === "revenue_share" ? (
+            {payType === "percentage" ? (
               <>
                 <Text style={styles.fieldLabel}>Revenue Share *</Text>
                 <View style={styles.priceInputContainer}>
                   <TextInput
                     style={styles.priceInput}
-                    value={revenueSharePercent}
-                    onChangeText={setRevenueSharePercent}
+                    value={percentageRate}
+                    onChangeText={setPercentageRate}
                     placeholder="0"
                     placeholderTextColor={Colors.dark.textMuted}
                     keyboardType="decimal-pad"
