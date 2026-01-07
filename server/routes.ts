@@ -3871,6 +3871,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reorder courts (update positions)
+  app.post("/api/courts/reorder", authMiddleware, requireRole("academy_owner", "platform_owner", "admin", "coach"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+      
+      const { courtIds } = req.body as { courtIds: string[] };
+      if (!Array.isArray(courtIds) || courtIds.length === 0) {
+        return res.status(400).json({ error: "courtIds array required" });
+      }
+      
+      // Load academy's courts to validate all IDs belong to this academy
+      const academyCourts = await storage.getAllCourts(academyId);
+      const academyCourtIds = new Set(academyCourts.map(c => c.id));
+      
+      // Validate all provided court IDs belong to this academy
+      for (const courtId of courtIds) {
+        if (!academyCourtIds.has(courtId)) {
+          return res.status(403).json({ error: "Invalid court ID" });
+        }
+      }
+      
+      // Update each court's position based on index in array
+      for (let i = 0; i < courtIds.length; i++) {
+        await storage.updateCourt(courtIds[i], { position: i }, academyId);
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error reordering courts:", error);
+      res.status(500).json({ error: "Failed to reorder courts" });
+    }
+  });
+
   // Get all players with last lesson date (supports optional pagination and credits)
   app.get("/api/players", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {

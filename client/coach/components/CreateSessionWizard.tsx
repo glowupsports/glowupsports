@@ -1298,7 +1298,7 @@ export default function CreateSessionWizard({
 
         {/* Player List */}
         <ScrollView style={styles.playerList} showsVerticalScrollIndicator={false}>
-          {filteredPlayers.slice(0, 20).map(player => {
+          {filteredPlayers.map(player => {
             const isSelected = selectedPlayers.some(p => p.id === player.id);
             return (
               <Pressable

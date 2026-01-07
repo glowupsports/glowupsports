@@ -522,6 +522,7 @@ export const courts = pgTable("courts", {
   name: text("name").notNull(),
   color: varchar("color", { length: 7 }).default("#2ECC40"),
   isActive: boolean("is_active").default(true),
+  position: integer("position").default(0), // For drag-and-drop ordering
   
   // Court Booking Marketplace Fields
   surface: text("surface").default("hard"), // hard | clay | grass | indoor | artificial

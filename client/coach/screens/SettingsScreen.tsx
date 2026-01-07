@@ -44,6 +44,7 @@ interface Court {
   color: string | null;
   locationId: string | null;
   isActive: boolean;
+  position: number;
 }
 
 const COURT_COLORS = [
@@ -301,6 +302,64 @@ export default function SettingsScreen() {
       Alert.alert("Cannot Delete Court", error?.message || "Failed to delete court. It may have sessions associated with it.");
     },
   });
+
+  const reorderCourtsMutation = useMutation({
+    mutationFn: async (courtIds: string[]) => {
+      return apiRequest("POST", "/api/courts/reorder", { courtIds });
+    },
+    onMutate: async (courtIds: string[]) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/courts"] });
+      
+      // Snapshot the previous value
+      const previousCourts = queryClient.getQueryData<Court[]>(["/api/courts"]);
+      
+      // Optimistically update positions while preserving all courts
+      if (previousCourts) {
+        const updatedCourts = previousCourts.map(court => {
+          const newPosition = courtIds.indexOf(court.id);
+          if (newPosition !== -1) {
+            return { ...court, position: newPosition };
+          }
+          return court;
+        });
+        queryClient.setQueryData(["/api/courts"], updatedCourts);
+      }
+      
+      return { previousCourts };
+    },
+    onError: (err, courtIds, context) => {
+      // Rollback on error
+      if (context?.previousCourts) {
+        queryClient.setQueryData(["/api/courts"], context.previousCourts);
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+    },
+  });
+
+  const [courtsCollapsed, setCourtsCollapsed] = useState(false);
+
+  // Sort courts by position
+  const sortedCourts = [...courts].sort((a, b) => (a.position || 0) - (b.position || 0));
+
+  const moveCourt = (courtId: string, direction: "up" | "down") => {
+    const currentIndex = sortedCourts.findIndex(c => c.id === courtId);
+    if (currentIndex === -1) return;
+    
+    const newIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex < 0 || newIndex >= sortedCourts.length) return;
+    
+    const newOrder = [...sortedCourts];
+    const [moved] = newOrder.splice(currentIndex, 1);
+    newOrder.splice(newIndex, 0, moved);
+    
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    reorderCourtsMutation.mutate(newOrder.map(c => c.id));
+  };
 
   const handleAddCourt = () => {
     setEditingCourt(null);
@@ -694,9 +753,30 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <SectionHeader title="Courts" icon="tennisball-outline" />
-            <Pressable style={styles.addCourtButton} onPress={handleAddCourt}>
+          <Pressable 
+            style={styles.sectionHeaderRow}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setCourtsCollapsed(!courtsCollapsed);
+            }}
+          >
+            <View style={styles.sectionHeaderWithChevron}>
+              <SectionHeader title="Courts" icon="tennisball-outline" />
+              <Ionicons 
+                name={courtsCollapsed ? "chevron-down" : "chevron-up"} 
+                size={20} 
+                color={Colors.dark.tabIconDefault} 
+                style={{ marginLeft: Spacing.sm }}
+              />
+              <Text style={styles.courtCount}>({sortedCourts.length})</Text>
+            </View>
+            <Pressable 
+              style={styles.addCourtButton} 
+              onPress={(e) => {
+                e.stopPropagation?.();
+                handleAddCourt();
+              }}
+            >
               <LinearGradient
                 colors={[Colors.dark.xpCyan, Colors.dark.primary]}
                 start={{ x: 0, y: 0 }}
@@ -706,43 +786,59 @@ export default function SettingsScreen() {
                 <Ionicons name="add" size={18} color={Colors.dark.backgroundRoot} />
               </LinearGradient>
             </Pressable>
-          </View>
+          </Pressable>
 
-          {courts.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="tennisball-outline" size={32} color={Colors.dark.tabIconDefault} />
-              <Text style={styles.emptyStateText}>No courts yet</Text>
-              <Text style={styles.emptyStateSubtext}>Add your first court to get started</Text>
-            </View>
-          ) : (
-            courts.map((court) => (
-              <View key={court.id} style={styles.courtCard}>
-                <View style={[styles.courtColorBar, { backgroundColor: court.color || Colors.dark.primary }]} />
-                <View style={styles.courtCardContent}>
-                  <View style={styles.courtInfo}>
-                    <View style={[styles.courtColorDot, { backgroundColor: court.color || Colors.dark.primary }]}>
-                      <View style={[styles.courtColorDotGlow, { backgroundColor: court.color || Colors.dark.primary }]} />
+          {!courtsCollapsed ? (
+            sortedCourts.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="tennisball-outline" size={32} color={Colors.dark.tabIconDefault} />
+                <Text style={styles.emptyStateText}>No courts yet</Text>
+                <Text style={styles.emptyStateSubtext}>Add your first court to get started</Text>
+              </View>
+            ) : (
+              sortedCourts.map((court, index) => (
+                <View key={court.id} style={styles.courtCard}>
+                  <View style={[styles.courtColorBar, { backgroundColor: court.color || Colors.dark.primary }]} />
+                  <View style={styles.courtCardContent}>
+                    <View style={styles.courtInfo}>
+                      <View style={[styles.courtColorDot, { backgroundColor: court.color || Colors.dark.primary }]}>
+                        <View style={[styles.courtColorDotGlow, { backgroundColor: court.color || Colors.dark.primary }]} />
+                      </View>
+                      <Text style={styles.courtName}>{court.name}</Text>
                     </View>
-                    <Text style={styles.courtName}>{court.name}</Text>
-                  </View>
-                  <View style={styles.courtActions}>
-                    <Pressable 
-                      style={styles.courtActionButton} 
-                      onPress={() => handleEditCourt(court)}
-                    >
-                      <Ionicons name="pencil" size={16} color={Colors.dark.xpCyan} />
-                    </Pressable>
-                    <Pressable 
-                      style={[styles.courtActionButton, styles.courtDeleteButton]} 
-                      onPress={() => handleDeleteCourt(court)}
-                    >
-                      <Ionicons name="trash-outline" size={16} color={Colors.dark.error} />
-                    </Pressable>
+                    <View style={styles.courtActions}>
+                      <Pressable 
+                        style={[styles.courtMoveButton, index === 0 && styles.courtMoveButtonDisabled]} 
+                        onPress={() => moveCourt(court.id, "up")}
+                        disabled={index === 0 || reorderCourtsMutation.isPending}
+                      >
+                        <Ionicons name="chevron-up" size={16} color={index === 0 ? Colors.dark.tabIconDefault : Colors.dark.text} />
+                      </Pressable>
+                      <Pressable 
+                        style={[styles.courtMoveButton, index === sortedCourts.length - 1 && styles.courtMoveButtonDisabled]} 
+                        onPress={() => moveCourt(court.id, "down")}
+                        disabled={index === sortedCourts.length - 1 || reorderCourtsMutation.isPending}
+                      >
+                        <Ionicons name="chevron-down" size={16} color={index === sortedCourts.length - 1 ? Colors.dark.tabIconDefault : Colors.dark.text} />
+                      </Pressable>
+                      <Pressable 
+                        style={styles.courtActionButton} 
+                        onPress={() => handleEditCourt(court)}
+                      >
+                        <Ionicons name="pencil" size={16} color={Colors.dark.xpCyan} />
+                      </Pressable>
+                      <Pressable 
+                        style={[styles.courtActionButton, styles.courtDeleteButton]} 
+                        onPress={() => handleDeleteCourt(court)}
+                      >
+                        <Ionicons name="trash-outline" size={16} color={Colors.dark.error} />
+                      </Pressable>
+                    </View>
                   </View>
                 </View>
-              </View>
-            ))
-          )}
+              ))
+            )
+          ) : null}
         </View>
 
         <View style={styles.section}>
@@ -1560,6 +1656,26 @@ const styles = StyleSheet.create({
   },
   courtDeleteButton: {
     backgroundColor: "rgba(255, 68, 68, 0.12)",
+  },
+  courtMoveButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  courtMoveButtonDisabled: {
+    opacity: 0.3,
+  },
+  sectionHeaderWithChevron: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  courtCount: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.tabIconDefault,
+    marginLeft: Spacing.xs,
   },
   syncButtonContainer: {
     marginTop: Spacing.sm,
