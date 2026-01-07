@@ -62,6 +62,7 @@ export default function PricingScreen() {
       pricePerHour?: string;
       effectiveFrom: string;
       notes?: string;
+      isPerPerson?: boolean;
     }) => {
       return apiRequest("POST", "/api/academy-pricing", data);
     },
@@ -128,8 +129,9 @@ export default function PricingScreen() {
     setCurrency(pricing.currency);
     setEffectiveFrom(pricing.effectiveFrom);
     setNotes(pricing.notes || "");
+    // Use stored value if exists, otherwise fall back to session type default
     const sessionTypeInfo = SESSION_TYPES.find(t => t.value === pricing.sessionType);
-    setIsPerPerson(sessionTypeInfo?.perPerson || false);
+    setIsPerPerson(pricing.isPerPerson ?? sessionTypeInfo?.perPerson ?? false);
     setShowAddModal(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
@@ -152,6 +154,7 @@ export default function PricingScreen() {
       pricePerHour: pricePerHour || undefined,
       effectiveFrom,
       notes: notes || undefined,
+      isPerPerson,
     };
 
     if (editingPricing) {
@@ -209,7 +212,7 @@ export default function PricingScreen() {
             {formatCurrency(pricing.pricePerSession, pricing.currency)}
           </Text>
           <Text style={styles.pricingLabel}>
-            {SESSION_TYPES.find(t => t.value === pricing.sessionType)?.perPerson ? "per person" : "per session"}
+            {(pricing.isPerPerson ?? SESSION_TYPES.find(t => t.value === pricing.sessionType)?.perPerson) ? "per person" : "per session"}
           </Text>
           {pricing.pricePerHour ? (
             <>

@@ -2740,6 +2740,9 @@ export const academyPricing = pgTable("academy_pricing", {
   pricePerSession: numeric("price_per_session").notNull(),
   currency: text("currency").default("AED"),
   
+  // Per-person vs per-session pricing
+  isPerPerson: boolean("is_per_person").default(false), // true = price is per participant, false = flat rate per session
+  
   // Duration-based pricing (optional - for hourly rates)
   duration: integer("duration"), // minutes - if null, flat rate per session
   pricePerHour: numeric("price_per_hour"), // Alternative: hourly rate
