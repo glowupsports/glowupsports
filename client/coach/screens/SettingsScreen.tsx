@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -211,6 +211,7 @@ export default function SettingsScreen() {
   const [editingCourt, setEditingCourt] = useState<Court | null>(null);
   const [newCourtName, setNewCourtName] = useState("");
   const [newCourtColor, setNewCourtColor] = useState(COURT_COLORS[0]);
+  const [newCourtLocationId, setNewCourtLocationId] = useState<string | null>(null);
   const [testPushLoading, setTestPushLoading] = useState(false);
   const [testBookingLoading, setTestBookingLoading] = useState(false);
   const [showTravelTimeModal, setShowTravelTimeModal] = useState(false);
@@ -257,8 +258,8 @@ export default function SettingsScreen() {
   });
 
   const createCourtMutation = useMutation({
-    mutationFn: async ({ name, color }: { name: string; color: string }) => {
-      return apiRequest("POST", "/api/courts", { name, color, isActive: true });
+    mutationFn: async ({ name, color, locationId }: { name: string; color: string; locationId: string | null }) => {
+      return apiRequest("POST", "/api/courts", { name, color, locationId, isActive: true });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
@@ -266,6 +267,7 @@ export default function SettingsScreen() {
       setShowCourtModal(false);
       setNewCourtName("");
       setNewCourtColor(COURT_COLORS[0]);
+      setNewCourtLocationId(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (error: any) => {
@@ -275,8 +277,8 @@ export default function SettingsScreen() {
   });
 
   const updateCourtMutation = useMutation({
-    mutationFn: async ({ id, name, color }: { id: string; name: string; color: string }) => {
-      return apiRequest("PATCH", `/api/courts/${id}`, { name, color });
+    mutationFn: async ({ id, name, color, locationId }: { id: string; name: string; color: string; locationId: string | null }) => {
+      return apiRequest("PATCH", `/api/courts/${id}`, { name, color, locationId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
@@ -284,6 +286,7 @@ export default function SettingsScreen() {
       setEditingCourt(null);
       setNewCourtName("");
       setNewCourtColor(COURT_COLORS[0]);
+      setNewCourtLocationId(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
   });
@@ -343,8 +346,40 @@ export default function SettingsScreen() {
 
   const [courtsCollapsed, setCourtsCollapsed] = useState(false);
 
-  // Sort courts by position
+  // Sort courts by position and group by location
   const sortedCourts = [...courts].sort((a, b) => (a.position || 0) - (b.position || 0));
+  
+  // Group courts by location
+  const courtsGroupedByLocation = useMemo(() => {
+    const groups: { location: Location | null; courts: Court[] }[] = [];
+    const unassigned: Court[] = [];
+    const locationMap = new Map<string, Court[]>();
+    
+    for (const court of sortedCourts) {
+      if (court.locationId) {
+        const existing = locationMap.get(court.locationId) || [];
+        existing.push(court);
+        locationMap.set(court.locationId, existing);
+      } else {
+        unassigned.push(court);
+      }
+    }
+    
+    // Add locations with courts in order
+    for (const location of locations) {
+      const courtsAtLocation = locationMap.get(location.id);
+      if (courtsAtLocation && courtsAtLocation.length > 0) {
+        groups.push({ location, courts: courtsAtLocation });
+      }
+    }
+    
+    // Add unassigned courts at the end
+    if (unassigned.length > 0) {
+      groups.push({ location: null, courts: unassigned });
+    }
+    
+    return groups;
+  }, [sortedCourts, locations]);
 
   const moveCourt = (courtId: string, direction: "up" | "down") => {
     const currentIndex = sortedCourts.findIndex(c => c.id === courtId);
@@ -365,6 +400,7 @@ export default function SettingsScreen() {
     setEditingCourt(null);
     setNewCourtName("");
     setNewCourtColor(COURT_COLORS[0]);
+    setNewCourtLocationId(null);
     setShowCourtModal(true);
   };
 
@@ -372,6 +408,7 @@ export default function SettingsScreen() {
     setEditingCourt(court);
     setNewCourtName(court.name);
     setNewCourtColor(court.color || COURT_COLORS[0]);
+    setNewCourtLocationId(court.locationId || null);
     setShowCourtModal(true);
   };
 
@@ -399,9 +436,9 @@ export default function SettingsScreen() {
     }
     if (!newCourtName.trim()) return;
     if (editingCourt) {
-      updateCourtMutation.mutate({ id: editingCourt.id, name: newCourtName.trim(), color: newCourtColor });
+      updateCourtMutation.mutate({ id: editingCourt.id, name: newCourtName.trim(), color: newCourtColor, locationId: newCourtLocationId });
     } else {
-      createCourtMutation.mutate({ name: newCourtName.trim(), color: newCourtColor });
+      createCourtMutation.mutate({ name: newCourtName.trim(), color: newCourtColor, locationId: newCourtLocationId });
     }
   };
 
@@ -796,45 +833,66 @@ export default function SettingsScreen() {
                 <Text style={styles.emptyStateSubtext}>Add your first court to get started</Text>
               </View>
             ) : (
-              sortedCourts.map((court, index) => (
-                <View key={court.id} style={styles.courtCard}>
-                  <View style={[styles.courtColorBar, { backgroundColor: court.color || Colors.dark.primary }]} />
-                  <View style={styles.courtCardContent}>
-                    <View style={styles.courtInfo}>
-                      <View style={[styles.courtColorDot, { backgroundColor: court.color || Colors.dark.primary }]}>
-                        <View style={[styles.courtColorDotGlow, { backgroundColor: court.color || Colors.dark.primary }]} />
-                      </View>
-                      <Text style={styles.courtName}>{court.name}</Text>
-                    </View>
-                    <View style={styles.courtActions}>
-                      <Pressable 
-                        style={[styles.courtMoveButton, index === 0 && styles.courtMoveButtonDisabled]} 
-                        onPress={() => moveCourt(court.id, "up")}
-                        disabled={index === 0 || reorderCourtsMutation.isPending}
-                      >
-                        <Ionicons name="chevron-up" size={16} color={index === 0 ? Colors.dark.tabIconDefault : Colors.dark.text} />
-                      </Pressable>
-                      <Pressable 
-                        style={[styles.courtMoveButton, index === sortedCourts.length - 1 && styles.courtMoveButtonDisabled]} 
-                        onPress={() => moveCourt(court.id, "down")}
-                        disabled={index === sortedCourts.length - 1 || reorderCourtsMutation.isPending}
-                      >
-                        <Ionicons name="chevron-down" size={16} color={index === sortedCourts.length - 1 ? Colors.dark.tabIconDefault : Colors.dark.text} />
-                      </Pressable>
-                      <Pressable 
-                        style={styles.courtActionButton} 
-                        onPress={() => handleEditCourt(court)}
-                      >
-                        <Ionicons name="pencil" size={16} color={Colors.dark.xpCyan} />
-                      </Pressable>
-                      <Pressable 
-                        style={[styles.courtActionButton, styles.courtDeleteButton]} 
-                        onPress={() => handleDeleteCourt(court)}
-                      >
-                        <Ionicons name="trash-outline" size={16} color={Colors.dark.error} />
-                      </Pressable>
-                    </View>
+              courtsGroupedByLocation.map((group, groupIndex) => (
+                <View key={group.location?.id || "unassigned"} style={styles.locationGroup}>
+                  <View style={styles.locationGroupHeader}>
+                    <Ionicons 
+                      name="location-outline" 
+                      size={14} 
+                      color={group.location ? Colors.dark.gold : Colors.dark.tabIconDefault} 
+                    />
+                    <Text style={[
+                      styles.locationGroupName,
+                      !group.location && { color: Colors.dark.tabIconDefault, fontStyle: "italic" }
+                    ]}>
+                      {group.location?.name || "No Location"}
+                    </Text>
+                    <Text style={styles.locationGroupCount}>({group.courts.length})</Text>
                   </View>
+                  {group.courts.map((court, index) => {
+                    const globalIndex = sortedCourts.findIndex(c => c.id === court.id);
+                    return (
+                      <View key={court.id} style={styles.courtCard}>
+                        <View style={[styles.courtColorBar, { backgroundColor: court.color || Colors.dark.primary }]} />
+                        <View style={styles.courtCardContent}>
+                          <View style={styles.courtInfo}>
+                            <View style={[styles.courtColorDot, { backgroundColor: court.color || Colors.dark.primary }]}>
+                              <View style={[styles.courtColorDotGlow, { backgroundColor: court.color || Colors.dark.primary }]} />
+                            </View>
+                            <Text style={styles.courtName}>{court.name}</Text>
+                          </View>
+                          <View style={styles.courtActions}>
+                            <Pressable 
+                              style={[styles.courtMoveButton, globalIndex === 0 && styles.courtMoveButtonDisabled]} 
+                              onPress={() => moveCourt(court.id, "up")}
+                              disabled={globalIndex === 0 || reorderCourtsMutation.isPending}
+                            >
+                              <Ionicons name="chevron-up" size={16} color={globalIndex === 0 ? Colors.dark.tabIconDefault : Colors.dark.text} />
+                            </Pressable>
+                            <Pressable 
+                              style={[styles.courtMoveButton, globalIndex === sortedCourts.length - 1 && styles.courtMoveButtonDisabled]} 
+                              onPress={() => moveCourt(court.id, "down")}
+                              disabled={globalIndex === sortedCourts.length - 1 || reorderCourtsMutation.isPending}
+                            >
+                              <Ionicons name="chevron-down" size={16} color={globalIndex === sortedCourts.length - 1 ? Colors.dark.tabIconDefault : Colors.dark.text} />
+                            </Pressable>
+                            <Pressable 
+                              style={styles.courtActionButton} 
+                              onPress={() => handleEditCourt(court)}
+                            >
+                              <Ionicons name="pencil" size={16} color={Colors.dark.xpCyan} />
+                            </Pressable>
+                            <Pressable 
+                              style={[styles.courtActionButton, styles.courtDeleteButton]} 
+                              onPress={() => handleDeleteCourt(court)}
+                            >
+                              <Ionicons name="trash-outline" size={16} color={Colors.dark.error} />
+                            </Pressable>
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })}
                 </View>
               ))
             )
@@ -1170,6 +1228,48 @@ export default function SettingsScreen() {
                 </Pressable>
               ))}
             </View>
+            <Text style={styles.colorPickerLabel}>LOCATION</Text>
+            <ScrollView style={{ maxHeight: 120 }} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+              <View style={styles.locationPicker}>
+                <Pressable
+                  style={[
+                    styles.locationOption,
+                    !newCourtLocationId && styles.locationOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setNewCourtLocationId(null);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Text style={[
+                    styles.locationOptionText,
+                    !newCourtLocationId && styles.locationOptionTextSelected,
+                  ]}>
+                    No Location
+                  </Text>
+                </Pressable>
+                {locations.map((location) => (
+                  <Pressable
+                    key={location.id}
+                    style={[
+                      styles.locationOption,
+                      newCourtLocationId === location.id && styles.locationOptionSelected,
+                    ]}
+                    onPress={() => {
+                      setNewCourtLocationId(location.id);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    <Text style={[
+                      styles.locationOptionText,
+                      newCourtLocationId === location.id && styles.locationOptionTextSelected,
+                    ]}>
+                      {location.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </ScrollView>
             <View style={styles.modalButtons}>
               <Pressable style={styles.modalCancelButton} onPress={() => setShowCourtModal(false)}>
                 <Text style={styles.modalCancelText}>Cancel</Text>
@@ -1598,6 +1698,27 @@ const styles = StyleSheet.create({
     fontSize: Typography.caption.fontSize,
     color: Colors.dark.textMuted,
     marginTop: Spacing.xs,
+  },
+  locationGroup: {
+    marginBottom: Spacing.md,
+  },
+  locationGroupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: Spacing.sm,
+    paddingLeft: Spacing.xs,
+  },
+  locationGroupName: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.gold,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  locationGroupCount: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
   },
   courtCard: {
     flexDirection: "row",

@@ -1465,14 +1465,33 @@ export const storage = {
     if (academyId) {
       conditions.push(eq(courts.academyId, academyId));
     }
-    return db.select().from(courts).where(and(...conditions));
+    return db.select().from(courts).where(and(...conditions)).orderBy(courts.position);
   },
 
   async getAllCourts(academyId?: string): Promise<Court[]> {
     if (academyId) {
-      return db.select().from(courts).where(eq(courts.academyId, academyId));
+      const results = await db.select().from(courts)
+        .where(eq(courts.academyId, academyId))
+        .orderBy(courts.position);
+      // Sort so courts with locations come first (sorted by locationId), then null locations at end
+      return results.sort((a, b) => {
+        if (a.locationId && !b.locationId) return -1;
+        if (!a.locationId && b.locationId) return 1;
+        if (a.locationId && b.locationId && a.locationId !== b.locationId) {
+          return a.locationId.localeCompare(b.locationId);
+        }
+        return (a.position || 0) - (b.position || 0);
+      });
     }
-    return db.select().from(courts);
+    const results = await db.select().from(courts).orderBy(courts.position);
+    return results.sort((a, b) => {
+      if (a.locationId && !b.locationId) return -1;
+      if (!a.locationId && b.locationId) return 1;
+      if (a.locationId && b.locationId && a.locationId !== b.locationId) {
+        return a.locationId.localeCompare(b.locationId);
+      }
+      return (a.position || 0) - (b.position || 0);
+    });
   },
 
   async getCourtByName(name: string, academyId: string): Promise<Court | undefined> {
