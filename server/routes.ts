@@ -2656,6 +2656,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           continue;
         }
 
+        // Snapshot pricing at booking time (Layer 3)
+        let pricingSnapshot: { academyPrice?: string; coachPayout?: string; academyMargin?: string } = {};
+        if (academyId && coachId) {
+          try {
+            const pricing = await storage.calculateSessionPricing(academyId, coachId, sessionType, duration);
+            pricingSnapshot = {
+              academyPrice: String(pricing.academyPrice),
+              coachPayout: String(pricing.coachPayout),
+              academyMargin: String(pricing.academyMargin),
+            };
+          } catch (err: any) {
+            // Currency mismatch and other critical errors must block session creation
+            return res.status(422).json({ 
+              error: "Pricing error", 
+              message: err.message || "Could not calculate session pricing"
+            });
+          }
+        }
+
         const session = await storage.createSession({
           academyId,
           coachId,
@@ -2673,6 +2692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           travelTime: travelTime || 0,
           paymentStatus: "unpaid",
           status: "scheduled",
+          ...pricingSnapshot,
         });
 
         // Create unified time block to prevent double-booking across academies
@@ -5585,6 +5605,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           continue;
         }
         
+        // Snapshot pricing at booking time (Layer 3)
+        let pricingSnapshot: { academyPrice?: string; coachPayout?: string; academyMargin?: string } = {};
+        if (academyId && coachId) {
+          try {
+            const pricing = await storage.calculateSessionPricing(academyId, coachId, sessionType, duration);
+            pricingSnapshot = {
+              academyPrice: String(pricing.academyPrice),
+              coachPayout: String(pricing.coachPayout),
+              academyMargin: String(pricing.academyMargin),
+            };
+          } catch (err: any) {
+            // Currency mismatch and other critical errors must block series creation
+            return res.status(422).json({ 
+              error: "Pricing error", 
+              message: err.message || "Could not calculate session pricing"
+            });
+          }
+        }
+
         // Create the session linked to this series
         const session = await storage.createSession({
           academyId,
@@ -5605,6 +5644,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           travelTime: 0,
           paymentStatus: "unpaid",
           status: "scheduled",
+          ...pricingSnapshot,
         });
         
         // Create unified time block

@@ -408,6 +408,21 @@ export default function SettingsScreen() {
           />
         </Section>
 
+        <Section title="Billing & Pricing">
+          <SettingRow
+            icon="pricetag"
+            title="Session Pricing"
+            subtitle="Set prices for different session types"
+            onPress={() => navigation.navigate("Pricing")}
+          />
+          <SettingRow
+            icon="wallet"
+            title="Coach Compensation"
+            subtitle="Manage coach payout rates"
+            onPress={() => navigation.navigate("CoachCompensation")}
+          />
+        </Section>
+
         <Section title="Team Management">
           <SettingRow
             icon="person-add"
