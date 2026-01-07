@@ -6687,6 +6687,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== COACH EARNINGS API ====================
 
+  // Helper function to get human-readable warning message
+  function getWarningMessage(code: string): string {
+    const messages: Record<string, string> = {
+      no_contract: "No coach contract found for this academy",
+      invalid_hourly_rate: "Coach contract has invalid hourly rate",
+      invalid_session_rate: "Coach contract has invalid session rate",
+      invalid_percentage_rate: "Coach contract has invalid percentage rate",
+      missing_academy_id: "Session is missing academy assignment",
+      missing_academy_pricing: "Academy has no pricing configured for this session type",
+      unknown_pay_type: "Coach contract has unknown pay type",
+    };
+    return messages[code] || "Unknown configuration error";
+  }
+
+  // Helper function to calculate session earning based on contract
+  async function calculateSessionEarning(
+    session: { academyId?: string | null; duration?: number | null; sessionType?: string | null },
+    coachId: string,
+    contracts: any[]
+  ): Promise<{ amount: number; currency: string; warning?: string }> {
+    const academyId = session.academyId;
+    const duration = session.duration || 60;
+    const rawSessionType = session.sessionType || "private";
+    
+    // Normalize session type - handle variations: "semi", "semi_private", "semi-private"
+    const normalizeSessionType = (type: string): string => {
+      const cleaned = type.toLowerCase().replace(/-/g, "_").trim();
+      if (cleaned === "semi" || cleaned === "semi_private") return "semi_private";
+      return cleaned;
+    };
+    const sessionType = normalizeSessionType(rawSessionType);
+    
+    // Find the contract for this session's academy
+    const contract = contracts.find((c: any) => c.academyId === academyId);
+    
+    if (!contract) {
+      // Return 0 earnings with warning - don't silently make up amounts
+      console.warn(`[Earnings] No contract found for coach ${coachId} at academy ${academyId}`);
+      return { amount: 0, currency: "AED", warning: "no_contract" };
+    }
+    
+    const currency = contract.currency || "AED";
+    let amount = 0;
+    
+    // Check for session-type specific rates first
+    if (sessionType === "private" && contract.privateRate) {
+      amount = Number(contract.privateRate) || 0;
+    } else if (sessionType === "semi_private" && contract.semiPrivateRate) {
+      amount = Number(contract.semiPrivateRate) || 0;
+    } else if (sessionType === "group" && contract.groupRate) {
+      amount = Number(contract.groupRate) || 0;
+    } else {
+      // Calculate based on pay type
+      switch (contract.payType) {
+        case "hourly":
+          const hourlyRate = Number(contract.hourlyRate);
+          if (isNaN(hourlyRate) || hourlyRate <= 0) {
+            console.warn(`[Earnings] Invalid hourly rate for contract ${contract.id}`);
+            return { amount: 0, currency, warning: "invalid_hourly_rate" };
+          }
+          amount = hourlyRate * (duration / 60);
+          break;
+        case "per_session":
+          const sessionRate = Number(contract.sessionRate);
+          if (isNaN(sessionRate) || sessionRate <= 0) {
+            console.warn(`[Earnings] Invalid session rate for contract ${contract.id}`);
+            return { amount: 0, currency, warning: "invalid_session_rate" };
+          }
+          amount = sessionRate;
+          break;
+        case "percentage":
+          const percentageRate = Number(contract.percentageRate);
+          if (isNaN(percentageRate) || percentageRate <= 0) {
+            console.warn(`[Earnings] Invalid percentage rate for contract ${contract.id}`);
+            return { amount: 0, currency, warning: "invalid_percentage_rate" };
+          }
+          
+          if (!academyId) {
+            console.warn(`[Earnings] Percentage contract but no academyId on session`);
+            return { amount: 0, currency, warning: "missing_academy_id" };
+          }
+          
+          const pricing = await storage.getAcademyPricingByType(academyId, sessionType);
+          if (!pricing) {
+            console.warn(`[Earnings] No academy pricing found for ${academyId} / ${sessionType}`);
+            return { amount: 0, currency, warning: "missing_academy_pricing" };
+          }
+          
+          let sessionPrice = 0;
+          if (pricing.pricePerHour) {
+            sessionPrice = Number(pricing.pricePerHour) * (duration / 60);
+          } else {
+            sessionPrice = Number(pricing.pricePerSession) || 0;
+          }
+          amount = sessionPrice * (percentageRate / 100);
+          break;
+        default:
+          console.warn(`[Earnings] Unknown pay type: ${contract.payType}`);
+          return { amount: 0, currency, warning: "unknown_pay_type" };
+      }
+    }
+    
+    return { amount, currency };
+  }
+
   // Get coach earnings summary (this month + projected)
   app.get("/api/coach/earnings/summary", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -6699,8 +6804,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentMonth = now.getMonth() + 1;
       const currentYear = now.getFullYear();
       
-      // Get payment rule for this coach
-      const paymentRule = await storage.getCoachPaymentRule(coachId);
+      // Get all active contracts for this coach (across all academies)
+      const contracts = await storage.getCoachContractsByCoach(coachId);
+      
+      // Find the primary contract to determine display info
+      const primaryContract = contracts[0];
       
       // Get completed sessions this month (realized earnings)
       const completedSessions = await storage.getCoachCompletedSessionsForMonth(coachId, currentMonth, currentYear);
@@ -6708,61 +6816,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get upcoming sessions this month (projected earnings)
       const upcomingSessions = await storage.getCoachUpcomingSessionsForMonth(coachId, currentMonth, currentYear);
       
-      // Calculate earnings based on payment rule
-      const hourlyRate = paymentRule?.hourlyRate 
-        ? parseFloat(paymentRule.hourlyRate) 
-        : (req.user!.coachId ? 150 : 0); // Default 150 AED/hour
+      // Track earnings and session counts by currency to handle multi-currency coaches properly
+      const realizedByCurrency: Record<string, { amount: number; sessions: number }> = {};
+      const projectedByCurrency: Record<string, { amount: number; sessions: number }> = {};
+      const errors: Array<{ sessionId: string; code: string; message: string }> = [];
       
-      const currency = paymentRule?.currency || "AED";
-      
-      let realizedEarnings = 0;
-      let projectedEarnings = 0;
-      
-      // Calculate realized from completed sessions
+      // Calculate realized from completed sessions using contracts
       for (const session of completedSessions) {
-        const duration = session.duration || 60;
-        const sessionEarning = (duration / 60) * hourlyRate;
-        realizedEarnings += sessionEarning;
+        const earning = await calculateSessionEarning(session, coachId, contracts);
+        if (earning.warning) {
+          errors.push({
+            sessionId: session.id,
+            code: earning.warning,
+            message: getWarningMessage(earning.warning),
+          });
+        }
+        if (!realizedByCurrency[earning.currency]) {
+          realizedByCurrency[earning.currency] = { amount: 0, sessions: 0 };
+        }
+        realizedByCurrency[earning.currency].amount += earning.amount;
+        realizedByCurrency[earning.currency].sessions += 1;
       }
       
-      // Calculate projected from upcoming sessions
+      // Calculate projected from upcoming sessions using contracts
       for (const session of upcomingSessions) {
-        const duration = session.duration || 60;
-        const sessionEarning = (duration / 60) * hourlyRate;
-        projectedEarnings += sessionEarning;
+        const earning = await calculateSessionEarning(session, coachId, contracts);
+        if (earning.warning) {
+          errors.push({
+            sessionId: session.id,
+            code: earning.warning,
+            message: getWarningMessage(earning.warning),
+          });
+        }
+        if (!projectedByCurrency[earning.currency]) {
+          projectedByCurrency[earning.currency] = { amount: 0, sessions: 0 };
+        }
+        projectedByCurrency[earning.currency].amount += earning.amount;
+        projectedByCurrency[earning.currency].sessions += 1;
+      }
+      
+      // Use primary contract currency as the display currency
+      const displayCurrency = primaryContract?.currency || "AED";
+      
+      // Get earnings and counts for display currency
+      const realizedData = realizedByCurrency[displayCurrency] || { amount: 0, sessions: 0 };
+      const projectedData = projectedByCurrency[displayCurrency] || { amount: 0, sessions: 0 };
+      
+      // Check if there are earnings in other currencies
+      const otherCurrencies = Object.keys({ ...realizedByCurrency, ...projectedByCurrency }).filter(c => c !== displayCurrency);
+      
+      if (otherCurrencies.length > 0) {
+        console.warn(`[Earnings] Coach ${coachId} has earnings in multiple currencies: ${[displayCurrency, ...otherCurrencies].join(', ')}`);
+      }
+      
+      // Determine payment rule display info from primary contract
+      let paymentRuleDisplay: { type: string; hourlyRate?: string; percentageRate?: string; currency: string; isDefault: boolean };
+      if (primaryContract) {
+        paymentRuleDisplay = {
+          type: primaryContract.payType || "hourly",
+          currency: primaryContract.currency || "AED",
+          isDefault: false,
+        };
+        if (primaryContract.payType === "hourly") {
+          paymentRuleDisplay.hourlyRate = primaryContract.hourlyRate;
+        } else if (primaryContract.payType === "percentage") {
+          paymentRuleDisplay.percentageRate = primaryContract.percentageRate;
+        } else if (primaryContract.payType === "per_session") {
+          paymentRuleDisplay.hourlyRate = primaryContract.sessionRate;
+        }
+      } else {
+        paymentRuleDisplay = { type: "hourly", currency: "AED", isDefault: true };
       }
       
       res.json({
         realized: {
-          amount: realizedEarnings.toFixed(2),
-          currency,
-          sessionsCount: completedSessions.length,
+          amount: realizedData.amount.toFixed(2),
+          currency: displayCurrency,
+          sessionsCount: realizedData.sessions,
           status: "confirmed",
         },
         projected: {
-          amount: projectedEarnings.toFixed(2),
-          currency,
-          sessionsCount: upcomingSessions.length,
+          amount: projectedData.amount.toFixed(2),
+          currency: displayCurrency,
+          sessionsCount: projectedData.sessions,
           status: "pending",
         },
         total: {
-          amount: (realizedEarnings + projectedEarnings).toFixed(2),
-          currency,
+          amount: (realizedData.amount + projectedData.amount).toFixed(2),
+          currency: displayCurrency,
         },
-        paymentRule: paymentRule ? {
-          type: paymentRule.paymentType,
-          hourlyRate: paymentRule.hourlyRate,
-          currency: paymentRule.currency,
-        } : {
-          type: "hourly",
-          hourlyRate: String(hourlyRate),
-          currency,
-        },
+        paymentRule: paymentRuleDisplay,
         period: {
           month: currentMonth,
           year: currentYear,
           monthName: now.toLocaleString("en-US", { month: "long" }),
         },
+        // Include multi-currency breakdown for transparency when earnings exist in other currencies
+        ...(otherCurrencies.length > 0 ? {
+          multiCurrencyBreakdown: {
+            realized: Object.fromEntries(
+              Object.entries(realizedByCurrency).map(([cur, data]) => [cur, { amount: data.amount.toFixed(2), sessions: data.sessions }])
+            ),
+            projected: Object.fromEntries(
+              Object.entries(projectedByCurrency).map(([cur, data]) => [cur, { amount: data.amount.toFixed(2), sessions: data.sessions }])
+            ),
+          },
+        } : {}),
+        // Include errors array if any configuration issues detected
+        ...(errors.length > 0 ? { configErrors: errors } : {}),
       });
     } catch (error) {
       console.error("Error fetching coach earnings summary:", error);
@@ -6781,45 +6942,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const month = parseInt(req.query.month as string) || new Date().getMonth() + 1;
       const year = parseInt(req.query.year as string) || new Date().getFullYear();
       
-      const paymentRule = await storage.getCoachPaymentRule(coachId);
-      const hourlyRate = paymentRule?.hourlyRate 
-        ? parseFloat(paymentRule.hourlyRate) 
-        : 150;
-      const currency = paymentRule?.currency || "AED";
+      // Get all active contracts for this coach
+      const contracts = await storage.getCoachContractsByCoach(coachId);
+      const primaryContract = contracts[0];
+      const currency = primaryContract?.currency || "AED";
       
       // Get all sessions for the month
       const completedSessions = await storage.getCoachCompletedSessionsForMonth(coachId, month, year);
       
-      const breakdown = completedSessions.map(session => {
-        const duration = session.duration || 60;
-        const amount = (duration / 60) * hourlyRate;
-        
-        return {
+      // Calculate breakdown using contracts
+      const breakdown = [];
+      const totalsByCurrency: Record<string, { amount: number; sessions: number }> = {};
+      
+      for (const session of completedSessions) {
+        const earning = await calculateSessionEarning(session, coachId, contracts);
+        breakdown.push({
           id: session.id,
           date: session.startTime,
           sessionType: session.sessionType,
-          duration,
-          amount: amount.toFixed(2),
-          currency,
+          duration: session.duration || 60,
+          amount: earning.amount.toFixed(2),
+          currency: earning.currency,
           status: "confirmed",
-        };
-      });
+          ...(earning.warning ? { warning: earning.warning } : {}),
+        });
+        if (!totalsByCurrency[earning.currency]) {
+          totalsByCurrency[earning.currency] = { amount: 0, sessions: 0 };
+        }
+        totalsByCurrency[earning.currency].amount += earning.amount;
+        totalsByCurrency[earning.currency].sessions += 1;
+      }
       
-      const totalEarned = breakdown.reduce((sum, item) => sum + parseFloat(item.amount), 0);
-      const avgPerLesson = breakdown.length > 0 ? totalEarned / breakdown.length : 0;
+      // Use primary contract currency for summary display
+      const currencyData = totalsByCurrency[currency] || { amount: 0, sessions: 0 };
+      const totalEarned = currencyData.amount;
+      const sessionsInCurrency = currencyData.sessions;
+      const avgPerLesson = sessionsInCurrency > 0 ? totalEarned / sessionsInCurrency : 0;
+      
+      // Build payment rule display for the breakdown page
+      let paymentRuleDisplay: { type: string; hourlyRate?: string; percentageRate?: string; currency: string; isDefault: boolean };
+      if (primaryContract) {
+        paymentRuleDisplay = {
+          type: primaryContract.payType || "hourly",
+          currency: primaryContract.currency || "AED",
+          isDefault: false,
+        };
+        if (primaryContract.payType === "hourly") {
+          paymentRuleDisplay.hourlyRate = primaryContract.hourlyRate;
+        } else if (primaryContract.payType === "percentage") {
+          paymentRuleDisplay.percentageRate = primaryContract.percentageRate;
+        } else if (primaryContract.payType === "per_session") {
+          paymentRuleDisplay.hourlyRate = primaryContract.sessionRate;
+        }
+      } else {
+        paymentRuleDisplay = { type: "hourly", hourlyRate: "150", currency: "AED", isDefault: true };
+      }
+      
+      // Check for other currencies
+      const otherCurrencies = Object.keys(totalsByCurrency).filter(c => c !== currency);
       
       res.json({
         breakdown,
         summary: {
           totalEarned: totalEarned.toFixed(2),
-          totalSessions: breakdown.length,
+          totalSessions: sessionsInCurrency,
           avgPerLesson: avgPerLesson.toFixed(2),
           currency,
         },
+        paymentRule: paymentRuleDisplay,
         period: {
           month,
           year,
         },
+        // Include multi-currency breakdown when applicable
+        ...(otherCurrencies.length > 0 ? {
+          multiCurrencyBreakdown: Object.fromEntries(
+            Object.entries(totalsByCurrency).map(([cur, data]) => [cur, { amount: data.amount.toFixed(2), sessions: data.sessions }])
+          ),
+        } : {}),
       });
     } catch (error) {
       console.error("Error fetching coach earnings breakdown:", error);
@@ -6835,11 +7035,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Coach ID required" });
       }
       
-      const paymentRule = await storage.getCoachPaymentRule(coachId);
-      const hourlyRate = paymentRule?.hourlyRate 
-        ? parseFloat(paymentRule.hourlyRate) 
-        : 150;
-      const currency = paymentRule?.currency || "AED";
+      // Get all active contracts for this coach
+      const contracts = await storage.getCoachContractsByCoach(coachId);
+      const primaryContract = contracts[0];
+      const currency = primaryContract?.currency || "AED";
       
       // Get last 6 months of history
       const history = [];
@@ -6852,22 +7051,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         const sessions = await storage.getCoachCompletedSessionsForMonth(coachId, month, year);
         
-        let totalEarned = 0;
+        // Group by currency for proper multi-currency handling
+        const earnedByCurrency: Record<string, { amount: number; sessions: number }> = {};
         for (const session of sessions) {
-          const duration = session.duration || 60;
-          totalEarned += (duration / 60) * hourlyRate;
+          const earning = await calculateSessionEarning(session, coachId, contracts);
+          if (!earnedByCurrency[earning.currency]) {
+            earnedByCurrency[earning.currency] = { amount: 0, sessions: 0 };
+          }
+          earnedByCurrency[earning.currency].amount += earning.amount;
+          earnedByCurrency[earning.currency].sessions += 1;
         }
         
-        const avgPerLesson = sessions.length > 0 ? totalEarned / sessions.length : 0;
+        // Use primary contract currency data for display
+        const currencyData = earnedByCurrency[currency] || { amount: 0, sessions: 0 };
+        const totalEarned = currencyData.amount;
+        const sessionsInCurrency = currencyData.sessions;
+        const avgPerLesson = sessionsInCurrency > 0 ? totalEarned / sessionsInCurrency : 0;
+        
+        // Check for other currencies
+        const otherCurrencies = Object.keys(earnedByCurrency).filter(c => c !== currency);
         
         history.push({
           month,
           year,
           monthName: date.toLocaleString("en-US", { month: "long" }),
           totalEarned: totalEarned.toFixed(2),
-          totalSessions: sessions.length,
+          totalSessions: sessionsInCurrency,
           avgPerLesson: avgPerLesson.toFixed(2),
           currency,
+          // Include multi-currency breakdown when applicable
+          ...(otherCurrencies.length > 0 ? {
+            multiCurrencyBreakdown: Object.fromEntries(
+              Object.entries(earnedByCurrency).map(([cur, data]) => [cur, { amount: data.amount.toFixed(2), sessions: data.sessions }])
+            ),
+          } : {}),
         });
       }
       

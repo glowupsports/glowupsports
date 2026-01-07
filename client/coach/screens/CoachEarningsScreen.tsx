@@ -41,8 +41,10 @@ interface EarningsSummary {
   };
   paymentRule: {
     type: string;
-    hourlyRate: string | null;
+    hourlyRate?: string | null;
+    percentageRate?: string | null;
     currency: string;
+    isDefault?: boolean;
   };
   period: {
     month: number;
@@ -169,9 +171,8 @@ export default function CoachEarningsScreen() {
     queryKey: ["/api/coach/earnings/history"],
   });
 
-  const { data: paymentRule } = useQuery<PaymentRuleData>({
-    queryKey: ["/api/coach/payment-rule"],
-  });
+  // Use paymentRule from summary response instead of separate query
+  const paymentRule = summary?.paymentRule;
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -300,12 +301,17 @@ export default function CoachEarningsScreen() {
               <View style={styles.ruleContent}>
                 <Text style={styles.ruleType}>
                   {paymentRule?.type === "hourly" ? "Hourly Rate" : 
+                   paymentRule?.type === "percentage" ? "Revenue Share" :
                    paymentRule?.type === "commission" ? "Commission Based" : 
                    "Hybrid"}
                 </Text>
-                {paymentRule?.hourlyRate ? (
+                {paymentRule?.type === "hourly" && paymentRule?.hourlyRate ? (
                   <Text style={styles.ruleValue}>
                     {paymentRule.currency} {paymentRule.hourlyRate}/hour
+                  </Text>
+                ) : paymentRule?.type === "percentage" && paymentRule?.percentageRate ? (
+                  <Text style={styles.ruleValue}>
+                    {paymentRule.percentageRate}% of session revenue
                   </Text>
                 ) : null}
               </View>

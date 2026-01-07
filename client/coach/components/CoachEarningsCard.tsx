@@ -26,8 +26,10 @@ interface EarningsSummary {
   };
   paymentRule: {
     type: string;
-    hourlyRate: string | null;
+    hourlyRate?: string | null;
+    percentageRate?: string | null;
     currency: string;
+    isDefault?: boolean;
   };
   period: {
     month: number;
@@ -144,7 +146,9 @@ export function CoachEarningsCard({ onPress }: Props) {
             <Text style={styles.paymentText}>
               {data.paymentRule.type === "hourly" 
                 ? `${data.paymentRule.currency} ${data.paymentRule.hourlyRate}/hr`
-                : data.paymentRule.type
+                : data.paymentRule.type === "percentage"
+                  ? `${data.paymentRule.percentageRate}% revenue`
+                  : data.paymentRule.type
               }
             </Text>
           </View>
