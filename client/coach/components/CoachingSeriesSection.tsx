@@ -169,7 +169,7 @@ const collapsibleStyles = StyleSheet.create({
 
 export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
   const [filter, setFilter] = useState<FilterType>("active");
-  const [expandedDays, setExpandedDays] = useState<Set<number>>(new Set([0, 1, 2, 3, 4, 5, 6]));
+  const [expandedDays, setExpandedDays] = useState<Set<number>>(new Set());
   const queryClient = useQueryClient();
 
   const { data: seriesList, isLoading, error, refetch } = useQuery<CoachingSeries[]>({
