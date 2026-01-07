@@ -31,6 +31,7 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { ObservationTrendChart } from "@/components/ObservationTrendChart";
 import { NeoLoadoutPanel, NeoGlowBadge } from "@/components/NeoLoadoutPanel";
 import { CoachingSeriesSection } from "@/coach/components/CoachingSeriesSection";
+import SeriesDetailDrawer from "@/coach/components/SeriesDetailDrawer";
 
 interface ProgressSummary {
   skillArea: string;
@@ -306,12 +307,13 @@ const FEEDBACK_XP_REWARDS: Record<string, number> = {
 };
 
 function SeriesTab({ insets, tabBarHeight }: { insets: { bottom: number }; tabBarHeight: number }) {
+  const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(null);
+  const [showSeriesDetail, setShowSeriesDetail] = useState(false);
+
   const handleSeriesPress = (series: any) => {
-    Alert.alert(
-      series.title,
-      `${series.sessionType} series on ${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][series.dayOfWeek]} at ${series.startTime}\n\n${series.playerCount} players, ${series.sessionsCompleted} sessions completed`,
-      [{ text: "OK" }]
-    );
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedSeriesId(series.id);
+    setShowSeriesDetail(true);
   };
 
   const handleCreatePress = () => {
@@ -322,20 +324,32 @@ function SeriesTab({ insets, tabBarHeight }: { insets: { bottom: number }; tabBa
     );
   };
 
+  const handleCloseDetail = () => {
+    setShowSeriesDetail(false);
+    setSelectedSeriesId(null);
+  };
+
   return (
-    <ScrollView
-      style={seriesStyles.scrollView}
-      contentContainerStyle={[
-        seriesStyles.scrollContent,
-        { paddingBottom: tabBarHeight + Spacing.xl },
-      ]}
-      showsVerticalScrollIndicator={false}
-    >
-      <CoachingSeriesSection
-        onSeriesPress={handleSeriesPress}
-        onCreatePress={handleCreatePress}
+    <>
+      <ScrollView
+        style={seriesStyles.scrollView}
+        contentContainerStyle={[
+          seriesStyles.scrollContent,
+          { paddingBottom: tabBarHeight + Spacing.xl },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <CoachingSeriesSection
+          onSeriesPress={handleSeriesPress}
+          onCreatePress={handleCreatePress}
+        />
+      </ScrollView>
+      <SeriesDetailDrawer
+        visible={showSeriesDetail}
+        seriesId={selectedSeriesId}
+        onClose={handleCloseDetail}
       />
-    </ScrollView>
+    </>
   );
 }
 

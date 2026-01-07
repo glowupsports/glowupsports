@@ -5364,12 +5364,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get players in this series
       const seriesPlayers = await storage.getSeriesPlayers(id);
       
-      // Get player details
+      // Get player details - flatten for frontend consumption
       const playerDetails = await Promise.all(seriesPlayers.map(async (sp) => {
         const player = await storage.getPlayer(sp.playerId);
         return {
-          ...sp,
-          player,
+          id: sp.playerId,
+          name: player?.name || "Unknown Player",
+          ballLevel: player?.ballLevel || null,
+          status: sp.status,
+          sessionsAttended: sp.sessionsAttended || 0,
+          totalXpEarned: sp.totalXpEarned || 0,
         };
       }));
       
@@ -5481,7 +5485,183 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      res.status(201).json(series);
+      // Derive session instances from the series
+      const createdSessions: any[] = [];
+      const skippedWeeks: { week: number; reason: string }[] = [];
+      
+      // Parse the startTime (HH:mm format) first
+      const [hours, minutes] = startTime.split(":").map(Number);
+      
+      // Parse series date range
+      const seriesStartDateTime = new Date(seriesStartDate);
+      seriesStartDateTime.setHours(hours, minutes, 0, 0); // Use session time for comparison
+      
+      const seriesEnd = seriesEndDate ? new Date(seriesEndDate) : null;
+      if (seriesEnd) {
+        seriesEnd.setHours(23, 59, 59, 999); // End of end date
+      }
+      
+      // Calculate the first session date: find first occurrence of target day on or after seriesStartDate
+      const firstSessionDate = new Date(seriesStartDate);
+      firstSessionDate.setHours(0, 0, 0, 0);
+      const currentDayOfWeek = firstSessionDate.getDay();
+      let daysUntilTarget = (dayOfWeek - currentDayOfWeek + 7) % 7;
+      
+      // If the target day is today, use this week
+      firstSessionDate.setDate(firstSessionDate.getDate() + daysUntilTarget);
+      firstSessionDate.setHours(hours, minutes, 0, 0);
+      
+      // If first session is before series start (comparing full DateTime), advance one week
+      if (firstSessionDate < seriesStartDateTime) {
+        firstSessionDate.setDate(firstSessionDate.getDate() + 7);
+      }
+      
+      // Calculate maximum number of sessions considering both weekCount and seriesEndDate
+      let calculatedMaxWeeks = weekCount || 52; // Default to 52 weeks if not specified
+      
+      if (seriesEnd) {
+        // Calculate how many weeks fit between first session and series end
+        const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+        const weeksBetween = Math.floor((seriesEnd.getTime() - firstSessionDate.getTime()) / msPerWeek) + 1;
+        calculatedMaxWeeks = Math.min(calculatedMaxWeeks, Math.max(0, weeksBetween));
+      }
+      
+      // Cap at provided weekCount if specified
+      const maxSessions = weekCount ? Math.min(weekCount, calculatedMaxWeeks) : calculatedMaxWeeks;
+      
+      // Generate sessions for each week
+      for (let weekIndex = 0; weekIndex < maxSessions; weekIndex++) {
+        const sessionDate = new Date(firstSessionDate);
+        sessionDate.setDate(sessionDate.getDate() + weekIndex * 7);
+        sessionDate.setHours(hours, minutes, 0, 0);
+        
+        // Check if this session would be after the series end date
+        if (seriesEnd && sessionDate > seriesEnd) {
+          break;
+        }
+        
+        const weekNumber = weekIndex + 1; // 1-indexed week number
+        
+        const sessionEndTime = new Date(sessionDate.getTime() + duration * 60000);
+        const dateStr = sessionDate.toISOString().split("T")[0];
+        const startTimeStr = `${String(sessionDate.getHours()).padStart(2, "0")}:${String(sessionDate.getMinutes()).padStart(2, "0")}`;
+        const endTimeStr = `${String(sessionEndTime.getHours()).padStart(2, "0")}:${String(sessionEndTime.getMinutes()).padStart(2, "0")}`;
+        
+        // Check for conflicts - track both types
+        const coachConflict = await storage.checkCoachConflict(coachId, sessionDate, sessionEndTime, undefined, academyId);
+        const courtConflict = courtId ? await storage.checkCourtConflict(courtId, sessionDate, sessionEndTime, undefined, academyId) : false;
+        
+        if (coachConflict || courtConflict) {
+          const reasons: string[] = [];
+          if (coachConflict) reasons.push("Coach already booked");
+          if (courtConflict) reasons.push("Court already booked");
+          
+          skippedWeeks.push({
+            week: weekNumber,
+            reason: reasons.join(" and "),
+          });
+          continue;
+        }
+        
+        // Create the session linked to this series
+        const session = await storage.createSession({
+          academyId,
+          coachId,
+          courtId: courtId || null,
+          locationId: locationId || null,
+          startTime: sessionDate,
+          endTime: sessionEndTime,
+          duration,
+          sessionType,
+          ballLevel,
+          skillLevel,
+          isRecurring: true,
+          recurringGroupId: series.id, // Use series ID as the recurring group
+          weekCount: maxSessions,
+          seriesId: series.id,
+          weekNumber,
+          travelTime: 0,
+          paymentStatus: "unpaid",
+          status: "scheduled",
+        });
+        
+        // Create unified time block
+        await storage.createCoachTimeBlock({
+          coachId,
+          sourceType: "session",
+          sourceAcademyId: academyId,
+          sourceSessionId: session.id,
+          date: dateStr,
+          startTime: startTimeStr,
+          endTime: endTimeStr,
+          isPrivate: true,
+        });
+        
+        // Add players to the session
+        if (playerIds && Array.isArray(playerIds)) {
+          for (const playerId of playerIds) {
+            await storage.addSessionPlayer({
+              sessionId: session.id,
+              playerId,
+              status: "confirmed",
+            });
+          }
+        }
+        
+        // Serialize session with ISO strings for frontend consumption
+        createdSessions.push({
+          ...session,
+          startTime: session.startTime instanceof Date ? session.startTime.toISOString() : session.startTime,
+          endTime: session.endTime instanceof Date ? session.endTime.toISOString() : session.endTime,
+          weekNumber,
+        });
+      }
+      
+      // Build enriched player list for response
+      const enrichedPlayers = playerIds && Array.isArray(playerIds) ? await Promise.all(
+        playerIds.map(async (playerId: string) => {
+          const player = await storage.getPlayer(playerId);
+          return {
+            id: playerId,
+            name: player?.name || "Unknown Player",
+            ballLevel: player?.ballLevel || null,
+            status: "active",
+            sessionsAttended: 0,
+            totalXpEarned: 0,
+          };
+        })
+      ) : [];
+
+      // Get location and court names
+      let locationName = null;
+      let courtName = null;
+      if (locationId) {
+        const location = await storage.getLocationById(locationId);
+        locationName = location?.name || null;
+      }
+      if (courtId) {
+        const court = await storage.getCourtById(courtId);
+        courtName = court?.name || null;
+      }
+      
+      // Return fully enriched series matching GET /api/coach/series/:id structure
+      res.status(201).json({
+        series: {
+          ...series,
+          locationName,
+          courtName,
+          players: enrichedPlayers,
+          sessions: createdSessions,
+          stats: {
+            totalSessions: maxSessions,
+            completedSessions: 0,
+            upcomingSessions: createdSessions.length,
+            cancelledSessions: 0,
+          },
+        },
+        createdSessions,
+        skippedWeeks,
+      });
     } catch (error) {
       console.error("Error creating coaching series:", error);
       res.status(500).json({ error: "Failed to create coaching series" });
