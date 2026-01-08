@@ -5364,6 +5364,124 @@ export const storage = {
     return results;
   },
 
+  // Consume credits for class session with dynamic credit type based on actual attendance
+  // For semi-private sessions: if only 1 player present, charge private credits instead
+  async consumeCreditsForClassSessionWithAttendance(
+    seriesId: string, 
+    sessionId: string, 
+    sessionDate: Date, 
+    presentPlayerIds: string[],
+    presentCount: number
+  ): Promise<{ 
+    consumed: number; 
+    skipped: number; 
+    errors: string[];
+    actualCreditType: string;
+  }> {
+    const results = { consumed: 0, skipped: 0, errors: [] as string[], actualCreditType: "group" };
+    
+    // Get the series to find academyId and sessionType
+    const series = await this.getCoachingSeriesById(seriesId);
+    const academyId = series?.academyId || null;
+    
+    // Map session type to credit type with dynamic override
+    const normalizeType = (type: string | undefined): string => {
+      if (!type) return "group";
+      const normalized = type.toLowerCase().replace("-", "_").replace(" ", "_");
+      if (normalized === "semi" || normalized === "semi_private") return "semi_private";
+      if (normalized === "private") return "private";
+      return "group";
+    };
+    
+    let requiredCreditType = normalizeType(series?.sessionType);
+    
+    // Dynamic credit type: semi-private with only 1 player becomes private
+    if ((requiredCreditType === "semi_private") && presentCount === 1) {
+      requiredCreditType = "private";
+      console.log(`[Credits] Session ${sessionId}: Semi-private with 1 player, charging as private`);
+    }
+    
+    results.actualCreditType = requiredCreditType;
+    
+    // Only process present players
+    for (const playerId of presentPlayerIds) {
+      try {
+        await db.transaction(async (tx) => {
+          // Find the package to deduct from - must match credit type
+          let packageToUse = null;
+          let creditType = requiredCreditType;
+          
+          // Find any active package for this player with matching credit type (or null for legacy)
+          const playerPackagesResult = await tx.execute(sql`
+            SELECT * FROM packages 
+            WHERE player_id = ${playerId} 
+              AND status = 'active' 
+              AND remaining_credits > 0
+              AND (credit_type = ${requiredCreditType} OR credit_type IS NULL)
+            ORDER BY CASE WHEN series_id = ${seriesId} THEN 1 ELSE 0 END DESC, expiry_date ASC NULLS LAST
+            FOR UPDATE
+            LIMIT 1
+          `);
+          
+          if (playerPackagesResult.rows[0]) {
+            const p = playerPackagesResult.rows[0] as any;
+            packageToUse = {
+              id: p.id,
+              remainingCredits: p.remaining_credits,
+              creditType: p.credit_type,
+            };
+          }
+          
+          if (!packageToUse) {
+            results.errors.push(`No ${requiredCreditType} credits available for player ${playerId}`);
+            return;
+          }
+          
+          creditType = packageToUse.creditType || requiredCreditType;
+          const balanceBefore = packageToUse.remainingCredits;
+          const balanceAfter = balanceBefore - 1;
+          
+          // STEP 1: Try to claim the ledger entry FIRST using ON CONFLICT
+          try {
+            const insertResult = await tx.execute(sql`
+              INSERT INTO credit_transactions (player_id, academy_id, session_id, package_id, type, credit_type, amount, reason, balance_before, balance_after, metadata)
+              VALUES (${playerId}, ${academyId}, ${sessionId}, ${packageToUse.id}, 'debit', ${creditType}, -1, 'session_join', ${balanceBefore}, ${balanceAfter}, 
+                     ${JSON.stringify({ packageId: packageToUse.id, seriesId, description: `Credit consumed (${requiredCreditType})`, actualCreditType: requiredCreditType })}::jsonb)
+              ON CONFLICT DO NOTHING
+              RETURNING id
+            `);
+            
+            if (insertResult.rowCount === 0) {
+              results.skipped++;
+              return;
+            }
+          } catch (insertError: any) {
+            if (insertError.code === '23505') {
+              results.skipped++;
+              return;
+            }
+            throw insertError;
+          }
+          
+          // STEP 2: Ledger entry claimed successfully, now decrement the package credits
+          await tx.update(packages)
+            .set({ 
+              remainingCredits: balanceAfter,
+              status: balanceAfter <= 0 ? "depleted" : "active",
+            })
+            .where(eq(packages.id, packageToUse.id));
+          
+          results.consumed++;
+        });
+      } catch (txError) {
+        console.error(`[Credits] Transaction error for player ${playerId}:`, txError);
+        results.errors.push(`Transaction failed for player ${playerId}`);
+      }
+    }
+    
+    return results;
+  },
+
   // Get available credits for a player (across all packages)
   async getPlayerCredits(playerId: string): Promise<{ total: number; byPackage: { id: string; name: string | null; remaining: number; expiry: string | null }[] }> {
     const playerPackages = await db.select().from(packages)

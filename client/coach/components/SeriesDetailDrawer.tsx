@@ -154,6 +154,11 @@ export default function SeriesDetailDrawer({
   const [selectedPackageTemplateId, setSelectedPackageTemplateId] = useState<string | null>(null);
   const [showAttendanceBackfill, setShowAttendanceBackfill] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState<Record<string, boolean>>({});
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<SessionInstance | null>(null);
+  const [sessionAttendance, setSessionAttendance] = useState<Record<string, "present" | "absent">>({});
+  const [savingAttendance, setSavingAttendance] = useState(false);
+  const [cancellingSession, setCancellingSession] = useState(false);
 
   const { data: series, isLoading } = useQuery<SeriesDetail>({
     queryKey: [`/api/coach/series/${seriesId}`],
@@ -311,6 +316,71 @@ export default function SeriesDetailDrawer({
   const handleTabPress = (tabId: TabId) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveTab(tabId);
+  };
+
+  const handleSessionPress = (session: SessionInstance) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedSession(session);
+    
+    const initialAttendance: Record<string, "present" | "absent"> = {};
+    const activePlayers = series?.players?.filter(p => p.status === "active") || [];
+    activePlayers.forEach(p => {
+      initialAttendance[p.id] = "present";
+    });
+    setSessionAttendance(initialAttendance);
+    setShowAttendanceModal(true);
+  };
+
+  const handleToggleAttendance = (playerId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSessionAttendance(prev => ({
+      ...prev,
+      [playerId]: prev[playerId] === "present" ? "absent" : "present",
+    }));
+  };
+
+  const handleSaveAttendance = async () => {
+    if (!selectedSession) return;
+    setSavingAttendance(true);
+    try {
+      const attendance = Object.entries(sessionAttendance).map(([playerId, status]) => ({
+        playerId,
+        status,
+      }));
+      
+      await apiRequest("POST", `/api/coach/sessions/${selectedSession.id}/attendance`, {
+        attendance,
+        markCompleted: true,
+      });
+      
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      setShowAttendanceModal(false);
+      setSelectedSession(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error("Error saving attendance:", error);
+    } finally {
+      setSavingAttendance(false);
+    }
+  };
+
+  const handleCancelSession = async () => {
+    if (!selectedSession) return;
+    setCancellingSession(true);
+    try {
+      await apiRequest("PATCH", `/api/coach/sessions/${selectedSession.id}/cancel`, {
+        reason: "Holiday / No Class",
+      });
+      
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      setShowAttendanceModal(false);
+      setSelectedSession(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error("Error cancelling session:", error);
+    } finally {
+      setCancellingSession(false);
+    }
   };
 
   const formatDate = (dateStr: string) => {
@@ -516,55 +586,79 @@ export default function SeriesDetailDrawer({
           sortedSessions.map((session, index) => {
             const isCompleted = session.status === "completed";
             const isCancelled = session.status === "cancelled";
+            const isSkipped = session.status === "skipped";
             const isPast = new Date(session.startTime) < new Date();
             const isToday = new Date(session.startTime).toDateString() === new Date().toDateString();
+            const canEditAttendance = isPast && !isCompleted && !isCancelled && !isSkipped;
 
-            return (
-              <View key={session.id} style={styles.timelineItem}>
+            const timelineContent = (
+              <>
                 <View style={styles.timelineConnector}>
                   <View
                     style={[
                       styles.timelineDot,
                       isCompleted && { backgroundColor: Colors.dark.successNeon },
-                      isCancelled && { backgroundColor: Colors.dark.error },
-                      isToday && { backgroundColor: accentColor },
+                      (isCancelled || isSkipped) && { backgroundColor: Colors.dark.error },
+                      isToday && !isCompleted && !isCancelled && { backgroundColor: accentColor },
                       !isPast && !isToday && { backgroundColor: Colors.dark.textMuted },
+                      canEditAttendance && { backgroundColor: Colors.dark.accentWarning },
                     ]}
                   />
                   {index < sortedSessions.length - 1 ? (
                     <View style={styles.timelineLine} />
                   ) : null}
                 </View>
-                <View style={styles.timelineContent}>
+                <View style={[styles.timelineContent, canEditAttendance && styles.timelineContentClickable]}>
                   <View style={styles.timelineHeader}>
                     <Text
                       style={[
                         styles.timelineDate,
                         isToday && { color: accentColor, fontWeight: "700" },
+                        canEditAttendance && { color: Colors.dark.accentWarning },
                       ]}
                     >
                       {isToday ? "Today" : formatDate(session.startTime)}
                     </Text>
-                    <Text
-                      style={[
-                        styles.timelineStatus,
-                        isCompleted && { color: Colors.dark.successNeon },
-                        isCancelled && { color: Colors.dark.error },
-                      ]}
-                    >
-                      {isCompleted
-                        ? "Completed"
-                        : isCancelled
-                        ? "Cancelled"
-                        : isPast
-                        ? "Missed"
-                        : "Scheduled"}
-                    </Text>
+                    <View style={styles.timelineStatusRow}>
+                      <Text
+                        style={[
+                          styles.timelineStatus,
+                          isCompleted && { color: Colors.dark.successNeon },
+                          (isCancelled || isSkipped) && { color: Colors.dark.error },
+                          canEditAttendance && { color: Colors.dark.accentWarning },
+                        ]}
+                      >
+                        {isCompleted
+                          ? "Completed"
+                          : isCancelled || isSkipped
+                          ? "Cancelled"
+                          : isPast
+                          ? "Needs Attendance"
+                          : "Scheduled"}
+                      </Text>
+                      {canEditAttendance ? (
+                        <Ionicons name="chevron-forward" size={16} color={Colors.dark.accentWarning} />
+                      ) : null}
+                    </View>
                   </View>
                   <Text style={styles.timelineTime}>
                     Week {session.weekNumber || index + 1}
                   </Text>
                 </View>
+              </>
+            );
+
+            return canEditAttendance ? (
+              <Pressable
+                key={session.id}
+                style={styles.timelineItem}
+                onPress={() => handleSessionPress(session)}
+              >
+                {timelineContent}
+              </Pressable>
+            ) : (
+              <View key={session.id} style={styles.timelineItem}>
+                {timelineContent}
               </View>
             );
           })
@@ -1028,6 +1122,130 @@ export default function SeriesDetailDrawer({
                 </ScrollView>
               </View>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Attendance Modal */}
+      <Modal
+        visible={showAttendanceModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAttendanceModal(false)}
+      >
+        <View style={styles.overlay}>
+          <Pressable style={styles.backdrop} onPress={() => setShowAttendanceModal(false)} />
+          <View style={[styles.drawer, { paddingTop: Spacing.xl, paddingHorizontal: Spacing.lg }]}>
+            <View style={styles.attendanceModalHeader}>
+              <View>
+                <Text style={styles.attendanceModalTitle}>Mark Attendance</Text>
+                {selectedSession ? (
+                  <Text style={styles.attendanceModalDate}>
+                    {formatDate(selectedSession.startTime)} - Week {selectedSession.weekNumber || "?"}
+                  </Text>
+                ) : null}
+              </View>
+              <Pressable onPress={() => setShowAttendanceModal(false)}>
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+
+            <ScrollView style={{ flex: 1 }}>
+              {(() => {
+                const activePlayers = series?.players?.filter(p => p.status === "active") || [];
+                const presentCount = Object.values(sessionAttendance).filter(s => s === "present").length;
+                const sessionType = series?.sessionType || "group";
+                
+                let creditTypeHint = "";
+                if (sessionType === "semi_private" || sessionType === "semi") {
+                  if (presentCount === 1 && activePlayers.length >= 2) {
+                    creditTypeHint = "Only 1 player present - will be charged as private lesson";
+                  } else if (presentCount >= 2) {
+                    creditTypeHint = "Semi-private credits will be charged";
+                  }
+                }
+
+                return (
+                  <>
+                    {activePlayers.map((player) => {
+                      const status = sessionAttendance[player.id] || "present";
+                      return (
+                        <View key={player.id} style={styles.attendancePlayerRow}>
+                          <View style={styles.attendancePlayerInfo}>
+                            <View style={styles.attendancePlayerAvatar}>
+                              <Text style={styles.attendancePlayerInitial}>
+                                {player.name.charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                            <Text style={styles.attendancePlayerName}>{player.name}</Text>
+                          </View>
+                          <View style={styles.attendanceToggle}>
+                            <Pressable
+                              style={[
+                                styles.attendanceToggleOption,
+                                status === "present" && styles.attendanceToggleActive,
+                              ]}
+                              onPress={() => handleToggleAttendance(player.id)}
+                            >
+                              <Text
+                                style={[
+                                  styles.attendanceToggleText,
+                                  status === "present" && styles.attendanceToggleTextActive,
+                                ]}
+                              >
+                                Present
+                              </Text>
+                            </Pressable>
+                            <Pressable
+                              style={[
+                                styles.attendanceToggleOption,
+                                status === "absent" && styles.attendanceToggleAbsent,
+                              ]}
+                              onPress={() => handleToggleAttendance(player.id)}
+                            >
+                              <Text
+                                style={[
+                                  styles.attendanceToggleText,
+                                  status === "absent" && styles.attendanceToggleTextActive,
+                                ]}
+                              >
+                                Absent
+                              </Text>
+                            </Pressable>
+                          </View>
+                        </View>
+                      );
+                    })}
+                    
+                    {creditTypeHint ? (
+                      <Text style={styles.creditHint}>{creditTypeHint}</Text>
+                    ) : null}
+                  </>
+                );
+              })()}
+
+              <View style={styles.attendanceActions}>
+                <Pressable
+                  style={[styles.saveButton, (savingAttendance || cancellingSession) && styles.saveButtonDisabled]}
+                  onPress={handleSaveAttendance}
+                  disabled={savingAttendance || cancellingSession}
+                >
+                  <Text style={styles.saveButtonText}>
+                    {savingAttendance ? "Saving..." : "Save Attendance"}
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.cancelSessionButton, (savingAttendance || cancellingSession) && styles.saveButtonDisabled]}
+                  onPress={handleCancelSession}
+                  disabled={savingAttendance || cancellingSession}
+                >
+                  <Text style={styles.cancelSessionButtonText}>
+                    {cancellingSession ? "Cancelling..." : "Cancel Session (Holiday/No Class)"}
+                  </Text>
+                </Pressable>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1641,5 +1859,111 @@ const styles = StyleSheet.create({
     fontSize: Typography.body.fontSize,
     color: Colors.dark.textMuted,
     textDecorationLine: "underline",
+  },
+  timelineContentClickable: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.sm,
+    marginLeft: -Spacing.sm,
+  },
+  timelineStatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  attendanceModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.lg,
+  },
+  attendanceModalTitle: {
+    fontSize: Typography.h3.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  attendanceModalDate: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.textMuted,
+  },
+  attendancePlayerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
+    marginBottom: Spacing.sm,
+  },
+  attendancePlayerInfo: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  attendancePlayerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.successNeon + "20",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.md,
+  },
+  attendancePlayerInitial: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.successNeon,
+  },
+  attendancePlayerName: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "500",
+    color: Colors.dark.text,
+  },
+  attendanceToggle: {
+    flexDirection: "row",
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.xs,
+  },
+  attendanceToggleOption: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  attendanceToggleActive: {
+    backgroundColor: Colors.dark.successNeon,
+  },
+  attendanceToggleAbsent: {
+    backgroundColor: Colors.dark.error,
+  },
+  attendanceToggleText: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  attendanceToggleTextActive: {
+    color: Colors.dark.backgroundRoot,
+  },
+  attendanceActions: {
+    marginTop: Spacing.xl,
+    gap: Spacing.md,
+  },
+  cancelSessionButton: {
+    backgroundColor: Colors.dark.error + "20",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.error,
+  },
+  cancelSessionButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.error,
+  },
+  creditHint: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    marginTop: Spacing.md,
   },
 });

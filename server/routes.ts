@@ -3240,11 +3240,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
           xpAwarded = await rewardCoachForTimelyAttendance(coachId, id, session.endTime);
         }
         
+        // If markCompleted flag is set, mark session as completed and consume credits
+        let creditConsumptionResult = null;
+        if (req.body.markCompleted) {
+          await storage.updateSession(id, { status: "completed" });
+          
+          // Consume credits for class session with dynamic credit type
+          if (session.seriesId) {
+            try {
+              // Count present players for dynamic credit type
+              const presentPlayers = req.body.attendance.filter((a: { status: string }) => a.status === "present");
+              const presentCount = presentPlayers.length;
+              
+              creditConsumptionResult = await storage.consumeCreditsForClassSessionWithAttendance(
+                session.seriesId,
+                id,
+                new Date(session.startTime),
+                presentPlayers.map((p: { playerId: string }) => p.playerId),
+                presentCount
+              );
+              console.log(`[Credits] Session ${id}: consumed ${creditConsumptionResult.consumed}, skipped ${creditConsumptionResult.skipped}, actualCreditType: ${creditConsumptionResult.actualCreditType}`);
+            } catch (creditError) {
+              console.error("[Credits] Error consuming credits for class session:", creditError);
+            }
+          }
+        }
+        
         return res.json({ 
           success: true, 
           updated: results.length, 
-          message: "Attendance saved",
-          xpAwarded: xpAwarded ? 25 : 0 
+          message: req.body.markCompleted ? "Attendance saved and session completed" : "Attendance saved",
+          xpAwarded: xpAwarded ? 25 : 0,
+          creditConsumption: creditConsumptionResult
         });
       }
 
@@ -3268,6 +3295,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error saving attendance:", error);
       res.status(500).json({ error: "Failed to save attendance" });
+    }
+  });
+
+  // Cancel session (holiday/no class)
+  app.patch("/api/coach/sessions/:id/cancel", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      const { reason } = req.body;
+
+      const { valid, session } = await validateSessionOwnership(id, academyId, storage);
+      if (!valid || !session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      // Mark session as cancelled - no credits consumed
+      await storage.updateSession(id, { 
+        status: "cancelled",
+        notes: reason || "Session cancelled" 
+      });
+
+      res.json({ 
+        success: true, 
+        message: "Session cancelled successfully",
+        sessionId: id
+      });
+    } catch (error) {
+      console.error("Error cancelling session:", error);
+      res.status(500).json({ error: "Failed to cancel session" });
     }
   });
 
