@@ -57,6 +57,9 @@ The application features a dark-themed gaming aesthetic, utilizing neon green an
 - **Push Notifications**: Expo Push API
 - **Email Service**: Resend API
 - **Google Calendar**: Sync sessions to coach's Google Calendar (create/update/delete events)
+- **Stripe Payments**: NOT CONFIGURED - User dismissed Stripe integration. To enable online payments, user needs to either:
+  1. Complete Stripe integration via Replit's connector system, OR
+  2. Provide `STRIPE_SECRET_KEY` and `STRIPE_PUBLISHABLE_KEY` as secrets for manual integration
 
 ### Key Libraries
 - **Server State Management**: TanStack Query
