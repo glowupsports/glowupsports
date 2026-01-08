@@ -76,11 +76,15 @@ export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
     const sessionTypeLabels: Record<string, string> = {
       private: "Private Lesson",
       semi: "Semi-Private",
+      semi_private: "Semi-Private",
       group: "Group Session",
       physical: "Physical Training",
       activity: "Activity",
+      squad: "Squad Training",
+      clinic: "Clinic",
+      camp: "Camp",
     };
-    const typeLabel = sessionTypeLabels[series.sessionType] || "Training";
+    const typeLabel = sessionTypeLabels[series.sessionType] || series.sessionType || "Training";
     return `${typeLabel} - ${dayName} ${localStartTime}`;
   }, [series.sessionType, dayName, localStartTime]);
   const completedProgress = series.weekCount 
