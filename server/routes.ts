@@ -3248,6 +3248,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Consume credits for class session with dynamic credit type
           if (session.seriesId) {
             try {
+              // FIRST: Delete any existing credit transactions for this session
+              // This prevents duplicate debts when attendance is edited
+              await storage.deleteSessionCreditTransactions(id);
+              
               // Count present players for dynamic credit type
               const presentPlayers = req.body.attendance.filter((a: { status: string }) => a.status === "present");
               const presentCount = presentPlayers.length;

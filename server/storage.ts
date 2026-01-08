@@ -5525,6 +5525,17 @@ export const storage = {
     return { total, byPackage };
   },
 
+  // Delete all credit transactions for a session (used when re-marking attendance)
+  async deleteSessionCreditTransactions(sessionId: string): Promise<number> {
+    const result = await db.delete(creditTransactions)
+      .where(eq(creditTransactions.sessionId, sessionId));
+    const deletedCount = result.rowCount || 0;
+    if (deletedCount > 0) {
+      console.log(`[Credits] Deleted ${deletedCount} existing credit transactions for session ${sessionId}`);
+    }
+    return deletedCount;
+  },
+
   // Get player credit balance by type, including debts (negative balances)
   // Returns balance per credit type: positive = available credits, negative = debt
   async getPlayerCreditBalanceByType(playerId: string): Promise<{
