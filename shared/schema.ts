@@ -2841,3 +2841,251 @@ export const coachContracts = pgTable("coach_contracts", {
 export const insertCoachContractSchema = createInsertSchema(coachContracts).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertCoachContract = z.infer<typeof insertCoachContractSchema>;
 export type CoachContract = typeof coachContracts.$inferSelect;
+
+// ==================== SOCIAL FEATURES ====================
+
+// Community Groups (Discord-style micro-communities)
+export const communityGroups = pgTable("community_groups", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  
+  name: text("name").notNull(),
+  description: text("description"),
+  type: text("type").notNull().default("level"), // academy | level | team | event | friends
+  
+  // For level/team groups - link to series
+  seriesId: varchar("series_id").references(() => coachingSeries.id),
+  
+  // Group settings
+  isPrivate: boolean("is_private").default(false),
+  allowChat: boolean("allow_chat").default(true),
+  allowPosts: boolean("allow_posts").default(true),
+  
+  // Visual
+  avatarUrl: text("avatar_url"),
+  coverUrl: text("cover_url"),
+  accentColor: text("accent_color"), // hex color
+  
+  memberCount: integer("member_count").default(0),
+  
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("community_groups_academy_idx").on(table.academyId),
+  index("community_groups_type_idx").on(table.type),
+  index("community_groups_series_idx").on(table.seriesId),
+]);
+
+export const insertCommunityGroupSchema = createInsertSchema(communityGroups).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCommunityGroup = z.infer<typeof insertCommunityGroupSchema>;
+export type CommunityGroup = typeof communityGroups.$inferSelect;
+
+// Group Memberships
+export const groupMembers = pgTable("group_members", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  groupId: varchar("group_id").references(() => communityGroups.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  role: text("role").notNull().default("member"), // admin | moderator | member
+  
+  // Notification preferences
+  mutedUntil: timestamp("muted_until"),
+  notificationsEnabled: boolean("notifications_enabled").default(true),
+  
+  joinedAt: timestamp("joined_at").defaultNow(),
+}, (table) => [
+  index("group_members_group_idx").on(table.groupId),
+  index("group_members_user_idx").on(table.userId),
+]);
+
+export const insertGroupMemberSchema = createInsertSchema(groupMembers).omit({ id: true, joinedAt: true });
+export type InsertGroupMember = z.infer<typeof insertGroupMemberSchema>;
+export type GroupMember = typeof groupMembers.$inferSelect;
+
+// Posts (Moments) - Social feed content
+export const posts = pgTable("posts", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  authorId: varchar("author_id").references(() => users.id).notNull(),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  
+  // Context - what is this post about?
+  contextType: text("context_type").notNull(), // training | match | event | group | achievement | free_play
+  contextId: varchar("context_id"), // sessionId, eventId, groupId, etc.
+  
+  // Content
+  caption: text("caption"), // max 280 chars
+  mediaUrls: jsonb("media_urls").$type<string[]>().default([]), // array of image/video URLs
+  mediaTypes: jsonb("media_types").$type<string[]>().default([]), // image | video per media
+  
+  // Visibility
+  visibility: text("visibility").notNull().default("academy"), // public | academy | group | friends
+  groupId: varchar("group_id").references(() => communityGroups.id), // if posted to specific group
+  
+  // Tags
+  taggedUserIds: jsonb("tagged_user_ids").$type<string[]>().default([]),
+  
+  // Location (optional)
+  locationName: text("location_name"), // e.g., "Academy Main Court"
+  
+  // Stats (denormalized for performance)
+  cheerCount: integer("cheer_count").default(0),
+  commentCount: integer("comment_count").default(0),
+  
+  // Status
+  isHidden: boolean("is_hidden").default(false), // moderation
+  isPinned: boolean("is_pinned").default(false), // pinned in group
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("posts_author_idx").on(table.authorId),
+  index("posts_academy_idx").on(table.academyId),
+  index("posts_group_idx").on(table.groupId),
+  index("posts_context_idx").on(table.contextType, table.contextId),
+  index("posts_created_idx").on(table.createdAt),
+]);
+
+export const insertPostSchema = createInsertSchema(posts).omit({ id: true, createdAt: true, updatedAt: true, cheerCount: true, commentCount: true });
+export type InsertPost = z.infer<typeof insertPostSchema>;
+export type Post = typeof posts.$inferSelect;
+
+// Post Reactions (Cheers)
+export const postReactions = pgTable("post_reactions", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  postId: varchar("post_id").references(() => posts.id, { onDelete: "cascade" }).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  reactionType: text("reaction_type").notNull(), // clap | fire | tennis | muscle | star
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("post_reactions_post_idx").on(table.postId),
+  index("post_reactions_user_idx").on(table.userId),
+]);
+
+export const insertPostReactionSchema = createInsertSchema(postReactions).omit({ id: true, createdAt: true });
+export type InsertPostReaction = z.infer<typeof insertPostReactionSchema>;
+export type PostReaction = typeof postReactions.$inferSelect;
+
+// Post Comments
+export const postComments = pgTable("post_comments", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  postId: varchar("post_id").references(() => posts.id, { onDelete: "cascade" }).notNull(),
+  authorId: varchar("author_id").references(() => users.id).notNull(),
+  
+  // For kids: use quick comments (preset phrases)
+  isQuickComment: boolean("is_quick_comment").default(false),
+  quickCommentType: text("quick_comment_type"), // nice | lets_play | great | fire
+  
+  // For adults: free text
+  text: text("text"),
+  
+  // Reply to another comment
+  parentId: varchar("parent_id").references((): any => postComments.id),
+  
+  isHidden: boolean("is_hidden").default(false), // moderation
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("post_comments_post_idx").on(table.postId),
+  index("post_comments_author_idx").on(table.authorId),
+  index("post_comments_parent_idx").on(table.parentId),
+]);
+
+export const insertPostCommentSchema = createInsertSchema(postComments).omit({ id: true, createdAt: true });
+export type InsertPostComment = z.infer<typeof insertPostCommentSchema>;
+export type PostComment = typeof postComments.$inferSelect;
+
+// Open to Play status
+export const openToPlay = pgTable("open_to_play", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  
+  // Availability window
+  availableFrom: timestamp("available_from").notNull(),
+  availableUntil: timestamp("available_until").notNull(),
+  
+  // Intent
+  intent: text("intent").notNull().default("match"), // match | rally | practice
+  
+  // Location preference
+  locationId: varchar("location_id").references(() => locations.id),
+  locationName: text("location_name"),
+  
+  // Additional context
+  message: text("message"), // short message like "Looking for hitting partner!"
+  levelRange: text("level_range"), // e.g., "green-yellow"
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  expiresAt: timestamp("expires_at"),
+}, (table) => [
+  index("open_to_play_user_idx").on(table.userId),
+  index("open_to_play_academy_idx").on(table.academyId),
+  index("open_to_play_active_idx").on(table.isActive, table.availableUntil),
+]);
+
+export const insertOpenToPlaySchema = createInsertSchema(openToPlay).omit({ id: true, createdAt: true });
+export type InsertOpenToPlay = z.infer<typeof insertOpenToPlaySchema>;
+export type OpenToPlay = typeof openToPlay.$inferSelect;
+
+// User Social Profile enhancements
+export const userSocialProfiles = pgTable("user_social_profiles", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  
+  // Display
+  displayName: text("display_name"),
+  bio: text("bio"), // max 160 chars
+  avatarUrl: text("avatar_url"),
+  coverUrl: text("cover_url"),
+  
+  // Gamification titles
+  title: text("title"), // "Rising Star", "Club Icon", etc.
+  titleUnlockedAt: timestamp("title_unlocked_at"),
+  
+  // Badge showcase (top 3)
+  featuredBadges: jsonb("featured_badges").$type<string[]>().default([]),
+  
+  // Stats (denormalized)
+  postCount: integer("post_count").default(0),
+  cheerCount: integer("cheer_count").default(0), // total cheers received
+  connectionCount: integer("connection_count").default(0),
+  
+  // Privacy settings
+  profileVisibility: text("profile_visibility").default("academy"), // public | academy | friends
+  showGlowScore: boolean("show_glow_score").default(true),
+  showLevel: boolean("show_level").default(true),
+  allowDMs: text("allow_dms").default("connections"), // everyone | connections | none
+  
+  // For kids: additional safety
+  isKidProfile: boolean("is_kid_profile").default(false),
+  parentApprovedDMs: boolean("parent_approved_dms").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("user_social_profiles_user_idx").on(table.userId),
+]);
+
+export const insertUserSocialProfileSchema = createInsertSchema(userSocialProfiles).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertUserSocialProfile = z.infer<typeof insertUserSocialProfileSchema>;
+export type UserSocialProfile = typeof userSocialProfiles.$inferSelect;

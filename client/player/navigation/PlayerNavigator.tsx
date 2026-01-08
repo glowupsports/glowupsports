@@ -40,6 +40,7 @@ import PlayerNotificationsScreen from "@/player/screens/PlayerNotificationsScree
 import PlayerHelpScreen from "@/player/screens/PlayerHelpScreen";
 import PlayerPublicProfileScreen from "@/player/screens/PlayerPublicProfileScreen";
 import PlayerCoachProfileScreen from "@/player/screens/PlayerCoachProfileScreen";
+import CommunityScreen from "@/player/screens/CommunityScreen";
 import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { Colors } from "@/constants/theme";
@@ -51,9 +52,9 @@ export { usePlayerDrawer };
 
 export type PlayerTabParamList = {
   Home: undefined;
+  Community: undefined;
   Play: undefined;
   Progress: undefined;
-  Schedule: undefined;
   Profile: undefined;
 };
 
@@ -127,6 +128,16 @@ function PlayerTabsContent() {
           }}
         />
         <Tab.Screen
+          name="Community"
+          component={CommunityScreen}
+          options={{
+            tabBarLabel: "Community",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="people-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
           name="Play"
           component={PlayScreen}
           options={{
@@ -143,16 +154,6 @@ function PlayerTabsContent() {
             tabBarLabel: "Progress",
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="stats-chart-outline" size={size} color={color} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Schedule"
-          component={PlayerScheduleScreen}
-          options={{
-            tabBarLabel: "Schedule",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="calendar-outline" size={size} color={color} />
             ),
           }}
         />

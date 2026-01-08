@@ -7,8 +7,20 @@ import fs from "fs";
 import { storage } from "./storage";
 import { db } from "./db";
 import { playerHolidays } from "@shared/schema";
-import { eq, sql, desc, and, ne, gt, asc, inArray, isNull, isNotNull, or } from "drizzle-orm";
-import { invoices, payments, sessionPlayers, sessionWaitlist, creditTransactions, players, locationTravelTimes, sessions, sessionFeedback } from "@shared/schema";
+import { eq, sql, desc, and, ne, gt, gte, asc, inArray, isNull, isNotNull, or, count } from "drizzle-orm";
+import { 
+  invoices, payments, sessionPlayers, sessionWaitlist, creditTransactions, players, 
+  locationTravelTimes, sessions, sessionFeedback,
+  // Social features
+  posts as postsTable,
+  postReactions as postReactionsTable,
+  postComments as postCommentsTable,
+  communityGroups as communityGroupsTable,
+  groupMembers as groupMembersTable,
+  openToPlay as openToPlayTable,
+  userSocialProfiles as userSocialProfilesTable,
+  users, coaches,
+} from "@shared/schema";
 import { setupWebSocket, broadcastNewMessage } from "./websocket";
 import { 
   hashPassword, 
@@ -19754,6 +19766,577 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Calculate pricing error:", error);
       res.status(500).json({ error: "Failed to calculate pricing" });
+    }
+  });
+
+  // ==================== SOCIAL FEATURES API ====================
+
+  // Get social feed for user
+  app.get("/api/social/feed", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.id;
+      const academyId = req.user!.academyId;
+      const { limit = "20", offset = "0", filter = "for_you" } = req.query;
+      
+      // Get posts from academy + user's groups + friends
+      const posts = await db.select({
+        post: {
+          id: postsTable.id,
+          authorId: postsTable.authorId,
+          academyId: postsTable.academyId,
+          contextType: postsTable.contextType,
+          contextId: postsTable.contextId,
+          caption: postsTable.caption,
+          mediaUrls: postsTable.mediaUrls,
+          mediaTypes: postsTable.mediaTypes,
+          visibility: postsTable.visibility,
+          groupId: postsTable.groupId,
+          taggedUserIds: postsTable.taggedUserIds,
+          locationName: postsTable.locationName,
+          cheerCount: postsTable.cheerCount,
+          commentCount: postsTable.commentCount,
+          isPinned: postsTable.isPinned,
+          createdAt: postsTable.createdAt,
+        },
+        author: {
+          id: users.id,
+          username: users.username,
+        },
+        player: {
+          id: players.id,
+          name: players.name,
+          photoUrl: players.photoUrl,
+          ballLevel: players.ballLevel,
+        },
+        coach: {
+          id: coaches.id,
+          name: coaches.name,
+          photoUrl: coaches.photoUrl,
+        },
+      })
+      .from(postsTable)
+      .leftJoin(users, eq(postsTable.authorId, users.id))
+      .leftJoin(players, eq(users.playerId, players.id))
+      .leftJoin(coaches, eq(users.coachId, coaches.id))
+      .where(and(
+        eq(postsTable.academyId, academyId || ""),
+        eq(postsTable.isHidden, false)
+      ))
+      .orderBy(desc(postsTable.createdAt))
+      .limit(parseInt(limit as string))
+      .offset(parseInt(offset as string));
+      
+      // Get user's reactions for these posts
+      const postIds = posts.map(p => p.post.id);
+      let userReactions: { postId: string; reactionType: string }[] = [];
+      if (postIds.length > 0) {
+        userReactions = await db.select({
+          postId: postReactionsTable.postId,
+          reactionType: postReactionsTable.reactionType,
+        })
+        .from(postReactionsTable)
+        .where(and(
+          eq(postReactionsTable.userId, userId),
+          inArray(postReactionsTable.postId, postIds)
+        ));
+      }
+      
+      const reactionMap = new Map(userReactions.map(r => [r.postId, r.reactionType]));
+      
+      const feedItems = posts.map(p => ({
+        ...p.post,
+        author: {
+          id: p.author?.id,
+          username: p.author?.username,
+          name: p.player?.name || p.coach?.name || p.author?.username,
+          photoUrl: p.player?.photoUrl || p.coach?.photoUrl,
+          ballLevel: p.player?.ballLevel,
+          isCoach: !!p.coach?.id,
+        },
+        userReaction: reactionMap.get(p.post.id) || null,
+      }));
+      
+      res.json(feedItems);
+    } catch (error) {
+      console.error("Error fetching social feed:", error);
+      res.status(500).json({ error: "Failed to fetch feed" });
+    }
+  });
+
+  // Create a new post (Moment)
+  app.post("/api/social/posts", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.id;
+      const academyId = req.user!.academyId;
+      
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+      
+      const { 
+        contextType, contextId, caption, mediaUrls = [], mediaTypes = [],
+        visibility = "academy", groupId, taggedUserIds = [], locationName 
+      } = req.body;
+      
+      if (!contextType) {
+        return res.status(400).json({ error: "Context type is required" });
+      }
+      
+      // Validate caption length
+      if (caption && caption.length > 280) {
+        return res.status(400).json({ error: "Caption too long (max 280 characters)" });
+      }
+      
+      const [newPost] = await db.insert(postsTable).values({
+        authorId: userId,
+        academyId,
+        contextType,
+        contextId,
+        caption,
+        mediaUrls,
+        mediaTypes,
+        visibility,
+        groupId,
+        taggedUserIds,
+        locationName,
+      }).returning();
+      
+      // Update user's post count
+      await db.update(userSocialProfilesTable)
+        .set({ postCount: sql`post_count + 1` })
+        .where(eq(userSocialProfilesTable.userId, userId));
+      
+      res.status(201).json(newPost);
+    } catch (error) {
+      console.error("Error creating post:", error);
+      res.status(500).json({ error: "Failed to create post" });
+    }
+  });
+
+  // Get single post with details
+  app.get("/api/social/posts/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user!.id;
+      
+      const [post] = await db.select({
+        post: postsTable,
+        author: {
+          id: users.id,
+          username: users.username,
+        },
+        player: {
+          id: players.id,
+          name: players.name,
+          photoUrl: players.photoUrl,
+          ballLevel: players.ballLevel,
+        },
+      })
+      .from(postsTable)
+      .leftJoin(users, eq(postsTable.authorId, users.id))
+      .leftJoin(players, eq(users.playerId, players.id))
+      .where(eq(postsTable.id, id));
+      
+      if (!post) {
+        return res.status(404).json({ error: "Post not found" });
+      }
+      
+      // Get reactions breakdown
+      const reactions = await db.select({
+        type: postReactionsTable.reactionType,
+        count: count(),
+      })
+      .from(postReactionsTable)
+      .where(eq(postReactionsTable.postId, id))
+      .groupBy(postReactionsTable.reactionType);
+      
+      // Get user's reaction
+      const [userReaction] = await db.select()
+        .from(postReactionsTable)
+        .where(and(
+          eq(postReactionsTable.postId, id),
+          eq(postReactionsTable.userId, userId)
+        ));
+      
+      res.json({
+        ...post.post,
+        author: {
+          id: post.author?.id,
+          username: post.author?.username,
+          name: post.player?.name || post.author?.username,
+          photoUrl: post.player?.photoUrl,
+          ballLevel: post.player?.ballLevel,
+        },
+        reactions: reactions.reduce((acc, r) => ({ ...acc, [r.type]: Number(r.count) }), {}),
+        userReaction: userReaction?.reactionType || null,
+      });
+    } catch (error) {
+      console.error("Error fetching post:", error);
+      res.status(500).json({ error: "Failed to fetch post" });
+    }
+  });
+
+  // Delete a post
+  app.delete("/api/social/posts/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user!.id;
+      
+      // Check ownership
+      const [post] = await db.select().from(postsTable).where(eq(postsTable.id, id));
+      if (!post) {
+        return res.status(404).json({ error: "Post not found" });
+      }
+      if (post.authorId !== userId && req.user!.role !== "platform_owner") {
+        return res.status(403).json({ error: "Not authorized to delete this post" });
+      }
+      
+      await db.delete(postsTable).where(eq(postsTable.id, id));
+      
+      // Update user's post count
+      await db.update(userSocialProfilesTable)
+        .set({ postCount: sql`GREATEST(0, post_count - 1)` })
+        .where(eq(userSocialProfilesTable.userId, post.authorId));
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      res.status(500).json({ error: "Failed to delete post" });
+    }
+  });
+
+  // Add/update reaction to post
+  app.post("/api/social/posts/:id/reactions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id: postId } = req.params;
+      const userId = req.user!.id;
+      const { reactionType } = req.body;
+      
+      const validReactions = ["clap", "fire", "tennis", "muscle", "star"];
+      if (!validReactions.includes(reactionType)) {
+        return res.status(400).json({ error: "Invalid reaction type" });
+      }
+      
+      // Check if reaction already exists
+      const [existing] = await db.select()
+        .from(postReactionsTable)
+        .where(and(
+          eq(postReactionsTable.postId, postId),
+          eq(postReactionsTable.userId, userId)
+        ));
+      
+      if (existing) {
+        // Update existing reaction
+        await db.update(postReactionsTable)
+          .set({ reactionType })
+          .where(eq(postReactionsTable.id, existing.id));
+      } else {
+        // Create new reaction
+        await db.insert(postReactionsTable).values({
+          postId,
+          userId,
+          reactionType,
+        });
+        
+        // Increment cheer count
+        await db.update(postsTable)
+          .set({ cheerCount: sql`cheer_count + 1` })
+          .where(eq(postsTable.id, postId));
+      }
+      
+      res.json({ success: true, reactionType });
+    } catch (error) {
+      console.error("Error adding reaction:", error);
+      res.status(500).json({ error: "Failed to add reaction" });
+    }
+  });
+
+  // Remove reaction from post
+  app.delete("/api/social/posts/:id/reactions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id: postId } = req.params;
+      const userId = req.user!.id;
+      
+      const result = await db.delete(postReactionsTable)
+        .where(and(
+          eq(postReactionsTable.postId, postId),
+          eq(postReactionsTable.userId, userId)
+        ));
+      
+      if (result.rowCount && result.rowCount > 0) {
+        // Decrement cheer count
+        await db.update(postsTable)
+          .set({ cheerCount: sql`GREATEST(0, cheer_count - 1)` })
+          .where(eq(postsTable.id, postId));
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing reaction:", error);
+      res.status(500).json({ error: "Failed to remove reaction" });
+    }
+  });
+
+  // Get comments for a post
+  app.get("/api/social/posts/:id/comments", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id: postId } = req.params;
+      
+      const comments = await db.select({
+        comment: postCommentsTable,
+        author: {
+          id: users.id,
+          username: users.username,
+        },
+        player: {
+          name: players.name,
+          photoUrl: players.photoUrl,
+        },
+      })
+      .from(postCommentsTable)
+      .leftJoin(users, eq(postCommentsTable.authorId, users.id))
+      .leftJoin(players, eq(users.playerId, players.id))
+      .where(and(
+        eq(postCommentsTable.postId, postId),
+        eq(postCommentsTable.isHidden, false)
+      ))
+      .orderBy(asc(postCommentsTable.createdAt));
+      
+      res.json(comments.map(c => ({
+        ...c.comment,
+        author: {
+          id: c.author?.id,
+          username: c.author?.username,
+          name: c.player?.name || c.author?.username,
+          photoUrl: c.player?.photoUrl,
+        },
+      })));
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+      res.status(500).json({ error: "Failed to fetch comments" });
+    }
+  });
+
+  // Add comment to post
+  app.post("/api/social/posts/:id/comments", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id: postId } = req.params;
+      const userId = req.user!.id;
+      const { text, isQuickComment, quickCommentType, parentId } = req.body;
+      
+      // Quick comments for kids
+      const quickComments = {
+        nice: "Nice!",
+        lets_play: "Let's play!",
+        great: "Great session!",
+        fire: "\uD83D\uDD25\uD83D\uDD25",
+      };
+      
+      let commentText = text;
+      if (isQuickComment && quickCommentType && quickComments[quickCommentType as keyof typeof quickComments]) {
+        commentText = quickComments[quickCommentType as keyof typeof quickComments];
+      }
+      
+      if (!commentText && !isQuickComment) {
+        return res.status(400).json({ error: "Comment text is required" });
+      }
+      
+      const [newComment] = await db.insert(postCommentsTable).values({
+        postId,
+        authorId: userId,
+        text: commentText,
+        isQuickComment: !!isQuickComment,
+        quickCommentType,
+        parentId,
+      }).returning();
+      
+      // Update comment count
+      await db.update(postsTable)
+        .set({ commentCount: sql`comment_count + 1` })
+        .where(eq(postsTable.id, postId));
+      
+      res.status(201).json(newComment);
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      res.status(500).json({ error: "Failed to add comment" });
+    }
+  });
+
+  // Get user's groups
+  app.get("/api/social/groups", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.id;
+      const academyId = req.user!.academyId;
+      
+      // Get groups user is member of
+      const userGroups = await db.select({
+        group: communityGroupsTable,
+        membership: groupMembersTable,
+      })
+      .from(groupMembersTable)
+      .innerJoin(communityGroupsTable, eq(groupMembersTable.groupId, communityGroupsTable.id))
+      .where(eq(groupMembersTable.userId, userId));
+      
+      // Also get academy-wide groups
+      const academyGroups = await db.select()
+        .from(communityGroupsTable)
+        .where(and(
+          eq(communityGroupsTable.academyId, academyId || ""),
+          eq(communityGroupsTable.type, "academy")
+        ));
+      
+      const allGroups = [
+        ...userGroups.map(g => ({ ...g.group, role: g.membership.role })),
+        ...academyGroups.filter(ag => !userGroups.some(ug => ug.group.id === ag.id))
+          .map(ag => ({ ...ag, role: "member" as const })),
+      ];
+      
+      res.json(allGroups);
+    } catch (error) {
+      console.error("Error fetching groups:", error);
+      res.status(500).json({ error: "Failed to fetch groups" });
+    }
+  });
+
+  // Get open-to-play users
+  app.get("/api/social/open-to-play", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId;
+      const now = new Date();
+      
+      const openPlayers = await db.select({
+        openToPlay: openToPlayTable,
+        user: {
+          id: users.id,
+          username: users.username,
+        },
+        player: {
+          id: players.id,
+          name: players.name,
+          photoUrl: players.photoUrl,
+          ballLevel: players.ballLevel,
+        },
+      })
+      .from(openToPlayTable)
+      .leftJoin(users, eq(openToPlayTable.userId, users.id))
+      .leftJoin(players, eq(users.playerId, players.id))
+      .where(and(
+        eq(openToPlayTable.academyId, academyId || ""),
+        eq(openToPlayTable.isActive, true),
+        gte(openToPlayTable.availableUntil, now)
+      ))
+      .orderBy(asc(openToPlayTable.availableFrom));
+      
+      res.json(openPlayers.map(op => ({
+        ...op.openToPlay,
+        user: {
+          id: op.user?.id,
+          username: op.user?.username,
+          name: op.player?.name || op.user?.username,
+          photoUrl: op.player?.photoUrl,
+          ballLevel: op.player?.ballLevel,
+        },
+      })));
+    } catch (error) {
+      console.error("Error fetching open-to-play:", error);
+      res.status(500).json({ error: "Failed to fetch open-to-play users" });
+    }
+  });
+
+  // Set open-to-play status
+  app.post("/api/social/open-to-play", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.id;
+      const academyId = req.user!.academyId;
+      
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+      
+      const { availableFrom, availableUntil, intent = "match", locationId, locationName, message, levelRange } = req.body;
+      
+      // Deactivate any existing open-to-play for this user
+      await db.update(openToPlayTable)
+        .set({ isActive: false })
+        .where(and(
+          eq(openToPlayTable.userId, userId),
+          eq(openToPlayTable.isActive, true)
+        ));
+      
+      // Create new open-to-play status
+      const [newStatus] = await db.insert(openToPlayTable).values({
+        userId,
+        academyId,
+        availableFrom: new Date(availableFrom),
+        availableUntil: new Date(availableUntil),
+        intent,
+        locationId,
+        locationName,
+        message,
+        levelRange,
+        expiresAt: new Date(availableUntil),
+      }).returning();
+      
+      res.status(201).json(newStatus);
+    } catch (error) {
+      console.error("Error setting open-to-play:", error);
+      res.status(500).json({ error: "Failed to set open-to-play status" });
+    }
+  });
+
+  // Deactivate open-to-play status
+  app.delete("/api/social/open-to-play", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.id;
+      
+      await db.update(openToPlayTable)
+        .set({ isActive: false })
+        .where(and(
+          eq(openToPlayTable.userId, userId),
+          eq(openToPlayTable.isActive, true)
+        ));
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deactivating open-to-play:", error);
+      res.status(500).json({ error: "Failed to deactivate open-to-play status" });
+    }
+  });
+
+  // Get social highlights for home screen
+  app.get("/api/social/highlights", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.id;
+      const academyId = req.user!.academyId;
+      const now = new Date();
+      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      
+      // Count new moments in last 24h
+      const [momentCount] = await db.select({ count: count() })
+        .from(postsTable)
+        .where(and(
+          eq(postsTable.academyId, academyId || ""),
+          gte(postsTable.createdAt, oneDayAgo),
+          eq(postsTable.isHidden, false)
+        ));
+      
+      // Count open-to-play users
+      const [openToPlayCount] = await db.select({ count: count() })
+        .from(openToPlayTable)
+        .where(and(
+          eq(openToPlayTable.academyId, academyId || ""),
+          eq(openToPlayTable.isActive, true),
+          gte(openToPlayTable.availableUntil, now)
+        ));
+      
+      res.json({
+        newMoments: Number(momentCount?.count || 0),
+        openToPlay: Number(openToPlayCount?.count || 0),
+        newGroupPosts: 0, // TODO: implement group-specific counts
+      });
+    } catch (error) {
+      console.error("Error fetching social highlights:", error);
+      res.status(500).json({ error: "Failed to fetch highlights" });
     }
   });
 
