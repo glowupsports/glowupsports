@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, TextInput, Alert, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, TextInput, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -10,7 +10,7 @@ import { apiRequest } from "@/lib/query-client";
 
 type CreditType = "group" | "private" | "semi_private";
 
-interface PackageTemplate {
+interface CreditPackage {
   id: string;
   name: string;
   creditType: CreditType;
@@ -45,6 +45,24 @@ const CREDIT_TYPE_LABELS: Record<CreditType, string> = {
   semi_private: "Semi-Private",
 };
 
+const CREDIT_TYPE_ICONS: Record<CreditType, keyof typeof Ionicons.glyphMap> = {
+  private: "person",
+  semi_private: "people",
+  group: "people-circle",
+};
+
+interface AcademyPaymentInfo {
+  acceptsCash: boolean;
+  acceptsBankTransfer: boolean;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankIban?: string;
+  bankAccountHolder?: string;
+  bankSwiftCode?: string;
+  paymentInstructions?: string;
+  currency: string;
+}
+
 export default function ParentCreditStoreScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -52,14 +70,15 @@ export default function ParentCreditStoreScreen() {
   const { playerId } = route.params;
   const queryClient = useQueryClient();
 
-  const [selectedTemplate, setSelectedTemplate] = useState<PackageTemplate | null>(null);
+  const [expandedType, setExpandedType] = useState<CreditType | null>("private");
+  const [selectedPackage, setSelectedPackage] = useState<CreditPackage | null>(null);
   const [showPinModal, setShowPinModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState("");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"cash" | "bank_transfer" | null>(null);
 
-  const { data: templates = [], isLoading: templatesLoading } = useQuery<PackageTemplate[]>({
+  const { data: packages = [], isLoading } = useQuery<CreditPackage[]>({
     queryKey: [`/api/parent/credit-store/${playerId}`],
     enabled: !!playerId,
   });
@@ -68,18 +87,6 @@ export default function ParentCreditStoreScreen() {
     queryKey: [`/api/players/${playerId}/credits-summary`],
     enabled: !!playerId,
   });
-
-  interface AcademyPaymentInfo {
-    acceptsCash: boolean;
-    acceptsBankTransfer: boolean;
-    bankName?: string;
-    bankAccountNumber?: string;
-    bankIban?: string;
-    bankAccountHolder?: string;
-    bankSwiftCode?: string;
-    paymentInstructions?: string;
-    currency: string;
-  }
 
   const { data: paymentInfo } = useQuery<AcademyPaymentInfo>({
     queryKey: [`/api/parent/academy-payment-info/${playerId}`],
@@ -116,26 +123,20 @@ export default function ParentCreditStoreScreen() {
     },
   });
 
-  const closePaymentModal = () => {
-    setShowPaymentModal(false);
-    setSelectedTemplate(null);
-    setSelectedPaymentMethod(null);
-    setPin("");
-    setPinError("");
+  const handleToggleType = (type: CreditType) => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setExpandedType(expandedType === type ? null : type);
   };
 
-  const handleSelectPackage = (template: PackageTemplate) => {
-    setSelectedTemplate(template);
+  const handleSelectPackage = (pkg: CreditPackage) => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    setSelectedPackage(pkg);
     setShowPinModal(true);
     setPin("");
-    setPinError("");
-  };
-
-  const handlePinVerified = () => {
-    if (pin.length < 4) {
-      setPinError("PIN must be at least 4 digits");
-      return;
-    }
     setPinError("");
   };
 
@@ -144,21 +145,108 @@ export default function ParentCreditStoreScreen() {
       setPinError("PIN must be at least 4 digits");
       return;
     }
-    if (selectedTemplate) {
+    if (selectedPackage) {
       setSelectedPaymentMethod(paymentMethod);
-      purchaseMutation.mutate({ templateId: selectedTemplate.id, pin, paymentMethod });
+      purchaseMutation.mutate({ templateId: selectedPackage.id, pin, paymentMethod });
     }
+  };
+
+  const closePaymentModal = () => {
+    setShowPaymentModal(false);
+    setSelectedPackage(null);
+    setSelectedPaymentMethod(null);
+    setPin("");
+    setPinError("");
   };
 
   const formatCurrency = (amount: string, currency: string) => {
     return `${currency} ${parseFloat(amount).toFixed(2)}`;
   };
 
+  const groupedPackages = packages.reduce((acc, pkg) => {
+    if (!acc[pkg.creditType]) {
+      acc[pkg.creditType] = [];
+    }
+    acc[pkg.creditType].push(pkg);
+    return acc;
+  }, {} as Record<CreditType, CreditPackage[]>);
+
+  const creditTypes: CreditType[] = ["private", "semi_private", "group"];
+
+  const renderCreditTypeSection = (creditType: CreditType) => {
+    const typePackages = groupedPackages[creditType] || [];
+    if (typePackages.length === 0) return null;
+
+    const isExpanded = expandedType === creditType;
+    const color = CREDIT_TYPE_COLORS[creditType];
+    const label = CREDIT_TYPE_LABELS[creditType];
+    const icon = CREDIT_TYPE_ICONS[creditType];
+    const pricePerCredit = typePackages[0]?.pricePerCredit || "0";
+    const currency = typePackages[0]?.currency || "AED";
+
+    return (
+      <View key={creditType} style={styles.sectionContainer}>
+        <Pressable
+          style={[styles.sectionHeader, isExpanded && styles.sectionHeaderExpanded]}
+          onPress={() => handleToggleType(creditType)}
+        >
+          <View style={styles.sectionHeaderLeft}>
+            <View style={[styles.iconContainer, { backgroundColor: `${color}20` }]}>
+              <Ionicons name={icon} size={24} color={color} />
+            </View>
+            <View>
+              <Text style={styles.sectionTitle}>{label} Credits</Text>
+              <Text style={styles.sectionSubtitle}>
+                {currency} {pricePerCredit} per credit
+              </Text>
+            </View>
+          </View>
+          <Ionicons
+            name={isExpanded ? "chevron-up" : "chevron-down"}
+            size={20}
+            color={Colors.dark.textMuted}
+          />
+        </Pressable>
+
+        {isExpanded ? (
+          <View style={styles.packagesContainer}>
+            <View style={styles.packagesGrid}>
+              {typePackages.map((pkg) => (
+                <Pressable
+                  key={pkg.id}
+                  style={({ pressed }) => [
+                    styles.packageCard,
+                    pressed && styles.packageCardPressed,
+                  ]}
+                  onPress={() => handleSelectPackage(pkg)}
+                >
+                  <View style={styles.packageCredits}>
+                    <Text style={[styles.packageCreditsNumber, { color }]}>
+                      {pkg.credits}
+                    </Text>
+                    <Text style={styles.packageCreditsLabel}>
+                      credit{pkg.credits > 1 ? "s" : ""}
+                    </Text>
+                  </View>
+                  <View style={styles.packagePricing}>
+                    <Text style={[styles.packageTotalPrice, { color }]}>
+                      {formatCurrency(pkg.totalPrice, pkg.currency)}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
+      </View>
+    );
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable 
-          onPress={() => navigation.goBack()} 
+        <Pressable
+          onPress={() => navigation.goBack()}
           style={({ pressed }) => [styles.backButton, pressed && styles.buttonPressed]}
         >
           <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
@@ -174,7 +262,7 @@ export default function ParentCreditStoreScreen() {
         <View style={styles.currentCreditsCard}>
           <Text style={styles.currentCreditsTitle}>Your Current Credits</Text>
           <View style={styles.creditsRow}>
-            {(["group", "private", "semi_private"] as CreditType[]).map((type) => (
+            {creditTypes.map((type) => (
               <View key={type} style={styles.creditItem}>
                 <View style={[styles.creditBadge, { backgroundColor: CREDIT_TYPE_COLORS[type] + "20" }]}>
                   <Text style={[styles.creditValue, { color: CREDIT_TYPE_COLORS[type] }]}>
@@ -187,103 +275,45 @@ export default function ParentCreditStoreScreen() {
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Available Packages</Text>
+        <Text style={styles.sectionHeaderTitle}>Available Packages</Text>
 
-        {templatesLoading ? (
+        {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={Colors.dark.text} />
           </View>
-        ) : templates.length === 0 ? (
+        ) : packages.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="cart-outline" size={48} color={Colors.dark.textMuted} />
             <Text style={styles.emptyTitle}>No Packages Available</Text>
             <Text style={styles.emptySubtitle}>Check back later for credit packages</Text>
           </View>
         ) : (
-          <View style={styles.templatesList}>
-            {templates.map((template) => (
-              <Pressable
-                key={template.id}
-                style={({ pressed }) => [
-                  styles.templateCard,
-                  pressed && styles.templateCardPressed,
-                  template.isPopular && styles.templateCardPopular,
-                ]}
-                onPress={() => handleSelectPackage(template)}
-              >
-                {template.isPopular ? (
-                  <View style={styles.popularBadge}>
-                    <Text style={styles.popularText}>Popular</Text>
-                  </View>
-                ) : null}
-                
-                <View style={styles.templateHeader}>
-                  <View style={[styles.typeBadge, { backgroundColor: CREDIT_TYPE_COLORS[template.creditType] + "20" }]}>
-                    <Text style={[styles.typeText, { color: CREDIT_TYPE_COLORS[template.creditType] }]}>
-                      {CREDIT_TYPE_LABELS[template.creditType]}
-                    </Text>
-                  </View>
-                  <Text style={styles.templateName}>{template.name}</Text>
-                </View>
-
-                <View style={styles.templateBody}>
-                  <View style={styles.creditsSection}>
-                    <Text style={styles.creditsNumber}>{template.credits}</Text>
-                    <Text style={styles.creditsUnit}>credits</Text>
-                  </View>
-
-                  <View style={styles.priceSection}>
-                    <Text style={styles.totalPrice}>
-                      {formatCurrency(template.totalPrice, template.currency)}
-                    </Text>
-                    <Text style={styles.pricePerCredit}>
-                      {formatCurrency(template.pricePerCredit, template.currency)}/credit
-                    </Text>
-                  </View>
-                </View>
-
-                {template.description ? (
-                  <Text style={styles.templateDescription}>{template.description}</Text>
-                ) : null}
-
-                <View style={styles.validityRow}>
-                  <Ionicons name="calendar-outline" size={14} color={Colors.dark.tabIconDefault} />
-                  <Text style={styles.validityText}>
-                    Valid for {template.validityDays} days
-                  </Text>
-                </View>
-
-                <View style={styles.buyButton}>
-                  <Text style={styles.buyButtonText}>Buy Now</Text>
-                  <Ionicons name="chevron-forward" size={16} color={Colors.dark.text} />
-                </View>
-              </Pressable>
-            ))}
+          <View style={styles.sectionsContainer}>
+            {creditTypes.map(renderCreditTypeSection)}
           </View>
         )}
       </ScrollView>
 
       <Modal visible={showPinModal} animationType="fade" transparent>
-        <View style={styles.pinModalOverlay}>
-          <View style={styles.pinModalContent}>
-            <View style={styles.pinModalHeader}>
-              <Text style={styles.pinModalTitle}>Enter Parent PIN</Text>
-              <Pressable onPress={() => { setShowPinModal(false); setSelectedTemplate(null); setPin(""); setPinError(""); }}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Enter Parent PIN</Text>
+              <Pressable onPress={() => { setShowPinModal(false); setSelectedPackage(null); setPin(""); setPinError(""); }}>
                 <Ionicons name="close" size={24} color={Colors.dark.text} />
               </Pressable>
             </View>
 
-            {selectedTemplate ? (
+            {selectedPackage ? (
               <View style={styles.purchaseSummary}>
-                <Text style={styles.summaryLabel}>Package</Text>
-                <Text style={styles.summaryValue}>{selectedTemplate.name}</Text>
-                <Text style={styles.summaryLabel}>Credits</Text>
-                <Text style={styles.summaryValue}>
-                  {selectedTemplate.credits} {CREDIT_TYPE_LABELS[selectedTemplate.creditType]}
-                </Text>
-                <Text style={styles.summaryLabel}>Total</Text>
+                <View style={[styles.summaryTypeBadge, { backgroundColor: CREDIT_TYPE_COLORS[selectedPackage.creditType] + "20" }]}>
+                  <Text style={[styles.summaryTypeText, { color: CREDIT_TYPE_COLORS[selectedPackage.creditType] }]}>
+                    {CREDIT_TYPE_LABELS[selectedPackage.creditType]}
+                  </Text>
+                </View>
+                <Text style={styles.summaryCredits}>{selectedPackage.credits} Credits</Text>
                 <Text style={styles.summaryTotal}>
-                  {formatCurrency(selectedTemplate.totalPrice, selectedTemplate.currency)}
+                  {formatCurrency(selectedPackage.totalPrice, selectedPackage.currency)}
                 </Text>
               </View>
             ) : null}
@@ -300,16 +330,14 @@ export default function ParentCreditStoreScreen() {
               maxLength={6}
             />
 
-            {pinError ? (
-              <Text style={styles.pinError}>{pinError}</Text>
-            ) : null}
+            {pinError ? <Text style={styles.pinError}>{pinError}</Text> : null}
 
             <Text style={styles.paymentMethodTitle}>Select Payment Method</Text>
-            
+
             <View style={styles.paymentMethodRow}>
               {paymentInfo?.acceptsCash ? (
                 <Pressable
-                  style={[styles.paymentMethodButton, purchaseMutation.isPending && styles.confirmButtonDisabled]}
+                  style={[styles.paymentMethodButton, purchaseMutation.isPending && styles.buttonDisabled]}
                   onPress={() => handlePurchase("cash")}
                   disabled={purchaseMutation.isPending || pin.length < 4}
                 >
@@ -323,10 +351,10 @@ export default function ParentCreditStoreScreen() {
                   )}
                 </Pressable>
               ) : null}
-              
+
               {paymentInfo?.acceptsBankTransfer ? (
                 <Pressable
-                  style={[styles.paymentMethodButton, purchaseMutation.isPending && styles.confirmButtonDisabled]}
+                  style={[styles.paymentMethodButton, purchaseMutation.isPending && styles.buttonDisabled]}
                   onPress={() => handlePurchase("bank_transfer")}
                   disabled={purchaseMutation.isPending || pin.length < 4}
                 >
@@ -342,19 +370,17 @@ export default function ParentCreditStoreScreen() {
               ) : null}
             </View>
 
-            <Text style={styles.pinNote}>
-              Your PIN protects against unauthorized purchases
-            </Text>
+            <Text style={styles.pinNote}>Your PIN protects against unauthorized purchases</Text>
           </View>
         </View>
       </Modal>
 
       <Modal visible={showPaymentModal} animationType="fade" transparent>
-        <View style={styles.pinModalOverlay}>
-          <View style={[styles.pinModalContent, { maxHeight: "85%" }]}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: "85%" }]}>
             <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.pinModalHeader}>
-                <Text style={styles.pinModalTitle}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
                   {selectedPaymentMethod === "cash" ? "Cash Payment" : "Bank Transfer"}
                 </Text>
                 <Pressable onPress={closePaymentModal}>
@@ -366,17 +392,17 @@ export default function ParentCreditStoreScreen() {
                 <Ionicons name="checkmark-circle" size={48} color={Colors.dark.primary} />
                 <Text style={styles.successTitle}>Order Created</Text>
                 <Text style={styles.successSubtitle}>
-                  {selectedPaymentMethod === "cash" 
-                    ? "Please pay cash to your academy" 
+                  {selectedPaymentMethod === "cash"
+                    ? "Please pay cash to your academy"
                     : "Please transfer the amount to the account below"}
                 </Text>
               </View>
 
-              {selectedTemplate ? (
+              {selectedPackage ? (
                 <View style={styles.purchaseSummary}>
                   <Text style={styles.summaryLabel}>Amount Due</Text>
                   <Text style={styles.summaryTotal}>
-                    {formatCurrency(selectedTemplate.totalPrice, selectedTemplate.currency)}
+                    {formatCurrency(selectedPackage.totalPrice, selectedPackage.currency)}
                   </Text>
                 </View>
               ) : null}
@@ -384,42 +410,36 @@ export default function ParentCreditStoreScreen() {
               {selectedPaymentMethod === "bank_transfer" && paymentInfo ? (
                 <View style={styles.bankDetailsSection}>
                   <Text style={styles.bankDetailsTitle}>Bank Details</Text>
-                  
                   {paymentInfo.bankName ? (
                     <View style={styles.bankDetailRow}>
                       <Text style={styles.bankDetailLabel}>Bank</Text>
                       <Text style={styles.bankDetailValue}>{paymentInfo.bankName}</Text>
                     </View>
                   ) : null}
-                  
                   {paymentInfo.bankAccountHolder ? (
                     <View style={styles.bankDetailRow}>
                       <Text style={styles.bankDetailLabel}>Account Holder</Text>
                       <Text style={styles.bankDetailValue}>{paymentInfo.bankAccountHolder}</Text>
                     </View>
                   ) : null}
-                  
                   {paymentInfo.bankAccountNumber ? (
                     <View style={styles.bankDetailRow}>
                       <Text style={styles.bankDetailLabel}>Account Number</Text>
                       <Text style={styles.bankDetailValue}>{paymentInfo.bankAccountNumber}</Text>
                     </View>
                   ) : null}
-                  
                   {paymentInfo.bankIban ? (
                     <View style={styles.bankDetailRow}>
                       <Text style={styles.bankDetailLabel}>IBAN</Text>
                       <Text style={styles.bankDetailValue}>{paymentInfo.bankIban}</Text>
                     </View>
                   ) : null}
-                  
                   {paymentInfo.bankSwiftCode ? (
                     <View style={styles.bankDetailRow}>
                       <Text style={styles.bankDetailLabel}>SWIFT/BIC</Text>
                       <Text style={styles.bankDetailValue}>{paymentInfo.bankSwiftCode}</Text>
                     </View>
                   ) : null}
-                  
                   {paymentInfo.paymentInstructions ? (
                     <View style={styles.instructionsBox}>
                       <Text style={styles.instructionsLabel}>Instructions</Text>
@@ -517,7 +537,7 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.textMuted,
   },
-  sectionTitle: {
+  sectionHeaderTitle: {
     ...Typography.h4,
     color: Colors.dark.text,
     marginBottom: Spacing.md,
@@ -540,303 +560,271 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     marginTop: Spacing.xs,
   },
-  templatesList: {
+  sectionsContainer: {
     gap: Spacing.md,
   },
-  templateCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+  sectionContainer: {
+    backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
+    overflow: "hidden",
     borderWidth: 1,
     borderColor: Colors.dark.border,
   },
-  templateCardPressed: {
-    opacity: 0.8,
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: Spacing.md,
   },
-  templateCardPopular: {
-    borderColor: Colors.dark.gold,
+  sectionHeaderExpanded: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
   },
-  popularBadge: {
-    position: "absolute",
-    top: -10,
-    right: Spacing.lg,
-    backgroundColor: Colors.dark.gold,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
+  sectionHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
   },
-  popularText: {
-    ...Typography.caption,
-    color: Colors.dark.backgroundRoot,
-    fontWeight: "700",
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  templateHeader: {
-    marginBottom: Spacing.md,
+  sectionTitle: {
+    ...Typography.h4,
+    color: Colors.dark.text,
   },
-  typeBadge: {
-    alignSelf: "flex-start",
+  sectionSubtitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  packagesContainer: {
+    padding: Spacing.md,
+  },
+  packagesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  packageCard: {
+    width: "48%",
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  packageCardPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.98 }],
+  },
+  packageCredits: {
+    alignItems: "center",
+  },
+  packageCreditsNumber: {
+    ...Typography.numberLarge,
+  },
+  packageCreditsLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: -4,
+  },
+  packagePricing: {
+    marginTop: Spacing.sm,
+    alignItems: "center",
+  },
+  packageTotalPrice: {
+    ...Typography.h4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  modalContent: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    width: "100%",
+    maxWidth: 400,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  modalTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  purchaseSummary: {
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+  },
+  summaryTypeBadge: {
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: BorderRadius.sm,
     marginBottom: Spacing.xs,
   },
-  typeText: {
+  summaryTypeText: {
     ...Typography.caption,
     fontWeight: "600",
   },
-  templateName: {
-    ...Typography.h4,
+  summaryCredits: {
+    ...Typography.h3,
     color: Colors.dark.text,
-  },
-  templateBody: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: Spacing.md,
-    paddingBottom: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.border,
-  },
-  creditsSection: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: Spacing.xs,
-  },
-  creditsNumber: {
-    ...Typography.h1,
-    color: Colors.dark.gold,
-    fontWeight: "700",
-  },
-  creditsUnit: {
-    ...Typography.body,
-    color: Colors.dark.textMuted,
-  },
-  priceSection: {
-    alignItems: "flex-end",
-  },
-  totalPrice: {
-    ...Typography.h4,
-    color: Colors.dark.text,
-    fontWeight: "700",
-  },
-  pricePerCredit: {
-    ...Typography.caption,
-    color: Colors.dark.tabIconDefault,
-  },
-  templateDescription: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
-    marginBottom: Spacing.md,
-  },
-  validityRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    marginBottom: Spacing.md,
-  },
-  validityText: {
-    ...Typography.caption,
-    color: Colors.dark.tabIconDefault,
-  },
-  buyButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.xs,
-    backgroundColor: Colors.dark.primary,
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.lg,
-  },
-  buyButtonText: {
-    ...Typography.body,
-    color: Colors.dark.text,
-    fontWeight: "600",
-  },
-  pinModalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.8)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: Spacing.xl,
-  },
-  pinModalContent: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.xl,
-    width: "100%",
-    maxWidth: 340,
-  },
-  pinModalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: Spacing.lg,
-  },
-  pinModalTitle: {
-    ...Typography.h4,
-    color: Colors.dark.text,
-  },
-  purchaseSummary: {
-    backgroundColor: Colors.dark.backgroundTertiary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.xs,
   },
   summaryLabel: {
     ...Typography.caption,
-    color: Colors.dark.tabIconDefault,
-    marginBottom: 2,
-  },
-  summaryValue: {
-    ...Typography.body,
-    color: Colors.dark.text,
-    marginBottom: Spacing.sm,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.xs,
   },
   summaryTotal: {
-    ...Typography.h3,
+    ...Typography.h2,
     color: Colors.dark.gold,
-    fontWeight: "700",
   },
   pinLabel: {
     ...Typography.body,
     color: Colors.dark.textMuted,
     marginBottom: Spacing.sm,
-    textAlign: "center",
   },
   pinInput: {
-    backgroundColor: Colors.dark.backgroundTertiary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    ...Typography.h4,
-    color: Colors.dark.text,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    fontSize: 24,
     textAlign: "center",
+    color: Colors.dark.text,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
     letterSpacing: 8,
-    marginBottom: Spacing.md,
   },
   pinError: {
     ...Typography.small,
     color: Colors.dark.error,
+    marginTop: Spacing.sm,
     textAlign: "center",
-    marginBottom: Spacing.md,
-  },
-  confirmButton: {
-    backgroundColor: Colors.dark.primary,
-    paddingVertical: Spacing.lg,
-    borderRadius: BorderRadius.lg,
-    alignItems: "center",
-    marginBottom: Spacing.md,
-  },
-  confirmButtonDisabled: {
-    opacity: 0.6,
-  },
-  confirmButtonText: {
-    ...Typography.body,
-    color: Colors.dark.backgroundRoot,
-    fontWeight: "700",
-  },
-  pinNote: {
-    ...Typography.caption,
-    color: Colors.dark.tabIconDefault,
-    textAlign: "center",
-    fontStyle: "italic",
   },
   paymentMethodTitle: {
-    ...Typography.body,
+    ...Typography.h4,
     color: Colors.dark.text,
-    textAlign: "center",
+    marginTop: Spacing.lg,
     marginBottom: Spacing.md,
-    fontWeight: "600",
   },
   paymentMethodRow: {
     flexDirection: "row",
-    gap: Spacing.md,
-    marginBottom: Spacing.md,
+    gap: Spacing.sm,
   },
   paymentMethodButton: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundTertiary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
+    flexDirection: "column",
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: Spacing.xs,
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: Colors.dark.border,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   paymentMethodLabel: {
     ...Typography.small,
     color: Colors.dark.text,
-    fontWeight: "500",
+    textAlign: "center",
+  },
+  pinNote: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    marginTop: Spacing.lg,
   },
   successBadge: {
     alignItems: "center",
-    paddingVertical: Spacing.lg,
-    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
   },
   successTitle: {
     ...Typography.h3,
-    color: Colors.dark.primary,
-    fontWeight: "700",
+    color: Colors.dark.text,
+    marginTop: Spacing.sm,
   },
   successSubtitle: {
     ...Typography.body,
     color: Colors.dark.textMuted,
     textAlign: "center",
+    marginTop: Spacing.xs,
   },
   bankDetailsSection: {
-    backgroundColor: Colors.dark.backgroundTertiary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
     marginBottom: Spacing.lg,
   },
   bankDetailsTitle: {
     ...Typography.h4,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.text,
     marginBottom: Spacing.md,
   },
   bankDetailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: Spacing.sm,
   },
   bankDetailLabel: {
-    ...Typography.caption,
-    color: Colors.dark.tabIconDefault,
+    ...Typography.small,
+    color: Colors.dark.textMuted,
   },
   bankDetailValue: {
-    ...Typography.body,
+    ...Typography.small,
     color: Colors.dark.text,
+    fontWeight: "600",
   },
   instructionsBox: {
     marginTop: Spacing.md,
-    paddingTop: Spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: Colors.dark.border,
+    padding: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.sm,
   },
   instructionsLabel: {
     ...Typography.caption,
-    color: Colors.dark.gold,
+    color: Colors.dark.textMuted,
     marginBottom: Spacing.xs,
   },
   instructionsText: {
-    ...Typography.body,
+    ...Typography.small,
     color: Colors.dark.text,
   },
   cashInstructions: {
     flexDirection: "row",
-    backgroundColor: `${Colors.dark.gold}15`,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    gap: Spacing.sm,
-    marginBottom: Spacing.lg,
     alignItems: "flex-start",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.lg,
   },
   cashInstructionsText: {
     flex: 1,
     ...Typography.small,
-    color: Colors.dark.gold,
+    color: Colors.dark.textMuted,
   },
   doneButton: {
     backgroundColor: Colors.dark.primary,
-    paddingVertical: Spacing.lg,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
     alignItems: "center",
   },
   doneButtonText: {
