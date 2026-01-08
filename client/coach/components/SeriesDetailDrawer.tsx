@@ -20,6 +20,7 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 import { useCoach } from "@/coach/context/CoachContext";
+import { WebCalendarPicker } from "@/components/WebCalendarPicker";
 
 interface Player {
   id: string;
@@ -236,9 +237,17 @@ export default function SeriesDetailDrawer({
   // Get past sessions for attendance backfill
   const getPastSessionsSinceJoinDate = () => {
     if (!series) return [];
+    
+    const toDateOnly = (d: Date) => {
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    };
+    const joinDateOnly = toDateOnly(joinDate);
+    const now = new Date();
+    
     return series.sessions.filter(s => {
       const sessionDate = new Date(s.startTime);
-      return sessionDate >= joinDate && sessionDate < new Date() && s.status === "completed";
+      const sessionDateOnly = toDateOnly(sessionDate);
+      return sessionDateOnly >= joinDateOnly && sessionDate < now && s.status === "completed";
     });
   };
 
@@ -284,9 +293,16 @@ export default function SeriesDetailDrawer({
       .filter(([_, attended]) => attended)
       .map(([sessionId]) => sessionId);
     
+    const formatLocalDate = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
     addPlayerMutation.mutate({
       playerId: selectedPlayerId,
-      joinDate: joinDate.toISOString().split("T")[0],
+      joinDate: formatLocalDate(joinDate),
       attendedSessionIds,
       packageTemplateId: selectedPackageTemplateId,
     });
@@ -928,21 +944,11 @@ export default function SeriesDetailDrawer({
                 
                 <Text style={styles.dateLabel}>When did they join this class?</Text>
                 {Platform.OS === "web" ? (
-                  <View style={styles.datePickerButton}>
-                    <Ionicons name="calendar-outline" size={20} color={Colors.dark.successNeon} />
-                    <TextInput
-                      style={styles.webDateInput}
-                      value={joinDate.toISOString().split("T")[0]}
-                      onChangeText={(text) => {
-                        const parsed = new Date(text);
-                        if (!isNaN(parsed.getTime()) && parsed <= new Date()) {
-                          setJoinDate(parsed);
-                        }
-                      }}
-                      placeholder="YYYY-MM-DD"
-                      placeholderTextColor={Colors.dark.textMuted}
-                    />
-                  </View>
+                  <WebCalendarPicker
+                    value={joinDate}
+                    onChange={setJoinDate}
+                    maximumDate={new Date()}
+                  />
                 ) : (
                   <>
                     <Pressable 
