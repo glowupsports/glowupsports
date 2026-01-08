@@ -355,15 +355,38 @@ export default function SeriesDetailDrawer({
     setActiveTab(tabId);
   };
 
-  const handleSessionPress = (session: SessionInstance) => {
+  const handleSessionPress = async (session: SessionInstance) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedSession(session);
     
     const initialAttendance: Record<string, "present" | "absent"> = {};
     const activePlayers = series?.players?.filter(p => p.status === "active") || [];
+    
+    // Default all players to present initially
     activePlayers.forEach(p => {
       initialAttendance[p.id] = "present";
     });
+    
+    // If session is completed, fetch existing attendance records
+    if (session.status === "completed") {
+      try {
+        const response = await apiRequest("GET", `/api/coach/sessions/${session.id}/players`);
+        const sessionPlayers = await response.json();
+        
+        // Override with saved attendance status
+        if (Array.isArray(sessionPlayers)) {
+          activePlayers.forEach(p => {
+            const savedAttendance = sessionPlayers.find((sp: { playerId: string; attendanceStatus: string }) => sp.playerId === p.id);
+            if (savedAttendance) {
+              initialAttendance[p.id] = savedAttendance.attendanceStatus === "present" ? "present" : "absent";
+            }
+          });
+        }
+      } catch (error) {
+        console.error("Error loading attendance:", error);
+      }
+    }
+    
     setSessionAttendance(initialAttendance);
     setShowAttendanceModal(true);
   };
