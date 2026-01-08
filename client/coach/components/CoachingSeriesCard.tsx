@@ -70,6 +70,19 @@ export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
     const timezone = academy?.timezone || "Asia/Dubai";
     return convertUTCTimeToLocal(series.startTime, timezone);
   }, [series.startTime, academy?.timezone]);
+  
+  // Build display title with correct local time (title in DB may have hardcoded UTC time)
+  const displayTitle = useMemo(() => {
+    const sessionTypeLabels: Record<string, string> = {
+      private: "Private Lesson",
+      semi: "Semi-Private",
+      group: "Group Session",
+      physical: "Physical Training",
+      activity: "Activity",
+    };
+    const typeLabel = sessionTypeLabels[series.sessionType] || "Training";
+    return `${typeLabel} - ${dayName} ${localStartTime}`;
+  }, [series.sessionType, dayName, localStartTime]);
   const completedProgress = series.weekCount 
     ? Math.round((series.sessionsCompleted / series.weekCount) * 100) 
     : null;
@@ -108,7 +121,7 @@ export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
               <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor()}20` }]}>
                 <Ionicons name={getStatusIcon() as any} size={12} color={getStatusColor()} />
               </View>
-              <Text style={styles.seriesTitle} numberOfLines={1}>{series.title}</Text>
+              <Text style={styles.seriesTitle} numberOfLines={1}>{displayTitle}</Text>
             </View>
             {onEditPress ? (
               <Pressable onPress={handleEditPress} style={styles.editButton}>
