@@ -35,6 +35,7 @@ import LessonBookingScreen from "@/player/screens/LessonBookingScreen";
 import MyLessonRequestsScreen from "@/player/screens/MyLessonRequestsScreen";
 import PlayerFinderScreen from "@/player/screens/PlayerFinderScreen";
 import GlowLeaderboardScreen from "@/player/screens/GlowLeaderboardScreen";
+import FriendsListScreen from "@/player/screens/FriendsListScreen";
 import PlayerMessagesScreen from "@/player/screens/PlayerMessagesScreen";
 import PlayerNotificationsScreen from "@/player/screens/PlayerNotificationsScreen";
 import PlayerHelpScreen from "@/player/screens/PlayerHelpScreen";
@@ -82,6 +83,7 @@ export type PlayerStackParamList = {
   MyLessonRequests: undefined;
   PlayerFinder: undefined;
   GlowLeaderboard: undefined;
+  FriendsList: undefined;
   PlayerMessages: undefined;
   PlayerNotifications: undefined;
   PlayerHelp: undefined;
@@ -369,6 +371,13 @@ function PlayerStackNavigator() {
       <Stack.Screen 
         name="GlowLeaderboard" 
         component={GlowLeaderboardScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="FriendsList" 
+        component={FriendsListScreen}
         options={{
           presentation: "card",
         }}

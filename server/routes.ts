@@ -20976,6 +20976,261 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== FRIEND CONNECTIONS SYSTEM ====================
+  
+  // Get player's connections (friends and pending requests)
+  app.get("/api/player/connections", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+      
+      // Get all connections where player is involved
+      const allConnections = await db.select({
+        id: playerConnections.id,
+        player1Id: playerConnections.player1Id,
+        player2Id: playerConnections.player2Id,
+        status: playerConnections.status,
+        connectionType: playerConnections.connectionType,
+        matchesPlayed: playerConnections.matchesPlayed,
+        lastPlayedAt: playerConnections.lastPlayedAt,
+        createdAt: playerConnections.createdAt,
+        acceptedAt: playerConnections.acceptedAt,
+      })
+      .from(playerConnections)
+      .where(or(
+        eq(playerConnections.player1Id, playerId),
+        eq(playerConnections.player2Id, playerId)
+      ))
+      .orderBy(desc(playerConnections.createdAt));
+      
+      // Enrich with player data
+      const enrichedConnections = await Promise.all(allConnections.map(async (conn) => {
+        const otherId = conn.player1Id === playerId ? conn.player2Id : conn.player1Id;
+        const isRequester = conn.player1Id === playerId;
+        
+        const [otherPlayer] = await db.select({
+          id: players.id,
+          name: players.name,
+          photoUrl: players.photoUrl,
+          level: players.level,
+          glowScore: players.glowScore,
+          ballLevel: players.ballLevel,
+          openToPlay: players.openToPlay,
+        })
+        .from(players)
+        .where(eq(players.id, otherId));
+        
+        return {
+          id: conn.id,
+          status: conn.status,
+          connectionType: conn.connectionType,
+          matchesPlayed: conn.matchesPlayed || 0,
+          lastPlayedAt: conn.lastPlayedAt,
+          createdAt: conn.createdAt,
+          acceptedAt: conn.acceptedAt,
+          isRequester,
+          player: otherPlayer ? {
+            id: otherPlayer.id,
+            name: otherPlayer.name,
+            photoUrl: otherPlayer.photoUrl,
+            level: otherPlayer.level || 1,
+            glowScore: otherPlayer.glowScore || 0,
+            ballLevel: otherPlayer.ballLevel,
+            openToPlay: otherPlayer.openToPlay,
+          } : null,
+        };
+      }));
+      
+      // Separate by status
+      const friends = enrichedConnections.filter(c => c.status === "accepted");
+      const pendingReceived = enrichedConnections.filter(c => c.status === "pending" && !c.isRequester);
+      const pendingSent = enrichedConnections.filter(c => c.status === "pending" && c.isRequester);
+      
+      res.json({
+        friends,
+        pendingReceived,
+        pendingSent,
+        totalFriends: friends.length,
+        totalPending: pendingReceived.length,
+      });
+    } catch (error) {
+      console.error("Error fetching connections:", error);
+      res.status(500).json({ error: "Failed to fetch connections" });
+    }
+  });
+  
+  // Send friend request
+  app.post("/api/player/connections/request", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+      
+      const { targetPlayerId } = req.body;
+      if (!targetPlayerId) {
+        return res.status(400).json({ error: "Target player ID required" });
+      }
+      
+      if (targetPlayerId === playerId) {
+        return res.status(400).json({ error: "Cannot send friend request to yourself" });
+      }
+      
+      // Check if connection already exists
+      const existingConnection = await db.select()
+        .from(playerConnections)
+        .where(or(
+          and(eq(playerConnections.player1Id, playerId), eq(playerConnections.player2Id, targetPlayerId)),
+          and(eq(playerConnections.player1Id, targetPlayerId), eq(playerConnections.player2Id, playerId))
+        ))
+        .limit(1);
+      
+      if (existingConnection.length > 0) {
+        const existing = existingConnection[0];
+        if (existing.status === "accepted") {
+          return res.status(400).json({ error: "Already connected" });
+        }
+        if (existing.status === "pending") {
+          return res.status(400).json({ error: "Friend request already pending" });
+        }
+      }
+      
+      // Create new connection request
+      const [newConnection] = await db.insert(playerConnections)
+        .values({
+          player1Id: playerId,
+          player2Id: targetPlayerId,
+          status: "pending",
+          connectionType: "friend",
+        })
+        .returning();
+      
+      res.json({ success: true, connection: newConnection });
+    } catch (error) {
+      console.error("Error sending friend request:", error);
+      res.status(500).json({ error: "Failed to send friend request" });
+    }
+  });
+  
+  // Accept or decline friend request
+  app.post("/api/player/connections/:connectionId/respond", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+      
+      const { connectionId } = req.params;
+      const { action } = req.body; // "accept" or "decline"
+      
+      if (!["accept", "decline"].includes(action)) {
+        return res.status(400).json({ error: "Invalid action" });
+      }
+      
+      // Get the connection
+      const [connection] = await db.select()
+        .from(playerConnections)
+        .where(eq(playerConnections.id, connectionId));
+      
+      if (!connection) {
+        return res.status(404).json({ error: "Connection not found" });
+      }
+      
+      // Only the receiver (player2) can respond
+      if (connection.player2Id !== playerId) {
+        return res.status(403).json({ error: "Not authorized to respond to this request" });
+      }
+      
+      if (connection.status !== "pending") {
+        return res.status(400).json({ error: "Request already responded to" });
+      }
+      
+      if (action === "accept") {
+        await db.update(playerConnections)
+          .set({ status: "accepted", acceptedAt: new Date() })
+          .where(eq(playerConnections.id, connectionId));
+      } else {
+        await db.delete(playerConnections)
+          .where(eq(playerConnections.id, connectionId));
+      }
+      
+      res.json({ success: true, action });
+    } catch (error) {
+      console.error("Error responding to friend request:", error);
+      res.status(500).json({ error: "Failed to respond to friend request" });
+    }
+  });
+  
+  // Remove friend connection
+  app.delete("/api/player/connections/:connectionId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+      
+      const { connectionId } = req.params;
+      
+      // Get the connection
+      const [connection] = await db.select()
+        .from(playerConnections)
+        .where(eq(playerConnections.id, connectionId));
+      
+      if (!connection) {
+        return res.status(404).json({ error: "Connection not found" });
+      }
+      
+      // Either player can remove the connection
+      if (connection.player1Id !== playerId && connection.player2Id !== playerId) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      
+      await db.delete(playerConnections)
+        .where(eq(playerConnections.id, connectionId));
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing connection:", error);
+      res.status(500).json({ error: "Failed to remove connection" });
+    }
+  });
+  
+  // Check connection status with a specific player
+  app.get("/api/player/connections/status/:targetPlayerId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+      
+      const { targetPlayerId } = req.params;
+      
+      const [connection] = await db.select()
+        .from(playerConnections)
+        .where(or(
+          and(eq(playerConnections.player1Id, playerId), eq(playerConnections.player2Id, targetPlayerId)),
+          and(eq(playerConnections.player1Id, targetPlayerId), eq(playerConnections.player2Id, playerId))
+        ))
+        .limit(1);
+      
+      if (!connection) {
+        return res.json({ status: "none", connectionId: null });
+      }
+      
+      const isRequester = connection.player1Id === playerId;
+      res.json({
+        status: connection.status,
+        connectionId: connection.id,
+        isRequester,
+      });
+    } catch (error) {
+      console.error("Error checking connection status:", error);
+      res.status(500).json({ error: "Failed to check connection status" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat

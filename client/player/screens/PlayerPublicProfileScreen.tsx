@@ -195,6 +195,28 @@ export default function PlayerPublicProfileScreen() {
     },
   });
 
+  // Connection status for this player
+  const { data: connectionStatus, isLoading: connectionStatusLoading } = useQuery<{ status: string; connectionId: string | null; isRequester: boolean }>({
+    queryKey: [`/api/player/connections/status/${playerId}`],
+    enabled: !!playerId && !profile?.isOwnProfile,
+  });
+
+  const sendFriendRequestMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/player/connections/request", { targetPlayerId: playerId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/player/connections/status/${playerId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/connections"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  const handleAddFriend = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    sendFriendRequestMutation.mutate();
+  };
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetch();
@@ -417,15 +439,51 @@ export default function PlayerPublicProfileScreen() {
 
           {/* Hero Action Buttons */}
           <View style={styles.heroActions}>
-            <Pressable style={styles.findMatchBtn} onPress={handleFindMatch}>
-              <Ionicons name="tennisball" size={18} color="#000" />
-              <Text style={styles.findMatchBtnText}>Find Match</Text>
-            </Pressable>
-            {!profile.isOwnProfile && (
-              <Pressable style={styles.challengeBtn} onPress={handleChallengePlayer}>
-                <Ionicons name="flash" size={18} color={Colors.dark.xpCyan} />
-                <Text style={styles.challengeBtnText}>Challenge Player</Text>
+            {profile.isOwnProfile ? (
+              <Pressable style={styles.findMatchBtn} onPress={handleFindMatch} testID="button-find-match">
+                <Ionicons name="tennisball" size={18} color="#000" />
+                <Text style={styles.findMatchBtnText}>Find Match</Text>
               </Pressable>
+            ) : (
+              <>
+                {connectionStatusLoading ? (
+                  <View style={styles.connectionLoadingBtn}>
+                    <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                  </View>
+                ) : connectionStatus?.status === "none" || !connectionStatus ? (
+                  <Pressable 
+                    style={styles.addFriendBtn} 
+                    onPress={handleAddFriend}
+                    disabled={sendFriendRequestMutation.isPending}
+                    testID="button-add-friend"
+                  >
+                    {sendFriendRequestMutation.isPending ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <>
+                        <Ionicons name="person-add" size={18} color="#fff" />
+                        <Text style={styles.addFriendBtnText}>Add Friend</Text>
+                      </>
+                    )}
+                  </Pressable>
+                ) : connectionStatus?.status === "pending" ? (
+                  <View style={styles.pendingBtn} testID="status-pending-friend">
+                    <Ionicons name="time" size={18} color={Colors.dark.gold} />
+                    <Text style={styles.pendingBtnText}>
+                      {connectionStatus.isRequester ? "Request Sent" : "Respond to Request"}
+                    </Text>
+                  </View>
+                ) : connectionStatus?.status === "accepted" ? (
+                  <View style={styles.friendsBtn} testID="status-friends">
+                    <Ionicons name="checkmark-circle" size={18} color={Colors.dark.primary} />
+                    <Text style={styles.friendsBtnText}>Friends</Text>
+                  </View>
+                ) : null}
+                <Pressable style={styles.challengeBtn} onPress={handleChallengePlayer} testID="button-challenge-player">
+                  <Ionicons name="flash" size={18} color={Colors.dark.xpCyan} />
+                  <Text style={styles.challengeBtnText}>Challenge</Text>
+                </Pressable>
+              </>
             )}
           </View>
 
@@ -1032,7 +1090,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.xs,
     backgroundColor: "transparent",
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
@@ -1042,6 +1100,64 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: Colors.dark.xpCyan,
+  },
+  connectionLoadingBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    minWidth: 120,
+  },
+  addFriendBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.xpCyan,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    minWidth: 120,
+    justifyContent: "center",
+  },
+  addFriendBtnText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  pendingBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.gold + "20",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold,
+  },
+  pendingBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.gold,
+  },
+  friendsBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.primary + "20",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary,
+  },
+  friendsBtnText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.primary,
   },
   openToPlayToggle: {
     flexDirection: "row",

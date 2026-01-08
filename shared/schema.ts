@@ -809,7 +809,7 @@ export const insertPlayerMatchSchema = createInsertSchema(playerMatches).omit({
 export type InsertPlayerMatch = z.infer<typeof insertPlayerMatchSchema>;
 export type PlayerMatch = typeof playerMatches.$inferSelect;
 
-// Player Connections - Track who has played together
+// Player Connections - Track who has played together and friend requests
 export const playerConnections = pgTable("player_connections", {
   id: varchar("id")
     .primaryKey()
@@ -817,6 +817,9 @@ export const playerConnections = pgTable("player_connections", {
   
   player1Id: varchar("player1_id").references(() => players.id).notNull(),
   player2Id: varchar("player2_id").references(() => players.id).notNull(),
+  
+  // Friend request status (player1 sends request to player2)
+  status: text("status").default("pending"), // pending/accepted/declined
   
   // Stats
   matchesPlayed: integer("matches_played").default(0),
@@ -826,9 +829,11 @@ export const playerConnections = pgTable("player_connections", {
   connectionType: text("connection_type"), // friend/rival/training_partner
   
   createdAt: timestamp("created_at").defaultNow(),
+  acceptedAt: timestamp("accepted_at"),
 }, (table) => ({
   player1Idx: index("player_connections_player1_idx").on(table.player1Id),
   player2Idx: index("player_connections_player2_idx").on(table.player2Id),
+  statusIdx: index("player_connections_status_idx").on(table.status),
 }));
 
 export type PlayerConnection = typeof playerConnections.$inferSelect;
