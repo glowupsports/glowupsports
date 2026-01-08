@@ -4657,6 +4657,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get player credit balance by type, including debts (negative values = debt)
+  app.get("/api/players/:playerId/credit-balance", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { playerId } = req.params;
+      
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const balance = await storage.getPlayerCreditBalanceByType(playerId);
+      res.json(balance);
+    } catch (error) {
+      console.error("Error fetching credit balance:", error);
+      res.status(500).json({ error: "Failed to fetch credit balance" });
+    }
+  });
+
   app.post("/api/packages", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { 

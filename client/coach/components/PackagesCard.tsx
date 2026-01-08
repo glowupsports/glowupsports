@@ -66,6 +66,16 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
     queryKey: [`/api/players/${playerId}/packages`],
   });
 
+  const { data: creditBalance } = useQuery<{
+    group: number;
+    semi_private: number;
+    private: number;
+    totalDebt: number;
+    hasDebt: boolean;
+  }>({
+    queryKey: [`/api/players/${playerId}/credit-balance`],
+  });
+
   const { data: pricing = [] } = useQuery<AcademyPricing[]>({
     queryKey: ["/api/owner/academy/pricing"],
   });
@@ -241,7 +251,12 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
 
       <View style={styles.summaryRow}>
         <View style={styles.summaryItem}>
-          <Text style={styles.summaryValue}>{totalRemaining}</Text>
+          <Text style={[
+            styles.summaryValue,
+            creditBalance && (creditBalance.group + creditBalance.semi_private + creditBalance.private) < 0 && styles.debtValue
+          ]}>
+            {creditBalance ? creditBalance.group + creditBalance.semi_private + creditBalance.private : totalRemaining}
+          </Text>
           <Text style={styles.summaryLabel}>Total Credits</Text>
         </View>
         <View style={styles.summaryItem}>
@@ -251,12 +266,15 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
       </View>
 
       <View style={styles.creditTypeRow}>
-        {(["group", "private", "semi_private"] as CreditType[]).map((type) => (
-          <View key={type} style={styles.creditTypeItem}>
-            <Text style={styles.creditTypeValue}>{creditsByType[type]}</Text>
-            <Text style={styles.creditTypeLabel}>{CREDIT_TYPE_LABELS[type]}</Text>
-          </View>
-        ))}
+        {(["group", "private", "semi_private"] as CreditType[]).map((type) => {
+          const balance = creditBalance ? creditBalance[type] : creditsByType[type];
+          return (
+            <View key={type} style={styles.creditTypeItem}>
+              <Text style={[styles.creditTypeValue, balance < 0 && styles.debtValue]}>{balance}</Text>
+              <Text style={styles.creditTypeLabel}>{CREDIT_TYPE_LABELS[type]}</Text>
+            </View>
+          );
+        })}
       </View>
 
       {activePackages.length === 0 && !isLoading ? (
@@ -528,6 +546,9 @@ const styles = StyleSheet.create({
   summaryValue: {
     ...Typography.h2,
     color: Colors.dark.gold,
+  },
+  debtValue: {
+    color: Colors.dark.error,
   },
   summaryLabel: {
     ...Typography.caption,
