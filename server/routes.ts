@@ -17554,6 +17554,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           overdue: overdueInvoices.length,
           totalPending: pendingInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount || "0"), 0) + sessionBilling.unpaidTotal,
         },
+        pendingInvoices: pendingInvoices.map(inv => ({
+          id: inv.id,
+          invoiceNumber: inv.invoiceNumber,
+          amount: parseFloat(inv.amount || "0"),
+          dueDate: inv.dueDate,
+          status: inv.status,
+          description: inv.description,
+        })),
         sessionBilling: {
           unpaidCount: sessionBilling.unpaidCount,
           unpaidTotal: sessionBilling.unpaidTotal,
