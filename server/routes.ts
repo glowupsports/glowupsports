@@ -17916,22 +17916,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Access denied" });
       }
 
-      const templates = await storage.getPackageTemplates(player.academyId);
+      // Generate auto-priced packages from academy session pricing
+      const CREDIT_QUANTITIES = [1, 5, 10, 20];
+      const CREDIT_TYPES = ["private", "semi", "group"] as const;
+      const CREDIT_TYPE_MAP: Record<string, string> = {
+        private: "private",
+        semi: "semi_private", 
+        group: "group",
+      };
       
-      const formattedTemplates = templates.map(t => ({
-        id: t.id,
-        name: t.name,
-        creditType: t.creditType,
-        credits: t.credits,
-        pricePerCredit: t.pricePerCredit,
-        totalPrice: (parseFloat(t.pricePerCredit) * t.credits).toFixed(2),
-        currency: t.currency,
-        validityDays: t.validityDays,
-        description: t.description,
-        isPopular: t.isPopular,
-      }));
+      const pricing = await storage.getAcademyPricing(player.academyId);
+      
+      const packages: Array<{
+        id: string;
+        name: string;
+        creditType: string;
+        credits: number;
+        pricePerCredit: string;
+        totalPrice: string;
+        currency: string;
+        validityDays: number;
+        description?: string;
+        isPopular?: boolean;
+      }> = [];
+      
+      for (const creditType of CREDIT_TYPES) {
+        const sessionPricing = pricing.find(p => p.sessionType === creditType);
+        if (!sessionPricing || parseFloat(sessionPricing.pricePerSession) <= 0) {
+          continue; // Skip if no pricing configured
+        }
+        
+        const pricePerCredit = parseFloat(sessionPricing.pricePerSession);
+        const currency = sessionPricing.currency || "AED";
+        const creditTypeLabel = creditType === "semi" ? "Semi-Private" : 
+                                creditType.charAt(0).toUpperCase() + creditType.slice(1);
+        
+        for (const credits of CREDIT_QUANTITIES) {
+          const totalPrice = pricePerCredit * credits;
+          packages.push({
+            id: `auto-${creditType}-${credits}`,
+            name: `${credits} ${creditTypeLabel} Credit${credits > 1 ? 's' : ''}`,
+            creditType: CREDIT_TYPE_MAP[creditType],
+            credits,
+            pricePerCredit: pricePerCredit.toFixed(2),
+            totalPrice: totalPrice.toFixed(2),
+            currency,
+            validityDays: 90, // Default validity
+            isPopular: credits === 10, // Mark 10-pack as popular
+          });
+        }
+      }
 
-      res.json(formattedTemplates);
+      res.json(packages);
     } catch (error) {
       console.error("Get credit store error:", error);
       res.status(500).json({ error: "Failed to load credit store" });
@@ -18010,43 +18046,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Incorrect PIN" });
       }
 
-      const template = await storage.getPackageTemplate(templateId);
-      if (!template || template.academyId !== player.academyId) {
-        return res.status(404).json({ error: "Package template not found" });
+      // Handle auto-generated package IDs (e.g., "auto-private-5")
+      let templateData: {
+        name: string;
+        creditType: string;
+        credits: number;
+        pricePerCredit: string;
+        currency: string;
+        validityDays: number;
+      };
+
+      if (templateId.startsWith("auto-")) {
+        // Parse auto-generated package ID: auto-{sessionType}-{credits}
+        const parts = templateId.split("-");
+        if (parts.length !== 3) {
+          return res.status(400).json({ error: "Invalid package ID" });
+        }
+        
+        const sessionType = parts[1]; // private, semi, group
+        const credits = parseInt(parts[2], 10);
+        
+        if (!["private", "semi", "group"].includes(sessionType) || isNaN(credits) || credits <= 0) {
+          return res.status(400).json({ error: "Invalid package configuration" });
+        }
+        
+        // Get current pricing to snapshot the price
+        const pricing = await storage.getAcademyPricing(player.academyId);
+        const sessionPricing = pricing.find(p => p.sessionType === sessionType);
+        
+        if (!sessionPricing || parseFloat(sessionPricing.pricePerSession) <= 0) {
+          return res.status(400).json({ error: "Pricing not configured for this session type" });
+        }
+        
+        const creditTypeMap: Record<string, string> = {
+          private: "private",
+          semi: "semi_private",
+          group: "group",
+        };
+        const creditTypeLabel = sessionType === "semi" ? "Semi-Private" : 
+                                sessionType.charAt(0).toUpperCase() + sessionType.slice(1);
+        
+        templateData = {
+          name: `${credits} ${creditTypeLabel} Credit${credits > 1 ? 's' : ''}`,
+          creditType: creditTypeMap[sessionType],
+          credits,
+          pricePerCredit: parseFloat(sessionPricing.pricePerSession).toFixed(2),
+          currency: sessionPricing.currency || "AED",
+          validityDays: 90,
+        };
+      } else {
+        // Legacy: lookup from package templates
+        const template = await storage.getPackageTemplate(templateId);
+        if (!template || template.academyId !== player.academyId) {
+          return res.status(404).json({ error: "Package template not found" });
+        }
+        templateData = {
+          name: template.name,
+          creditType: template.creditType,
+          credits: template.credits,
+          pricePerCredit: template.pricePerCredit,
+          currency: template.currency,
+          validityDays: template.validityDays,
+        };
       }
 
       const now = new Date();
       const expiresAt = new Date(now);
-      expiresAt.setDate(expiresAt.getDate() + template.validityDays);
+      expiresAt.setDate(expiresAt.getDate() + templateData.validityDays);
 
       const pkg = await storage.createPackage({
         playerId,
         academyId: player.academyId,
-        name: template.name,
-        creditType: template.creditType,
-        totalCredits: template.credits,
-        remainingCredits: template.credits,
+        name: templateData.name,
+        creditType: templateData.creditType,
+        totalCredits: templateData.credits,
+        remainingCredits: templateData.credits,
         purchasedAt: now,
         expiresAt,
-        pricePerCredit: template.pricePerCredit,
-        currency: template.currency,
+        pricePerCredit: templateData.pricePerCredit,
+        currency: templateData.currency,
         status: "active",
       });
 
-      const totalAmount = (parseFloat(template.pricePerCredit) * template.credits).toFixed(2);
+      const totalAmount = (parseFloat(templateData.pricePerCredit) * templateData.credits).toFixed(2);
       const invoice = await storage.createInvoice({
         playerId,
         academyId: player.academyId,
         packageId: pkg.id,
         type: "package_purchase",
         amount: totalAmount,
-        currency: template.currency,
+        currency: templateData.currency,
         status: "pending",
         dueDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
         lineItems: [{
-          description: template.name,
-          quantity: template.credits,
-          unitPrice: template.pricePerCredit,
+          description: templateData.name,
+          quantity: templateData.credits,
+          unitPrice: templateData.pricePerCredit,
           total: totalAmount,
         }],
         paymentMethod: paymentMethod || "cash",
