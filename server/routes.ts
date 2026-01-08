@@ -17790,11 +17790,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/parent/credit-store/:playerId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.userId;
       const userPlayerId = req.user?.playerId;
       const { playerId } = req.params;
-
-      console.log(`[CreditStore] userId: ${userId}, userPlayerId: ${userPlayerId}, requestedPlayerId: ${playerId}`);
 
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
@@ -17803,7 +17801,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const player = await storage.getPlayer(playerId);
       const isOwnPlayer = userPlayerId === playerId;
       const isParent = await storage.checkParentPlayerAccess(userId, playerId);
-      console.log(`[CreditStore] isOwnPlayer: ${isOwnPlayer}, isParent: ${isParent}, player exists: ${!!player}`);
       if (!player || (!isOwnPlayer && !isParent)) {
         return res.status(403).json({ error: "Access denied" });
       }
@@ -17832,7 +17829,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/parent/academy-payment-info/:playerId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.userId;
       const userPlayerId = req.user?.playerId;
       const { playerId } = req.params;
 
@@ -17874,7 +17871,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/parent/purchase-credits", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.userId;
       const { playerId, templateId, pin, paymentMethod } = req.body;
 
       if (!userId) {
