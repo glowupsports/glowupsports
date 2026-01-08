@@ -55,6 +55,7 @@ export type PlayerTabParamList = {
   Home: undefined;
   Community: undefined;
   Play: undefined;
+  Schedule: undefined;
   Progress: undefined;
   Profile: undefined;
 };
@@ -117,6 +118,7 @@ function PlayerTabsContent() {
           tabBarActiveTintColor: Colors.dark.primary,
           tabBarInactiveTintColor: Colors.dark.tabIconDefault,
           tabBarLabelStyle: styles.tabLabel,
+          tabBarIconStyle: { marginBottom: -2 },
         }}
       >
         <Tab.Screen
@@ -124,8 +126,8 @@ function PlayerTabsContent() {
           component={PlayerHomeScreen}
           options={{
             tabBarLabel: "Home",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="home-outline" size={size} color={color} />
+            tabBarIcon: ({ color }) => (
+              <Ionicons name="home-outline" size={22} color={color} />
             ),
           }}
         />
@@ -133,9 +135,9 @@ function PlayerTabsContent() {
           name="Community"
           component={CommunityScreen}
           options={{
-            tabBarLabel: "Community",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="people-outline" size={size} color={color} />
+            tabBarLabel: "Social",
+            tabBarIcon: ({ color }) => (
+              <Ionicons name="people-outline" size={22} color={color} />
             ),
           }}
         />
@@ -144,8 +146,18 @@ function PlayerTabsContent() {
           component={PlayScreen}
           options={{
             tabBarLabel: "Play",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="game-controller-outline" size={size} color={color} />
+            tabBarIcon: ({ color }) => (
+              <Ionicons name="game-controller-outline" size={22} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Schedule"
+          component={PlayerScheduleScreen}
+          options={{
+            tabBarLabel: "Schedule",
+            tabBarIcon: ({ color }) => (
+              <Ionicons name="calendar-outline" size={22} color={color} />
             ),
           }}
         />
@@ -154,8 +166,8 @@ function PlayerTabsContent() {
           component={PlayerProgressScreen}
           options={{
             tabBarLabel: "Progress",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="stats-chart-outline" size={size} color={color} />
+            tabBarIcon: ({ color }) => (
+              <Ionicons name="stats-chart-outline" size={22} color={color} />
             ),
           }}
         />
@@ -164,8 +176,8 @@ function PlayerTabsContent() {
           component={PlayerProfileScreen}
           options={{
             tabBarLabel: "Profile",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="person-outline" size={size} color={color} />
+            tabBarIcon: ({ color }) => (
+              <Ionicons name="person-outline" size={22} color={color} />
             ),
           }}
         />
@@ -513,7 +525,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(18, 18, 18, 0.95)",
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "500",
+    marginTop: -2,
   },
 });

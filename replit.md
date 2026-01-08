@@ -46,8 +46,9 @@ The application features a dark-themed gaming aesthetic, utilizing neon green an
 
 - **Role-Specific Applications**:
     - **Coach App**: Player and session management, feedback, progress tracking, notifications, dashboard with coach level/XP, and offline sync.
-    - **Player App**: 5-tab navigation (Home, Journey, Progress, Schedule, Profile) with cyan accent, showcasing progress visualization (skill radar, XP bar, Glow Score), session schedules, and milestones.
+    - **Player App**: 6-tab navigation (Home, Social, Play, Schedule, Progress, Profile) with cyan accent, showcasing progress visualization (skill radar, XP bar, Glow Score), session schedules, social features (leaderboard, player finder, friends), and milestones.
     - **Platform Owner App**: 6-tab navigation (Overview, Academies, Coaches, Players, Finance, System) with purple accent, providing platform-wide statistics, academy management, financial overviews, coach/player health monitoring, and system configuration.
+    - **Social Features**: Friends/connections system with "Add Friend" button on player profiles, connection status tracking (pending/accepted), and friends list screen.
 
 ## External Dependencies
 

@@ -24,6 +24,8 @@ import {
   questTemplates as questTemplatesTable,
   playerQuests as playerQuestsTable,
   dailyQuestSlots as dailyQuestSlotsTable,
+  // Connections
+  playerConnections,
 } from "@shared/schema";
 import { setupWebSocket, broadcastNewMessage } from "./websocket";
 import { 
