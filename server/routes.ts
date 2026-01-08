@@ -4414,6 +4414,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const player = await storage.getPlayer(playerId);
       
       // Create invoice first
+      // If purchasedAt is provided, mark as paid; otherwise mark as pending
+      const isPaid = !!purchasedAt;
+      const dueDate = !isPaid ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : null; // 7 days from now
+      
       const invoice = await storage.createInvoice({
         academyId: academyId!,
         playerId,
@@ -4421,8 +4425,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         invoiceType: "package",
         amount: totalPrice.toString(),
         currency,
-        status: "paid", // Mark as paid since credits are being added
-        paidAt: purchaseDate,
+        status: isPaid ? "paid" : "pending",
+        paidAt: isPaid ? purchaseDate : null,
+        dueDate: dueDate,
         lineItems: [{
           description: `${totalCredits} ${creditType.replace('_', ' ')} lesson credits`,
           quantity: totalCredits,

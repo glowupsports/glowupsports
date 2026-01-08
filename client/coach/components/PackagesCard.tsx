@@ -59,6 +59,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
   const [expiryMonths, setExpiryMonths] = useState("12");
   const [creditType, setCreditType] = useState<CreditType>("group");
   const [purchaseDate, setPurchaseDate] = useState(new Date());
+  const [isPaid, setIsPaid] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const { data: packages = [], isLoading } = useQuery<Package[]>({
@@ -105,7 +106,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
       playerId: string; 
       totalCredits: number; 
       creditType: CreditType;
-      purchasedAt: string;
+      purchasedAt?: string;
       expiryMonths: number;
     }) => {
       const response = await apiRequest("POST", "/api/packages", data);
@@ -117,6 +118,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
       setTotalCredits("10");
       setExpiryMonths("12");
       setCreditType("group");
+      setIsPaid(false);
       setPurchaseDate(new Date());
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -197,7 +199,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
       playerId, 
       totalCredits: credits, 
       creditType,
-      purchasedAt: purchaseDate.toISOString(),
+      purchasedAt: isPaid ? purchaseDate.toISOString() : undefined,
       expiryMonths: isNaN(months) || months <= 0 ? 12 : months,
     });
   };
@@ -382,40 +384,58 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
                 placeholderTextColor={Colors.dark.tabIconDefault}
               />
 
-              <Text style={styles.inputLabel}>Payment Date</Text>
-              {Platform.OS === "web" ? (
-                <TextInput
-                  style={styles.input}
-                  value={purchaseDate.toISOString().split("T")[0]}
-                  onChangeText={(text) => {
-                    const date = new Date(text);
-                    if (!isNaN(date.getTime()) && date <= new Date()) {
-                      setPurchaseDate(date);
-                    }
-                  }}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={Colors.dark.tabIconDefault}
-                />
-              ) : (
+              <Pressable 
+                style={styles.paidToggleRow}
+                onPress={() => setIsPaid(!isPaid)}
+              >
+                <View style={[styles.checkbox, isPaid && styles.checkboxChecked]}>
+                  {isPaid ? <Ionicons name="checkmark" size={14} color={Colors.dark.backgroundRoot} /> : null}
+                </View>
+                <Text style={styles.paidToggleText}>Payment already received</Text>
+              </Pressable>
+              
+              {isPaid ? (
                 <>
-                  <Pressable 
-                    style={styles.datePickerButton}
-                    onPress={() => setShowDatePicker(true)}
-                  >
-                    <Ionicons name="calendar-outline" size={18} color={Colors.dark.primary} />
-                    <Text style={styles.datePickerText}>{formatDate(purchaseDate)}</Text>
-                  </Pressable>
-                  {showDatePicker ? (
-                    <DateTimePicker
-                      value={purchaseDate}
-                      mode="date"
-                      display={Platform.OS === "ios" ? "spinner" : "default"}
-                      onChange={handleDateChange}
-                      maximumDate={new Date()}
-                      themeVariant="dark"
+                  <Text style={styles.inputLabel}>Payment Date</Text>
+                  {Platform.OS === "web" ? (
+                    <TextInput
+                      style={styles.input}
+                      value={purchaseDate.toISOString().split("T")[0]}
+                      onChangeText={(text) => {
+                        const date = new Date(text);
+                        if (!isNaN(date.getTime()) && date <= new Date()) {
+                          setPurchaseDate(date);
+                        }
+                      }}
+                      placeholder="YYYY-MM-DD"
+                      placeholderTextColor={Colors.dark.tabIconDefault}
                     />
-                  ) : null}
+                  ) : (
+                    <>
+                      <Pressable 
+                        style={styles.datePickerButton}
+                        onPress={() => setShowDatePicker(true)}
+                      >
+                        <Ionicons name="calendar-outline" size={18} color={Colors.dark.primary} />
+                        <Text style={styles.datePickerText}>{formatDate(purchaseDate)}</Text>
+                      </Pressable>
+                      {showDatePicker ? (
+                        <DateTimePicker
+                          value={purchaseDate}
+                          mode="date"
+                          display={Platform.OS === "ios" ? "spinner" : "default"}
+                          onChange={handleDateChange}
+                          maximumDate={new Date()}
+                          themeVariant="dark"
+                        />
+                      ) : null}
+                    </>
+                  )}
                 </>
+              ) : (
+                <Text style={styles.pendingInvoiceNote}>
+                  A pending invoice will be created for the player to pay
+                </Text>
               )}
 
               {calculatedTotal > 0 ? (
@@ -720,6 +740,35 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.gold,
     marginTop: Spacing.xs,
+  },
+  paidToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: Colors.dark.primary,
+    backgroundColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxChecked: {
+    backgroundColor: Colors.dark.primary,
+  },
+  paidToggleText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  pendingInvoiceNote: {
+    ...Typography.small,
+    color: Colors.dark.gold,
+    fontStyle: "italic",
+    marginBottom: Spacing.sm,
   },
   datePickerButton: {
     flexDirection: "row",
