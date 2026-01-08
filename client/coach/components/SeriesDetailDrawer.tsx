@@ -929,10 +929,13 @@ export default function SeriesDetailDrawer({
                 )}
                 
                 <Pressable
-                  style={styles.skipButton}
+                  style={[styles.skipButton, addPlayerMutation.isPending && styles.skipButtonDisabled]}
                   onPress={handleSkipPackage}
+                  disabled={addPlayerMutation.isPending}
                 >
-                  <Text style={styles.skipButtonText}>Skip - Add Without Package</Text>
+                  <Text style={styles.skipButtonText}>
+                    {addPlayerMutation.isPending ? "Adding..." : "Skip - Add Without Package"}
+                  </Text>
                 </Pressable>
               </ScrollView>
             ) : selectedPlayerId ? (
@@ -1630,6 +1633,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.lg,
     alignItems: "center",
     marginTop: Spacing.md,
+  },
+  skipButtonDisabled: {
+    opacity: 0.5,
   },
   skipButtonText: {
     fontSize: Typography.body.fontSize,
