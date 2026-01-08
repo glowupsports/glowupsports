@@ -383,23 +383,40 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
               />
 
               <Text style={styles.inputLabel}>Payment Date</Text>
-              <Pressable 
-                style={styles.datePickerButton}
-                onPress={() => setShowDatePicker(true)}
-              >
-                <Ionicons name="calendar-outline" size={18} color={Colors.dark.primary} />
-                <Text style={styles.datePickerText}>{formatDate(purchaseDate)}</Text>
-              </Pressable>
-              {showDatePicker ? (
-                <DateTimePicker
-                  value={purchaseDate}
-                  mode="date"
-                  display={Platform.OS === "ios" ? "spinner" : "default"}
-                  onChange={handleDateChange}
-                  maximumDate={new Date()}
-                  themeVariant="dark"
+              {Platform.OS === "web" ? (
+                <TextInput
+                  style={styles.input}
+                  value={purchaseDate.toISOString().split("T")[0]}
+                  onChangeText={(text) => {
+                    const date = new Date(text);
+                    if (!isNaN(date.getTime()) && date <= new Date()) {
+                      setPurchaseDate(date);
+                    }
+                  }}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor={Colors.dark.tabIconDefault}
                 />
-              ) : null}
+              ) : (
+                <>
+                  <Pressable 
+                    style={styles.datePickerButton}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <Ionicons name="calendar-outline" size={18} color={Colors.dark.primary} />
+                    <Text style={styles.datePickerText}>{formatDate(purchaseDate)}</Text>
+                  </Pressable>
+                  {showDatePicker ? (
+                    <DateTimePicker
+                      value={purchaseDate}
+                      mode="date"
+                      display={Platform.OS === "ios" ? "spinner" : "default"}
+                      onChange={handleDateChange}
+                      maximumDate={new Date()}
+                      themeVariant="dark"
+                    />
+                  ) : null}
+                </>
+              )}
 
               {calculatedTotal > 0 ? (
                 <View style={styles.totalSection}>
@@ -563,7 +580,11 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   deleteButton: {
-    padding: Spacing.xs,
+    padding: Spacing.sm,
+    minWidth: 36,
+    minHeight: 36,
+    alignItems: "center",
+    justifyContent: "center",
   },
   modalOverlay: {
     flex: 1,

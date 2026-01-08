@@ -12147,6 +12147,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const attendedSessions = pastSessions.filter(s => s.attended === "present");
       const streak = attendedSessions.length;
       
+      // Get player credits by type
+      const playerPackages = await storage.getActivePlayerPackages(playerId, player.academyId ?? undefined);
+      const creditsByType = { group: 0, private: 0, semi_private: 0 };
+      let totalCredits = 0;
+      for (const pkg of playerPackages) {
+        const type = (pkg.creditType || "group") as "group" | "private" | "semi_private";
+        creditsByType[type] += pkg.remainingCredits;
+        totalCredits += pkg.remainingCredits;
+      }
+      
       // Get XP and level data
       const xpData = await storage.getPlayerXpTotal(playerId);
       const totalXp = xpData.totalXp || player.totalXp || 0;
@@ -12191,6 +12201,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           coachName: coach?.name || "Coach",
         } : null,
         recentXpGains: [],
+        credits: {
+          total: totalCredits,
+          group: creditsByType.group,
+          private: creditsByType.private,
+          semi_private: creditsByType.semi_private,
+        },
       });
     } catch (error) {
       console.error("Error fetching player dashboard:", error);

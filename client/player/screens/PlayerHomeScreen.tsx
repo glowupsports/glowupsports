@@ -74,6 +74,12 @@ interface DashboardData {
     date: string;
     coachName: string;
   } | null;
+  credits?: {
+    total: number;
+    group: number;
+    private: number;
+    semi_private: number;
+  };
   recentXpGains: Array<{
     id: string;
     amount: number;
@@ -1222,6 +1228,37 @@ export default function PlayerHomeScreen() {
           onAvatarPress={openDrawer}
         />
 
+        {data?.credits ? (
+          <View style={styles.creditsCard}>
+            <View style={styles.creditsHeader}>
+              <Ionicons name="ticket-outline" size={20} color={Colors.dark.gold} />
+              <Text style={styles.creditsTitle}>My Credits</Text>
+            </View>
+            <View style={styles.creditsTotalRow}>
+              <Text style={styles.creditsTotalValue}>{data.credits.total}</Text>
+              <Text style={styles.creditsTotalLabel}>Total Available</Text>
+            </View>
+            {data.credits.total > 0 ? (
+              <View style={styles.creditsTypeRow}>
+                <View style={styles.creditsTypeItem}>
+                  <Text style={styles.creditsTypeValue}>{data.credits.group}</Text>
+                  <Text style={styles.creditsTypeLabel}>Group</Text>
+                </View>
+                <View style={styles.creditsTypeItem}>
+                  <Text style={styles.creditsTypeValue}>{data.credits.private}</Text>
+                  <Text style={styles.creditsTypeLabel}>Private</Text>
+                </View>
+                <View style={styles.creditsTypeItem}>
+                  <Text style={styles.creditsTypeValue}>{data.credits.semi_private}</Text>
+                  <Text style={styles.creditsTypeLabel}>Semi-Private</Text>
+                </View>
+              </View>
+            ) : (
+              <Text style={styles.creditsEmptyText}>No credits available - contact your coach to add more</Text>
+            )}
+          </View>
+        ) : null}
+
         <ReviewPromptBanner />
 
         {nextSession ? (
@@ -2045,6 +2082,63 @@ const styles = StyleSheet.create({
   sessionCoach: {
     ...Typography.small,
     color: Colors.dark.xpCyan,
+  },
+  creditsCard: {
+    ...CardStyles.glowCard,
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+    borderColor: "rgba(255, 215, 0, 0.4)",
+    borderWidth: 1,
+  },
+  creditsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  creditsTitle: {
+    ...Typography.h4,
+    color: Colors.dark.gold,
+  },
+  creditsTotalRow: {
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  creditsTotalValue: {
+    ...Typography.h1,
+    color: Colors.dark.gold,
+    fontSize: 48,
+  },
+  creditsTotalLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  creditsTypeRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  creditsTypeItem: {
+    flex: 1,
+    alignItems: "center",
+    padding: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.sm,
+  },
+  creditsTypeValue: {
+    ...Typography.h3,
+    color: Colors.dark.xpCyan,
+  },
+  creditsTypeLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontSize: 10,
+  },
+  creditsEmptyText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    fontStyle: "italic",
   },
   feedbackCard: {
     ...CardStyles.glowCard,
