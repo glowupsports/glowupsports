@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Modal, Platform, TextInput, Alert, Image as RNImage } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
@@ -829,6 +829,9 @@ export default function PlayerHomeScreen() {
   const { data, isLoading, error } = useQuery<DashboardData>({
     queryKey: ["/api/player/me/dashboard"],
     enabled: canAccessPlayerMode && showPlayerDashboard,
+    staleTime: 0, // Always consider data stale so it refetches
+    refetchOnWindowFocus: true, // Auto-refresh when app comes to foreground
+    refetchOnMount: true, // Refresh when component mounts
   });
   
   const { data: ownerStats, isLoading: ownerLoading, error: ownerError } = useQuery<OwnerAcademyStats>({
@@ -842,6 +845,15 @@ export default function PlayerHomeScreen() {
   });
 
   const queryClient = useQueryClient();
+  
+  // Refresh dashboard data when screen comes into focus (for credit updates)
+  useFocusEffect(
+    useCallback(() => {
+      if (canAccessPlayerMode && showPlayerDashboard) {
+        queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+      }
+    }, [canAccessPlayerMode, showPlayerDashboard, queryClient])
+  );
   
   const { data: vacationData } = useQuery<VacationData>({
     queryKey: ["/api/player/me/vacation"],
