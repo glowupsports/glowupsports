@@ -3089,3 +3089,119 @@ export const userSocialProfiles = pgTable("user_social_profiles", {
 export const insertUserSocialProfileSchema = createInsertSchema(userSocialProfiles).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertUserSocialProfile = z.infer<typeof insertUserSocialProfileSchema>;
 export type UserSocialProfile = typeof userSocialProfiles.$inferSelect;
+
+// ==================== QUEST SYSTEM ====================
+
+// Quest Templates - Definitions of available quests
+export const questTemplates = pgTable("quest_templates", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id), // null = global/platform-wide quests
+  
+  // Quest identity
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  iconName: text("icon_name").notNull(), // Ionicons name (e.g., "tennisball", "flame", "trophy")
+  iconColor: text("icon_color").default("#00D9FF"), // hex color
+  
+  // Quest type
+  questType: text("quest_type").notNull().default("daily"), // daily | weekly | special | achievement
+  category: text("category").default("training"), // training | social | performance | consistency
+  
+  // Completion criteria
+  targetAction: text("target_action").notNull(), // complete_session | give_reaction | post_moment | practice_minutes | win_match | attend_consecutive
+  targetCount: integer("target_count").notNull().default(1),
+  targetMetadata: jsonb("target_metadata"), // Additional criteria like {sessionType: "private"}
+  
+  // Rewards
+  xpReward: integer("xp_reward").default(50),
+  currencyReward: integer("currency_reward").default(0), // in-app currency (Glow Coins)
+  badgeId: varchar("badge_id"), // Optional badge awarded on completion
+  
+  // Difficulty & display
+  difficulty: text("difficulty").default("easy"), // easy | medium | hard | legendary
+  order: integer("order").default(0), // Display order
+  
+  // Availability
+  isActive: boolean("is_active").default(true),
+  startsAt: timestamp("starts_at"), // For time-limited quests
+  endsAt: timestamp("ends_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("quest_templates_academy_idx").on(table.academyId),
+  index("quest_templates_type_idx").on(table.questType, table.isActive),
+]);
+
+export const insertQuestTemplateSchema = createInsertSchema(questTemplates).omit({ id: true, createdAt: true });
+export type InsertQuestTemplate = z.infer<typeof insertQuestTemplateSchema>;
+export type QuestTemplate = typeof questTemplates.$inferSelect;
+
+// Player Quests - Active quests assigned to players with progress
+export const playerQuests = pgTable("player_quests", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  questTemplateId: varchar("quest_template_id").references(() => questTemplates.id).notNull(),
+  
+  // Progress tracking
+  currentProgress: integer("current_progress").default(0),
+  targetProgress: integer("target_progress").notNull(),
+  
+  // Status
+  status: text("status").default("active"), // active | completed | expired | claimed
+  
+  // Timing
+  assignedAt: timestamp("assigned_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  claimedAt: timestamp("claimed_at"), // When rewards were claimed
+  expiresAt: timestamp("expires_at"), // For daily/weekly resets
+  
+  // For streak tracking
+  streakDay: integer("streak_day").default(1), // Which day of streak (for consecutive quests)
+  
+  // Rewards snapshot (in case template changes)
+  xpReward: integer("xp_reward"),
+  currencyReward: integer("currency_reward"),
+}, (table) => [
+  index("player_quests_player_idx").on(table.playerId),
+  index("player_quests_status_idx").on(table.playerId, table.status),
+  index("player_quests_expires_idx").on(table.expiresAt),
+]);
+
+export const insertPlayerQuestSchema = createInsertSchema(playerQuests).omit({ id: true, assignedAt: true });
+export type InsertPlayerQuest = z.infer<typeof insertPlayerQuestSchema>;
+export type PlayerQuest = typeof playerQuests.$inferSelect;
+
+// Daily Quest Slots - Track which quests were assigned each day
+export const dailyQuestSlots = pgTable("daily_quest_slots", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  
+  slotDate: date("slot_date").notNull(), // The date these quests are for
+  
+  // Quest assignments (up to 3 daily quests)
+  quest1Id: varchar("quest_1_id").references(() => playerQuests.id),
+  quest2Id: varchar("quest_2_id").references(() => playerQuests.id),
+  quest3Id: varchar("quest_3_id").references(() => playerQuests.id),
+  
+  // Bonus quest (unlocked by completing all 3)
+  bonusQuestId: varchar("bonus_quest_id").references(() => playerQuests.id),
+  bonusUnlocked: boolean("bonus_unlocked").default(false),
+  
+  // Completion tracking
+  completedCount: integer("completed_count").default(0),
+  allCompleted: boolean("all_completed").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("daily_quest_slots_player_date_idx").on(table.playerId, table.slotDate),
+]);
+
+export const insertDailyQuestSlotSchema = createInsertSchema(dailyQuestSlots).omit({ id: true, createdAt: true });
+export type InsertDailyQuestSlot = z.infer<typeof insertDailyQuestSlotSchema>;
+export type DailyQuestSlot = typeof dailyQuestSlots.$inferSelect;

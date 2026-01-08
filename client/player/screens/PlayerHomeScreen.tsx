@@ -14,7 +14,10 @@ import { OwnerCard } from "@/player/components/OwnerCard";
 import { PlayerStatusBar } from "@/player/components/PlayerStatusBar";
 import { AcademyHubCard } from "@/player/components/AcademyHubCard";
 import { ReviewPromptBanner } from "@/player/components/ReviewPromptBanner";
+import { QuestTrackerCard } from "@/player/components/QuestTrackerCard";
+import { SocialPulseCard } from "@/player/components/SocialPulseCard";
 import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
+import { useMissionControl, useAssignDailyQuests, useClaimQuestReward } from "@/player/hooks/useQuests";
 import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import Animated, { FadeIn, FadeOut, SlideInUp, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, withRepeat } from "react-native-reanimated";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -860,6 +863,20 @@ export default function PlayerHomeScreen() {
     enabled: canAccessPlayerMode && showPlayerDashboard,
   });
   
+  // Mission Control hooks (only fetch when player dashboard is active)
+  const { data: missionControlData } = useMissionControl(canAccessPlayerMode && showPlayerDashboard);
+  const assignDailyQuests = useAssignDailyQuests();
+  const claimQuestReward = useClaimQuestReward();
+  
+  // Assign daily quests on screen focus if player has profile
+  useFocusEffect(
+    useCallback(() => {
+      if (canAccessPlayerMode && showPlayerDashboard && !assignDailyQuests.isPending) {
+        assignDailyQuests.mutate();
+      }
+    }, [canAccessPlayerMode, showPlayerDashboard])
+  );
+  
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showLateModal, setShowLateModal] = useState(false);
   const [showVacationModal, setShowVacationModal] = useState(false);
@@ -1239,6 +1256,24 @@ export default function PlayerHomeScreen() {
           lastFeedback={lastFeedback}
           onAvatarPress={openDrawer}
         />
+
+        {/* Mission Control Section */}
+        {missionControlData?.quests?.today && missionControlData.quests.today.length > 0 ? (
+          <QuestTrackerCard 
+            quests={missionControlData.quests.today}
+            completedCount={missionControlData.quests.completedCount}
+            totalCount={missionControlData.quests.totalCount}
+            onClaimReward={(quest) => claimQuestReward.mutate(quest.id)}
+          />
+        ) : null}
+        
+        {missionControlData?.social ? (
+          <SocialPulseCard 
+            newMoments={missionControlData.social.newMoments}
+            openToPlay={missionControlData.social.openToPlay}
+            onMomentsPress={() => navigation.navigate("CommunityTab")}
+          />
+        ) : null}
 
         {data?.credits && data?.player?.id ? (
           <View style={styles.creditsCard}>

@@ -20,6 +20,10 @@ import {
   openToPlay as openToPlayTable,
   userSocialProfiles as userSocialProfilesTable,
   users, coaches,
+  // Quest system
+  questTemplates as questTemplatesTable,
+  playerQuests as playerQuestsTable,
+  dailyQuestSlots as dailyQuestSlotsTable,
 } from "@shared/schema";
 import { setupWebSocket, broadcastNewMessage } from "./websocket";
 import { 
@@ -20337,6 +20341,417 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching social highlights:", error);
       res.status(500).json({ error: "Failed to fetch highlights" });
+    }
+  });
+
+  // ==================== QUEST SYSTEM API ====================
+
+  // Get player's active quests (daily + weekly)
+  app.get("/api/quests", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) {
+        return res.status(400).json({ error: "Player context required" });
+      }
+      
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Get player's active quests with template info
+      const activeQuests = await db.select({
+        quest: playerQuestsTable,
+        template: questTemplatesTable,
+      })
+      .from(playerQuestsTable)
+      .innerJoin(questTemplatesTable, eq(playerQuestsTable.questTemplateId, questTemplatesTable.id))
+      .where(and(
+        eq(playerQuestsTable.playerId, playerId),
+        inArray(playerQuestsTable.status, ["active", "completed"])
+      ))
+      .orderBy(asc(questTemplatesTable.order));
+      
+      // Get today's quest slots
+      const [dailySlot] = await db.select()
+        .from(dailyQuestSlotsTable)
+        .where(and(
+          eq(dailyQuestSlotsTable.playerId, playerId),
+          eq(dailyQuestSlotsTable.slotDate, today)
+        ));
+      
+      // Group by type
+      const dailyQuests = activeQuests.filter(q => q.template.questType === "daily");
+      const weeklyQuests = activeQuests.filter(q => q.template.questType === "weekly");
+      
+      res.json({
+        daily: dailyQuests.map(q => ({
+          id: q.quest.id,
+          name: q.template.name,
+          description: q.template.description,
+          iconName: q.template.iconName,
+          iconColor: q.template.iconColor,
+          difficulty: q.template.difficulty,
+          category: q.template.category,
+          currentProgress: q.quest.currentProgress || 0,
+          targetProgress: q.quest.targetProgress,
+          status: q.quest.status,
+          xpReward: q.quest.xpReward || q.template.xpReward,
+          currencyReward: q.quest.currencyReward || q.template.currencyReward,
+          expiresAt: q.quest.expiresAt,
+        })),
+        weekly: weeklyQuests.map(q => ({
+          id: q.quest.id,
+          name: q.template.name,
+          description: q.template.description,
+          iconName: q.template.iconName,
+          iconColor: q.template.iconColor,
+          difficulty: q.template.difficulty,
+          category: q.template.category,
+          currentProgress: q.quest.currentProgress || 0,
+          targetProgress: q.quest.targetProgress,
+          status: q.quest.status,
+          xpReward: q.quest.xpReward || q.template.xpReward,
+          currencyReward: q.quest.currencyReward || q.template.currencyReward,
+          expiresAt: q.quest.expiresAt,
+        })),
+        dailySlot: dailySlot ? {
+          completedCount: dailySlot.completedCount,
+          allCompleted: dailySlot.allCompleted,
+          bonusUnlocked: dailySlot.bonusUnlocked,
+        } : null,
+      });
+    } catch (error) {
+      console.error("Error fetching quests:", error);
+      res.status(500).json({ error: "Failed to fetch quests" });
+    }
+  });
+
+  // Assign daily quests to player (called on app start if needed)
+  app.post("/api/quests/assign-daily", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      const academyId = req.user!.academyId;
+      
+      if (!playerId) {
+        return res.status(400).json({ error: "Player context required" });
+      }
+      
+      const today = new Date().toISOString().split('T')[0];
+      const endOfDay = new Date();
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      // Check if already assigned today
+      const [existingSlot] = await db.select()
+        .from(dailyQuestSlotsTable)
+        .where(and(
+          eq(dailyQuestSlotsTable.playerId, playerId),
+          eq(dailyQuestSlotsTable.slotDate, today)
+        ));
+      
+      if (existingSlot) {
+        return res.json({ message: "Daily quests already assigned", alreadyAssigned: true });
+      }
+      
+      // Get available daily quest templates
+      const templates = await db.select()
+        .from(questTemplatesTable)
+        .where(and(
+          eq(questTemplatesTable.questType, "daily"),
+          eq(questTemplatesTable.isActive, true),
+          or(
+            isNull(questTemplatesTable.academyId),
+            eq(questTemplatesTable.academyId, academyId || "")
+          )
+        ))
+        .orderBy(asc(questTemplatesTable.order))
+        .limit(3);
+      
+      if (templates.length === 0) {
+        return res.json({ message: "No quest templates available", quests: [] });
+      }
+      
+      // Create player quests
+      const createdQuests = [];
+      for (const template of templates) {
+        const [quest] = await db.insert(playerQuestsTable).values({
+          playerId,
+          questTemplateId: template.id,
+          targetProgress: template.targetCount,
+          xpReward: template.xpReward,
+          currencyReward: template.currencyReward,
+          expiresAt: endOfDay,
+        }).returning();
+        createdQuests.push(quest);
+      }
+      
+      // Create daily slot
+      await db.insert(dailyQuestSlotsTable).values({
+        playerId,
+        slotDate: today,
+        quest1Id: createdQuests[0]?.id,
+        quest2Id: createdQuests[1]?.id,
+        quest3Id: createdQuests[2]?.id,
+      });
+      
+      res.status(201).json({ 
+        message: "Daily quests assigned", 
+        questCount: createdQuests.length,
+      });
+    } catch (error) {
+      console.error("Error assigning daily quests:", error);
+      res.status(500).json({ error: "Failed to assign daily quests" });
+    }
+  });
+
+  // Update quest progress
+  app.post("/api/quests/:id/progress", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const playerId = req.user!.playerId;
+      const { increment = 1 } = req.body;
+      
+      if (!playerId) {
+        return res.status(400).json({ error: "Player context required" });
+      }
+      
+      // Get quest
+      const [quest] = await db.select({
+        quest: playerQuestsTable,
+        template: questTemplatesTable,
+      })
+      .from(playerQuestsTable)
+      .innerJoin(questTemplatesTable, eq(playerQuestsTable.questTemplateId, questTemplatesTable.id))
+      .where(and(
+        eq(playerQuestsTable.id, id),
+        eq(playerQuestsTable.playerId, playerId)
+      ));
+      
+      if (!quest) {
+        return res.status(404).json({ error: "Quest not found" });
+      }
+      
+      if (quest.quest.status !== "active") {
+        return res.json({ message: "Quest already completed or expired", quest: quest.quest });
+      }
+      
+      const newProgress = Math.min(
+        (quest.quest.currentProgress || 0) + increment,
+        quest.quest.targetProgress
+      );
+      const isComplete = newProgress >= quest.quest.targetProgress;
+      
+      // Update progress
+      const [updatedQuest] = await db.update(playerQuestsTable)
+        .set({
+          currentProgress: newProgress,
+          status: isComplete ? "completed" : "active",
+          completedAt: isComplete ? new Date() : null,
+        })
+        .where(eq(playerQuestsTable.id, id))
+        .returning();
+      
+      // If completed, update daily slot count
+      if (isComplete && quest.template.questType === "daily") {
+        const today = new Date().toISOString().split('T')[0];
+        await db.update(dailyQuestSlotsTable)
+          .set({ 
+            completedCount: sql`completed_count + 1`,
+            allCompleted: sql`completed_count + 1 >= 3`,
+            bonusUnlocked: sql`completed_count + 1 >= 3`,
+          })
+          .where(and(
+            eq(dailyQuestSlotsTable.playerId, playerId),
+            eq(dailyQuestSlotsTable.slotDate, today)
+          ));
+      }
+      
+      res.json({
+        quest: {
+          ...updatedQuest,
+          name: quest.template.name,
+          iconName: quest.template.iconName,
+          iconColor: quest.template.iconColor,
+        },
+        completed: isComplete,
+        xpEarned: isComplete ? (quest.quest.xpReward || quest.template.xpReward) : 0,
+      });
+    } catch (error) {
+      console.error("Error updating quest progress:", error);
+      res.status(500).json({ error: "Failed to update quest progress" });
+    }
+  });
+
+  // Claim quest reward
+  app.post("/api/quests/:id/claim", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const playerId = req.user!.playerId;
+      
+      if (!playerId) {
+        return res.status(400).json({ error: "Player context required" });
+      }
+      
+      // Get quest
+      const [quest] = await db.select({
+        quest: playerQuestsTable,
+        template: questTemplatesTable,
+      })
+      .from(playerQuestsTable)
+      .innerJoin(questTemplatesTable, eq(playerQuestsTable.questTemplateId, questTemplatesTable.id))
+      .where(and(
+        eq(playerQuestsTable.id, id),
+        eq(playerQuestsTable.playerId, playerId)
+      ));
+      
+      if (!quest) {
+        return res.status(404).json({ error: "Quest not found" });
+      }
+      
+      if (quest.quest.status !== "completed") {
+        return res.status(400).json({ error: "Quest not completed yet" });
+      }
+      
+      if (quest.quest.claimedAt) {
+        return res.status(400).json({ error: "Reward already claimed" });
+      }
+      
+      // Mark as claimed
+      await db.update(playerQuestsTable)
+        .set({
+          status: "claimed",
+          claimedAt: new Date(),
+        })
+        .where(eq(playerQuestsTable.id, id));
+      
+      // Award XP to player
+      const xpReward = quest.quest.xpReward || quest.template.xpReward || 0;
+      if (xpReward > 0) {
+        await db.update(players)
+          .set({ xp: sql`COALESCE(xp, 0) + ${xpReward}` })
+          .where(eq(players.id, playerId));
+      }
+      
+      res.json({
+        success: true,
+        xpAwarded: xpReward,
+        currencyAwarded: quest.quest.currencyReward || quest.template.currencyReward || 0,
+      });
+    } catch (error) {
+      console.error("Error claiming quest reward:", error);
+      res.status(500).json({ error: "Failed to claim quest reward" });
+    }
+  });
+
+  // Get mission control data (combines dashboard, quests, social highlights)
+  app.get("/api/player/mission-control", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.id;
+      const playerId = req.user!.playerId;
+      const academyId = req.user!.academyId;
+      
+      if (!playerId) {
+        return res.status(400).json({ error: "Player context required" });
+      }
+      
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      
+      // Get player profile
+      const [player] = await db.select().from(players).where(eq(players.id, playerId));
+      
+      // Get today's quests
+      const todayQuests = await db.select({
+        quest: playerQuestsTable,
+        template: questTemplatesTable,
+      })
+      .from(playerQuestsTable)
+      .innerJoin(questTemplatesTable, eq(playerQuestsTable.questTemplateId, questTemplatesTable.id))
+      .where(and(
+        eq(playerQuestsTable.playerId, playerId),
+        eq(questTemplatesTable.questType, "daily"),
+        inArray(playerQuestsTable.status, ["active", "completed"])
+      ))
+      .orderBy(asc(questTemplatesTable.order))
+      .limit(3);
+      
+      // Get next upcoming session
+      const upcomingSessions = await db.select({
+        id: sessions.id,
+        title: sessions.type,
+        startTime: sessions.date,
+        locationName: sessions.courtId,
+      })
+      .from(sessions)
+      .innerJoin(sessionPlayers, eq(sessionPlayers.sessionId, sessions.id))
+      .where(and(
+        eq(sessionPlayers.playerId, playerId),
+        gte(sessions.date, now),
+        eq(sessions.isCancelled, false)
+      ))
+      .orderBy(asc(sessions.date))
+      .limit(1);
+      
+      // Get social highlights
+      const [momentCount] = await db.select({ count: count() })
+        .from(postsTable)
+        .where(and(
+          eq(postsTable.academyId, academyId || ""),
+          gte(postsTable.createdAt, oneDayAgo),
+          eq(postsTable.isHidden, false)
+        ));
+      
+      const [openToPlayCount] = await db.select({ count: count() })
+        .from(openToPlayTable)
+        .where(and(
+          eq(openToPlayTable.academyId, academyId || ""),
+          eq(openToPlayTable.isActive, true),
+          gte(openToPlayTable.availableUntil, now)
+        ));
+      
+      // Calculate streak
+      const streak = player?.consecutiveDays || 0;
+      
+      // Calculate daily quest progress
+      const completedQuests = todayQuests.filter(q => q.quest.status === "completed").length;
+      const totalQuests = todayQuests.length;
+      
+      res.json({
+        player: {
+          name: player?.name,
+          photoUrl: player?.photoUrl,
+          xp: player?.xp || 0,
+          level: player?.level || 1,
+          glowScore: player?.glowScore || 0,
+          ballLevel: player?.ballLevel,
+          streak,
+        },
+        quests: {
+          today: todayQuests.map(q => ({
+            id: q.quest.id,
+            name: q.template.name,
+            iconName: q.template.iconName,
+            iconColor: q.template.iconColor,
+            currentProgress: q.quest.currentProgress || 0,
+            targetProgress: q.quest.targetProgress,
+            status: q.quest.status,
+            xpReward: q.template.xpReward,
+          })),
+          completedCount: completedQuests,
+          totalCount: totalQuests,
+        },
+        nextMission: upcomingSessions[0] ? {
+          type: "session",
+          title: upcomingSessions[0].title || "Training Session",
+          time: upcomingSessions[0].startTime,
+          location: upcomingSessions[0].locationName,
+        } : null,
+        social: {
+          newMoments: Number(momentCount?.count || 0),
+          openToPlay: Number(openToPlayCount?.count || 0),
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching mission control data:", error);
+      res.status(500).json({ error: "Failed to fetch mission control data" });
     }
   });
 
