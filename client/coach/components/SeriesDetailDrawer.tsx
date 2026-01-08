@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -164,6 +164,34 @@ export default function SeriesDetailDrawer({
     queryKey: [`/api/coach/series/${seriesId}`],
     enabled: !!seriesId && visible,
   });
+
+  // Build display title with local time (not UTC time from DB)
+  const displayTitle = useMemo(() => {
+    if (!series) return "";
+    const timezone = academy?.timezone || "Asia/Dubai";
+    const localStartTime = convertUTCTimeToLocal(series.startTime, timezone);
+    
+    // Format to 12-hour with AM/PM (matching subtitle format)
+    const [hours, minutes] = localStartTime.split(":").map(Number);
+    const period = hours >= 12 ? "PM" : "AM";
+    const displayHours = hours % 12 || 12;
+    const formattedTime = `${displayHours}:${String(minutes).padStart(2, "0")} ${period}`;
+    
+    const sessionTypeLabels: Record<string, string> = {
+      private: "Private Lesson",
+      semi_private: "Semi-Private",
+      semi: "Semi-Private",
+      group: "Group Session",
+      physical: "Physical Training",
+      activity: "Activity",
+      squad: "Squad Training",
+      clinic: "Clinic",
+      camp: "Camp",
+    };
+    const typeLabel = sessionTypeLabels[series.sessionType] || series.sessionType || "Training";
+    const dayName = DAY_NAMES[series.dayOfWeek];
+    return `${typeLabel} - ${dayName} ${formattedTime}`;
+  }, [series, academy?.timezone]);
 
   const { data: feedbackData, isLoading: feedbackLoading } = useQuery<FeedbackData>({
     queryKey: [`/api/coach/series/${seriesId}/feedback`],
@@ -854,7 +882,7 @@ export default function SeriesDetailDrawer({
                       <Ionicons name="close" size={24} color={Colors.dark.text} />
                     </Pressable>
                   </View>
-                  <Text style={styles.title}>{series.title}</Text>
+                  <Text style={styles.title}>{displayTitle}</Text>
                   <Text style={styles.subtitle}>
                     {DAY_NAMES[series.dayOfWeek]}s at {formatTime(series.startTime)} - {series.sessionType.replace("_", " ")}
                   </Text>
