@@ -1110,6 +1110,10 @@ export const sessionPlayers = pgTable("session_players", {
   
   xpAwarded: integer("xp_awarded"),
   notes: text("notes"),
+  
+  // Credit tracking - timestamp when credits were deducted for this enrollment
+  creditDeductedAt: timestamp("credit_deducted_at"),
+  creditTransactionId: varchar("credit_transaction_id"), // Links to player_credit_history
 });
 
 export const insertSessionPlayerSchema = createInsertSchema(sessionPlayers).omit({ id: true });

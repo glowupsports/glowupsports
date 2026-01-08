@@ -2708,17 +2708,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isPrivate: true,
         });
 
-        // Add players if provided
+        // Add players if provided (with credit deduction)
         let playerNames: string[] = [];
         if (playerIds && Array.isArray(playerIds)) {
           for (const playerId of playerIds) {
+            const player = await storage.getPlayer(playerId, academyId!);
+            if (player) {
+              playerNames.push(player.name);
+            }
+            
+            // First add player to session (creates session_player record)
             await storage.addPlayerToSession({
               sessionId: session.id,
               playerId,
             });
-            const player = await storage.getPlayer(playerId, academyId!);
-            if (player) {
-              playerNames.push(player.name);
+            
+            // Then deduct typed credits (updates session_player with creditDeductedAt)
+            const creditResult = await storage.deductTypedCreditsForSession(
+              playerId,
+              sessionType,
+              session.id,
+              academyId || undefined
+            );
+            
+            // If credits couldn't be deducted, create notification
+            if (!creditResult.success && player) {
+              const creditTypeLabel = (creditResult.creditType || sessionType).replace("_", "-");
+              await storage.createNotification({
+                playerId,
+                type: "credits_needed",
+                title: "Credits Required",
+                message: `You've been added to a ${creditTypeLabel} lesson but don't have matching credits.`,
+                metadata: JSON.stringify({
+                  sessionId: session.id,
+                  sessionType,
+                  requiredCreditType: creditResult.creditType,
+                }),
+              });
             }
           }
         }
@@ -3011,9 +3037,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      let creditDeductionResult = null;
+      // Check if player is already enrolled
+      const existingEnrollment = await storage.getSessionPlayer(id, playerId);
+      if (existingEnrollment) {
+        // Player already enrolled - check if credits were already deducted
+        if (existingEnrollment.creditDeductedAt) {
+          return res.status(200).json({
+            ...existingEnrollment,
+            success: true,
+            alreadyEnrolled: true,
+            creditDeducted: true,
+            message: "Player was already enrolled with credits deducted",
+          });
+        }
+        // Enrolled but no credits deducted - just return existing
+        return res.status(200).json({
+          ...existingEnrollment,
+          success: true,
+          alreadyEnrolled: true,
+          creditDeducted: false,
+          message: "Player was already enrolled",
+        });
+      }
 
-      // ATOMIC: Deduct typed credits BEFORE adding player (unless skipCreditCheck or guest)
+      // Create new enrollment
+      const sessionPlayer = await storage.addPlayerToSession({
+        sessionId: id,
+        playerId,
+        isGuest: isGuest || false,
+      });
+
+      let creditDeductionResult = null;
+      const isNewEnrollment = true;
+
+      // Then deduct typed credits (updates session_player with creditDeductedAt)
       if (playerId && !isGuest && !skipCreditCheck) {
         creditDeductionResult = await storage.deductTypedCreditsForSession(
           playerId,
@@ -3022,8 +3079,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           academyId
         );
         
-        // If deduction failed, don't add the player - return error
-        if (!creditDeductionResult.success) {
+        // If deduction failed, only remove if this was a NEW enrollment
+        if (!creditDeductionResult.success && isNewEnrollment) {
+          await storage.removePlayerFromSession(id, playerId);
           const player = await storage.getPlayer(playerId, academyId);
           return res.status(400).json({
             error: "credit_deduction_failed",
@@ -3034,13 +3092,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
       }
-
-      // Only add player after credits are successfully deducted (or skipped)
-      const sessionPlayer = await storage.addPlayerToSession({
-        sessionId: id,
-        playerId,
-        isGuest: isGuest || false,
-      });
 
       if (skipCreditCheck && playerId && !isGuest) {
         const creditCheck = await storage.checkPlayerCreditsForSessionType(
@@ -5264,15 +5315,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         academyId || undefined
       );
       
-      // Add players to all non-skipped sessions if playerIds provided
+      // Add players to all non-skipped sessions with credit deduction
       if (playerIds && Array.isArray(playerIds) && playerIds.length > 0) {
         for (const session of sessionInstances) {
           if (!session.isSkipped) {
             for (const playerId of playerIds) {
+              // First add player to session
               await storage.addPlayerToSession({
                 sessionId: session.id,
                 playerId,
               });
+              
+              // Then deduct typed credits (updates session_player with creditDeductedAt)
+              await storage.deductTypedCreditsForSession(
+                playerId,
+                sessionType,
+                session.id,
+                academyId || undefined
+              );
             }
           }
         }

@@ -1956,7 +1956,7 @@ export const storage = {
     sessionType: string,
     sessionId: string,
     academyId?: string
-  ): Promise<{ success: boolean; package?: Package; creditType?: string; reason?: string }> {
+  ): Promise<{ success: boolean; package?: Package; creditType?: string; transactionId?: string; reason?: string }> {
     // Map session types to credit types
     const sessionToCreditType: Record<string, string> = {
       private: "private",
@@ -2002,7 +2002,7 @@ export const storage = {
     }
     
     // Log the credit transaction
-    await this.createCreditTransaction({
+    const transaction = await this.createCreditTransaction({
       playerId,
       academyId: academyId || packageToUse.academyId,
       packageId: packageToUse.id,
@@ -2019,10 +2019,22 @@ export const storage = {
       }),
     });
     
+    // Update session_player record with credit deduction timestamp
+    await db.update(sessionPlayers)
+      .set({ 
+        creditDeductedAt: new Date(),
+        creditTransactionId: transaction.id,
+      })
+      .where(and(
+        eq(sessionPlayers.sessionId, sessionId),
+        eq(sessionPlayers.playerId, playerId)
+      ));
+    
     return { 
       success: true, 
       package: updatedPackage, 
-      creditType: requiredCreditType 
+      creditType: requiredCreditType,
+      transactionId: transaction.id,
     };
   },
 
