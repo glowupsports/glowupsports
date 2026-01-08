@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { randomUUID } from "node:crypto";
 import { eq, and, gte, lte, lt, ne, or, inArray, ilike, sql, count, gt, isNull } from "drizzle-orm";
 import { desc, asc } from "drizzle-orm";
 import {
@@ -1225,7 +1226,7 @@ export const storage = {
     } else {
       // Create an inactive membership record (for coaches without prior membership)
       await db.insert(coachAcademyMemberships).values({
-        id: crypto.randomUUID(),
+        id: randomUUID(),
         coachId,
         academyId,
         isActive: false,
@@ -2497,7 +2498,7 @@ export const storage = {
       const result = await db
         .insert(sessionPlayers)
         .values({
-          id: crypto.randomUUID(),
+          id: randomUUID(),
           sessionId,
           playerId,
           attendanceStatus: status,
