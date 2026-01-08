@@ -5511,10 +5511,18 @@ export const storage = {
     attendanceStatus: string | null;
   }[]> {
     try {
+      // Get sessionPlayer records, excluding those marked as absent (cancelled)
       const sessionPlayerRecords = await db
         .select()
         .from(sessionPlayers)
-        .where(eq(sessionPlayers.playerId, playerId));
+        .where(and(
+          eq(sessionPlayers.playerId, playerId),
+          // Exclude absent/cancelled sessions from upcoming view
+          or(
+            isNull(sessionPlayers.attendanceStatus),
+            ne(sessionPlayers.attendanceStatus, "absent")
+          )
+        ));
       
       if (sessionPlayerRecords.length === 0) {
         return [];
