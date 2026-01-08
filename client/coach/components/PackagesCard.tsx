@@ -124,6 +124,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/packages`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/credit-balance`] });
       setShowAddModal(false);
       setTotalCredits("10");
       setExpiryMonths("12");
@@ -173,6 +174,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
       }
       
       queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/packages`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/credit-balance`] });
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
