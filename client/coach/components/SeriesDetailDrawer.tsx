@@ -8,6 +8,7 @@ import {
   ScrollView,
   ActivityIndicator,
   TextInput,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -207,14 +208,11 @@ export default function SeriesDetailDrawer({
       packageTemplateId?: string | null;
     }) => {
       // Add player to class - backend handles package creation if templateId provided
-      return apiRequest(`/api/coach/series/${seriesId}/players`, {
-        method: "POST",
-        body: JSON.stringify({
-          playerId: data.playerId,
-          joinDate: data.joinDate,
-          attendedSessionIds: data.attendedSessionIds,
-          packageTemplateId: data.packageTemplateId,
-        }),
+      return apiRequest("POST", `/api/coach/series/${seriesId}/players`, {
+        playerId: data.playerId,
+        joinDate: data.joinDate,
+        attendedSessionIds: data.attendedSessionIds,
+        packageTemplateId: data.packageTemplateId,
       });
     },
     onSuccess: () => {
@@ -863,7 +861,7 @@ export default function SeriesDetailDrawer({
                   disabled={addPlayerMutation.isPending}
                 >
                   {addPlayerMutation.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.dark.background} />
+                    <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
                   ) : (
                     <Text style={styles.saveButtonText}>
                       Save ({Object.values(selectedAttendance).filter(Boolean).length} sessions attended)
@@ -922,26 +920,46 @@ export default function SeriesDetailDrawer({
                 </Text>
                 
                 <Text style={styles.dateLabel}>When did they join this class?</Text>
-                <Pressable 
-                  style={styles.datePickerButton}
-                  onPress={() => setShowDatePicker(true)}
-                >
-                  <Ionicons name="calendar-outline" size={20} color={Colors.dark.successNeon} />
-                  <Text style={styles.datePickerText}>{joinDate.toLocaleDateString()}</Text>
-                </Pressable>
-                
-                {showDatePicker ? (
-                  <DateTimePicker
-                    value={joinDate}
-                    mode="date"
-                    display="spinner"
-                    onChange={(_, date) => {
-                      setShowDatePicker(false);
-                      if (date) setJoinDate(date);
-                    }}
-                    maximumDate={new Date()}
-                  />
-                ) : null}
+                {Platform.OS === "web" ? (
+                  <View style={styles.datePickerButton}>
+                    <Ionicons name="calendar-outline" size={20} color={Colors.dark.successNeon} />
+                    <TextInput
+                      style={styles.webDateInput}
+                      value={joinDate.toISOString().split("T")[0]}
+                      onChangeText={(text) => {
+                        const parsed = new Date(text);
+                        if (!isNaN(parsed.getTime()) && parsed <= new Date()) {
+                          setJoinDate(parsed);
+                        }
+                      }}
+                      placeholder="YYYY-MM-DD"
+                      placeholderTextColor={Colors.dark.textMuted}
+                    />
+                  </View>
+                ) : (
+                  <>
+                    <Pressable 
+                      style={styles.datePickerButton}
+                      onPress={() => setShowDatePicker(true)}
+                    >
+                      <Ionicons name="calendar-outline" size={20} color={Colors.dark.successNeon} />
+                      <Text style={styles.datePickerText}>{joinDate.toLocaleDateString()}</Text>
+                    </Pressable>
+                    
+                    {showDatePicker ? (
+                      <DateTimePicker
+                        value={joinDate}
+                        mode="date"
+                        display="default"
+                        onChange={(_, date) => {
+                          setShowDatePicker(false);
+                          if (date) setJoinDate(date);
+                        }}
+                        maximumDate={new Date()}
+                      />
+                    ) : null}
+                  </>
+                )}
                 
                 <Pressable
                   style={[styles.saveButton, { marginTop: Spacing.xl }]}
@@ -1508,6 +1526,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.text,
   },
+  webDateInput: {
+    flex: 1,
+    fontSize: Typography.h4.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.successNeon,
+    padding: 0,
+    marginLeft: Spacing.sm,
+  },
   saveButton: {
     backgroundColor: Colors.dark.successNeon,
     borderRadius: BorderRadius.md,
@@ -1521,7 +1547,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "700",
-    color: Colors.dark.background,
+    color: Colors.dark.backgroundRoot,
   },
   backfillSubtitle: {
     fontSize: Typography.body.fontSize,

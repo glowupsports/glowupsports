@@ -469,14 +469,21 @@ export default function SettingsScreen() {
       showOfflineAlert();
       return;
     }
-    Alert.alert(
-      "Delete Court",
-      `Are you sure you want to delete "${court.name}"?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: () => deleteCourtMutation.mutate(court.id) },
-      ]
-    );
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm(`Are you sure you want to delete "${court.name}"?`);
+      if (confirmed) {
+        deleteCourtMutation.mutate(court.id);
+      }
+    } else {
+      Alert.alert(
+        "Delete Court",
+        `Are you sure you want to delete "${court.name}"?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Delete", style: "destructive", onPress: () => deleteCourtMutation.mutate(court.id) },
+        ]
+      );
+    }
   };
 
   const handleSaveCourt = async () => {
@@ -515,20 +522,31 @@ export default function SettingsScreen() {
     }
     const courtsAtLocation = courts.filter(c => c.locationId === location.id);
     if (courtsAtLocation.length > 0) {
-      Alert.alert(
-        "Cannot Delete Location",
-        `This location has ${courtsAtLocation.length} court(s) assigned. Please reassign or remove them first.`
-      );
+      if (Platform.OS === "web") {
+        window.alert(`Cannot Delete Location: This location has ${courtsAtLocation.length} court(s) assigned. Please reassign or remove them first.`);
+      } else {
+        Alert.alert(
+          "Cannot Delete Location",
+          `This location has ${courtsAtLocation.length} court(s) assigned. Please reassign or remove them first.`
+        );
+      }
       return;
     }
-    Alert.alert(
-      "Delete Location",
-      `Are you sure you want to delete "${location.name}"?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: () => deleteLocationMutation.mutate(location.id) },
-      ]
-    );
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm(`Are you sure you want to delete "${location.name}"?`);
+      if (confirmed) {
+        deleteLocationMutation.mutate(location.id);
+      }
+    } else {
+      Alert.alert(
+        "Delete Location",
+        `Are you sure you want to delete "${location.name}"?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Delete", style: "destructive", onPress: () => deleteLocationMutation.mutate(location.id) },
+        ]
+      );
+    }
   };
 
   const handleSaveLocation = async () => {
