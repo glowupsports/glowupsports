@@ -20755,6 +20755,227 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get leaderboard rankings
+  app.get("/api/player/leaderboard", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId;
+      const playerId = req.user!.playerId;
+      const scope = (req.query.scope as string) || "academy";
+      const period = (req.query.period as string) || "weekly";
+      
+      // Build conditions array, filtering out undefined
+      const conditions = [eq(players.status, "active")];
+      if (scope === "academy" && academyId) {
+        conditions.push(eq(players.academyId, academyId));
+      }
+      
+      // Get top players by Glow Score
+      const topPlayers = await db.select({
+        id: players.id,
+        name: players.name,
+        photoUrl: players.photoUrl,
+        level: players.level,
+        glowScore: players.glowScore,
+        xp: players.xp,
+        ballLevel: players.ballLevel,
+        streak: players.consecutiveDays,
+      })
+      .from(players)
+      .where(and(...conditions))
+      .orderBy(desc(players.glowScore), desc(players.xp))
+      .limit(50);
+      
+      // Calculate current player's rank
+      let myRank = 0;
+      if (playerId) {
+        const playerIndex = topPlayers.findIndex(p => p.id === playerId);
+        if (playerIndex >= 0) {
+          myRank = playerIndex + 1;
+        } else {
+          // Player not in top 50, get their glow score first
+          const [currentPlayerData] = await db.select({ glowScore: players.glowScore })
+            .from(players)
+            .where(eq(players.id, playerId));
+          
+          const myGlowScore = currentPlayerData?.glowScore || 0;
+          
+          // Count players with higher glow score
+          const rankConditions = [...conditions, sql`COALESCE(${players.glowScore}, 0) > ${myGlowScore}`];
+          const [{ count: higherCount }] = await db.select({ count: count() })
+            .from(players)
+            .where(and(...rankConditions));
+          myRank = Number(higherCount) + 1;
+        }
+      }
+      
+      // Get current player's data
+      const currentPlayer = playerId ? topPlayers.find(p => p.id === playerId) : null;
+      
+      res.json({
+        scope,
+        period,
+        myRank,
+        currentPlayer: currentPlayer ? {
+          ...currentPlayer,
+          rank: myRank,
+        } : null,
+        rankings: topPlayers.map((p, idx) => ({
+          rank: idx + 1,
+          id: p.id,
+          name: p.name,
+          photoUrl: p.photoUrl,
+          level: p.level || 1,
+          glowScore: p.glowScore || 0,
+          xp: p.xp || 0,
+          ballLevel: p.ballLevel,
+          streak: p.streak || 0,
+          isCurrentPlayer: p.id === playerId,
+        })),
+      });
+    } catch (error) {
+      console.error("Error fetching leaderboard:", error);
+      res.status(500).json({ error: "Failed to fetch leaderboard" });
+    }
+  });
+
+  // Search players for connections
+  app.get("/api/player/search", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId;
+      const playerId = req.user!.playerId;
+      const searchQuery = (req.query.q as string) || "";
+      const skillLevel = req.query.skill as string;
+      const openToPlayOnly = req.query.openToPlay === "true";
+      
+      let conditions: any[] = [eq(players.status, "active")];
+      
+      if (academyId) {
+        conditions.push(eq(players.academyId, academyId));
+      }
+      
+      if (playerId) {
+        conditions.push(sql`${players.id} != ${playerId}`);
+      }
+      
+      if (searchQuery) {
+        conditions.push(sql`LOWER(${players.name}) LIKE LOWER(${"%" + searchQuery + "%"})`);
+      }
+      
+      if (skillLevel) {
+        conditions.push(eq(players.ballLevel, skillLevel));
+      }
+      
+      if (openToPlayOnly) {
+        conditions.push(eq(players.openToPlay, true));
+      }
+      
+      const results = await db.select({
+        id: players.id,
+        name: players.name,
+        photoUrl: players.photoUrl,
+        level: players.level,
+        glowScore: players.glowScore,
+        ballLevel: players.ballLevel,
+        openToPlay: players.openToPlay,
+      })
+      .from(players)
+      .where(and(...conditions))
+      .orderBy(desc(players.glowScore))
+      .limit(30);
+      
+      res.json({
+        query: searchQuery,
+        results: results.map(p => ({
+          id: p.id,
+          name: p.name,
+          photoUrl: p.photoUrl,
+          level: p.level || 1,
+          glowScore: p.glowScore || 0,
+          ballLevel: p.ballLevel,
+          openToPlay: p.openToPlay || false,
+        })),
+      });
+    } catch (error) {
+      console.error("Error searching players:", error);
+      res.status(500).json({ error: "Failed to search players" });
+    }
+  });
+
+  // Get Open to Play players
+  app.get("/api/player/open-to-play", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId;
+      const playerId = req.user!.playerId;
+      
+      // Build conditions for players query
+      const playerConditions = [
+        eq(players.status, "active"),
+        eq(players.openToPlay, true),
+      ];
+      if (academyId) {
+        playerConditions.push(eq(players.academyId, academyId));
+      }
+      if (playerId) {
+        playerConditions.push(sql`${players.id} != ${playerId}`);
+      }
+      
+      // Get players who are open to play
+      const openPlayers = await db.select({
+        id: players.id,
+        name: players.name,
+        photoUrl: players.photoUrl,
+        level: players.level,
+        glowScore: players.glowScore,
+        ballLevel: players.ballLevel,
+      })
+      .from(players)
+      .where(and(...playerConditions))
+      .orderBy(desc(players.glowScore))
+      .limit(20);
+      
+      // Get open to play listings from openToPlayTable if it exists
+      let listings: any[] = [];
+      try {
+        const listingConditions = [
+          eq(openToPlayTable.isActive, true),
+          gte(openToPlayTable.availableUntil, new Date()),
+        ];
+        if (academyId) {
+          listingConditions.push(eq(openToPlayTable.academyId, academyId));
+        }
+        
+        listings = await db.select({
+          id: openToPlayTable.id,
+          playerId: openToPlayTable.playerId,
+          message: openToPlayTable.message,
+          availableUntil: openToPlayTable.availableUntil,
+          skillPreference: openToPlayTable.skillPreference,
+        })
+        .from(openToPlayTable)
+        .where(and(...listingConditions))
+        .orderBy(desc(openToPlayTable.createdAt))
+        .limit(20);
+      } catch (e) {
+        // Table might not exist
+      }
+      
+      res.json({
+        players: openPlayers.map(p => ({
+          id: p.id,
+          name: p.name,
+          photoUrl: p.photoUrl,
+          level: p.level || 1,
+          glowScore: p.glowScore || 0,
+          ballLevel: p.ballLevel,
+        })),
+        listings,
+      });
+    } catch (error) {
+      console.error("Error fetching open to play:", error);
+      res.status(500).json({ error: "Failed to fetch open to play" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat
