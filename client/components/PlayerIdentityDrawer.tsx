@@ -137,7 +137,12 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigateToPro
   const navigateAndClose = (screen: string, params?: any) => {
     handleClose();
     setTimeout(() => {
-      navigation.navigate(screen, params);
+      const parentNav = navigation.getParent();
+      if (parentNav) {
+        parentNav.navigate(screen, params);
+      } else {
+        navigation.navigate(screen, params);
+      }
     }, 150);
   };
 
@@ -418,7 +423,7 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigateToPro
                 iconColor={Colors.dark.primary}
                 title="My Journey"
                 subtitle="Your tennis story"
-                onPress={() => { handleClose(); navigation.navigate("PlayerTabs", { screen: "Journey" }); }}
+                onPress={() => navigateAndClose("Journey")}
               />
               <WorldMenuItem 
                 icon="chatbubbles"

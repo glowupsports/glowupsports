@@ -62,6 +62,7 @@ export type PlayerStackParamList = {
   Training: undefined;
   TrainingDetail: { sessionId: string };
   SkillDetail: { domain: string };
+  Journey: undefined;
   Settings: undefined;
   AcademyBrowser: undefined;
   AcademyProfile: { academyId: string };
@@ -228,6 +229,13 @@ function PlayerStackNavigator() {
       <Stack.Screen 
         name="SkillDetail" 
         component={SkillDetailScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="Journey" 
+        component={PlayerJourneyScreen}
         options={{
           presentation: "card",
         }}
