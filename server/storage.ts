@@ -1951,6 +1951,135 @@ export const storage = {
     return { success: false, reason: "credit_deduction_failed" };
   },
 
+  async deductTypedCreditsForSession(
+    playerId: string,
+    sessionType: string,
+    sessionId: string,
+    academyId?: string
+  ): Promise<{ success: boolean; package?: Package; creditType?: string; reason?: string }> {
+    // Map session types to credit types
+    const sessionToCreditType: Record<string, string> = {
+      private: "private",
+      semi: "semi_private",
+      semi_private: "semi_private",
+      group: "group",
+    };
+    
+    const requiredCreditType = sessionToCreditType[sessionType] || "group";
+    const activePackages = await this.getActivePlayerPackages(playerId, academyId);
+    
+    // Filter packages with matching credit type
+    const matchingPackages = activePackages.filter(pkg => {
+      const pkgCreditType = pkg.creditType || "group";
+      return pkgCreditType === requiredCreditType && pkg.remainingCredits > 0;
+    });
+    
+    if (matchingPackages.length === 0) {
+      return { 
+        success: false, 
+        reason: "no_matching_credits", 
+        creditType: requiredCreditType 
+      };
+    }
+    
+    // Sort by expiry date (soonest first) to use credits from expiring packages first
+    const sortedPackages = matchingPackages.sort((a, b) => {
+      if (!a.expiryDate && !b.expiryDate) return 0;
+      if (!a.expiryDate) return 1;
+      if (!b.expiryDate) return -1;
+      return a.expiryDate.localeCompare(b.expiryDate);
+    });
+    
+    const packageToUse = sortedPackages[0];
+    const balanceBefore = packageToUse.remainingCredits;
+    const balanceAfter = balanceBefore - 1;
+    
+    // Deduct credit from package
+    const updatedPackage = await this.usePackageCredit(packageToUse.id, academyId);
+    
+    if (!updatedPackage) {
+      return { success: false, reason: "credit_deduction_failed", creditType: requiredCreditType };
+    }
+    
+    // Log the credit transaction
+    await this.createCreditTransaction({
+      playerId,
+      academyId: academyId || packageToUse.academyId,
+      packageId: packageToUse.id,
+      type: "debit",
+      creditType: requiredCreditType,
+      amount: -1,
+      reason: "session_booking",
+      sessionId,
+      balanceBefore,
+      balanceAfter,
+      metadata: JSON.stringify({
+        sessionType,
+        bookedBy: "coach",
+      }),
+    });
+    
+    return { 
+      success: true, 
+      package: updatedPackage, 
+      creditType: requiredCreditType 
+    };
+  },
+
+  async refundCreditsForSession(
+    playerId: string,
+    sessionId: string,
+    academyId?: string
+  ): Promise<{ success: boolean; creditType?: string; reason?: string }> {
+    // Find the original debit transaction for this session
+    const transactions = await this.getCreditTransactionsBySession(sessionId);
+    const originalDebit = transactions.find(
+      t => t.playerId === playerId && t.type === "debit" && t.reason === "session_booking"
+    );
+    
+    if (!originalDebit || !originalDebit.packageId) {
+      return { success: false, reason: "no_original_transaction" };
+    }
+    
+    // Find the package and refund the credit
+    const pkg = await this.getPackage(originalDebit.packageId, academyId);
+    if (!pkg) {
+      return { success: false, reason: "package_not_found" };
+    }
+    
+    // Refund credit to package
+    const balanceBefore = pkg.remainingCredits;
+    const balanceAfter = balanceBefore + 1;
+    
+    await db
+      .update(packages)
+      .set({ remainingCredits: balanceAfter })
+      .where(eq(packages.id, pkg.id));
+    
+    // Log the refund transaction
+    await this.createCreditTransaction({
+      playerId,
+      academyId: academyId || pkg.academyId,
+      packageId: pkg.id,
+      type: "credit",
+      creditType: originalDebit.creditType || "group",
+      amount: 1,
+      reason: "session_removal_refund",
+      sessionId,
+      balanceBefore,
+      balanceAfter,
+      metadata: JSON.stringify({
+        originalTransactionId: originalDebit.id,
+        refundedBy: "coach",
+      }),
+    });
+    
+    return { 
+      success: true, 
+      creditType: originalDebit.creditType || "group"
+    };
+  },
+
   // ==================== PACKAGE TEMPLATES ====================
   async getPackageTemplates(academyId: string): Promise<PackageTemplate[]> {
     return db.select().from(packageTemplates)

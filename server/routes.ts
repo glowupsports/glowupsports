@@ -2985,7 +2985,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ error: "Player not found" });
         }
 
-        // Credit type validation - check if player has matching credits
+        // Credit type validation and ATOMIC deduction - check and deduct credits BEFORE adding player
         if (!skipCreditCheck) {
           const creditCheck = await storage.checkPlayerCreditsForSessionType(
             playerId,
@@ -3011,6 +3011,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      let creditDeductionResult = null;
+
+      // ATOMIC: Deduct typed credits BEFORE adding player (unless skipCreditCheck or guest)
+      if (playerId && !isGuest && !skipCreditCheck) {
+        creditDeductionResult = await storage.deductTypedCreditsForSession(
+          playerId,
+          session.sessionType,
+          id,
+          academyId
+        );
+        
+        // If deduction failed, don't add the player - return error
+        if (!creditDeductionResult.success) {
+          const player = await storage.getPlayer(playerId, academyId);
+          return res.status(400).json({
+            error: "credit_deduction_failed",
+            message: `Could not deduct credits for ${player?.name || "player"}: ${creditDeductionResult.reason}`,
+            creditType: creditDeductionResult.creditType,
+            playerId,
+            sessionId: id,
+          });
+        }
+      }
+
+      // Only add player after credits are successfully deducted (or skipped)
       const sessionPlayer = await storage.addPlayerToSession({
         sessionId: id,
         playerId,
@@ -3026,7 +3051,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (!creditCheck.hasCredits) {
           const player = await storage.getPlayer(playerId, academyId);
-          const creditTypeLabel = creditCheck.creditType.replace("_", "-");
+          const creditTypeLabel = (creditCheck.creditType || "").replace("_", "-");
           
           await storage.createNotification({
             playerId,
@@ -3060,7 +3085,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      res.status(201).json({ ...sessionPlayer, success: true });
+      res.status(201).json({ 
+        ...sessionPlayer, 
+        success: true,
+        creditDeducted: creditDeductionResult?.success || false,
+        creditType: creditDeductionResult?.creditType,
+        remainingCredits: creditDeductionResult?.package?.remainingCredits,
+      });
     } catch (error) {
       console.error("Error adding player:", error);
       res.status(500).json({ error: "Failed to add player" });
@@ -3073,8 +3104,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id, playerId } = req.params;
       const academyId = req.user!.academyId;
 
-      const { valid: sessionValid } = await validateSessionOwnership(id, academyId, storage);
-      if (!sessionValid) {
+      const { valid: sessionValid, session } = await validateSessionOwnership(id, academyId, storage);
+      if (!sessionValid || !session) {
         return res.status(404).json({ error: "Session not found" });
       }
 
@@ -3084,9 +3115,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
 
+      // Refund credits if session hasn't started yet
+      let refundResult = null;
+      const now = new Date();
+      if (session.startTime > now) {
+        refundResult = await storage.refundCreditsForSession(playerId, id, academyId);
+      }
+
       await storage.removePlayerFromSession(id, playerId);
 
-      res.status(204).send();
+      res.json({ 
+        success: true,
+        creditRefunded: refundResult?.success || false,
+        creditType: refundResult?.creditType,
+      });
     } catch (error) {
       console.error("Error removing player:", error);
       res.status(500).json({ error: "Failed to remove player" });
@@ -3319,13 +3361,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
           
-          // Auto-deduct credit from player's active package
-          const creditResult = await storage.autoDeductPlayerCredit(sp.playerId, academyId || undefined);
-          creditResults.push({
-            playerId: sp.playerId,
-            success: creditResult.success,
-            reason: creditResult.reason,
-          });
+          // Check if credits were already deducted at booking time (new flow)
+          const existingTransactions = await storage.getCreditTransactionsBySession(id);
+          const alreadyDeducted = existingTransactions.some(
+            t => t.playerId === sp.playerId && t.type === "debit" && t.reason === "session_booking"
+          );
+          
+          if (!alreadyDeducted) {
+            // Auto-deduct credit from player's active package (legacy flow for old sessions)
+            const creditResult = await storage.autoDeductPlayerCredit(sp.playerId, academyId || undefined);
+            creditResults.push({
+              playerId: sp.playerId,
+              success: creditResult.success,
+              reason: creditResult.reason,
+            });
+          } else {
+            creditResults.push({
+              playerId: sp.playerId,
+              success: true,
+              reason: "already_deducted_at_booking",
+            });
+          }
         }
       }
 
