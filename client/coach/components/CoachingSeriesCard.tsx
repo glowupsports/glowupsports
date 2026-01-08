@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { useCoach } from "@/coach/context/CoachContext";
+import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 
 interface CoachingSeries {
   id: string;
@@ -46,6 +48,8 @@ const SESSION_TYPE_CONFIG: Record<string, { color: string; icon: string }> = {
 };
 
 export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
+  const { academy } = useCoach();
+  
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onPress(series);
@@ -60,6 +64,12 @@ export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
   const typeConfig = SESSION_TYPE_CONFIG[series.sessionType] || SESSION_TYPE_CONFIG.private;
   const dayName = DAY_NAMES[series.dayOfWeek];
   const totalWeeks = series.weekCount || "Open";
+  
+  // Convert UTC startTime to local academy time for display
+  const localStartTime = useMemo(() => {
+    const timezone = academy?.timezone || "Asia/Dubai";
+    return convertUTCTimeToLocal(series.startTime, timezone);
+  }, [series.startTime, academy?.timezone]);
   const completedProgress = series.weekCount 
     ? Math.round((series.sessionsCompleted / series.weekCount) * 100) 
     : null;
@@ -110,7 +120,7 @@ export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
           <View style={styles.scheduleRow}>
             <Ionicons name="time-outline" size={14} color={typeConfig.color} />
             <Text style={styles.scheduleText}>
-              {dayName} {series.startTime} - {series.duration}min
+              {dayName} {localStartTime} - {series.duration}min
             </Text>
           </View>
 

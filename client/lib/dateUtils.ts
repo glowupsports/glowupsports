@@ -115,3 +115,43 @@ export function getDayOfWeekInTimezone(isoDateString: string, timezone: string):
     return 0;
   }
 }
+
+/**
+ * Convert a UTC "HH:MM" time string to local time based on academy timezone.
+ * Used for displaying series startTime which is stored as UTC.
+ * 
+ * Uses Intl.DateTimeFormat for accurate timezone conversion, handling:
+ * - Half-hour offsets (e.g., Asia/Kolkata +05:30)
+ * - DST transitions
+ */
+export function convertUTCTimeToLocal(utcTime: string, timezone: string): string {
+  try {
+    const [hours, minutes] = utcTime.split(":").map(Number);
+    if (isNaN(hours) || isNaN(minutes)) return utcTime;
+    
+    // Create a UTC date with the given time (using a fixed date to avoid DST ambiguity)
+    // We use today's date to get the current DST offset for the timezone
+    const today = new Date();
+    const utcDate = new Date(Date.UTC(
+      today.getUTCFullYear(),
+      today.getUTCMonth(),
+      today.getUTCDate(),
+      hours,
+      minutes,
+      0
+    ));
+    
+    // Use Intl.DateTimeFormat to get the local time in the target timezone
+    // This correctly handles half-hour offsets and DST
+    const formatter = new Intl.DateTimeFormat("en-GB", {
+      timeZone: timezone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    
+    return formatter.format(utcDate);
+  } catch {
+    return utcTime; // Return original if conversion fails
+  }
+}

@@ -133,6 +133,7 @@ export default function SessionDetailDrawer({
   const [showCatchUp, setShowCatchUp] = useState(false);
   const [pastSessions, setPastSessions] = useState<Session[]>([]);
   const [catchUpAttendance, setCatchUpAttendance] = useState<Map<string, "present" | "absent" | "holiday">>(new Map());
+  const [showPastSessionsConfirm, setShowPastSessionsConfirm] = useState<{weeksDiff: number; startDate: Date} | null>(null);
   const [showGuestInput, setShowGuestInput] = useState(false);
   const [guestName, setGuestName] = useState("");
   const [showGuestConvert, setShowGuestConvert] = useState<{id: string; name: string} | null>(null);
@@ -492,54 +493,53 @@ export default function SessionDetailDrawer({
     
     if (startDate < today) {
       const weeksDiff = Math.ceil((today.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
-      
-      Alert.alert(
-        "Past Sessions Found",
-        `This player has ${weeksDiff} past session${weeksDiff > 1 ? 's' : ''} since ${startDate.toLocaleDateString()}. Do you want to review attendance now?`,
-        [
-          { 
-            text: "Skip", 
-            style: "cancel",
-            onPress: async () => {
-              if (isOfflineRef.current) {
-                await logOfflineAttempt({ screen: "SessionDetailDrawer", action: "add_player_skip" });
-                showOfflineAlert();
-                return;
-              }
-              addPlayerMutation.mutate({ playerId: selectedPlayer.id });
-            },
-          },
-          { 
-            text: "Review Attendance",
-            onPress: () => {
-              const sessions: Session[] = [];
-              let date = new Date(startDate);
-              const sessionDay = new Date(session.startTime).getDay();
-              
-              while (date <= today) {
-                if (date.getDay() === sessionDay && date < today) {
-                  sessions.push({
-                    ...session,
-                    id: `${session.id}-${date.toISOString()}`,
-                    startTime: new Date(date.setHours(new Date(session.startTime).getHours(), new Date(session.startTime).getMinutes())).toISOString(),
-                    endTime: new Date(date.setHours(new Date(session.endTime).getHours(), new Date(session.endTime).getMinutes())).toISOString(),
-                  });
-                }
-                date.setDate(date.getDate() + 1);
-              }
-              
-              setPastSessions(sessions);
-              const initial = new Map<string, "present" | "absent" | "holiday">();
-              sessions.forEach(s => initial.set(s.id, "present"));
-              setCatchUpAttendance(initial);
-              setShowCatchUp(true);
-            },
-          },
-        ]
-      );
+      setShowPastSessionsConfirm({ weeksDiff, startDate });
     } else {
       addPlayerMutation.mutate({ playerId: selectedPlayer.id });
     }
+  };
+
+  const handleSkipPastSessions = async () => {
+    if (isOffline) {
+      await logOfflineAttempt({ screen: "SessionDetailDrawer", action: "add_player_skip" });
+      showOfflineAlert();
+      return;
+    }
+    if (!selectedPlayer) return;
+    setShowPastSessionsConfirm(null);
+    addPlayerMutation.mutate({ playerId: selectedPlayer.id });
+  };
+
+  const handleReviewAttendance = () => {
+    if (!showPastSessionsConfirm || !selectedPlayer) return;
+    
+    const { startDate } = showPastSessionsConfirm;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const sessions: Session[] = [];
+    const date = new Date(startDate);
+    const sessionDay = new Date(session.startTime).getDay();
+    
+    while (date <= today) {
+      if (date.getDay() === sessionDay && date < today) {
+        const sessionDate = new Date(date);
+        sessions.push({
+          ...session,
+          id: `${session.id}-${sessionDate.toISOString()}`,
+          startTime: new Date(sessionDate.setHours(new Date(session.startTime).getHours(), new Date(session.startTime).getMinutes())).toISOString(),
+          endTime: new Date(sessionDate.setHours(new Date(session.endTime).getHours(), new Date(session.endTime).getMinutes())).toISOString(),
+        });
+      }
+      date.setDate(date.getDate() + 1);
+    }
+    
+    setPastSessions(sessions);
+    const initial = new Map<string, "present" | "absent" | "holiday">();
+    sessions.forEach(s => initial.set(s.id, "present"));
+    setCatchUpAttendance(initial);
+    setShowPastSessionsConfirm(null);
+    setShowCatchUp(true);
   };
 
   const handleSaveCatchUp = async () => {
@@ -1425,6 +1425,41 @@ export default function SessionDetailDrawer({
           </ScrollView>
         </View>
       </Modal>
+      
+      {/* Past Sessions Confirmation Modal */}
+      {showPastSessionsConfirm ? (
+        <Modal visible={!!showPastSessionsConfirm} animationType="fade" transparent>
+          <View style={styles.creditWarningOverlay}>
+            <View style={styles.creditWarningContent}>
+              <View style={[styles.creditWarningIcon, { backgroundColor: `${Colors.dark.orange}20` }]}>
+                <Ionicons name="calendar-outline" size={48} color={Colors.dark.orange} />
+              </View>
+              <Text style={styles.creditWarningTitle}>Past Sessions Found</Text>
+              <Text style={styles.creditWarningMessage}>
+                This player has {showPastSessionsConfirm.weeksDiff} past session{showPastSessionsConfirm.weeksDiff > 1 ? 's' : ''} since {showPastSessionsConfirm.startDate.toLocaleDateString()}.
+              </Text>
+              <Text style={styles.creditWarningNote}>
+                Do you want to review attendance for these sessions?
+              </Text>
+              
+              <View style={styles.creditWarningButtons}>
+                <Pressable 
+                  onPress={handleSkipPastSessions} 
+                  style={styles.creditWarningCancelBtn}
+                >
+                  <Text style={styles.creditWarningCancelText}>Skip</Text>
+                </Pressable>
+                <Pressable 
+                  onPress={handleReviewAttendance} 
+                  style={[styles.creditWarningAddBtn, { backgroundColor: Colors.dark.orange }]}
+                >
+                  <Text style={styles.creditWarningAddText}>Review Attendance</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      ) : null}
       
       {/* Credit Mismatch Warning Modal */}
       <Modal visible={!!creditMismatchWarning} animationType="fade" transparent>

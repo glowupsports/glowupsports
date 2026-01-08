@@ -1460,6 +1460,13 @@ export const storage = {
     if (academyId) {
       conditions.push(eq(locations.academyId, academyId));
     }
+    // First delete related travel times to avoid foreign key constraint violations
+    await db.delete(locationTravelTimes).where(
+      or(
+        eq(locationTravelTimes.fromLocationId, id),
+        eq(locationTravelTimes.toLocationId, id)
+      )
+    );
     await db.delete(locations).where(and(...conditions));
   },
 

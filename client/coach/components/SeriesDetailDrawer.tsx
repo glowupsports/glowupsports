@@ -18,6 +18,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { convertUTCTimeToLocal } from "@/lib/dateUtils";
+import { useCoach } from "@/coach/context/CoachContext";
 
 interface Player {
   id: string;
@@ -140,6 +142,7 @@ export default function SeriesDetailDrawer({
 }: SeriesDetailDrawerProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { academy } = useCoach();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -304,7 +307,11 @@ export default function SeriesDetailDrawer({
   };
 
   const formatTime = (timeStr: string) => {
-    const [hours, minutes] = timeStr.split(":").map(Number);
+    // First convert UTC time to local academy time
+    const timezone = academy?.timezone || "Asia/Dubai";
+    const localTime = convertUTCTimeToLocal(timeStr, timezone);
+    
+    const [hours, minutes] = localTime.split(":").map(Number);
     const period = hours >= 12 ? "PM" : "AM";
     const displayHours = hours % 12 || 12;
     return `${displayHours}:${String(minutes).padStart(2, "0")} ${period}`;

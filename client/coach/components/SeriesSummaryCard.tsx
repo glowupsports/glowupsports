@@ -1,10 +1,12 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { useCoach } from "@/coach/context/CoachContext";
+import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 
 const SERIES_PURPLE = "#8A2BE2";
 
@@ -28,6 +30,7 @@ interface SeriesSummaryCardProps {
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function SeriesSummaryCard({ onPress, onViewAll }: SeriesSummaryCardProps) {
+  const { academy } = useCoach();
   const { data: seriesData, isLoading } = useQuery<SeriesSummary[]>({
     queryKey: ["/api/coach/series"],
   });
@@ -42,6 +45,12 @@ export function SeriesSummaryCard({ onPress, onViewAll }: SeriesSummaryCardProps
   const todaysSeries = activeSeries.filter(s => Number(s.dayOfWeek) === todayDayOfWeek);
   
   const totalPlayers = activeSeries.reduce((acc, s) => acc + s.playerCount, 0);
+  
+  // Helper to convert UTC time to local academy time
+  const getLocalTime = (utcTime: string) => {
+    const timezone = academy?.timezone || "Asia/Dubai";
+    return convertUTCTimeToLocal(utcTime, timezone);
+  };
 
   if (isLoading) {
     return (
@@ -157,7 +166,7 @@ export function SeriesSummaryCard({ onPress, onViewAll }: SeriesSummaryCardProps
                   <View style={[styles.seriesTypeDot, { backgroundColor: getTypeColor(series.sessionType) }]} />
                   <View>
                     <Text style={styles.seriesName} numberOfLines={1}>{series.name}</Text>
-                    <Text style={styles.seriesTime}>{series.startTime}</Text>
+                    <Text style={styles.seriesTime}>{getLocalTime(series.startTime)}</Text>
                   </View>
                 </View>
                 <View style={styles.seriesItemRight}>
