@@ -182,7 +182,7 @@ export default function NotificationsScreen() {
   const { coach } = useCoach();
 
   const { data: notifications = [], isLoading } = useQuery<Notification[]>({
-    queryKey: ["/api/coach/notifications", { coachId: coach?.id }],
+    queryKey: ["/api/coach/notifications"],
     enabled: !!coach?.id,
   });
 
