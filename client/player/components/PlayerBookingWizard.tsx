@@ -948,6 +948,101 @@ export default function PlayerBookingWizard({
             </Pressable>
           </View>
         )}
+
+        {/* Calendar Modal */}
+        <Modal visible={showCalendarModal} transparent animationType="fade">
+          <Pressable style={styles.calendarOverlay} onPress={() => setShowCalendarModal(false)}>
+            <Pressable style={styles.calendarModal} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.calendarHeader}>
+                <Pressable
+                  onPress={() => {
+                    const newDate = new Date(calendarViewDate);
+                    newDate.setMonth(newDate.getMonth() - 1);
+                    setCalendarViewDate(newDate);
+                  }}
+                  style={styles.calendarNavButton}
+                >
+                  <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
+                </Pressable>
+                <Text style={styles.calendarMonthText}>
+                  {calendarViewDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    const newDate = new Date(calendarViewDate);
+                    newDate.setMonth(newDate.getMonth() + 1);
+                    setCalendarViewDate(newDate);
+                  }}
+                  style={styles.calendarNavButton}
+                >
+                  <Ionicons name="chevron-forward" size={24} color={Colors.dark.text} />
+                </Pressable>
+              </View>
+
+              <View style={styles.calendarWeekdays}>
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                  <Text key={day} style={styles.calendarWeekdayText}>{day}</Text>
+                ))}
+              </View>
+
+              <View style={styles.calendarGrid}>
+                {(() => {
+                  const firstDay = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth(), 1);
+                  const lastDay = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 0);
+                  const startPadding = firstDay.getDay();
+                  const days: (number | null)[] = [];
+                  
+                  for (let i = 0; i < startPadding; i++) days.push(null);
+                  for (let d = 1; d <= lastDay.getDate(); d++) days.push(d);
+                  
+                  return days.map((day, idx) => {
+                    if (day === null) {
+                      return <View key={`pad-${idx}`} style={styles.calendarDayEmpty} />;
+                    }
+                    const dateObj = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth(), day);
+                    const isSelected = dateObj.toDateString() === selectedDate.toDateString();
+                    const isToday = dateObj.toDateString() === new Date().toDateString();
+                    const isPast = dateObj < new Date(new Date().setHours(0, 0, 0, 0));
+                    
+                    return (
+                      <Pressable
+                        key={day}
+                        style={[
+                          styles.calendarDay,
+                          isSelected && styles.calendarDaySelected,
+                          isToday && !isSelected && styles.calendarDayToday,
+                          isPast && styles.calendarDayPast,
+                        ]}
+                        onPress={() => {
+                          if (!isPast) {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setSelectedDate(dateObj);
+                            setShowCalendarModal(false);
+                          }
+                        }}
+                        disabled={isPast}
+                      >
+                        <Text
+                          style={[
+                            styles.calendarDayText,
+                            isSelected && styles.calendarDayTextSelected,
+                            isPast && styles.calendarDayTextPast,
+                          ]}
+                        >
+                          {day}
+                        </Text>
+                      </Pressable>
+                    );
+                  });
+                })()}
+              </View>
+
+              <Pressable style={styles.calendarCloseButton} onPress={() => setShowCalendarModal(false)}>
+                <Text style={styles.calendarCloseButtonText}>Close</Text>
+              </Pressable>
+            </Pressable>
+          </Pressable>
+        </Modal>
       </View>
     </Modal>
   );
@@ -1522,5 +1617,92 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 700,
     color: "#FFF",
+  },
+  calendarOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  calendarModal: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    width: "100%",
+    maxWidth: 350,
+  },
+  calendarHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  calendarNavButton: {
+    padding: Spacing.sm,
+  },
+  calendarMonthText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  calendarWeekdays: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: Spacing.sm,
+  },
+  calendarWeekdayText: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    width: 40,
+    textAlign: "center",
+  },
+  calendarGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  calendarDay: {
+    width: "14.28%",
+    aspectRatio: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: BorderRadius.md,
+  },
+  calendarDayEmpty: {
+    width: "14.28%",
+    aspectRatio: 1,
+  },
+  calendarDaySelected: {
+    backgroundColor: Colors.dark.xpCyan,
+  },
+  calendarDayToday: {
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan,
+  },
+  calendarDayPast: {
+    opacity: 0.3,
+  },
+  calendarDayText: {
+    fontSize: 14,
+    color: Colors.dark.text,
+  },
+  calendarDayTextSelected: {
+    color: "#000",
+    fontWeight: "600",
+  },
+  calendarDayTextPast: {
+    color: Colors.dark.textMuted,
+  },
+  calendarCloseButton: {
+    marginTop: Spacing.lg,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+  },
+  calendarCloseButtonText: {
+    fontSize: 16,
+    color: Colors.dark.text,
+    fontWeight: "500",
   },
 });

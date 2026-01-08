@@ -6,9 +6,23 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import * as Clipboard from "expo-clipboard";
+import * as Haptics from "expo-haptics";
 import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
+interface AcademyPaymentInfo {
+  acceptsCash: boolean;
+  acceptsBankTransfer: boolean;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankIban?: string;
+  bankAccountHolder?: string;
+  bankSwiftCode?: string;
+  paymentInstructions?: string;
+  currency: string;
+}
 
 interface Invoice {
   id: string;
@@ -82,6 +96,33 @@ export default function ParentInvoicesScreen() {
 
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentInvoice, setPaymentInvoice] = useState<Invoice | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const { data: paymentInfo } = useQuery<AcademyPaymentInfo>({
+    queryKey: [`/api/parent/academy-payment-info/${playerId}`],
+    enabled: !!playerId,
+  });
+
+  const copyToClipboard = async (value: string, fieldName: string) => {
+    try {
+      await Clipboard.setStringAsync(value);
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      setCopiedField(fieldName);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (error) {
+      console.error("Failed to copy:", error);
+    }
+  };
+
+  const handlePayNow = (invoice: Invoice) => {
+    setPaymentInvoice(invoice);
+    setShowPaymentModal(true);
+    setSelectedInvoice(null);
+  };
 
   const parseLineItems = (lineItems: any): Array<{ description: string; quantity: number; unitPrice: number; total: number }> => {
     if (!lineItems) return [];
@@ -284,11 +325,11 @@ export default function ParentInvoicesScreen() {
                         <View style={styles.lineItemInfo}>
                           <Text style={styles.lineItemDescription}>{item.description}</Text>
                           <Text style={styles.lineItemQty}>
-                            {item.quantity} x {selectedInvoice.currency} {item.unitPrice.toFixed(2)}
+                            {item.quantity} x {selectedInvoice.currency} {parseFloat(String(item.unitPrice || 0)).toFixed(2)}
                           </Text>
                         </View>
                         <Text style={styles.lineItemTotal}>
-                          {selectedInvoice.currency} {item.total.toFixed(2)}
+                          {selectedInvoice.currency} {parseFloat(String(item.total || 0)).toFixed(2)}
                         </Text>
                       </View>
                     ))}
@@ -310,6 +351,18 @@ export default function ParentInvoicesScreen() {
                 ) : null}
 
                 <View style={styles.modalActions}>
+                  {selectedInvoice.status === "pending" ? (
+                    <Pressable 
+                      style={({ pressed }) => [
+                        styles.payNowButton, 
+                        pressed && styles.buttonPressed,
+                      ]} 
+                      onPress={() => handlePayNow(selectedInvoice)}
+                    >
+                      <Ionicons name="card-outline" size={20} color={Colors.dark.backgroundRoot} />
+                      <Text style={styles.payNowButtonText}>Pay Now</Text>
+                    </Pressable>
+                  ) : null}
                   <Pressable 
                     style={({ pressed }) => [
                       styles.downloadButtonModal, 
@@ -329,6 +382,140 @@ export default function ParentInvoicesScreen() {
                     </Text>
                   </Pressable>
                 </View>
+              </ScrollView>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Payment Modal */}
+      <Modal visible={showPaymentModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Pay Invoice</Text>
+              <Pressable 
+                onPress={() => { setShowPaymentModal(false); setPaymentInvoice(null); }} 
+                style={({ pressed }) => [styles.modalCloseButton, pressed && styles.buttonPressed]}
+              >
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+
+            {paymentInvoice ? (
+              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                <View style={styles.paymentAmountCard}>
+                  <Text style={styles.paymentAmountLabel}>Amount Due</Text>
+                  <Text style={styles.paymentAmountValue}>
+                    {paymentInvoice.currency} {parseFloat(paymentInvoice.amount).toFixed(2)}
+                  </Text>
+                  <Text style={styles.paymentInvoiceNumber}>{paymentInvoice.invoiceNumber}</Text>
+                </View>
+
+                <Text style={styles.paymentMethodsTitle}>Choose Payment Method</Text>
+
+                {!paymentInfo ? (
+                  <View style={styles.paymentLoadingState}>
+                    <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                    <Text style={styles.paymentLoadingText}>Loading payment options...</Text>
+                  </View>
+                ) : !paymentInfo.acceptsCash && !paymentInfo.acceptsBankTransfer ? (
+                  <View style={styles.noPaymentMethodsCard}>
+                    <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.textMuted} />
+                    <Text style={styles.noPaymentMethodsTitle}>No Payment Methods</Text>
+                    <Text style={styles.noPaymentMethodsText}>
+                      Your academy hasn't configured payment methods yet. Please contact your coach to arrange payment.
+                    </Text>
+                  </View>
+                ) : null}
+
+                {paymentInfo?.acceptsCash ? (
+                  <View style={styles.paymentMethodCard}>
+                    <View style={styles.paymentMethodHeader}>
+                      <Ionicons name="cash-outline" size={24} color={Colors.dark.gold} />
+                      <Text style={styles.paymentMethodName}>Cash Payment</Text>
+                    </View>
+                    <Text style={styles.paymentMethodDescription}>
+                      Pay cash at your next session. The academy will mark your invoice as paid once they receive payment.
+                    </Text>
+                  </View>
+                ) : null}
+
+                {paymentInfo?.acceptsBankTransfer ? (
+                  <View style={styles.paymentMethodCard}>
+                    <View style={styles.paymentMethodHeader}>
+                      <Ionicons name="card-outline" size={24} color={Colors.dark.xpCyan} />
+                      <Text style={styles.paymentMethodName}>Bank Transfer</Text>
+                    </View>
+                    <Text style={styles.paymentMethodDescription}>
+                      Transfer the amount to the account below. Include the invoice number as reference.
+                    </Text>
+
+                    <View style={styles.bankDetailsSection}>
+                      {paymentInfo.bankName ? (
+                        <View style={styles.bankDetailRow}>
+                          <Text style={styles.bankDetailLabel}>Bank</Text>
+                          <View style={styles.bankDetailValueRow}>
+                            <Text style={styles.bankDetailValue}>{paymentInfo.bankName}</Text>
+                            <Pressable onPress={() => copyToClipboard(paymentInfo.bankName!, "bankName")} style={styles.copyButton}>
+                              <Ionicons name={copiedField === "bankName" ? "checkmark" : "copy-outline"} size={16} color={copiedField === "bankName" ? Colors.dark.primary : Colors.dark.textMuted} />
+                            </Pressable>
+                          </View>
+                        </View>
+                      ) : null}
+                      {paymentInfo.bankAccountHolder ? (
+                        <View style={styles.bankDetailRow}>
+                          <Text style={styles.bankDetailLabel}>Account Holder</Text>
+                          <View style={styles.bankDetailValueRow}>
+                            <Text style={styles.bankDetailValue}>{paymentInfo.bankAccountHolder}</Text>
+                            <Pressable onPress={() => copyToClipboard(paymentInfo.bankAccountHolder!, "bankAccountHolder")} style={styles.copyButton}>
+                              <Ionicons name={copiedField === "bankAccountHolder" ? "checkmark" : "copy-outline"} size={16} color={copiedField === "bankAccountHolder" ? Colors.dark.primary : Colors.dark.textMuted} />
+                            </Pressable>
+                          </View>
+                        </View>
+                      ) : null}
+                      {paymentInfo.bankAccountNumber ? (
+                        <View style={styles.bankDetailRow}>
+                          <Text style={styles.bankDetailLabel}>Account Number</Text>
+                          <View style={styles.bankDetailValueRow}>
+                            <Text style={styles.bankDetailValue}>{paymentInfo.bankAccountNumber}</Text>
+                            <Pressable onPress={() => copyToClipboard(paymentInfo.bankAccountNumber!, "bankAccountNumber")} style={styles.copyButton}>
+                              <Ionicons name={copiedField === "bankAccountNumber" ? "checkmark" : "copy-outline"} size={16} color={copiedField === "bankAccountNumber" ? Colors.dark.primary : Colors.dark.textMuted} />
+                            </Pressable>
+                          </View>
+                        </View>
+                      ) : null}
+                      {paymentInfo.bankIban ? (
+                        <View style={styles.bankDetailRow}>
+                          <Text style={styles.bankDetailLabel}>IBAN</Text>
+                          <View style={styles.bankDetailValueRow}>
+                            <Text style={styles.bankDetailValue}>{paymentInfo.bankIban}</Text>
+                            <Pressable onPress={() => copyToClipboard(paymentInfo.bankIban!, "bankIban")} style={styles.copyButton}>
+                              <Ionicons name={copiedField === "bankIban" ? "checkmark" : "copy-outline"} size={16} color={copiedField === "bankIban" ? Colors.dark.primary : Colors.dark.textMuted} />
+                            </Pressable>
+                          </View>
+                        </View>
+                      ) : null}
+                    </View>
+
+                    <View style={styles.referenceBox}>
+                      <Text style={styles.referenceLabel}>Payment Reference</Text>
+                      <View style={styles.referenceValueRow}>
+                        <Text style={styles.referenceValue}>{paymentInvoice.invoiceNumber}</Text>
+                        <Pressable onPress={() => copyToClipboard(paymentInvoice.invoiceNumber, "reference")} style={styles.copyButton}>
+                          <Ionicons name={copiedField === "reference" ? "checkmark" : "copy-outline"} size={16} color={copiedField === "reference" ? Colors.dark.primary : Colors.dark.textMuted} />
+                        </Pressable>
+                      </View>
+                    </View>
+                  </View>
+                ) : null}
+
+                <Pressable 
+                  style={styles.doneButton} 
+                  onPress={() => { setShowPaymentModal(false); setPaymentInvoice(null); }}
+                >
+                  <Text style={styles.doneButtonText}>Done</Text>
+                </Pressable>
               </ScrollView>
             ) : null}
           </View>
@@ -623,5 +810,172 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.text,
     fontWeight: "600",
+  },
+  payNowButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    padding: Spacing.lg,
+    backgroundColor: Colors.dark.xpCyan,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.md,
+  },
+  payNowButtonText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
+  },
+  paymentAmountCard: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    alignItems: "center",
+    marginBottom: Spacing.xl,
+  },
+  paymentAmountLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.xs,
+  },
+  paymentAmountValue: {
+    ...Typography.h1,
+    color: Colors.dark.gold,
+    fontWeight: "700",
+    marginBottom: Spacing.sm,
+  },
+  paymentInvoiceNumber: {
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+  },
+  paymentMethodsTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    marginBottom: Spacing.md,
+  },
+  paymentMethodCard: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  paymentMethodHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  paymentMethodName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  paymentMethodDescription: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    lineHeight: 18,
+  },
+  bankDetailsSection: {
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  bankDetailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+  },
+  bankDetailLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  bankDetailValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  bankDetailValue: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "500",
+    flexShrink: 1,
+  },
+  copyButton: {
+    padding: Spacing.xs,
+  },
+  referenceBox: {
+    marginTop: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: "rgba(0,255,255,0.1)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan,
+  },
+  referenceLabel: {
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+    marginBottom: Spacing.xs,
+  },
+  referenceValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  referenceValue: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  doneButton: {
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    alignItems: "center",
+    marginTop: Spacing.md,
+    marginBottom: Spacing.xl,
+  },
+  doneButtonText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  paymentLoadingState: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.md,
+    padding: Spacing.xl,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.md,
+  },
+  paymentLoadingText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+  },
+  noPaymentMethodsCard: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  noPaymentMethodsTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  noPaymentMethodsText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    lineHeight: 18,
   },
 });

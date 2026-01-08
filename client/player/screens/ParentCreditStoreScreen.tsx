@@ -5,6 +5,7 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
+import * as Clipboard from "expo-clipboard";
 import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
@@ -157,6 +158,21 @@ export default function ParentCreditStoreScreen() {
     setSelectedPaymentMethod(null);
     setPin("");
     setPinError("");
+  };
+
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const copyToClipboard = async (value: string, fieldName: string) => {
+    try {
+      await Clipboard.setStringAsync(value);
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      setCopiedField(fieldName);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (error) {
+      console.error("Failed to copy:", error);
+    }
   };
 
   const formatCurrency = (amount: string, currency: string) => {
@@ -413,31 +429,56 @@ export default function ParentCreditStoreScreen() {
                   {paymentInfo.bankName ? (
                     <View style={styles.bankDetailRow}>
                       <Text style={styles.bankDetailLabel}>Bank</Text>
-                      <Text style={styles.bankDetailValue}>{paymentInfo.bankName}</Text>
+                      <View style={styles.bankDetailValueRow}>
+                        <Text style={styles.bankDetailValue}>{paymentInfo.bankName}</Text>
+                        <Pressable onPress={() => copyToClipboard(paymentInfo.bankName!, "bankName")} style={styles.copyButton}>
+                          <Ionicons name={copiedField === "bankName" ? "checkmark" : "copy-outline"} size={18} color={copiedField === "bankName" ? Colors.dark.primary : Colors.dark.textMuted} />
+                        </Pressable>
+                      </View>
                     </View>
                   ) : null}
                   {paymentInfo.bankAccountHolder ? (
                     <View style={styles.bankDetailRow}>
                       <Text style={styles.bankDetailLabel}>Account Holder</Text>
-                      <Text style={styles.bankDetailValue}>{paymentInfo.bankAccountHolder}</Text>
+                      <View style={styles.bankDetailValueRow}>
+                        <Text style={styles.bankDetailValue}>{paymentInfo.bankAccountHolder}</Text>
+                        <Pressable onPress={() => copyToClipboard(paymentInfo.bankAccountHolder!, "bankAccountHolder")} style={styles.copyButton}>
+                          <Ionicons name={copiedField === "bankAccountHolder" ? "checkmark" : "copy-outline"} size={18} color={copiedField === "bankAccountHolder" ? Colors.dark.primary : Colors.dark.textMuted} />
+                        </Pressable>
+                      </View>
                     </View>
                   ) : null}
                   {paymentInfo.bankAccountNumber ? (
                     <View style={styles.bankDetailRow}>
                       <Text style={styles.bankDetailLabel}>Account Number</Text>
-                      <Text style={styles.bankDetailValue}>{paymentInfo.bankAccountNumber}</Text>
+                      <View style={styles.bankDetailValueRow}>
+                        <Text style={styles.bankDetailValue}>{paymentInfo.bankAccountNumber}</Text>
+                        <Pressable onPress={() => copyToClipboard(paymentInfo.bankAccountNumber!, "bankAccountNumber")} style={styles.copyButton}>
+                          <Ionicons name={copiedField === "bankAccountNumber" ? "checkmark" : "copy-outline"} size={18} color={copiedField === "bankAccountNumber" ? Colors.dark.primary : Colors.dark.textMuted} />
+                        </Pressable>
+                      </View>
                     </View>
                   ) : null}
                   {paymentInfo.bankIban ? (
                     <View style={styles.bankDetailRow}>
                       <Text style={styles.bankDetailLabel}>IBAN</Text>
-                      <Text style={styles.bankDetailValue}>{paymentInfo.bankIban}</Text>
+                      <View style={styles.bankDetailValueRow}>
+                        <Text style={styles.bankDetailValue}>{paymentInfo.bankIban}</Text>
+                        <Pressable onPress={() => copyToClipboard(paymentInfo.bankIban!, "bankIban")} style={styles.copyButton}>
+                          <Ionicons name={copiedField === "bankIban" ? "checkmark" : "copy-outline"} size={18} color={copiedField === "bankIban" ? Colors.dark.primary : Colors.dark.textMuted} />
+                        </Pressable>
+                      </View>
                     </View>
                   ) : null}
                   {paymentInfo.bankSwiftCode ? (
                     <View style={styles.bankDetailRow}>
                       <Text style={styles.bankDetailLabel}>SWIFT/BIC</Text>
-                      <Text style={styles.bankDetailValue}>{paymentInfo.bankSwiftCode}</Text>
+                      <View style={styles.bankDetailValueRow}>
+                        <Text style={styles.bankDetailValue}>{paymentInfo.bankSwiftCode}</Text>
+                        <Pressable onPress={() => copyToClipboard(paymentInfo.bankSwiftCode!, "bankSwiftCode")} style={styles.copyButton}>
+                          <Ionicons name={copiedField === "bankSwiftCode" ? "checkmark" : "copy-outline"} size={18} color={copiedField === "bankSwiftCode" ? Colors.dark.primary : Colors.dark.textMuted} />
+                        </Pressable>
+                      </View>
                     </View>
                   ) : null}
                   {paymentInfo.paymentInstructions ? (
@@ -787,8 +828,17 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.textMuted,
   },
+  bankDetailValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  copyButton: {
+    padding: 4,
+  },
   bankDetailValue: {
     ...Typography.small,
+    flex: 1,
     color: Colors.dark.text,
     fontWeight: "600",
   },

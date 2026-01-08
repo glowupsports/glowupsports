@@ -16630,8 +16630,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const players = await db.query.players.findMany({
         where: (p, { and, eq, ne }) => and(
           eq(p.academyId, academyId || ""),
-          ne(p.id, playerId),
-          eq(p.status, "active")
+          ne(p.id, playerId)
         ),
         limit: 20,
       });
