@@ -43,6 +43,15 @@ import { filterSessionsByDate } from "@/lib/dateUtils";
 import { getApiUrl } from "@/lib/query-client";
 import { NextSessionCountdown } from "@/coach/components/NextSessionCountdown";
 import { SeriesSummaryCard } from "@/coach/components/SeriesSummaryCard";
+import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
+
+interface Player {
+  id: string;
+  name: string;
+  level?: string;
+  ballLevel?: string | null;
+  status?: string;
+}
 
 interface Session {
   id: string;
@@ -53,6 +62,7 @@ interface Session {
   duration: number;
   sessionType: string;
   status: string | null;
+  players?: Player[];
 }
 
 interface Alert {
@@ -83,6 +93,7 @@ export default function DashboardScreen() {
   const [selectedDayOffset, setSelectedDayOffset] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentSecond, setCurrentSecond] = useState(() => Math.floor(Date.now() / 1000));
+  const [selectedSessionForDetail, setSelectedSessionForDetail] = useState<Session | null>(null);
   
   useEffect(() => {
     const interval = setInterval(() => {
@@ -740,7 +751,13 @@ export default function DashboardScreen() {
                 {/* Main Mission Display */}
                 <View style={styles.missionDisplay}>
                   {selectedDayOffset === 0 && currentSession ? (
-                    <View style={styles.liveHud}>
+                    <Pressable 
+                      style={styles.liveHud}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        setSelectedSessionForDetail(currentSession);
+                      }}
+                    >
                       <View style={styles.liveHudBgClean}>
                         <View style={styles.liveHudContent}>
                           <View style={styles.liveHudLeft}>
@@ -763,7 +780,7 @@ export default function DashboardScreen() {
                           </View>
                         </View>
                       </View>
-                    </View>
+                    </Pressable>
                   ) : selectedDayOffset === 0 ? (
                     <View style={styles.missionContent}>
                       <Text style={styles.missionPrimary}>{focusMessage.primary}</Text>
@@ -803,6 +820,18 @@ export default function DashboardScreen() {
                         <Ionicons name="time" size={24} color="#000" />
                       </View>
                       <Text style={styles.actionBtnLabel}>EXTEND</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.actionBarBtn}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSelectedSessionForDetail(currentSession);
+                      }}
+                    >
+                      <View style={[styles.gameActionIcon, { backgroundColor: Colors.dark.error }]}>
+                        <Ionicons name="close-circle" size={24} color="#FFF" />
+                      </View>
+                      <Text style={styles.actionBtnLabel}>CANCEL</Text>
                     </Pressable>
                     <Pressable
                       style={styles.actionBarBtn}
@@ -1434,6 +1463,20 @@ export default function DashboardScreen() {
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ["/api/coach/freelance-profile"] });
           queryClient.invalidateQueries({ queryKey: ["/api/coach/academies"] });
+        }}
+      />
+
+      {/* Session Detail Drawer - Cancel session, attendance, etc. */}
+      <SessionDetailDrawer
+        visible={!!selectedSessionForDetail}
+        session={selectedSessionForDetail}
+        courts={calendarData?.courts || []}
+        onClose={() => setSelectedSessionForDetail(null)}
+        onAttendance={() => {
+          if (selectedSessionForDetail) {
+            (navigation as any).navigate("Calendar", { openSessionId: selectedSessionForDetail.id, action: "attendance" });
+            setSelectedSessionForDetail(null);
+          }
         }}
       />
     </View>
