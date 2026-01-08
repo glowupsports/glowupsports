@@ -5849,9 +5849,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get players in this series
       const seriesPlayers = await storage.getSeriesPlayers(id);
       
+      // Get credit balances for all players in batch (efficient)
+      const playerIds = seriesPlayers.map(sp => sp.playerId);
+      const creditBalances = await storage.getPlayersCreditBalances(playerIds);
+      
       // Get player details with full membership data for frontend consumption
       const playerDetails = await Promise.all(seriesPlayers.map(async (sp) => {
         const player = await storage.getPlayer(sp.playerId);
+        const credits = creditBalances[sp.playerId] || { group: 0, semi_private: 0, private: 0, totalDebt: 0, hasDebt: false };
         return {
           id: sp.playerId,
           name: player?.name || "Unknown Player",
@@ -5865,6 +5870,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           pauseUntil: sp.pauseUntil || null,
           pauseReason: sp.pauseReason || null,
           linkedPackageId: sp.linkedPackageId || null,
+          credits,
         };
       }));
       

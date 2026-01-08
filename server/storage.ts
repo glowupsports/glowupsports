@@ -5433,7 +5433,31 @@ export const storage = {
           }
           
           if (!packageToUse) {
-            results.errors.push(`No ${requiredCreditType} credits available for player ${playerId}`);
+            // No package found - create a DEBT transaction (negative balance)
+            // This allows players to attend without credits and tracks what they owe
+            try {
+              const debtResult = await tx.execute(sql`
+                INSERT INTO credit_transactions (player_id, academy_id, session_id, package_id, type, credit_type, amount, reason, balance_before, balance_after, metadata)
+                VALUES (${playerId}, ${academyId}, ${sessionId}, NULL, 'debit', ${requiredCreditType}, -1, 'session_join_debt', 0, -1, 
+                       ${JSON.stringify({ seriesId, description: `Debt: ${requiredCreditType} credit owed (no package)`, isDebt: true, actualCreditType: requiredCreditType })}::jsonb)
+                ON CONFLICT DO NOTHING
+                RETURNING id
+              `);
+              
+              if (debtResult.rowCount === 0) {
+                results.skipped++;
+              } else {
+                results.consumed++;
+                console.log(`[Credits] Player ${playerId}: Created debt transaction for ${requiredCreditType} credit`);
+              }
+            } catch (debtError: any) {
+              if (debtError.code === '23505') {
+                results.skipped++;
+              } else {
+                console.error(`[Credits] Debt transaction error for player ${playerId}:`, debtError);
+                results.errors.push(`Debt transaction failed for player ${playerId}`);
+              }
+            }
             return;
           }
           
@@ -5499,6 +5523,108 @@ export const storage = {
     }));
     
     return { total, byPackage };
+  },
+
+  // Get player credit balance by type, including debts (negative balances)
+  // Returns balance per credit type: positive = available credits, negative = debt
+  async getPlayerCreditBalanceByType(playerId: string): Promise<{
+    group: number;
+    semi_private: number;
+    private: number;
+    totalDebt: number;
+    hasDebt: boolean;
+  }> {
+    // Get available credits from active packages grouped by type
+    const playerPackages = await db.select().from(packages)
+      .where(and(
+        eq(packages.playerId, playerId),
+        eq(packages.status, "active")
+      ));
+    
+    const credits = { group: 0, semi_private: 0, private: 0 };
+    for (const pkg of playerPackages) {
+      const creditType = (pkg.creditType || "group") as keyof typeof credits;
+      if (credits[creditType] !== undefined) {
+        credits[creditType] += pkg.remainingCredits;
+      }
+    }
+    
+    // Get debt transactions (session_join_debt where package_id is NULL)
+    const debtTransactions = await db.select().from(creditTransactions)
+      .where(and(
+        eq(creditTransactions.playerId, playerId),
+        eq(creditTransactions.reason, "session_join_debt")
+      ));
+    
+    const debts = { group: 0, semi_private: 0, private: 0 };
+    for (const tx of debtTransactions) {
+      const creditType = (tx.creditType || "group") as keyof typeof debts;
+      if (debts[creditType] !== undefined) {
+        debts[creditType] += Math.abs(tx.amount); // Transactions are negative, convert to positive debt count
+      }
+    }
+    
+    // Calculate net balance per type (credits - debts)
+    const totalDebt = debts.group + debts.semi_private + debts.private;
+    
+    return {
+      group: credits.group - debts.group,
+      semi_private: credits.semi_private - debts.semi_private,
+      private: credits.private - debts.private,
+      totalDebt,
+      hasDebt: totalDebt > 0,
+    };
+  },
+
+  // Get credit balances for multiple players (batch query for efficiency)
+  async getPlayersCreditBalances(playerIds: string[]): Promise<Record<string, {
+    group: number;
+    semi_private: number;
+    private: number;
+    totalDebt: number;
+    hasDebt: boolean;
+  }>> {
+    if (playerIds.length === 0) return {};
+    
+    const result: Record<string, { group: number; semi_private: number; private: number; totalDebt: number; hasDebt: boolean }> = {};
+    
+    // Initialize all players
+    for (const id of playerIds) {
+      result[id] = { group: 0, semi_private: 0, private: 0, totalDebt: 0, hasDebt: false };
+    }
+    
+    // Get all active packages for these players
+    const playerPackages = await db.select().from(packages)
+      .where(and(
+        inArray(packages.playerId, playerIds),
+        eq(packages.status, "active")
+      ));
+    
+    for (const pkg of playerPackages) {
+      const creditType = (pkg.creditType || "group") as "group" | "semi_private" | "private";
+      if (result[pkg.playerId] && result[pkg.playerId][creditType] !== undefined) {
+        result[pkg.playerId][creditType] += pkg.remainingCredits;
+      }
+    }
+    
+    // Get debt transactions for these players
+    const debtTransactions = await db.select().from(creditTransactions)
+      .where(and(
+        inArray(creditTransactions.playerId, playerIds),
+        eq(creditTransactions.reason, "session_join_debt")
+      ));
+    
+    for (const tx of debtTransactions) {
+      const creditType = (tx.creditType || "group") as "group" | "semi_private" | "private";
+      if (result[tx.playerId] && result[tx.playerId][creditType] !== undefined) {
+        const debtAmount = Math.abs(tx.amount);
+        result[tx.playerId][creditType] -= debtAmount;
+        result[tx.playerId].totalDebt += debtAmount;
+        result[tx.playerId].hasDebt = true;
+      }
+    }
+    
+    return result;
   },
 
   // Consume a single credit for a specific player+session (used for backfilling attendance)

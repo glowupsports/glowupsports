@@ -22,6 +22,14 @@ import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 import { useCoach } from "@/coach/context/CoachContext";
 import { WebCalendarPicker } from "@/components/WebCalendarPicker";
 
+interface PlayerCredits {
+  group: number;
+  semi_private: number;
+  private: number;
+  totalDebt: number;
+  hasDebt: boolean;
+}
+
 interface Player {
   id: string;
   name: string;
@@ -35,6 +43,7 @@ interface Player {
   pauseUntil?: string | null;
   pauseReason?: string | null;
   linkedPackageId?: string | null;
+  credits?: PlayerCredits;
 }
 
 interface FeedbackData {
@@ -521,22 +530,59 @@ export default function SeriesDetailDrawer({
                     <Text style={styles.emptyAddText}>Tap to add a player</Text>
                   </Pressable>
                 ) : (
-                  activePlayers.map((player) => (
-                    <View key={player.id} style={styles.playerRow}>
-                      <View style={[styles.playerAvatar, { backgroundColor: Colors.dark.successNeon + "30" }]}>
-                        <Text style={[styles.playerInitial, { color: Colors.dark.successNeon }]}>
-                          {player.name.charAt(0).toUpperCase()}
-                        </Text>
+                  activePlayers.map((player) => {
+                    // Get relevant credit balance for this session type
+                    const sessionType = series.sessionType;
+                    const credits = player.credits;
+                    let relevantCredits = 0;
+                    let creditLabel = "";
+                    if (credits) {
+                      if (sessionType === "private") {
+                        relevantCredits = credits.private;
+                        creditLabel = "Private";
+                      } else if (sessionType === "semi_private" || sessionType === "semi") {
+                        relevantCredits = credits.semi_private;
+                        creditLabel = "Semi";
+                      } else {
+                        relevantCredits = credits.group;
+                        creditLabel = "Group";
+                      }
+                    }
+                    const hasNoCredits = relevantCredits <= 0;
+                    const hasDebt = credits?.hasDebt || false;
+                    
+                    return (
+                      <View key={player.id} style={styles.playerRow}>
+                        <View style={[styles.playerAvatar, { backgroundColor: Colors.dark.successNeon + "30" }]}>
+                          <Text style={[styles.playerInitial, { color: Colors.dark.successNeon }]}>
+                            {player.name.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={styles.playerInfo}>
+                          <Text style={styles.playerName}>{player.name}</Text>
+                          <Text style={styles.playerStats}>
+                            {player.joinedAt ? `Since ${formatDate(player.joinedAt)}` : ""} 
+                            {player.sessionsAttended ? ` - ${player.sessionsAttended} sessions` : ""}
+                          </Text>
+                        </View>
+                        {credits ? (
+                          <View style={[
+                            styles.creditBadge, 
+                            hasNoCredits && styles.creditBadgeWarning,
+                            hasDebt && styles.creditBadgeDebt,
+                          ]}>
+                            <Text style={[
+                              styles.creditBadgeText,
+                              hasNoCredits && styles.creditBadgeTextWarning,
+                              hasDebt && styles.creditBadgeTextDebt,
+                            ]}>
+                              {hasDebt ? `${relevantCredits}` : relevantCredits}
+                            </Text>
+                          </View>
+                        ) : null}
                       </View>
-                      <View style={styles.playerInfo}>
-                        <Text style={styles.playerName}>{player.name}</Text>
-                        <Text style={styles.playerStats}>
-                          {player.joinedAt ? `Since ${formatDate(player.joinedAt)}` : ""} 
-                          {player.sessionsAttended ? ` - ${player.sessionsAttended} sessions` : ""}
-                        </Text>
-                      </View>
-                    </View>
-                  ))
+                    );
+                  })
                 )}
                 
                 {pausedPlayers.length > 0 ? (
@@ -1465,6 +1511,31 @@ const styles = StyleSheet.create({
   playerStats: {
     fontSize: Typography.caption.fontSize,
     color: Colors.dark.textMuted,
+  },
+  creditBadge: {
+    backgroundColor: Colors.dark.successNeon + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+    minWidth: 28,
+    alignItems: "center",
+  },
+  creditBadgeWarning: {
+    backgroundColor: Colors.dark.accentWarning + "30",
+  },
+  creditBadgeDebt: {
+    backgroundColor: Colors.dark.error + "30",
+  },
+  creditBadgeText: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.successNeon,
+  },
+  creditBadgeTextWarning: {
+    color: Colors.dark.accentWarning,
+  },
+  creditBadgeTextDebt: {
+    color: Colors.dark.error,
   },
   emptyState: {
     alignItems: "center",
