@@ -14,7 +14,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest } from "@/lib/query-client";
 import { Card } from "@/components/Card";
 
 interface Package {
@@ -38,12 +38,6 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
 
   const { data: packages = [], isLoading } = useQuery<Package[]>({
     queryKey: [`/api/players/${playerId}/packages`],
-    queryFn: async () => {
-      const url = new URL(`/api/players/${playerId}/packages`, getApiUrl());
-      const res = await fetch(url.href);
-      if (!res.ok) return [];
-      return res.json();
-    },
   });
 
   const activePackages = packages.filter(
