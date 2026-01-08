@@ -18145,10 +18145,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const totalAmount = (parseFloat(templateData.pricePerCredit) * templateData.credits).toFixed(2);
+      const invoiceNumber = await storage.generateInvoiceNumber(player.academyId);
       const invoice = await storage.createInvoice({
         playerId,
         academyId: player.academyId,
         packageId: pkg.id,
+        invoiceNumber,
         type: "package_purchase",
         amount: totalAmount,
         currency: templateData.currency,
