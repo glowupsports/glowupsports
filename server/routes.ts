@@ -17794,13 +17794,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userPlayerId = req.user?.playerId;
       const { playerId } = req.params;
 
+      console.log(`[CreditStore] userId: ${userId}, userPlayerId: ${userPlayerId}, requestedPlayerId: ${playerId}`);
+
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
       const player = await storage.getPlayer(playerId);
       const isOwnPlayer = userPlayerId === playerId;
-      const isParent = player?.parentUserId === userId;
+      const isParent = await storage.checkParentPlayerAccess(userId, playerId);
+      console.log(`[CreditStore] isOwnPlayer: ${isOwnPlayer}, isParent: ${isParent}, player exists: ${!!player}`);
       if (!player || (!isOwnPlayer && !isParent)) {
         return res.status(403).json({ error: "Access denied" });
       }
@@ -17839,7 +17842,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const player = await storage.getPlayer(playerId);
       const isOwnPlayer = userPlayerId === playerId;
-      const isParent = player?.parentUserId === userId;
+      const isParent = await storage.checkParentPlayerAccess(userId, playerId);
       if (!player || (!isOwnPlayer && !isParent)) {
         return res.status(403).json({ error: "Access denied" });
       }
@@ -17885,7 +17888,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const player = await storage.getPlayer(playerId);
       const userPlayerId = req.user?.playerId;
       const isOwnPlayer = userPlayerId === playerId;
-      const isParent = player?.parentUserId === userId;
+      const isParent = await storage.checkParentPlayerAccess(userId, playerId);
       if (!player || (!isOwnPlayer && !isParent)) {
         return res.status(403).json({ error: "Access denied" });
       }
