@@ -663,7 +663,8 @@ export default function SeriesDetailDrawer({
             const isSkipped = session.status === "skipped";
             const isPast = new Date(session.startTime) < new Date();
             const isToday = new Date(session.startTime).toDateString() === new Date().toDateString();
-            const canEditAttendance = isPast && !isCompleted && !isCancelled && !isSkipped;
+            const needsAttendance = isPast && !isCompleted && !isCancelled && !isSkipped;
+            const canEditAttendance = isPast && !isCancelled && !isSkipped;
 
             const timelineContent = (
               <>
@@ -675,7 +676,7 @@ export default function SeriesDetailDrawer({
                       (isCancelled || isSkipped) && { backgroundColor: Colors.dark.error },
                       isToday && !isCompleted && !isCancelled && { backgroundColor: accentColor },
                       !isPast && !isToday && { backgroundColor: Colors.dark.textMuted },
-                      canEditAttendance && { backgroundColor: Colors.dark.accentWarning },
+                      needsAttendance && { backgroundColor: Colors.dark.accentWarning },
                     ]}
                   />
                   {index < sortedSessions.length - 1 ? (
@@ -688,7 +689,7 @@ export default function SeriesDetailDrawer({
                       style={[
                         styles.timelineDate,
                         isToday && { color: accentColor, fontWeight: "700" },
-                        canEditAttendance && { color: Colors.dark.accentWarning },
+                        needsAttendance && { color: Colors.dark.accentWarning },
                       ]}
                     >
                       {isToday ? "Today" : formatDate(session.startTime)}
@@ -699,7 +700,7 @@ export default function SeriesDetailDrawer({
                           styles.timelineStatus,
                           isCompleted && { color: Colors.dark.successNeon },
                           (isCancelled || isSkipped) && { color: Colors.dark.error },
-                          canEditAttendance && { color: Colors.dark.accentWarning },
+                          needsAttendance && { color: Colors.dark.accentWarning },
                         ]}
                       >
                         {isCompleted
@@ -711,7 +712,7 @@ export default function SeriesDetailDrawer({
                           : "Scheduled"}
                       </Text>
                       {canEditAttendance ? (
-                        <Ionicons name="chevron-forward" size={16} color={Colors.dark.accentWarning} />
+                        <Ionicons name="chevron-forward" size={16} color={isCompleted ? Colors.dark.successNeon : Colors.dark.accentWarning} />
                       ) : null}
                     </View>
                   </View>
