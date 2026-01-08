@@ -3892,6 +3892,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update location
+  app.patch("/api/locations/:id", authMiddleware, requireRole("academy_owner", "platform_owner", "admin", "coach"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      const location = await storage.updateLocation(id, req.body, academyId ?? undefined);
+      if (!location) {
+        return res.status(404).json({ error: "Location not found" });
+      }
+      res.json(location);
+    } catch (error) {
+      console.error("Error updating location:", error);
+      res.status(500).json({ error: "Failed to update location" });
+    }
+  });
+
+  // Delete location
+  app.delete("/api/locations/:id", authMiddleware, requireRole("academy_owner", "platform_owner", "admin", "coach"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      
+      // Check if location has courts
+      const courtsAtLocation = await storage.getCourtsByLocation(id, academyId ?? undefined);
+      if (courtsAtLocation && courtsAtLocation.length > 0) {
+        return res.status(400).json({ error: "Cannot delete location with courts. Move or delete courts first." });
+      }
+      
+      await storage.deleteLocation(id, academyId ?? undefined);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting location:", error);
+      res.status(500).json({ error: "Failed to delete location" });
+    }
+  });
+
   // Get all courts
   app.get("/api/courts", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -9805,7 +9841,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const academyId = req.user!.academyId!;
       const templates = await storage.getPackageTemplates(academyId);
-      res.json(templates);
+      // Add frontend compatibility fields
+      const normalizedTemplates = templates.map(t => ({
+        ...t,
+        creditType: t.sessionType,
+        pricePerCredit: t.credits > 0 ? (parseFloat(t.price) / t.credits).toFixed(2) : '0',
+      }));
+      res.json(normalizedTemplates);
     } catch (error) {
       console.error("Error fetching package templates:", error);
       res.status(500).json({ error: "Failed to fetch package templates" });
@@ -9815,12 +9857,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/billing/package-templates", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId!;
-      const { name, description, credits, price, currency, validityDays, sessionType } = req.body;
+      const { name, description, credits, price, pricePerCredit, currency, validityDays, sessionType, creditType } = req.body;
       
       if (!name || typeof credits !== 'number' || credits <= 0) {
         return res.status(400).json({ error: "Name and positive credits required" });
       }
-      if (typeof price !== 'number' || price <= 0) {
+      
+      // Support both price (total) and pricePerCredit (per unit)
+      let finalPrice: number;
+      if (pricePerCredit !== undefined && pricePerCredit !== null) {
+        const parsedPricePerCredit = parseFloat(String(pricePerCredit));
+        if (!isFinite(parsedPricePerCredit) || parsedPricePerCredit <= 0) {
+          return res.status(400).json({ error: "Price per credit must be a positive number" });
+        }
+        finalPrice = parsedPricePerCredit * credits;
+      } else if (typeof price === 'number' && isFinite(price) && price > 0) {
+        finalPrice = price;
+      } else {
         return res.status(400).json({ error: "Price must be a positive number" });
       }
       
@@ -9829,13 +9882,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name,
         description,
         credits,
-        price: String(price),
+        price: String(finalPrice),
         currency: currency || 'AED',
         validityDays: validityDays || 90,
-        sessionType,
+        sessionType: sessionType || creditType,
       });
       
-      res.status(201).json(template);
+      // Return with pricePerCredit for frontend compatibility
+      const pricePerCreditValue = (finalPrice / credits).toFixed(2);
+      res.status(201).json({
+        ...template,
+        pricePerCredit: pricePerCreditValue,
+        creditType: template.sessionType,
+      });
     } catch (error) {
       console.error("Error creating package template:", error);
       res.status(500).json({ error: "Failed to create package template" });

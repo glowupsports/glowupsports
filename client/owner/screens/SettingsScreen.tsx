@@ -421,6 +421,12 @@ export default function SettingsScreen() {
             subtitle="Manage coach payout rates"
             onPress={() => navigation.navigate("CoachCompensation")}
           />
+          <SettingRow
+            icon="gift"
+            title="Credit Packages"
+            subtitle="Create packages for players to purchase"
+            onPress={() => navigation.navigate("CreditPackages")}
+          />
         </Section>
 
         <Section title="Team Management">
