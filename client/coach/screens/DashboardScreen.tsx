@@ -828,8 +828,8 @@ export default function DashboardScreen() {
                         setSelectedSessionForDetail(currentSession);
                       }}
                     >
-                      <View style={[styles.gameActionIcon, { backgroundColor: Colors.dark.error }]}>
-                        <Ionicons name="close-circle" size={24} color="#FFF" />
+                      <View style={[styles.gameActionIcon, { backgroundColor: Colors.dark.warning }]}>
+                        <Ionicons name="close-circle" size={24} color="#000" />
                       </View>
                       <Text style={styles.actionBtnLabel}>CANCEL</Text>
                     </Pressable>
@@ -1323,6 +1323,10 @@ export default function DashboardScreen() {
                           isNext && styles.todayScheduleSessionNext,
                           isPast && styles.todayScheduleSessionPast,
                         ]}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          setSelectedSessionForDetail(session);
+                        }}
                       >
                         {/* Time block */}
                         <View style={styles.todayScheduleTimeBlock}>
