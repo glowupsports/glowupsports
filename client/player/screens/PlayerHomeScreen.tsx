@@ -1231,7 +1231,7 @@ export default function PlayerHomeScreen() {
         {data?.credits && data?.player?.id ? (
           <View style={styles.creditsCard}>
             <View style={styles.creditsHeader}>
-              <Ionicons name="ticket-outline" size={20} color={Colors.dark.gold} />
+              <Ionicons name="ticket-outline" size={14} color={Colors.dark.gold} />
               <Text style={styles.creditsTitle}>My Credits</Text>
             </View>
             <View style={styles.creditsTotalRow}>
@@ -1270,7 +1270,7 @@ export default function PlayerHomeScreen() {
                 end={{ x: 1, y: 0 }}
                 style={styles.buyCreditsGradient}
               >
-                <Ionicons name="cart-outline" size={18} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="cart-outline" size={14} color={Colors.dark.backgroundRoot} />
                 <Text style={styles.buyCreditsText}>Buy Credits</Text>
               </LinearGradient>
             </Pressable>
@@ -2104,74 +2104,82 @@ const styles = StyleSheet.create({
   creditsCard: {
     ...CardStyles.glowCard,
     marginHorizontal: Spacing.xl,
-    marginBottom: Spacing.lg,
-    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+    padding: Spacing.sm,
     borderColor: "rgba(255, 215, 0, 0.4)",
     borderWidth: 1,
   },
   creditsHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
   },
   creditsTitle: {
-    ...Typography.h4,
+    ...Typography.caption,
     color: Colors.dark.gold,
+    fontWeight: "600",
   },
   creditsTotalRow: {
-    alignItems: "center",
-    marginBottom: Spacing.md,
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
   },
   creditsTotalValue: {
-    ...Typography.h1,
+    ...Typography.h2,
     color: Colors.dark.gold,
-    fontSize: 48,
+    fontSize: 24,
   },
   creditsTotalLabel: {
     ...Typography.caption,
     color: Colors.dark.textMuted,
+    fontSize: 10,
   },
   creditsTypeRow: {
     flexDirection: "row",
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   creditsTypeItem: {
     flex: 1,
     alignItems: "center",
-    padding: Spacing.sm,
+    paddingVertical: 4,
+    paddingHorizontal: Spacing.xs,
     backgroundColor: Colors.dark.backgroundTertiary,
-    borderRadius: BorderRadius.sm,
+    borderRadius: BorderRadius.xs,
   },
   creditsTypeValue: {
-    ...Typography.h3,
+    ...Typography.body,
     color: Colors.dark.xpCyan,
+    fontWeight: "700",
+    fontSize: 14,
   },
   creditsTypeLabel: {
     ...Typography.caption,
     color: Colors.dark.textMuted,
-    fontSize: 10,
+    fontSize: 9,
   },
   creditsEmptyText: {
-    ...Typography.body,
+    ...Typography.caption,
     color: Colors.dark.textMuted,
     textAlign: "center",
     fontStyle: "italic",
   },
   buyCreditsButton: {
-    marginTop: Spacing.md,
+    marginTop: Spacing.xs,
   },
   buyCreditsGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.md,
+    paddingVertical: 6,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.sm,
     gap: Spacing.xs,
   },
   buyCreditsText: {
-    ...Typography.buttonSmall,
+    ...Typography.caption,
     color: Colors.dark.backgroundRoot,
     fontWeight: "700",
   },
