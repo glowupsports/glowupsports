@@ -147,7 +147,7 @@ export function WebCalendarPicker({ value, onChange, maximumDate, minimumDate }:
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: Colors.dark.cardElevated,
+    backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     borderWidth: 1,
@@ -167,8 +167,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   monthYear: {
-    fontSize: Typography.sizes.md,
-    fontWeight: Typography.weights.semibold as any,
+    ...Typography.h4,
     color: Colors.dark.text,
   },
   daysHeader: {
@@ -178,9 +177,8 @@ const styles = StyleSheet.create({
   dayLabel: {
     flex: 1,
     textAlign: "center",
-    fontSize: Typography.sizes.xs,
+    ...Typography.caption,
     color: Colors.dark.textMuted,
-    fontWeight: Typography.weights.medium as any,
   },
   daysGrid: {
     flexDirection: "row",
@@ -208,12 +206,12 @@ const styles = StyleSheet.create({
     opacity: 0.3,
   },
   dayText: {
-    fontSize: Typography.sizes.sm,
+    ...Typography.small,
     color: Colors.dark.text,
   },
   dayTextSelected: {
-    color: Colors.dark.background,
-    fontWeight: Typography.weights.bold as any,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
   },
   dayTextDisabled: {
     color: Colors.dark.textMuted,
