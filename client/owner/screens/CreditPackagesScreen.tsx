@@ -7,166 +7,137 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  TextInput,
-  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from "react-native-reanimated";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
-import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
-interface PackageTemplate {
-  id: string;
-  academyId: string;
-  name: string;
+interface CreditPackage {
   creditType: string;
   credits: number;
   pricePerCredit: string;
+  totalPrice: string;
   currency: string;
-  validityDays: number;
-  isActive: boolean;
-  createdAt: string;
+  label: string;
+  hasPricing: boolean;
 }
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-function AnimatedButton({ onPress, style, children, disabled }: any) {
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  return (
-    <AnimatedPressable
-      onPress={onPress}
-      onPressIn={() => { scale.value = withSpring(0.95, { damping: 15, stiffness: 400 }); }}
-      onPressOut={() => { scale.value = withSpring(1, { damping: 15, stiffness: 400 }); }}
-      style={[animatedStyle, style]}
-      disabled={disabled}
-    >
-      {children}
-    </AnimatedPressable>
-  );
-}
+const CREDIT_TYPE_INFO: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }> = {
+  private: { label: "Private", icon: "person", color: Colors.dark.primary },
+  semi: { label: "Semi-Private", icon: "people", color: Colors.dark.xpCyan },
+  group: { label: "Group", icon: "people-circle", color: Colors.dark.orange },
+};
 
 export default function CreditPackagesScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const queryClient = useQueryClient();
-  const [showPackageModal, setShowPackageModal] = useState(false);
-  const [newPackageName, setNewPackageName] = useState("");
-  const [newPackageCredits, setNewPackageCredits] = useState("");
-  const [newPackagePrice, setNewPackagePrice] = useState("");
-  const [newPackageCreditType, setNewPackageCreditType] = useState<"group" | "private" | "semi_private">("private");
-  const [newPackageValidityDays, setNewPackageValidityDays] = useState("90");
+  const [expandedType, setExpandedType] = useState<string | null>("private");
 
-  const { data: packageTemplates = [], isLoading: packagesLoading } = useQuery<PackageTemplate[]>({
-    queryKey: ["/api/billing/package-templates"],
+  const { data: creditPackages = [], isLoading, error } = useQuery<CreditPackage[]>({
+    queryKey: ["/api/billing/credit-packages"],
   });
 
-  const createPackageMutation = useMutation({
-    mutationFn: async (data: {
-      name: string;
-      creditType: string;
-      credits: number;
-      pricePerCredit: string;
-      validityDays: number;
-    }) => {
-      return apiRequest("POST", "/api/billing/package-templates", data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/billing/package-templates"] });
-      setShowPackageModal(false);
-      setNewPackageName("");
-      setNewPackageCredits("");
-      setNewPackagePrice("");
-      setNewPackageCreditType("private");
-      setNewPackageValidityDays("90");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Success", "Credit package created!");
-    },
-    onError: () => {
-      Alert.alert("Error", "Failed to create package");
-    },
-  });
-
-  const deletePackageMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return apiRequest("DELETE", `/api/billing/package-templates/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/billing/package-templates"] });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    },
-  });
-
-  const handleCreatePackage = () => {
-    if (!newPackageName.trim()) {
-      Alert.alert("Error", "Please enter a package name");
-      return;
-    }
-    const credits = parseInt(newPackageCredits);
-    if (isNaN(credits) || credits <= 0) {
-      Alert.alert("Error", "Please enter a valid number of credits");
-      return;
-    }
-    const price = parseFloat(newPackagePrice);
-    if (isNaN(price) || price <= 0) {
-      Alert.alert("Error", "Please enter a valid price per credit");
-      return;
-    }
-    const validityDays = parseInt(newPackageValidityDays) || 90;
-
-    createPackageMutation.mutate({
-      name: newPackageName.trim(),
-      creditType: newPackageCreditType,
-      credits,
-      pricePerCredit: newPackagePrice,
-      validityDays,
-    });
+  const handleToggleType = (type: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setExpandedType(expandedType === type ? null : type);
   };
 
-  const handleDeletePackage = (pkg: PackageTemplate) => {
-    Alert.alert(
-      "Delete Package",
-      `Are you sure you want to delete "${pkg.name}"?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => deletePackageMutation.mutate(pkg.id),
-        },
-      ]
+  const groupedPackages = creditPackages.reduce((acc, pkg) => {
+    if (!acc[pkg.creditType]) {
+      acc[pkg.creditType] = [];
+    }
+    acc[pkg.creditType].push(pkg);
+    return acc;
+  }, {} as Record<string, CreditPackage[]>);
+
+  const renderCreditTypeSection = (creditType: string) => {
+    const packages = groupedPackages[creditType] || [];
+    const typeInfo = CREDIT_TYPE_INFO[creditType];
+    const isExpanded = expandedType === creditType;
+    const hasPricing = packages.length > 0 && packages[0].hasPricing;
+    const pricePerCredit = packages[0]?.pricePerCredit || "0";
+    const currency = packages[0]?.currency || "AED";
+
+    return (
+      <View key={creditType} style={styles.sectionContainer}>
+        <Pressable
+          style={[
+            styles.sectionHeader,
+            isExpanded && styles.sectionHeaderExpanded,
+          ]}
+          onPress={() => handleToggleType(creditType)}
+        >
+          <View style={styles.sectionHeaderLeft}>
+            <View style={[styles.iconContainer, { backgroundColor: `${typeInfo.color}20` }]}>
+              <Ionicons name={typeInfo.icon} size={24} color={typeInfo.color} />
+            </View>
+            <View>
+              <Text style={styles.sectionTitle}>{typeInfo.label} Credits</Text>
+              {hasPricing ? (
+                <Text style={styles.sectionSubtitle}>
+                  {currency} {pricePerCredit} per credit
+                </Text>
+              ) : (
+                <Text style={[styles.sectionSubtitle, { color: Colors.dark.orange }]}>
+                  No pricing configured
+                </Text>
+              )}
+            </View>
+          </View>
+          <Ionicons
+            name={isExpanded ? "chevron-up" : "chevron-down"}
+            size={20}
+            color={Colors.dark.textMuted}
+          />
+        </Pressable>
+
+        {isExpanded ? (
+          <View style={styles.packagesContainer}>
+            {!hasPricing ? (
+              <View style={styles.noPricingWarning}>
+                <Ionicons name="warning" size={24} color={Colors.dark.orange} />
+                <Text style={styles.noPricingText}>
+                  Set up {typeInfo.label.toLowerCase()} session pricing first to enable credit packages.
+                </Text>
+                <Pressable
+                  style={styles.setupButton}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    (navigation as any).navigate("Pricing");
+                  }}
+                >
+                  <Text style={styles.setupButtonText}>Configure Pricing</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={styles.packagesGrid}>
+                {packages.map((pkg) => (
+                  <View key={`${pkg.creditType}-${pkg.credits}`} style={styles.packageCard}>
+                    <View style={styles.packageCredits}>
+                      <Text style={[styles.packageCreditsNumber, { color: typeInfo.color }]}>
+                        {pkg.credits}
+                      </Text>
+                      <Text style={styles.packageCreditsLabel}>
+                        credit{pkg.credits > 1 ? "s" : ""}
+                      </Text>
+                    </View>
+                    <View style={styles.packagePricing}>
+                      <Text style={styles.packageTotalPrice}>
+                        {pkg.currency} {pkg.totalPrice}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        ) : null}
+      </View>
     );
-  };
-
-  const getCreditTypeColor = (type: string) => {
-    switch (type) {
-      case "private": return Colors.dark.primary;
-      case "group": return Colors.dark.orange;
-      case "semi_private": return Colors.dark.xpCyan;
-      default: return Colors.dark.textMuted;
-    }
-  };
-
-  const getCreditTypeLabel = (type: string) => {
-    switch (type) {
-      case "private": return "Private";
-      case "group": return "Group";
-      case "semi_private": return "Semi-Private";
-      default: return type;
-    }
   };
 
   return (
@@ -191,196 +162,29 @@ export default function CreditPackagesScreen() {
       </LinearGradient>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.tabContent}>
-          <Text style={styles.description}>
-            Create credit packages that players can purchase in the Credit Store
+        <View style={styles.infoCard}>
+          <Ionicons name="information-circle" size={20} color={Colors.dark.xpCyan} />
+          <Text style={styles.infoText}>
+            Credit packages are automatically priced based on your session pricing. 
+            Players can purchase these packages in the Credit Store.
           </Text>
-
-          <AnimatedButton style={styles.createButton} onPress={() => setShowPackageModal(true)}>
-            <LinearGradient
-              colors={[Colors.dark.gold, Colors.dark.orange]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.createButtonGradient}
-            >
-              <Ionicons name="add" size={20} color={Colors.dark.backgroundRoot} />
-              <Text style={styles.createButtonText}>New Credit Package</Text>
-            </LinearGradient>
-          </AnimatedButton>
-
-          {packagesLoading ? (
-            <ActivityIndicator color={Colors.dark.gold} style={{ marginTop: Spacing.xl }} />
-          ) : packageTemplates.length === 0 ? (
-            <View style={styles.emptyState}>
-              <View style={styles.emptyIconContainer}>
-                <Ionicons name="gift-outline" size={60} color={Colors.dark.gold} />
-              </View>
-              <Text style={styles.emptyStateTitle}>No credit packages yet</Text>
-              <Text style={styles.emptyStateText}>Create packages that players can purchase in the Credit Store</Text>
-            </View>
-          ) : (
-            packageTemplates.map((pkg) => (
-              <View key={pkg.id} style={styles.packageCard}>
-                <View style={styles.packageHeader}>
-                  <View style={styles.packageTitleRow}>
-                    <Text style={styles.packageName}>{pkg.name}</Text>
-                    <View style={[styles.creditTypeBadge, { backgroundColor: `${getCreditTypeColor(pkg.creditType)}20`, borderColor: getCreditTypeColor(pkg.creditType) }]}>
-                      <Text style={[styles.creditTypeText, { color: getCreditTypeColor(pkg.creditType) }]}>
-                        {getCreditTypeLabel(pkg.creditType)}
-                      </Text>
-                    </View>
-                  </View>
-                  <Pressable onPress={() => handleDeletePackage(pkg)} style={styles.deleteButton}>
-                    <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
-                  </Pressable>
-                </View>
-                <View style={styles.packageDetails}>
-                  <View style={styles.packageDetailItem}>
-                    <Text style={styles.packageDetailLabel}>Credits</Text>
-                    <Text style={styles.packageDetailValue}>{pkg.credits}</Text>
-                  </View>
-                  <View style={styles.packageDetailItem}>
-                    <Text style={styles.packageDetailLabel}>Price/Credit</Text>
-                    <Text style={styles.packageDetailValue}>{pkg.currency} {pkg.pricePerCredit || '0'}</Text>
-                  </View>
-                  <View style={styles.packageDetailItem}>
-                    <Text style={styles.packageDetailLabel}>Total</Text>
-                    <Text style={[styles.packageDetailValue, { color: Colors.dark.gold }]}>
-                      {pkg.currency} {((parseFloat(pkg.pricePerCredit) || 0) * (pkg.credits || 0)).toFixed(2)}
-                    </Text>
-                  </View>
-                  <View style={styles.packageDetailItem}>
-                    <Text style={styles.packageDetailLabel}>Valid</Text>
-                    <Text style={styles.packageDetailValue}>{pkg.validityDays || 90} days</Text>
-                  </View>
-                </View>
-              </View>
-            ))
-          )}
         </View>
-        <View style={{ height: insets.bottom + 20 }} />
-      </ScrollView>
 
-      <Modal
-        visible={showPackageModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowPackageModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>New Credit Package</Text>
-              <Pressable onPress={() => setShowPackageModal(false)}>
-                <Ionicons name="close" size={24} color={Colors.dark.text} />
-              </Pressable>
-            </View>
-
-            <KeyboardAwareScrollViewCompat style={styles.modalBody}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>PACKAGE NAME</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newPackageName}
-                  onChangeText={setNewPackageName}
-                  placeholder="e.g., 10 Private Lessons"
-                  placeholderTextColor={Colors.dark.textMuted}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>CREDIT TYPE</Text>
-                <View style={styles.creditTypeRow}>
-                  {(["group", "private", "semi_private"] as const).map((type) => (
-                    <Pressable
-                      key={type}
-                      style={[
-                        styles.creditTypeOption,
-                        newPackageCreditType === type && { 
-                          backgroundColor: `${getCreditTypeColor(type)}20`,
-                          borderColor: getCreditTypeColor(type)
-                        }
-                      ]}
-                      onPress={() => setNewPackageCreditType(type)}
-                    >
-                      <Text style={[
-                        styles.creditTypeOptionText,
-                        newPackageCreditType === type && { color: getCreditTypeColor(type) }
-                      ]}>
-                        {getCreditTypeLabel(type)}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>NUMBER OF CREDITS</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newPackageCredits}
-                  onChangeText={setNewPackageCredits}
-                  placeholder="10"
-                  placeholderTextColor={Colors.dark.textMuted}
-                  keyboardType="number-pad"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>PRICE PER CREDIT (AED)</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newPackagePrice}
-                  onChangeText={setNewPackagePrice}
-                  placeholder="250.00"
-                  placeholderTextColor={Colors.dark.textMuted}
-                  keyboardType="decimal-pad"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>VALIDITY (DAYS)</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newPackageValidityDays}
-                  onChangeText={setNewPackageValidityDays}
-                  placeholder="90"
-                  placeholderTextColor={Colors.dark.textMuted}
-                  keyboardType="number-pad"
-                />
-              </View>
-
-              {newPackageCredits && newPackagePrice ? (
-                <View style={styles.totalPreview}>
-                  <Text style={styles.totalPreviewLabel}>Total Package Price:</Text>
-                  <Text style={styles.totalPreviewValue}>
-                    AED {(parseInt(newPackageCredits) * parseFloat(newPackagePrice) || 0).toFixed(2)}
-                  </Text>
-                </View>
-              ) : null}
-            </KeyboardAwareScrollViewCompat>
-
-            <AnimatedButton
-              style={[styles.modalButton, createPackageMutation.isPending && styles.buttonDisabled]}
-              onPress={handleCreatePackage}
-              disabled={createPackageMutation.isPending}
-            >
-              <LinearGradient
-                colors={[Colors.dark.gold, Colors.dark.orange]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.modalButtonGradient}
-              >
-                {createPackageMutation.isPending ? (
-                  <ActivityIndicator color={Colors.dark.backgroundRoot} />
-                ) : (
-                  <Text style={styles.modalButtonText}>Create Package</Text>
-                )}
-              </LinearGradient>
-            </AnimatedButton>
+        {isLoading ? (
+          <ActivityIndicator color={Colors.dark.gold} style={{ marginTop: Spacing.xl }} />
+        ) : error ? (
+          <View style={styles.errorState}>
+            <Ionicons name="alert-circle" size={40} color={Colors.dark.error} />
+            <Text style={styles.errorText}>Failed to load credit packages</Text>
           </View>
-        </View>
-      </Modal>
+        ) : (
+          <View style={styles.sectionsContainer}>
+            {Object.keys(CREDIT_TYPE_INFO).map(renderCreditTypeSection)}
+          </View>
+        )}
+
+        <View style={{ height: insets.bottom + 40 }} />
+      </ScrollView>
     </View>
   );
 }
@@ -392,6 +196,8 @@ const styles = StyleSheet.create({
   },
   gamingHeader: {
     paddingBottom: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
   },
   headerTopLine: {
     height: 3,
@@ -405,10 +211,13 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
   },
   backButton: {
-    padding: Spacing.xs,
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
-    ...Typography.h3,
+    ...Typography.h2,
     color: Colors.dark.text,
     letterSpacing: 2,
   },
@@ -416,207 +225,130 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: Spacing.lg,
   },
-  tabContent: {
-    paddingTop: Spacing.lg,
-  },
-  description: {
-    ...Typography.body,
-    color: Colors.dark.textMuted,
-    marginBottom: Spacing.lg,
-  },
-  createButton: {
-    marginBottom: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    overflow: "hidden",
-  },
-  createButtonGradient: {
+  infoCard: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
-    paddingVertical: Spacing.md,
-  },
-  createButtonText: {
-    ...Typography.body,
-    color: Colors.dark.backgroundRoot,
-    fontWeight: "600",
-  },
-  emptyState: {
-    alignItems: "center",
-    paddingTop: Spacing["3xl"],
-    gap: Spacing.md,
-  },
-  emptyIconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: `${Colors.dark.gold}15`,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  emptyStateTitle: {
-    ...Typography.h3,
-    color: Colors.dark.text,
-  },
-  emptyStateText: {
-    ...Typography.body,
-    color: Colors.dark.textMuted,
-    textAlign: "center",
-  },
-  packageCard: {
-    backgroundColor: "rgba(18, 18, 22, 0.9)",
-    borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
-    marginBottom: Spacing.md,
-    borderWidth: 1,
-    borderColor: `${Colors.dark.gold}20`,
-  },
-  packageHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: Spacing.md,
-  },
-  packageTitleRow: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
     gap: Spacing.sm,
-    flexWrap: "wrap",
-  },
-  packageName: {
-    ...Typography.h4,
-    color: Colors.dark.text,
-  },
-  creditTypeBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.xs,
-    borderWidth: 1,
-  },
-  creditTypeText: {
-    ...Typography.caption,
-    fontWeight: "600",
-  },
-  deleteButton: {
-    padding: Spacing.xs,
-  },
-  packageDetails: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.md,
-  },
-  packageDetailItem: {
-    minWidth: 70,
-  },
-  packageDetailLabel: {
-    ...Typography.caption,
-    color: Colors.dark.textMuted,
-    marginBottom: 2,
-  },
-  packageDetailValue: {
-    ...Typography.body,
-    color: Colors.dark.text,
-    fontWeight: "600",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
-    justifyContent: "flex-end",
-  },
-  modalContent: {
-    backgroundColor: Colors.dark.backgroundDefault,
-    borderTopLeftRadius: BorderRadius.xl,
-    borderTopRightRadius: BorderRadius.xl,
-    maxHeight: "85%",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: Spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: `${Colors.dark.gold}30`,
-  },
-  modalTitle: {
-    ...Typography.h3,
-    color: Colors.dark.text,
-    letterSpacing: 1.5,
-  },
-  modalBody: {
-    padding: Spacing.lg,
-  },
-  inputGroup: {
-    marginBottom: Spacing.lg,
-  },
-  label: {
-    ...Typography.caption,
-    color: Colors.dark.gold,
-    marginBottom: Spacing.sm,
-    letterSpacing: 1,
-  },
-  input: {
-    backgroundColor: "rgba(30, 30, 35, 0.9)",
+    backgroundColor: `${Colors.dark.xpCyan}15`,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
-    ...Typography.body,
-    color: Colors.dark.text,
+    marginTop: Spacing.lg,
     borderWidth: 1,
-    borderColor: `${Colors.dark.gold}30`,
+    borderColor: `${Colors.dark.xpCyan}30`,
   },
-  creditTypeRow: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-  },
-  creditTypeOption: {
+  infoText: {
     flex: 1,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.sm,
-    backgroundColor: "rgba(30, 30, 35, 0.9)",
-    borderWidth: 1,
-    borderColor: `${Colors.dark.gold}30`,
-    alignItems: "center",
-  },
-  creditTypeOptionText: {
     ...Typography.small,
-    color: Colors.dark.textMuted,
+    color: Colors.dark.textSecondary,
+    lineHeight: 20,
   },
-  totalPreview: {
-    backgroundColor: `${Colors.dark.gold}15`,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: Spacing.md,
-    borderWidth: 1,
-    borderColor: `${Colors.dark.gold}30`,
+  sectionsContainer: {
+    marginTop: Spacing.lg,
+    gap: Spacing.md,
   },
-  totalPreviewLabel: {
-    ...Typography.body,
-    color: Colors.dark.textMuted,
-  },
-  totalPreviewValue: {
-    ...Typography.h3,
-    color: Colors.dark.gold,
-  },
-  modalButton: {
-    marginHorizontal: Spacing.lg,
-    marginTop: Spacing.md,
-    borderRadius: BorderRadius.md,
+  sectionContainer: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.lg,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
   },
-  modalButtonGradient: {
-    paddingVertical: Spacing.md,
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: Spacing.md,
+  },
+  sectionHeaderExpanded: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  sectionHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.md,
     alignItems: "center",
     justifyContent: "center",
   },
-  modalButtonText: {
+  sectionTitle: {
     ...Typography.h4,
+    color: Colors.dark.text,
+  },
+  sectionSubtitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  packagesContainer: {
+    padding: Spacing.md,
+  },
+  packagesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  packageCard: {
+    width: "48%",
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  packageCredits: {
+    alignItems: "center",
+  },
+  packageCreditsNumber: {
+    ...Typography.numberLarge,
+  },
+  packageCreditsLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: -4,
+  },
+  packagePricing: {
+    marginTop: Spacing.sm,
+    alignItems: "center",
+  },
+  packageTotalPrice: {
+    ...Typography.h4,
+    color: Colors.dark.gold,
+  },
+  noPricingWarning: {
+    alignItems: "center",
+    padding: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  noPricingText: {
+    ...Typography.small,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+  },
+  setupButton: {
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.dark.orange,
+    borderRadius: BorderRadius.md,
+  },
+  setupButtonText: {
+    ...Typography.small,
+    fontWeight: "600",
     color: Colors.dark.backgroundRoot,
   },
-  buttonDisabled: {
-    opacity: 0.6,
+  errorState: {
+    alignItems: "center",
+    padding: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  errorText: {
+    ...Typography.body,
+    color: Colors.dark.error,
   },
 });

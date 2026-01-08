@@ -9837,6 +9837,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== PACKAGE TEMPLATES ====================
   
+  // Auto-priced credit packages based on academy session pricing
+  // Returns available packages for each session type with fixed quantities (1, 5, 10, 20)
+  app.get("/api/billing/credit-packages", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const CREDIT_QUANTITIES = [1, 5, 10, 20];
+      const CREDIT_TYPES = ["private", "semi", "group"] as const;
+      
+      // Get active pricing for all session types
+      const pricing = await storage.getAcademyPricing(academyId);
+      
+      // Build auto-priced packages
+      const packages: Array<{
+        creditType: string;
+        credits: number;
+        pricePerCredit: string;
+        totalPrice: string;
+        currency: string;
+        label: string;
+        hasPricing: boolean;
+      }> = [];
+      
+      for (const creditType of CREDIT_TYPES) {
+        const sessionPricing = pricing.find(p => p.sessionType === creditType);
+        const pricePerCredit = sessionPricing ? parseFloat(sessionPricing.pricePerSession) : 0;
+        const currency = sessionPricing?.currency || "AED";
+        const hasPricing = !!sessionPricing && pricePerCredit > 0;
+        
+        for (const credits of CREDIT_QUANTITIES) {
+          const totalPrice = pricePerCredit * credits;
+          const creditTypeLabel = creditType === "semi" ? "Semi-Private" : 
+                                  creditType.charAt(0).toUpperCase() + creditType.slice(1);
+          packages.push({
+            creditType,
+            credits,
+            pricePerCredit: pricePerCredit.toFixed(2),
+            totalPrice: totalPrice.toFixed(2),
+            currency,
+            label: `${credits} ${creditTypeLabel} Credit${credits > 1 ? 's' : ''}`,
+            hasPricing,
+          });
+        }
+      }
+      
+      res.json(packages);
+    } catch (error) {
+      console.error("Error fetching credit packages:", error);
+      res.status(500).json({ error: "Failed to fetch credit packages" });
+    }
+  });
+  
+  // Legacy: Manual package templates (for backward compatibility)
   app.get("/api/billing/package-templates", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId!;
