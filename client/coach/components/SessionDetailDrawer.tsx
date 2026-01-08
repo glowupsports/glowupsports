@@ -1352,39 +1352,40 @@ export default function SessionDetailDrawer({
   );
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
-    >
-      <View style={[styles.container, { paddingBottom: insets.bottom + Spacing.md }]}>
-        <LinearGradient
-          colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
-          style={StyleSheet.absoluteFill}
-        />
+    <>
+      <Modal
+        visible={visible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={onClose}
+      >
+        <View style={[styles.container, { paddingBottom: insets.bottom + Spacing.md }]}>
+          <LinearGradient
+            colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+            style={StyleSheet.absoluteFill}
+          />
 
-        <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
-          <Pressable onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color={Colors.dark.text} />
-          </Pressable>
-          <Text style={styles.headerTitle}>Session Details</Text>
-          <View style={{ width: 40 }} />
+          <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
+            <Pressable onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color={Colors.dark.text} />
+            </Pressable>
+            <Text style={styles.headerTitle}>Session Details</Text>
+            <View style={{ width: 40 }} />
+          </View>
+
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            {showCatchUp ? renderCatchUpContent() : 
+             showAddPlayer ? renderAddPlayerContent() :
+             showExtendOptions ? renderExtendOptions() :
+             showEndConfirm ? renderEndConfirm() :
+             showCancelConfirm ? renderCancelConfirm() :
+             renderMainContent()}
+          </ScrollView>
         </View>
-
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {showCatchUp ? renderCatchUpContent() : 
-           showAddPlayer ? renderAddPlayerContent() :
-           showExtendOptions ? renderExtendOptions() :
-           showEndConfirm ? renderEndConfirm() :
-           showCancelConfirm ? renderCancelConfirm() :
-           renderMainContent()}
-        </ScrollView>
-      </View>
-    </Modal>
-    
-    {/* Credit Mismatch Warning Modal */}
-    <Modal visible={!!creditMismatchWarning} animationType="fade" transparent>
+      </Modal>
+      
+      {/* Credit Mismatch Warning Modal */}
+      <Modal visible={!!creditMismatchWarning} animationType="fade" transparent>
       <View style={styles.creditWarningOverlay}>
         <View style={styles.creditWarningContent}>
           <View style={styles.creditWarningIcon}>
@@ -1418,7 +1419,8 @@ export default function SessionDetailDrawer({
           </Text>
         </View>
       </View>
-    </Modal>
+      </Modal>
+    </>
   );
 }
 

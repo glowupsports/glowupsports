@@ -54,8 +54,10 @@ export default function ParentCreditStoreScreen() {
 
   const [selectedTemplate, setSelectedTemplate] = useState<PackageTemplate | null>(null);
   const [showPinModal, setShowPinModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState("");
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"cash" | "bank_transfer" | null>(null);
 
   const { data: templates = [], isLoading: templatesLoading } = useQuery<PackageTemplate[]>({
     queryKey: [`/api/parent/credit-store/${playerId}`],
@@ -67,14 +69,32 @@ export default function ParentCreditStoreScreen() {
     enabled: !!playerId,
   });
 
+  interface AcademyPaymentInfo {
+    acceptsCash: boolean;
+    acceptsBankTransfer: boolean;
+    bankName?: string;
+    bankAccountNumber?: string;
+    bankIban?: string;
+    bankAccountHolder?: string;
+    bankSwiftCode?: string;
+    paymentInstructions?: string;
+    currency: string;
+  }
+
+  const { data: paymentInfo } = useQuery<AcademyPaymentInfo>({
+    queryKey: [`/api/parent/academy-payment-info/${playerId}`],
+    enabled: !!playerId,
+  });
+
   const credits = creditsData?.credits || { group: 0, private: 0, semi_private: 0 };
 
   const purchaseMutation = useMutation({
-    mutationFn: async ({ templateId, pin }: { templateId: string; pin: string }) => {
+    mutationFn: async ({ templateId, pin, paymentMethod }: { templateId: string; pin: string; paymentMethod: "cash" | "bank_transfer" }) => {
       const response = await apiRequest("POST", `/api/parent/purchase-credits`, {
         playerId,
         templateId,
         pin,
+        paymentMethod,
       });
       if (!response.ok) {
         const data = await response.json();
@@ -89,15 +109,20 @@ export default function ParentCreditStoreScreen() {
       queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/packages`] });
       queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/credits-summary`] });
       setShowPinModal(false);
-      setSelectedTemplate(null);
-      setPin("");
-      setPinError("");
-      Alert.alert("Success", "Credits purchased successfully!");
+      setShowPaymentModal(true);
     },
     onError: (error: Error) => {
       setPinError(error.message);
     },
   });
+
+  const closePaymentModal = () => {
+    setShowPaymentModal(false);
+    setSelectedTemplate(null);
+    setSelectedPaymentMethod(null);
+    setPin("");
+    setPinError("");
+  };
 
   const handleSelectPackage = (template: PackageTemplate) => {
     setSelectedTemplate(template);
@@ -106,13 +131,22 @@ export default function ParentCreditStoreScreen() {
     setPinError("");
   };
 
-  const handlePurchase = () => {
+  const handlePinVerified = () => {
+    if (pin.length < 4) {
+      setPinError("PIN must be at least 4 digits");
+      return;
+    }
+    setPinError("");
+  };
+
+  const handlePurchase = (paymentMethod: "cash" | "bank_transfer") => {
     if (pin.length < 4) {
       setPinError("PIN must be at least 4 digits");
       return;
     }
     if (selectedTemplate) {
-      purchaseMutation.mutate({ templateId: selectedTemplate.id, pin });
+      setSelectedPaymentMethod(paymentMethod);
+      purchaseMutation.mutate({ templateId: selectedTemplate.id, pin, paymentMethod });
     }
   };
 
@@ -270,21 +304,144 @@ export default function ParentCreditStoreScreen() {
               <Text style={styles.pinError}>{pinError}</Text>
             ) : null}
 
-            <Pressable
-              style={[styles.confirmButton, purchaseMutation.isPending && styles.confirmButtonDisabled]}
-              onPress={handlePurchase}
-              disabled={purchaseMutation.isPending}
-            >
-              {purchaseMutation.isPending ? (
-                <ActivityIndicator color={Colors.dark.backgroundRoot} />
-              ) : (
-                <Text style={styles.confirmButtonText}>Confirm Purchase</Text>
-              )}
-            </Pressable>
+            <Text style={styles.paymentMethodTitle}>Select Payment Method</Text>
+            
+            <View style={styles.paymentMethodRow}>
+              {paymentInfo?.acceptsCash ? (
+                <Pressable
+                  style={[styles.paymentMethodButton, purchaseMutation.isPending && styles.confirmButtonDisabled]}
+                  onPress={() => handlePurchase("cash")}
+                  disabled={purchaseMutation.isPending || pin.length < 4}
+                >
+                  {purchaseMutation.isPending && selectedPaymentMethod === "cash" ? (
+                    <ActivityIndicator color={Colors.dark.backgroundRoot} />
+                  ) : (
+                    <>
+                      <Ionicons name="cash-outline" size={24} color={Colors.dark.gold} />
+                      <Text style={styles.paymentMethodLabel}>Pay with Cash</Text>
+                    </>
+                  )}
+                </Pressable>
+              ) : null}
+              
+              {paymentInfo?.acceptsBankTransfer ? (
+                <Pressable
+                  style={[styles.paymentMethodButton, purchaseMutation.isPending && styles.confirmButtonDisabled]}
+                  onPress={() => handlePurchase("bank_transfer")}
+                  disabled={purchaseMutation.isPending || pin.length < 4}
+                >
+                  {purchaseMutation.isPending && selectedPaymentMethod === "bank_transfer" ? (
+                    <ActivityIndicator color={Colors.dark.backgroundRoot} />
+                  ) : (
+                    <>
+                      <Ionicons name="card-outline" size={24} color={Colors.dark.xpCyan} />
+                      <Text style={styles.paymentMethodLabel}>Bank Transfer</Text>
+                    </>
+                  )}
+                </Pressable>
+              ) : null}
+            </View>
 
             <Text style={styles.pinNote}>
               Your PIN protects against unauthorized purchases
             </Text>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showPaymentModal} animationType="fade" transparent>
+        <View style={styles.pinModalOverlay}>
+          <View style={[styles.pinModalContent, { maxHeight: "85%" }]}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.pinModalHeader}>
+                <Text style={styles.pinModalTitle}>
+                  {selectedPaymentMethod === "cash" ? "Cash Payment" : "Bank Transfer"}
+                </Text>
+                <Pressable onPress={closePaymentModal}>
+                  <Ionicons name="close" size={24} color={Colors.dark.text} />
+                </Pressable>
+              </View>
+
+              <View style={styles.successBadge}>
+                <Ionicons name="checkmark-circle" size={48} color={Colors.dark.primary} />
+                <Text style={styles.successTitle}>Order Created</Text>
+                <Text style={styles.successSubtitle}>
+                  {selectedPaymentMethod === "cash" 
+                    ? "Please pay cash to your academy" 
+                    : "Please transfer the amount to the account below"}
+                </Text>
+              </View>
+
+              {selectedTemplate ? (
+                <View style={styles.purchaseSummary}>
+                  <Text style={styles.summaryLabel}>Amount Due</Text>
+                  <Text style={styles.summaryTotal}>
+                    {formatCurrency(selectedTemplate.totalPrice, selectedTemplate.currency)}
+                  </Text>
+                </View>
+              ) : null}
+
+              {selectedPaymentMethod === "bank_transfer" && paymentInfo ? (
+                <View style={styles.bankDetailsSection}>
+                  <Text style={styles.bankDetailsTitle}>Bank Details</Text>
+                  
+                  {paymentInfo.bankName ? (
+                    <View style={styles.bankDetailRow}>
+                      <Text style={styles.bankDetailLabel}>Bank</Text>
+                      <Text style={styles.bankDetailValue}>{paymentInfo.bankName}</Text>
+                    </View>
+                  ) : null}
+                  
+                  {paymentInfo.bankAccountHolder ? (
+                    <View style={styles.bankDetailRow}>
+                      <Text style={styles.bankDetailLabel}>Account Holder</Text>
+                      <Text style={styles.bankDetailValue}>{paymentInfo.bankAccountHolder}</Text>
+                    </View>
+                  ) : null}
+                  
+                  {paymentInfo.bankAccountNumber ? (
+                    <View style={styles.bankDetailRow}>
+                      <Text style={styles.bankDetailLabel}>Account Number</Text>
+                      <Text style={styles.bankDetailValue}>{paymentInfo.bankAccountNumber}</Text>
+                    </View>
+                  ) : null}
+                  
+                  {paymentInfo.bankIban ? (
+                    <View style={styles.bankDetailRow}>
+                      <Text style={styles.bankDetailLabel}>IBAN</Text>
+                      <Text style={styles.bankDetailValue}>{paymentInfo.bankIban}</Text>
+                    </View>
+                  ) : null}
+                  
+                  {paymentInfo.bankSwiftCode ? (
+                    <View style={styles.bankDetailRow}>
+                      <Text style={styles.bankDetailLabel}>SWIFT/BIC</Text>
+                      <Text style={styles.bankDetailValue}>{paymentInfo.bankSwiftCode}</Text>
+                    </View>
+                  ) : null}
+                  
+                  {paymentInfo.paymentInstructions ? (
+                    <View style={styles.instructionsBox}>
+                      <Text style={styles.instructionsLabel}>Instructions</Text>
+                      <Text style={styles.instructionsText}>{paymentInfo.paymentInstructions}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {selectedPaymentMethod === "cash" ? (
+                <View style={styles.cashInstructions}>
+                  <Ionicons name="information-circle-outline" size={20} color={Colors.dark.gold} />
+                  <Text style={styles.cashInstructionsText}>
+                    Please bring exact cash to your next session. Credits will be activated once payment is confirmed by the academy.
+                  </Text>
+                </View>
+              ) : null}
+
+              <Pressable style={styles.doneButton} onPress={closePaymentModal}>
+                <Text style={styles.doneButtonText}>Done</Text>
+              </Pressable>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -582,5 +739,109 @@ const styles = StyleSheet.create({
     color: Colors.dark.tabIconDefault,
     textAlign: "center",
     fontStyle: "italic",
+  },
+  paymentMethodTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    textAlign: "center",
+    marginBottom: Spacing.md,
+    fontWeight: "600",
+  },
+  paymentMethodRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  paymentMethodButton: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    alignItems: "center",
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  paymentMethodLabel: {
+    ...Typography.small,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  successBadge: {
+    alignItems: "center",
+    paddingVertical: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  successTitle: {
+    ...Typography.h3,
+    color: Colors.dark.primary,
+    fontWeight: "700",
+  },
+  successSubtitle: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  bankDetailsSection: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  bankDetailsTitle: {
+    ...Typography.h4,
+    color: Colors.dark.xpCyan,
+    marginBottom: Spacing.md,
+  },
+  bankDetailRow: {
+    marginBottom: Spacing.sm,
+  },
+  bankDetailLabel: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+  },
+  bankDetailValue: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  instructionsBox: {
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  instructionsLabel: {
+    ...Typography.caption,
+    color: Colors.dark.gold,
+    marginBottom: Spacing.xs,
+  },
+  instructionsText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  cashInstructions: {
+    flexDirection: "row",
+    backgroundColor: `${Colors.dark.gold}15`,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+    alignItems: "flex-start",
+  },
+  cashInstructionsText: {
+    flex: 1,
+    ...Typography.small,
+    color: Colors.dark.gold,
+  },
+  doneButton: {
+    backgroundColor: Colors.dark.primary,
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+  },
+  doneButtonText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
   },
 });

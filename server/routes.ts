@@ -9187,7 +9187,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!settings) {
         settings = await storage.createAcademySettings({ academyId });
       }
-      res.json(settings);
+      
+      const academy = await storage.getAcademy(academyId);
+      const response = {
+        ...settings,
+        bankName: (academy as any)?.bankName || null,
+        bankAccountNumber: (academy as any)?.bankAccountNumber || null,
+        bankIban: (academy as any)?.bankIban || null,
+        bankAccountHolder: (academy as any)?.bankAccountHolder || null,
+        bankSwiftCode: (academy as any)?.bankSwiftCode || null,
+        paymentInstructions: (academy as any)?.paymentInstructions || null,
+        acceptsCash: (academy as any)?.acceptsCash !== false,
+        acceptsBankTransfer: (academy as any)?.acceptsBankTransfer !== false,
+      };
+      
+      res.json(response);
     } catch (error) {
       console.error("Error fetching academy settings:", error);
       res.status(500).json({ error: "Failed to fetch academy settings" });
@@ -9197,7 +9211,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/academy/settings", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId!;
-      const settings = await storage.upsertAcademySettings(academyId, req.body);
+      
+      const { 
+        bankName, bankAccountNumber, bankIban, bankAccountHolder, 
+        bankSwiftCode, paymentInstructions, acceptsCash, acceptsBankTransfer,
+        ...settingsData 
+      } = req.body;
+      
+      const bankFields = { 
+        bankName, bankAccountNumber, bankIban, bankAccountHolder, 
+        bankSwiftCode, paymentInstructions, acceptsCash, acceptsBankTransfer 
+      };
+      const hasBankFields = Object.values(bankFields).some(v => v !== undefined);
+      
+      if (hasBankFields) {
+        await storage.updateAcademy(academyId, bankFields);
+      }
+      
+      const settings = await storage.upsertAcademySettings(academyId, settingsData);
       res.json(settings);
     } catch (error) {
       console.error("Error updating academy settings:", error);
@@ -17793,10 +17824,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/parent/academy-payment-info/:playerId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      const { playerId } = req.params;
+
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const player = await storage.getPlayer(playerId);
+      if (!player || player.parentUserId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const academy = await storage.getAcademy(player.academyId);
+      if (!academy) {
+        return res.status(404).json({ error: "Academy not found" });
+      }
+
+      const settings = await storage.getAcademySettings(player.academyId);
+      const currency = settings?.currency || "AED";
+
+      res.json({
+        acceptsCash: (academy as any).acceptsCash !== false,
+        acceptsBankTransfer: (academy as any).acceptsBankTransfer !== false,
+        bankName: (academy as any).bankName,
+        bankAccountNumber: (academy as any).bankAccountNumber,
+        bankIban: (academy as any).bankIban,
+        bankAccountHolder: (academy as any).bankAccountHolder,
+        bankSwiftCode: (academy as any).bankSwiftCode,
+        paymentInstructions: (academy as any).paymentInstructions,
+        currency,
+      });
+    } catch (error) {
+      console.error("Get academy payment info error:", error);
+      res.status(500).json({ error: "Failed to load payment info" });
+    }
+  });
+
   app.post("/api/parent/purchase-credits", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.id;
-      const { playerId, templateId, pin } = req.body;
+      const { playerId, templateId, pin, paymentMethod } = req.body;
 
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
@@ -17859,7 +17929,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           unitPrice: template.pricePerCredit,
           total: totalAmount,
         }],
-      });
+        paymentMethod: paymentMethod || "cash",
+      } as any);
 
       res.json({ 
         success: true, 

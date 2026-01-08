@@ -120,6 +120,14 @@ export default function AcademySettingsScreen() {
     invoicePrefix: "INV",
     taxRate: "0",
     invoiceFooter: "",
+    bankName: "",
+    bankAccountNumber: "",
+    bankIban: "",
+    bankAccountHolder: "",
+    bankSwiftCode: "",
+    paymentInstructions: "",
+    acceptsCash: true,
+    acceptsBankTransfer: true,
   });
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -200,6 +208,14 @@ export default function AcademySettingsScreen() {
         invoicePrefix: settings.invoicePrefix || "INV",
         taxRate: String(settings.taxRate || 0),
         invoiceFooter: settings.invoiceFooter || "",
+        bankName: (settings as any).bankName || "",
+        bankAccountNumber: (settings as any).bankAccountNumber || "",
+        bankIban: (settings as any).bankIban || "",
+        bankAccountHolder: (settings as any).bankAccountHolder || "",
+        bankSwiftCode: (settings as any).bankSwiftCode || "",
+        paymentInstructions: (settings as any).paymentInstructions || "",
+        acceptsCash: (settings as any).acceptsCash !== false,
+        acceptsBankTransfer: (settings as any).acceptsBankTransfer !== false,
       });
       setHasChanges(false);
     }
@@ -236,7 +252,15 @@ export default function AcademySettingsScreen() {
       invoicePrefix: formData.invoicePrefix,
       taxRate: parseFloat(formData.taxRate) || 0,
       invoiceFooter: formData.invoiceFooter || null,
-    });
+      bankName: formData.bankName || null,
+      bankAccountNumber: formData.bankAccountNumber || null,
+      bankIban: formData.bankIban || null,
+      bankAccountHolder: formData.bankAccountHolder || null,
+      bankSwiftCode: formData.bankSwiftCode || null,
+      paymentInstructions: formData.paymentInstructions || null,
+      acceptsCash: formData.acceptsCash,
+      acceptsBankTransfer: formData.acceptsBankTransfer,
+    } as any);
   };
 
   const createInviteMutation = useMutation({
@@ -509,6 +533,115 @@ export default function AcademySettingsScreen() {
           />
         </View>
       </View>
+
+      <View style={styles.glassSection}>
+        <Text style={styles.sectionTitle}>PAYMENT METHODS</Text>
+        <Text style={styles.sectionSubtitle}>Configure how parents can pay for credits</Text>
+        
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleInfo}>
+            <Ionicons name="cash-outline" size={20} color={Colors.dark.gold} />
+            <Text style={styles.toggleLabel}>Accept Cash Payments</Text>
+          </View>
+          <Pressable
+            style={[styles.toggle, formData.acceptsCash && styles.toggleActive]}
+            onPress={() => { setFormData(prev => ({ ...prev, acceptsCash: !prev.acceptsCash })); setHasChanges(true); }}
+          >
+            <View style={[styles.toggleKnob, formData.acceptsCash && styles.toggleKnobActive]} />
+          </Pressable>
+        </View>
+
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleInfo}>
+            <Ionicons name="card-outline" size={20} color={Colors.dark.xpCyan} />
+            <Text style={styles.toggleLabel}>Accept Bank Transfer</Text>
+          </View>
+          <Pressable
+            style={[styles.toggle, formData.acceptsBankTransfer && styles.toggleActive]}
+            onPress={() => { setFormData(prev => ({ ...prev, acceptsBankTransfer: !prev.acceptsBankTransfer })); setHasChanges(true); }}
+          >
+            <View style={[styles.toggleKnob, formData.acceptsBankTransfer && styles.toggleKnobActive]} />
+          </Pressable>
+        </View>
+      </View>
+
+      {formData.acceptsBankTransfer ? (
+        <View style={styles.glassSection}>
+          <Text style={styles.sectionTitle}>BANK DETAILS</Text>
+          <Text style={styles.sectionSubtitle}>These details will be shown to parents when they purchase credits</Text>
+          
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Bank Name</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.bankName}
+              onChangeText={(text) => updateField("bankName", text)}
+              placeholder="e.g., Emirates NBD"
+              placeholderTextColor={Colors.dark.textMuted}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Account Holder Name</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.bankAccountHolder}
+              onChangeText={(text) => updateField("bankAccountHolder", text)}
+              placeholder="Name on the account"
+              placeholderTextColor={Colors.dark.textMuted}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Account Number</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.bankAccountNumber}
+              onChangeText={(text) => updateField("bankAccountNumber", text)}
+              placeholder="Your account number"
+              placeholderTextColor={Colors.dark.textMuted}
+              keyboardType="number-pad"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>IBAN</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.bankIban}
+              onChangeText={(text) => updateField("bankIban", text)}
+              placeholder="e.g., AE12 3456 7890 1234 5678 901"
+              placeholderTextColor={Colors.dark.textMuted}
+              autoCapitalize="characters"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>SWIFT/BIC Code (Optional)</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.bankSwiftCode}
+              onChangeText={(text) => updateField("bankSwiftCode", text)}
+              placeholder="e.g., EABORAEA"
+              placeholderTextColor={Colors.dark.textMuted}
+              autoCapitalize="characters"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Payment Instructions (Optional)</Text>
+            <TextInput
+              style={[styles.input, styles.multilineInput]}
+              value={formData.paymentInstructions}
+              onChangeText={(text) => updateField("paymentInstructions", text)}
+              placeholder="e.g., Please include player name as reference"
+              placeholderTextColor={Colors.dark.textMuted}
+              multiline
+              numberOfLines={2}
+            />
+          </View>
+        </View>
+      ) : null}
 
       {hasChanges && (
         <AnimatedButton
@@ -805,6 +938,48 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     marginBottom: Spacing.md,
     letterSpacing: 1.5,
+  },
+  sectionSubtitle: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.md,
+  },
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  toggleInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  toggleLabel: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  toggle: {
+    width: 50,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(50, 50, 55, 0.9)",
+    padding: 2,
+    justifyContent: "center",
+  },
+  toggleActive: {
+    backgroundColor: `${Colors.dark.primary}60`,
+  },
+  toggleKnob: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.dark.textMuted,
+  },
+  toggleKnobActive: {
+    backgroundColor: Colors.dark.primary,
+    marginLeft: "auto",
   },
   joinCodeHeader: {
     flexDirection: "row",

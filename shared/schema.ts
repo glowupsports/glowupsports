@@ -180,6 +180,16 @@ export const academies = pgTable("academies", {
   // Timezone (IANA format like "Asia/Dubai", "Europe/Amsterdam")
   timezone: text("timezone").default("Asia/Dubai"),
   
+  // Bank Details for Payment Instructions
+  bankName: text("bank_name"),
+  bankAccountNumber: text("bank_account_number"),
+  bankIban: text("bank_iban"),
+  bankAccountHolder: text("bank_account_holder"),
+  bankSwiftCode: text("bank_swift_code"),
+  paymentInstructions: text("payment_instructions"),
+  acceptsCash: boolean("accepts_cash").default(true),
+  acceptsBankTransfer: boolean("accepts_bank_transfer").default(true),
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -2114,6 +2124,7 @@ export const invoices = pgTable("invoices", {
   
   lineItems: jsonb("line_items"), // Array of line items
   notes: text("notes"),
+  paymentMethod: text("payment_method").default("cash"), // cash | bank_transfer | stripe
   
   createdAt: timestamp("created_at").defaultNow(),
 });
