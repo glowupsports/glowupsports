@@ -14954,19 +14954,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Academy ID required" });
       }
 
-      const { name, description, email, phone, address, website, logoUrl, primaryColor, secondaryColor } = req.body;
+      const { 
+        name, description, email, phone, address, website, logoUrl, primaryColor, secondaryColor,
+        bankName, bankAccountHolder, bankAccountNumber, bankIban
+      } = req.body;
       
-      const updated = await storage.updateAcademy(academyId, {
-        name,
-        description,
-        email,
-        phone,
-        address,
-        website,
-        logoUrl,
-        primaryColor,
-        secondaryColor,
-      });
+      // Build update object with only provided properties to support partial updates
+      // Empty strings are valid values (user intentionally clearing a field)
+      const updates: Record<string, any> = {};
+      if (name !== undefined && name !== null) updates.name = name;
+      if (description !== undefined && description !== null) updates.description = description;
+      if (email !== undefined && email !== null) updates.email = email;
+      if (phone !== undefined && phone !== null) updates.phone = phone;
+      if (address !== undefined && address !== null) updates.address = address;
+      if (website !== undefined && website !== null) updates.website = website;
+      if (logoUrl !== undefined && logoUrl !== null) updates.logoUrl = logoUrl;
+      if (primaryColor !== undefined && primaryColor !== null) updates.primaryColor = primaryColor;
+      if (secondaryColor !== undefined && secondaryColor !== null) updates.secondaryColor = secondaryColor;
+      if (bankName !== undefined && bankName !== null) updates.bankName = bankName;
+      if (bankAccountHolder !== undefined && bankAccountHolder !== null) updates.bankAccountHolder = bankAccountHolder;
+      if (bankAccountNumber !== undefined && bankAccountNumber !== null) updates.bankAccountNumber = bankAccountNumber;
+      if (bankIban !== undefined && bankIban !== null) updates.bankIban = bankIban;
+      
+      const updated = await storage.updateAcademy(academyId, updates);
 
       res.json(updated);
     } catch (error) {

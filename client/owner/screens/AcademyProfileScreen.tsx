@@ -19,6 +19,10 @@ interface AcademyData {
   phone?: string;
   address?: string;
   website?: string;
+  bankName?: string;
+  bankAccountHolder?: string;
+  bankAccountNumber?: string;
+  bankIban?: string;
 }
 
 export default function AcademyProfileScreen() {
@@ -62,6 +66,10 @@ export default function AcademyProfileScreen() {
       website: academy?.website || "",
       primaryColor: academy?.primaryColor || "#FFD700",
       secondaryColor: academy?.secondaryColor || "#00CED1",
+      bankName: academy?.bankName || "",
+      bankAccountHolder: academy?.bankAccountHolder || "",
+      bankAccountNumber: academy?.bankAccountNumber || "",
+      bankIban: academy?.bankIban || "",
     });
     setIsEditing(true);
   };
@@ -274,6 +282,85 @@ export default function AcademyProfileScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Bank Details</Text>
+          <Text style={styles.sectionSubtitle}>These details will be shown to parents during bank transfer payments</Text>
+          
+          <View style={[styles.fieldCard, CardStyles.elevated]}>
+            <View style={styles.fieldRow}>
+              <Ionicons name="business-outline" size={20} color={Colors.dark.gold} />
+              <Text style={styles.fieldLabel}>Bank Name</Text>
+            </View>
+            {isEditing ? (
+              <TextInput
+                style={styles.input}
+                value={formData.bankName}
+                onChangeText={(text) => setFormData(prev => ({ ...prev, bankName: text }))}
+                placeholder="e.g. Emirates NBD"
+                placeholderTextColor={Colors.dark.textMuted}
+              />
+            ) : (
+              <Text style={styles.fieldValue}>{academy?.bankName || "Not set"}</Text>
+            )}
+          </View>
+
+          <View style={[styles.fieldCard, CardStyles.elevated]}>
+            <View style={styles.fieldRow}>
+              <Ionicons name="person-outline" size={20} color={Colors.dark.gold} />
+              <Text style={styles.fieldLabel}>Account Holder Name</Text>
+            </View>
+            {isEditing ? (
+              <TextInput
+                style={styles.input}
+                value={formData.bankAccountHolder}
+                onChangeText={(text) => setFormData(prev => ({ ...prev, bankAccountHolder: text }))}
+                placeholder="e.g. Glow Up Sports LLC"
+                placeholderTextColor={Colors.dark.textMuted}
+              />
+            ) : (
+              <Text style={styles.fieldValue}>{academy?.bankAccountHolder || "Not set"}</Text>
+            )}
+          </View>
+
+          <View style={[styles.fieldCard, CardStyles.elevated]}>
+            <View style={styles.fieldRow}>
+              <Ionicons name="card-outline" size={20} color={Colors.dark.gold} />
+              <Text style={styles.fieldLabel}>Account Number</Text>
+            </View>
+            {isEditing ? (
+              <TextInput
+                style={styles.input}
+                value={formData.bankAccountNumber}
+                onChangeText={(text) => setFormData(prev => ({ ...prev, bankAccountNumber: text }))}
+                placeholder="e.g. 1234567890"
+                placeholderTextColor={Colors.dark.textMuted}
+                keyboardType="numeric"
+              />
+            ) : (
+              <Text style={styles.fieldValue}>{academy?.bankAccountNumber || "Not set"}</Text>
+            )}
+          </View>
+
+          <View style={[styles.fieldCard, CardStyles.elevated]}>
+            <View style={styles.fieldRow}>
+              <Ionicons name="barcode-outline" size={20} color={Colors.dark.gold} />
+              <Text style={styles.fieldLabel}>IBAN</Text>
+            </View>
+            {isEditing ? (
+              <TextInput
+                style={styles.input}
+                value={formData.bankIban}
+                onChangeText={(text) => setFormData(prev => ({ ...prev, bankIban: text }))}
+                placeholder="e.g. AE123456789012345678901"
+                placeholderTextColor={Colors.dark.textMuted}
+                autoCapitalize="characters"
+              />
+            ) : (
+              <Text style={styles.fieldValue}>{academy?.bankIban || "Not set"}</Text>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Branding</Text>
           
           <View style={[styles.fieldCard, CardStyles.elevated]}>
@@ -449,6 +536,12 @@ const styles = StyleSheet.create({
     ...Typography.h3,
     color: Colors.dark.gold,
     marginBottom: Spacing.xs,
+  },
+  sectionSubtitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+    marginTop: -Spacing.xs,
   },
   fieldCard: {
     padding: Spacing.lg,
