@@ -17791,6 +17791,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/parent/credit-store/:playerId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.id;
+      const userPlayerId = req.user?.playerId;
       const { playerId } = req.params;
 
       if (!userId) {
@@ -17798,7 +17799,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const player = await storage.getPlayer(playerId);
-      if (!player || player.parentUserId !== userId) {
+      const isOwnPlayer = userPlayerId === playerId;
+      const isParent = player?.parentUserId === userId;
+      if (!player || (!isOwnPlayer && !isParent)) {
         return res.status(403).json({ error: "Access denied" });
       }
 
@@ -17827,6 +17830,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/parent/academy-payment-info/:playerId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.id;
+      const userPlayerId = req.user?.playerId;
       const { playerId } = req.params;
 
       if (!userId) {
@@ -17834,7 +17838,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const player = await storage.getPlayer(playerId);
-      if (!player || player.parentUserId !== userId) {
+      const isOwnPlayer = userPlayerId === playerId;
+      const isParent = player?.parentUserId === userId;
+      if (!player || (!isOwnPlayer && !isParent)) {
         return res.status(403).json({ error: "Access denied" });
       }
 
@@ -17877,7 +17883,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const player = await storage.getPlayer(playerId);
-      if (!player || player.parentUserId !== userId) {
+      const userPlayerId = req.user?.playerId;
+      const isOwnPlayer = userPlayerId === playerId;
+      const isParent = player?.parentUserId === userId;
+      if (!player || (!isOwnPlayer && !isParent)) {
         return res.status(403).json({ error: "Access denied" });
       }
 
