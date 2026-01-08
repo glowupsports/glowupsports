@@ -74,6 +74,12 @@ function NotificationCard({
         return "person-remove-outline";
       case "reminder":
         return "alarm-outline";
+      case "player_running_late":
+        return "time-outline";
+      case "session_reminder":
+        return "calendar-outline";
+      case "booking_request":
+        return "person-add-outline";
       default:
         return "notifications-outline";
     }
@@ -89,6 +95,16 @@ function NotificationCard({
         return Colors.dark.primary;
       case "reminder":
         return Colors.dark.orange;
+      case "player_running_late":
+        return Colors.dark.orange;
+      case "session_reminder":
+        return Colors.dark.xpCyan;
+      case "booking_request":
+        return Colors.dark.primary;
+      case "absence":
+        return Colors.dark.error;
+      case "holiday":
+        return Colors.dark.xpCyan;
       default:
         return Colors.dark.primary;
     }
