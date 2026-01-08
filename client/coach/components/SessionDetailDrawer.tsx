@@ -11,7 +11,6 @@ import {
   ActivityIndicator,
   Platform,
 } from "react-native";
-import { Picker } from "@react-native-picker/picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -97,6 +96,7 @@ export default function SessionDetailDrawer({
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [showReasonDropdown, setShowReasonDropdown] = useState(false);
   const [cancelResult, setCancelResult] = useState<{
     success: boolean;
     message: string;
@@ -1033,22 +1033,64 @@ export default function SessionDetailDrawer({
             </Text>
             <Text style={styles.stepLabel}>REASON FOR CANCELLATION</Text>
             <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={cancelReason}
-                onValueChange={(value) => setCancelReason(value)}
-                style={styles.picker}
-                dropdownIconColor={Colors.dark.orange}
-                itemStyle={styles.pickerItem}
+              <Pressable 
+                style={styles.dropdownButton}
+                onPress={() => setShowReasonDropdown(true)}
               >
-                {CANCELLATION_REASONS.map((reason) => (
-                  <Picker.Item 
-                    key={reason.value} 
-                    label={reason.label} 
-                    value={reason.value}
-                    color={Platform.OS === "ios" ? Colors.dark.text : undefined}
-                  />
-                ))}
-              </Picker>
+                <Text style={[styles.dropdownButtonText, !cancelReason && styles.dropdownPlaceholder]}>
+                  {cancelReason || "Select a reason..."}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color={Colors.dark.orange} />
+              </Pressable>
+              
+              {showReasonDropdown ? (
+                <Modal
+                  visible={showReasonDropdown}
+                  transparent
+                  animationType="fade"
+                  onRequestClose={() => setShowReasonDropdown(false)}
+                >
+                  <Pressable 
+                    style={styles.dropdownOverlay}
+                    onPress={() => setShowReasonDropdown(false)}
+                  >
+                    <View style={styles.dropdownMenu}>
+                      <View style={styles.dropdownHeader}>
+                        <Text style={styles.dropdownHeaderText}>Select Reason</Text>
+                        <Pressable onPress={() => setShowReasonDropdown(false)}>
+                          <Ionicons name="close" size={24} color={Colors.dark.text} />
+                        </Pressable>
+                      </View>
+                      <ScrollView style={styles.dropdownScroll} bounces={false}>
+                        {CANCELLATION_REASONS.filter(r => r.value !== "").map((reason) => (
+                          <Pressable
+                            key={reason.value}
+                            style={[
+                              styles.dropdownItem,
+                              cancelReason === reason.value && styles.dropdownItemSelected
+                            ]}
+                            onPress={() => {
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                              setCancelReason(reason.value);
+                              setShowReasonDropdown(false);
+                            }}
+                          >
+                            <Text style={[
+                              styles.dropdownItemText,
+                              cancelReason === reason.value && styles.dropdownItemTextSelected
+                            ]}>
+                              {reason.label}
+                            </Text>
+                            {cancelReason === reason.value ? (
+                              <Ionicons name="checkmark" size={20} color={Colors.dark.orange} />
+                            ) : null}
+                          </Pressable>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  </Pressable>
+                </Modal>
+              ) : null}
             </View>
             <View style={styles.endConfirmButtons}>
               <Pressable
@@ -1881,6 +1923,76 @@ const styles = StyleSheet.create({
   pickerItem: {
     color: Colors.dark.text,
     fontSize: 16,
+  },
+  dropdownButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+  },
+  dropdownButtonText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  dropdownPlaceholder: {
+    color: Colors.dark.textMuted,
+  },
+  dropdownOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  dropdownMenu: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.xl,
+    width: "100%",
+    maxWidth: 400,
+    maxHeight: 400,
+    borderWidth: 1,
+    borderColor: Colors.dark.orange,
+    overflow: "hidden",
+  },
+  dropdownHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  dropdownHeaderText: {
+    ...Typography.body,
+    fontWeight: "600" as const,
+    color: Colors.dark.text,
+  },
+  dropdownScroll: {
+    maxHeight: 300,
+  },
+  dropdownItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  dropdownItemSelected: {
+    backgroundColor: Colors.dark.orange + "20",
+  },
+  dropdownItemText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  dropdownItemTextSelected: {
+    color: Colors.dark.orange,
+    fontWeight: "600",
   },
   cancelDoneButton: {
     backgroundColor: Colors.dark.primary,
