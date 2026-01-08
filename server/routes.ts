@@ -4365,11 +4365,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/packages", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { playerId, totalCredits, remainingCredits, expiryDate } = req.body;
+      const { 
+        playerId, 
+        totalCredits, 
+        remainingCredits, 
+        expiryDate, 
+        creditType = "group", // group | private | semi_private
+        purchasedAt, // ISO date string for backdating - defaults to now
+        expiryMonths = 12, // Number of months until expiry from purchaseDate
+      } = req.body;
       const academyId = req.user!.academyId;
+      const coachId = req.user!.coachId;
       
       if (!playerId || totalCredits === undefined) {
         return res.status(400).json({ error: "playerId and totalCredits are required" });
+      }
+      
+      // Validate credit type
+      const validCreditTypes = ["group", "private", "semi_private"];
+      if (!validCreditTypes.includes(creditType)) {
+        return res.status(400).json({ error: "Invalid creditType. Must be group, private, or semi_private" });
       }
       
       const { valid } = await validatePlayerOwnership(playerId, academyId, storage);
@@ -4377,13 +4392,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
       
-      const pkg = await storage.createPackage({
+      // Look up academy pricing for this credit type
+      const pricing = await storage.getAcademyPricingByType(academyId!, creditType);
+      const pricePerCredit = pricing ? Number(pricing.pricePerSession) : 0;
+      const currency = pricing?.currency || "AED";
+      const totalPrice = pricePerCredit * totalCredits;
+      
+      // Calculate purchase date and expiry
+      const purchaseDate = purchasedAt ? new Date(purchasedAt) : new Date();
+      let finalExpiryDate = expiryDate;
+      if (!finalExpiryDate && expiryMonths) {
+        const expiry = new Date(purchaseDate);
+        expiry.setMonth(expiry.getMonth() + expiryMonths);
+        finalExpiryDate = expiry.toISOString().split('T')[0];
+      }
+      
+      // Generate invoice number
+      const invoiceNumber = await storage.generateInvoiceNumber(academyId!);
+      
+      // Get player info for invoice
+      const player = await storage.getPlayer(playerId);
+      
+      // Create invoice first
+      const invoice = await storage.createInvoice({
+        academyId: academyId!,
         playerId,
+        invoiceNumber,
+        invoiceType: "package",
+        amount: totalPrice.toString(),
+        currency,
+        status: "paid", // Mark as paid since credits are being added
+        paidAt: purchaseDate,
+        lineItems: [{
+          description: `${totalCredits} ${creditType.replace('_', ' ')} lesson credits`,
+          quantity: totalCredits,
+          unitPrice: pricePerCredit,
+          total: totalPrice,
+          creditType,
+        }],
+        notes: `Credit package purchase - ${creditType.replace('_', ' ')} lessons`,
+      });
+      
+      // Create the package
+      const pkg = await storage.createPackage({
+        academyId,
+        playerId,
+        creditType,
         totalCredits,
         remainingCredits: remainingCredits ?? totalCredits,
-        expiryDate: expiryDate || null,
+        price: totalPrice.toString(),
+        pricePerCredit: pricePerCredit.toString(),
+        currency,
+        purchaseDate,
+        expiryDate: finalExpiryDate || null,
+        invoiceId: invoice.id,
+        name: `${totalCredits} ${creditType.replace('_', ' ')} credits`,
       });
-      res.status(201).json(pkg);
+      
+      // Update invoice with package ID
+      await storage.updateInvoice(invoice.id, { packageId: pkg.id });
+      
+      // Create credit transaction for the purchase
+      await storage.createCreditTransaction({
+        playerId,
+        academyId,
+        packageId: pkg.id,
+        type: "credit",
+        creditType,
+        amount: totalCredits,
+        reason: "package_purchased",
+        metadata: { 
+          invoiceId: invoice.id,
+          pricePerCredit,
+          totalPrice,
+          currency,
+        },
+      });
+      
+      // Audit log
+      if (coachId) {
+        await storage.createAuditLog({
+          entityType: "package",
+          entityId: pkg.id,
+          action: "create",
+          performedBy: coachId,
+          metadata: { creditType, totalCredits, totalPrice, invoiceId: invoice.id },
+        });
+      }
+      
+      res.status(201).json({ ...pkg, invoice });
     } catch (error) {
       console.error("Error creating package:", error);
       res.status(500).json({ error: "Failed to create package" });
@@ -4414,6 +4511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/packages/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const { force } = req.query;
       const academyId = req.user!.academyId;
       
       const { valid } = await validatePackageOwnership(id, academyId, storage);
@@ -4421,7 +4519,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Package not found" });
       }
       
-      await storage.deletePackage(id, academyId ?? undefined);
+      const result = await storage.deletePackage(id, academyId ?? undefined, force === "true");
+      
+      if (!result.success) {
+        return res.status(400).json({ 
+          error: result.error,
+          creditsUsed: result.creditsUsed 
+        });
+      }
+      
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting package:", error);
@@ -18577,6 +18683,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==================== 3-LAYER PRICING SYSTEM ====================
+
+  // Academy Pricing for PackagesCard - coaches and owners can read pricing
+  app.get("/api/owner/academy/pricing", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+      
+      const pricing = await storage.getAcademyPricing(academyId);
+      res.json(pricing);
+    } catch (error) {
+      console.error("Get academy pricing error:", error);
+      res.status(500).json({ error: "Failed to fetch pricing" });
+    }
+  });
 
   // Academy Pricing (Layer 1) - What players pay
   app.get("/api/admin/pricing", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {

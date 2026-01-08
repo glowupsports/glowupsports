@@ -863,6 +863,9 @@ export const packages = pgTable("packages", {
   
   name: text("name"), // Copy from template or custom name
   
+  // Credit type - determines which session types this package can be used for
+  creditType: text("credit_type").default("group"), // group | private | semi_private
+  
   // Optional: Link package to specific class - credits only valid for this class
   // If null, credits can be used for any class the player is member of
   seriesId: varchar("series_id"),
@@ -870,11 +873,15 @@ export const packages = pgTable("packages", {
   totalCredits: integer("total_credits").notNull(),
   remainingCredits: integer("remaining_credits").notNull(),
   
-  price: numeric("price"), // Price paid for this package
+  price: numeric("price"), // Price paid for this package (auto-calculated from academy pricing)
+  pricePerCredit: numeric("price_per_credit"), // Unit price snapshot at purchase time
   currency: text("currency").default("AED"),
   
   purchaseDate: timestamp("purchase_date").defaultNow(),
   expiryDate: date("expiry_date"),
+  
+  // Invoice tracking
+  invoiceId: varchar("invoice_id"),
   
   status: text("status").default("active"), // active | expired | depleted
   
@@ -883,6 +890,7 @@ export const packages = pgTable("packages", {
   playerIdx: index("packages_player_idx").on(table.playerId),
   seriesIdx: index("packages_series_idx").on(table.seriesId),
   statusIdx: index("packages_status_idx").on(table.status),
+  creditTypeIdx: index("packages_credit_type_idx").on(table.creditType),
 }));
 
 export const insertPackageSchema = createInsertSchema(packages).omit({ id: true, createdAt: true });
@@ -2163,8 +2171,10 @@ export const creditTransactions = pgTable("credit_transactions", {
   playerId: varchar("player_id").references(() => players.id).notNull(),
   academyId: varchar("academy_id").references(() => academies.id),
   sessionId: varchar("session_id").references(() => sessions.id),
+  packageId: varchar("package_id").references(() => packages.id), // Which package the credits came from/went to
   
   type: text("type").notNull(), // credit | debit | refund | make_up_grant | make_up_used
+  creditType: text("credit_type"), // group | private | semi_private - type of credits being transacted
   amount: integer("amount").notNull(), // positive for credit, negative for debit
   reason: text("reason").notNull(), // session_join | session_cancel | make_up_granted | make_up_lesson_used | package_purchased | admin_adjustment
   
@@ -2178,6 +2188,8 @@ export const creditTransactions = pgTable("credit_transactions", {
   // Prevent duplicate credit transactions for the same player/session/reason combination
   // This is critical for billing correctness under concurrent writes
   index("credit_transactions_player_session_idx").on(table.playerId, table.sessionId),
+  index("credit_transactions_package_idx").on(table.packageId),
+  index("credit_transactions_credit_type_idx").on(table.creditType),
 ]);
 
 export const insertCreditTransactionSchema = createInsertSchema(creditTransactions).omit({ id: true, createdAt: true });

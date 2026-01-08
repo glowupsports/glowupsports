@@ -1857,13 +1857,24 @@ export const storage = {
     return result[0];
   },
 
-  async deletePackage(id: string, academyId?: string): Promise<void> {
-    // Verify ownership before delete if academyId provided
-    if (academyId) {
-      const pkg = await this.getPackage(id, academyId);
-      if (!pkg) return;
+  async deletePackage(id: string, academyId?: string, force: boolean = false): Promise<{ success: boolean; error?: string; creditsUsed?: number }> {
+    const pkg = await this.getPackage(id, academyId);
+    if (!pkg) {
+      return { success: false, error: "Package not found" };
     }
+    
+    const creditsUsed = pkg.totalCredits - pkg.remainingCredits;
+    
+    if (creditsUsed > 0 && !force) {
+      return { 
+        success: false, 
+        error: `Cannot delete: ${creditsUsed} credit(s) already used from this package`,
+        creditsUsed 
+      };
+    }
+    
     await db.delete(packages).where(eq(packages.id, id));
+    return { success: true };
   },
 
   async usePackageCredit(packageId: string, academyId?: string): Promise<Package | undefined> {
@@ -5035,6 +5046,7 @@ export const storage = {
   // Consume credits for all active class members when a session is completed
   // This is the core billing logic for class-based memberships
   // Uses transactions to ensure atomicity and prevent race conditions
+  // Credits are matched by type: group sessions use group credits, etc.
   async consumeCreditsForClassSession(seriesId: string, sessionId: string, sessionDate: Date): Promise<{ 
     consumed: number; 
     skipped: number; 
@@ -5042,9 +5054,19 @@ export const storage = {
   }> {
     const results = { consumed: 0, skipped: 0, errors: [] as string[] };
     
-    // Get the series to find academyId
+    // Get the series to find academyId and sessionType
     const series = await this.getCoachingSeriesById(seriesId);
     const academyId = series?.academyId || null;
+    
+    // Map session type to credit type
+    const normalizeType = (type: string | undefined): string => {
+      if (!type) return "group";
+      const normalized = type.toLowerCase().replace("-", "_").replace(" ", "_");
+      if (normalized === "semi" || normalized === "semi_private") return "semi_private";
+      if (normalized === "private") return "private";
+      return "group";
+    };
+    const requiredCreditType = normalizeType(series?.sessionType);
     
     // Get active players for this date (excludes paused players)
     const activeMembers = await this.getActiveSeriesPlayersForDate(seriesId, sessionDate);
@@ -5055,30 +5077,38 @@ export const storage = {
         // The key insight: INSERT the ledger entry FIRST (with ON CONFLICT), then decrement credits only if insert succeeded
         // This guarantees exactly-once debit semantics
         await db.transaction(async (tx) => {
-          // Find the package to deduct from
-          // Priority: 1) Linked package on membership, 2) Any active package for this series, 3) Any active general package
+          // Find the package to deduct from - must match credit type
+          // Priority: 1) Linked package on membership (if matching type), 2) Any active package for this player with matching type
           let packageToUse = null;
+          let creditType = requiredCreditType;
           
           if (member.linkedPackageId) {
             // Lock the package row with FOR UPDATE to prevent concurrent modifications
+            // Only use if credit type matches or is null (legacy packages)
             const linked = await tx.execute(sql`
               SELECT * FROM packages 
-              WHERE id = ${member.linkedPackageId} AND status = 'active'
+              WHERE id = ${member.linkedPackageId} 
+                AND status = 'active'
+                AND (credit_type = ${requiredCreditType} OR credit_type IS NULL)
               FOR UPDATE
             `);
             if (linked.rows[0] && (linked.rows[0] as any).remaining_credits > 0) {
               packageToUse = {
                 id: (linked.rows[0] as any).id,
                 remainingCredits: (linked.rows[0] as any).remaining_credits,
+                creditType: (linked.rows[0] as any).credit_type,
               };
             }
           }
           
           if (!packageToUse) {
-            // Find any active package for this player (preferring series-specific), with FOR UPDATE lock
+            // Find any active package for this player with matching credit type (or null for legacy)
             const playerPackagesResult = await tx.execute(sql`
               SELECT * FROM packages 
-              WHERE player_id = ${member.playerId} AND status = 'active' AND remaining_credits > 0
+              WHERE player_id = ${member.playerId} 
+                AND status = 'active' 
+                AND remaining_credits > 0
+                AND (credit_type = ${requiredCreditType} OR credit_type IS NULL)
               ORDER BY CASE WHEN series_id = ${seriesId} THEN 1 ELSE 0 END DESC, expiry_date ASC NULLS LAST
               FOR UPDATE
               LIMIT 1
@@ -5089,27 +5119,27 @@ export const storage = {
               packageToUse = {
                 id: p.id,
                 remainingCredits: p.remaining_credits,
+                creditType: p.credit_type,
               };
             }
           }
           
           if (!packageToUse) {
-            results.errors.push(`No credits available for player ${member.playerId}`);
+            results.errors.push(`No ${requiredCreditType} credits available for player ${member.playerId}`);
             return;
           }
           
+          creditType = packageToUse.creditType || requiredCreditType;
           const balanceBefore = packageToUse.remainingCredits;
           const balanceAfter = balanceBefore - 1;
           
           // STEP 1: Try to claim the ledger entry FIRST using ON CONFLICT with the partial unique index
           // The index credit_transactions_unique_session_join enforces uniqueness on (player_id, session_id) where reason='session_join'
           // This is the authoritative race-condition guard at the database level
-          // Note: PostgreSQL doesn't allow ON CONFLICT ON CONSTRAINT with indexes (only constraints)
-          // So we use ON CONFLICT DO NOTHING without a target - the partial index handles it
           try {
             const insertResult = await tx.execute(sql`
-              INSERT INTO credit_transactions (player_id, academy_id, session_id, type, amount, reason, balance_before, balance_after, metadata)
-              VALUES (${member.playerId}, ${academyId}, ${sessionId}, 'debit', -1, 'session_join', ${balanceBefore}, ${balanceAfter}, 
+              INSERT INTO credit_transactions (player_id, academy_id, session_id, package_id, type, credit_type, amount, reason, balance_before, balance_after, metadata)
+              VALUES (${member.playerId}, ${academyId}, ${sessionId}, ${packageToUse.id}, 'debit', ${creditType}, -1, 'session_join', ${balanceBefore}, ${balanceAfter}, 
                      ${JSON.stringify({ packageId: packageToUse.id, seriesId, description: "Credit consumed for class session" })}::jsonb)
               ON CONFLICT DO NOTHING
               RETURNING id
@@ -5170,16 +5200,31 @@ export const storage = {
   // Consume a single credit for a specific player+session (used for backfilling attendance)
   // Returns true if credit was consumed, false if no credits available or already consumed
   // linkedPackageId: If provided, prefer this package first (from series membership)
-  async consumeSingleCreditForSession(playerId: string, sessionId: string, academyId?: string, linkedPackageId?: string | null): Promise<boolean> {
+  // sessionType: The type of session (group, private, semi_private) - credits must match
+  async consumeSingleCreditForSession(playerId: string, sessionId: string, academyId?: string, linkedPackageId?: string | null, sessionType?: string): Promise<boolean> {
     try {
+      // Map session types to credit types (normalize naming)
+      const normalizeType = (type: string | undefined): string => {
+        if (!type) return "group"; // default
+        const normalized = type.toLowerCase().replace("-", "_").replace(" ", "_");
+        if (normalized === "semi" || normalized === "semi_private") return "semi_private";
+        if (normalized === "private") return "private";
+        return "group"; // default for group, physical, activity, etc.
+      };
+      
+      const requiredCreditType = normalizeType(sessionType);
+      
       return await db.transaction(async (tx) => {
         let packageToUse = null;
         
-        // Priority 1: Check linkedPackageId first if provided
+        // Priority 1: Check linkedPackageId first if provided AND has matching credit type
         if (linkedPackageId) {
           const linkedResult = await tx.execute(sql`
             SELECT * FROM packages 
-            WHERE id = ${linkedPackageId} AND status = 'active' AND remaining_credits > 0
+            WHERE id = ${linkedPackageId} 
+              AND status = 'active' 
+              AND remaining_credits > 0
+              AND (credit_type = ${requiredCreditType} OR credit_type IS NULL)
             FOR UPDATE
           `);
           if (linkedResult.rows[0]) {
@@ -5187,11 +5232,14 @@ export const storage = {
           }
         }
         
-        // Priority 2: Find any active package for this player with available credits
+        // Priority 2: Find any active package for this player with matching credit type
         if (!packageToUse) {
           const playerPackagesResult = await tx.execute(sql`
             SELECT * FROM packages 
-            WHERE player_id = ${playerId} AND status = 'active' AND remaining_credits > 0
+            WHERE player_id = ${playerId} 
+              AND status = 'active' 
+              AND remaining_credits > 0
+              AND (credit_type = ${requiredCreditType} OR credit_type IS NULL)
             ORDER BY expiry_date ASC NULLS LAST
             FOR UPDATE
             LIMIT 1
@@ -5202,19 +5250,20 @@ export const storage = {
         }
         
         if (!packageToUse) {
-          console.log(`[Credits] No credits available for player ${playerId}`);
+          console.log(`[Credits] No ${requiredCreditType} credits available for player ${playerId}`);
           return false;
         }
         
         const balanceBefore = packageToUse.remaining_credits;
         const balanceAfter = balanceBefore - 1;
+        const creditType = packageToUse.credit_type || requiredCreditType;
         
         // Try to insert ledger entry (prevents duplicate deductions)
         try {
           const insertResult = await tx.execute(sql`
-            INSERT INTO credit_transactions (player_id, academy_id, session_id, type, amount, reason, balance_before, balance_after, metadata)
-            VALUES (${playerId}, ${academyId || null}, ${sessionId}, 'debit', -1, 'session_join', ${balanceBefore}, ${balanceAfter}, 
-                   ${JSON.stringify({ packageId: packageToUse.id, description: "Credit consumed for attended session (backfill)" })}::jsonb)
+            INSERT INTO credit_transactions (player_id, academy_id, session_id, package_id, type, credit_type, amount, reason, balance_before, balance_after, metadata)
+            VALUES (${playerId}, ${academyId || null}, ${sessionId}, ${packageToUse.id}, 'debit', ${creditType}, -1, 'session_join', ${balanceBefore}, ${balanceAfter}, 
+                   ${JSON.stringify({ packageId: packageToUse.id, description: "Credit consumed for attended session" })}::jsonb)
             ON CONFLICT DO NOTHING
             RETURNING id
           `);
@@ -5239,7 +5288,7 @@ export const storage = {
           })
           .where(eq(packages.id, packageToUse.id));
         
-        console.log(`[Credits] Consumed 1 credit for player ${playerId}, session ${sessionId}. Balance: ${balanceBefore} -> ${balanceAfter}`);
+        console.log(`[Credits] Consumed 1 ${creditType} credit for player ${playerId}, session ${sessionId}. Balance: ${balanceBefore} -> ${balanceAfter}`);
         return true;
       });
     } catch (error) {

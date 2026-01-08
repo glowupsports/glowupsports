@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -8,21 +8,37 @@ import {
   TextInput,
   Alert,
   Platform,
+  ScrollView,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { Card } from "@/components/Card";
 
+type CreditType = "group" | "private" | "semi_private";
+
 interface Package {
   id: string;
   playerId: string;
+  creditType?: CreditType;
   totalCredits: number;
   remainingCredits: number;
+  price?: string;
+  pricePerCredit?: string;
+  currency?: string;
+  purchaseDate?: string;
   expiryDate: string | null;
+}
+
+interface AcademyPricing {
+  id: string;
+  sessionType: string;
+  pricePerSession: string;
+  currency: string;
 }
 
 interface PackagesCardProps {
@@ -30,15 +46,44 @@ interface PackagesCardProps {
   playerName: string;
 }
 
+const CREDIT_TYPE_LABELS: Record<CreditType, string> = {
+  group: "Group",
+  private: "Private",
+  semi_private: "Semi-Private",
+};
+
 export default function PackagesCard({ playerId, playerName }: PackagesCardProps) {
   const queryClient = useQueryClient();
   const [showAddModal, setShowAddModal] = useState(false);
   const [totalCredits, setTotalCredits] = useState("10");
   const [expiryMonths, setExpiryMonths] = useState("12");
+  const [creditType, setCreditType] = useState<CreditType>("group");
+  const [purchaseDate, setPurchaseDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const { data: packages = [], isLoading } = useQuery<Package[]>({
     queryKey: [`/api/players/${playerId}/packages`],
   });
+
+  const { data: pricing = [] } = useQuery<AcademyPricing[]>({
+    queryKey: ["/api/owner/academy/pricing"],
+  });
+
+  const pricePerCredit = useMemo(() => {
+    const found = pricing.find((p) => p.sessionType === creditType);
+    return found ? Number(found.pricePerSession) : 0;
+  }, [pricing, creditType]);
+
+  const currency = useMemo(() => {
+    const found = pricing.find((p) => p.sessionType === creditType);
+    return found?.currency || "AED";
+  }, [pricing, creditType]);
+
+  const calculatedTotal = useMemo(() => {
+    const credits = parseInt(totalCredits, 10);
+    if (isNaN(credits) || credits <= 0) return 0;
+    return pricePerCredit * credits;
+  }, [totalCredits, pricePerCredit]);
 
   const activePackages = packages.filter(
     (p) => p.remainingCredits > 0 && (!p.expiryDate || new Date(p.expiryDate) >= new Date())
@@ -46,8 +91,23 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
 
   const totalRemaining = activePackages.reduce((sum, p) => sum + p.remainingCredits, 0);
 
+  const creditsByType = useMemo(() => {
+    const byType: Record<CreditType, number> = { group: 0, private: 0, semi_private: 0 };
+    activePackages.forEach((p) => {
+      const type = (p.creditType || "group") as CreditType;
+      byType[type] += p.remainingCredits;
+    });
+    return byType;
+  }, [activePackages]);
+
   const createMutation = useMutation({
-    mutationFn: async (data: { playerId: string; totalCredits: number; expiryDate: string | null }) => {
+    mutationFn: async (data: { 
+      playerId: string; 
+      totalCredits: number; 
+      creditType: CreditType;
+      purchasedAt: string;
+      expiryMonths: number;
+    }) => {
       const response = await apiRequest("POST", "/api/packages", data);
       return response.json();
     },
@@ -56,6 +116,8 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
       setShowAddModal(false);
       setTotalCredits("10");
       setExpiryMonths("12");
+      setCreditType("group");
+      setPurchaseDate(new Date());
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -82,17 +144,44 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (packageId: string) => {
-      return apiRequest("DELETE", `/api/packages/${packageId}`);
+    mutationFn: async ({ packageId, force }: { packageId: string; force?: boolean }): Promise<{ success: boolean; error?: string; creditsUsed?: number }> => {
+      const url = force ? `/api/packages/${packageId}?force=true` : `/api/packages/${packageId}`;
+      const response = await apiRequest("DELETE", url);
+      const data = await response.json();
+      if (!response.ok) {
+        return { success: false, error: data.error, creditsUsed: data.creditsUsed };
+      }
+      return { success: true };
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      if (!data.success && data.creditsUsed) {
+        Alert.alert(
+          "Credits Already Used",
+          `${data.creditsUsed} credit(s) from this package have been used. Delete anyway?`,
+          [
+            { text: "Cancel", style: "cancel" },
+            { 
+              text: "Delete Anyway", 
+              style: "destructive", 
+              onPress: () => deleteMutation.mutate({ packageId: variables.packageId, force: true }) 
+            },
+          ]
+        );
+        return;
+      }
+      
+      if (!data.success) {
+        Alert.alert("Error", data.error || "Failed to delete package");
+        return;
+      }
+      
       queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/packages`] });
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     },
-    onError: (error: Error) => {
-      Alert.alert("Error", error.message || "Failed to delete package");
+    onError: () => {
+      Alert.alert("Error", "Failed to delete package");
     },
   });
 
@@ -103,24 +192,39 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
       return;
     }
 
-    let expiryDate: string | null = null;
     const months = parseInt(expiryMonths, 10);
-    if (!isNaN(months) && months > 0) {
-      const expiry = new Date();
-      expiry.setMonth(expiry.getMonth() + months);
-      expiryDate = expiry.toISOString().split("T")[0];
-    }
+    createMutation.mutate({ 
+      playerId, 
+      totalCredits: credits, 
+      creditType,
+      purchasedAt: purchaseDate.toISOString(),
+      expiryMonths: isNaN(months) || months <= 0 ? 12 : months,
+    });
+  };
 
-    createMutation.mutate({ playerId, totalCredits: credits, expiryDate });
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(Platform.OS === "ios");
+    if (selectedDate) {
+      setPurchaseDate(selectedDate);
+    }
+  };
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   };
 
   const handleDeletePackage = (pkg: Package) => {
+    const creditsUsed = pkg.totalCredits - pkg.remainingCredits;
+    const message = creditsUsed > 0 
+      ? `This package has ${creditsUsed} used and ${pkg.remainingCredits} remaining credits. Delete it?`
+      : `Delete this package with ${pkg.remainingCredits} credits?`;
+    
     Alert.alert(
       "Delete Package",
-      `Delete this package with ${pkg.remainingCredits}/${pkg.totalCredits} credits remaining?`,
+      message,
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: () => deleteMutation.mutate(pkg.id) },
+        { text: "Delete", style: "destructive", onPress: () => deleteMutation.mutate({ packageId: pkg.id }) },
       ]
     );
   };
@@ -151,12 +255,21 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
       <View style={styles.summaryRow}>
         <View style={styles.summaryItem}>
           <Text style={styles.summaryValue}>{totalRemaining}</Text>
-          <Text style={styles.summaryLabel}>Credits Available</Text>
+          <Text style={styles.summaryLabel}>Total Credits</Text>
         </View>
         <View style={styles.summaryItem}>
           <Text style={styles.summaryValue}>{activePackages.length}</Text>
           <Text style={styles.summaryLabel}>Active Packages</Text>
         </View>
+      </View>
+
+      <View style={styles.creditTypeRow}>
+        {(["group", "private", "semi_private"] as CreditType[]).map((type) => (
+          <View key={type} style={styles.creditTypeItem}>
+            <Text style={styles.creditTypeValue}>{creditsByType[type]}</Text>
+            <Text style={styles.creditTypeLabel}>{CREDIT_TYPE_LABELS[type]}</Text>
+          </View>
+        ))}
       </View>
 
       {activePackages.length === 0 && !isLoading ? (
@@ -182,6 +295,11 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
                   <Text style={styles.creditsText}>
                     {pkg.remainingCredits}/{pkg.totalCredits}
                   </Text>
+                  <View style={styles.packageTypeBadge}>
+                    <Text style={styles.packageTypeText}>
+                      {CREDIT_TYPE_LABELS[(pkg.creditType || "group") as CreditType]}
+                    </Text>
+                  </View>
                   <View
                     style={[
                       styles.creditBar,
@@ -212,49 +330,107 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
 
       <Modal visible={showAddModal} animationType="fade" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add Package for {playerName}</Text>
+          <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalScrollContent}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Add Package for {playerName}</Text>
 
-            <Text style={styles.inputLabel}>Number of Credits</Text>
-            <TextInput
-              style={styles.input}
-              value={totalCredits}
-              onChangeText={setTotalCredits}
-              keyboardType="number-pad"
-              placeholder="10"
-              placeholderTextColor={Colors.dark.tabIconDefault}
-            />
+              <Text style={styles.inputLabel}>Credit Type</Text>
+              <View style={styles.creditTypeSelector}>
+                {(["group", "private", "semi_private"] as CreditType[]).map((type) => (
+                  <Pressable
+                    key={type}
+                    style={[
+                      styles.creditTypeOption,
+                      creditType === type && styles.creditTypeOptionActive,
+                    ]}
+                    onPress={() => setCreditType(type)}
+                  >
+                    <Text
+                      style={[
+                        styles.creditTypeOptionText,
+                        creditType === type && styles.creditTypeOptionTextActive,
+                      ]}
+                    >
+                      {CREDIT_TYPE_LABELS[type]}
+                    </Text>
+                    {pricePerCredit > 0 && creditType === type ? (
+                      <Text style={styles.creditTypePrice}>
+                        {currency} {pricing.find((p) => p.sessionType === type)?.pricePerSession}/credit
+                      </Text>
+                    ) : null}
+                  </Pressable>
+                ))}
+              </View>
 
-            <Text style={styles.inputLabel}>Validity (months)</Text>
-            <TextInput
-              style={styles.input}
-              value={expiryMonths}
-              onChangeText={setExpiryMonths}
-              keyboardType="number-pad"
-              placeholder="12"
-              placeholderTextColor={Colors.dark.tabIconDefault}
-            />
+              <Text style={styles.inputLabel}>Number of Credits</Text>
+              <TextInput
+                style={styles.input}
+                value={totalCredits}
+                onChangeText={setTotalCredits}
+                keyboardType="number-pad"
+                placeholder="10"
+                placeholderTextColor={Colors.dark.tabIconDefault}
+              />
 
-            <View style={styles.modalButtons}>
-              <Pressable onPress={() => setShowAddModal(false)} style={styles.cancelButton}>
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleAddPackage}
-                disabled={createMutation.isPending}
-                style={styles.confirmButton}
+              <Text style={styles.inputLabel}>Validity (months)</Text>
+              <TextInput
+                style={styles.input}
+                value={expiryMonths}
+                onChangeText={setExpiryMonths}
+                keyboardType="number-pad"
+                placeholder="12"
+                placeholderTextColor={Colors.dark.tabIconDefault}
+              />
+
+              <Text style={styles.inputLabel}>Payment Date</Text>
+              <Pressable 
+                style={styles.datePickerButton}
+                onPress={() => setShowDatePicker(true)}
               >
-                <LinearGradient
-                  colors={[Colors.dark.primary, Colors.dark.primary]}
-                  style={styles.confirmGradient}
-                >
-                  <Text style={styles.confirmButtonText}>
-                    {createMutation.isPending ? "Adding..." : "Add Package"}
-                  </Text>
-                </LinearGradient>
+                <Ionicons name="calendar-outline" size={18} color={Colors.dark.primary} />
+                <Text style={styles.datePickerText}>{formatDate(purchaseDate)}</Text>
               </Pressable>
+              {showDatePicker ? (
+                <DateTimePicker
+                  value={purchaseDate}
+                  mode="date"
+                  display={Platform.OS === "ios" ? "spinner" : "default"}
+                  onChange={handleDateChange}
+                  maximumDate={new Date()}
+                  themeVariant="dark"
+                />
+              ) : null}
+
+              {calculatedTotal > 0 ? (
+                <View style={styles.totalSection}>
+                  <Text style={styles.totalLabel}>Invoice Total</Text>
+                  <Text style={styles.totalValue}>
+                    {currency} {calculatedTotal.toFixed(2)}
+                  </Text>
+                </View>
+              ) : null}
+
+              <View style={styles.modalButtons}>
+                <Pressable onPress={() => setShowAddModal(false)} style={styles.cancelButton}>
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleAddPackage}
+                  disabled={createMutation.isPending}
+                  style={styles.confirmButton}
+                >
+                  <LinearGradient
+                    colors={[Colors.dark.primary, Colors.dark.primary]}
+                    style={styles.confirmGradient}
+                  >
+                    <Text style={styles.confirmButtonText}>
+                      {createMutation.isPending ? "Adding..." : "Add Package"}
+                    </Text>
+                  </LinearGradient>
+                </Pressable>
+              </View>
             </View>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
     </Card>
@@ -454,5 +630,104 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.text,
     fontWeight: "600",
+  },
+  creditTypeRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  creditTypeItem: {
+    flex: 1,
+    alignItems: "center",
+    padding: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.sm,
+  },
+  creditTypeValue: {
+    ...Typography.h4,
+    color: Colors.dark.xpCyan,
+  },
+  creditTypeLabel: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+    fontSize: 10,
+  },
+  packageTypeBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    backgroundColor: Colors.dark.primary + "30",
+    borderRadius: BorderRadius.xs,
+  },
+  packageTypeText: {
+    ...Typography.caption,
+    color: Colors.dark.primary,
+    fontSize: 10,
+  },
+  modalScroll: {
+    flex: 1,
+    width: "100%",
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  creditTypeSelector: {
+    gap: Spacing.sm,
+  },
+  creditTypeOption: {
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.headerBorder,
+  },
+  creditTypeOptionActive: {
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.primary + "15",
+  },
+  creditTypeOptionText: {
+    ...Typography.body,
+    color: Colors.dark.tabIconDefault,
+  },
+  creditTypeOptionTextActive: {
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  creditTypePrice: {
+    ...Typography.caption,
+    color: Colors.dark.gold,
+    marginTop: Spacing.xs,
+  },
+  datePickerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.headerBorder,
+  },
+  datePickerText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  totalSection: {
+    marginTop: Spacing.lg,
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.primary + "20",
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+  },
+  totalLabel: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+  },
+  totalValue: {
+    ...Typography.h2,
+    color: Colors.dark.gold,
+    marginTop: Spacing.xs,
   },
 });

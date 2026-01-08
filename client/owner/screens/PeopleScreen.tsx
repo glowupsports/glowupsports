@@ -11,6 +11,7 @@ import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constan
 import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { Picker } from "@react-native-picker/picker";
+import PackagesCard from "@/coach/components/PackagesCard";
 
 type TabType = "coaches" | "players" | "admins";
 
@@ -655,6 +656,10 @@ export default function PeopleScreen() {
                     </View>
                   ))}
                 </View>
+
+                {activeTab === "players" ? (
+                  <PackagesCard playerId={selectedPerson.id} playerName={selectedPerson.name} />
+                ) : null}
 
                 <View style={styles.detailActions}>
                   {activeTab === "players" ? (
