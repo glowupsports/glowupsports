@@ -18037,12 +18037,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Access denied" });
       }
 
-      const parentSettings = await storage.getParentSettings(userId);
-      if (!parentSettings?.purchasePin) {
-        return res.status(400).json({ error: "Please set up a PIN in Parent Settings first" });
+      // Get the academy owner's PIN for verification
+      // Uses the same PIN as Parent Dashboard access
+      const academy = await storage.getAcademy(player.academyId);
+      if (!academy) {
+        return res.status(404).json({ error: "Academy not found" });
       }
 
-      if (parentSettings.purchasePin !== pin) {
+      // Get the academy owner (primary coach) for PIN verification
+      let ownerCoach = academy.ownerId ? await storage.getCoach(academy.ownerId) : null;
+      
+      // Fallback: if no owner set, get first coach of academy
+      if (!ownerCoach) {
+        const coaches = await storage.getCoachesByAcademy(player.academyId);
+        ownerCoach = coaches[0] || null;
+      }
+
+      if (!ownerCoach) {
+        return res.status(400).json({ error: "Academy owner not configured. Please contact support." });
+      }
+
+      const storedPin = ownerCoach.parentDashboardPin || "1234";
+      if (pin !== storedPin) {
         return res.status(403).json({ error: "Incorrect PIN" });
       }
 
