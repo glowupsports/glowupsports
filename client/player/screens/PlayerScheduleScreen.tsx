@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
 
 interface SessionData {
@@ -31,8 +32,11 @@ interface ScheduledSession {
   coachName: string;
   courtName?: string;
   status: "upcoming" | "completed" | "cancelled";
-  xpEarned?: number;
+  xpPotential?: number;
   isCourtBooking?: boolean;
+  countsForProgress: boolean;
+  attendanceImpact?: "affects" | "no_impact" | "frozen";
+  cancelledByCoach?: boolean;
 }
 
 interface CourtBookingData {
@@ -60,7 +64,7 @@ interface CalendarDay {
 export default function PlayerScheduleScreen() {
   const insets = useSafeAreaInsets();
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
 
   const { data: rawSessions, isLoading: sessionsLoading, error: sessionsError } = useQuery<SessionData[]>({
     queryKey: ["/api/player/me/sessions"],
@@ -70,21 +74,24 @@ export default function PlayerScheduleScreen() {
     queryKey: ["/api/player/me/court-bookings"],
   });
 
+  const { data: profileData } = useQuery<{ player: { attendanceStreak?: number } }>({
+    queryKey: ["/api/player/me"],
+  });
+
   const isLoading = sessionsLoading || bookingsLoading;
   const error = sessionsError;
+  const attendanceStreak = profileData?.player?.attendanceStreak || 0;
 
   const sessions: ScheduledSession[] = useMemo(() => {
     const now = new Date();
     const items: ScheduledSession[] = [];
     
-    // Format time as HH:mm for display
     const formatTime = (date: Date) => {
       const hours = date.getHours().toString().padStart(2, '0');
       const mins = date.getMinutes().toString().padStart(2, '0');
       return `${hours}:${mins}`;
     };
     
-    // Format date as YYYY-MM-DD for calendar matching
     const formatDate = (date: Date) => {
       const year = date.getFullYear();
       const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -92,28 +99,47 @@ export default function PlayerScheduleScreen() {
       return `${year}-${month}-${day}`;
     };
     
-    // Add training sessions
     if (rawSessions) {
       for (const s of rawSessions) {
         const startDateTime = s.session?.startTime ? new Date(s.session.startTime) : new Date();
         const endDateTime = s.session?.endTime ? new Date(s.session.endTime) : new Date();
         const isPast = startDateTime < now;
+        const sessionType = s.session?.sessionType || "training";
+        
+        const isCancelled = s.attendanceStatus === "cancelled";
+        const cancelledByCoach = s.attendanceStatus === "cancelled_by_coach";
+        const isNoShow = s.attendanceStatus === "no_show" || s.attendanceStatus === "absent";
+        const isHolidayMode = s.attendanceStatus === "holiday";
+        
+        let attendanceImpact: "affects" | "no_impact" | "frozen" | undefined = undefined;
+        if (cancelledByCoach) {
+          attendanceImpact = "no_impact";
+        } else if (isNoShow || isCancelled) {
+          attendanceImpact = "affects";
+        } else if (isHolidayMode) {
+          attendanceImpact = "frozen";
+        }
+        
+        const isCancelledStatus = isCancelled || cancelledByCoach || isNoShow;
         
         items.push({
           id: s.id,
           date: formatDate(startDateTime),
           startTime: formatTime(startDateTime),
           endTime: formatTime(endDateTime),
-          type: s.session?.sessionType || "training",
+          type: sessionType,
           title: s.session?.title || "Training Session",
           coachName: s.coachName || "Your Coach",
           courtName: s.session?.courtName || undefined,
-          status: s.attendanceStatus === "cancelled" ? "cancelled" : (isPast ? "completed" : "upcoming"),
+          status: isCancelledStatus ? "cancelled" : (isPast ? "completed" : "upcoming"),
+          xpPotential: sessionType === "private" ? 120 : sessionType === "group" ? 80 : 100,
+          countsForProgress: true,
+          attendanceImpact,
+          cancelledByCoach,
         });
       }
     }
     
-    // Add court bookings
     if (courtBookings) {
       for (const b of courtBookings) {
         const bookingDate = new Date(b.date + "T" + b.startTime);
@@ -130,16 +156,22 @@ export default function PlayerScheduleScreen() {
           courtName: b.courtName,
           status: b.status === "cancelled" ? "cancelled" : (isPast ? "completed" : "upcoming"),
           isCourtBooking: true,
+          countsForProgress: false,
         });
       }
     }
     
-    return items;
+    return items.sort((a, b) => {
+      const dateA = new Date(`${a.date}T${a.startTime}`);
+      const dateB = new Date(`${b.date}T${b.startTime}`);
+      return dateA.getTime() - dateB.getTime();
+    });
   }, [rawSessions, courtBookings]);
 
-  const data = sessions;
+  const nextSession = useMemo(() => {
+    return sessions.find(s => s.status === "upcoming" && !s.isCourtBooking);
+  }, [sessions]);
 
-  // Helper to format date as YYYY-MM-DD using local time
   const formatLocalDate = (date: Date) => {
     const year = date.getFullYear();
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -171,7 +203,7 @@ export default function PlayerScheduleScreen() {
     for (let day = 1; day <= lastDay.getDate(); day++) {
       const date = new Date(year, month, day);
       const dateStr = formatLocalDate(date);
-      const daySessions = data.filter((s) => s.date === dateStr);
+      const daySessions = sessions.filter((s) => s.date === dateStr);
       
       days.push({
         date,
@@ -193,21 +225,31 @@ export default function PlayerScheduleScreen() {
     }
 
     return days;
-  }, [currentMonth, data]);
+  }, [currentMonth, sessions]);
 
   const selectedDateSessions = useMemo(() => {
     if (!selectedDate) return [];
     const dateStr = formatLocalDate(selectedDate);
-    return data.filter((s) => s.date === dateStr);
-  }, [selectedDate, data]);
+    return sessions.filter((s) => s.date === dateStr);
+  }, [selectedDate, sessions]);
 
   const getTypeColor = (type: string) => {
     switch (type) {
       case "private": return Colors.dark.primary;
       case "group": return Colors.dark.gold;
-      case "physical": return Colors.dark.orange;
-      case "court": return Colors.dark.success;
-      default: return Colors.dark.xpCyan;
+      case "semi_private": return Colors.dark.orange;
+      case "court": return Colors.dark.xpCyan;
+      default: return Colors.dark.primary;
+    }
+  };
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case "private": return "Private Training";
+      case "group": return "Group Training";
+      case "semi_private": return "Semi-Private";
+      case "court": return "Court Booking";
+      default: return "Training";
     }
   };
 
@@ -216,10 +258,22 @@ export default function PlayerScheduleScreen() {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + direction, 1));
   };
 
+  const formatSessionDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    if (date.getTime() === today.getTime()) return "Today";
+    if (date.getTime() === tomorrow.getTime()) return "Tomorrow";
+    return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  };
+
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+        <ActivityIndicator size="large" color={Colors.dark.primary} />
         <Text style={styles.loadingText}>Loading schedule...</Text>
       </View>
     );
@@ -236,22 +290,97 @@ export default function PlayerScheduleScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <ScrollView 
+      style={[styles.container, { paddingTop: insets.top }]}
+      contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Schedule</Text>
         <Text style={styles.subtitle}>Your upcoming sessions</Text>
       </View>
 
+      {/* NEXT TRAINING Hero Card */}
+      {nextSession ? (
+        <View style={styles.nextTrainingCard}>
+          <View style={styles.nextTrainingHeader}>
+            <Text style={styles.nextTrainingLabel}>NEXT TRAINING</Text>
+            <View style={styles.confirmedBadge}>
+              <Ionicons name="checkmark-circle" size={20} color={Colors.dark.primary} />
+            </View>
+          </View>
+          
+          <View style={styles.nextTrainingContent}>
+            <View style={styles.nextTrainingIcon}>
+              <Ionicons name="tennisball" size={24} color={Colors.dark.primary} />
+            </View>
+            <View style={styles.nextTrainingInfo}>
+              <Text style={styles.nextTrainingTitle}>{getTypeLabel(nextSession.type)}</Text>
+              <Text style={styles.nextTrainingTime}>
+                {formatSessionDate(nextSession.date)} · {nextSession.startTime} - {nextSession.endTime}
+              </Text>
+              {nextSession.courtName ? (
+                <Text style={styles.nextTrainingCourt}>
+                  <Ionicons name="location" size={12} color={Colors.dark.textMuted} /> {nextSession.courtName}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+
+          <View style={styles.nextTrainingBadges}>
+            <View style={styles.xpPotentialBadge}>
+              <Ionicons name="flash" size={14} color={Colors.dark.gold} />
+              <Text style={styles.xpPotentialText}>+{nextSession.xpPotential} XP potential</Text>
+            </View>
+            {attendanceStreak > 0 ? (
+              <View style={styles.streakBadge}>
+                <Ionicons name="flame" size={14} color={Colors.dark.orange} />
+                <Text style={styles.streakText}>Streak continues · Day {attendanceStreak + 1}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          <View style={styles.nextTrainingActions}>
+            <Pressable style={styles.viewDetailsButton}>
+              <Text style={styles.viewDetailsText}>View Details</Text>
+              <Ionicons name="chevron-forward" size={16} color={Colors.dark.primary} />
+            </Pressable>
+            <Pressable style={styles.rescheduleButton}>
+              <Ionicons name="calendar-outline" size={16} color={Colors.dark.gold} />
+              <Text style={styles.rescheduleText}>Reschedule</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.noNextSessionCard}>
+          <Ionicons name="calendar-outline" size={32} color={Colors.dark.textMuted} />
+          <Text style={styles.noNextSessionTitle}>No upcoming training</Text>
+          <Text style={styles.noNextSessionSubtitle}>Book a lesson to continue your progress</Text>
+          <Pressable style={styles.bookLessonButton}>
+            <LinearGradient
+              colors={[Colors.dark.primary, "#1B8A2E"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.bookLessonGradient}
+            >
+              <Text style={styles.bookLessonText}>Book Lesson</Text>
+            </LinearGradient>
+          </Pressable>
+        </View>
+      )}
+
+      {/* Calendar */}
       <View style={styles.calendarContainer}>
         <View style={styles.calendarHeader}>
           <Pressable onPress={() => navigateMonth(-1)} style={styles.navButton}>
-            <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
+            <Ionicons name="chevron-back" size={20} color={Colors.dark.text} />
           </Pressable>
           <Text style={styles.monthTitle}>
             {currentMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
           </Text>
           <Pressable onPress={() => navigateMonth(1)} style={styles.navButton}>
-            <Ionicons name="chevron-forward" size={24} color={Colors.dark.text} />
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.text} />
           </Pressable>
         </View>
 
@@ -264,7 +393,9 @@ export default function PlayerScheduleScreen() {
         <View style={styles.calendarGrid}>
           {calendarDays.map((day, index) => {
             const isSelected = selectedDate && 
-              day.date.toISOString().split("T")[0] === selectedDate.toISOString().split("T")[0];
+              formatLocalDate(day.date) === formatLocalDate(selectedDate);
+            const hasTraining = day.sessions.some(s => !s.isCourtBooking);
+            const hasBooking = day.sessions.some(s => s.isCourtBooking);
             
             return (
               <Pressable
@@ -272,7 +403,6 @@ export default function PlayerScheduleScreen() {
                 style={[
                   styles.calendarDay,
                   !day.isCurrentMonth && styles.calendarDayFaded,
-                  day.isToday && styles.calendarDayToday,
                   isSelected && styles.calendarDaySelected,
                 ]}
                 onPress={() => {
@@ -280,23 +410,22 @@ export default function PlayerScheduleScreen() {
                   setSelectedDate(day.date);
                 }}
               >
+                {hasTraining ? (
+                  <View style={styles.trainingIndicator}>
+                    <Ionicons name="tennisball" size={12} color={Colors.dark.primary} />
+                  </View>
+                ) : null}
                 <Text style={[
                   styles.calendarDayText,
                   !day.isCurrentMonth && styles.calendarDayTextFaded,
                   day.isToday && styles.calendarDayTextToday,
                   isSelected && styles.calendarDayTextSelected,
+                  hasTraining && styles.calendarDayTextWithSession,
                 ]}>
                   {day.date.getDate()}
                 </Text>
-                {day.sessions.length > 0 ? (
-                  <View style={styles.sessionDots}>
-                    {day.sessions.slice(0, 3).map((session, i) => (
-                      <View
-                        key={i}
-                        style={[styles.sessionDot, { backgroundColor: getTypeColor(session.type) }]}
-                      />
-                    ))}
-                  </View>
+                {hasBooking && !hasTraining ? (
+                  <View style={styles.bookingDot} />
                 ) : null}
               </Pressable>
             );
@@ -304,58 +433,130 @@ export default function PlayerScheduleScreen() {
         </View>
       </View>
 
-      <ScrollView
-        style={styles.sessionsContainer}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.sectionTitle}>
-          {selectedDate 
-            ? selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
-            : "Upcoming Sessions"
-          }
+      {/* TODAY Section */}
+      <View style={styles.todaySection}>
+        <Text style={styles.todaySectionTitle}>
+          {selectedDate ? (
+            formatLocalDate(selectedDate) === formatLocalDate(new Date()) 
+              ? `TODAY · ${selectedDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()}`
+              : selectedDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase()
+          ) : "TODAY"}
         </Text>
         
-        {(selectedDate ? selectedDateSessions : data.filter(s => s.status === "upcoming")).length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="calendar-outline" size={36} color={Colors.dark.textMuted} />
-            <Text style={styles.emptyText}>No sessions scheduled</Text>
+        {selectedDateSessions.length === 0 ? (
+          <View style={styles.emptyDayState}>
+            <Text style={styles.emptyDayText}>No sessions scheduled</Text>
+            <Text style={styles.emptyDaySubtext}>Tap a day with sessions to view details</Text>
           </View>
         ) : (
-          (selectedDate ? selectedDateSessions : data.filter(s => s.status === "upcoming")).map((session) => (
+          selectedDateSessions.map((session) => (
             <View key={session.id} style={styles.sessionCard}>
-              <View style={[styles.sessionStripe, { backgroundColor: getTypeColor(session.type) }]} />
-              <View style={styles.sessionContent}>
-                <View style={styles.sessionHeader}>
-                  <Text style={styles.sessionTime}>{session.startTime} - {session.endTime}</Text>
-                  {session.xpEarned ? (
-                    <View style={styles.xpBadge}>
-                      <Ionicons name="flash" size={12} color={Colors.dark.xpCyan} />
-                      <Text style={styles.xpText}>+{session.xpEarned}</Text>
+              <View style={styles.sessionCardLeft}>
+                <View style={[styles.sessionIcon, { backgroundColor: session.isCourtBooking ? "rgba(0, 212, 255, 0.15)" : "rgba(46, 204, 64, 0.15)" }]}>
+                  {session.isCourtBooking ? (
+                    <Ionicons name="tennisball-outline" size={20} color={Colors.dark.xpCyan} />
+                  ) : (
+                    <Ionicons name="tennisball" size={20} color={Colors.dark.primary} />
+                  )}
+                </View>
+                <View style={styles.sessionInfo}>
+                  <Text style={styles.sessionTitle}>{getTypeLabel(session.type)}</Text>
+                  {session.countsForProgress ? (
+                    <View style={styles.xpRow}>
+                      <Text style={styles.sessionXp}>+{session.xpPotential} XP</Text>
+                      <View style={styles.countsForProgressBadge}>
+                        <Ionicons name="checkmark" size={10} color={Colors.dark.primary} />
+                        <Text style={styles.countsForProgressText}>Counts for progress</Text>
+                      </View>
                     </View>
+                  ) : (
+                    <Text style={styles.sessionSubtitle}>Free Play</Text>
+                  )}
+                  {!session.isCourtBooking && session.coachName ? (
+                    <Text style={styles.sessionCoach}>
+                      <Ionicons name="person" size={11} color={Colors.dark.textMuted} /> Coach: {session.coachName}
+                    </Text>
                   ) : null}
                 </View>
-                <Text style={styles.sessionType}>
-                  {session.title}
-                </Text>
-                <View style={styles.sessionDetails}>
-                  {session.courtName ? (
-                    <View style={styles.detailItem}>
-                      <Ionicons name="location-outline" size={14} color={Colors.dark.textMuted} />
-                      <Text style={styles.detailText}>{session.courtName}</Text>
-                    </View>
-                  ) : null}
-                  <View style={styles.detailItem}>
-                    <Ionicons name="person-outline" size={14} color={Colors.dark.textMuted} />
-                    <Text style={styles.detailText}>{session.coachName}</Text>
+              </View>
+              <View style={styles.sessionCardRight}>
+                <Text style={styles.sessionTime}>{session.startTime} - {session.endTime}</Text>
+                <View style={[styles.statusBadge, session.status === "cancelled" && styles.statusBadgeCancelled]}>
+                  <Ionicons 
+                    name={session.status === "cancelled" ? "close-circle" : "checkmark-circle"} 
+                    size={12} 
+                    color={session.status === "cancelled" ? Colors.dark.error : Colors.dark.primary} 
+                  />
+                  <Text style={[styles.statusText, session.status === "cancelled" && styles.statusTextCancelled]}>
+                    {session.status === "cancelled" ? "Cancelled" : "Confirmed"}
+                  </Text>
+                </View>
+                {session.attendanceImpact ? (
+                  <View style={[
+                    styles.impactBadge, 
+                    session.attendanceImpact === "no_impact" && styles.impactBadgeNoImpact,
+                    session.attendanceImpact === "frozen" && styles.impactBadgeFrozen
+                  ]}>
+                    <Ionicons 
+                      name={
+                        session.attendanceImpact === "no_impact" 
+                          ? "shield-checkmark" 
+                          : session.attendanceImpact === "frozen"
+                            ? "snow"
+                            : "warning"
+                      } 
+                      size={10} 
+                      color={
+                        session.attendanceImpact === "no_impact" 
+                          ? Colors.dark.primary 
+                          : session.attendanceImpact === "frozen"
+                            ? Colors.dark.xpCyan
+                            : Colors.dark.gold
+                      } 
+                    />
+                    <Text style={[
+                      styles.impactText,
+                      session.attendanceImpact === "no_impact" && styles.impactTextNoImpact,
+                      session.attendanceImpact === "frozen" && styles.impactTextFrozen
+                    ]}>
+                      {session.attendanceImpact === "no_impact" 
+                        ? "No impact" 
+                        : session.attendanceImpact === "frozen"
+                          ? "Frozen (holiday)"
+                          : "Affects streak"}
+                    </Text>
                   </View>
-                </View>
+                ) : null}
               </View>
             </View>
           ))
         )}
-      </ScrollView>
-    </View>
+      </View>
+
+      {/* CONSISTENCY Streak Section */}
+      <View style={styles.consistencyCard}>
+        <View style={styles.consistencyHeader}>
+          <Ionicons name="flame" size={20} color={Colors.dark.orange} />
+          <Text style={styles.consistencyLabel}>CONSISTENCY</Text>
+        </View>
+        <Text style={styles.streakCount}>{attendanceStreak}-day streak</Text>
+        <View style={styles.streakFlames}>
+          {[...Array(7)].map((_, i) => (
+            <Ionicons 
+              key={i} 
+              name="flame" 
+              size={24} 
+              color={i < attendanceStreak ? Colors.dark.gold : Colors.dark.backgroundTertiary} 
+            />
+          ))}
+        </View>
+        <Text style={styles.streakMotivation}>
+          {attendanceStreak > 0 
+            ? "Attend today to extend your streak" 
+            : "Start training to build your streak"}
+        </Text>
+      </View>
+    </ScrollView>
   );
 }
 
@@ -383,46 +584,216 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   header: {
-    padding: Spacing.xl,
-    paddingBottom: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.md,
   },
   title: {
     ...Typography.h1,
     color: Colors.dark.text,
+    fontSize: 28,
   },
   subtitle: {
     ...Typography.small,
     color: Colors.dark.textMuted,
-    marginTop: 4,
+    marginTop: 2,
   },
+
+  // Next Training Card
+  nextTrainingCard: {
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(46, 204, 64, 0.3)",
+  },
+  nextTrainingHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  nextTrainingLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  confirmedBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "rgba(46, 204, 64, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  nextTrainingContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  nextTrainingIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(46, 204, 64, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  nextTrainingInfo: {
+    flex: 1,
+  },
+  nextTrainingTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    marginBottom: 2,
+  },
+  nextTrainingTime: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  nextTrainingCourt: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  nextTrainingBadges: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  xpPotentialBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  xpPotentialText: {
+    ...Typography.caption,
+    color: Colors.dark.gold,
+    fontWeight: "600",
+  },
+  streakBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(255, 165, 0, 0.15)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  streakText: {
+    ...Typography.caption,
+    color: Colors.dark.orange,
+    fontWeight: "600",
+  },
+  nextTrainingActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  viewDetailsButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    backgroundColor: "rgba(46, 204, 64, 0.15)",
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  viewDetailsText: {
+    ...Typography.small,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  rescheduleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  rescheduleText: {
+    ...Typography.small,
+    color: Colors.dark.gold,
+    fontWeight: "600",
+  },
+
+  // No Next Session Card
+  noNextSessionCard: {
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    padding: Spacing.xl,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  noNextSessionTitle: {
+    ...Typography.h4,
+    color: Colors.dark.text,
+  },
+  noNextSessionSubtitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  bookLessonButton: {
+    marginTop: Spacing.sm,
+  },
+  bookLessonGradient: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: BorderRadius.md,
+  },
+  bookLessonText: {
+    ...Typography.small,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
+  },
+
+  // Calendar
   calendarContainer: {
     marginHorizontal: Spacing.xl,
-    ...CardStyles.elevated,
-    padding: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
     marginBottom: Spacing.lg,
   },
   calendarHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   navButton: {
     padding: Spacing.xs,
   },
   monthTitle: {
-    ...Typography.h3,
+    ...Typography.body,
     color: Colors.dark.text,
+    fontWeight: "600",
   },
   weekDays: {
     flexDirection: "row",
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
   },
   weekDay: {
     flex: 1,
     ...Typography.caption,
     color: Colors.dark.textMuted,
     textAlign: "center",
+    fontSize: 10,
   },
   calendarGrid: {
     flexDirection: "row",
@@ -433,14 +804,10 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: 2,
+    position: "relative",
   },
   calendarDayFaded: {
     opacity: 0.3,
-  },
-  calendarDayToday: {
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
-    borderRadius: BorderRadius.sm,
   },
   calendarDaySelected: {
     backgroundColor: Colors.dark.primary,
@@ -449,99 +816,212 @@ const styles = StyleSheet.create({
   calendarDayText: {
     ...Typography.small,
     color: Colors.dark.text,
+    fontSize: 12,
   },
   calendarDayTextFaded: {
     color: Colors.dark.textMuted,
   },
   calendarDayTextToday: {
     color: Colors.dark.primary,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   calendarDayTextSelected: {
     color: Colors.dark.backgroundRoot,
     fontWeight: "600",
   },
-  sessionDots: {
-    flexDirection: "row",
-    gap: 2,
-    marginTop: 2,
+  calendarDayTextWithSession: {
+    color: Colors.dark.gold,
+    fontWeight: "700",
   },
-  sessionDot: {
+  trainingIndicator: {
+    position: "absolute",
+    top: 0,
+    left: "50%",
+    transform: [{ translateX: -6 }],
+  },
+  bookingDot: {
     width: 4,
     height: 4,
     borderRadius: 2,
+    backgroundColor: Colors.dark.xpCyan,
+    position: "absolute",
+    bottom: 2,
   },
-  sessionsContainer: {
-    flex: 1,
-    paddingHorizontal: Spacing.xl,
+
+  // Today Section
+  todaySection: {
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
-  sectionTitle: {
-    ...Typography.h4,
-    color: Colors.dark.text,
+  todaySectionTitle: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontWeight: "700",
+    letterSpacing: 1,
     marginBottom: Spacing.md,
   },
-  emptyState: {
+  emptyDayState: {
     alignItems: "center",
-    paddingVertical: Spacing["3xl"],
-    gap: Spacing.sm,
+    paddingVertical: Spacing.xl,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
   },
-  emptyText: {
-    ...Typography.small,
+  emptyDayText: {
+    ...Typography.body,
     color: Colors.dark.textMuted,
+  },
+  emptyDaySubtext: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 4,
   },
   sessionCard: {
     flexDirection: "row",
-    ...CardStyles.elevated,
-    marginBottom: Spacing.md,
-    overflow: "hidden",
-  },
-  sessionStripe: {
-    width: 4,
-  },
-  sessionContent: {
-    flex: 1,
-    padding: Spacing.lg,
-  },
-  sessionHeader: {
-    flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.dark.primary,
   },
-  sessionTime: {
-    ...Typography.caption,
-    color: Colors.dark.textMuted,
-  },
-  xpBadge: {
+  sessionCardLeft: {
     flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    flex: 1,
+  },
+  sessionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
     alignItems: "center",
-    gap: 2,
-    backgroundColor: "rgba(0, 212, 255, 0.15)",
-    paddingHorizontal: Spacing.xs,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.xs,
   },
-  xpText: {
-    ...Typography.caption,
-    color: Colors.dark.xpCyan,
-    fontSize: 10,
+  sessionInfo: {
+    flex: 1,
   },
-  sessionType: {
+  sessionTitle: {
     ...Typography.body,
     color: Colors.dark.text,
     fontWeight: "600",
-    marginBottom: Spacing.xs,
   },
-  sessionDetails: {
+  sessionXp: {
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+  },
+  xpRow: {
     flexDirection: "row",
-    gap: Spacing.lg,
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: 2,
   },
-  detailItem: {
+  countsForProgressBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  countsForProgressText: {
+    ...Typography.caption,
+    color: Colors.dark.primary,
+    fontSize: 10,
+  },
+  sessionSubtitle: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  sessionCoach: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 4,
+    fontSize: 11,
+  },
+  sessionCardRight: {
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+  },
+  sessionTime: {
+    ...Typography.small,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  statusBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
+    marginTop: Spacing.xs,
   },
-  detailText: {
+  statusBadgeCancelled: {},
+  statusText: {
+    ...Typography.caption,
+    color: Colors.dark.primary,
+    fontSize: 10,
+  },
+  statusTextCancelled: {
+    color: Colors.dark.error,
+  },
+  impactBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    marginTop: 4,
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+  },
+  impactBadgeNoImpact: {
+    backgroundColor: "rgba(46, 204, 64, 0.15)",
+  },
+  impactBadgeFrozen: {
+    backgroundColor: "rgba(0, 212, 255, 0.15)",
+  },
+  impactText: {
+    ...Typography.caption,
+    color: Colors.dark.gold,
+    fontSize: 9,
+  },
+  impactTextNoImpact: {
+    color: Colors.dark.primary,
+  },
+  impactTextFrozen: {
+    color: Colors.dark.xpCyan,
+  },
+
+  // Consistency Card
+  consistencyCard: {
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+  },
+  consistencyHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  consistencyLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  streakCount: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+    marginBottom: Spacing.sm,
+  },
+  streakFlames: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  streakMotivation: {
     ...Typography.caption,
     color: Colors.dark.textMuted,
   },
