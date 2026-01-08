@@ -1,11 +1,20 @@
 import React, { useState, useMemo } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform, Alert, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
+import { apiRequest } from "@/lib/query-client";
+
+interface VacationData {
+  active: boolean;
+  activeVacation?: { id: string; startDate: string; endDate: string };
+  upcomingVacation?: { id: string; startDate: string; endDate: string };
+  holidays: Array<{ id: string; startDate: string; endDate: string }>;
+}
 
 interface SessionData {
   id: string;
@@ -63,8 +72,12 @@ interface CalendarDay {
 
 export default function PlayerScheduleScreen() {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+  const [showVacationWizard, setShowVacationWizard] = useState(false);
+  const [vacationStartDate, setVacationStartDate] = useState<Date | null>(null);
+  const [vacationEndDate, setVacationEndDate] = useState<Date | null>(null);
 
   const { data: rawSessions, isLoading: sessionsLoading, error: sessionsError } = useQuery<SessionData[]>({
     queryKey: ["/api/player/me/sessions"],
@@ -77,6 +90,42 @@ export default function PlayerScheduleScreen() {
   const { data: profileData } = useQuery<{ player: { attendanceStreak?: number } }>({
     queryKey: ["/api/player/me"],
   });
+
+  const { data: vacationData } = useQuery<VacationData>({
+    queryKey: ["/api/player/me/vacation"],
+  });
+
+  const createVacationMutation = useMutation({
+    mutationFn: async (data: { startDate: string; endDate: string }) => {
+      return apiRequest("/api/player/me/vacation", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/vacation"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/sessions"] });
+      setShowVacationWizard(false);
+      setVacationStartDate(null);
+      setVacationEndDate(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  const cancelVacationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest(`/api/player/me/vacation/${id}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/vacation"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/sessions"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  const hasActiveOrUpcomingVacation = vacationData?.activeVacation || vacationData?.upcomingVacation;
 
   const isLoading = sessionsLoading || bookingsLoading;
   const error = sessionsError;
@@ -232,6 +281,16 @@ export default function PlayerScheduleScreen() {
     const dateStr = formatLocalDate(selectedDate);
     return sessions.filter((s) => s.date === dateStr);
   }, [selectedDate, sessions]);
+
+  const isDateInVacation = (date: Date): boolean => {
+    if (!vacationData?.holidays?.length) return false;
+    const dateStr = formatLocalDate(date);
+    return vacationData.holidays.some(h => {
+      const start = h.startDate.split('T')[0];
+      const end = h.endDate.split('T')[0];
+      return dateStr >= start && dateStr <= end;
+    });
+  };
 
   const getTypeColor = (type: string) => {
     switch (type) {
@@ -396,6 +455,7 @@ export default function PlayerScheduleScreen() {
               formatLocalDate(day.date) === formatLocalDate(selectedDate);
             const hasTraining = day.sessions.some(s => !s.isCourtBooking);
             const hasBooking = day.sessions.some(s => s.isCourtBooking);
+            const isVacationDay = isDateInVacation(day.date);
             
             return (
               <Pressable
@@ -404,13 +464,18 @@ export default function PlayerScheduleScreen() {
                   styles.calendarDay,
                   !day.isCurrentMonth && styles.calendarDayFaded,
                   isSelected && styles.calendarDaySelected,
+                  isVacationDay && styles.calendarDayVacation,
                 ]}
                 onPress={() => {
                   Haptics.selectionAsync();
                   setSelectedDate(day.date);
                 }}
               >
-                {hasTraining ? (
+                {isVacationDay ? (
+                  <View style={styles.vacationIndicator}>
+                    <Ionicons name="airplane" size={10} color={Colors.dark.xpCyan} />
+                  </View>
+                ) : hasTraining ? (
                   <View style={styles.trainingIndicator}>
                     <Ionicons name="tennisball" size={12} color={Colors.dark.primary} />
                   </View>
@@ -421,10 +486,11 @@ export default function PlayerScheduleScreen() {
                   day.isToday && styles.calendarDayTextToday,
                   isSelected && styles.calendarDayTextSelected,
                   hasTraining && styles.calendarDayTextWithSession,
+                  isVacationDay && styles.calendarDayTextVacation,
                 ]}>
                   {day.date.getDate()}
                 </Text>
-                {hasBooking && !hasTraining ? (
+                {hasBooking && !hasTraining && !isVacationDay ? (
                   <View style={styles.bookingDot} />
                 ) : null}
               </Pressable>
@@ -432,6 +498,195 @@ export default function PlayerScheduleScreen() {
           })}
         </View>
       </View>
+
+      {/* Vacation Card - show when no active/upcoming vacation */}
+      {!hasActiveOrUpcomingVacation && !showVacationWizard ? (
+        <Pressable 
+          style={styles.vacationCard}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setShowVacationWizard(true);
+          }}
+        >
+          <View style={styles.vacationCardContent}>
+            <View style={styles.vacationIcon}>
+              <Ionicons name="airplane" size={24} color={Colors.dark.xpCyan} />
+            </View>
+            <View style={styles.vacationInfo}>
+              <Text style={styles.vacationTitle}>Going on vacation?</Text>
+              <Text style={styles.vacationSubtitle}>Set your dates and we'll pause lessons</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+          </View>
+        </Pressable>
+      ) : null}
+
+      {/* Active/Upcoming Vacation Banner */}
+      {hasActiveOrUpcomingVacation && !showVacationWizard ? (
+        <View style={styles.activeVacationCard}>
+          <View style={styles.activeVacationHeader}>
+            <Ionicons name="airplane" size={20} color={Colors.dark.xpCyan} />
+            <Text style={styles.activeVacationLabel}>
+              {vacationData?.activeVacation ? "ON VACATION" : "VACATION SCHEDULED"}
+            </Text>
+          </View>
+          <Text style={styles.activeVacationDates}>
+            {new Date(hasActiveOrUpcomingVacation.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} 
+            {" - "}
+            {new Date(hasActiveOrUpcomingVacation.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+          </Text>
+          <Text style={styles.activeVacationNote}>
+            Lessons are paused during this period
+          </Text>
+          <Pressable 
+            style={[styles.cancelVacationButton, cancelVacationMutation.isPending && styles.cancelVacationButtonDisabled]}
+            disabled={cancelVacationMutation.isPending}
+            onPress={() => {
+              const confirmCancel = () => {
+                if (hasActiveOrUpcomingVacation) {
+                  cancelVacationMutation.mutate(hasActiveOrUpcomingVacation.id);
+                }
+              };
+              if (Platform.OS === "web") {
+                if (window.confirm("Cancel this vacation? Your lessons will resume.")) {
+                  confirmCancel();
+                }
+              } else {
+                Alert.alert(
+                  "Cancel Vacation",
+                  "Cancel this vacation? Your lessons will resume.",
+                  [
+                    { text: "Keep Vacation", style: "cancel" },
+                    { text: "Cancel It", style: "destructive", onPress: confirmCancel },
+                  ]
+                );
+              }
+            }}
+          >
+            {cancelVacationMutation.isPending ? (
+              <ActivityIndicator size="small" color={Colors.dark.error} />
+            ) : (
+              <Text style={styles.cancelVacationText}>Cancel Vacation</Text>
+            )}
+          </Pressable>
+        </View>
+      ) : null}
+
+      {/* Vacation Wizard */}
+      {showVacationWizard ? (
+        <View style={styles.vacationWizard}>
+          <View style={styles.vacationWizardHeader}>
+            <View style={styles.vacationWizardIcon}>
+              <Ionicons name="airplane" size={28} color={Colors.dark.xpCyan} />
+            </View>
+            <Text style={styles.vacationWizardTitle}>Plan Your Break</Text>
+            <Text style={styles.vacationWizardSubtitle}>Select your vacation dates</Text>
+          </View>
+
+          {/* Date Selection */}
+          <View style={styles.dateSection}>
+            <Text style={styles.dateSectionLabel}>Start Date</Text>
+            <View style={styles.datePickerWrapper}>
+              <DateTimePicker
+                value={vacationStartDate || new Date()}
+                mode="date"
+                display="default"
+                minimumDate={new Date()}
+                onChange={(event, date) => {
+                  if (date) setVacationStartDate(date);
+                }}
+              />
+            </View>
+            {vacationStartDate ? (
+              <Text style={styles.dateSelectedText}>
+                {vacationStartDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+              </Text>
+            ) : null}
+          </View>
+
+          <View style={styles.dateSection}>
+            <Text style={styles.dateSectionLabel}>End Date</Text>
+            <View style={styles.datePickerWrapper}>
+              <DateTimePicker
+                value={vacationEndDate || vacationStartDate || new Date()}
+                mode="date"
+                display="default"
+                minimumDate={vacationStartDate || new Date()}
+                onChange={(event, date) => {
+                  if (date) setVacationEndDate(date);
+                }}
+              />
+            </View>
+            {vacationEndDate ? (
+              <Text style={styles.dateSelectedText}>
+                {vacationEndDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+              </Text>
+            ) : null}
+          </View>
+
+          {/* Validation Error */}
+          {vacationStartDate && vacationEndDate && vacationEndDate < vacationStartDate ? (
+            <View style={styles.validationError}>
+              <Ionicons name="alert-circle" size={14} color={Colors.dark.error} />
+              <Text style={styles.validationErrorText}>End date must be after start date</Text>
+            </View>
+          ) : null}
+
+          {/* Policy Info */}
+          <View style={styles.policyInfo}>
+            <Ionicons name="information-circle" size={16} color={Colors.dark.textMuted} />
+            <Text style={styles.policyText}>
+              Sessions during your vacation will be automatically paused. 
+              Your credits remain safe and will be available when you return.
+            </Text>
+          </View>
+
+          {/* Actions */}
+          <View style={styles.vacationActions}>
+            <Pressable 
+              style={[styles.cancelButton, createVacationMutation.isPending && styles.cancelButtonDisabled]}
+              disabled={createVacationMutation.isPending}
+              onPress={() => {
+                setShowVacationWizard(false);
+                setVacationStartDate(null);
+                setVacationEndDate(null);
+              }}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </Pressable>
+            <Pressable 
+              style={[
+                styles.confirmButton,
+                (!vacationStartDate || !vacationEndDate || (vacationEndDate < vacationStartDate)) && styles.confirmButtonDisabled
+              ]}
+              disabled={!vacationStartDate || !vacationEndDate || (vacationEndDate < vacationStartDate) || createVacationMutation.isPending}
+              onPress={() => {
+                if (vacationStartDate && vacationEndDate && vacationEndDate >= vacationStartDate) {
+                  createVacationMutation.mutate({
+                    startDate: vacationStartDate.toISOString().split('T')[0],
+                    endDate: vacationEndDate.toISOString().split('T')[0],
+                  });
+                }
+              }}
+            >
+              <LinearGradient
+                colors={vacationStartDate && vacationEndDate && vacationEndDate >= vacationStartDate
+                  ? [Colors.dark.xpCyan, "#0099CC"] 
+                  : [Colors.dark.backgroundTertiary, Colors.dark.backgroundTertiary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.confirmButtonGradient}
+              >
+                {createVacationMutation.isPending ? (
+                  <ActivityIndicator size="small" color={Colors.dark.text} />
+                ) : (
+                  <Text style={styles.confirmButtonText}>Confirm Vacation</Text>
+                )}
+              </LinearGradient>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
 
       {/* TODAY Section */}
       <View style={styles.todaySection}>
@@ -839,6 +1094,19 @@ const styles = StyleSheet.create({
     left: "50%",
     transform: [{ translateX: -6 }],
   },
+  vacationIndicator: {
+    position: "absolute",
+    top: 0,
+    left: "50%",
+    transform: [{ translateX: -5 }],
+  },
+  calendarDayVacation: {
+    backgroundColor: "rgba(0, 212, 255, 0.1)",
+    borderRadius: BorderRadius.sm,
+  },
+  calendarDayTextVacation: {
+    color: Colors.dark.xpCyan,
+  },
   bookingDot: {
     width: 4,
     height: 4,
@@ -1024,5 +1292,219 @@ const styles = StyleSheet.create({
   streakMotivation: {
     ...Typography.caption,
     color: Colors.dark.textMuted,
+  },
+
+  // Vacation Card
+  vacationCard: {
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 255, 0.2)",
+  },
+  vacationCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  vacationIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(0, 212, 255, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  vacationInfo: {
+    flex: 1,
+  },
+  vacationTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  vacationSubtitle: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+
+  // Active Vacation Card
+  activeVacationCard: {
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 255, 0.3)",
+    alignItems: "center",
+  },
+  activeVacationHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  activeVacationLabel: {
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  activeVacationDates: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    marginBottom: Spacing.xs,
+  },
+  activeVacationNote: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.md,
+  },
+  cancelVacationButton: {
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+  },
+  cancelVacationButtonDisabled: {
+    opacity: 0.5,
+  },
+  cancelVacationText: {
+    ...Typography.small,
+    color: Colors.dark.error,
+    fontWeight: "500",
+  },
+
+  // Vacation Wizard
+  vacationWizard: {
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 255, 0.3)",
+  },
+  vacationWizardHeader: {
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  vacationWizardIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "rgba(0, 212, 255, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  vacationWizardTitle: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+    marginBottom: 4,
+  },
+  vacationWizardSubtitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  dateSection: {
+    marginBottom: Spacing.md,
+  },
+  dateSectionLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+    marginBottom: Spacing.xs,
+  },
+  dateInput: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 255, 0.2)",
+  },
+  dateInputText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  datePickerWrapper: {
+    alignSelf: "flex-start",
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.sm,
+    overflow: "hidden",
+  },
+  dateSelectedText: {
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+    marginTop: Spacing.xs,
+  },
+  validationError: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    marginBottom: Spacing.md,
+  },
+  validationErrorText: {
+    ...Typography.small,
+    color: Colors.dark.error,
+  },
+  policyInfo: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    backgroundColor: "rgba(0, 212, 255, 0.1)",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.lg,
+  },
+  policyText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    flex: 1,
+    lineHeight: 18,
+  },
+  vacationActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  cancelButton: {
+    flex: 1,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    alignItems: "center",
+  },
+  cancelButtonDisabled: {
+    opacity: 0.5,
+  },
+  cancelButtonText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  confirmButton: {
+    flex: 2,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  confirmButtonDisabled: {
+    opacity: 0.5,
+  },
+  confirmButtonGradient: {
+    padding: Spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  confirmButtonText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
   },
 });
