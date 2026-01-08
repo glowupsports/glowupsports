@@ -3039,6 +3039,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if player is already enrolled
       const existingEnrollment = await storage.getSessionPlayer(id, playerId);
+      let sessionPlayer: typeof existingEnrollment;
+      let isNewEnrollment = false;
+      
       if (existingEnrollment) {
         // Player already enrolled - check if credits were already deducted
         if (existingEnrollment.creditDeductedAt) {
@@ -3050,38 +3053,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
             message: "Player was already enrolled with credits deducted",
           });
         }
-        // Enrolled but no credits deducted - just return existing
-        return res.status(200).json({
-          ...existingEnrollment,
-          success: true,
-          alreadyEnrolled: true,
-          creditDeducted: false,
-          message: "Player was already enrolled",
+        // Enrolled but no credits deducted - attempt to deduct now
+        sessionPlayer = existingEnrollment;
+      } else {
+        // Create new enrollment
+        sessionPlayer = await storage.addPlayerToSession({
+          sessionId: id,
+          playerId,
+          isGuest: isGuest || false,
         });
+        isNewEnrollment = true;
       }
 
-      // Create new enrollment
-      const sessionPlayer = await storage.addPlayerToSession({
-        sessionId: id,
-        playerId,
-        isGuest: isGuest || false,
-      });
-
       let creditDeductionResult = null;
-      const isNewEnrollment = true;
 
-      // Then deduct typed credits (updates session_player with creditDeductedAt)
+      // Deduct typed credits (updates specific session_player row with creditDeductedAt)
       if (playerId && !isGuest && !skipCreditCheck) {
         creditDeductionResult = await storage.deductTypedCreditsForSession(
           playerId,
           session.sessionType,
           id,
-          academyId
+          academyId,
+          sessionPlayer?.id // Pass specific session_player ID for precise targeting
         );
         
         // If deduction failed, only remove if this was a NEW enrollment
-        if (!creditDeductionResult.success && isNewEnrollment) {
-          await storage.removePlayerFromSession(id, playerId);
+        if (!creditDeductionResult.success) {
+          if (isNewEnrollment) {
+            await storage.removePlayerFromSession(id, playerId);
+          }
           const player = await storage.getPlayer(playerId, academyId);
           return res.status(400).json({
             error: "credit_deduction_failed",
@@ -3089,6 +3089,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             creditType: creditDeductionResult.creditType,
             playerId,
             sessionId: id,
+            alreadyEnrolled: !isNewEnrollment,
           });
         }
       }

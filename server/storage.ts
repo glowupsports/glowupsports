@@ -1955,7 +1955,8 @@ export const storage = {
     playerId: string,
     sessionType: string,
     sessionId: string,
-    academyId?: string
+    academyId?: string,
+    sessionPlayerId?: string // Optional: target specific session_player record
   ): Promise<{ success: boolean; package?: Package; creditType?: string; transactionId?: string; reason?: string }> {
     // Map session types to credit types
     const sessionToCreditType: Record<string, string> = {
@@ -2020,15 +2021,20 @@ export const storage = {
     });
     
     // Update session_player record with credit deduction timestamp
+    // Use specific sessionPlayerId if provided, otherwise fallback to sessionId+playerId match
+    const whereClause = sessionPlayerId 
+      ? eq(sessionPlayers.id, sessionPlayerId)
+      : and(
+          eq(sessionPlayers.sessionId, sessionId),
+          eq(sessionPlayers.playerId, playerId)
+        );
+    
     await db.update(sessionPlayers)
       .set({ 
         creditDeductedAt: new Date(),
         creditTransactionId: transaction.id,
       })
-      .where(and(
-        eq(sessionPlayers.sessionId, sessionId),
-        eq(sessionPlayers.playerId, playerId)
-      ));
+      .where(whereClause);
     
     return { 
       success: true, 
