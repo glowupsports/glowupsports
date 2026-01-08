@@ -1228,7 +1228,7 @@ export default function PlayerHomeScreen() {
           onAvatarPress={openDrawer}
         />
 
-        {data?.credits ? (
+        {data?.credits && data?.player?.id ? (
           <View style={styles.creditsCard}>
             <View style={styles.creditsHeader}>
               <Ionicons name="ticket-outline" size={20} color={Colors.dark.gold} />
@@ -1254,8 +1254,26 @@ export default function PlayerHomeScreen() {
                 </View>
               </View>
             ) : (
-              <Text style={styles.creditsEmptyText}>No credits available - contact your coach to add more</Text>
+              <Text style={styles.creditsEmptyText}>No credits available</Text>
             )}
+            <Pressable 
+              style={styles.buyCreditsButton}
+              onPress={() => {
+                if (data?.player?.id) {
+                  navigation.navigate("ParentCreditStore", { playerId: data.player.id });
+                }
+              }}
+            >
+              <LinearGradient
+                colors={[Colors.dark.gold, "#D4A100"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.buyCreditsGradient}
+              >
+                <Ionicons name="cart-outline" size={18} color={Colors.dark.backgroundRoot} />
+                <Text style={styles.buyCreditsText}>Buy Credits</Text>
+              </LinearGradient>
+            </Pressable>
           </View>
         ) : null}
 
@@ -2139,6 +2157,23 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     textAlign: "center",
     fontStyle: "italic",
+  },
+  buyCreditsButton: {
+    marginTop: Spacing.md,
+  },
+  buyCreditsGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    gap: Spacing.xs,
+  },
+  buyCreditsText: {
+    ...Typography.buttonSmall,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
   },
   feedbackCard: {
     ...CardStyles.glowCard,
