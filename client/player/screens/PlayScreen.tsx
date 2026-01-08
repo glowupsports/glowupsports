@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Image, Alert, ImageBackground, Dimensions, Platform, Image as RNImage } from "react-native";
+import React, { useState, useEffect, useMemo } from "react";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Image, Alert, ImageBackground, Dimensions, Platform, Image as RNImage, TextInput } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -65,6 +65,8 @@ export default function PlayScreen() {
   const [activeTab, setActiveTab] = useState<typeof TAB_OPTIONS[number]>("Sessions");
   const [joiningSessionId, setJoiningSessionId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [showAllPlayers, setShowAllPlayers] = useState(false);
+  const [playerSearchQuery, setPlayerSearchQuery] = useState("");
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -104,6 +106,29 @@ export default function PlayScreen() {
   const { data: nearbyPlayers, isLoading: playersLoading } = useQuery<NearbyPlayer[]>({
     queryKey: ["/api/play/nearby-players"],
   });
+
+  // Filter and limit players based on search and showAll state
+  const filteredPlayers = useMemo(() => {
+    if (!nearbyPlayers) return [];
+    
+    let filtered = nearbyPlayers;
+    
+    // Apply search filter
+    if (playerSearchQuery.trim()) {
+      const query = playerSearchQuery.toLowerCase().trim();
+      filtered = filtered.filter(p => 
+        p.name.toLowerCase().includes(query) ||
+        p.vibe?.toLowerCase().includes(query)
+      );
+    }
+    
+    // Limit to 6 unless showAllPlayers is true
+    if (!showAllPlayers && !playerSearchQuery.trim()) {
+      filtered = filtered.slice(0, 6);
+    }
+    
+    return filtered;
+  }, [nearbyPlayers, playerSearchQuery, showAllPlayers]);
 
   const joinSessionMutation = useMutation({
     mutationFn: async (sessionId: string) => {
@@ -535,16 +560,56 @@ export default function PlayScreen() {
               <View style={styles.sectionTitleRow}>
                 <Ionicons name="people" size={20} color={Colors.dark.textMuted} />
                 <Text style={styles.sectionTitle}>Players nearby</Text>
+                {nearbyPlayers && nearbyPlayers.length > 0 ? (
+                  <Text style={styles.playerCount}>({nearbyPlayers.length})</Text>
+                ) : null}
               </View>
-              <Pressable style={styles.viewAllButton}>
-                <Text style={styles.viewAllText}>View All</Text>
+              <Pressable 
+                style={styles.viewAllButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowAllPlayers(!showAllPlayers);
+                }}
+              >
+                <Text style={styles.viewAllText}>{showAllPlayers ? "Show Less" : "View All"}</Text>
+                <Ionicons 
+                  name={showAllPlayers ? "chevron-up" : "chevron-down"} 
+                  size={14} 
+                  color={Colors.dark.primary} 
+                />
               </Pressable>
             </View>
+            
+            {/* Search Bar */}
+            <View style={styles.playerSearchContainer}>
+              <Ionicons name="search" size={18} color={Colors.dark.textMuted} />
+              <TextInput
+                style={styles.playerSearchInput}
+                placeholder="Search players..."
+                placeholderTextColor={Colors.dark.textMuted}
+                value={playerSearchQuery}
+                onChangeText={setPlayerSearchQuery}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {playerSearchQuery.length > 0 ? (
+                <Pressable onPress={() => setPlayerSearchQuery("")}>
+                  <Ionicons name="close-circle" size={18} color={Colors.dark.textMuted} />
+                </Pressable>
+              ) : null}
+            </View>
+            
             {playersLoading ? (
               <ActivityIndicator size="small" color={Colors.dark.primary} />
-            ) : nearbyPlayers && nearbyPlayers.length > 0 ? (
+            ) : filteredPlayers.length > 0 ? (
               <View style={styles.playersGrid}>
-                {nearbyPlayers.map(renderPlayerCard)}
+                {filteredPlayers.map(renderPlayerCard)}
+              </View>
+            ) : nearbyPlayers && nearbyPlayers.length > 0 && playerSearchQuery ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="search-outline" size={48} color={Colors.dark.textMuted} />
+                <Text style={styles.emptyTitle}>No Results</Text>
+                <Text style={styles.emptySubtitle}>No players match "{playerSearchQuery}"</Text>
               </View>
             ) : (
               <View style={styles.emptyState}>
@@ -944,7 +1009,30 @@ const styles = StyleSheet.create({
   },
   viewAllText: {
     ...Typography.caption,
+    color: Colors.dark.primary,
+  },
+  playerCount: {
+    ...Typography.caption,
     color: Colors.dark.textMuted,
+    marginLeft: 4,
+  },
+  playerSearchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  playerSearchInput: {
+    flex: 1,
+    ...Typography.body,
+    color: Colors.dark.text,
+    paddingVertical: 0,
   },
   playersGrid: {
     flexDirection: "row",
