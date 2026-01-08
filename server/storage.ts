@@ -2468,21 +2468,47 @@ export const storage = {
     lateMinutes?: number,
     absenceReason?: string
   ): Promise<SessionPlayer | undefined> {
-    const result = await db
-      .update(sessionPlayers)
-      .set({
-        attendanceStatus: status,
-        lateMinutes,
-        absenceReason,
-      })
-      .where(
-        and(
-          eq(sessionPlayers.sessionId, sessionId),
-          eq(sessionPlayers.playerId, playerId)
+    // Use UPSERT pattern: insert if not exists, update if exists
+    const existing = await db.select().from(sessionPlayers)
+      .where(and(
+        eq(sessionPlayers.sessionId, sessionId),
+        eq(sessionPlayers.playerId, playerId)
+      ));
+    
+    if (existing.length > 0) {
+      // Update existing record
+      const result = await db
+        .update(sessionPlayers)
+        .set({
+          attendanceStatus: status,
+          lateMinutes,
+          absenceReason,
+        })
+        .where(
+          and(
+            eq(sessionPlayers.sessionId, sessionId),
+            eq(sessionPlayers.playerId, playerId)
+          )
         )
-      )
-      .returning();
-    return result[0];
+        .returning();
+      return result[0];
+    } else {
+      // Insert new record
+      const result = await db
+        .insert(sessionPlayers)
+        .values({
+          id: crypto.randomUUID(),
+          sessionId,
+          playerId,
+          attendanceStatus: status,
+          lateMinutes,
+          absenceReason,
+          isGuest: false,
+        })
+        .returning();
+      console.log(`[Attendance] Created new session_player record for session ${sessionId}, player ${playerId}, status ${status}`);
+      return result[0];
+    }
   },
   
   // Mark attendance for backfill - returns object with isNewAttendance flag
