@@ -3944,6 +3944,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== ADMIN/SETUP ENDPOINTS ====================
 
+  // Backfill debt transactions for past attended sessions
+  // This creates debt records for players who attended sessions without credits
+  app.post("/api/admin/backfill-debts", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const role = req.user!.role;
+      
+      // Only allow academy owners and platform owners
+      if (role !== "academy_owner" && role !== "platform_owner") {
+        return res.status(403).json({ error: "Only academy owners can run backfill" });
+      }
+      
+      console.log(`[Backfill] Starting debt backfill for academy ${academyId}`);
+      const result = await storage.backfillDebtTransactions(academyId);
+      
+      res.json({
+        success: true,
+        message: `Backfill complete: ${result.debtsCreated} debts created, ${result.skipped} skipped`,
+        ...result,
+      });
+    } catch (error) {
+      console.error("Error running debt backfill:", error);
+      res.status(500).json({ error: "Failed to run debt backfill" });
+    }
+  });
+
   // Get all sessions for admin schedule
   app.get("/api/sessions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {

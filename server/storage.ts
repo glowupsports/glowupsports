@@ -5727,6 +5727,176 @@ export const storage = {
     }
   },
 
+  // Backfill debt transactions for past attended sessions without credits
+  // This handles the case where players attended sessions before the debt system was implemented
+  async backfillDebtTransactions(academyId: string): Promise<{
+    processed: number;
+    debtsCreated: number;
+    skipped: number;
+    errors: string[];
+  }> {
+    const results = { processed: 0, debtsCreated: 0, skipped: 0, errors: [] as string[] };
+    
+    try {
+      // Find all completed sessions for this academy with attendance records
+      const completedSessionsResult = await db.execute(sql`
+        SELECT DISTINCT 
+          s.id as session_id,
+          s.series_id,
+          s.start_time,
+          cs.session_type,
+          cs.academy_id
+        FROM sessions s
+        JOIN coaching_series cs ON s.series_id = cs.id
+        WHERE s.status = 'completed'
+          AND cs.academy_id = ${academyId}
+          AND s.series_id IS NOT NULL
+        ORDER BY s.start_time DESC
+      `);
+      
+      const normalizeType = (type: string | undefined): string => {
+        if (!type) return "group";
+        const normalized = type.toLowerCase().replace("-", "_").replace(" ", "_");
+        if (normalized === "semi" || normalized === "semi_private") return "semi_private";
+        if (normalized === "private") return "private";
+        return "group";
+      };
+      
+      for (const row of completedSessionsResult.rows) {
+        const sessionId = row.session_id as string;
+        const seriesId = row.series_id as string;
+        const baseSessionType = normalizeType(row.session_type as string);
+        
+        // Get attendance records for this session - only "present" players
+        const attendanceResult = await db.execute(sql`
+          SELECT player_id FROM session_players 
+          WHERE session_id = ${sessionId} AND attendance_status = 'present'
+        `);
+        
+        let presentPlayerIds = attendanceResult.rows.map(r => r.player_id as string);
+        
+        // If no attendance records exist, get all active players from the series
+        // This handles legacy sessions where attendance was never recorded
+        if (presentPlayerIds.length === 0) {
+          const seriesPlayersResult = await db.execute(sql`
+            SELECT player_id FROM series_players 
+            WHERE series_id = ${seriesId} AND status = 'active'
+          `);
+          presentPlayerIds = seriesPlayersResult.rows.map(r => r.player_id as string);
+          
+          if (presentPlayerIds.length > 0) {
+            console.log(`[Backfill] Session ${sessionId}: No attendance records, using ${presentPlayerIds.length} active series players`);
+          }
+        }
+        
+        const presentCount = presentPlayerIds.length;
+        
+        if (presentCount === 0) continue;
+        
+        // Dynamic credit type: semi-private with 1 player becomes private
+        let requiredCreditType = baseSessionType;
+        if (baseSessionType === "semi_private" && presentCount === 1) {
+          requiredCreditType = "private";
+          console.log(`[Backfill] Session ${sessionId}: Semi-private with 1 player, treating as private`);
+        }
+        
+        results.processed++;
+        
+        for (const playerId of presentPlayerIds) {
+          try {
+            // Check if there's already a credit transaction for this player+session
+            const existingTxResult = await db.execute(sql`
+              SELECT id FROM credit_transactions 
+              WHERE player_id = ${playerId} AND session_id = ${sessionId}
+              LIMIT 1
+            `);
+            
+            if (existingTxResult.rows.length > 0) {
+              // Already has a transaction (credit consumed or debt created)
+              results.skipped++;
+              continue;
+            }
+            
+            // Check if player had credits at the time (we'll assume they didn't if no transaction exists)
+            // Since we can't know historical credit state, we check current packages
+            // If no matching package with credits, create debt
+            const packageResult = await db.execute(sql`
+              SELECT id FROM packages 
+              WHERE player_id = ${playerId} 
+                AND (credit_type = ${requiredCreditType} OR credit_type IS NULL)
+                AND remaining_credits > 0
+                AND status = 'active'
+              LIMIT 1
+            `);
+            
+            if (packageResult.rows.length > 0) {
+              // Player has credits now - consume one
+              const consumed = await this.consumeSingleCreditForSession(
+                playerId, 
+                sessionId, 
+                academyId, 
+                null, 
+                requiredCreditType
+              );
+              if (consumed) {
+                results.debtsCreated++; // Actually consumed credit, but counting as processed
+              } else {
+                results.skipped++;
+              }
+            } else {
+              // No credits - create debt transaction
+              try {
+                const debtResult = await db.execute(sql`
+                  INSERT INTO credit_transactions (
+                    player_id, academy_id, session_id, package_id, type, credit_type, 
+                    amount, reason, balance_before, balance_after, metadata
+                  )
+                  VALUES (
+                    ${playerId}, ${academyId}, ${sessionId}, NULL, 'debit', ${requiredCreditType}, 
+                    -1, 'session_join_debt', 0, -1, 
+                    ${JSON.stringify({ 
+                      seriesId, 
+                      description: `Backfilled debt: ${requiredCreditType} credit owed`, 
+                      isDebt: true, 
+                      backfilled: true,
+                      actualCreditType: requiredCreditType 
+                    })}::jsonb
+                  )
+                  ON CONFLICT DO NOTHING
+                  RETURNING id
+                `);
+                
+                if (debtResult.rowCount && debtResult.rowCount > 0) {
+                  results.debtsCreated++;
+                  console.log(`[Backfill] Created debt for player ${playerId}, session ${sessionId}, type ${requiredCreditType}`);
+                } else {
+                  results.skipped++;
+                }
+              } catch (insertError: any) {
+                if (insertError.code === '23505') {
+                  results.skipped++;
+                } else {
+                  console.error(`[Backfill] Error creating debt for player ${playerId}:`, insertError);
+                  results.errors.push(`Failed to create debt for player ${playerId}`);
+                }
+              }
+            }
+          } catch (playerError: any) {
+            console.error(`[Backfill] Error processing player ${playerId}:`, playerError);
+            results.errors.push(`Error for player ${playerId}: ${playerError.message}`);
+          }
+        }
+      }
+      
+      console.log(`[Backfill] Complete: ${results.processed} sessions, ${results.debtsCreated} debts created, ${results.skipped} skipped`);
+      return results;
+    } catch (error: any) {
+      console.error("[Backfill] Error:", error);
+      results.errors.push(`Backfill failed: ${error.message}`);
+      return results;
+    }
+  },
+
   // Player Subscriptions (contracts - what players SHOULD pay)
   async createPlayerSubscription(data: InsertPlayerSubscription): Promise<PlayerSubscription> {
     const result = await db.insert(playerSubscriptions).values(data).returning();
