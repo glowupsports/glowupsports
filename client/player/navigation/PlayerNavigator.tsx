@@ -27,6 +27,7 @@ import ParentInvoicesScreen from "@/player/screens/ParentInvoicesScreen";
 import ParentPaymentsScreen from "@/player/screens/ParentPaymentsScreen";
 import ParentLessonsScreen from "@/player/screens/ParentLessonsScreen";
 import ParentSettingsScreen from "@/player/screens/ParentSettingsScreen";
+import ParentCreditStoreScreen from "@/player/screens/ParentCreditStoreScreen";
 import CourtBookingScreen from "@/player/screens/CourtBookingScreen";
 import CourtDetailScreen from "@/player/screens/CourtDetailScreen";
 import MyCourtBookingsScreen from "@/player/screens/MyCourtBookingsScreen";
@@ -70,6 +71,7 @@ export type PlayerStackParamList = {
   ParentInvoices: { playerId: string };
   ParentPayments: { playerId: string };
   ParentLessons: { playerId: string };
+  ParentCreditStore: { playerId: string };
   ParentSettings: undefined;
   CourtBooking: undefined;
   CourtDetail: { courtId: string; date: string };
@@ -296,6 +298,13 @@ function PlayerStackNavigator() {
       <Stack.Screen 
         name="ParentSettings" 
         component={ParentSettingsScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="ParentCreditStore" 
+        component={ParentCreditStoreScreen}
         options={{
           presentation: "card",
         }}

@@ -49,6 +49,12 @@ export default function ParentDashboardScreen() {
     (navigation as any).navigate("ParentSettings");
   };
 
+  const navigateToCreditStore = () => {
+    if (playerId) {
+      (navigation as any).navigate("ParentCreditStore", { playerId });
+    }
+  };
+
   if (!playerId) {
     return (
       <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
@@ -239,6 +245,14 @@ export default function ParentDashboardScreen() {
                 >
                   <Ionicons name="calendar-outline" size={24} color={Colors.dark.text} />
                   <Text style={styles.actionButtonText}>Lessons</Text>
+                </Pressable>
+                <Pressable 
+                  style={({ pressed }) => [styles.actionButton, styles.creditStoreButton, pressed && styles.cardPressed]} 
+                  onPress={navigateToCreditStore}
+                  android_ripple={{ color: 'rgba(255, 255, 255, 0.1)' }}
+                >
+                  <Ionicons name="cart-outline" size={24} color={Colors.dark.gold} />
+                  <Text style={[styles.actionButtonText, { color: Colors.dark.gold }]}>Buy Credits</Text>
                 </Pressable>
               </View>
             </View>
@@ -433,6 +447,11 @@ const styles = StyleSheet.create({
   actionButtonText: {
     ...Typography.caption,
     color: Colors.dark.text,
+  },
+  creditStoreButton: {
+    borderWidth: 1,
+    borderColor: Colors.dark.gold,
+    backgroundColor: "rgba(250, 204, 21, 0.1)",
   },
   emptyState: {
     paddingVertical: Spacing["2xl"] * 2,

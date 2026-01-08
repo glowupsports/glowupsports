@@ -2970,11 +2970,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/coach/sessions/:id/players", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const { playerId, isGuest } = req.body;
+      const { playerId, isGuest, skipCreditCheck } = req.body;
       const academyId = req.user!.academyId;
 
-      const { valid: sessionValid } = await validateSessionOwnership(id, academyId, storage);
-      if (!sessionValid) {
+      const { valid: sessionValid, session } = await validateSessionOwnership(id, academyId, storage);
+      if (!sessionValid || !session) {
         return res.status(404).json({ error: "Session not found" });
       }
 
@@ -2984,6 +2984,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!playerValid) {
           return res.status(404).json({ error: "Player not found" });
         }
+
+        // Credit type validation - check if player has matching credits
+        if (!skipCreditCheck) {
+          const creditCheck = await storage.checkPlayerCreditsForSessionType(
+            playerId,
+            session.sessionType,
+            academyId
+          );
+
+          if (!creditCheck.hasCredits) {
+            // Get player info for the response
+            const player = await storage.getPlayer(playerId, academyId);
+            
+            return res.status(200).json({
+              warning: "credit_mismatch",
+              message: `${player?.name || "Player"} has no ${creditCheck.creditType} credits available`,
+              sessionType: session.sessionType,
+              requiredCreditType: creditCheck.creditType,
+              availableCredits: creditCheck.availableCredits,
+              playerName: player?.name,
+              playerId,
+              sessionId: id,
+            });
+          }
+        }
       }
 
       const sessionPlayer = await storage.addPlayerToSession({
@@ -2992,7 +3017,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isGuest: isGuest || false,
       });
 
-      res.status(201).json(sessionPlayer);
+      if (skipCreditCheck && playerId && !isGuest) {
+        const creditCheck = await storage.checkPlayerCreditsForSessionType(
+          playerId,
+          session.sessionType,
+          academyId
+        );
+
+        if (!creditCheck.hasCredits) {
+          const player = await storage.getPlayer(playerId, academyId);
+          const creditTypeLabel = creditCheck.creditType.replace("_", "-");
+          
+          await storage.createNotification({
+            playerId,
+            type: "credits_needed",
+            title: "Credits Required",
+            message: `You've been added to a ${creditTypeLabel} lesson but don't have matching credits. Please ask your parent to purchase credits.`,
+            metadata: JSON.stringify({
+              sessionId: id,
+              sessionType: session.sessionType,
+              requiredCreditType: creditCheck.creditType,
+              sessionDate: session.startTime.toISOString(),
+            }),
+          });
+
+          if (player?.parentUserId) {
+            await storage.createNotification({
+              userId: player.parentUserId,
+              type: "credits_needed",
+              title: "Credits Required",
+              message: `${player.name} has been added to a ${creditTypeLabel} lesson but needs ${creditTypeLabel} credits.`,
+              metadata: JSON.stringify({
+                playerId,
+                playerName: player.name,
+                sessionId: id,
+                sessionType: session.sessionType,
+                requiredCreditType: creditCheck.creditType,
+                sessionDate: session.startTime.toISOString(),
+              }),
+            });
+          }
+        }
+      }
+
+      res.status(201).json({ ...sessionPlayer, success: true });
     } catch (error) {
       console.error("Error adding player:", error);
       res.status(500).json({ error: "Failed to add player" });
@@ -17684,6 +17752,165 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Get parent invoice HTML error:", error);
       res.status(500).json({ error: "Failed to generate invoice" });
+    }
+  });
+
+  // ==================== PARENT CREDIT STORE ====================
+
+  app.get("/api/parent/credit-store/:playerId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      const { playerId } = req.params;
+
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const player = await storage.getPlayer(playerId);
+      if (!player || player.parentUserId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const templates = await storage.getPackageTemplates(player.academyId);
+      
+      const formattedTemplates = templates.map(t => ({
+        id: t.id,
+        name: t.name,
+        creditType: t.creditType,
+        credits: t.credits,
+        pricePerCredit: t.pricePerCredit,
+        totalPrice: (parseFloat(t.pricePerCredit) * t.credits).toFixed(2),
+        currency: t.currency,
+        validityDays: t.validityDays,
+        description: t.description,
+        isPopular: t.isPopular,
+      }));
+
+      res.json(formattedTemplates);
+    } catch (error) {
+      console.error("Get credit store error:", error);
+      res.status(500).json({ error: "Failed to load credit store" });
+    }
+  });
+
+  app.post("/api/parent/purchase-credits", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      const { playerId, templateId, pin } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      if (!playerId || !templateId || !pin) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const player = await storage.getPlayer(playerId);
+      if (!player || player.parentUserId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const parentSettings = await storage.getParentSettings(userId);
+      if (!parentSettings?.purchasePin) {
+        return res.status(400).json({ error: "Please set up a PIN in Parent Settings first" });
+      }
+
+      if (parentSettings.purchasePin !== pin) {
+        return res.status(403).json({ error: "Incorrect PIN" });
+      }
+
+      const template = await storage.getPackageTemplate(templateId);
+      if (!template || template.academyId !== player.academyId) {
+        return res.status(404).json({ error: "Package template not found" });
+      }
+
+      const now = new Date();
+      const expiresAt = new Date(now);
+      expiresAt.setDate(expiresAt.getDate() + template.validityDays);
+
+      const pkg = await storage.createPackage({
+        playerId,
+        academyId: player.academyId,
+        name: template.name,
+        creditType: template.creditType,
+        totalCredits: template.credits,
+        remainingCredits: template.credits,
+        purchasedAt: now,
+        expiresAt,
+        pricePerCredit: template.pricePerCredit,
+        currency: template.currency,
+        status: "active",
+      });
+
+      const totalAmount = (parseFloat(template.pricePerCredit) * template.credits).toFixed(2);
+      const invoice = await storage.createInvoice({
+        playerId,
+        academyId: player.academyId,
+        packageId: pkg.id,
+        type: "package_purchase",
+        amount: totalAmount,
+        currency: template.currency,
+        status: "pending",
+        dueDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+        lineItems: [{
+          description: template.name,
+          quantity: template.credits,
+          unitPrice: template.pricePerCredit,
+          total: totalAmount,
+        }],
+      });
+
+      res.json({ 
+        success: true, 
+        package: pkg, 
+        invoice 
+      });
+    } catch (error) {
+      console.error("Purchase credits error:", error);
+      res.status(500).json({ error: "Failed to complete purchase" });
+    }
+  });
+
+  app.get("/api/players/:playerId/credits-summary", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { playerId } = req.params;
+      const userId = req.user?.id;
+      const coachId = req.user?.coachId;
+
+      if (!userId && !coachId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      if (!coachId && player.parentUserId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const packages = await storage.getPlayerPackages(playerId);
+      const activePackages = packages.filter(p => p.status === "active" && p.remainingCredits > 0);
+
+      const credits = {
+        group: 0,
+        private: 0,
+        semi_private: 0,
+      };
+
+      activePackages.forEach(pkg => {
+        const type = pkg.creditType as keyof typeof credits;
+        if (type in credits) {
+          credits[type] += pkg.remainingCredits;
+        }
+      });
+
+      res.json({ credits });
+    } catch (error) {
+      console.error("Get credits summary error:", error);
+      res.status(500).json({ error: "Failed to get credits summary" });
     }
   });
 

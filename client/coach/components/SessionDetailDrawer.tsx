@@ -147,6 +147,15 @@ export default function SessionDetailDrawer({
   const [showRemovePlayer, setShowRemovePlayer] = useState<Player | null>(null);
   const [removeReason, setRemoveReason] = useState("");
   const [removeFromDate, setRemoveFromDate] = useState<"today" | "next_session">("today");
+  
+  // Credit mismatch warning state
+  const [creditMismatchWarning, setCreditMismatchWarning] = useState<{
+    playerName: string;
+    playerId: string;
+    sessionId: string;
+    requiredCreditType: string;
+    message: string;
+  } | null>(null);
 
   const { data: allPlayersData } = useQuery<AvailablePlayer[]>({
     queryKey: ["/api/players"],
@@ -164,13 +173,27 @@ export default function SessionDetailDrawer({
   );
 
   const addPlayerMutation = useMutation({
-    mutationFn: async ({ playerId }: { playerId: string }) => {
-      return apiRequest("POST", `/api/coach/sessions/${session?.id}/players`, { 
+    mutationFn: async ({ playerId, skipCreditCheck }: { playerId: string; skipCreditCheck?: boolean }) => {
+      const response = await apiRequest("POST", `/api/coach/sessions/${session?.id}/players`, { 
         playerId,
         isGuest: false,
+        skipCreditCheck,
       });
+      return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Check for credit mismatch warning
+      if (data.warning === "credit_mismatch") {
+        setCreditMismatchWarning({
+          playerName: data.playerName,
+          playerId: data.playerId,
+          sessionId: data.sessionId,
+          requiredCreditType: data.requiredCreditType,
+          message: data.message,
+        });
+        return;
+      }
+      
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
       setShowAddPlayer(false);
@@ -181,6 +204,26 @@ export default function SessionDetailDrawer({
       Alert.alert("Error", error.message || "Failed to add player");
     },
   });
+  
+  const handleAddPlayerAnyway = async () => {
+    if (!creditMismatchWarning) return;
+    
+    try {
+      await apiRequest("POST", `/api/coach/sessions/${creditMismatchWarning.sessionId}/players`, { 
+        playerId: creditMismatchWarning.playerId,
+        isGuest: false,
+        skipCreditCheck: true,
+      });
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      setCreditMismatchWarning(null);
+      setShowAddPlayer(false);
+      setSelectedPlayer(null);
+    } catch (error) {
+      Alert.alert("Error", "Failed to add player");
+    }
+  };
 
   const saveCatchUpMutation = useMutation({
     mutationFn: async (records: { sessionId: string; playerId: string; status: string }[]) => {
@@ -1339,6 +1382,43 @@ export default function SessionDetailDrawer({
         </ScrollView>
       </View>
     </Modal>
+    
+    {/* Credit Mismatch Warning Modal */}
+    <Modal visible={!!creditMismatchWarning} animationType="fade" transparent>
+      <View style={styles.creditWarningOverlay}>
+        <View style={styles.creditWarningContent}>
+          <View style={styles.creditWarningIcon}>
+            <Ionicons name="warning" size={48} color="#FBBF24" />
+          </View>
+          <Text style={styles.creditWarningTitle}>No Matching Credits</Text>
+          <Text style={styles.creditWarningMessage}>
+            {creditMismatchWarning?.message}
+          </Text>
+          <Text style={styles.creditWarningNote}>
+            This player needs {creditMismatchWarning?.requiredCreditType?.replace("_", "-")} credits to join this session.
+          </Text>
+          
+          <View style={styles.creditWarningButtons}>
+            <Pressable 
+              onPress={() => setCreditMismatchWarning(null)} 
+              style={styles.creditWarningCancelBtn}
+            >
+              <Text style={styles.creditWarningCancelText}>Cancel</Text>
+            </Pressable>
+            <Pressable 
+              onPress={handleAddPlayerAnyway} 
+              style={styles.creditWarningAddBtn}
+            >
+              <Text style={styles.creditWarningAddText}>Add Anyway</Text>
+            </Pressable>
+          </View>
+          
+          <Text style={styles.creditWarningFooter}>
+            The player/parent will need to purchase credits before attending.
+          </Text>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -2158,5 +2238,83 @@ const styles = StyleSheet.create({
   },
   catchUpOptionTextActive: {
     color: Colors.dark.text,
+  },
+  creditWarningOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  creditWarningContent: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    width: "100%",
+    maxWidth: 340,
+    alignItems: "center",
+  },
+  creditWarningIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(251, 191, 36, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  creditWarningTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    marginBottom: Spacing.sm,
+    textAlign: "center",
+  },
+  creditWarningMessage: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    textAlign: "center",
+    marginBottom: Spacing.md,
+  },
+  creditWarningNote: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    marginBottom: Spacing.xl,
+  },
+  creditWarningButtons: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    width: "100%",
+  },
+  creditWarningCancelBtn: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    alignItems: "center",
+  },
+  creditWarningCancelText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  creditWarningAddBtn: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+  },
+  creditWarningAddText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  creditWarningFooter: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+    textAlign: "center",
+    marginTop: Spacing.lg,
+    fontStyle: "italic",
   },
 });

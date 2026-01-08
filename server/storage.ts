@@ -1842,6 +1842,38 @@ export const storage = {
     return result.filter(p => !p.expiryDate || p.expiryDate >= today);
   },
 
+  async checkPlayerCreditsForSessionType(
+    playerId: string, 
+    sessionType: string, 
+    academyId?: string
+  ): Promise<{ hasCredits: boolean; availableCredits: number; creditType: string | null }> {
+    const activePackages = await this.getActivePlayerPackages(playerId, academyId);
+    
+    // Map session types to credit types
+    const sessionToCreditType: Record<string, string> = {
+      private: "private",
+      semi: "semi_private",
+      semi_private: "semi_private",
+      group: "group",
+    };
+    
+    const requiredCreditType = sessionToCreditType[sessionType] || sessionType;
+    
+    // Find packages with matching credit type
+    const matchingPackages = activePackages.filter(pkg => {
+      const pkgCreditType = pkg.creditType || "group";
+      return pkgCreditType === requiredCreditType;
+    });
+    
+    const availableCredits = matchingPackages.reduce((sum, pkg) => sum + pkg.remainingCredits, 0);
+    
+    return {
+      hasCredits: availableCredits > 0,
+      availableCredits,
+      creditType: requiredCreditType,
+    };
+  },
+
   async createPackage(data: InsertPackage): Promise<Package> {
     const result = await db.insert(packages).values(data).returning();
     return result[0];

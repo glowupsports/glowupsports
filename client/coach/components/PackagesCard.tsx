@@ -129,21 +129,6 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
     },
   });
 
-  const useCreditMutation = useMutation({
-    mutationFn: async (packageId: string) => {
-      const response = await apiRequest("POST", `/api/packages/${packageId}/use`);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/packages`] });
-      if (Platform.OS !== "web") {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      }
-    },
-    onError: (error: Error) => {
-      Alert.alert("Error", error.message || "Failed to use credit");
-    },
-  });
 
   const deleteMutation = useMutation({
     mutationFn: async ({ packageId, force }: { packageId: string; force?: boolean }): Promise<{ success: boolean; error?: string; creditsUsed?: number }> => {
@@ -314,23 +299,12 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
                       </View>
                     ) : null}
                   </View>
-                  <View style={styles.packageActions}>
-                    {pkg.remainingCredits > 0 && !expired ? (
-                      <Pressable
-                        onPress={() => useCreditMutation.mutate(pkg.id)}
-                        style={({ pressed }) => [styles.useButton, pressed && styles.buttonPressed]}
-                        disabled={useCreditMutation.isPending}
-                      >
-                        <Text style={styles.useButtonText}>Use 1</Text>
-                      </Pressable>
-                    ) : null}
-                    <Pressable 
-                      onPress={() => handleDeletePackage(pkg)} 
-                      style={({ pressed }) => [styles.deleteButton, pressed && styles.buttonPressed]}
-                    >
-                      <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
-                    </Pressable>
-                  </View>
+                  <Pressable 
+                    onPress={() => handleDeletePackage(pkg)} 
+                    style={({ pressed }) => [styles.deleteButton, pressed && styles.buttonPressed]}
+                  >
+                    <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+                  </Pressable>
                 </View>
                 
                 <View style={styles.packageCreditsSection}>
@@ -668,22 +642,6 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.error,
     fontSize: 10,
-    fontWeight: "600",
-  },
-  packageActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  useButton: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    backgroundColor: Colors.dark.primary,
-    borderRadius: BorderRadius.md,
-  },
-  useButtonText: {
-    ...Typography.caption,
-    color: Colors.dark.text,
     fontWeight: "600",
   },
   buttonPressed: {
