@@ -283,50 +283,90 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
         </View>
       ) : (
         <View style={styles.packagesList}>
-          {packages.map((pkg) => (
-            <View
-              key={pkg.id}
-              style={[
-                styles.packageItem,
-                pkg.remainingCredits === 0 && styles.packageItemDepleted,
-                isExpired(pkg.expiryDate) && styles.packageItemExpired,
-              ]}
-            >
-              <View style={styles.packageInfo}>
-                <View style={styles.creditsRow}>
-                  <Text style={styles.creditsText}>
-                    {pkg.remainingCredits}/{pkg.totalCredits}
-                  </Text>
-                  <View style={styles.packageTypeBadge}>
-                    <Text style={styles.packageTypeText}>
-                      {CREDIT_TYPE_LABELS[(pkg.creditType || "group") as CreditType]}
-                    </Text>
+          {packages.map((pkg) => {
+            const creditType = (pkg.creditType || "group") as CreditType;
+            const progressPercent = pkg.totalCredits > 0 ? (pkg.remainingCredits / pkg.totalCredits) * 100 : 0;
+            const isDepleted = pkg.remainingCredits === 0;
+            const expired = isExpired(pkg.expiryDate);
+            const typeColor = creditType === "private" ? Colors.dark.sessionPrivate 
+              : creditType === "semi_private" ? Colors.dark.sessionSemiPrivate 
+              : Colors.dark.sessionGroup;
+            
+            return (
+              <View
+                key={pkg.id}
+                style={[
+                  styles.packageItem,
+                  isDepleted && styles.packageItemDepleted,
+                  expired && styles.packageItemExpired,
+                ]}
+              >
+                <View style={styles.packageHeader}>
+                  <View style={styles.packageTitleRow}>
+                    <View style={[styles.packageTypeBadge, { backgroundColor: typeColor + "20" }]}>
+                      <Text style={[styles.packageTypeText, { color: typeColor }]}>
+                        {CREDIT_TYPE_LABELS[creditType]}
+                      </Text>
+                    </View>
+                    {expired ? (
+                      <View style={styles.expiredBadge}>
+                        <Text style={styles.expiredBadgeText}>Expired</Text>
+                      </View>
+                    ) : null}
                   </View>
-                  <View
-                    style={[
-                      styles.creditBar,
-                      { width: `${(pkg.remainingCredits / pkg.totalCredits) * 100}%` },
-                    ]}
-                  />
+                  <View style={styles.packageActions}>
+                    {pkg.remainingCredits > 0 && !expired ? (
+                      <Pressable
+                        onPress={() => useCreditMutation.mutate(pkg.id)}
+                        style={({ pressed }) => [styles.useButton, pressed && styles.buttonPressed]}
+                        disabled={useCreditMutation.isPending}
+                      >
+                        <Text style={styles.useButtonText}>Use 1</Text>
+                      </Pressable>
+                    ) : null}
+                    <Pressable 
+                      onPress={() => handleDeletePackage(pkg)} 
+                      style={({ pressed }) => [styles.deleteButton, pressed && styles.buttonPressed]}
+                    >
+                      <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+                    </Pressable>
+                  </View>
                 </View>
-                <Text style={styles.expiryText}>{formatExpiryDate(pkg.expiryDate)}</Text>
+                
+                <View style={styles.packageCreditsSection}>
+                  <Text style={styles.creditsLabel}>Credits</Text>
+                  <View style={styles.creditsDisplay}>
+                    <Text style={[styles.creditsRemaining, isDepleted && styles.creditsDepleted]}>
+                      {pkg.remainingCredits}
+                    </Text>
+                    <Text style={styles.creditsTotal}>/ {pkg.totalCredits}</Text>
+                  </View>
+                </View>
+                
+                <View style={styles.progressBarContainer}>
+                  <View style={styles.progressBarBackground}>
+                    <View 
+                      style={[
+                        styles.progressBarFill, 
+                        { 
+                          width: `${progressPercent}%`,
+                          backgroundColor: isDepleted || expired ? Colors.dark.disabled : typeColor,
+                        }
+                      ]} 
+                    />
+                  </View>
+                </View>
+                
+                <View style={styles.packageFooter}>
+                  <Ionicons name="calendar-outline" size={12} color={Colors.dark.tabIconDefault} />
+                  <Text style={[styles.expiryText, expired && styles.expiryTextExpired]}>
+                    {expired ? "Expired " : "Valid until "}
+                    {formatExpiryDate(pkg.expiryDate)}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.packageActions}>
-                {pkg.remainingCredits > 0 && !isExpired(pkg.expiryDate) ? (
-                  <Pressable
-                    onPress={() => useCreditMutation.mutate(pkg.id)}
-                    style={styles.useButton}
-                    disabled={useCreditMutation.isPending}
-                  >
-                    <Text style={styles.useButtonText}>Use</Text>
-                  </Pressable>
-                ) : null}
-                <Pressable onPress={() => handleDeletePackage(pkg)} style={styles.deleteButton}>
-                  <Ionicons name="trash-outline" size={16} color={Colors.dark.error} />
-                </Pressable>
-              </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
       )}
 
@@ -540,48 +580,95 @@ const styles = StyleSheet.create({
     color: Colors.dark.primary,
   },
   packagesList: {
-    gap: Spacing.sm,
+    gap: Spacing.md,
   },
   packageItem: {
+    padding: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  packageItemDepleted: {
+    opacity: 0.6,
+    borderColor: Colors.dark.disabled,
+  },
+  packageItemExpired: {
+    opacity: 0.6,
+    borderColor: Colors.dark.error + "40",
+  },
+  packageHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.sm,
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.dark.gold,
+    marginBottom: Spacing.md,
   },
-  packageItemDepleted: {
-    opacity: 0.5,
-    borderLeftColor: Colors.dark.disabled,
-  },
-  packageItemExpired: {
-    opacity: 0.5,
-    borderLeftColor: Colors.dark.error,
-  },
-  packageInfo: {
-    flex: 1,
-  },
-  creditsRow: {
+  packageTitleRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
+  },
+  packageCreditsSection: {
+    marginBottom: Spacing.md,
+  },
+  creditsLabel: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
     marginBottom: Spacing.xs,
   },
-  creditsText: {
-    ...Typography.h4,
-    color: Colors.dark.text,
-    minWidth: 50,
+  creditsDisplay: {
+    flexDirection: "row",
+    alignItems: "baseline",
   },
-  creditBar: {
-    height: 4,
-    backgroundColor: Colors.dark.gold,
-    borderRadius: 2,
+  creditsRemaining: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  creditsDepleted: {
+    color: Colors.dark.disabled,
+  },
+  creditsTotal: {
+    ...Typography.body,
+    color: Colors.dark.tabIconDefault,
+    marginLeft: Spacing.xs,
+  },
+  progressBarContainer: {
+    marginBottom: Spacing.md,
+  },
+  progressBarBackground: {
+    height: 6,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  packageFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
   },
   expiryText: {
     ...Typography.caption,
     color: Colors.dark.tabIconDefault,
+  },
+  expiryTextExpired: {
+    color: Colors.dark.error,
+  },
+  expiredBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    backgroundColor: Colors.dark.error + "20",
+    borderRadius: BorderRadius.xs,
+  },
+  expiredBadgeText: {
+    ...Typography.caption,
+    color: Colors.dark.error,
+    fontSize: 10,
+    fontWeight: "600",
   },
   packageActions: {
     flexDirection: "row",
@@ -590,21 +677,26 @@ const styles = StyleSheet.create({
   },
   useButton: {
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
+    paddingVertical: Spacing.sm,
     backgroundColor: Colors.dark.primary,
-    borderRadius: BorderRadius.sm,
+    borderRadius: BorderRadius.md,
   },
   useButtonText: {
     ...Typography.caption,
     color: Colors.dark.text,
     fontWeight: "600",
   },
+  buttonPressed: {
+    opacity: 0.7,
+  },
   deleteButton: {
     padding: Spacing.sm,
-    minWidth: 36,
-    minHeight: 36,
+    minWidth: 40,
+    minHeight: 40,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: Colors.dark.error + "15",
+    borderRadius: BorderRadius.md,
   },
   modalOverlay: {
     flex: 1,

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -81,6 +81,17 @@ export default function ParentInvoicesScreen() {
   };
 
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+
+  const parseLineItems = (lineItems: any): Array<{ description: string; quantity: number; unitPrice: number; total: number }> => {
+    if (!lineItems) return [];
+    try {
+      const parsed = typeof lineItems === "string" ? JSON.parse(lineItems) : lineItems;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
 
   const downloadInvoicePDF = async (invoice: Invoice) => {
     try {
@@ -145,7 +156,11 @@ export default function ParentInvoicesScreen() {
           showsVerticalScrollIndicator={false}
         >
           {invoices.map((invoice) => (
-            <View key={invoice.id} style={styles.invoiceCard}>
+            <Pressable 
+              key={invoice.id} 
+              style={({ pressed }) => [styles.invoiceCard, pressed && styles.invoiceCardPressed]}
+              onPress={() => setSelectedInvoice(invoice)}
+            >
               <View style={styles.invoiceHeader}>
                 <View>
                   <Text style={styles.invoiceNumber}>{invoice.invoiceNumber}</Text>
@@ -189,29 +204,136 @@ export default function ParentInvoicesScreen() {
                 </View>
               </View>
 
-              <Pressable 
-                style={({ pressed }) => [
-                  styles.downloadButton, 
-                  pressed && styles.buttonPressed,
-                  downloadingId === invoice.id && styles.downloadButtonDisabled,
-                ]} 
-                onPress={() => downloadInvoicePDF(invoice)}
-                disabled={downloadingId === invoice.id}
-                android_ripple={{ color: 'rgba(255, 255, 255, 0.2)' }}
-              >
-                {downloadingId === invoice.id ? (
-                  <ActivityIndicator size="small" color={Colors.dark.text} />
-                ) : (
-                  <Ionicons name="download-outline" size={18} color={Colors.dark.text} />
-                )}
-                <Text style={styles.downloadText}>
-                  {downloadingId === invoice.id ? "Generating..." : "Download PDF"}
-                </Text>
-              </Pressable>
-            </View>
+              <View style={styles.invoiceFooter}>
+                <View style={styles.tapHint}>
+                  <Text style={styles.tapHintText}>Tap for details</Text>
+                  <Ionicons name="chevron-forward" size={14} color={Colors.dark.tabIconDefault} />
+                </View>
+              </View>
+            </Pressable>
           ))}
         </ScrollView>
       )}
+
+      <Modal visible={!!selectedInvoice} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Invoice Details</Text>
+              <Pressable 
+                onPress={() => setSelectedInvoice(null)} 
+                style={({ pressed }) => [styles.modalCloseButton, pressed && styles.buttonPressed]}
+              >
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+
+            {selectedInvoice ? (
+              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                <View style={styles.detailSection}>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Invoice Number</Text>
+                    <Text style={styles.detailValue}>{selectedInvoice.invoiceNumber}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Academy</Text>
+                    <Text style={styles.detailValue}>{selectedInvoice.academyName || "—"}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Status</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(selectedInvoice.status)}20` }]}>
+                      <Ionicons 
+                        name={getStatusIcon(selectedInvoice.status) as any} 
+                        size={14} 
+                        color={getStatusColor(selectedInvoice.status)} 
+                      />
+                      <Text style={[styles.statusText, { color: getStatusColor(selectedInvoice.status) }]}>
+                        {isOverdue(selectedInvoice) ? "Overdue" : selectedInvoice.status.charAt(0).toUpperCase() + selectedInvoice.status.slice(1)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.sectionTitle}>Dates</Text>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Issued</Text>
+                    <Text style={styles.detailValue}>{formatDate(selectedInvoice.createdAt)}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Due Date</Text>
+                    <Text style={[styles.detailValue, isOverdue(selectedInvoice) && { color: "#EF4444" }]}>
+                      {formatDate(selectedInvoice.dueDate)}
+                    </Text>
+                  </View>
+                  {selectedInvoice.paidAt ? (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Paid On</Text>
+                      <Text style={[styles.detailValue, { color: "#22C55E" }]}>
+                        {formatDate(selectedInvoice.paidAt)}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+
+                {parseLineItems(selectedInvoice.lineItems).length > 0 ? (
+                  <View style={styles.detailSection}>
+                    <Text style={styles.sectionTitle}>Items</Text>
+                    {parseLineItems(selectedInvoice.lineItems).map((item, index) => (
+                      <View key={index} style={styles.lineItem}>
+                        <View style={styles.lineItemInfo}>
+                          <Text style={styles.lineItemDescription}>{item.description}</Text>
+                          <Text style={styles.lineItemQty}>
+                            {item.quantity} x {selectedInvoice.currency} {item.unitPrice.toFixed(2)}
+                          </Text>
+                        </View>
+                        <Text style={styles.lineItemTotal}>
+                          {selectedInvoice.currency} {item.total.toFixed(2)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+
+                <View style={styles.totalSection}>
+                  <Text style={styles.totalLabel}>Total Amount</Text>
+                  <Text style={styles.totalValue}>
+                    {selectedInvoice.currency} {parseFloat(selectedInvoice.amount).toFixed(2)}
+                  </Text>
+                </View>
+
+                {selectedInvoice.notes ? (
+                  <View style={styles.notesSection}>
+                    <Text style={styles.sectionTitle}>Notes</Text>
+                    <Text style={styles.notesText}>{selectedInvoice.notes}</Text>
+                  </View>
+                ) : null}
+
+                <View style={styles.modalActions}>
+                  <Pressable 
+                    style={({ pressed }) => [
+                      styles.downloadButtonModal, 
+                      pressed && styles.buttonPressed,
+                      downloadingId === selectedInvoice.id && styles.downloadButtonDisabled,
+                    ]} 
+                    onPress={() => downloadInvoicePDF(selectedInvoice)}
+                    disabled={downloadingId === selectedInvoice.id}
+                  >
+                    {downloadingId === selectedInvoice.id ? (
+                      <ActivityIndicator size="small" color={Colors.dark.text} />
+                    ) : (
+                      <Ionicons name="download-outline" size={20} color={Colors.dark.text} />
+                    )}
+                    <Text style={styles.downloadButtonText}>
+                      {downloadingId === selectedInvoice.id ? "Generating..." : "Download PDF"}
+                    </Text>
+                  </Pressable>
+                </View>
+              </ScrollView>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -356,5 +478,150 @@ const styles = StyleSheet.create({
   downloadText: {
     ...Typography.body,
     color: Colors.dark.text,
+  },
+  invoiceCardPressed: {
+    opacity: 0.8,
+  },
+  invoiceFooter: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+  },
+  tapHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  tapHintText: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.8)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    maxHeight: "85%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  modalTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  modalCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalBody: {
+    padding: Spacing.lg,
+  },
+  detailSection: {
+    marginBottom: Spacing.xl,
+  },
+  sectionTitle: {
+    ...Typography.body,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    marginBottom: Spacing.md,
+  },
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  detailLabel: {
+    ...Typography.body,
+    color: Colors.dark.tabIconDefault,
+  },
+  detailValue: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  lineItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  lineItemInfo: {
+    flex: 1,
+    marginRight: Spacing.md,
+  },
+  lineItemDescription: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    marginBottom: Spacing.xs,
+  },
+  lineItemQty: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+  },
+  lineItemTotal: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  totalSection: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.xl,
+  },
+  totalLabel: {
+    ...Typography.body,
+    color: Colors.dark.tabIconDefault,
+  },
+  totalValue: {
+    ...Typography.h2,
+    color: Colors.dark.gold,
+    fontWeight: "700",
+  },
+  notesSection: {
+    marginBottom: Spacing.xl,
+  },
+  notesText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    fontStyle: "italic",
+  },
+  modalActions: {
+    paddingBottom: Spacing.xl,
+  },
+  downloadButtonModal: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    padding: Spacing.lg,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.lg,
+  },
+  downloadButtonText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
   },
 });
