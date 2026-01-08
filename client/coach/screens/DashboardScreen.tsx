@@ -781,6 +781,21 @@ export default function DashboardScreen() {
                         </View>
                       </View>
                     </Pressable>
+                  ) : selectedDayOffset === 0 && nextSession ? (
+                    <Pressable 
+                      style={styles.missionContent}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        setSelectedSessionForDetail(nextSession);
+                      }}
+                    >
+                      <Text style={styles.missionPrimary}>{focusMessage.primary}</Text>
+                      <Text style={styles.missionSecondary}>{focusMessage.secondary}</Text>
+                      <View style={styles.tapHint}>
+                        <Ionicons name="hand-left-outline" size={14} color={Colors.dark.primary} />
+                        <Text style={styles.tapHintText}>TAP FOR OPTIONS</Text>
+                      </View>
+                    </Pressable>
                   ) : selectedDayOffset === 0 ? (
                     <View style={styles.missionContent}>
                       <Text style={styles.missionPrimary}>{focusMessage.primary}</Text>
@@ -1931,6 +1946,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.dark.textMuted,
     textAlign: "center",
+  },
+  tapHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: Spacing.sm,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: Colors.dark.primary + "15",
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
+  },
+  tapHintText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+    letterSpacing: 1,
   },
   liveHud: {
     position: "relative" as const,
