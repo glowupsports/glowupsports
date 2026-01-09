@@ -1446,6 +1446,27 @@ export default function PlayerHomeScreen() {
           </LinearGradient>
         </Pressable>
 
+        <Pressable 
+          style={styles.courtBookingCard}
+          onPress={() => navigation.navigate("Shop")}
+        >
+          <LinearGradient
+            colors={[Colors.dark.primary + "15", Colors.dark.backgroundSecondary]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.courtBookingGradient}
+          >
+            <View style={[styles.courtBookingIcon, { backgroundColor: Colors.dark.primary + "20" }]}>
+              <Ionicons name="storefront" size={24} color={Colors.dark.primary} />
+            </View>
+            <View style={styles.courtBookingContent}>
+              <Text style={styles.courtBookingTitle}>Glow Market</Text>
+              <Text style={styles.courtBookingSubtitle}>Gear, services & exclusive deals</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.primary} />
+          </LinearGradient>
+        </Pressable>
+
         {coach ? (
           <MentorCard 
             coach={coach} 

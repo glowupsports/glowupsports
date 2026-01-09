@@ -45,6 +45,7 @@ import PlayerPublicProfileScreen from "@/player/screens/PlayerPublicProfileScree
 import PlayerCoachProfileScreen from "@/player/screens/PlayerCoachProfileScreen";
 import CommunityScreen from "@/player/screens/CommunityScreen";
 import QuestsScreen from "@/player/screens/QuestsScreen";
+import ShopScreen from "@/player/screens/ShopScreen";
 import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { Colors } from "@/constants/theme";
@@ -96,6 +97,10 @@ export type PlayerStackParamList = {
   PublicProfile: { playerId?: string };
   CoachProfile: { coachId: string };
   Quests: undefined;
+  Shop: undefined;
+  ShopCategory: { categoryId: string; categoryName: string };
+  ProductDetail: { productId: string };
+  ServiceDetail: { serviceId: string };
 };
 
 const Tab = createBottomTabNavigator<PlayerTabParamList>();
@@ -465,6 +470,14 @@ function PlayerStackNavigator() {
           headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
           headerTintColor: Colors.dark.text,
           headerBackTitle: "Back",
+        }}
+      />
+      <Stack.Screen 
+        name="Shop" 
+        component={ShopScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
         }}
       />
     </Stack.Navigator>

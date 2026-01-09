@@ -1,0 +1,595 @@
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Image,
+  RefreshControl,
+  Dimensions,
+} from "react-native";
+import { useQuery } from "@tanstack/react-query";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import Animated, { FadeIn, FadeInUp, FadeInDown } from "react-native-reanimated";
+import { useNavigation } from "@react-navigation/native";
+import { Colors, Spacing } from "@/constants/theme";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const CARD_WIDTH = (SCREEN_WIDTH - Spacing.lg * 3) / 2;
+
+interface ShopCategory {
+  id: string;
+  name: string;
+  slug: string;
+  iconName: string;
+  iconColor: string;
+  type: string;
+}
+
+interface ShopProduct {
+  id: string;
+  name: string;
+  shortDescription?: string;
+  price: string;
+  compareAtPrice?: string;
+  imageUrl?: string;
+  isFeatured: boolean;
+}
+
+interface ShopService {
+  id: string;
+  name: string;
+  shortDescription?: string;
+  price: string;
+  iconName: string;
+  durationMinutes?: number;
+}
+
+interface ShopData {
+  categories: ShopCategory[];
+  featuredProducts: ShopProduct[];
+  featuredServices: ShopService[];
+}
+
+export default function ShopScreen() {
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const { data: shopData, isLoading, refetch } = useQuery<ShopData>({
+    queryKey: ["/api/player/shop"],
+  });
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
+
+  const formatPrice = (price: string) => {
+    return `AED ${parseFloat(price).toFixed(0)}`;
+  };
+
+  const handleCategoryPress = (category: ShopCategory) => {
+    navigation.navigate("ShopCategory", { categoryId: category.id, categoryName: category.name });
+  };
+
+  const handleProductPress = (product: ShopProduct) => {
+    navigation.navigate("ProductDetail", { productId: product.id });
+  };
+
+  const handleServicePress = (service: ShopService) => {
+    navigation.navigate("ServiceDetail", { serviceId: service.id });
+  };
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.loadingContainer}>
+          <Ionicons name="storefront" size={48} color={Colors.dark.primary} />
+          <Text style={styles.loadingText}>Loading Glow Market...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const categories = shopData?.categories || [];
+  const featuredProducts = shopData?.featuredProducts || [];
+  const featuredServices = shopData?.featuredServices || [];
+  const hasContent = categories.length > 0 || featuredProducts.length > 0 || featuredServices.length > 0;
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.dark.primary}
+          />
+        }
+      >
+        <Animated.View entering={FadeIn.duration(400)} style={styles.header}>
+          <View style={styles.headerTitleRow}>
+            <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+            </Pressable>
+            <Text style={styles.headerTitle}>Glow Market</Text>
+            <Pressable style={styles.cartButton}>
+              <Ionicons name="bag-outline" size={24} color={Colors.dark.text} />
+            </Pressable>
+          </View>
+          <Text style={styles.headerSubtitle}>Premium gear & services for champions</Text>
+        </Animated.View>
+
+        {!hasContent ? (
+          <Animated.View entering={FadeInUp.delay(200).duration(400)} style={styles.emptyState}>
+            <LinearGradient
+              colors={[Colors.dark.backgroundSecondary, Colors.dark.backgroundDefault]}
+              style={styles.emptyCard}
+            >
+              <Ionicons name="storefront-outline" size={64} color={Colors.dark.primary + "60"} />
+              <Text style={styles.emptyTitle}>Coming Soon</Text>
+              <Text style={styles.emptyText}>
+                Your academy's shop is being set up. Check back soon for premium gear, services, and exclusive deals!
+              </Text>
+            </LinearGradient>
+          </Animated.View>
+        ) : (
+          <>
+            {categories.length > 0 && (
+              <Animated.View entering={FadeInUp.delay(100).duration(400)}>
+                <Text style={styles.sectionTitle}>Categories</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.categoriesContainer}
+                >
+                  {categories.map((category, index) => (
+                    <Pressable
+                      key={category.id}
+                      onPress={() => handleCategoryPress(category)}
+                      style={styles.categoryCard}
+                    >
+                      <LinearGradient
+                        colors={[
+                          category.iconColor + "20",
+                          Colors.dark.backgroundSecondary,
+                        ]}
+                        style={styles.categoryGradient}
+                      >
+                        <Ionicons
+                          name={(category.iconName as any) || "pricetag"}
+                          size={28}
+                          color={category.iconColor || Colors.dark.primary}
+                        />
+                        <Text style={styles.categoryName}>{category.name}</Text>
+                      </LinearGradient>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </Animated.View>
+            )}
+
+            {featuredServices.length > 0 && (
+              <Animated.View entering={FadeInUp.delay(200).duration(400)}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Services</Text>
+                  <View style={styles.sectionBadge}>
+                    <Ionicons name="flash" size={12} color={Colors.dark.gold} />
+                    <Text style={styles.sectionBadgeText}>Book Now</Text>
+                  </View>
+                </View>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.servicesContainer}
+                >
+                  {featuredServices.map((service, index) => (
+                    <Pressable
+                      key={service.id}
+                      onPress={() => handleServicePress(service)}
+                      style={styles.serviceCard}
+                    >
+                      <LinearGradient
+                        colors={[Colors.dark.backgroundSecondary, Colors.dark.backgroundDefault + "E0"]}
+                        style={styles.serviceGradient}
+                      >
+                        <View style={styles.serviceIconContainer}>
+                          <Ionicons
+                            name={(service.iconName as any) || "build"}
+                            size={24}
+                            color={Colors.dark.xpCyan}
+                          />
+                        </View>
+                        <Text style={styles.serviceName}>{service.name}</Text>
+                        {service.shortDescription && (
+                          <Text style={styles.serviceDescription} numberOfLines={2}>
+                            {service.shortDescription}
+                          </Text>
+                        )}
+                        <View style={styles.servicePriceRow}>
+                          <Text style={styles.servicePrice}>{formatPrice(service.price)}</Text>
+                          {service.durationMinutes && (
+                            <Text style={styles.serviceDuration}>{service.durationMinutes} min</Text>
+                          )}
+                        </View>
+                      </LinearGradient>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </Animated.View>
+            )}
+
+            {featuredProducts.length > 0 && (
+              <Animated.View entering={FadeInUp.delay(300).duration(400)}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Featured Products</Text>
+                  <View style={[styles.sectionBadge, { backgroundColor: Colors.dark.primary + "20" }]}>
+                    <Ionicons name="star" size={12} color={Colors.dark.primary} />
+                    <Text style={[styles.sectionBadgeText, { color: Colors.dark.primary }]}>Hot</Text>
+                  </View>
+                </View>
+                <View style={styles.productsGrid}>
+                  {featuredProducts.map((product, index) => (
+                    <Animated.View
+                      key={product.id}
+                      entering={FadeInUp.delay(350 + index * 50).duration(400)}
+                    >
+                      <Pressable
+                        onPress={() => handleProductPress(product)}
+                        style={styles.productCard}
+                      >
+                        <LinearGradient
+                          colors={[Colors.dark.backgroundSecondary, Colors.dark.backgroundDefault]}
+                          style={styles.productGradient}
+                        >
+                          {product.imageUrl ? (
+                            <Image
+                              source={{ uri: product.imageUrl }}
+                              style={styles.productImage}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <View style={styles.productImagePlaceholder}>
+                              <Ionicons name="tennisball-outline" size={40} color={Colors.dark.primary + "40"} />
+                            </View>
+                          )}
+                          <View style={styles.productInfo}>
+                            <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
+                            <View style={styles.productPriceRow}>
+                              <Text style={styles.productPrice}>{formatPrice(product.price)}</Text>
+                              {product.compareAtPrice && (
+                                <Text style={styles.productComparePrice}>
+                                  {formatPrice(product.compareAtPrice)}
+                                </Text>
+                              )}
+                            </View>
+                          </View>
+                        </LinearGradient>
+                      </Pressable>
+                    </Animated.View>
+                  ))}
+                </View>
+              </Animated.View>
+            )}
+
+            <Animated.View entering={FadeInUp.delay(450).duration(400)} style={styles.marketplaceSection}>
+              <LinearGradient
+                colors={[Colors.dark.backgroundSecondary, Colors.dark.backgroundDefault]}
+                style={styles.marketplaceCard}
+              >
+                <View style={styles.marketplaceBadge}>
+                  <Ionicons name="rocket" size={16} color={Colors.dark.xpCyan} />
+                  <Text style={styles.marketplaceBadgeText}>COMING SOON</Text>
+                </View>
+                <Text style={styles.marketplaceTitle}>Player Marketplace</Text>
+                <Text style={styles.marketplaceText}>
+                  Buy, sell, and trade pre-owned gear with fellow players. List your old rackets, find great deals, and connect with your tennis community.
+                </Text>
+                <View style={styles.marketplaceFeatures}>
+                  <View style={styles.marketplaceFeature}>
+                    <Ionicons name="swap-horizontal" size={20} color={Colors.dark.primary} />
+                    <Text style={styles.marketplaceFeatureText}>Trade</Text>
+                  </View>
+                  <View style={styles.marketplaceFeature}>
+                    <Ionicons name="shield-checkmark" size={20} color={Colors.dark.primary} />
+                    <Text style={styles.marketplaceFeatureText}>Verified</Text>
+                  </View>
+                  <View style={styles.marketplaceFeature}>
+                    <Ionicons name="people" size={20} color={Colors.dark.primary} />
+                    <Text style={styles.marketplaceFeatureText}>Community</Text>
+                  </View>
+                </View>
+              </LinearGradient>
+            </Animated.View>
+          </>
+        )}
+
+        <View style={{ height: insets.bottom + 100 }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundDefault,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: Spacing.lg,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  loadingText: {
+    color: Colors.dark.textSecondary,
+    fontSize: 16,
+  },
+  header: {
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.lg,
+  },
+  headerTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.xs,
+  },
+  backButton: {
+    padding: Spacing.xs,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    letterSpacing: -0.5,
+  },
+  cartButton: {
+    padding: Spacing.xs,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+  },
+  emptyState: {
+    marginTop: Spacing.xl,
+  },
+  emptyCard: {
+    borderRadius: 20,
+    padding: Spacing.xl,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: Spacing.md,
+    marginTop: Spacing.lg,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  sectionBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.gold + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  sectionBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.gold,
+    textTransform: "uppercase",
+  },
+  categoriesContainer: {
+    paddingRight: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  categoryCard: {
+    width: 90,
+    height: 90,
+  },
+  categoryGradient: {
+    flex: 1,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  categoryName: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    textAlign: "center",
+  },
+  servicesContainer: {
+    paddingRight: Spacing.lg,
+    gap: Spacing.md,
+  },
+  serviceCard: {
+    width: 180,
+  },
+  serviceGradient: {
+    borderRadius: 16,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    minHeight: 140,
+  },
+  serviceIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.sm,
+  },
+  serviceName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    marginBottom: 4,
+  },
+  serviceDescription: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    lineHeight: 16,
+    marginBottom: Spacing.sm,
+  },
+  servicePriceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: "auto",
+  },
+  servicePrice: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  serviceDuration: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+  },
+  productsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.md,
+  },
+  productCard: {
+    width: CARD_WIDTH,
+  },
+  productGradient: {
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  productImage: {
+    width: "100%",
+    height: CARD_WIDTH,
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  productImagePlaceholder: {
+    width: "100%",
+    height: CARD_WIDTH,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  productInfo: {
+    padding: Spacing.md,
+  },
+  productName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    marginBottom: Spacing.xs,
+  },
+  productPriceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  productPrice: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  productComparePrice: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    textDecorationLine: "line-through",
+  },
+  marketplaceSection: {
+    marginTop: Spacing.xl,
+  },
+  marketplaceCard: {
+    borderRadius: 20,
+    padding: Spacing.xl,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  marketplaceBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: 20,
+    alignSelf: "flex-start",
+    marginBottom: Spacing.md,
+  },
+  marketplaceBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.xpCyan,
+    letterSpacing: 1,
+  },
+  marketplaceTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: Spacing.sm,
+  },
+  marketplaceText: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+    lineHeight: 20,
+    marginBottom: Spacing.lg,
+  },
+  marketplaceFeatures: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  marketplaceFeature: {
+    alignItems: "center",
+    gap: 6,
+  },
+  marketplaceFeatureText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+});
