@@ -13,6 +13,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Share,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -26,7 +27,8 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
-import { apiRequest, apiFetch } from "@/lib/query-client";
+import { apiRequest, apiFetch, getApiUrl } from "@/lib/query-client";
+import { useAuth } from "@/coach/context/AuthContext";
 
 type FeedFilter = "for_you" | "friends" | "groups" | "academy" | "events";
 
@@ -112,8 +114,24 @@ function getBallLevelColor(level?: string): string {
   return colors[level || ""] || Colors.dark.textSecondary;
 }
 
-function MomentCard({ post, onReact }: { post: Post; onReact: (postId: string, type: string) => void }) {
+function MomentCard({ 
+  post, 
+  onReact, 
+  onComment, 
+  onShare, 
+  onDelete,
+  currentUserId 
+}: { 
+  post: Post; 
+  onReact: (postId: string, type: string) => void;
+  onComment: (postId: string) => void;
+  onShare: (post: Post) => void;
+  onDelete: (postId: string) => void;
+  currentUserId?: string;
+}) {
   const [showCheerPicker, setShowCheerPicker] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const isOwnPost = currentUserId && post.authorId === currentUserId;
   
   const contextLabel = useMemo(() => {
     switch (post.contextType) {
@@ -142,7 +160,7 @@ function MomentCard({ post, onReact }: { post: Post; onReact: (postId: string, t
         {hasMedia ? (
           <View style={styles.mediaSection}>
             <Image 
-              source={{ uri: post.mediaUrls[0] }} 
+              source={{ uri: post.mediaUrls[0].startsWith("http") ? post.mediaUrls[0] : `${getApiUrl()}${post.mediaUrls[0]}` }} 
               style={styles.momentImage}
               resizeMode="cover"
             />
@@ -177,7 +195,7 @@ function MomentCard({ post, onReact }: { post: Post; onReact: (postId: string, t
           <View style={styles.momentHeader}>
             <View style={styles.avatarGlow}>
               {post.author.photoUrl ? (
-                <Image source={{ uri: post.author.photoUrl }} style={styles.momentAvatar} />
+                <Image source={{ uri: post.author.photoUrl.startsWith("http") ? post.author.photoUrl : `${getApiUrl()}${post.author.photoUrl}` }} style={styles.momentAvatar} />
               ) : (
                 <View style={[styles.momentAvatar, styles.avatarPlaceholder]}>
                   <ThemedText style={styles.avatarInitial}>
@@ -239,15 +257,47 @@ function MomentCard({ post, onReact }: { post: Post; onReact: (postId: string, t
             </Pressable>
             
             {/* Comment button with preview */}
-            <Pressable style={styles.commentButton}>
+            <Pressable 
+              style={styles.commentButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onComment(post.id);
+              }}
+            >
               <Ionicons name="chatbubble-outline" size={18} color={Colors.dark.textMuted} />
               <ThemedText style={styles.commentCount}>{post.commentCount || 0}</ThemedText>
             </Pressable>
             
             {/* Share button */}
-            <Pressable style={styles.shareButton}>
+            <Pressable 
+              style={styles.shareButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onShare(post);
+              }}
+            >
               <Ionicons name="share-outline" size={18} color={Colors.dark.textMuted} />
             </Pressable>
+
+            {/* Delete button for own posts */}
+            {isOwnPost ? (
+              <Pressable 
+                style={styles.deleteButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  Alert.alert(
+                    "Delete Post",
+                    "Are you sure you want to delete this post?",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      { text: "Delete", style: "destructive", onPress: () => onDelete(post.id) }
+                    ]
+                  );
+                }}
+              >
+                <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+              </Pressable>
+            ) : null}
           </View>
           
           {/* Emoji picker */}
@@ -400,13 +450,56 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedContext) return;
+    
+    let uploadedMediaUrls: string[] = [];
+    
+    if (selectedImage) {
+      try {
+        const formData = new FormData();
+        const uri = selectedImage;
+        const filename = uri.split("/").pop() || `photo-${Date.now()}.jpg`;
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : "image/jpeg";
+        
+        if (Platform.OS === "web") {
+          const response = await fetch(uri);
+          const blob = await response.blob();
+          formData.append("images", blob, filename);
+        } else {
+          formData.append("images", {
+            uri,
+            name: filename,
+            type,
+          } as any);
+        }
+        
+        const uploadResponse = await fetch(`${getApiUrl()}/api/social/posts/upload-images`, {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        });
+        
+        if (uploadResponse.ok) {
+          const result = await uploadResponse.json();
+          uploadedMediaUrls = result.images || [];
+        } else {
+          console.error("Upload failed:", await uploadResponse.text());
+          Alert.alert("Error", "Failed to upload image. Please try again.");
+          return;
+        }
+      } catch (error) {
+        console.error("Upload error:", error);
+        Alert.alert("Error", "Failed to upload image. Please try again.");
+        return;
+      }
+    }
     
     onSubmit({
       contextType: selectedContext,
       caption: caption.trim(),
-      mediaUrls: selectedImage ? [selectedImage] : [],
+      mediaUrls: uploadedMediaUrls,
     });
   };
 
@@ -551,8 +644,10 @@ export default function CommunityScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [filter, setFilter] = useState<FeedFilter>("for_you");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const chatFooterHeight = 70;
   
   const { data: feed = [], isLoading, refetch, isFetching } = useQuery<Post[]>({
     queryKey: ["/api/social/feed", { filter }],
@@ -596,8 +691,44 @@ export default function CommunityScreen() {
     },
   });
   
+  const deletePostMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      return apiRequest("DELETE", `/api/social/posts/${postId}`);
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["/api/social/feed"] });
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to delete post. Please try again.");
+    },
+  });
+
   const handleReact = (postId: string, type: string) => {
     reactMutation.mutate({ postId, type });
+  };
+
+  const handleComment = (postId: string) => {
+    Alert.alert("Comments", "Comments feature coming in the next update!");
+  };
+
+  const handleShare = async (post: Post) => {
+    try {
+      const message = post.caption 
+        ? `Check out this moment from ${post.author.name || post.author.username}: "${post.caption}"` 
+        : `Check out this moment from ${post.author.name || post.author.username}!`;
+      
+      await Share.share({
+        message,
+        title: "Share Moment",
+      });
+    } catch (error) {
+      console.log("Share error:", error);
+    }
+  };
+
+  const handleDelete = (postId: string) => {
+    deletePostMutation.mutate(postId);
   };
 
   const handleCreateMoment = () => {
@@ -645,11 +776,18 @@ export default function CommunityScreen() {
           data={feed}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <MomentCard post={item} onReact={handleReact} />
+            <MomentCard 
+              post={item} 
+              onReact={handleReact}
+              onComment={handleComment}
+              onShare={handleShare}
+              onDelete={handleDelete}
+              currentUserId={user?.userId}
+            />
           )}
           contentContainerStyle={[
             styles.feedList,
-            { paddingBottom: tabBarHeight + Spacing.xl }
+            { paddingBottom: tabBarHeight + chatFooterHeight + Spacing.xl }
           ]}
           refreshControl={
             <RefreshControl
@@ -1319,6 +1457,9 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   shareButton: {
+    padding: 8,
+  },
+  deleteButton: {
     padding: 8,
     marginLeft: "auto",
   },

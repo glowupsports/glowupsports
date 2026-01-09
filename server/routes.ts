@@ -87,6 +87,7 @@ const authLimiter = rateLimit({
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
 const COURT_PHOTOS_DIR = path.join(UPLOADS_DIR, "court-photos");
 const PROFILE_PHOTOS_DIR = path.join(UPLOADS_DIR, "profile-photos");
+const SOCIAL_POSTS_DIR = path.join(UPLOADS_DIR, "social-posts");
 
 // Ensure upload directories exist
 if (!fs.existsSync(UPLOADS_DIR)) {
@@ -97,6 +98,9 @@ if (!fs.existsSync(COURT_PHOTOS_DIR)) {
 }
 if (!fs.existsSync(PROFILE_PHOTOS_DIR)) {
   fs.mkdirSync(PROFILE_PHOTOS_DIR, { recursive: true });
+}
+if (!fs.existsSync(SOCIAL_POSTS_DIR)) {
+  fs.mkdirSync(SOCIAL_POSTS_DIR, { recursive: true });
 }
 
 const courtPhotoStorage = multer.diskStorage({
@@ -141,6 +145,33 @@ const profilePhotoUpload = multer({
   storage: profilePhotoStorage,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB max for profile photos
+  },
+  fileFilter: (_req, file, cb) => {
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only JPEG, PNG, WebP, and HEIC images are allowed."));
+    }
+  },
+});
+
+// Social post photo upload configuration
+const socialPostStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, SOCIAL_POSTS_DIR);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const ext = path.extname(file.originalname) || '.jpg';
+    cb(null, `post-${uniqueSuffix}${ext}`);
+  },
+});
+
+const socialPostUpload = multer({
+  storage: socialPostStorage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB max
   },
   fileFilter: (_req, file, cb) => {
     const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
@@ -20334,6 +20365,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching social feed:", error);
       res.status(500).json({ error: "Failed to fetch feed" });
+    }
+  });
+
+  // Upload images for social posts
+  app.post("/api/social/posts/upload-images", authMiddleware, socialPostUpload.array("images", 5), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const files = req.files as Express.Multer.File[];
+      
+      if (!files || files.length === 0) {
+        return res.status(400).json({ error: "No images uploaded" });
+      }
+
+      const imageUrls = files.map(file => `/uploads/social-posts/${file.filename}`);
+      
+      res.json({ 
+        success: true, 
+        images: imageUrls,
+        count: imageUrls.length
+      });
+    } catch (error) {
+      console.error("[Social] Error uploading images:", error);
+      res.status(500).json({ error: "Failed to upload images" });
     }
   });
 
