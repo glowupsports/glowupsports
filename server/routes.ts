@@ -20272,53 +20272,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
         posts = [];
       }
       
-      // Get author info for all posts using raw SQL
+      // Get author info for all posts using Drizzle inArray
       const authorIds = [...new Set(posts.map(p => p.authorId).filter(Boolean))] as string[];
-      console.log("[Social Feed] Author IDs to lookup:", authorIds);
       let authorMap = new Map<string, { id: string; username: string; name: string; photoUrl: string | null; ballLevel: string | null; isCoach: boolean }>();
       
       if (authorIds.length > 0) {
         try {
-          const rawAuthors = await db.execute(sql`
-            SELECT id, username, player_id, coach_id FROM users WHERE id = ANY(${authorIds})
-          `);
-          console.log("[Social Feed] Raw authors found:", rawAuthors.rows?.length);
-          const authorUsers = (rawAuthors.rows || []).map((row: any) => ({
-            id: row.id,
-            username: row.username,
-            playerId: row.player_id,
-            coachId: row.coach_id,
-          }));
+          // Use Drizzle's inArray for proper array handling
+          const authorUsers = await db.select({
+            id: users.id,
+            username: users.username,
+            playerId: users.playerId,
+            coachId: users.coachId,
+          }).from(users).where(inArray(users.id, authorIds));
           
           const playerIds = authorUsers.map(u => u.playerId).filter(Boolean) as string[];
           const coachIds = authorUsers.map(u => u.coachId).filter(Boolean) as string[];
-          console.log("[Social Feed] Player IDs:", playerIds, "Coach IDs:", coachIds);
           
           let playerMap = new Map<string, { name: string; photoUrl: string | null; ballLevel: string | null }>();
           let coachMap = new Map<string, { name: string; photoUrl: string | null }>();
           
           if (playerIds.length > 0) {
-            const rawPlayers = await db.execute(sql`
-              SELECT id, name, photo_url, ball_level FROM players WHERE id = ANY(${playerIds})
-            `);
-            console.log("[Social Feed] Players found:", rawPlayers.rows?.length);
-            (rawPlayers.rows || []).forEach((p: any) => {
-              console.log("[Social Feed] Player:", p.id, p.name);
-              playerMap.set(p.id, { name: p.name, photoUrl: p.photo_url, ballLevel: p.ball_level });
+            const playersList = await db.select({
+              id: players.id,
+              name: players.name,
+              photoUrl: players.photoUrl,
+              ballLevel: players.ballLevel,
+            }).from(players).where(inArray(players.id, playerIds));
+            
+            playersList.forEach(p => {
+              playerMap.set(p.id, { name: p.name, photoUrl: p.photoUrl, ballLevel: p.ballLevel });
             });
           }
           
           if (coachIds.length > 0) {
-            const rawCoaches = await db.execute(sql`
-              SELECT id, name, photo_url FROM coaches WHERE id = ANY(${coachIds})
-            `);
-            (rawCoaches.rows || []).forEach((c: any) => coachMap.set(c.id, { name: c.name, photoUrl: c.photo_url }));
+            const coachesList = await db.select({
+              id: coaches.id,
+              name: coaches.name,
+              photoUrl: coaches.photoUrl,
+            }).from(coaches).where(inArray(coaches.id, coachIds));
+            
+            coachesList.forEach(c => {
+              coachMap.set(c.id, { name: c.name, photoUrl: c.photoUrl });
+            });
           }
           
           authorUsers.forEach(u => {
             const player = u.playerId ? playerMap.get(u.playerId) : null;
             const coach = u.coachId ? coachMap.get(u.coachId) : null;
-            console.log("[Social Feed] Mapping user", u.id, "playerId:", u.playerId, "player:", player?.name, "coach:", coach?.name);
             authorMap.set(u.id, {
               id: u.id,
               username: u.username,
@@ -20328,22 +20329,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
               isCoach: !!coach,
             });
           });
-          console.log("[Social Feed] Final author map size:", authorMap.size);
         } catch (authorError) {
           console.error("Error fetching authors:", authorError);
         }
       }
       
-      // Get user's reactions for these posts using raw SQL
+      // Get user's reactions for these posts using Drizzle inArray
       const postIds = posts.map(p => p.id);
       let reactionMap = new Map<string, string>();
       if (postIds.length > 0) {
         try {
-          const rawReactions = await db.execute(sql`
-            SELECT post_id, reaction_type FROM post_reactions 
-            WHERE user_id = ${userId} AND post_id = ANY(${postIds})
-          `);
-          (rawReactions.rows || []).forEach((r: any) => reactionMap.set(r.post_id, r.reaction_type));
+          const userReactions = await db.select({
+            postId: postReactionsTable.postId,
+            reactionType: postReactionsTable.reactionType,
+          }).from(postReactionsTable).where(and(
+            eq(postReactionsTable.userId, userId),
+            inArray(postReactionsTable.postId, postIds)
+          ));
+          userReactions.forEach(r => reactionMap.set(r.postId, r.reactionType));
         } catch (reactionError) {
           console.error("Error fetching reactions:", reactionError);
         }
