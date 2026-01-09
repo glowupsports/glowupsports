@@ -111,18 +111,6 @@ interface ConnectionsResponse {
   pendingSent: ConnectionData[];
 }
 
-interface CreditsData {
-  totalCredits: number;
-  usedCredits: number;
-  remainingCredits: number;
-  packages: Array<{
-    id: string;
-    packageName: string;
-    creditBalance: number;
-    expiresAt: string | null;
-  }>;
-}
-
 interface BadgeData {
   id: string;
   name: string;
@@ -147,7 +135,7 @@ const RARITY_COLORS: Record<string, string> = {
   common: Colors.dark.textMuted,
   uncommon: Colors.dark.primary,
   rare: Colors.dark.xpCyan,
-  epic: Colors.dark.purple,
+  epic: "#9B59B6",
   legendary: Colors.dark.orange,
 };
 
@@ -178,9 +166,15 @@ export default function PlayerProfileScreen() {
     enabled: !!data?.player,
   });
 
-  const { data: creditsData } = useQuery<CreditsData>({
-    queryKey: data?.player ? [`/api/players/${data.player.id}/credits-summary`] : [],
-    enabled: !!data?.player?.id,
+  interface DashboardCredits {
+    total: number;
+    group: number;
+    private: number;
+    semi_private: number;
+  }
+  const { data: dashboardData } = useQuery<{ credits?: DashboardCredits }>({
+    queryKey: ["/api/player/me/dashboard"],
+    enabled: !!data?.player,
   });
 
   const { data: badgesData } = useQuery<BadgeData[]>({
@@ -588,40 +582,54 @@ export default function PlayerProfileScreen() {
           </View>
         ) : null}
 
-        {/* Wallet/Credits Section */}
-        {creditsData ? (
-          <View style={styles.walletCard}>
-            <LinearGradient
-              colors={["rgba(255, 215, 0, 0.1)", "rgba(255, 165, 0, 0.05)"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.walletGradient}
+        {/* My Credits Section - matches Home screen design */}
+        {dashboardData?.credits ? (
+          <View style={styles.creditsCard}>
+            <View style={styles.creditsHeader}>
+              <Ionicons name="ticket-outline" size={14} color={Colors.dark.gold} />
+              <Text style={styles.creditsTitle}>My Credits</Text>
+            </View>
+            <View style={styles.creditsTotalRow}>
+              <Text style={styles.creditsTotalValue}>{dashboardData.credits.total}</Text>
+              <Text style={styles.creditsTotalLabel}>Total Available</Text>
+            </View>
+            {dashboardData.credits.total > 0 ? (
+              <View style={styles.creditsTypeRow}>
+                <View style={styles.creditsTypeItem}>
+                  <Text style={styles.creditsTypeValue}>{dashboardData.credits.group}</Text>
+                  <Text style={styles.creditsTypeLabel}>Group</Text>
+                </View>
+                <View style={styles.creditsTypeItem}>
+                  <Text style={styles.creditsTypeValue}>{dashboardData.credits.private}</Text>
+                  <Text style={styles.creditsTypeLabel}>Private</Text>
+                </View>
+                <View style={styles.creditsTypeItem}>
+                  <Text style={styles.creditsTypeValue}>{dashboardData.credits.semi_private}</Text>
+                  <Text style={styles.creditsTypeLabel}>Semi-Private</Text>
+                </View>
+              </View>
+            ) : (
+              <Text style={styles.creditsEmptyText}>No credits available</Text>
+            )}
+            <Pressable 
+              style={styles.buyCreditsButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                if (player?.id) {
+                  navigation.navigate("ParentCreditStore", { playerId: player.id });
+                }
+              }}
             >
-              <View style={styles.walletHeader}>
-                <View style={styles.walletIconWrap}>
-                  <Ionicons name="wallet" size={24} color={Colors.dark.gold} />
-                </View>
-                <View>
-                  <Text style={styles.walletTitle}>Lesson Credits</Text>
-                  <Text style={styles.walletSubtitle}>Available balance</Text>
-                </View>
-              </View>
-              <View style={styles.walletBalance}>
-                <Text style={styles.walletBalanceValue}>{creditsData.remainingCredits}</Text>
-                <Text style={styles.walletBalanceLabel}>credits remaining</Text>
-              </View>
-              {creditsData.packages && creditsData.packages.length > 0 ? (
-                <View style={styles.packagesList}>
-                  {creditsData.packages.slice(0, 2).map((pkg) => (
-                    <View key={pkg.id} style={styles.packageItem}>
-                      <Ionicons name="gift" size={14} color={Colors.dark.xpCyan} />
-                      <Text style={styles.packageName}>{pkg.packageName}</Text>
-                      <Text style={styles.packageCredits}>{pkg.creditBalance}</Text>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
-            </LinearGradient>
+              <LinearGradient
+                colors={[Colors.dark.gold, "#D4A100"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.buyCreditsGradient}
+              >
+                <Ionicons name="cart-outline" size={14} color={Colors.dark.backgroundRoot} />
+                <Text style={styles.buyCreditsText}>Buy Credits</Text>
+              </LinearGradient>
+            </Pressable>
           </View>
         ) : null}
 
@@ -1616,77 +1624,87 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     fontWeight: "600",
   },
-  walletCard: {
+  creditsCard: {
+    ...CardStyles.glowCard,
     marginHorizontal: Spacing.xl,
-    marginBottom: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    overflow: "hidden",
-  },
-  walletGradient: {
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+    padding: Spacing.sm,
+    borderColor: "rgba(255, 215, 0, 0.4)",
     borderWidth: 1,
-    borderColor: "rgba(255, 215, 0, 0.2)",
   },
-  walletHeader: {
+  creditsHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.md,
-    marginBottom: Spacing.md,
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
   },
-  walletIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(255, 215, 0, 0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  walletTitle: {
-    ...Typography.body,
-    color: Colors.dark.text,
+  creditsTitle: {
+    ...Typography.caption,
+    color: Colors.dark.gold,
     fontWeight: "600",
   },
-  walletSubtitle: {
-    ...Typography.caption,
-    color: Colors.dark.textMuted,
-  },
-  walletBalance: {
-    alignItems: "center",
-    paddingVertical: Spacing.md,
-  },
-  walletBalanceValue: {
-    ...Typography.h1,
-    color: Colors.dark.gold,
-    fontSize: 48,
-  },
-  walletBalanceLabel: {
-    ...Typography.caption,
-    color: Colors.dark.textMuted,
-    marginTop: 4,
-  },
-  packagesList: {
-    marginTop: Spacing.md,
-    paddingTop: Spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.08)",
-    gap: Spacing.sm,
-  },
-  packageItem: {
+  creditsTotalRow: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    paddingVertical: 6,
+    alignItems: "baseline",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
   },
-  packageName: {
-    ...Typography.body,
-    color: Colors.dark.text,
+  creditsTotalValue: {
+    ...Typography.h2,
+    color: Colors.dark.gold,
+    fontSize: 24,
+  },
+  creditsTotalLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontSize: 10,
+  },
+  creditsTypeRow: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+  },
+  creditsTypeItem: {
     flex: 1,
+    alignItems: "center",
+    paddingVertical: 4,
+    paddingHorizontal: Spacing.xs,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.xs,
   },
-  packageCredits: {
+  creditsTypeValue: {
     ...Typography.body,
     color: Colors.dark.xpCyan,
-    fontWeight: "600",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  creditsTypeLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontSize: 9,
+  },
+  creditsEmptyText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    fontStyle: "italic",
+  },
+  buyCreditsButton: {
+    marginTop: Spacing.xs,
+  },
+  buyCreditsGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 6,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    gap: Spacing.xs,
+  },
+  buyCreditsText: {
+    ...Typography.caption,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
   },
   profileTabs: {
     flexDirection: "row",

@@ -1352,56 +1352,6 @@ export default function PlayerHomeScreen() {
           </Pressable>
         ) : null}
 
-        {/* Compact Credits Card */}
-        {data?.credits && data?.player?.id ? (
-          <View style={styles.creditsCard}>
-            <View style={styles.creditsHeader}>
-              <Ionicons name="ticket-outline" size={14} color={Colors.dark.gold} />
-              <Text style={styles.creditsTitle}>My Credits</Text>
-            </View>
-            <View style={styles.creditsTotalRow}>
-              <Text style={styles.creditsTotalValue}>{data.credits.total}</Text>
-              <Text style={styles.creditsTotalLabel}>Total Available</Text>
-            </View>
-            {data.credits.total > 0 ? (
-              <View style={styles.creditsTypeRow}>
-                <View style={styles.creditsTypeItem}>
-                  <Text style={styles.creditsTypeValue}>{data.credits.group}</Text>
-                  <Text style={styles.creditsTypeLabel}>Group</Text>
-                </View>
-                <View style={styles.creditsTypeItem}>
-                  <Text style={styles.creditsTypeValue}>{data.credits.private}</Text>
-                  <Text style={styles.creditsTypeLabel}>Private</Text>
-                </View>
-                <View style={styles.creditsTypeItem}>
-                  <Text style={styles.creditsTypeValue}>{data.credits.semi_private}</Text>
-                  <Text style={styles.creditsTypeLabel}>Semi-Private</Text>
-                </View>
-              </View>
-            ) : (
-              <Text style={styles.creditsEmptyText}>No credits available</Text>
-            )}
-            <Pressable 
-              style={styles.buyCreditsButton}
-              onPress={() => {
-                if (data?.player?.id) {
-                  navigation.navigate("ParentCreditStore", { playerId: data.player.id });
-                }
-              }}
-            >
-              <LinearGradient
-                colors={[Colors.dark.gold, "#D4A100"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.buyCreditsGradient}
-              >
-                <Ionicons name="cart-outline" size={14} color={Colors.dark.backgroundRoot} />
-                <Text style={styles.buyCreditsText}>Buy Credits</Text>
-              </LinearGradient>
-            </Pressable>
-          </View>
-        ) : null}
-
         <ReviewPromptBanner />
         
         {!vacationData?.active && !vacationData?.upcomingVacation ? (
