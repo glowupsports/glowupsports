@@ -74,12 +74,20 @@ const CONTEXT_OPTIONS: ContextOption[] = [
   { type: "free_play", label: "Free Play", icon: "basketball", color: "#00D9FF" },
 ];
 
-const REACTION_ICONS: Record<string, { name: string; color: string }> = {
-  clap: { name: "hand-left", color: "#FFD700" },
-  fire: { name: "flame", color: "#FF6B35" },
-  tennis: { name: "tennisball", color: "#9AE66E" },
-  muscle: { name: "fitness", color: "#4ECDC4" },
-  star: { name: "star", color: "#E040FB" },
+const CHEER_EMOJIS = ["🔥", "⚡", "🎾", "💪", "🏆", "✨"];
+
+const CONTEXT_BADGE_STYLES: Record<string, { bg: string; text: string; icon: string }> = {
+  training: { bg: "#9AE66E20", text: "#9AE66E", icon: "tennisball" },
+  match: { bg: "#FFD70020", text: "#FFD700", icon: "trophy" },
+  event: { bg: "#FF6B3520", text: "#FF6B35", icon: "calendar" },
+  group: { bg: "#4ECDC420", text: "#4ECDC4", icon: "people" },
+  achievement: { bg: "#E040FB20", text: "#E040FB", icon: "ribbon" },
+  free_play: { bg: "#00D9FF20", text: "#00D9FF", icon: "basketball" },
+  session_completed: { bg: "#9AE66E20", text: "#9AE66E", icon: "checkmark-circle" },
+  level_up: { bg: "#FFD70020", text: "#FFD700", icon: "arrow-up-circle" },
+  badge_earned: { bg: "#E040FB20", text: "#E040FB", icon: "ribbon" },
+  streak: { bg: "#FF6B3520", text: "#FF6B35", icon: "flame" },
+  milestone: { bg: "#00D9FF20", text: "#00D9FF", icon: "flag" },
 };
 
 function formatTimeAgo(dateString: string): string {
@@ -105,166 +113,163 @@ function getBallLevelColor(level?: string): string {
 }
 
 function MomentCard({ post, onReact }: { post: Post; onReact: (postId: string, type: string) => void }) {
-  const [showReactions, setShowReactions] = useState(false);
+  const [showCheerPicker, setShowCheerPicker] = useState(false);
   
   const contextLabel = useMemo(() => {
     switch (post.contextType) {
-      case "training": return "Training Session";
-      case "match": return "Match Result";
+      case "training": return "Training";
+      case "match": return "Match";
       case "event": return "Event";
-      case "group": return "Group Post";
+      case "group": return "Group";
       case "achievement": return "Achievement";
       case "free_play": return "Free Play";
-      case "session_completed": return "Completed Session";
+      case "session_completed": return "Session";
       case "level_up": return "Level Up!";
-      case "badge_earned": return "Badge Earned";
+      case "badge_earned": return "Badge";
       case "streak": return "Streak";
       case "milestone": return "Milestone";
       default: return "";
     }
   }, [post.contextType]);
   
-  const contextColor = useMemo(() => {
-    const colors: Record<string, string> = {
-      training: "#9AE66E",
-      match: "#FFD700",
-      event: "#FF6B35",
-      group: "#4ECDC4",
-      achievement: "#E040FB",
-      free_play: "#00D9FF",
-      level_up: "#FFD700",
-      badge_earned: "#E040FB",
-    };
-    return colors[post.contextType] || Colors.dark.primary;
-  }, [post.contextType]);
+  const contextStyle = CONTEXT_BADGE_STYLES[post.contextType] || CONTEXT_BADGE_STYLES.training;
+  const hasMedia = post.mediaUrls && post.mediaUrls.length > 0;
   
   return (
     <Animated.View entering={FadeInDown.delay(100).springify()}>
-      <Card style={styles.postCard}>
-        <View style={styles.postHeader}>
-          <View style={styles.authorInfo}>
-            {post.author.photoUrl ? (
-              <Image source={{ uri: post.author.photoUrl }} style={styles.authorAvatar} />
-            ) : (
-              <View style={[styles.authorAvatar, styles.avatarPlaceholder]}>
-                <Ionicons 
-                  name={post.author.isCoach ? "school" : "person"} 
-                  size={20} 
-                  color={Colors.dark.textSecondary} 
-                />
-              </View>
-            )}
-            <View style={styles.authorDetails}>
-              <View style={styles.nameRow}>
-                <ThemedText style={styles.authorName}>
-                  {post.author.name || post.author.username}
-                </ThemedText>
-                {post.author.level ? (
-                  <View style={styles.levelBadge}>
-                    <ThemedText style={styles.levelBadgeText}>LVL {post.author.level}</ThemedText>
-                  </View>
-                ) : null}
-                {post.author.ballLevel ? (
-                  <View style={[styles.ballBadge, { backgroundColor: getBallLevelColor(post.author.ballLevel) }]}>
-                    <Ionicons name="tennisball" size={10} color="#fff" />
-                  </View>
-                ) : null}
-                {post.author.isCoach ? (
-                  <View style={styles.coachBadge}>
-                    <ThemedText style={styles.coachBadgeText}>Coach</ThemedText>
-                  </View>
-                ) : null}
-              </View>
-              <View style={styles.timeRow}>
-                <ThemedText style={styles.timeText}>{formatTimeAgo(post.createdAt)}</ThemedText>
-                {contextLabel ? (
-                  <>
-                    <View style={styles.dot} />
-                    <ThemedText style={[styles.contextLabel, { color: contextColor }]}>{contextLabel}</ThemedText>
-                  </>
-                ) : null}
-              </View>
-              {post.author.title ? (
-                <ThemedText style={styles.titleText}>{post.author.title}</ThemedText>
-              ) : null}
-            </View>
-          </View>
-        </View>
-        
-        {post.caption ? (
-          <ThemedText style={styles.caption}>{post.caption}</ThemedText>
-        ) : null}
-        
-        {post.mediaUrls && post.mediaUrls.length > 0 ? (
-          <View style={styles.mediaContainer}>
+      <View style={styles.momentCard}>
+        {/* Photo-first layout - 65% of card when media present */}
+        {hasMedia ? (
+          <View style={styles.mediaSection}>
             <Image 
               source={{ uri: post.mediaUrls[0] }} 
-              style={styles.mediaImage}
+              style={styles.momentImage}
               resizeMode="cover"
             />
+            {/* Context badge overlay on photo */}
+            <View style={[styles.contextBadgeOverlay, { backgroundColor: contextStyle.bg }]}>
+              <Ionicons name={contextStyle.icon as any} size={12} color={contextStyle.text} />
+              <ThemedText style={[styles.contextBadgeText, { color: contextStyle.text }]}>
+                {contextLabel}
+              </ThemedText>
+            </View>
             {post.mediaUrls.length > 1 ? (
-              <View style={styles.moreMedia}>
-                <ThemedText style={styles.moreMediaText}>+{post.mediaUrls.length - 1}</ThemedText>
+              <View style={styles.mediaCountBadge}>
+                <ThemedText style={styles.mediaCountText}>+{post.mediaUrls.length - 1}</ThemedText>
               </View>
             ) : null}
           </View>
-        ) : null}
+        ) : (
+          /* No media - show context badge in header area */
+          <View style={styles.noMediaHeader}>
+            <View style={[styles.contextBadgeLarge, { backgroundColor: contextStyle.bg }]}>
+              <Ionicons name={contextStyle.icon as any} size={24} color={contextStyle.text} />
+              <ThemedText style={[styles.contextBadgeLargeText, { color: contextStyle.text }]}>
+                {contextLabel}
+              </ThemedText>
+            </View>
+          </View>
+        )}
         
-        <View style={styles.postActions}>
-          <Pressable 
-            style={styles.actionButton}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setShowReactions(!showReactions);
-            }}
-            onLongPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              setShowReactions(true);
-            }}
-          >
-            <Ionicons 
-              name={post.userReaction ? "heart" : "heart-outline"} 
-              size={22} 
-              color={post.userReaction ? "#FF6B6B" : Colors.dark.textSecondary} 
-            />
-            <ThemedText style={styles.actionCount}>{post.cheerCount || ""}</ThemedText>
-          </Pressable>
+        {/* Content section */}
+        <View style={styles.momentContent}>
+          {/* Author header with avatar, name, title */}
+          <View style={styles.momentHeader}>
+            <View style={styles.avatarGlow}>
+              {post.author.photoUrl ? (
+                <Image source={{ uri: post.author.photoUrl }} style={styles.momentAvatar} />
+              ) : (
+                <View style={[styles.momentAvatar, styles.avatarPlaceholder]}>
+                  <ThemedText style={styles.avatarInitial}>
+                    {(post.author.name || post.author.username || "?").charAt(0).toUpperCase()}
+                  </ThemedText>
+                </View>
+              )}
+            </View>
+            <View style={styles.authorMeta}>
+              <View style={styles.nameAndTitle}>
+                <ThemedText style={styles.momentAuthorName}>
+                  {post.author.name || post.author.username}
+                </ThemedText>
+                {post.author.isCoach ? (
+                  <View style={styles.coachTag}>
+                    <ThemedText style={styles.coachTagText}>Coach</ThemedText>
+                  </View>
+                ) : null}
+              </View>
+              {/* Title badge with glow effect */}
+              {post.author.title ? (
+                <View style={styles.titleBadge}>
+                  <ThemedText style={styles.titleBadgeText}>{post.author.title}</ThemedText>
+                </View>
+              ) : post.author.level ? (
+                <View style={styles.titleBadge}>
+                  <ThemedText style={styles.titleBadgeText}>Level {post.author.level}</ThemedText>
+                </View>
+              ) : null}
+            </View>
+            <ThemedText style={styles.momentTime}>{formatTimeAgo(post.createdAt)}</ThemedText>
+          </View>
           
-          <Pressable style={styles.actionButton}>
-            <Ionicons name="chatbubble-outline" size={20} color={Colors.dark.textSecondary} />
-            <ThemedText style={styles.actionCount}>{post.commentCount || ""}</ThemedText>
-          </Pressable>
+          {/* Caption */}
+          {post.caption ? (
+            <ThemedText style={styles.momentCaption}>{post.caption}</ThemedText>
+          ) : null}
           
-          <Pressable style={styles.actionButton}>
-            <Ionicons name="share-outline" size={20} color={Colors.dark.textSecondary} />
-          </Pressable>
+          {/* Actions row with cheers and XP */}
+          <View style={styles.momentActions}>
+            {/* Cheer button with emoji */}
+            <Pressable 
+              style={[styles.cheerButton, post.userReaction && styles.cheerButtonActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowCheerPicker(!showCheerPicker);
+              }}
+            >
+              <ThemedText style={styles.cheerEmoji}>
+                {post.userReaction ? "🔥" : "👏"}
+              </ThemedText>
+              <ThemedText style={[styles.cheerCount, post.userReaction && styles.cheerCountActive]}>
+                {post.cheerCount || 0}
+              </ThemedText>
+              {/* XP indicator */}
+              <View style={styles.xpBadge}>
+                <ThemedText style={styles.xpBadgeText}>+5 XP</ThemedText>
+              </View>
+            </Pressable>
+            
+            {/* Comment button with preview */}
+            <Pressable style={styles.commentButton}>
+              <Ionicons name="chatbubble-outline" size={18} color={Colors.dark.textMuted} />
+              <ThemedText style={styles.commentCount}>{post.commentCount || 0}</ThemedText>
+            </Pressable>
+            
+            {/* Share button */}
+            <Pressable style={styles.shareButton}>
+              <Ionicons name="share-outline" size={18} color={Colors.dark.textMuted} />
+            </Pressable>
+          </View>
+          
+          {/* Emoji picker */}
+          {showCheerPicker ? (
+            <Animated.View entering={FadeIn.duration(150)} style={styles.cheerPicker}>
+              {CHEER_EMOJIS.map((emoji, index) => (
+                <Pressable 
+                  key={index}
+                  style={styles.cheerOption}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    onReact(post.id, emoji);
+                    setShowCheerPicker(false);
+                  }}
+                >
+                  <ThemedText style={styles.cheerOptionEmoji}>{emoji}</ThemedText>
+                </Pressable>
+              ))}
+            </Animated.View>
+          ) : null}
         </View>
-        
-        {showReactions ? (
-          <Animated.View entering={FadeIn.duration(200)} style={styles.reactionPicker}>
-            {Object.entries(REACTION_ICONS).map(([type, icon]) => (
-              <Pressable 
-                key={type}
-                style={[
-                  styles.reactionOption,
-                  post.userReaction === type && styles.reactionSelected
-                ]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  onReact(post.id, type);
-                  setShowReactions(false);
-                }}
-              >
-                <Ionicons 
-                  name={icon.name as any} 
-                  size={24} 
-                  color={icon.color} 
-                />
-              </Pressable>
-            ))}
-          </Animated.View>
-        ) : null}
-      </Card>
+      </View>
     </Animated.View>
   );
 }
@@ -351,7 +356,7 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
@@ -1058,5 +1063,225 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.dark.primary,
     fontWeight: "500",
+  },
+  // New MomentCard styles - Photo-first premium design
+  momentCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.xl,
+    overflow: "hidden",
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  mediaSection: {
+    position: "relative",
+  },
+  momentImage: {
+    width: "100%",
+    aspectRatio: 4 / 5,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  contextBadgeOverlay: {
+    position: "absolute",
+    top: Spacing.sm,
+    left: Spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backdropFilter: "blur(10px)",
+  },
+  contextBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  mediaCountBadge: {
+    position: "absolute",
+    bottom: Spacing.sm,
+    right: Spacing.sm,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  mediaCountText: {
+    fontSize: 12,
+    color: "#fff",
+    fontWeight: "600",
+  },
+  noMediaHeader: {
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  contextBadgeLarge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: 20,
+  },
+  contextBadgeLargeText: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  momentContent: {
+    padding: Spacing.md,
+  },
+  momentHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  avatarGlow: {
+    borderRadius: 22,
+    padding: 2,
+    borderWidth: 2,
+    borderColor: Colors.dark.primary + "50",
+  },
+  momentAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  avatarInitial: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  authorMeta: {
+    flex: 1,
+    marginLeft: Spacing.sm,
+  },
+  nameAndTitle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  momentAuthorName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  coachTag: {
+    backgroundColor: "#FFD700" + "25",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  coachTagText: {
+    fontSize: 10,
+    color: "#FFD700",
+    fontWeight: "700",
+  },
+  titleBadge: {
+    marginTop: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    backgroundColor: Colors.dark.primary + "15",
+    borderRadius: 8,
+    alignSelf: "flex-start",
+  },
+  titleBadgeText: {
+    fontSize: 10,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  momentTime: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+  },
+  momentCaption: {
+    fontSize: 14,
+    color: Colors.dark.text,
+    lineHeight: 20,
+    marginBottom: Spacing.md,
+  },
+  momentActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.lg,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  cheerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Colors.dark.backgroundRoot,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  cheerButtonActive: {
+    backgroundColor: "#FF6B3520",
+    borderColor: "#FF6B35",
+  },
+  cheerEmoji: {
+    fontSize: 18,
+  },
+  cheerCount: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
+  },
+  cheerCountActive: {
+    color: "#FF6B35",
+  },
+  xpBadge: {
+    backgroundColor: Colors.dark.primary + "30",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 4,
+  },
+  xpBadgeText: {
+    fontSize: 10,
+    color: Colors.dark.primary,
+    fontWeight: "700",
+  },
+  commentButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    padding: 8,
+  },
+  commentCount: {
+    fontSize: 14,
+    color: Colors.dark.textMuted,
+  },
+  shareButton: {
+    padding: 8,
+    marginLeft: "auto",
+  },
+  cheerPicker: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: Spacing.md,
+    paddingTop: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  cheerOption: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.dark.backgroundRoot,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  cheerOptionEmoji: {
+    fontSize: 22,
   },
 });

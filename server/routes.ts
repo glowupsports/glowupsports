@@ -20088,12 +20088,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { limit = "20", offset = "0", filter = "for_you" } = req.query;
       
       // Build filter conditions based on filter type
-      let filterConditions: ReturnType<typeof and>[] = [
+      const baseConditions = [
         eq(postsTable.academyId, academyId || ""),
         eq(postsTable.isHidden, false)
       ];
       
-      // Apply filter-specific conditions
+      // Apply filter-specific conditions and fetch posts
+      let additionalCondition: ReturnType<typeof eq> | ReturnType<typeof inArray> | ReturnType<typeof or> | undefined;
+      
       if (filter === "friends") {
         // Get current user's playerId first
         const currentUser = await db.select({ playerId: users.playerId })
@@ -20136,7 +20138,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.json([]);
         }
         
-        filterConditions.push(inArray(postsTable.authorId, friendUserIds));
+        additionalCondition = inArray(postsTable.authorId, friendUserIds);
       } else if (filter === "groups") {
         // Get user's groups
         const userGroups = await db.select({ groupId: groupMembers.groupId })
@@ -20149,25 +20151,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.json([]);
         }
         
-        filterConditions.push(inArray(postsTable.groupId, groupIds));
+        additionalCondition = inArray(postsTable.groupId, groupIds);
       } else if (filter === "academy") {
         // Academy posts only (visibility = academy or public)
-        filterConditions.push(
-          or(
-            eq(postsTable.visibility, "academy"),
-            eq(postsTable.visibility, "public")
-          ) as any
+        additionalCondition = or(
+          eq(postsTable.visibility, "academy"),
+          eq(postsTable.visibility, "public")
         );
       } else if (filter === "events") {
         // Event-related posts
-        filterConditions.push(eq(postsTable.contextType, "event"));
+        additionalCondition = eq(postsTable.contextType, "event");
       }
       // "for_you" shows all academy posts (default behavior)
+      
+      // Build the where clause
+      const whereClause = additionalCondition 
+        ? and(...baseConditions, additionalCondition)
+        : and(...baseConditions);
       
       // Get posts with filter conditions
       const posts = await db.select()
         .from(postsTable)
-        .where(and(...filterConditions))
+        .where(whereClause)
         .orderBy(desc(postsTable.createdAt))
         .limit(parseInt(limit as string))
         .offset(parseInt(offset as string));
