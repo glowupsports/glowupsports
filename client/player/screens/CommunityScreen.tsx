@@ -29,6 +29,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { apiRequest, apiFetch, getApiUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
+import * as Clipboard from "expo-clipboard";
 
 type FeedFilter = "for_you" | "friends" | "groups" | "academy" | "events";
 
@@ -459,9 +460,9 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
       try {
         const formData = new FormData();
         const uri = selectedImage;
-        const filename = uri.split("/").pop() || `photo-${Date.now()}.jpg`;
-        const match = /\.(\w+)$/.exec(filename);
-        const type = match ? `image/${match[1]}` : "image/jpeg";
+        const ext = uri.includes(".") ? uri.split(".").pop()?.split("?")[0] || "jpg" : "jpg";
+        const filename = `photo-${Date.now()}.${ext}`;
+        const type = `image/${ext === "jpg" ? "jpeg" : ext}`;
         
         if (Platform.OS === "web") {
           const response = await fetch(uri);
@@ -475,27 +476,29 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
           } as any);
         }
         
-        const uploadResponse = await fetch(`${getApiUrl()}/api/social/posts/upload-images`, {
+        const uploadResponse = await apiFetch("/api/social/posts/upload-images", {
           method: "POST",
           body: formData,
-          credentials: "include",
         });
         
         if (uploadResponse.ok) {
           const result = await uploadResponse.json();
           uploadedMediaUrls = result.images || [];
+          console.log("[Social] Uploaded images:", uploadedMediaUrls);
         } else {
-          console.error("Upload failed:", await uploadResponse.text());
+          const errorText = await uploadResponse.text();
+          console.error("[Social] Upload failed:", errorText);
           Alert.alert("Error", "Failed to upload image. Please try again.");
           return;
         }
       } catch (error) {
-        console.error("Upload error:", error);
+        console.error("[Social] Upload error:", error);
         Alert.alert("Error", "Failed to upload image. Please try again.");
         return;
       }
     }
     
+    console.log("[Social] Creating post with mediaUrls:", uploadedMediaUrls);
     onSubmit({
       contextType: selectedContext,
       caption: caption.trim(),
@@ -718,12 +721,23 @@ export default function CommunityScreen() {
         ? `Check out this moment from ${post.author.name || post.author.username}: "${post.caption}"` 
         : `Check out this moment from ${post.author.name || post.author.username}!`;
       
-      await Share.share({
-        message,
-        title: "Share Moment",
-      });
+      if (Platform.OS === "web") {
+        await Clipboard.setStringAsync(message);
+        Alert.alert("Copied!", "Message copied to clipboard");
+      } else {
+        await Share.share({
+          message,
+          title: "Share Moment",
+        });
+      }
     } catch (error) {
       console.log("Share error:", error);
+      try {
+        await Clipboard.setStringAsync(post.caption || "Check out this moment!");
+        Alert.alert("Copied!", "Message copied to clipboard");
+      } catch (e) {
+        Alert.alert("Error", "Unable to share at this time");
+      }
     }
   };
 
@@ -782,7 +796,7 @@ export default function CommunityScreen() {
               onComment={handleComment}
               onShare={handleShare}
               onDelete={handleDelete}
-              currentUserId={user?.userId}
+              currentUserId={user?.id}
             />
           )}
           contentContainerStyle={[
@@ -1287,7 +1301,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 16,
-    backdropFilter: "blur(10px)",
+    backgroundColor: "rgba(0,0,0,0.5)",
   },
   contextBadgeText: {
     fontSize: 11,

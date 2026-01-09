@@ -20274,6 +20274,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get author info for all posts using raw SQL
       const authorIds = [...new Set(posts.map(p => p.authorId).filter(Boolean))] as string[];
+      console.log("[Social Feed] Author IDs to lookup:", authorIds);
       let authorMap = new Map<string, { id: string; username: string; name: string; photoUrl: string | null; ballLevel: string | null; isCoach: boolean }>();
       
       if (authorIds.length > 0) {
@@ -20281,6 +20282,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const rawAuthors = await db.execute(sql`
             SELECT id, username, player_id, coach_id FROM users WHERE id = ANY(${authorIds})
           `);
+          console.log("[Social Feed] Raw authors found:", rawAuthors.rows?.length);
           const authorUsers = (rawAuthors.rows || []).map((row: any) => ({
             id: row.id,
             username: row.username,
@@ -20290,6 +20292,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const playerIds = authorUsers.map(u => u.playerId).filter(Boolean) as string[];
           const coachIds = authorUsers.map(u => u.coachId).filter(Boolean) as string[];
+          console.log("[Social Feed] Player IDs:", playerIds, "Coach IDs:", coachIds);
           
           let playerMap = new Map<string, { name: string; photoUrl: string | null; ballLevel: string | null }>();
           let coachMap = new Map<string, { name: string; photoUrl: string | null }>();
@@ -20298,7 +20301,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const rawPlayers = await db.execute(sql`
               SELECT id, name, photo_url, ball_level FROM players WHERE id = ANY(${playerIds})
             `);
-            (rawPlayers.rows || []).forEach((p: any) => playerMap.set(p.id, { name: p.name, photoUrl: p.photo_url, ballLevel: p.ball_level }));
+            console.log("[Social Feed] Players found:", rawPlayers.rows?.length);
+            (rawPlayers.rows || []).forEach((p: any) => {
+              console.log("[Social Feed] Player:", p.id, p.name);
+              playerMap.set(p.id, { name: p.name, photoUrl: p.photo_url, ballLevel: p.ball_level });
+            });
           }
           
           if (coachIds.length > 0) {
@@ -20311,6 +20318,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           authorUsers.forEach(u => {
             const player = u.playerId ? playerMap.get(u.playerId) : null;
             const coach = u.coachId ? coachMap.get(u.coachId) : null;
+            console.log("[Social Feed] Mapping user", u.id, "playerId:", u.playerId, "player:", player?.name, "coach:", coach?.name);
             authorMap.set(u.id, {
               id: u.id,
               username: u.username,
@@ -20320,6 +20328,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               isCoach: !!coach,
             });
           });
+          console.log("[Social Feed] Final author map size:", authorMap.size);
         } catch (authorError) {
           console.error("Error fetching authors:", authorError);
         }
