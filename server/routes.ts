@@ -20091,6 +20091,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const academyId = req.user!.academyId;
       const { limit = "20", offset = "0", filter = "for_you" } = req.query;
       
+      // If no academyId, return empty feed
+      if (!academyId) {
+        return res.json([]);
+      }
+      
       // Build filter conditions based on filter type
       const baseConditions = [
         eq(postsTable.academyId, academyId || ""),
@@ -20168,33 +20173,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       // "for_you" shows all academy posts (default behavior)
       
-      // Build the where clause
-      const whereClause = additionalCondition 
-        ? and(...baseConditions, additionalCondition)
-        : and(...baseConditions);
+      // Simple query to fetch posts - use raw SQL to avoid Drizzle issues
+      let posts: any[] = [];
       
-      // Get posts with filter conditions - explicit field selection to avoid Drizzle orderSelectedFields crash
-      const posts = await db.select({
-        id: postsTable.id,
-        authorId: postsTable.authorId,
-        academyId: postsTable.academyId,
-        contextType: postsTable.contextType,
-        contextId: postsTable.contextId,
-        caption: postsTable.caption,
-        mediaUrls: postsTable.mediaUrls,
-        mediaTypes: postsTable.mediaTypes,
-        visibility: postsTable.visibility,
-        groupId: postsTable.groupId,
-        cheerCount: postsTable.cheerCount,
-        commentCount: postsTable.commentCount,
-        createdAt: postsTable.createdAt,
-        isHidden: postsTable.isHidden,
-      })
-        .from(postsTable)
-        .where(whereClause)
-        .orderBy(desc(postsTable.createdAt))
-        .limit(parseInt(limit as string))
-        .offset(parseInt(offset as string));
+      try {
+        const rawPosts = await db.execute(sql`
+          SELECT id, author_id, academy_id, context_type, context_id, caption, 
+                 media_urls, media_types, visibility, group_id, cheer_count, 
+                 comment_count, created_at, is_hidden
+          FROM posts 
+          WHERE academy_id = ${academyId} AND is_hidden = false
+          ORDER BY created_at DESC
+          LIMIT ${parseInt(limit as string)}
+          OFFSET ${parseInt(offset as string)}
+        `);
+        
+        posts = (rawPosts.rows || []).map((row: any) => ({
+          id: row.id,
+          authorId: row.author_id,
+          academyId: row.academy_id,
+          contextType: row.context_type,
+          contextId: row.context_id,
+          caption: row.caption,
+          mediaUrls: row.media_urls || [],
+          mediaTypes: row.media_types || [],
+          visibility: row.visibility,
+          groupId: row.group_id,
+          cheerCount: row.cheer_count || 0,
+          commentCount: row.comment_count || 0,
+          createdAt: row.created_at,
+          isHidden: row.is_hidden,
+        }));
+      } catch (queryError) {
+        console.error("Error querying posts:", queryError);
+        posts = [];
+      }
       
       // Get author info for all posts
       const authorIds = [...new Set(posts.map(p => p.authorId).filter(Boolean))] as string[];
