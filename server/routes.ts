@@ -20096,97 +20096,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json([]);
       }
       
-      // Build filter conditions based on filter type
-      const baseConditions = [
-        eq(postsTable.academyId, academyId || ""),
-        eq(postsTable.isHidden, false)
-      ];
-      
-      // Apply filter-specific conditions and fetch posts
-      let additionalCondition: ReturnType<typeof eq> | ReturnType<typeof inArray> | ReturnType<typeof or> | undefined;
+      // Get filter-specific user/group IDs first
+      let friendUserIds: string[] = [];
+      let groupIds: string[] = [];
       
       if (filter === "friends") {
-        // Get current user's playerId first
-        const currentUser = await db.select({ playerId: users.playerId })
-          .from(users).where(eq(users.id, userId)).limit(1);
-        const currentPlayerId = currentUser[0]?.playerId;
-        
-        if (!currentPlayerId) {
-          // User has no player profile (coach/owner) - return empty for friends filter
+        try {
+          const rawUser = await db.execute(sql`SELECT player_id FROM users WHERE id = ${userId} LIMIT 1`);
+          const currentPlayerId = (rawUser.rows?.[0] as any)?.player_id;
+          
+          if (!currentPlayerId) {
+            return res.json([]);
+          }
+          
+          const rawFriends = await db.execute(sql`
+            SELECT player2_id as friend_id FROM player_connections 
+            WHERE player1_id = ${currentPlayerId} AND status = 'accepted'
+            UNION
+            SELECT player1_id as friend_id FROM player_connections 
+            WHERE player2_id = ${currentPlayerId} AND status = 'accepted'
+          `);
+          const friendPlayerIds = (rawFriends.rows || []).map((r: any) => r.friend_id);
+          
+          if (friendPlayerIds.length === 0) {
+            return res.json([]);
+          }
+          
+          const rawFriendUsers = await db.execute(sql`
+            SELECT id FROM users WHERE player_id = ANY(${friendPlayerIds}::text[])
+          `);
+          friendUserIds = (rawFriendUsers.rows || []).map((r: any) => r.id);
+          
+          if (friendUserIds.length === 0) {
+            return res.json([]);
+          }
+        } catch (friendsError) {
+          console.error("Error fetching friends filter:", friendsError);
           return res.json([]);
         }
-        
-        // Get friend player IDs from playerConnections (both directions)
-        const friendConnections = await db.select({ friendId: playerConnections.player2Id })
-          .from(playerConnections)
-          .where(and(
-            eq(playerConnections.player1Id, currentPlayerId),
-            eq(playerConnections.status, "accepted")
-          ));
-        const friendPlayerIds = friendConnections.map(f => f.friendId);
-        
-        const reverseFriends = await db.select({ friendId: playerConnections.player1Id })
-          .from(playerConnections)
-          .where(and(
-            eq(playerConnections.player2Id, currentPlayerId),
-            eq(playerConnections.status, "accepted")
-          ));
-        friendPlayerIds.push(...reverseFriends.map(f => f.friendId));
-        
-        if (friendPlayerIds.length === 0) {
-          // No friends - return empty
-          return res.json([]);
-        }
-        
-        // Convert player IDs to user IDs
-        const friendUsers = await db.select({ id: users.id })
-          .from(users).where(inArray(users.playerId, friendPlayerIds));
-        const friendUserIds = friendUsers.map(u => u.id);
-        
-        if (friendUserIds.length === 0) {
-          return res.json([]);
-        }
-        
-        additionalCondition = inArray(postsTable.authorId, friendUserIds);
       } else if (filter === "groups") {
-        // Get user's groups
-        const userGroups = await db.select({ groupId: groupMembersTable.groupId })
-          .from(groupMembersTable)
-          .where(eq(groupMembersTable.userId, userId));
-        const groupIds = userGroups.map(g => g.groupId);
-        
-        if (groupIds.length === 0) {
-          // No group memberships - return empty
+        try {
+          const rawGroups = await db.execute(sql`
+            SELECT group_id FROM group_members WHERE user_id = ${userId}
+          `);
+          groupIds = (rawGroups.rows || []).map((r: any) => r.group_id);
+          
+          if (groupIds.length === 0) {
+            return res.json([]);
+          }
+        } catch (groupsError) {
+          console.error("Error fetching groups filter:", groupsError);
           return res.json([]);
         }
-        
-        additionalCondition = inArray(postsTable.groupId, groupIds);
-      } else if (filter === "academy") {
-        // Academy posts only (visibility = academy or public)
-        additionalCondition = or(
-          eq(postsTable.visibility, "academy"),
-          eq(postsTable.visibility, "public")
-        );
-      } else if (filter === "events") {
-        // Event-related posts
-        additionalCondition = eq(postsTable.contextType, "event");
       }
-      // "for_you" shows all academy posts (default behavior)
       
-      // Simple query to fetch posts - use raw SQL to avoid Drizzle issues
+      // Fetch posts with proper parameterized queries based on filter
       let posts: any[] = [];
+      const limitVal = parseInt(limit as string) || 20;
+      const offsetVal = parseInt(offset as string) || 0;
       
       try {
-        const rawPosts = await db.execute(sql`
-          SELECT id, author_id, academy_id, context_type, context_id, caption, 
-                 media_urls, media_types, visibility, group_id, cheer_count, 
-                 comment_count, created_at, is_hidden
-          FROM posts 
-          WHERE academy_id = ${academyId} AND is_hidden = false
-          ORDER BY created_at DESC
-          LIMIT ${parseInt(limit as string)}
-          OFFSET ${parseInt(offset as string)}
-        `);
+        let rawPosts: any;
+        
+        if (filter === "friends" && friendUserIds.length > 0) {
+          rawPosts = await db.execute(sql`
+            SELECT id, author_id, academy_id, context_type, context_id, caption, 
+                   media_urls, media_types, visibility, group_id, cheer_count, 
+                   comment_count, created_at, is_hidden
+            FROM posts 
+            WHERE academy_id = ${academyId} AND is_hidden = false AND author_id = ANY(${friendUserIds}::text[])
+            ORDER BY created_at DESC
+            LIMIT ${limitVal}
+            OFFSET ${offsetVal}
+          `);
+        } else if (filter === "groups" && groupIds.length > 0) {
+          rawPosts = await db.execute(sql`
+            SELECT id, author_id, academy_id, context_type, context_id, caption, 
+                   media_urls, media_types, visibility, group_id, cheer_count, 
+                   comment_count, created_at, is_hidden
+            FROM posts 
+            WHERE academy_id = ${academyId} AND is_hidden = false AND group_id = ANY(${groupIds}::text[])
+            ORDER BY created_at DESC
+            LIMIT ${limitVal}
+            OFFSET ${offsetVal}
+          `);
+        } else if (filter === "academy") {
+          rawPosts = await db.execute(sql`
+            SELECT id, author_id, academy_id, context_type, context_id, caption, 
+                   media_urls, media_types, visibility, group_id, cheer_count, 
+                   comment_count, created_at, is_hidden
+            FROM posts 
+            WHERE academy_id = ${academyId} AND is_hidden = false AND (visibility = 'academy' OR visibility = 'public')
+            ORDER BY created_at DESC
+            LIMIT ${limitVal}
+            OFFSET ${offsetVal}
+          `);
+        } else if (filter === "events") {
+          rawPosts = await db.execute(sql`
+            SELECT id, author_id, academy_id, context_type, context_id, caption, 
+                   media_urls, media_types, visibility, group_id, cheer_count, 
+                   comment_count, created_at, is_hidden
+            FROM posts 
+            WHERE academy_id = ${academyId} AND is_hidden = false AND context_type = 'event'
+            ORDER BY created_at DESC
+            LIMIT ${limitVal}
+            OFFSET ${offsetVal}
+          `);
+        } else {
+          // Default: for_you - all academy posts
+          rawPosts = await db.execute(sql`
+            SELECT id, author_id, academy_id, context_type, context_id, caption, 
+                   media_urls, media_types, visibility, group_id, cheer_count, 
+                   comment_count, created_at, is_hidden
+            FROM posts 
+            WHERE academy_id = ${academyId} AND is_hidden = false
+            ORDER BY created_at DESC
+            LIMIT ${limitVal}
+            OFFSET ${offsetVal}
+          `);
+        }
         
         posts = (rawPosts.rows || []).map((row: any) => ({
           id: row.id,
@@ -20209,68 +20237,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
         posts = [];
       }
       
-      // Get author info for all posts
+      // Get author info for all posts using raw SQL
       const authorIds = [...new Set(posts.map(p => p.authorId).filter(Boolean))] as string[];
       let authorMap = new Map<string, { id: string; username: string; name: string; photoUrl: string | null; ballLevel: string | null; isCoach: boolean }>();
       
       if (authorIds.length > 0) {
-        const authorUsers = await db.select({
-          id: users.id,
-          username: users.username,
-          playerId: users.playerId,
-          coachId: users.coachId,
-        })
-        .from(users)
-        .where(inArray(users.id, authorIds));
-        
-        const playerIds = authorUsers.map(u => u.playerId).filter(Boolean) as string[];
-        const coachIds = authorUsers.map(u => u.coachId).filter(Boolean) as string[];
-        
-        let playerMap = new Map<string, { name: string; photoUrl: string | null; ballLevel: string | null }>();
-        let coachMap = new Map<string, { name: string; photoUrl: string | null }>();
-        
-        if (playerIds.length > 0) {
-          const playerData = await db.select({ id: players.id, name: players.name, photoUrl: players.photoUrl, ballLevel: players.ballLevel })
-            .from(players).where(inArray(players.id, playerIds));
-          playerData.forEach(p => playerMap.set(p.id, { name: p.name, photoUrl: p.photoUrl, ballLevel: p.ballLevel }));
-        }
-        
-        if (coachIds.length > 0) {
-          const coachData = await db.select({ id: coaches.id, name: coaches.name, photoUrl: coaches.photoUrl })
-            .from(coaches).where(inArray(coaches.id, coachIds));
-          coachData.forEach(c => coachMap.set(c.id, { name: c.name, photoUrl: c.photoUrl }));
-        }
-        
-        authorUsers.forEach(u => {
-          const player = u.playerId ? playerMap.get(u.playerId) : null;
-          const coach = u.coachId ? coachMap.get(u.coachId) : null;
-          authorMap.set(u.id, {
-            id: u.id,
-            username: u.username,
-            name: player?.name || coach?.name || u.username,
-            photoUrl: player?.photoUrl || coach?.photoUrl || null,
-            ballLevel: player?.ballLevel || null,
-            isCoach: !!coach,
+        try {
+          const rawAuthors = await db.execute(sql`
+            SELECT id, username, player_id, coach_id FROM users WHERE id = ANY(${authorIds}::text[])
+          `);
+          const authorUsers = (rawAuthors.rows || []).map((row: any) => ({
+            id: row.id,
+            username: row.username,
+            playerId: row.player_id,
+            coachId: row.coach_id,
+          }));
+          
+          const playerIds = authorUsers.map(u => u.playerId).filter(Boolean) as string[];
+          const coachIds = authorUsers.map(u => u.coachId).filter(Boolean) as string[];
+          
+          let playerMap = new Map<string, { name: string; photoUrl: string | null; ballLevel: string | null }>();
+          let coachMap = new Map<string, { name: string; photoUrl: string | null }>();
+          
+          if (playerIds.length > 0) {
+            const rawPlayers = await db.execute(sql`
+              SELECT id, name, photo_url, ball_level FROM players WHERE id = ANY(${playerIds}::text[])
+            `);
+            (rawPlayers.rows || []).forEach((p: any) => playerMap.set(p.id, { name: p.name, photoUrl: p.photo_url, ballLevel: p.ball_level }));
+          }
+          
+          if (coachIds.length > 0) {
+            const rawCoaches = await db.execute(sql`
+              SELECT id, name, photo_url FROM coaches WHERE id = ANY(${coachIds}::text[])
+            `);
+            (rawCoaches.rows || []).forEach((c: any) => coachMap.set(c.id, { name: c.name, photoUrl: c.photo_url }));
+          }
+          
+          authorUsers.forEach(u => {
+            const player = u.playerId ? playerMap.get(u.playerId) : null;
+            const coach = u.coachId ? coachMap.get(u.coachId) : null;
+            authorMap.set(u.id, {
+              id: u.id,
+              username: u.username,
+              name: player?.name || coach?.name || u.username,
+              photoUrl: player?.photoUrl || coach?.photoUrl || null,
+              ballLevel: player?.ballLevel || null,
+              isCoach: !!coach,
+            });
           });
-        });
+        } catch (authorError) {
+          console.error("Error fetching authors:", authorError);
+        }
       }
       
-      // Get user's reactions for these posts
+      // Get user's reactions for these posts using raw SQL
       const postIds = posts.map(p => p.id);
-      let userReactions: { postId: string; reactionType: string }[] = [];
+      let reactionMap = new Map<string, string>();
       if (postIds.length > 0) {
-        userReactions = await db.select({
-          postId: postReactionsTable.postId,
-          reactionType: postReactionsTable.reactionType,
-        })
-        .from(postReactionsTable)
-        .where(and(
-          eq(postReactionsTable.userId, userId),
-          inArray(postReactionsTable.postId, postIds)
-        ));
+        try {
+          const rawReactions = await db.execute(sql`
+            SELECT post_id, reaction_type FROM post_reactions 
+            WHERE user_id = ${userId} AND post_id = ANY(${postIds}::text[])
+          `);
+          (rawReactions.rows || []).forEach((r: any) => reactionMap.set(r.post_id, r.reaction_type));
+        } catch (reactionError) {
+          console.error("Error fetching reactions:", reactionError);
+        }
       }
-      
-      const reactionMap = new Map(userReactions.map(r => [r.postId, r.reactionType]));
       
       const feedItems = posts.map(p => ({
         id: p.id,
