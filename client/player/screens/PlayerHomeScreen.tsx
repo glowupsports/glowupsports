@@ -246,8 +246,7 @@ function CircularGauge({
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
           strokeLinecap="round"
-          rotation="-90"
-          origin={`${size / 2}, ${size / 2}`}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
       </Svg>
       {children}
@@ -378,7 +377,7 @@ function MissionCountdownRing({ targetDate, sessionDuration = 60, size = 140 }: 
             stroke={Colors.dark.error} strokeWidth={4} fill="transparent"
             strokeDasharray={2 * Math.PI * outerRadius}
             strokeDashoffset={2 * Math.PI * outerRadius * (1 - progress)}
-            strokeLinecap="round" rotation="-90" origin={`${size/2}, ${size/2}`}
+            strokeLinecap="round" transform={`rotate(-90 ${size/2} ${size/2})`}
           />
         </Svg>
         <LinearGradient
@@ -429,7 +428,7 @@ function MissionCountdownRing({ targetDate, sessionDuration = 60, size = 140 }: 
           stroke={statusColor + "60"} strokeWidth={4} fill="transparent"
           strokeDasharray={2 * Math.PI * outerRadius}
           strokeDashoffset={2 * Math.PI * outerRadius * (1 - hoursProgress)}
-          strokeLinecap="round" rotation="-90" origin={`${size/2}, ${size/2}`}
+          strokeLinecap="round" transform={`rotate(-90 ${size/2} ${size/2})`}
         />
         <Circle cx={size/2} cy={size/2} r={middleRadius} stroke={Colors.dark.backgroundSecondary} strokeWidth={3} fill="transparent" />
         <Circle 
@@ -437,7 +436,7 @@ function MissionCountdownRing({ targetDate, sessionDuration = 60, size = 140 }: 
           stroke={statusColor + "80"} strokeWidth={3} fill="transparent"
           strokeDasharray={2 * Math.PI * middleRadius}
           strokeDashoffset={2 * Math.PI * middleRadius * (1 - minutesProgress)}
-          strokeLinecap="round" rotation="-90" origin={`${size/2}, ${size/2}`}
+          strokeLinecap="round" transform={`rotate(-90 ${size/2} ${size/2})`}
         />
         <Circle cx={size/2} cy={size/2} r={innerRadius} stroke={Colors.dark.backgroundSecondary} strokeWidth={2} fill="transparent" />
         <Circle 
@@ -445,7 +444,7 @@ function MissionCountdownRing({ targetDate, sessionDuration = 60, size = 140 }: 
           stroke={statusColor} strokeWidth={2} fill="transparent"
           strokeDasharray={2 * Math.PI * innerRadius}
           strokeDashoffset={2 * Math.PI * innerRadius * (1 - secondsProgress)}
-          strokeLinecap="round" rotation="-90" origin={`${size/2}, ${size/2}`}
+          strokeLinecap="round" transform={`rotate(-90 ${size/2} ${size/2})`}
         />
       </Svg>
       <View style={missionStyles.countdownCenter}>

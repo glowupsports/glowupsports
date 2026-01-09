@@ -302,35 +302,50 @@ function EmptyFeed({ filter }: { filter: FeedFilter }) {
 }
 
 function FilterTabs({ active, onChange }: { active: FeedFilter; onChange: (f: FeedFilter) => void }) {
-  const filters: { key: FeedFilter; label: string }[] = [
-    { key: "for_you", label: "For You" },
-    { key: "friends", label: "Friends" },
-    { key: "groups", label: "Groups" },
-    { key: "academy", label: "Academy" },
-    { key: "events", label: "Events" },
+  const filters: { key: FeedFilter; label: string; icon: string }[] = [
+    { key: "for_you", label: "For You", icon: "sparkles" },
+    { key: "friends", label: "Friends", icon: "people" },
+    { key: "groups", label: "Groups", icon: "grid" },
+    { key: "academy", label: "Academy", icon: "tennisball" },
+    { key: "events", label: "Events", icon: "calendar" },
   ];
 
   return (
-    <ScrollView 
-      horizontal 
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.filterTabs}
-    >
-      {filters.map((filter) => (
-        <Pressable
-          key={filter.key}
-          style={[styles.filterTab, active === filter.key && styles.filterTabActive]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            onChange(filter.key);
-          }}
-        >
-          <ThemedText style={[styles.filterTabText, active === filter.key && styles.filterTabTextActive]}>
-            {filter.label}
-          </ThemedText>
-        </Pressable>
-      ))}
-    </ScrollView>
+    <View style={styles.filterContainer}>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterPills}
+      >
+        {filters.map((filter) => {
+          const isActive = active === filter.key;
+          return (
+            <Pressable
+              key={filter.key}
+              style={[styles.filterPill, isActive && styles.filterPillActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onChange(filter.key);
+              }}
+            >
+              <Ionicons 
+                name={filter.icon as any} 
+                size={14} 
+                color={isActive ? Colors.dark.backgroundRoot : Colors.dark.textSecondary} 
+              />
+              <ThemedText style={[styles.filterPillText, isActive && styles.filterPillTextActive]}>
+                {filter.label}
+              </ThemedText>
+              {isActive ? (
+                <View style={styles.xpSpark}>
+                  <ThemedText style={styles.xpSparkText}>✨</ThemedText>
+                </View>
+              ) : null}
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -703,6 +718,49 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.dark.primary,
     fontWeight: "600",
+  },
+  filterContainer: {
+    paddingBottom: Spacing.sm,
+  },
+  filterPills: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.xs,
+    alignItems: "center",
+  },
+  filterPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    height: 36,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  filterPillActive: {
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  filterPillText: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    fontWeight: "600",
+  },
+  filterPillTextActive: {
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
+  },
+  xpSpark: {
+    marginLeft: 2,
+  },
+  xpSparkText: {
+    fontSize: 10,
   },
   filterTabs: {
     paddingHorizontal: Spacing.lg,

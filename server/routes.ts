@@ -20169,8 +20169,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? and(...baseConditions, additionalCondition)
         : and(...baseConditions);
       
-      // Get posts with filter conditions
-      const posts = await db.select()
+      // Get posts with filter conditions - explicit field selection to avoid Drizzle orderSelectedFields crash
+      const posts = await db.select({
+        id: postsTable.id,
+        authorId: postsTable.authorId,
+        academyId: postsTable.academyId,
+        contextType: postsTable.contextType,
+        contextId: postsTable.contextId,
+        caption: postsTable.caption,
+        mediaUrls: postsTable.mediaUrls,
+        mediaTypes: postsTable.mediaTypes,
+        visibility: postsTable.visibility,
+        groupId: postsTable.groupId,
+        cheerCount: postsTable.cheerCount,
+        commentCount: postsTable.commentCount,
+        createdAt: postsTable.createdAt,
+        isHidden: postsTable.isHidden,
+      })
         .from(postsTable)
         .where(whereClause)
         .orderBy(desc(postsTable.createdAt))
