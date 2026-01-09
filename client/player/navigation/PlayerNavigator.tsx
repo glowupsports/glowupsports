@@ -50,6 +50,7 @@ import ProductDetailScreen from "@/player/screens/ProductDetailScreen";
 import ServiceDetailScreen from "@/player/screens/ServiceDetailScreen";
 import CartScreen from "@/player/screens/CartScreen";
 import ShopCategoryScreen from "@/player/screens/ShopCategoryScreen";
+import MarketplaceScreen from "@/player/screens/MarketplaceScreen";
 import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
 import { CartProvider } from "@/player/contexts/CartContext";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
@@ -107,6 +108,9 @@ export type PlayerStackParamList = {
   ServiceDetail: { serviceId: string };
   Cart: undefined;
   ShopCategory: { categoryId: string; categoryName: string };
+  Marketplace: undefined;
+  MarketplaceListing: { listingId: string };
+  MyListings: undefined;
 };
 
 const Tab = createBottomTabNavigator<PlayerTabParamList>();
@@ -513,6 +517,14 @@ function PlayerStackNavigator() {
       <Stack.Screen 
         name="ShopCategory" 
         component={ShopCategoryScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="Marketplace" 
+        component={MarketplaceScreen}
         options={{
           presentation: "card",
           headerShown: false,

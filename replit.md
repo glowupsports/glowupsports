@@ -50,6 +50,13 @@ The application features a dark-themed gaming aesthetic, utilizing neon green an
     - **Platform Owner App**: 6-tab navigation (Overview, Academies, Coaches, Players, Finance, System) with purple accent, providing platform-wide statistics, academy management, financial overviews, coach/player health monitoring, and system configuration.
     - **Social Features**: Friends/connections system with "Add Friend" button on player profiles, connection status tracking (pending/accepted), and friends list screen.
 
+- **Glow Market & Community Marketplace**:
+    - **Academy Shop**: Academy owners manage products/services with CRUD operations, inventory tracking, featured items, and category management. API: `/api/academy/shop/products`, `/api/academy/shop/services`, `/api/academy/shop/categories`, `/api/academy/shop/orders`.
+    - **Player Shop Experience**: Players browse academy products/services, XP-based discounts, cart system with AsyncStorage persistence, search functionality. API: `/api/player/shop`, `/api/player/shop/xp-discount`.
+    - **Community Marketplace (C2C)**: Players buy/sell used equipment with listing creation (requires 100+ XP), category/condition filters, favorites, messaging, seller profiles with verification levels (none/basic/id_verified/trusted), and trust badges. Tables: `marketplace_listings`, `marketplace_favorites`, `marketplace_messages`, `seller_profiles`. API: `/api/player/marketplace` CRUD, `/api/player/marketplace/:id/favorite`, `/api/player/marketplace/:id/message`, `/api/player/marketplace/seller/:playerId`.
+    - **Condition Types**: new, like_new, good, fair, used with color-coded badges.
+    - **Categories**: rackets, shoes, gear, apparel, accessories (shared between shop and marketplace).
+
 ## External Dependencies
 
 ### Core Services

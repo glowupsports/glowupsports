@@ -3573,3 +3573,139 @@ export const shopWishlist = pgTable("shop_wishlist", {
 export const insertShopWishlistSchema = createInsertSchema(shopWishlist).omit({ id: true, createdAt: true });
 export type InsertShopWishlist = z.infer<typeof insertShopWishlistSchema>;
 export type ShopWishlist = typeof shopWishlist.$inferSelect;
+
+// ==================== COMMUNITY MARKETPLACE (C2C) ====================
+
+// Marketplace Listings (player-to-player sales)
+export const marketplaceListings = pgTable("marketplace_listings", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  
+  // Seller info
+  sellerId: varchar("seller_id").references(() => players.id).notNull(),
+  academyId: varchar("academy_id").references(() => academies.id), // Optional scope to academy
+  
+  // Listing details
+  title: text("title").notNull(),
+  description: text("description"),
+  condition: text("condition").default("used"), // new | like_new | good | fair | used
+  
+  // Categorization
+  category: text("category").notNull(), // rackets | shoes | gear | apparel | accessories
+  brand: text("brand"),
+  model: text("model"),
+  
+  // Pricing
+  price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+  currency: text("currency").default("AED"),
+  isNegotiable: boolean("is_negotiable").default(true),
+  
+  // Media
+  images: jsonb("images").$type<string[]>().default([]),
+  
+  // Status
+  status: text("status").default("active"), // draft | pending_review | active | sold | expired | removed
+  
+  // Verification
+  isVerified: boolean("is_verified").default(false),
+  verifiedAt: timestamp("verified_at"),
+  verifiedBy: varchar("verified_by").references(() => users.id),
+  
+  // Stats
+  viewCount: integer("view_count").default(0),
+  favoriteCount: integer("favorite_count").default(0),
+  messageCount: integer("message_count").default(0),
+  
+  // Audit
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  expiresAt: timestamp("expires_at"), // Auto-expire after X days
+  soldAt: timestamp("sold_at"),
+}, (table) => [
+  index("marketplace_listings_seller_idx").on(table.sellerId),
+  index("marketplace_listings_academy_idx").on(table.academyId),
+  index("marketplace_listings_status_idx").on(table.status),
+  index("marketplace_listings_category_idx").on(table.category),
+]);
+
+export const insertMarketplaceListingSchema = createInsertSchema(marketplaceListings).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertMarketplaceListing = z.infer<typeof insertMarketplaceListingSchema>;
+export type MarketplaceListing = typeof marketplaceListings.$inferSelect;
+
+// Marketplace Favorites (wishlisted items)
+export const marketplaceFavorites = pgTable("marketplace_favorites", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  listingId: varchar("listing_id").references(() => marketplaceListings.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("marketplace_favorites_player_idx").on(table.playerId),
+  unique("marketplace_favorites_unique").on(table.playerId, table.listingId),
+]);
+
+export const insertMarketplaceFavoriteSchema = createInsertSchema(marketplaceFavorites).omit({ id: true, createdAt: true });
+export type InsertMarketplaceFavorite = z.infer<typeof insertMarketplaceFavoriteSchema>;
+export type MarketplaceFavorite = typeof marketplaceFavorites.$inferSelect;
+
+// Marketplace Messages (buyer-seller chat)
+export const marketplaceMessages = pgTable("marketplace_messages", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  listingId: varchar("listing_id").references(() => marketplaceListings.id).notNull(),
+  senderId: varchar("sender_id").references(() => players.id).notNull(),
+  recipientId: varchar("recipient_id").references(() => players.id).notNull(),
+  
+  message: text("message").notNull(),
+  isRead: boolean("is_read").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("marketplace_messages_listing_idx").on(table.listingId),
+  index("marketplace_messages_sender_idx").on(table.senderId),
+  index("marketplace_messages_recipient_idx").on(table.recipientId),
+]);
+
+export const insertMarketplaceMessageSchema = createInsertSchema(marketplaceMessages).omit({ id: true, createdAt: true });
+export type InsertMarketplaceMessage = z.infer<typeof insertMarketplaceMessageSchema>;
+export type MarketplaceMessage = typeof marketplaceMessages.$inferSelect;
+
+// Seller Profiles (for marketplace)
+export const sellerProfiles = pgTable("seller_profiles", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull().unique(),
+  
+  // Profile
+  displayName: text("display_name"),
+  bio: text("bio"),
+  
+  // Verification
+  isVerified: boolean("is_verified").default(false),
+  verificationLevel: text("verification_level").default("none"), // none | basic | id_verified | trusted
+  verifiedAt: timestamp("verified_at"),
+  
+  // Stats
+  totalSales: integer("total_sales").default(0),
+  totalListings: integer("total_listings").default(0),
+  averageRating: numeric("average_rating", { precision: 3, scale: 2 }),
+  responseRate: integer("response_rate"), // Percentage
+  responseTime: text("response_time"), // "within 1 hour", "within 24 hours", etc.
+  
+  // Trust
+  joinedMarketplaceAt: timestamp("joined_marketplace_at").defaultNow(),
+  lastActiveAt: timestamp("last_active_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("seller_profiles_player_idx").on(table.playerId),
+]);
+
+export const insertSellerProfileSchema = createInsertSchema(sellerProfiles).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertSellerProfile = z.infer<typeof insertSellerProfileSchema>;
+export type SellerProfile = typeof sellerProfiles.$inferSelect;

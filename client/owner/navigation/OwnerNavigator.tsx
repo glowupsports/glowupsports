@@ -22,6 +22,7 @@ import RulesAndPoliciesScreen from "@/owner/screens/RulesAndPoliciesScreen";
 import PricingScreen from "@/owner/screens/PricingScreen";
 import CoachCompensationScreen from "@/owner/screens/CoachCompensationScreen";
 import CreditPackagesScreen from "@/owner/screens/CreditPackagesScreen";
+import ShopManagementScreen from "@/owner/screens/ShopManagementScreen";
 import { Colors } from "@/constants/theme";
 
 export type OwnerTabParamList = {
@@ -46,6 +47,7 @@ export type OwnerStackParamList = {
   Pricing: undefined;
   CoachCompensation: undefined;
   CreditPackages: undefined;
+  ShopManagement: undefined;
 };
 
 const Tab = createBottomTabNavigator<OwnerTabParamList>();
@@ -188,6 +190,7 @@ export default function OwnerNavigator() {
       <Stack.Screen name="Pricing" component={PricingScreen} />
       <Stack.Screen name="CoachCompensation" component={CoachCompensationScreen} />
       <Stack.Screen name="CreditPackages" component={CreditPackagesScreen} />
+      <Stack.Screen name="ShopManagement" component={ShopManagementScreen} />
     </Stack.Navigator>
   );
 }

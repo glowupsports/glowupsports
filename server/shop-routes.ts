@@ -648,6 +648,48 @@ router.post("/academy/shop/services", authMiddleware, requireRole("academy_owner
   }
 });
 
+// Update service
+router.patch("/academy/shop/services/:id", authMiddleware, requireRole("academy_owner"), async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const [service] = await db.update(shopServices)
+      .set({ ...req.body, updatedAt: new Date() })
+      .where(and(
+        eq(shopServices.id, id),
+        eq(shopServices.academyId, req.user!.academyId!)
+      ))
+      .returning();
+
+    if (!service) {
+      return res.status(404).json({ error: "Service not found" });
+    }
+
+    res.json(service);
+  } catch (error) {
+    console.error("[Shop] Error updating service:", error);
+    res.status(500).json({ error: "Failed to update service" });
+  }
+});
+
+// Delete service
+router.delete("/academy/shop/services/:id", authMiddleware, requireRole("academy_owner"), async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    await db.delete(shopServices)
+      .where(and(
+        eq(shopServices.id, id),
+        eq(shopServices.academyId, req.user!.academyId!)
+      ));
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[Shop] Error deleting service:", error);
+    res.status(500).json({ error: "Failed to delete service" });
+  }
+});
+
 // Get all categories for academy
 router.get("/academy/shop/categories", authMiddleware, requireRole("academy_owner", "coach"), async (req: AuthRequest, res: Response) => {
   try {

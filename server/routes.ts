@@ -73,6 +73,7 @@ import { sendFeedbackNotificationEmail, sendLevelUpEmail, sendWelcomeEmail, send
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, checkConnection as checkCalendarConnection, SessionEventData } from "./googleCalendarService";
 import { generateInvoiceHtml, parseLineItems } from "./services/invoicePdf";
 import shopRoutes from "./shop-routes";
+import marketplaceRoutes from "./marketplace-routes";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -165,6 +166,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register shop routes
   app.use("/api", shopRoutes);
+  
+  // Register marketplace routes
+  app.use("/api", marketplaceRoutes);
 
   // ==================== HEALTH CHECK ====================
   

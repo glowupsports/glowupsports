@@ -193,14 +193,19 @@ export default function ShopScreen() {
               <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
             </Pressable>
             <Text style={styles.headerTitle}>Glow Market</Text>
-            <Pressable onPress={handleCartPress} style={styles.cartButton}>
-              <Ionicons name="bag-outline" size={24} color={Colors.dark.text} />
-              {itemCount > 0 && (
-                <View style={styles.cartBadge}>
-                  <Text style={styles.cartBadgeText}>{itemCount > 9 ? "9+" : itemCount}</Text>
-                </View>
-              )}
-            </Pressable>
+            <View style={styles.headerActions}>
+              <Pressable onPress={() => navigation.navigate("Marketplace")} style={styles.marketplaceButton}>
+                <Ionicons name="storefront-outline" size={22} color={Colors.dark.xpCyan} />
+              </Pressable>
+              <Pressable onPress={handleCartPress} style={styles.cartButton}>
+                <Ionicons name="bag-outline" size={24} color={Colors.dark.text} />
+                {itemCount > 0 && (
+                  <View style={styles.cartBadge}>
+                    <Text style={styles.cartBadgeText}>{itemCount > 9 ? "9+" : itemCount}</Text>
+                  </View>
+                )}
+              </Pressable>
+            </View>
           </View>
           <Text style={styles.headerSubtitle}>Premium gear & services for champions</Text>
         </Animated.View>
@@ -241,6 +246,24 @@ export default function ShopScreen() {
             </LinearGradient>
           </Animated.View>
         )}
+
+        <Animated.View entering={FadeInUp.delay(150).duration(400)} style={styles.marketplaceBanner}>
+          <Pressable onPress={() => navigation.navigate("Marketplace")}>
+            <LinearGradient
+              colors={[Colors.dark.xpCyan + "15", Colors.dark.backgroundSecondary]}
+              style={styles.marketplaceBannerGradient}
+            >
+              <View style={styles.marketplaceBannerIcon}>
+                <Ionicons name="people" size={24} color={Colors.dark.xpCyan} />
+              </View>
+              <View style={styles.marketplaceBannerContent}>
+                <Text style={styles.marketplaceBannerTitle}>Community Marketplace</Text>
+                <Text style={styles.marketplaceBannerText}>Buy & sell used gear from fellow players</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={Colors.dark.xpCyan} />
+            </LinearGradient>
+          </Pressable>
+        </Animated.View>
 
         {showSearchResults ? (
           <Animated.View entering={FadeIn.duration(300)}>
@@ -543,6 +566,16 @@ const styles = StyleSheet.create({
   backButton: {
     padding: Spacing.xs,
   },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  marketplaceButton: {
+    padding: Spacing.xs,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    borderRadius: 8,
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: "700",
@@ -615,6 +648,38 @@ const styles = StyleSheet.create({
     color: Colors.dark.gold,
   },
   xpDiscountText: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+  },
+  marketplaceBanner: {
+    marginBottom: Spacing.md,
+  },
+  marketplaceBannerGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.md,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+  },
+  marketplaceBannerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  marketplaceBannerContent: {
+    flex: 1,
+  },
+  marketplaceBannerTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  marketplaceBannerText: {
     fontSize: 12,
     color: Colors.dark.textSecondary,
   },
