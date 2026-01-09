@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: Colors.dark.cardLight,
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
     padding: Spacing.sm,
     position: "relative",
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
   newBadgeText: {
     fontSize: 9,
     fontWeight: "700",
-    color: Colors.dark.background,
+    color: Colors.dark.backgroundRoot,
   },
   quietState: {
     marginTop: Spacing.sm,

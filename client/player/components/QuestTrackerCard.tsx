@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: Colors.dark.cardLight,
+    backgroundColor: Colors.dark.backgroundSecondary,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: 12,
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   questItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.cardLight,
+    backgroundColor: Colors.dark.backgroundSecondary,
     padding: Spacing.sm,
     borderRadius: BorderRadius.md,
     gap: Spacing.sm,
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
   progressBar: {
     flex: 1,
     height: 4,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: Colors.dark.backgroundRoot,
     borderRadius: 2,
     overflow: "hidden",
   },
@@ -270,11 +270,11 @@ const styles = StyleSheet.create({
   claimButtonText: {
     fontSize: 12,
     fontWeight: "700",
-    color: Colors.dark.background,
+    color: Colors.dark.backgroundRoot,
   },
   xpRewardText: {
     fontSize: 10,
-    color: Colors.dark.background,
+    color: Colors.dark.backgroundRoot,
     opacity: 0.8,
   },
   emptyState: {

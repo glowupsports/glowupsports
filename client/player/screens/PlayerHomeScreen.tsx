@@ -1257,24 +1257,99 @@ export default function PlayerHomeScreen() {
           onAvatarPress={openDrawer}
         />
 
-        {/* Mission Control Section */}
-        {missionControlData?.quests?.today && missionControlData.quests.today.length > 0 ? (
-          <QuestTrackerCard 
-            quests={missionControlData.quests.today}
-            completedCount={missionControlData.quests.completedCount}
-            totalCount={missionControlData.quests.totalCount}
-            onClaimReward={(quest) => claimQuestReward.mutate(quest.id)}
+        {/* A) HERO: Next Mission Card - Always first */}
+        {nextSession ? (
+          <MissionCard
+            session={nextSession}
+            coach={coach}
+            isVacationActive={isVacationActive}
+            upcomingOverlapsSession={upcomingOverlapsSession}
+            onCancel={() => setShowCancelModal(true)}
+            onLate={() => setShowLateModal(true)}
+            onReportIssue={() => setShowReportModal(true)}
           />
-        ) : null}
-        
-        {missionControlData?.social ? (
-          <SocialPulseCard 
-            newMoments={missionControlData.social.newMoments}
-            openToPlay={missionControlData.social.openToPlay}
-            onMomentsPress={() => navigation.navigate("CommunityTab")}
-          />
+        ) : (
+          <NoMissionCard />
+        )}
+
+        {/* B) Progress Snapshot - Level & XP Progress */}
+        <View style={styles.progressSnapshot}>
+          <View style={styles.progressSnapshotHeader}>
+            <Ionicons name="trending-up" size={18} color={Colors.dark.primary} />
+            <Text style={styles.progressSnapshotTitle}>Progress</Text>
+          </View>
+          <View style={styles.progressSnapshotContent}>
+            <View style={styles.levelRingContainer}>
+              <CircularGauge 
+                progress={(player.xp % 500) / 500} 
+                size={70} 
+                strokeWidth={5}
+                color={Colors.dark.primary}
+              >
+                <Text style={styles.levelNumber}>{player.level}</Text>
+                <Text style={styles.levelLabel}>LVL</Text>
+              </CircularGauge>
+            </View>
+            <View style={styles.progressStats}>
+              <View style={styles.progressStatRow}>
+                <View style={styles.progressStatItem}>
+                  <Ionicons name="flash" size={16} color={Colors.dark.xpCyan} />
+                  <Text style={styles.progressStatValue}>{player.xp} XP</Text>
+                </View>
+                <View style={styles.progressStatItem}>
+                  <Ionicons name="flame" size={16} color={Colors.dark.orange} />
+                  <Text style={styles.progressStatValue}>{player.streak} Streak</Text>
+                </View>
+              </View>
+              <View style={styles.xpToNextLevel}>
+                <Text style={styles.xpToNextLevelText}>
+                  {500 - (player.xp % 500)} XP to level {player.level + 1}
+                </Text>
+                <View style={styles.xpProgressBar}>
+                  <View style={[styles.xpProgressFill, { width: `${((player.xp % 500) / 500) * 100}%` }]} />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* C) Daily Quests - Always show with empty state */}
+        <QuestTrackerCard 
+          quests={missionControlData?.quests?.today || []}
+          completedCount={missionControlData?.quests?.completedCount || 0}
+          totalCount={missionControlData?.quests?.totalCount || 0}
+          onClaimReward={(quest) => claimQuestReward.mutate(quest.id)}
+        />
+
+        {/* D) Social Highlights - Always show */}
+        <SocialPulseCard 
+          newMoments={missionControlData?.social?.newMoments || 0}
+          openToPlay={missionControlData?.social?.openToPlay || 0}
+          onMomentsPress={() => navigation.navigate("CommunityTab")}
+        />
+
+        {/* Smart Alert: Low Credits Warning */}
+        {data?.credits && data.credits.total <= 3 && data.credits.total > 0 ? (
+          <Pressable 
+            style={styles.smartAlert}
+            onPress={() => {
+              if (data?.player?.id) {
+                navigation.navigate("ParentCreditStore", { playerId: data.player.id });
+              }
+            }}
+          >
+            <View style={styles.smartAlertIcon}>
+              <Ionicons name="warning" size={20} color={Colors.dark.orange} />
+            </View>
+            <View style={styles.smartAlertContent}>
+              <Text style={styles.smartAlertTitle}>Credits Running Low</Text>
+              <Text style={styles.smartAlertSubtitle}>Only {data.credits.total} credits left - top up to keep training!</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.orange} />
+          </Pressable>
         ) : null}
 
+        {/* Compact Credits Card */}
         {data?.credits && data?.player?.id ? (
           <View style={styles.creditsCard}>
             <View style={styles.creditsHeader}>
@@ -1325,20 +1400,6 @@ export default function PlayerHomeScreen() {
         ) : null}
 
         <ReviewPromptBanner />
-
-        {nextSession ? (
-          <MissionCard
-            session={nextSession}
-            coach={coach}
-            isVacationActive={isVacationActive}
-            upcomingOverlapsSession={upcomingOverlapsSession}
-            onCancel={() => setShowCancelModal(true)}
-            onLate={() => setShowLateModal(true)}
-            onReportIssue={() => setShowReportModal(true)}
-          />
-        ) : (
-          <NoMissionCard />
-        )}
         
         {!vacationData?.active && !vacationData?.upcomingVacation ? (
           <Pressable 
@@ -2148,6 +2209,118 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.xpCyan,
   },
+  // Progress Snapshot styles
+  progressSnapshot: {
+    ...CardStyles.glowCard,
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.md,
+    padding: Spacing.md,
+  },
+  progressSnapshotHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  progressSnapshotTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  progressSnapshotContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  levelRingContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  levelNumber: {
+    ...Typography.h2,
+    color: Colors.dark.primary,
+    fontSize: 22,
+    fontWeight: "700",
+  },
+  levelLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontSize: 10,
+  },
+  progressStats: {
+    flex: 1,
+    gap: Spacing.xs,
+  },
+  progressStatRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  progressStatItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  progressStatValue: {
+    ...Typography.caption,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  xpToNextLevel: {
+    marginTop: Spacing.xs,
+  },
+  xpToNextLevelText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontSize: 11,
+    marginBottom: 4,
+  },
+  xpProgressBar: {
+    height: 6,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  xpProgressFill: {
+    height: "100%",
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 3,
+  },
+  // Smart Alert styles
+  smartAlert: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.orange + "15",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.orange + "40",
+    gap: Spacing.sm,
+  },
+  smartAlertIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.orange + "20",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  smartAlertContent: {
+    flex: 1,
+  },
+  smartAlertTitle: {
+    ...Typography.body,
+    color: Colors.dark.orange,
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  smartAlertSubtitle: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontSize: 12,
+  },
+  // Credits Card styles
   creditsCard: {
     ...CardStyles.glowCard,
     marginHorizontal: Spacing.xl,

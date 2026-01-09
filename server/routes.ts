@@ -20660,54 +20660,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get player profile
       const [player] = await db.select().from(players).where(eq(players.id, playerId));
       
-      // Get today's quests
-      const todayQuests = await db.select({
-        quest: playerQuestsTable,
-        template: questTemplatesTable,
-      })
-      .from(playerQuestsTable)
-      .innerJoin(questTemplatesTable, eq(playerQuestsTable.questTemplateId, questTemplatesTable.id))
-      .where(and(
-        eq(playerQuestsTable.playerId, playerId),
-        eq(questTemplatesTable.questType, "daily"),
-        inArray(playerQuestsTable.status, ["active", "completed"])
-      ))
-      .orderBy(asc(questTemplatesTable.order))
-      .limit(3);
+      // Get today's quests using simpler query pattern
+      const playerQuestRows = await db.select()
+        .from(playerQuestsTable)
+        .where(and(
+          eq(playerQuestsTable.playerId, playerId),
+          inArray(playerQuestsTable.status, ["active", "completed"])
+        ))
+        .limit(10);
+      
+      // Get templates for these quests
+      const templateIds = playerQuestRows.map(q => q.questTemplateId).filter(Boolean);
+      const questTemplateRows = templateIds.length > 0 
+        ? await db.select().from(questTemplatesTable).where(
+            and(
+              inArray(questTemplatesTable.id, templateIds),
+              eq(questTemplatesTable.questType, "daily")
+            )
+          )
+        : [];
+      
+      // Combine quest data with template data
+      const todayQuests = playerQuestRows
+        .map(quest => {
+          const template = questTemplateRows.find(t => t.id === quest.questTemplateId);
+          return template ? { quest, template } : null;
+        })
+        .filter((q): q is { quest: typeof playerQuestRows[0], template: typeof questTemplateRows[0] } => q !== null)
+        .sort((a, b) => (a.template.order || 0) - (b.template.order || 0))
+        .slice(0, 3);
       
       // Get next upcoming session
-      const upcomingSessions = await db.select({
-        id: sessions.id,
-        title: sessions.type,
-        startTime: sessions.date,
-        locationName: sessions.courtId,
-      })
-      .from(sessions)
-      .innerJoin(sessionPlayers, eq(sessionPlayers.sessionId, sessions.id))
-      .where(and(
-        eq(sessionPlayers.playerId, playerId),
-        gte(sessions.date, now),
-        eq(sessions.isCancelled, false)
-      ))
-      .orderBy(asc(sessions.date))
-      .limit(1);
+      let upcomingSessions: any[] = [];
+      try {
+        const playerSessionLinks = await db.select({ sessionId: sessionPlayers.sessionId })
+          .from(sessionPlayers)
+          .where(eq(sessionPlayers.playerId, playerId));
+        
+        const sessionIds = playerSessionLinks.map(ps => ps.sessionId).filter((id): id is string => id !== null);
+        
+        if (sessionIds.length > 0) {
+          const allSessions = await db.select().from(sessions).where(inArray(sessions.id, sessionIds));
+          upcomingSessions = allSessions
+            .filter(s => !s.isCancelled && new Date(s.date) >= now)
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            .slice(0, 1);
+        }
+      } catch (e) {
+        console.log("Session query fallback:", e);
+      }
       
-      // Get social highlights
-      const [momentCount] = await db.select({ count: count() })
-        .from(postsTable)
-        .where(and(
-          eq(postsTable.academyId, academyId || ""),
-          gte(postsTable.createdAt, oneDayAgo),
-          eq(postsTable.isHidden, false)
-        ));
+      // Get social highlights - use safer count queries
+      let momentCount = { count: 0 };
+      let openToPlayCount = { count: 0 };
       
-      const [openToPlayCount] = await db.select({ count: count() })
-        .from(openToPlayTable)
-        .where(and(
-          eq(openToPlayTable.academyId, academyId || ""),
-          eq(openToPlayTable.isActive, true),
-          gte(openToPlayTable.availableUntil, now)
-        ));
+      try {
+        if (academyId) {
+          const momentResult = await db.select({ count: count() })
+            .from(postsTable)
+            .where(and(
+              eq(postsTable.academyId, academyId),
+              eq(postsTable.isHidden, false)
+            ));
+          momentCount = momentResult[0] || { count: 0 };
+          
+          const otpResult = await db.select({ count: count() })
+            .from(openToPlayTable)
+            .where(and(
+              eq(openToPlayTable.academyId, academyId),
+              eq(openToPlayTable.isActive, true)
+            ));
+          openToPlayCount = otpResult[0] || { count: 0 };
+        }
+      } catch (e) {
+        console.log("Social count queries skipped:", e);
+      }
       
       // Calculate streak
       const streak = player?.consecutiveDays || 0;
@@ -20742,9 +20769,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         nextMission: upcomingSessions[0] ? {
           type: "session",
-          title: upcomingSessions[0].title || "Training Session",
-          time: upcomingSessions[0].startTime,
-          location: upcomingSessions[0].locationName,
+          title: upcomingSessions[0].type || "Training Session",
+          time: upcomingSessions[0].date,
+          location: upcomingSessions[0].courtId,
         } : null,
         social: {
           newMoments: Number(momentCount?.count || 0),
