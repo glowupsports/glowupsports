@@ -1270,6 +1270,7 @@ export default function PlayerHomeScreen() {
           completedCount={missionControlData?.quests?.completedCount || 0}
           totalCount={missionControlData?.quests?.totalCount || 0}
           onClaimReward={(quest) => claimQuestReward.mutate(quest.id)}
+          onViewAll={() => navigation.navigate("Quests")}
         />
 
         {/* D) Social Highlights - Always show */}

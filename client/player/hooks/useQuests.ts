@@ -81,6 +81,20 @@ export function useAssignDailyQuests() {
   });
 }
 
+export function useAssignWeeklyQuests() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/quests/assign-weekly");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/quests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/mission-control"] });
+    },
+  });
+}
+
 export function useUpdateQuestProgress() {
   const queryClient = useQueryClient();
   

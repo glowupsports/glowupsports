@@ -24,6 +24,7 @@ interface QuestTrackerCardProps {
   totalCount: number;
   onQuestPress?: (quest: Quest) => void;
   onClaimReward?: (quest: Quest) => void;
+  onViewAll?: () => void;
 }
 
 function QuestItem({ quest, onPress, onClaim }: { quest: Quest; onPress?: () => void; onClaim?: () => void }) {
@@ -91,7 +92,8 @@ export function QuestTrackerCard({
   completedCount, 
   totalCount, 
   onQuestPress, 
-  onClaimReward 
+  onClaimReward,
+  onViewAll,
 }: QuestTrackerCardProps) {
   const allCompleted = completedCount >= totalCount && totalCount > 0;
   
@@ -103,14 +105,19 @@ export function QuestTrackerCard({
           <ThemedText style={styles.title}>Daily Quests</ThemedText>
         </View>
         
-        <View style={styles.progressBadge}>
-          <ThemedText style={styles.progressBadgeText}>
-            {completedCount}/{totalCount}
-          </ThemedText>
-          {allCompleted ? (
-            <Ionicons name="checkmark-circle" size={16} color={Colors.dark.primary} />
+        <Pressable style={styles.viewAllContainer} onPress={onViewAll}>
+          <View style={styles.progressBadge}>
+            <ThemedText style={styles.progressBadgeText}>
+              {completedCount}/{totalCount}
+            </ThemedText>
+            {allCompleted ? (
+              <Ionicons name="checkmark-circle" size={16} color={Colors.dark.primary} />
+            ) : null}
+          </View>
+          {onViewAll ? (
+            <Ionicons name="chevron-forward" size={16} color={Colors.dark.textSecondary} />
           ) : null}
-        </View>
+        </Pressable>
       </View>
       
       {quests.length === 0 ? (
@@ -166,6 +173,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: Colors.dark.text,
+  },
+  viewAllContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   progressBadge: {
     flexDirection: "row",

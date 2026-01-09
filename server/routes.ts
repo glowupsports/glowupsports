@@ -20801,6 +20801,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Assign weekly quests to player (called when opening Quests screen)
+  app.post("/api/quests/assign-weekly", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      const academyId = req.user!.academyId;
+      
+      if (!playerId) {
+        return res.status(400).json({ error: "Player context required" });
+      }
+      
+      // Get current week start (Monday)
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() + mondayOffset);
+      weekStart.setHours(0, 0, 0, 0);
+      const weekStartStr = weekStart.toISOString().split('T')[0];
+      
+      // End of week (Sunday 23:59:59)
+      const endOfWeek = new Date(weekStart);
+      endOfWeek.setDate(weekStart.getDate() + 6);
+      endOfWeek.setHours(23, 59, 59, 999);
+      
+      // Check if already has active weekly quests for this week
+      const existingWeeklyQuests = await db.select()
+        .from(playerQuestsTable)
+        .innerJoin(questTemplatesTable, eq(playerQuestsTable.questTemplateId, questTemplatesTable.id))
+        .where(and(
+          eq(playerQuestsTable.playerId, playerId),
+          eq(questTemplatesTable.questType, "weekly"),
+          gte(playerQuestsTable.expiresAt, now)
+        ));
+      
+      if (existingWeeklyQuests.length > 0) {
+        return res.json({ message: "Weekly quests already assigned", alreadyAssigned: true });
+      }
+      
+      // Get available weekly quest templates
+      const templates = await db.select()
+        .from(questTemplatesTable)
+        .where(and(
+          eq(questTemplatesTable.questType, "weekly"),
+          eq(questTemplatesTable.isActive, true),
+          or(
+            isNull(questTemplatesTable.academyId),
+            eq(questTemplatesTable.academyId, academyId || "")
+          )
+        ))
+        .orderBy(asc(questTemplatesTable.order))
+        .limit(3);
+      
+      if (templates.length === 0) {
+        return res.json({ message: "No weekly quest templates available", quests: [] });
+      }
+      
+      // Create player quests
+      const createdQuests = [];
+      for (const template of templates) {
+        const [quest] = await db.insert(playerQuestsTable).values({
+          playerId,
+          questTemplateId: template.id,
+          targetProgress: template.targetCount,
+          xpReward: template.xpReward,
+          currencyReward: template.currencyReward,
+          expiresAt: endOfWeek,
+        }).returning();
+        createdQuests.push(quest);
+      }
+      
+      res.status(201).json({ 
+        message: "Weekly quests assigned", 
+        questCount: createdQuests.length,
+      });
+    } catch (error) {
+      console.error("Error assigning weekly quests:", error);
+      res.status(500).json({ error: "Failed to assign weekly quests" });
+    }
+  });
+
   // Update quest progress
   app.post("/api/quests/:id/progress", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
