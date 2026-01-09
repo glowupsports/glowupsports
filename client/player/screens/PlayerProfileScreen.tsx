@@ -92,6 +92,39 @@ function getBallLevelColor(ballLevel: string): string {
   }
 }
 
+interface GroupData {
+  id: string;
+  name: string;
+  memberCount: number;
+  type: string;
+}
+
+interface ConnectionData {
+  id: string;
+  player: { id: string; name: string; level: number; photoUrl?: string } | null;
+  status: string;
+}
+
+interface ConnectionsResponse {
+  friends: ConnectionData[];
+  pendingReceived: ConnectionData[];
+  pendingSent: ConnectionData[];
+}
+
+interface CreditsData {
+  totalCredits: number;
+  usedCredits: number;
+  remainingCredits: number;
+  packages: Array<{
+    id: string;
+    packageName: string;
+    creditBalance: number;
+    expiresAt: string | null;
+  }>;
+}
+
+type ProfileTab = "moments" | "friends" | "groups";
+
 export default function PlayerProfileScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -99,10 +132,26 @@ export default function PlayerProfileScreen() {
   const { logout } = useAuth();
   const [showPinModal, setShowPinModal] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [activeTab, setActiveTab] = useState<ProfileTab>("moments");
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery<ProfileData>({
     queryKey: ["/api/player/me/profile"],
+  });
+
+  const { data: groupsData } = useQuery<{ myGroups: GroupData[]; discover: GroupData[] }>({
+    queryKey: ["/api/player/groups"],
+    enabled: !!data?.player,
+  });
+
+  const { data: connectionsData } = useQuery<ConnectionsResponse>({
+    queryKey: ["/api/player/connections"],
+    enabled: !!data?.player,
+  });
+
+  const { data: creditsData } = useQuery<CreditsData>({
+    queryKey: data?.player ? [`/api/players/${data.player.id}/credits-summary`] : [],
+    enabled: !!data?.player?.id,
   });
 
   const toggleOpenToPlay = useMutation({
@@ -429,6 +478,176 @@ export default function PlayerProfileScreen() {
                 </View>
               ) : null}
             </LinearGradient>
+          </View>
+        ) : null}
+
+        {/* Wallet/Credits Section */}
+        {creditsData ? (
+          <View style={styles.walletCard}>
+            <LinearGradient
+              colors={["rgba(255, 215, 0, 0.1)", "rgba(255, 165, 0, 0.05)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.walletGradient}
+            >
+              <View style={styles.walletHeader}>
+                <View style={styles.walletIconWrap}>
+                  <Ionicons name="wallet" size={24} color={Colors.dark.gold} />
+                </View>
+                <View>
+                  <Text style={styles.walletTitle}>Lesson Credits</Text>
+                  <Text style={styles.walletSubtitle}>Available balance</Text>
+                </View>
+              </View>
+              <View style={styles.walletBalance}>
+                <Text style={styles.walletBalanceValue}>{creditsData.remainingCredits}</Text>
+                <Text style={styles.walletBalanceLabel}>credits remaining</Text>
+              </View>
+              {creditsData.packages && creditsData.packages.length > 0 ? (
+                <View style={styles.packagesList}>
+                  {creditsData.packages.slice(0, 2).map((pkg) => (
+                    <View key={pkg.id} style={styles.packageItem}>
+                      <Ionicons name="gift" size={14} color={Colors.dark.xpCyan} />
+                      <Text style={styles.packageName}>{pkg.packageName}</Text>
+                      <Text style={styles.packageCredits}>{pkg.creditBalance}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </LinearGradient>
+          </View>
+        ) : null}
+
+        {/* Profile Tabs: Moments, Friends, Groups */}
+        <View style={styles.profileTabs}>
+          <Pressable
+            style={[styles.profileTab, activeTab === "moments" && styles.profileTabActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setActiveTab("moments");
+            }}
+          >
+            <Ionicons 
+              name="grid" 
+              size={20} 
+              color={activeTab === "moments" ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+            />
+            <Text style={[styles.profileTabText, activeTab === "moments" && styles.profileTabTextActive]}>
+              Moments
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.profileTab, activeTab === "friends" && styles.profileTabActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setActiveTab("friends");
+            }}
+          >
+            <Ionicons 
+              name="people" 
+              size={20} 
+              color={activeTab === "friends" ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+            />
+            <Text style={[styles.profileTabText, activeTab === "friends" && styles.profileTabTextActive]}>
+              Friends ({connectionsData?.friends?.length || 0})
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.profileTab, activeTab === "groups" && styles.profileTabActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setActiveTab("groups");
+            }}
+          >
+            <Ionicons 
+              name="people-circle" 
+              size={20} 
+              color={activeTab === "groups" ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+            />
+            <Text style={[styles.profileTabText, activeTab === "groups" && styles.profileTabTextActive]}>
+              Groups ({groupsData?.myGroups?.length || 0})
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Tab Content */}
+        {activeTab === "moments" ? (
+          <View style={styles.tabContent}>
+            <View style={styles.emptyTabContent}>
+              <Ionicons name="images" size={40} color={Colors.dark.textMuted} />
+              <Text style={styles.emptyTabText}>No moments yet</Text>
+              <Text style={styles.emptyTabSubtext}>Complete sessions and achievements to share Moments!</Text>
+            </View>
+          </View>
+        ) : null}
+
+        {activeTab === "friends" ? (
+          <View style={styles.tabContent}>
+            {connectionsData?.friends && connectionsData.friends.length > 0 ? (
+              connectionsData.friends.map((conn) => (
+                <Pressable 
+                  key={conn.id} 
+                  style={styles.friendItem}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    if (conn.player?.id) {
+                      navigation.navigate("PlayerDetail", { playerId: conn.player.id });
+                    }
+                  }}
+                >
+                  <View style={styles.friendAvatar}>
+                    <Text style={styles.friendAvatarText}>{conn.player?.name?.charAt(0) || "?"}</Text>
+                  </View>
+                  <View style={styles.friendInfo}>
+                    <Text style={styles.friendName}>{conn.player?.name || "Unknown"}</Text>
+                    <Text style={styles.friendLevel}>Level {conn.player?.level || 1}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+                </Pressable>
+              ))
+            ) : (
+              <View style={styles.emptyTabContent}>
+                <Ionicons name="people" size={40} color={Colors.dark.textMuted} />
+                <Text style={styles.emptyTabText}>No friends yet</Text>
+                <Text style={styles.emptyTabSubtext}>Connect with other players to build your network!</Text>
+              </View>
+            )}
+          </View>
+        ) : null}
+
+        {activeTab === "groups" ? (
+          <View style={styles.tabContent}>
+            {groupsData?.myGroups && groupsData.myGroups.length > 0 ? (
+              groupsData.myGroups.map((group) => (
+                <Pressable 
+                  key={group.id} 
+                  style={styles.groupItem}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    navigation.navigate("GroupDetail", { groupId: group.id });
+                  }}
+                >
+                  <View style={styles.groupIcon}>
+                    <Ionicons 
+                      name={group.type === "squad" ? "tennisball" : group.type === "age_group" ? "calendar" : "people"} 
+                      size={20} 
+                      color={Colors.dark.primary} 
+                    />
+                  </View>
+                  <View style={styles.groupInfo}>
+                    <Text style={styles.groupName}>{group.name}</Text>
+                    <Text style={styles.groupMemberCount}>{group.memberCount} members</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+                </Pressable>
+              ))
+            ) : (
+              <View style={styles.emptyTabContent}>
+                <Ionicons name="people-circle" size={40} color={Colors.dark.textMuted} />
+                <Text style={styles.emptyTabText}>No groups yet</Text>
+                <Text style={styles.emptyTabSubtext}>Join a group to connect with other players!</Text>
+              </View>
+            )}
           </View>
         ) : null}
 
@@ -1140,5 +1359,188 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.textMuted,
     fontWeight: "600",
+  },
+  walletCard: {
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  walletGradient: {
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 215, 0, 0.2)",
+  },
+  walletHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  walletIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  walletTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  walletSubtitle: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  walletBalance: {
+    alignItems: "center",
+    paddingVertical: Spacing.md,
+  },
+  walletBalanceValue: {
+    ...Typography.h1,
+    color: Colors.dark.gold,
+    fontSize: 48,
+  },
+  walletBalanceLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 4,
+  },
+  packagesList: {
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.08)",
+    gap: Spacing.sm,
+  },
+  packageItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: 6,
+  },
+  packageName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  packageCredits: {
+    ...Typography.body,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+  },
+  profileTabs: {
+    flexDirection: "row",
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: 4,
+  },
+  profileTab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  profileTabActive: {
+    backgroundColor: Colors.dark.backgroundDefault,
+  },
+  profileTabText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  profileTabTextActive: {
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+  },
+  tabContent: {
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+  },
+  emptyTabContent: {
+    alignItems: "center",
+    paddingVertical: Spacing["3xl"],
+    gap: Spacing.sm,
+  },
+  emptyTabText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.sm,
+  },
+  emptyTabSubtext: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    maxWidth: "80%",
+  },
+  friendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+  },
+  friendAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.primary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  friendAvatarText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  friendInfo: {
+    flex: 1,
+    marginLeft: Spacing.md,
+  },
+  friendName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  friendLevel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  groupItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+  },
+  groupIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "rgba(46, 204, 64, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  groupInfo: {
+    flex: 1,
+    marginLeft: Spacing.md,
+  },
+  groupName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  groupMemberCount: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
   },
 });
