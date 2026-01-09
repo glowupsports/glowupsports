@@ -36,6 +36,8 @@ import MyLessonRequestsScreen from "@/player/screens/MyLessonRequestsScreen";
 import PlayerFinderScreen from "@/player/screens/PlayerFinderScreen";
 import GlowLeaderboardScreen from "@/player/screens/GlowLeaderboardScreen";
 import FriendsListScreen from "@/player/screens/FriendsListScreen";
+import GroupsScreen from "@/player/screens/GroupsScreen";
+import GroupDetailScreen from "@/player/screens/GroupDetailScreen";
 import PlayerMessagesScreen from "@/player/screens/PlayerMessagesScreen";
 import PlayerNotificationsScreen from "@/player/screens/PlayerNotificationsScreen";
 import PlayerHelpScreen from "@/player/screens/PlayerHelpScreen";
@@ -85,6 +87,8 @@ export type PlayerStackParamList = {
   PlayerFinder: undefined;
   GlowLeaderboard: undefined;
   FriendsList: undefined;
+  Groups: undefined;
+  GroupDetail: { groupId: string; groupName: string };
   PlayerMessages: undefined;
   PlayerNotifications: undefined;
   PlayerHelp: undefined;
@@ -392,6 +396,21 @@ function PlayerStackNavigator() {
         component={FriendsListScreen}
         options={{
           presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="Groups" 
+        component={GroupsScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="GroupDetail" 
+        component={GroupDetailScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
         }}
       />
       <Stack.Screen 

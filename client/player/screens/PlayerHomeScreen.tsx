@@ -1208,55 +1208,6 @@ export default function PlayerHomeScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
         showsVerticalScrollIndicator={false}
       >
-        {vacationData?.active && vacationData.currentVacation ? (
-          <Animated.View entering={FadeIn.duration(400)} style={styles.vacationBadge}>
-            <LinearGradient
-              colors={[Colors.dark.xpCyan + "30", Colors.dark.primary + "20"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.vacationBadgeGradient}
-            >
-              <View style={styles.vacationBadgeContent}>
-                <View style={styles.vacationBadgeLeft}>
-                  <Ionicons name="airplane" size={18} color={Colors.dark.xpCyan} />
-                  <View>
-                    <Text style={styles.vacationBadgeTitle}>Vacation Mode</Text>
-                    <Text style={styles.vacationBadgeSubtitle}>
-                      {getVacationDaysRemaining()} days remaining
-                    </Text>
-                  </View>
-                </View>
-                <Pressable 
-                  style={styles.vacationEndButton}
-                  onPress={() => {
-                    Alert.alert(
-                      "End Vacation Early?",
-                      "You'll be available for sessions again. This cannot be undone.",
-                      [
-                        { text: "Stay on Vacation", style: "cancel" },
-                        { 
-                          text: "End Vacation", 
-                          style: "destructive",
-                          onPress: () => cancelVacationMutation.mutate(vacationData.currentVacation!.id)
-                        }
-                      ]
-                    );
-                  }}
-                >
-                  <Text style={styles.vacationEndButtonText}>End Early</Text>
-                </Pressable>
-              </View>
-            </LinearGradient>
-          </Animated.View>
-        ) : null}
-        
-        <PlayerStatusBar 
-          player={player}
-          coach={coach}
-          lastFeedback={lastFeedback}
-          onAvatarPress={openDrawer}
-        />
-
         {/* A) HERO: Next Mission Card - Always first */}
         {nextSession ? (
           <MissionCard
@@ -1327,6 +1278,57 @@ export default function PlayerHomeScreen() {
           openToPlay={missionControlData?.social?.openToPlay || 0}
           onMomentsPress={() => navigation.navigate("CommunityTab")}
         />
+
+        {/* E) Player Profile Bar - after Mission Control */}
+        <PlayerStatusBar 
+          player={player}
+          coach={coach}
+          lastFeedback={lastFeedback}
+          onAvatarPress={openDrawer}
+        />
+
+        {/* Vacation Badge - contextual notification */}
+        {vacationData?.active && vacationData.currentVacation ? (
+          <Animated.View entering={FadeIn.duration(400)} style={styles.vacationBadge}>
+            <LinearGradient
+              colors={[Colors.dark.xpCyan + "30", Colors.dark.primary + "20"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.vacationBadgeGradient}
+            >
+              <View style={styles.vacationBadgeContent}>
+                <View style={styles.vacationBadgeLeft}>
+                  <Ionicons name="airplane" size={18} color={Colors.dark.xpCyan} />
+                  <View>
+                    <Text style={styles.vacationBadgeTitle}>Vacation Mode</Text>
+                    <Text style={styles.vacationBadgeSubtitle}>
+                      {getVacationDaysRemaining()} days remaining
+                    </Text>
+                  </View>
+                </View>
+                <Pressable 
+                  style={styles.vacationEndButton}
+                  onPress={() => {
+                    Alert.alert(
+                      "End Vacation Early?",
+                      "You'll be available for sessions again. This cannot be undone.",
+                      [
+                        { text: "Stay on Vacation", style: "cancel" },
+                        { 
+                          text: "End Vacation", 
+                          style: "destructive",
+                          onPress: () => cancelVacationMutation.mutate(vacationData.currentVacation!.id)
+                        }
+                      ]
+                    );
+                  }}
+                >
+                  <Text style={styles.vacationEndButtonText}>End Early</Text>
+                </Pressable>
+              </View>
+            </LinearGradient>
+          </Animated.View>
+        ) : null}
 
         {/* Smart Alert: Low Credits Warning */}
         {data?.credits && data.credits.total <= 3 && data.credits.total > 0 ? (

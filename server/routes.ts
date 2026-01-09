@@ -13920,6 +13920,304 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch peers" });
     }
   });
+
+  // ============================================
+  // GROUPS API - Player Social Groups System
+  // ============================================
+
+  // Get all groups for player
+  app.get("/api/player/groups", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId!;
+      const player = await storage.getPlayer(playerId);
+      if (!player || !player.academyId) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      // Get groups player is a member of
+      const memberRows = await db.select()
+        .from(groupMembersTable)
+        .where(eq(groupMembersTable.userId, req.user!.userId!));
+
+      const myGroupIds = memberRows.map(m => m.groupId);
+
+      // Get academy groups (public ones player can join)
+      const academyGroups = await db.select()
+        .from(communityGroupsTable)
+        .where(eq(communityGroupsTable.academyId, player.academyId));
+
+      const groups = academyGroups.map(g => ({
+        ...g,
+        isMember: myGroupIds.includes(g.id),
+        role: memberRows.find(m => m.groupId === g.id)?.role || null,
+      }));
+
+      res.json({
+        myGroups: groups.filter(g => g.isMember),
+        discover: groups.filter(g => !g.isMember && !g.isPrivate),
+      });
+    } catch (error) {
+      console.error("Error fetching groups:", error);
+      res.status(500).json({ error: "Failed to fetch groups" });
+    }
+  });
+
+  // Get single group details with members
+  app.get("/api/player/groups/:groupId", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { groupId } = req.params;
+      const userId = req.user!.userId!;
+      const playerId = req.user!.playerId!;
+
+      // Get player's academy for authorization
+      const player = await storage.getPlayer(playerId);
+      if (!player || !player.academyId) {
+        return res.status(403).json({ error: "Player must be in an academy" });
+      }
+
+      const [group] = await db.select()
+        .from(communityGroupsTable)
+        .where(eq(communityGroupsTable.id, groupId));
+
+      if (!group) {
+        return res.status(404).json({ error: "Group not found" });
+      }
+
+      // Security: Verify player belongs to the same academy as the group
+      if (group.academyId !== player.academyId) {
+        return res.status(404).json({ error: "Group not found" });
+      }
+
+      // Check if user is a member
+      const [membership] = await db.select()
+        .from(groupMembersTable)
+        .where(and(
+          eq(groupMembersTable.groupId, groupId),
+          eq(groupMembersTable.userId, userId)
+        ));
+
+      // For private groups, only members can see details
+      if (group.isPrivate && !membership) {
+        return res.status(403).json({ error: "This is a private group" });
+      }
+
+      // Get all members with user details
+      const membersData = await db.select({
+        member: groupMembersTable,
+        user: users,
+      })
+        .from(groupMembersTable)
+        .leftJoin(users, eq(groupMembersTable.userId, users.id))
+        .where(eq(groupMembersTable.groupId, groupId));
+
+      const members = membersData.map(m => ({
+        id: m.member.id,
+        userId: m.member.userId,
+        name: m.user?.email?.split("@")[0] || "Unknown",
+        role: m.member.role,
+        joinedAt: m.member.joinedAt,
+      }));
+
+      res.json({
+        group,
+        isMember: !!membership,
+        myRole: membership?.role || null,
+        members,
+        memberCount: members.length,
+      });
+    } catch (error) {
+      console.error("Error fetching group:", error);
+      res.status(500).json({ error: "Failed to fetch group" });
+    }
+  });
+
+  // Get group feed (posts within group)
+  app.get("/api/player/groups/:groupId/feed", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { groupId } = req.params;
+      const userId = req.user!.userId!;
+
+      // Verify membership
+      const [membership] = await db.select()
+        .from(groupMembersTable)
+        .where(and(
+          eq(groupMembersTable.groupId, groupId),
+          eq(groupMembersTable.userId, userId)
+        ));
+
+      if (!membership) {
+        return res.status(403).json({ error: "Not a member of this group" });
+      }
+
+      // Get posts in this group
+      const groupPosts = await db.select()
+        .from(posts)
+        .where(eq(posts.groupId, groupId))
+        .orderBy(desc(posts.createdAt))
+        .limit(50);
+
+      // Add author info
+      const postsWithAuthor = await Promise.all(groupPosts.map(async (post) => {
+        const [author] = await db.select().from(users).where(eq(users.id, post.authorId));
+        return {
+          ...post,
+          authorName: author?.email?.split("@")[0] || "Unknown",
+        };
+      }));
+
+      res.json({ posts: postsWithAuthor });
+    } catch (error) {
+      console.error("Error fetching group feed:", error);
+      res.status(500).json({ error: "Failed to fetch group feed" });
+    }
+  });
+
+  // Join a group
+  app.post("/api/player/groups/:groupId/join", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { groupId } = req.params;
+      const userId = req.user!.userId!;
+      const playerId = req.user!.playerId!;
+
+      // Get player's academy for authorization
+      const player = await storage.getPlayer(playerId);
+      if (!player || !player.academyId) {
+        return res.status(403).json({ error: "Player must be in an academy" });
+      }
+
+      const [group] = await db.select()
+        .from(communityGroupsTable)
+        .where(eq(communityGroupsTable.id, groupId));
+
+      if (!group) {
+        return res.status(404).json({ error: "Group not found" });
+      }
+
+      // Security: Verify player belongs to the same academy as the group
+      if (group.academyId !== player.academyId) {
+        return res.status(404).json({ error: "Group not found" });
+      }
+
+      // Security: Cannot join private groups directly (need invite)
+      if (group.isPrivate) {
+        return res.status(403).json({ error: "This is a private group. You need an invitation to join." });
+      }
+
+      // Check if already a member
+      const [existing] = await db.select()
+        .from(groupMembersTable)
+        .where(and(
+          eq(groupMembersTable.groupId, groupId),
+          eq(groupMembersTable.userId, userId)
+        ));
+
+      if (existing) {
+        return res.status(400).json({ error: "Already a member" });
+      }
+
+      // Join the group
+      await db.insert(groupMembersTable).values({
+        groupId,
+        userId,
+        role: "member",
+      });
+
+      // Update member count
+      await db.update(communityGroupsTable)
+        .set({ memberCount: sql`${communityGroupsTable.memberCount} + 1` })
+        .where(eq(communityGroupsTable.id, groupId));
+
+      res.json({ success: true, message: "Joined group" });
+    } catch (error) {
+      console.error("Error joining group:", error);
+      res.status(500).json({ error: "Failed to join group" });
+    }
+  });
+
+  // Leave a group
+  app.post("/api/player/groups/:groupId/leave", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { groupId } = req.params;
+      const userId = req.user!.userId!;
+
+      // Check if member
+      const [membership] = await db.select()
+        .from(groupMembersTable)
+        .where(and(
+          eq(groupMembersTable.groupId, groupId),
+          eq(groupMembersTable.userId, userId)
+        ));
+
+      if (!membership) {
+        return res.status(400).json({ error: "Not a member" });
+      }
+
+      // Admin cannot leave (must transfer ownership first)
+      if (membership.role === "admin") {
+        return res.status(400).json({ error: "Admins must transfer ownership before leaving" });
+      }
+
+      // Leave the group
+      await db.delete(groupMembersTable)
+        .where(and(
+          eq(groupMembersTable.groupId, groupId),
+          eq(groupMembersTable.userId, userId)
+        ));
+
+      // Update member count
+      await db.update(communityGroupsTable)
+        .set({ memberCount: sql`${communityGroupsTable.memberCount} - 1` })
+        .where(eq(communityGroupsTable.id, groupId));
+
+      res.json({ success: true, message: "Left group" });
+    } catch (error) {
+      console.error("Error leaving group:", error);
+      res.status(500).json({ error: "Failed to leave group" });
+    }
+  });
+
+  // Create a new group (player-created groups)
+  app.post("/api/player/groups", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.userId!;
+      const playerId = req.user!.playerId!;
+      const player = await storage.getPlayer(playerId);
+
+      if (!player || !player.academyId) {
+        return res.status(400).json({ error: "Player must be in an academy to create groups" });
+      }
+
+      const { name, description, type = "friends", isPrivate = false } = req.body;
+
+      if (!name || name.trim().length < 2) {
+        return res.status(400).json({ error: "Group name must be at least 2 characters" });
+      }
+
+      const [newGroup] = await db.insert(communityGroupsTable)
+        .values({
+          academyId: player.academyId,
+          name: name.trim(),
+          description: description?.trim() || null,
+          type,
+          isPrivate,
+          createdBy: userId,
+          memberCount: 1,
+        })
+        .returning();
+
+      // Add creator as admin
+      await db.insert(groupMembersTable).values({
+        groupId: newGroup.id,
+        userId,
+        role: "admin",
+      });
+
+      res.json({ success: true, group: newGroup });
+    } catch (error) {
+      console.error("Error creating group:", error);
+      res.status(500).json({ error: "Failed to create group" });
+    }
+  });
   
   // Save player onboarding data
   app.post("/api/player/me/onboarding", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
