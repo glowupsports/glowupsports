@@ -705,22 +705,27 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   filterTab: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: 16,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.lg,
     backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    minWidth: 70,
+    alignItems: "center",
   },
   filterTabActive: {
     backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
   },
   filterTabText: {
-    fontSize: 14,
+    fontSize: 15,
     color: Colors.dark.textSecondary,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   filterTabTextActive: {
     color: Colors.dark.backgroundRoot,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   loadingContainer: {
     flex: 1,

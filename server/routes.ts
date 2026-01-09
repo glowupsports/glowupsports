@@ -20083,60 +20083,143 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get social feed for user
   app.get("/api/social/feed", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       const academyId = req.user!.academyId;
       const { limit = "20", offset = "0", filter = "for_you" } = req.query;
       
-      // Get posts from academy + user's groups + friends
-      const posts = await db.select({
-        post: {
-          id: postsTable.id,
-          authorId: postsTable.authorId,
-          academyId: postsTable.academyId,
-          contextType: postsTable.contextType,
-          contextId: postsTable.contextId,
-          caption: postsTable.caption,
-          mediaUrls: postsTable.mediaUrls,
-          mediaTypes: postsTable.mediaTypes,
-          visibility: postsTable.visibility,
-          groupId: postsTable.groupId,
-          taggedUserIds: postsTable.taggedUserIds,
-          locationName: postsTable.locationName,
-          cheerCount: postsTable.cheerCount,
-          commentCount: postsTable.commentCount,
-          isPinned: postsTable.isPinned,
-          createdAt: postsTable.createdAt,
-        },
-        author: {
-          id: users.id,
-          username: users.username,
-        },
-        player: {
-          id: players.id,
-          name: players.name,
-          photoUrl: players.photoUrl,
-          ballLevel: players.ballLevel,
-        },
-        coach: {
-          id: coaches.id,
-          name: coaches.name,
-          photoUrl: coaches.photoUrl,
-        },
-      })
-      .from(postsTable)
-      .leftJoin(users, eq(postsTable.authorId, users.id))
-      .leftJoin(players, eq(users.playerId, players.id))
-      .leftJoin(coaches, eq(users.coachId, coaches.id))
-      .where(and(
+      // Build filter conditions based on filter type
+      let filterConditions: ReturnType<typeof and>[] = [
         eq(postsTable.academyId, academyId || ""),
         eq(postsTable.isHidden, false)
-      ))
-      .orderBy(desc(postsTable.createdAt))
-      .limit(parseInt(limit as string))
-      .offset(parseInt(offset as string));
+      ];
+      
+      // Apply filter-specific conditions
+      if (filter === "friends") {
+        // Get current user's playerId first
+        const currentUser = await db.select({ playerId: users.playerId })
+          .from(users).where(eq(users.id, userId)).limit(1);
+        const currentPlayerId = currentUser[0]?.playerId;
+        
+        if (!currentPlayerId) {
+          // User has no player profile (coach/owner) - return empty for friends filter
+          return res.json([]);
+        }
+        
+        // Get friend player IDs from playerConnections (both directions)
+        const friendConnections = await db.select({ friendId: playerConnections.player2Id })
+          .from(playerConnections)
+          .where(and(
+            eq(playerConnections.player1Id, currentPlayerId),
+            eq(playerConnections.status, "accepted")
+          ));
+        const friendPlayerIds = friendConnections.map(f => f.friendId);
+        
+        const reverseFriends = await db.select({ friendId: playerConnections.player1Id })
+          .from(playerConnections)
+          .where(and(
+            eq(playerConnections.player2Id, currentPlayerId),
+            eq(playerConnections.status, "accepted")
+          ));
+        friendPlayerIds.push(...reverseFriends.map(f => f.friendId));
+        
+        if (friendPlayerIds.length === 0) {
+          // No friends - return empty
+          return res.json([]);
+        }
+        
+        // Convert player IDs to user IDs
+        const friendUsers = await db.select({ id: users.id })
+          .from(users).where(inArray(users.playerId, friendPlayerIds));
+        const friendUserIds = friendUsers.map(u => u.id);
+        
+        if (friendUserIds.length === 0) {
+          return res.json([]);
+        }
+        
+        filterConditions.push(inArray(postsTable.authorId, friendUserIds));
+      } else if (filter === "groups") {
+        // Get user's groups
+        const userGroups = await db.select({ groupId: groupMembers.groupId })
+          .from(groupMembers)
+          .where(eq(groupMembers.userId, userId));
+        const groupIds = userGroups.map(g => g.groupId);
+        
+        if (groupIds.length === 0) {
+          // No group memberships - return empty
+          return res.json([]);
+        }
+        
+        filterConditions.push(inArray(postsTable.groupId, groupIds));
+      } else if (filter === "academy") {
+        // Academy posts only (visibility = academy or public)
+        filterConditions.push(
+          or(
+            eq(postsTable.visibility, "academy"),
+            eq(postsTable.visibility, "public")
+          ) as any
+        );
+      } else if (filter === "events") {
+        // Event-related posts
+        filterConditions.push(eq(postsTable.contextType, "event"));
+      }
+      // "for_you" shows all academy posts (default behavior)
+      
+      // Get posts with filter conditions
+      const posts = await db.select()
+        .from(postsTable)
+        .where(and(...filterConditions))
+        .orderBy(desc(postsTable.createdAt))
+        .limit(parseInt(limit as string))
+        .offset(parseInt(offset as string));
+      
+      // Get author info for all posts
+      const authorIds = [...new Set(posts.map(p => p.authorId).filter(Boolean))] as string[];
+      let authorMap = new Map<string, { id: string; username: string; name: string; photoUrl: string | null; ballLevel: string | null; isCoach: boolean }>();
+      
+      if (authorIds.length > 0) {
+        const authorUsers = await db.select({
+          id: users.id,
+          username: users.username,
+          playerId: users.playerId,
+          coachId: users.coachId,
+        })
+        .from(users)
+        .where(inArray(users.id, authorIds));
+        
+        const playerIds = authorUsers.map(u => u.playerId).filter(Boolean) as string[];
+        const coachIds = authorUsers.map(u => u.coachId).filter(Boolean) as string[];
+        
+        let playerMap = new Map<string, { name: string; photoUrl: string | null; ballLevel: string | null }>();
+        let coachMap = new Map<string, { name: string; photoUrl: string | null }>();
+        
+        if (playerIds.length > 0) {
+          const playerData = await db.select({ id: players.id, name: players.name, photoUrl: players.photoUrl, ballLevel: players.ballLevel })
+            .from(players).where(inArray(players.id, playerIds));
+          playerData.forEach(p => playerMap.set(p.id, { name: p.name, photoUrl: p.photoUrl, ballLevel: p.ballLevel }));
+        }
+        
+        if (coachIds.length > 0) {
+          const coachData = await db.select({ id: coaches.id, name: coaches.name, photoUrl: coaches.photoUrl })
+            .from(coaches).where(inArray(coaches.id, coachIds));
+          coachData.forEach(c => coachMap.set(c.id, { name: c.name, photoUrl: c.photoUrl }));
+        }
+        
+        authorUsers.forEach(u => {
+          const player = u.playerId ? playerMap.get(u.playerId) : null;
+          const coach = u.coachId ? coachMap.get(u.coachId) : null;
+          authorMap.set(u.id, {
+            id: u.id,
+            username: u.username,
+            name: player?.name || coach?.name || u.username,
+            photoUrl: player?.photoUrl || coach?.photoUrl || null,
+            ballLevel: player?.ballLevel || null,
+            isCoach: !!coach,
+          });
+        });
+      }
       
       // Get user's reactions for these posts
-      const postIds = posts.map(p => p.post.id);
+      const postIds = posts.map(p => p.id);
       let userReactions: { postId: string; reactionType: string }[] = [];
       if (postIds.length > 0) {
         userReactions = await db.select({
@@ -20153,16 +20236,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const reactionMap = new Map(userReactions.map(r => [r.postId, r.reactionType]));
       
       const feedItems = posts.map(p => ({
-        ...p.post,
-        author: {
-          id: p.author?.id,
-          username: p.author?.username,
-          name: p.player?.name || p.coach?.name || p.author?.username,
-          photoUrl: p.player?.photoUrl || p.coach?.photoUrl,
-          ballLevel: p.player?.ballLevel,
-          isCoach: !!p.coach?.id,
-        },
-        userReaction: reactionMap.get(p.post.id) || null,
+        id: p.id,
+        authorId: p.authorId,
+        academyId: p.academyId,
+        contextType: p.contextType,
+        contextId: p.contextId,
+        caption: p.caption,
+        mediaUrls: p.mediaUrls,
+        mediaTypes: p.mediaTypes,
+        visibility: p.visibility,
+        groupId: p.groupId,
+        taggedUserIds: p.taggedUserIds,
+        locationName: p.locationName,
+        cheerCount: p.cheerCount,
+        commentCount: p.commentCount,
+        isPinned: p.isPinned,
+        createdAt: p.createdAt,
+        author: authorMap.get(p.authorId || "") || { id: p.authorId, username: "Unknown", name: "Unknown", photoUrl: null, ballLevel: null, isCoach: false },
+        userReaction: reactionMap.get(p.id) || null,
       }));
       
       res.json(feedItems);
@@ -20175,7 +20266,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create a new post (Moment)
   app.post("/api/social/posts", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       const academyId = req.user!.academyId;
       
       if (!academyId) {
@@ -20226,7 +20317,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/social/posts/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       
       const [post] = await db.select({
         post: postsTable,
@@ -20289,7 +20380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/social/posts/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       
       // Check ownership
       const [post] = await db.select().from(postsTable).where(eq(postsTable.id, id));
@@ -20318,7 +20409,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/social/posts/:id/reactions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id: postId } = req.params;
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       const { reactionType } = req.body;
       
       const validReactions = ["clap", "fire", "tennis", "muscle", "star"];
@@ -20364,7 +20455,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/social/posts/:id/reactions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id: postId } = req.params;
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       
       const result = await db.delete(postReactionsTable)
         .where(and(
@@ -20430,7 +20521,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/social/posts/:id/comments", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id: postId } = req.params;
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       const { text, isQuickComment, quickCommentType, parentId } = req.body;
       
       // Quick comments for kids
@@ -20474,7 +20565,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get user's groups
   app.get("/api/social/groups", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       const academyId = req.user!.academyId;
       
       // Get groups user is member of
@@ -20555,7 +20646,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Set open-to-play status
   app.post("/api/social/open-to-play", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       const academyId = req.user!.academyId;
       
       if (!academyId) {
@@ -20596,7 +20687,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Deactivate open-to-play status
   app.delete("/api/social/open-to-play", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       
       await db.update(openToPlayTable)
         .set({ isActive: false })
@@ -20615,7 +20706,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get social highlights for home screen
   app.get("/api/social/highlights", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       const academyId = req.user!.academyId;
       const now = new Date();
       const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -21332,7 +21423,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get mission control data (combines dashboard, quests, social highlights)
   app.get("/api/player/mission-control", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       const playerId = req.user!.playerId;
       const academyId = req.user!.academyId;
       
