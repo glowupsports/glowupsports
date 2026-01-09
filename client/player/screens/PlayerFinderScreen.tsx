@@ -115,32 +115,38 @@ export default function PlayerFinderScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSkill, setSelectedSkill] = useState("all");
   const [showOpenToPlayOnly, setShowOpenToPlayOnly] = useState(false);
-  const [activeTab, setActiveTab] = useState<"search" | "openToPlay">("search");
+  const [activeTab, setActiveTab] = useState<"search" | "openToPlay" | "discover">("discover");
+  const [discoverFilter, setDiscoverFilter] = useState<"recommended" | "sameLevel" | "academy">("recommended");
+
+  const searchParams = new URLSearchParams();
+  if (searchQuery) searchParams.append("q", searchQuery);
+  if (selectedSkill !== "all") searchParams.append("skill", selectedSkill);
+  if (showOpenToPlayOnly) searchParams.append("openToPlay", "true");
+  const searchQueryString = searchParams.toString();
 
   const { data: searchData, isLoading: searchLoading, refetch: refetchSearch, isError: searchError } = useQuery<SearchResults>({
-    queryKey: ["/api/player/search", searchQuery, selectedSkill, showOpenToPlayOnly],
-    queryFn: () => {
-      const params = new URLSearchParams();
-      if (searchQuery) params.append("q", searchQuery);
-      if (selectedSkill !== "all") params.append("skill", selectedSkill);
-      if (showOpenToPlayOnly) params.append("openToPlay", "true");
-      return apiFetch(`/api/player/search?${params.toString()}`);
-    },
+    queryKey: [`/api/player/search?${searchQueryString}`],
     enabled: activeTab === "search",
   });
 
   const { data: openToPlayData, isLoading: openToPlayLoading, refetch: refetchOTP, isError: otpError } = useQuery<OpenToPlayData>({
     queryKey: ["/api/player/open-to-play"],
-    queryFn: () => apiFetch("/api/player/open-to-play"),
     enabled: activeTab === "openToPlay",
+  });
+
+  const { data: discoverData, isLoading: discoverLoading, refetch: refetchDiscover, isError: discoverError } = useQuery<{ players: PlayerResult[] }>({
+    queryKey: [`/api/player/discover?filter=${discoverFilter}`],
+    enabled: activeTab === "discover",
   });
 
   const players = activeTab === "search" 
     ? searchData?.results || [] 
-    : openToPlayData?.players || [];
-  const isLoading = activeTab === "search" ? searchLoading : openToPlayLoading;
-  const isError = activeTab === "search" ? searchError : otpError;
-  const refetch = activeTab === "search" ? refetchSearch : refetchOTP;
+    : activeTab === "openToPlay" 
+      ? openToPlayData?.players || []
+      : discoverData?.players || [];
+  const isLoading = activeTab === "search" ? searchLoading : activeTab === "openToPlay" ? openToPlayLoading : discoverLoading;
+  const isError = activeTab === "search" ? searchError : activeTab === "openToPlay" ? otpError : discoverError;
+  const refetch = activeTab === "search" ? refetchSearch : activeTab === "openToPlay" ? refetchOTP : refetchDiscover;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -160,6 +166,13 @@ export default function PlayerFinderScreen() {
 
       <View style={styles.tabsContainer}>
         <Pressable
+          style={[styles.tab, activeTab === "discover" && styles.tabActive]}
+          onPress={() => setActiveTab("discover")}
+        >
+          <Ionicons name="compass" size={18} color={activeTab === "discover" ? Colors.dark.xpCyan : Colors.dark.textMuted} />
+          <ThemedText style={[styles.tabText, activeTab === "discover" && styles.tabTextActive]}>Discover</ThemedText>
+        </Pressable>
+        <Pressable
           style={[styles.tab, activeTab === "search" && styles.tabActive]}
           onPress={() => setActiveTab("search")}
         >
@@ -171,9 +184,50 @@ export default function PlayerFinderScreen() {
           onPress={() => setActiveTab("openToPlay")}
         >
           <Ionicons name="tennisball" size={18} color={activeTab === "openToPlay" ? Colors.dark.primary : Colors.dark.textMuted} />
-          <ThemedText style={[styles.tabText, activeTab === "openToPlay" && styles.tabTextActive]}>Open to Play</ThemedText>
+          <ThemedText style={[styles.tabText, activeTab === "openToPlay" && styles.tabTextActive]}>Play</ThemedText>
         </Pressable>
       </View>
+
+      {activeTab === "discover" ? (
+        <View style={styles.discoverFilters}>
+          <Pressable
+            style={[styles.discoverChip, discoverFilter === "recommended" && styles.discoverChipActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setDiscoverFilter("recommended");
+            }}
+          >
+            <Ionicons name="star" size={14} color={discoverFilter === "recommended" ? Colors.dark.backgroundRoot : Colors.dark.gold} />
+            <ThemedText style={[styles.discoverChipText, discoverFilter === "recommended" && styles.discoverChipTextActive]}>
+              Recommended
+            </ThemedText>
+          </Pressable>
+          <Pressable
+            style={[styles.discoverChip, discoverFilter === "sameLevel" && styles.discoverChipActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setDiscoverFilter("sameLevel");
+            }}
+          >
+            <Ionicons name="bar-chart" size={14} color={discoverFilter === "sameLevel" ? Colors.dark.backgroundRoot : Colors.dark.xpCyan} />
+            <ThemedText style={[styles.discoverChipText, discoverFilter === "sameLevel" && styles.discoverChipTextActive]}>
+              Same Level
+            </ThemedText>
+          </Pressable>
+          <Pressable
+            style={[styles.discoverChip, discoverFilter === "academy" && styles.discoverChipActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setDiscoverFilter("academy");
+            }}
+          >
+            <Ionicons name="location" size={14} color={discoverFilter === "academy" ? Colors.dark.backgroundRoot : Colors.dark.primary} />
+            <ThemedText style={[styles.discoverChipText, discoverFilter === "academy" && styles.discoverChipTextActive]}>
+              My Academy
+            </ThemedText>
+          </Pressable>
+        </View>
+      ) : null}
 
       {activeTab === "search" ? (
         <>
@@ -229,7 +283,9 @@ export default function PlayerFinderScreen() {
             </Pressable>
           </View>
         </>
-      ) : (
+      ) : null}
+
+      {activeTab === "openToPlay" ? (
         <View style={styles.openToPlayHeader}>
           <LinearGradient
             colors={[Colors.dark.primary + "20", "transparent"]}
@@ -244,7 +300,7 @@ export default function PlayerFinderScreen() {
             </View>
           </LinearGradient>
         </View>
-      )}
+      ) : null}
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
@@ -252,7 +308,7 @@ export default function PlayerFinderScreen() {
         </View>
       ) : isError ? (
         <View style={styles.loadingContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.danger} />
+          <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.error} />
           <ThemedText style={styles.emptyTitle}>Failed to load players</ThemedText>
           <Pressable onPress={() => refetch()} style={styles.retryButton}>
             <ThemedText style={styles.retryText}>Try Again</ThemedText>
@@ -266,7 +322,7 @@ export default function PlayerFinderScreen() {
           refreshControl={
             <RefreshControl 
               refreshing={false} 
-              onRefresh={activeTab === "search" ? refetchSearch : refetchOTP}
+              onRefresh={() => refetch()}
               tintColor={Colors.dark.xpCyan}
             />
           }
@@ -282,12 +338,18 @@ export default function PlayerFinderScreen() {
                 color={Colors.dark.textMuted} 
               />
               <ThemedText style={styles.emptyTitle}>
-                {activeTab === "search" ? "No players found" : "No one is open to play right now"}
+                {activeTab === "discover" 
+                  ? "No players found" 
+                  : activeTab === "search" 
+                    ? "No players found" 
+                    : "No one is open to play right now"}
               </ThemedText>
               <ThemedText style={styles.emptySubtitle}>
-                {activeTab === "search" 
-                  ? "Try adjusting your search or filters"
-                  : "Check back later or set yourself as open to play"
+                {activeTab === "discover"
+                  ? "Try a different filter to find players"
+                  : activeTab === "search" 
+                    ? "Try adjusting your search or filters"
+                    : "Check back later or set yourself as open to play"
                 }
               </ThemedText>
             </View>
@@ -326,7 +388,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginHorizontal: Spacing.md,
     marginVertical: Spacing.md,
-    backgroundColor: Colors.dark.cardLight,
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
     padding: 4,
   },
@@ -340,7 +402,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   tabActive: {
-    backgroundColor: Colors.dark.card,
+    backgroundColor: Colors.dark.backgroundDefault,
   },
   tabText: {
     fontSize: 14,
@@ -350,6 +412,35 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: Colors.dark.text,
   },
+  discoverFilters: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  discoverChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  discoverChipActive: {
+    backgroundColor: Colors.dark.xpCyan,
+    borderColor: Colors.dark.xpCyan,
+  },
+  discoverChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  discoverChipTextActive: {
+    color: Colors.dark.backgroundRoot,
+  },
   searchContainer: {
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.sm,
@@ -357,7 +448,7 @@ const styles = StyleSheet.create({
   searchInputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.cardLight,
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     height: 44,
@@ -374,7 +465,7 @@ const styles = StyleSheet.create({
   filterChip: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
-    backgroundColor: Colors.dark.cardLight,
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: 16,
     marginRight: Spacing.xs,
   },
@@ -398,7 +489,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
-    backgroundColor: Colors.dark.cardLight,
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: 16,
   },
   openToPlayFilterActive: {
@@ -449,7 +540,7 @@ const styles = StyleSheet.create({
   playerCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.card,
+    backgroundColor: Colors.dark.backgroundDefault,
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
@@ -467,7 +558,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: Colors.dark.cardLight,
+    backgroundColor: Colors.dark.backgroundSecondary,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -482,7 +573,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: Colors.dark.card,
+    borderColor: Colors.dark.backgroundDefault,
   },
   playerInfo: {
     flex: 1,
@@ -499,7 +590,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   levelBadge: {
-    backgroundColor: Colors.dark.cardLight,
+    backgroundColor: Colors.dark.backgroundSecondary,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,

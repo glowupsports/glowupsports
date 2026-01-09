@@ -21228,6 +21228,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Discover players with filters (recommended, sameLevel, academy)
+  app.get("/api/player/discover", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId;
+      const playerId = req.user!.playerId;
+      const filter = req.query.filter as string || "recommended";
+      
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+      
+      // Get current player's info for filtering
+      const currentPlayerResult = await db.select({
+        level: players.level,
+        ballLevel: players.ballLevel,
+        glowScore: players.glowScore,
+      })
+      .from(players)
+      .where(eq(players.id, playerId))
+      .limit(1);
+      
+      const currentPlayer = currentPlayerResult[0];
+      if (!currentPlayer) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      let conditions: any[] = [
+        eq(players.status, "active"),
+        sql`${players.id} != ${playerId}`,
+      ];
+      let orderBy = desc(players.glowScore);
+      
+      if (filter === "academy") {
+        // Players in the same academy
+        if (academyId) {
+          conditions.push(eq(players.academyId, academyId));
+        }
+      } else if (filter === "sameLevel") {
+        // Players with same or similar level (+/- 2 levels)
+        const playerLevel = currentPlayer.level || 1;
+        conditions.push(sql`${players.level} >= ${Math.max(1, playerLevel - 2)}`);
+        conditions.push(sql`${players.level} <= ${playerLevel + 2}`);
+        if (academyId) {
+          conditions.push(eq(players.academyId, academyId));
+        }
+        orderBy = sql`ABS(${players.level} - ${playerLevel})`;
+      } else {
+        // "recommended" - default: mix of factors
+        // Prioritize: same academy, similar level, open to play, recent activity
+        if (academyId) {
+          conditions.push(eq(players.academyId, academyId));
+        }
+        // Boost players who are open to play
+        orderBy = sql`(CASE WHEN ${players.openToPlay} = true THEN 100 ELSE 0 END) + ${players.glowScore} DESC`;
+      }
+      
+      const results = await db.select({
+        id: players.id,
+        name: players.name,
+        photoUrl: players.photoUrl,
+        level: players.level,
+        glowScore: players.glowScore,
+        ballLevel: players.ballLevel,
+        openToPlay: players.openToPlay,
+      })
+      .from(players)
+      .where(and(...conditions))
+      .orderBy(orderBy)
+      .limit(30);
+      
+      res.json({
+        filter,
+        players: results.map(p => ({
+          id: p.id,
+          name: p.name,
+          photoUrl: p.photoUrl,
+          level: p.level || 1,
+          glowScore: p.glowScore || 0,
+          ballLevel: p.ballLevel,
+          openToPlay: p.openToPlay || false,
+        })),
+      });
+    } catch (error) {
+      console.error("Error discovering players:", error);
+      res.status(500).json({ error: "Failed to discover players" });
+    }
+  });
+
   // Get Open to Play players
   app.get("/api/player/open-to-play", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
