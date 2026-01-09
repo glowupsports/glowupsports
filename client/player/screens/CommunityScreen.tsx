@@ -26,7 +26,7 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, apiFetch } from "@/lib/query-client";
 
 type FeedFilter = "for_you" | "friends" | "groups" | "academy" | "events";
 
@@ -535,7 +535,12 @@ export default function CommunityScreen() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   
   const { data: feed = [], isLoading, refetch, isFetching } = useQuery<Post[]>({
-    queryKey: ["/api/social/feed", filter],
+    queryKey: ["/api/social/feed", { filter }],
+    queryFn: async () => {
+      const response = await apiFetch(`/api/social/feed?filter=${filter}`);
+      if (!response.ok) throw new Error("Failed to fetch feed");
+      return response.json();
+    },
   });
   
   const { data: highlights } = useQuery<{ newMoments: number; openToPlay: number }>({
