@@ -10,8 +10,45 @@ import {
   requireRole, 
   JWTPayload 
 } from "./auth";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 
 const router = Router();
+
+// Marketplace image upload configuration
+const MARKETPLACE_PHOTOS_DIR = path.join(process.cwd(), "uploads", "marketplace-photos");
+
+// Ensure upload directory exists
+if (!fs.existsSync(MARKETPLACE_PHOTOS_DIR)) {
+  fs.mkdirSync(MARKETPLACE_PHOTOS_DIR, { recursive: true });
+}
+
+const marketplacePhotoStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, MARKETPLACE_PHOTOS_DIR);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const ext = path.extname(file.originalname);
+    cb(null, `marketplace-${uniqueSuffix}${ext}`);
+  },
+});
+
+const marketplacePhotoUpload = multer({
+  storage: marketplacePhotoStorage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB max per file
+  },
+  fileFilter: (_req, file, cb) => {
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only JPEG, PNG, WebP, and HEIC images are allowed."));
+    }
+  },
+});
 
 interface AuthRequest extends Request {
   user?: JWTPayload;
@@ -24,6 +61,36 @@ function requirePlayerProfile(req: AuthRequest, res: Response, next: NextFunctio
   }
   next();
 }
+
+// ==================== IMAGE UPLOAD ====================
+
+// Upload marketplace images (up to 5)
+router.post(
+  "/player/marketplace/upload-images",
+  authMiddleware,
+  requirePlayerProfile,
+  marketplacePhotoUpload.array("images", 5),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const files = req.files as Express.Multer.File[];
+      
+      if (!files || files.length === 0) {
+        return res.status(400).json({ error: "No images uploaded" });
+      }
+
+      const imageUrls = files.map(file => `/uploads/marketplace-photos/${file.filename}`);
+      
+      res.json({ 
+        success: true, 
+        images: imageUrls,
+        count: imageUrls.length
+      });
+    } catch (error) {
+      console.error("[Marketplace] Error uploading images:", error);
+      res.status(500).json({ error: "Failed to upload images" });
+    }
+  }
+);
 
 // ==================== MARKETPLACE LISTINGS ====================
 
@@ -104,6 +171,43 @@ router.get("/player/marketplace", authMiddleware, requirePlayerProfile, async (r
   } catch (error) {
     console.error("[Marketplace] Error fetching listings:", error);
     res.status(500).json({ error: "Failed to load marketplace" });
+  }
+});
+
+// Get my listings (MUST be before /:id route)
+router.get("/player/marketplace/my/listings", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+  try {
+    const playerId = req.user!.playerId!;
+
+    const listings = await db.select().from(marketplaceListings)
+      .where(eq(marketplaceListings.sellerId, playerId))
+      .orderBy(desc(marketplaceListings.createdAt));
+
+    res.json(listings);
+  } catch (error) {
+    console.error("[Marketplace] Error fetching my listings:", error);
+    res.status(500).json({ error: "Failed to load my listings" });
+  }
+});
+
+// Get favorites (MUST be before /:id route)
+router.get("/player/marketplace/favorites", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+  try {
+    const playerId = req.user!.playerId!;
+
+    const favorites = await db.select({
+      favorite: marketplaceFavorites,
+      listing: marketplaceListings,
+    })
+      .from(marketplaceFavorites)
+      .leftJoin(marketplaceListings, eq(marketplaceFavorites.listingId, marketplaceListings.id))
+      .where(eq(marketplaceFavorites.playerId, playerId))
+      .orderBy(desc(marketplaceFavorites.createdAt));
+
+    res.json(favorites.map(f => ({ ...f.favorite, listing: f.listing })));
+  } catch (error) {
+    console.error("[Marketplace] Error fetching favorites:", error);
+    res.status(500).json({ error: "Failed to load favorites" });
   }
 });
 
@@ -271,44 +375,7 @@ router.post("/player/marketplace/:id/sold", authMiddleware, requirePlayerProfile
   }
 });
 
-// Get my listings
-router.get("/player/marketplace/my/listings", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
-  try {
-    const playerId = req.user!.playerId!;
-
-    const listings = await db.select().from(marketplaceListings)
-      .where(eq(marketplaceListings.sellerId, playerId))
-      .orderBy(desc(marketplaceListings.createdAt));
-
-    res.json(listings);
-  } catch (error) {
-    console.error("[Marketplace] Error fetching my listings:", error);
-    res.status(500).json({ error: "Failed to load my listings" });
-  }
-});
-
 // ==================== FAVORITES ====================
-
-// Get favorites
-router.get("/player/marketplace/favorites", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
-  try {
-    const playerId = req.user!.playerId!;
-
-    const favorites = await db.select({
-      favorite: marketplaceFavorites,
-      listing: marketplaceListings,
-    })
-      .from(marketplaceFavorites)
-      .leftJoin(marketplaceListings, eq(marketplaceFavorites.listingId, marketplaceListings.id))
-      .where(eq(marketplaceFavorites.playerId, playerId))
-      .orderBy(desc(marketplaceFavorites.createdAt));
-
-    res.json(favorites.map(f => ({ ...f.favorite, listing: f.listing })));
-  } catch (error) {
-    console.error("[Marketplace] Error fetching favorites:", error);
-    res.status(500).json({ error: "Failed to load favorites" });
-  }
-});
 
 // Add to favorites
 router.post("/player/marketplace/:id/favorite", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {

@@ -51,6 +51,8 @@ import ServiceDetailScreen from "@/player/screens/ServiceDetailScreen";
 import CartScreen from "@/player/screens/CartScreen";
 import ShopCategoryScreen from "@/player/screens/ShopCategoryScreen";
 import MarketplaceScreen from "@/player/screens/MarketplaceScreen";
+import MarketplaceListingDetailScreen from "@/player/screens/MarketplaceListingDetailScreen";
+import MyListingsScreen from "@/player/screens/MyListingsScreen";
 import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
 import { CartProvider } from "@/player/contexts/CartContext";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
@@ -525,6 +527,22 @@ function PlayerStackNavigator() {
       <Stack.Screen 
         name="Marketplace" 
         component={MarketplaceScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="MarketplaceListing" 
+        component={MarketplaceListingDetailScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="MyListings" 
+        component={MyListingsScreen}
         options={{
           presentation: "card",
           headerShown: false,

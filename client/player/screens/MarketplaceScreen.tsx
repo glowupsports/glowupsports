@@ -11,6 +11,7 @@ import {
   Dimensions,
   Modal,
   Alert,
+  Platform,
 } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -18,9 +19,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
 import { useNavigation } from "@react-navigation/native";
 import { Colors, Spacing } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = (SCREEN_WIDTH - Spacing.lg * 3) / 2;
@@ -310,7 +312,81 @@ function CreateListingModal({ visible, onClose, onSuccess }: {
   const [category, setCategory] = useState("rackets");
   const [condition, setCondition] = useState("good");
   const [brand, setBrand] = useState("");
+  const [images, setImages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const pickImages = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission Required", "Please allow access to your photos to add images.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
+        selectionLimit: 5 - images.length,
+        quality: 0.8,
+        aspect: [4, 3],
+      });
+
+      if (!result.canceled && result.assets.length > 0) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        
+        setIsUploading(true);
+        try {
+          const formData = new FormData();
+          
+          for (const asset of result.assets) {
+            const uri = asset.uri;
+            const filename = uri.split("/").pop() || `image-${Date.now()}.jpg`;
+            const match = /\.(\w+)$/.exec(filename);
+            const mimeType = match ? `image/${match[1].toLowerCase()}` : "image/jpeg";
+            
+            if (Platform.OS === "web") {
+              const response = await fetch(uri);
+              const blob = await response.blob();
+              formData.append("images", blob, filename);
+            } else {
+              formData.append("images", {
+                uri,
+                name: filename,
+                type: mimeType,
+              } as unknown as Blob);
+            }
+          }
+
+          const response = await fetch(`${getApiUrl()}/api/player/marketplace/upload-images`, {
+            method: "POST",
+            body: formData,
+            credentials: "include",
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            setImages(prev => [...prev, ...data.images].slice(0, 5));
+          } else {
+            const error = await response.json();
+            Alert.alert("Upload Failed", error.error || "Failed to upload images");
+          }
+        } catch (uploadError) {
+          console.error("Image upload error:", uploadError);
+          Alert.alert("Upload Failed", "Failed to upload images. Please try again.");
+        } finally {
+          setIsUploading(false);
+        }
+      }
+    } catch (error) {
+      console.error("Image picker error:", error);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setImages(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = async () => {
     if (!title.trim() || !price.trim()) {
@@ -327,6 +403,7 @@ function CreateListingModal({ visible, onClose, onSuccess }: {
         category,
         condition,
         brand: brand.trim() || undefined,
+        images: images.length > 0 ? images : undefined,
       });
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -334,6 +411,7 @@ function CreateListingModal({ visible, onClose, onSuccess }: {
       setDescription("");
       setPrice("");
       setBrand("");
+      setImages([]);
       onSuccess();
     } catch (error: any) {
       Alert.alert("Error", error.message || "Failed to create listing");
@@ -354,6 +432,34 @@ function CreateListingModal({ visible, onClose, onSuccess }: {
         </View>
 
         <ScrollView style={modalStyles.content} showsVerticalScrollIndicator={false}>
+          <View style={modalStyles.field}>
+            <Text style={modalStyles.label}>Photos (up to 5)</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={modalStyles.imageRow}>
+                {images.map((uri, index) => (
+                  <View key={index} style={modalStyles.imageWrapper}>
+                    <Image source={{ uri: `${getApiUrl()}${uri}` }} style={modalStyles.imagePreview} />
+                    <Pressable onPress={() => removeImage(index)} style={modalStyles.removeImageButton}>
+                      <Ionicons name="close-circle" size={22} color={Colors.dark.error} />
+                    </Pressable>
+                  </View>
+                ))}
+                {images.length < 5 && (
+                  <Pressable onPress={pickImages} style={modalStyles.addImageButton} disabled={isUploading}>
+                    {isUploading ? (
+                      <Text style={modalStyles.uploadingText}>...</Text>
+                    ) : (
+                      <>
+                        <Ionicons name="camera" size={28} color={Colors.dark.primary} />
+                        <Text style={modalStyles.addImageText}>Add</Text>
+                      </>
+                    )}
+                  </Pressable>
+                )}
+              </View>
+            </ScrollView>
+          </View>
+
           <View style={modalStyles.field}>
             <Text style={modalStyles.label}>Title *</Text>
             <TextInput
@@ -453,8 +559,8 @@ function CreateListingModal({ visible, onClose, onSuccess }: {
 
           <Pressable
             onPress={handleSubmit}
-            disabled={isSubmitting}
-            style={[modalStyles.submitButton, isSubmitting && { opacity: 0.5 }]}
+            disabled={isSubmitting || isUploading}
+            style={[modalStyles.submitButton, (isSubmitting || isUploading) && { opacity: 0.5 }]}
           >
             <Text style={modalStyles.submitButtonText}>
               {isSubmitting ? "Creating..." : "Create Listing"}
@@ -771,6 +877,48 @@ const modalStyles = StyleSheet.create({
     fontWeight: "500",
   },
   optionChipTextActive: {
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  imageRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  imageWrapper: {
+    position: "relative",
+  },
+  imagePreview: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  removeImageButton: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: 11,
+  },
+  addImageButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 2,
+    borderColor: Colors.dark.primary + "40",
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+  },
+  addImageText: {
+    fontSize: 11,
+    color: Colors.dark.primary,
+    fontWeight: "500",
+  },
+  uploadingText: {
+    fontSize: 16,
     color: Colors.dark.primary,
     fontWeight: "600",
   },
