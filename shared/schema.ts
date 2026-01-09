@@ -3313,3 +3313,263 @@ export const dailyQuestSlots = pgTable("daily_quest_slots", {
 export const insertDailyQuestSlotSchema = createInsertSchema(dailyQuestSlots).omit({ id: true, createdAt: true });
 export type InsertDailyQuestSlot = z.infer<typeof insertDailyQuestSlotSchema>;
 export type DailyQuestSlot = typeof dailyQuestSlots.$inferSelect;
+
+// ==================== GLOW MARKET / SHOP ====================
+
+// Shop Categories (e.g., Rackets, Apparel, Accessories, Services)
+export const shopCategories = pgTable("shop_categories", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id), // null = platform-wide
+  
+  name: text("name").notNull(),
+  slug: text("slug").notNull(), // e.g., "rackets", "stringing", "apparel"
+  description: text("description"),
+  iconName: text("icon_name").default("pricetag"), // Ionicons name
+  iconColor: text("icon_color").default("#00D9FF"),
+  
+  // Display
+  order: integer("order").default(0),
+  isActive: boolean("is_active").default(true),
+  isFeatured: boolean("is_featured").default(false),
+  
+  // Type distinction
+  type: text("type").default("product"), // product | service
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("shop_categories_academy_idx").on(table.academyId),
+  unique("shop_categories_slug_unique").on(table.academyId, table.slug),
+]);
+
+export const insertShopCategorySchema = createInsertSchema(shopCategories).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertShopCategory = z.infer<typeof insertShopCategorySchema>;
+export type ShopCategory = typeof shopCategories.$inferSelect;
+
+// Shop Products (physical items: rackets, gear, apparel)
+export const shopProducts = pgTable("shop_products", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  categoryId: varchar("category_id").references(() => shopCategories.id),
+  
+  // Product details
+  name: text("name").notNull(),
+  slug: text("slug").notNull(),
+  description: text("description"),
+  shortDescription: text("short_description"), // For cards
+  
+  // Pricing
+  price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+  compareAtPrice: numeric("compare_at_price", { precision: 10, scale: 2 }), // Original price for sale display
+  currency: text("currency").default("AED"),
+  
+  // Inventory
+  sku: text("sku"),
+  stockQuantity: integer("stock_quantity").default(0),
+  trackInventory: boolean("track_inventory").default(true),
+  allowBackorder: boolean("allow_backorder").default(false),
+  
+  // Media
+  imageUrl: text("image_url"),
+  images: jsonb("images").$type<string[]>().default([]),
+  
+  // Variants (e.g., sizes, colors)
+  hasVariants: boolean("has_variants").default(false),
+  variants: jsonb("variants").$type<{
+    id: string;
+    name: string;
+    options: { value: string; price?: number; sku?: string; stock?: number }[];
+  }[]>(),
+  
+  // Display
+  isFeatured: boolean("is_featured").default(false),
+  isActive: boolean("is_active").default(true),
+  order: integer("order").default(0),
+  
+  // Metadata
+  tags: jsonb("tags").$type<string[]>().default([]),
+  metadata: jsonb("metadata"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("shop_products_academy_idx").on(table.academyId),
+  index("shop_products_category_idx").on(table.categoryId),
+  index("shop_products_featured_idx").on(table.isFeatured, table.isActive),
+  unique("shop_products_slug_unique").on(table.academyId, table.slug),
+]);
+
+export const insertShopProductSchema = createInsertSchema(shopProducts).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertShopProduct = z.infer<typeof insertShopProductSchema>;
+export type ShopProduct = typeof shopProducts.$inferSelect;
+
+// Shop Services (stringing, coaching packages, massage, etc.)
+export const shopServices = pgTable("shop_services", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  categoryId: varchar("category_id").references(() => shopCategories.id),
+  
+  // Service details
+  name: text("name").notNull(),
+  slug: text("slug").notNull(),
+  description: text("description"),
+  shortDescription: text("short_description"),
+  
+  // Pricing
+  price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+  currency: text("currency").default("AED"),
+  
+  // Service specifics
+  durationMinutes: integer("duration_minutes"), // e.g., 60 for 1-hour massage
+  requiresBooking: boolean("requires_booking").default(true),
+  
+  // Stringing-specific fields
+  isStringingService: boolean("is_stringing_service").default(false),
+  stringingOptions: jsonb("stringing_options").$type<{
+    strings: { name: string; brand: string; price: number }[];
+    tensionRange: { min: number; max: number };
+  }>(),
+  
+  // Media
+  imageUrl: text("image_url"),
+  iconName: text("icon_name").default("build"),
+  
+  // Display
+  isFeatured: boolean("is_featured").default(false),
+  isActive: boolean("is_active").default(true),
+  order: integer("order").default(0),
+  
+  // Metadata
+  tags: jsonb("tags").$type<string[]>().default([]),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("shop_services_academy_idx").on(table.academyId),
+  index("shop_services_category_idx").on(table.categoryId),
+  unique("shop_services_slug_unique").on(table.academyId, table.slug),
+]);
+
+export const insertShopServiceSchema = createInsertSchema(shopServices).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertShopService = z.infer<typeof insertShopServiceSchema>;
+export type ShopService = typeof shopServices.$inferSelect;
+
+// Shop Orders
+export const shopOrders = pgTable("shop_orders", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  
+  // Customer
+  playerId: varchar("player_id").references(() => players.id),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Order details
+  orderNumber: text("order_number").notNull().unique(), // e.g., "GUS-2024-0001"
+  
+  // Totals
+  subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull(),
+  tax: numeric("tax", { precision: 10, scale: 2 }).default("0"),
+  discount: numeric("discount", { precision: 10, scale: 2 }).default("0"),
+  total: numeric("total", { precision: 10, scale: 2 }).notNull(),
+  currency: text("currency").default("AED"),
+  
+  // Status
+  status: text("status").default("pending"), // pending | confirmed | processing | ready | completed | cancelled
+  paymentStatus: text("payment_status").default("pending"), // pending | paid | failed | refunded
+  
+  // Payment
+  paymentMethod: text("payment_method"), // stripe | cash | bank_transfer
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  
+  // Contact/Delivery info
+  contactName: text("contact_name"),
+  contactPhone: text("contact_phone"),
+  contactEmail: text("contact_email"),
+  notes: text("notes"),
+  
+  // For services: booking info
+  scheduledAt: timestamp("scheduled_at"),
+  
+  // Audit
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  index("shop_orders_academy_idx").on(table.academyId),
+  index("shop_orders_player_idx").on(table.playerId),
+  index("shop_orders_status_idx").on(table.status),
+]);
+
+export const insertShopOrderSchema = createInsertSchema(shopOrders).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertShopOrder = z.infer<typeof insertShopOrderSchema>;
+export type ShopOrder = typeof shopOrders.$inferSelect;
+
+// Shop Order Items (line items in an order)
+export const shopOrderItems = pgTable("shop_order_items", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").references(() => shopOrders.id).notNull(),
+  
+  // Item reference (one of these will be set)
+  productId: varchar("product_id").references(() => shopProducts.id),
+  serviceId: varchar("service_id").references(() => shopServices.id),
+  
+  // Item details (snapshot at time of order)
+  itemType: text("item_type").notNull(), // product | service
+  name: text("name").notNull(),
+  description: text("description"),
+  
+  // Pricing
+  quantity: integer("quantity").default(1),
+  unitPrice: numeric("unit_price", { precision: 10, scale: 2 }).notNull(),
+  totalPrice: numeric("total_price", { precision: 10, scale: 2 }).notNull(),
+  
+  // Variant info (if applicable)
+  variantId: text("variant_id"),
+  variantName: text("variant_name"),
+  
+  // Service-specific
+  serviceDetails: jsonb("service_details").$type<{
+    stringingTension?: number;
+    stringChoice?: string;
+    racketModel?: string;
+    appointmentTime?: string;
+  }>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("shop_order_items_order_idx").on(table.orderId),
+]);
+
+export const insertShopOrderItemSchema = createInsertSchema(shopOrderItems).omit({ id: true, createdAt: true });
+export type InsertShopOrderItem = z.infer<typeof insertShopOrderItemSchema>;
+export type ShopOrderItem = typeof shopOrderItems.$inferSelect;
+
+// Player Wishlist
+export const shopWishlist = pgTable("shop_wishlist", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  productId: varchar("product_id").references(() => shopProducts.id),
+  serviceId: varchar("service_id").references(() => shopServices.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("shop_wishlist_player_idx").on(table.playerId),
+  unique("shop_wishlist_unique_product").on(table.playerId, table.productId),
+  unique("shop_wishlist_unique_service").on(table.playerId, table.serviceId),
+]);
+
+export const insertShopWishlistSchema = createInsertSchema(shopWishlist).omit({ id: true, createdAt: true });
+export type InsertShopWishlist = z.infer<typeof insertShopWishlistSchema>;
+export type ShopWishlist = typeof shopWishlist.$inferSelect;
