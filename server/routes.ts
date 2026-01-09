@@ -20123,7 +20123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           const rawFriendUsers = await db.execute(sql`
-            SELECT id FROM users WHERE player_id = ANY(${friendPlayerIds}::text[])
+            SELECT id FROM users WHERE player_id = ANY(${friendPlayerIds})
           `);
           friendUserIds = (rawFriendUsers.rows || []).map((r: any) => r.id);
           
@@ -20164,7 +20164,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                    media_urls, media_types, visibility, group_id, cheer_count, 
                    comment_count, created_at, is_hidden
             FROM posts 
-            WHERE academy_id = ${academyId} AND is_hidden = false AND author_id = ANY(${friendUserIds}::text[])
+            WHERE academy_id = ${academyId} AND is_hidden = false AND author_id = ANY(${friendUserIds})
             ORDER BY created_at DESC
             LIMIT ${limitVal}
             OFFSET ${offsetVal}
@@ -20175,7 +20175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                    media_urls, media_types, visibility, group_id, cheer_count, 
                    comment_count, created_at, is_hidden
             FROM posts 
-            WHERE academy_id = ${academyId} AND is_hidden = false AND group_id = ANY(${groupIds}::text[])
+            WHERE academy_id = ${academyId} AND is_hidden = false AND group_id = ANY(${groupIds})
             ORDER BY created_at DESC
             LIMIT ${limitVal}
             OFFSET ${offsetVal}
@@ -20244,7 +20244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (authorIds.length > 0) {
         try {
           const rawAuthors = await db.execute(sql`
-            SELECT id, username, player_id, coach_id FROM users WHERE id = ANY(${authorIds}::text[])
+            SELECT id, username, player_id, coach_id FROM users WHERE id = ANY(${authorIds})
           `);
           const authorUsers = (rawAuthors.rows || []).map((row: any) => ({
             id: row.id,
@@ -20261,14 +20261,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           if (playerIds.length > 0) {
             const rawPlayers = await db.execute(sql`
-              SELECT id, name, photo_url, ball_level FROM players WHERE id = ANY(${playerIds}::text[])
+              SELECT id, name, photo_url, ball_level FROM players WHERE id = ANY(${playerIds})
             `);
             (rawPlayers.rows || []).forEach((p: any) => playerMap.set(p.id, { name: p.name, photoUrl: p.photo_url, ballLevel: p.ball_level }));
           }
           
           if (coachIds.length > 0) {
             const rawCoaches = await db.execute(sql`
-              SELECT id, name, photo_url FROM coaches WHERE id = ANY(${coachIds}::text[])
+              SELECT id, name, photo_url FROM coaches WHERE id = ANY(${coachIds})
             `);
             (rawCoaches.rows || []).forEach((c: any) => coachMap.set(c.id, { name: c.name, photoUrl: c.photo_url }));
           }
@@ -20297,7 +20297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const rawReactions = await db.execute(sql`
             SELECT post_id, reaction_type FROM post_reactions 
-            WHERE user_id = ${userId} AND post_id = ANY(${postIds}::text[])
+            WHERE user_id = ${userId} AND post_id = ANY(${postIds})
           `);
           (rawReactions.rows || []).forEach((r: any) => reactionMap.set(r.post_id, r.reaction_type));
         } catch (reactionError) {
