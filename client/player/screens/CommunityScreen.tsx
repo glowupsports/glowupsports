@@ -451,9 +451,12 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
     }
   };
 
+  const [isUploading, setIsUploading] = useState(false);
+  
   const handleSubmit = async () => {
-    if (!selectedContext) return;
+    if (!selectedContext || isSubmitting || isUploading) return;
     
+    setIsUploading(true);
     let uploadedMediaUrls: string[] = [];
     
     if (selectedImage) {
@@ -489,11 +492,13 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
           const errorText = await uploadResponse.text();
           console.error("[Social] Upload failed:", errorText);
           Alert.alert("Error", "Failed to upload image. Please try again.");
+          setIsUploading(false);
           return;
         }
       } catch (error) {
         console.error("[Social] Upload error:", error);
         Alert.alert("Error", "Failed to upload image. Please try again.");
+        setIsUploading(false);
         return;
       }
     }
@@ -504,6 +509,7 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
       caption: caption.trim(),
       mediaUrls: uploadedMediaUrls,
     });
+    setIsUploading(false);
   };
 
   const handleClose = () => {
@@ -546,13 +552,13 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
           {step === "content" ? (
             <Pressable 
               onPress={handleSubmit}
-              disabled={isSubmitting || !caption.trim()}
+              disabled={isSubmitting || isUploading || !caption.trim()}
               style={[
                 styles.postButton,
-                (!caption.trim() || isSubmitting) && styles.postButtonDisabled
+                (!caption.trim() || isSubmitting || isUploading) && styles.postButtonDisabled
               ]}
             >
-              {isSubmitting ? (
+              {(isSubmitting || isUploading) ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <ThemedText style={styles.postButtonText}>Post</ThemedText>

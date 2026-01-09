@@ -20272,63 +20272,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         posts = [];
       }
       
-      // Get author info for all posts using Drizzle inArray
+      // Get author info using JOIN query for reliability
       const authorIds = [...new Set(posts.map(p => p.authorId).filter(Boolean))] as string[];
       let authorMap = new Map<string, { id: string; username: string; name: string; photoUrl: string | null; ballLevel: string | null; isCoach: boolean }>();
       
       if (authorIds.length > 0) {
         try {
-          // Use Drizzle's inArray for proper array handling
-          const authorUsers = await db.select({
-            id: users.id,
-            username: users.username,
-            playerId: users.playerId,
-            coachId: users.coachId,
-          }).from(users).where(inArray(users.id, authorIds));
-          
-          const playerIds = authorUsers.map(u => u.playerId).filter(Boolean) as string[];
-          const coachIds = authorUsers.map(u => u.coachId).filter(Boolean) as string[];
-          
-          let playerMap = new Map<string, { name: string; photoUrl: string | null; ballLevel: string | null }>();
-          let coachMap = new Map<string, { name: string; photoUrl: string | null }>();
-          
-          if (playerIds.length > 0) {
-            const playersList = await db.select({
-              id: players.id,
-              name: players.name,
-              photoUrl: players.photoUrl,
-              ballLevel: players.ballLevel,
-            }).from(players).where(inArray(players.id, playerIds));
+          // Use a single JOIN query for each author ID
+          for (const authorId of authorIds) {
+            const authorResult = await db.execute(sql`
+              SELECT u.id, u.username, u.player_id, u.coach_id,
+                     p.name as player_name, p.photo_url as player_photo, p.ball_level,
+                     c.name as coach_name, c.photo_url as coach_photo
+              FROM users u
+              LEFT JOIN players p ON u.player_id = p.id
+              LEFT JOIN coaches c ON u.coach_id = c.id
+              WHERE u.id = ${authorId}
+              LIMIT 1
+            `);
             
-            playersList.forEach(p => {
-              playerMap.set(p.id, { name: p.name, photoUrl: p.photoUrl, ballLevel: p.ballLevel });
-            });
+            if (authorResult.rows && authorResult.rows.length > 0) {
+              const row = authorResult.rows[0] as any;
+              authorMap.set(authorId, {
+                id: row.id,
+                username: row.username || "Unknown",
+                name: row.player_name || row.coach_name || row.username || "Unknown",
+                photoUrl: row.player_photo || row.coach_photo || null,
+                ballLevel: row.ball_level || null,
+                isCoach: !!row.coach_id,
+              });
+            }
           }
-          
-          if (coachIds.length > 0) {
-            const coachesList = await db.select({
-              id: coaches.id,
-              name: coaches.name,
-              photoUrl: coaches.photoUrl,
-            }).from(coaches).where(inArray(coaches.id, coachIds));
-            
-            coachesList.forEach(c => {
-              coachMap.set(c.id, { name: c.name, photoUrl: c.photoUrl });
-            });
-          }
-          
-          authorUsers.forEach(u => {
-            const player = u.playerId ? playerMap.get(u.playerId) : null;
-            const coach = u.coachId ? coachMap.get(u.coachId) : null;
-            authorMap.set(u.id, {
-              id: u.id,
-              username: u.username,
-              name: player?.name || coach?.name || u.username,
-              photoUrl: player?.photoUrl || coach?.photoUrl || null,
-              ballLevel: player?.ballLevel || null,
-              isCoach: !!coach,
-            });
-          });
         } catch (authorError) {
           console.error("Error fetching authors:", authorError);
         }
