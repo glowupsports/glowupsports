@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, numeric, boolean, date, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, numeric, boolean, date, jsonb, index, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -3094,6 +3094,109 @@ export const userSocialProfiles = pgTable("user_social_profiles", {
 export const insertUserSocialProfileSchema = createInsertSchema(userSocialProfiles).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertUserSocialProfile = z.infer<typeof insertUserSocialProfileSchema>;
 export type UserSocialProfile = typeof userSocialProfiles.$inferSelect;
+
+// ==================== BADGE SYSTEM ====================
+
+// Badge definitions - globally available badges
+export const badges = pgTable("badges", {
+  id: varchar("id").primaryKey(), // e.g., "rally_master", "first_session"
+  
+  // Display
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  iconName: text("icon_name").notNull(), // Ionicons name
+  iconColor: text("icon_color").default("#00D9FF"),
+  rarity: text("rarity").default("common"), // common | uncommon | rare | epic | legendary
+  
+  // Category
+  category: text("category").default("general"), // general | social | performance | consistency | milestone
+  
+  // Unlock criteria (if automatic)
+  unlockCriteria: jsonb("unlock_criteria").$type<{
+    type: string; // session_count | xp_total | streak | level | quest_complete | manual
+    threshold?: number;
+    questId?: string;
+  }>(),
+  
+  // Display order
+  order: integer("order").default(0),
+  isActive: boolean("is_active").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertBadgeSchema = createInsertSchema(badges).omit({ createdAt: true });
+export type InsertBadge = z.infer<typeof insertBadgeSchema>;
+export type Badge = typeof badges.$inferSelect;
+
+// Player earned badges
+export const playerBadges = pgTable("player_badges", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  badgeId: varchar("badge_id").references(() => badges.id).notNull(),
+  
+  earnedAt: timestamp("earned_at").defaultNow(),
+  awardedBy: varchar("awarded_by").references(() => users.id), // null if automatic
+  
+  // For special badges with context
+  context: jsonb("context"), // e.g., { questId: "...", sessionId: "..." }
+}, (table) => [
+  index("player_badges_player_idx").on(table.playerId),
+  index("player_badges_badge_idx").on(table.badgeId),
+  unique("player_badges_unique").on(table.playerId, table.badgeId),
+]);
+
+export const insertPlayerBadgeSchema = createInsertSchema(playerBadges).omit({ id: true, earnedAt: true });
+export type InsertPlayerBadge = z.infer<typeof insertPlayerBadgeSchema>;
+export type PlayerBadge = typeof playerBadges.$inferSelect;
+
+// Available titles (unlockable by players)
+export const titles = pgTable("titles", {
+  id: varchar("id").primaryKey(), // e.g., "rising_star", "club_icon"
+  
+  name: text("name").notNull(), // Display name like "Rising Star"
+  description: text("description").notNull(),
+  
+  // Rarity affects color/glow
+  rarity: text("rarity").default("common"), // common | uncommon | rare | epic | legendary
+  
+  // Unlock criteria
+  unlockCriteria: jsonb("unlock_criteria").$type<{
+    type: string; // level | badge_count | xp_total | manual
+    threshold?: number;
+    badgeId?: string;
+  }>(),
+  
+  order: integer("order").default(0),
+  isActive: boolean("is_active").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTitleSchema = createInsertSchema(titles).omit({ createdAt: true });
+export type InsertTitle = z.infer<typeof insertTitleSchema>;
+export type Title = typeof titles.$inferSelect;
+
+// Player unlocked titles
+export const playerTitles = pgTable("player_titles", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  titleId: varchar("title_id").references(() => titles.id).notNull(),
+  
+  unlockedAt: timestamp("unlocked_at").defaultNow(),
+  isEquipped: boolean("is_equipped").default(false), // Only one title can be equipped (enforced in app logic)
+}, (table) => [
+  index("player_titles_player_idx").on(table.playerId),
+  unique("player_titles_unique").on(table.playerId, table.titleId),
+]);
+
+export const insertPlayerTitleSchema = createInsertSchema(playerTitles).omit({ id: true, unlockedAt: true });
+export type InsertPlayerTitle = z.infer<typeof insertPlayerTitleSchema>;
+export type PlayerTitle = typeof playerTitles.$inferSelect;
 
 // ==================== QUEST SYSTEM ====================
 

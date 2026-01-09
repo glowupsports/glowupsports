@@ -26,6 +26,11 @@ import {
   dailyQuestSlots as dailyQuestSlotsTable,
   // Connections
   playerConnections,
+  // Badge & Title system
+  badges as badgesTable,
+  playerBadges as playerBadgesTable,
+  titles as titlesTable,
+  playerTitles as playerTitlesTable,
 } from "@shared/schema";
 import { setupWebSocket, broadcastNewMessage } from "./websocket";
 import { 
@@ -21017,6 +21022,310 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error claiming quest reward:", error);
       res.status(500).json({ error: "Failed to claim quest reward" });
+    }
+  });
+
+  // ==================== BADGES & TITLES ENDPOINTS ====================
+
+  // Get all available badges
+  app.get("/api/badges", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const allBadges = await db.select()
+        .from(badgesTable)
+        .where(eq(badgesTable.isActive, true))
+        .orderBy(asc(badgesTable.order));
+      
+      res.json(allBadges);
+    } catch (error) {
+      console.error("Error fetching badges:", error);
+      res.status(500).json({ error: "Failed to fetch badges" });
+    }
+  });
+
+  // Get player's earned badges
+  app.get("/api/player/badges", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      
+      if (!playerId) {
+        return res.status(400).json({ error: "Player context required" });
+      }
+      
+      const earnedBadges = await db.select({
+        playerBadge: playerBadgesTable,
+        badge: badgesTable,
+      })
+        .from(playerBadgesTable)
+        .innerJoin(badgesTable, eq(playerBadgesTable.badgeId, badgesTable.id))
+        .where(eq(playerBadgesTable.playerId, playerId))
+        .orderBy(desc(playerBadgesTable.earnedAt));
+      
+      res.json(earnedBadges.map(eb => ({
+        ...eb.badge,
+        earnedAt: eb.playerBadge.earnedAt,
+      })));
+    } catch (error) {
+      console.error("Error fetching player badges:", error);
+      res.status(500).json({ error: "Failed to fetch player badges" });
+    }
+  });
+
+  // Get all available titles
+  app.get("/api/titles", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const allTitles = await db.select()
+        .from(titlesTable)
+        .where(eq(titlesTable.isActive, true))
+        .orderBy(asc(titlesTable.order));
+      
+      res.json(allTitles);
+    } catch (error) {
+      console.error("Error fetching titles:", error);
+      res.status(500).json({ error: "Failed to fetch titles" });
+    }
+  });
+
+  // Get player's unlocked titles
+  app.get("/api/player/titles", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      
+      if (!playerId) {
+        return res.status(400).json({ error: "Player context required" });
+      }
+      
+      const unlockedTitles = await db.select({
+        playerTitle: playerTitlesTable,
+        title: titlesTable,
+      })
+        .from(playerTitlesTable)
+        .innerJoin(titlesTable, eq(playerTitlesTable.titleId, titlesTable.id))
+        .where(eq(playerTitlesTable.playerId, playerId))
+        .orderBy(desc(playerTitlesTable.unlockedAt));
+      
+      res.json(unlockedTitles.map(ut => ({
+        ...ut.title,
+        unlockedAt: ut.playerTitle.unlockedAt,
+        isEquipped: ut.playerTitle.isEquipped,
+      })));
+    } catch (error) {
+      console.error("Error fetching player titles:", error);
+      res.status(500).json({ error: "Failed to fetch player titles" });
+    }
+  });
+
+  // Equip a title (only one can be active)
+  app.post("/api/player/titles/:titleId/equip", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      const { titleId } = req.params;
+      
+      if (!playerId) {
+        return res.status(400).json({ error: "Player context required" });
+      }
+      
+      // Check if player has unlocked this title
+      const [playerTitle] = await db.select()
+        .from(playerTitlesTable)
+        .where(and(
+          eq(playerTitlesTable.playerId, playerId),
+          eq(playerTitlesTable.titleId, titleId)
+        ));
+      
+      if (!playerTitle) {
+        return res.status(404).json({ error: "Title not unlocked" });
+      }
+      
+      // Unequip all other titles first
+      await db.update(playerTitlesTable)
+        .set({ isEquipped: false })
+        .where(eq(playerTitlesTable.playerId, playerId));
+      
+      // Equip the selected title
+      await db.update(playerTitlesTable)
+        .set({ isEquipped: true })
+        .where(eq(playerTitlesTable.id, playerTitle.id));
+      
+      res.json({ success: true, message: "Title equipped" });
+    } catch (error) {
+      console.error("Error equipping title:", error);
+      res.status(500).json({ error: "Failed to equip title" });
+    }
+  });
+
+  // Get player's badges and titles for profile display
+  app.get("/api/player/:playerId/achievements", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { playerId } = req.params;
+      
+      // Verify the target player exists (allow cross-academy for social features)
+      const [targetPlayer] = await db.select().from(players).where(eq(players.id, playerId));
+      if (!targetPlayer) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Get earned badges
+      const earnedBadges = await db.select({
+        playerBadge: playerBadgesTable,
+        badge: badgesTable,
+      })
+        .from(playerBadgesTable)
+        .innerJoin(badgesTable, eq(playerBadgesTable.badgeId, badgesTable.id))
+        .where(eq(playerBadgesTable.playerId, playerId))
+        .orderBy(desc(playerBadgesTable.earnedAt));
+      
+      // Get equipped title
+      const [equippedTitle] = await db.select({
+        playerTitle: playerTitlesTable,
+        title: titlesTable,
+      })
+        .from(playerTitlesTable)
+        .innerJoin(titlesTable, eq(playerTitlesTable.titleId, titlesTable.id))
+        .where(and(
+          eq(playerTitlesTable.playerId, playerId),
+          eq(playerTitlesTable.isEquipped, true)
+        ));
+      
+      res.json({
+        badges: earnedBadges.map(eb => ({
+          ...eb.badge,
+          earnedAt: eb.playerBadge.earnedAt,
+        })),
+        equippedTitle: equippedTitle ? {
+          ...equippedTitle.title,
+          unlockedAt: equippedTitle.playerTitle.unlockedAt,
+        } : null,
+      });
+    } catch (error) {
+      console.error("Error fetching player achievements:", error);
+      res.status(500).json({ error: "Failed to fetch player achievements" });
+    }
+  });
+
+  // Check and award badges based on player progress (called after XP/level changes)
+  app.post("/api/player/check-badges", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      
+      if (!playerId) {
+        return res.status(400).json({ error: "Player context required" });
+      }
+      
+      // Get player stats
+      const [player] = await db.select().from(players).where(eq(players.id, playerId));
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Get player's session count
+      const [sessionCount] = await db.select({ count: count() })
+        .from(sessionPlayers)
+        .where(eq(sessionPlayers.playerId, playerId));
+      
+      // Get all available badges
+      const allBadges = await db.select()
+        .from(badgesTable)
+        .where(eq(badgesTable.isActive, true));
+      
+      // Get player's already earned badges
+      const earnedBadgeIds = (await db.select({ badgeId: playerBadgesTable.badgeId })
+        .from(playerBadgesTable)
+        .where(eq(playerBadgesTable.playerId, playerId)))
+        .map(eb => eb.badgeId);
+      
+      const newlyEarnedBadges: string[] = [];
+      
+      for (const badge of allBadges) {
+        if (earnedBadgeIds.includes(badge.id)) continue;
+        
+        const criteria = badge.unlockCriteria as { type: string; threshold?: number } | null;
+        if (!criteria) continue;
+        
+        let shouldAward = false;
+        
+        switch (criteria.type) {
+          case "session_count":
+            shouldAward = sessionCount.count >= (criteria.threshold || 0);
+            break;
+          case "level":
+            shouldAward = (player.level || 1) >= (criteria.threshold || 0);
+            break;
+          case "streak":
+            shouldAward = (player.streak || 0) >= (criteria.threshold || 0);
+            break;
+          case "xp_total":
+            shouldAward = (player.totalXp || 0) >= (criteria.threshold || 0);
+            break;
+        }
+        
+        if (shouldAward) {
+          try {
+            await db.insert(playerBadgesTable).values({
+              playerId,
+              badgeId: badge.id,
+            });
+            newlyEarnedBadges.push(badge.id);
+          } catch (e) {
+            // Ignore duplicate key errors
+          }
+        }
+      }
+      
+      // Check and award titles similarly
+      const allTitles = await db.select()
+        .from(titlesTable)
+        .where(eq(titlesTable.isActive, true));
+      
+      const earnedTitleIds = (await db.select({ titleId: playerTitlesTable.titleId })
+        .from(playerTitlesTable)
+        .where(eq(playerTitlesTable.playerId, playerId)))
+        .map(et => et.titleId);
+      
+      const newlyUnlockedTitles: string[] = [];
+      
+      for (const title of allTitles) {
+        if (earnedTitleIds.includes(title.id)) continue;
+        
+        const criteria = title.unlockCriteria as { type: string; threshold?: number } | null;
+        if (!criteria) continue;
+        
+        let shouldUnlock = false;
+        
+        switch (criteria.type) {
+          case "level":
+            shouldUnlock = (player.level || 1) >= (criteria.threshold || 0);
+            break;
+          case "xp_total":
+            shouldUnlock = (player.totalXp || 0) >= (criteria.threshold || 0);
+            break;
+          case "streak":
+            shouldUnlock = (player.streak || 0) >= (criteria.threshold || 0);
+            break;
+          case "session_count":
+            shouldUnlock = sessionCount.count >= (criteria.threshold || 0);
+            break;
+        }
+        
+        if (shouldUnlock) {
+          try {
+            await db.insert(playerTitlesTable).values({
+              playerId,
+              titleId: title.id,
+            });
+            newlyUnlockedTitles.push(title.id);
+          } catch (e) {
+            // Ignore duplicate key errors
+          }
+        }
+      }
+      
+      res.json({
+        newBadges: newlyEarnedBadges,
+        newTitles: newlyUnlockedTitles,
+      });
+    } catch (error) {
+      console.error("Error checking badges:", error);
+      res.status(500).json({ error: "Failed to check badges" });
     }
   });
 

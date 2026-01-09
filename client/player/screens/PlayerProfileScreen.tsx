@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform, Linking, Switch, Image as RNImage } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform, Linking, Switch, Image as RNImage, Modal, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -123,6 +123,34 @@ interface CreditsData {
   }>;
 }
 
+interface BadgeData {
+  id: string;
+  name: string;
+  description: string;
+  iconName: string;
+  iconColor: string;
+  rarity: string;
+  category: string;
+  earnedAt?: string;
+}
+
+interface TitleData {
+  id: string;
+  name: string;
+  description: string;
+  rarity: string;
+  unlockedAt?: string;
+  isEquipped?: boolean;
+}
+
+const RARITY_COLORS: Record<string, string> = {
+  common: Colors.dark.textMuted,
+  uncommon: Colors.dark.primary,
+  rare: Colors.dark.xpCyan,
+  epic: Colors.dark.purple,
+  legendary: Colors.dark.orange,
+};
+
 type ProfileTab = "moments" | "friends" | "groups";
 
 export default function PlayerProfileScreen() {
@@ -133,6 +161,7 @@ export default function PlayerProfileScreen() {
   const [showPinModal, setShowPinModal] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>("moments");
+  const [showTitlesModal, setShowTitlesModal] = useState(false);
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery<ProfileData>({
@@ -152,6 +181,31 @@ export default function PlayerProfileScreen() {
   const { data: creditsData } = useQuery<CreditsData>({
     queryKey: data?.player ? [`/api/players/${data.player.id}/credits-summary`] : [],
     enabled: !!data?.player?.id,
+  });
+
+  const { data: badgesData } = useQuery<BadgeData[]>({
+    queryKey: ["/api/player/badges"],
+    enabled: !!data?.player,
+  });
+
+  const { data: titlesData } = useQuery<TitleData[]>({
+    queryKey: ["/api/player/titles"],
+    enabled: !!data?.player,
+  });
+
+  const equippedTitle = titlesData?.find(t => t.isEquipped);
+  const earnedBadges = badgesData || [];
+  const unlockedTitles = titlesData || [];
+
+  const equipTitle = useMutation({
+    mutationFn: async (titleId: string) => {
+      return apiRequest("POST", `/api/player/titles/${titleId}/equip`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/titles"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowTitlesModal(false);
+    },
   });
 
   const toggleOpenToPlay = useMutation({
@@ -345,8 +399,61 @@ export default function PlayerProfileScreen() {
               </View>
             </Pressable>
             <Text style={styles.playerName}>{player.name}</Text>
-            <Text style={styles.levelTitle}>{getLevelTitle(player.level)}</Text>
+            <Pressable 
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowTitlesModal(true);
+              }}
+            >
+              <Text style={styles.levelTitle}>
+                {equippedTitle ? equippedTitle.name : getLevelTitle(player.level)}
+              </Text>
+            </Pressable>
+            {equippedTitle && (
+              <View style={[styles.titleBadge, { borderColor: RARITY_COLORS[equippedTitle.rarity] || RARITY_COLORS.common }]}>
+                <Ionicons name="ribbon" size={12} color={RARITY_COLORS[equippedTitle.rarity] || RARITY_COLORS.common} />
+                <Text style={[styles.titleBadgeText, { color: RARITY_COLORS[equippedTitle.rarity] || RARITY_COLORS.common }]}>
+                  {equippedTitle.rarity.charAt(0).toUpperCase() + equippedTitle.rarity.slice(1)}
+                </Text>
+              </View>
+            )}
           </View>
+
+          {earnedBadges.length > 0 && (
+            <View style={styles.badgeShowcase}>
+              <Text style={styles.badgeShowcaseTitle}>Badges</Text>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.badgeScrollContent}
+              >
+                {earnedBadges.slice(0, 8).map((badge) => (
+                  <Pressable 
+                    key={badge.id} 
+                    style={[styles.badgeItem, { borderColor: RARITY_COLORS[badge.rarity] || RARITY_COLORS.common }]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      Alert.alert(badge.name, badge.description);
+                    }}
+                  >
+                    <View style={[styles.badgeIconCircle, { backgroundColor: (badge.iconColor || RARITY_COLORS[badge.rarity]) + "20" }]}>
+                      <Ionicons 
+                        name={badge.iconName as any || "star"} 
+                        size={20} 
+                        color={badge.iconColor || RARITY_COLORS[badge.rarity]} 
+                      />
+                    </View>
+                    <Text style={styles.badgeItemName} numberOfLines={1}>{badge.name}</Text>
+                  </Pressable>
+                ))}
+                {earnedBadges.length > 8 && (
+                  <View style={styles.moreBadges}>
+                    <Text style={styles.moreBadgesText}>+{earnedBadges.length - 8}</Text>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+          )}
 
           <View style={styles.badges}>
             <View style={[styles.ballBadge, { borderColor: ballColor }]}>
@@ -839,6 +946,89 @@ export default function PlayerProfileScreen() {
         </Pressable>
       </ScrollView>
 
+      <Modal
+        visible={showTitlesModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowTitlesModal(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay} 
+          onPress={() => setShowTitlesModal(false)}
+        >
+          <Pressable style={styles.titlesModalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.titlesModalHeader}>
+              <Text style={styles.titlesModalTitle}>Your Titles</Text>
+              <Pressable onPress={() => setShowTitlesModal(false)}>
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+            
+            {unlockedTitles.length === 0 ? (
+              <View style={styles.emptyTitles}>
+                <Ionicons name="ribbon-outline" size={48} color={Colors.dark.textMuted} />
+                <Text style={styles.emptyTitlesText}>No titles unlocked yet</Text>
+                <Text style={styles.emptyTitlesSubtext}>Keep playing to unlock titles!</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={unlockedTitles}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.titlesList}
+                renderItem={({ item: title }) => (
+                  <Pressable
+                    style={[
+                      styles.titleItem,
+                      title.isEquipped && styles.titleItemEquipped,
+                      { borderColor: RARITY_COLORS[title.rarity] || RARITY_COLORS.common }
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      equipTitle.mutate(title.id);
+                    }}
+                    disabled={title.isEquipped || equipTitle.isPending}
+                  >
+                    <View style={styles.titleItemLeft}>
+                      <View style={[styles.titleRibbonIcon, { backgroundColor: (RARITY_COLORS[title.rarity] || RARITY_COLORS.common) + "20" }]}>
+                        <Ionicons 
+                          name="ribbon" 
+                          size={24} 
+                          color={RARITY_COLORS[title.rarity] || RARITY_COLORS.common} 
+                        />
+                      </View>
+                      <View>
+                        <Text style={styles.titleItemName}>{title.name}</Text>
+                        <Text style={styles.titleItemDesc}>{title.description}</Text>
+                        <Text style={[styles.titleItemRarity, { color: RARITY_COLORS[title.rarity] || RARITY_COLORS.common }]}>
+                          {title.rarity.charAt(0).toUpperCase() + title.rarity.slice(1)}
+                        </Text>
+                      </View>
+                    </View>
+                    {title.isEquipped ? (
+                      <View style={styles.equippedBadge}>
+                        <Ionicons name="checkmark-circle" size={20} color={Colors.dark.primary} />
+                        <Text style={styles.equippedText}>Equipped</Text>
+                      </View>
+                    ) : (
+                      <Pressable 
+                        style={styles.equipButton}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          equipTitle.mutate(title.id);
+                        }}
+                        disabled={equipTitle.isPending}
+                      >
+                        <Text style={styles.equipButtonText}>Equip</Text>
+                      </Pressable>
+                    )}
+                  </Pressable>
+                )}
+              />
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <PinEntryModal
         visible={showPinModal}
         onClose={() => setShowPinModal(false)}
@@ -973,6 +1163,72 @@ const styles = StyleSheet.create({
   levelTitle: {
     ...Typography.small,
     color: Colors.dark.textMuted,
+  },
+  titleBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+  },
+  titleBadgeText: {
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  badgeShowcase: {
+    width: "100%",
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  badgeShowcaseTitle: {
+    ...Typography.sectionTitle,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+  },
+  badgeScrollContent: {
+    paddingHorizontal: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  badgeItem: {
+    alignItems: "center",
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    backgroundColor: "rgba(30, 30, 30, 0.8)",
+    width: 72,
+  },
+  badgeIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  badgeItemName: {
+    ...Typography.small,
+    color: Colors.dark.text,
+    textAlign: "center",
+    fontSize: 10,
+  },
+  moreBadges: {
+    width: 72,
+    height: 72,
+    borderRadius: BorderRadius.md,
+    backgroundColor: "rgba(50, 50, 50, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  moreBadgesText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
   },
   badges: {
     flexDirection: "row",
@@ -1541,6 +1797,110 @@ const styles = StyleSheet.create({
   },
   groupMemberCount: {
     ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "flex-end",
+  },
+  titlesModalContent: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    maxHeight: "70%",
+    paddingBottom: 40,
+  },
+  titlesModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  titlesModalTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  titlesList: {
+    padding: Spacing.lg,
+  },
+  titleItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+  },
+  titleItemEquipped: {
+    backgroundColor: "rgba(46, 204, 64, 0.1)",
+  },
+  titleItemLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  titleRibbonIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: Spacing.md,
+  },
+  titleItemName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  titleItemDesc: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  titleItemRarity: {
+    fontSize: 10,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  equippedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  equippedText: {
+    ...Typography.small,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  equipButton: {
+    backgroundColor: Colors.dark.xpCyan + "30",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  equipButtonText: {
+    ...Typography.small,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+  },
+  emptyTitles: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: Spacing["3xl"],
+    gap: Spacing.sm,
+  },
+  emptyTitlesText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  emptyTitlesSubtext: {
+    ...Typography.small,
     color: Colors.dark.textMuted,
   },
 });
