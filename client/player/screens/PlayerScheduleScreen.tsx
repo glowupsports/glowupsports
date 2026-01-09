@@ -97,10 +97,7 @@ export default function PlayerScheduleScreen() {
 
   const createVacationMutation = useMutation({
     mutationFn: async (data: { startDate: string; endDate: string }) => {
-      return apiRequest("/api/player/me/vacation", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("/api/player/me/vacation", "POST", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/vacation"] });
@@ -114,9 +111,7 @@ export default function PlayerScheduleScreen() {
 
   const cancelVacationMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest(`/api/player/me/vacation/${id}`, {
-        method: "DELETE",
-      });
+      return apiRequest(`/api/player/me/vacation/${id}`, "DELETE");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/vacation"] });
@@ -220,6 +215,61 @@ export default function PlayerScheduleScreen() {
   const nextSession = useMemo(() => {
     return sessions.find(s => s.status === "upcoming" && !s.isCourtBooking);
   }, [sessions]);
+
+  const weeklyXpStats = useMemo(() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    monday.setHours(0, 0, 0, 0);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+
+    const formatDateStr = (d: Date) => {
+      const year = d.getFullYear();
+      const month = (d.getMonth() + 1).toString().padStart(2, '0');
+      const day = d.getDate().toString().padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    const mondayStr = formatDateStr(monday);
+    const sundayStr = formatDateStr(sunday);
+
+    const weekSessions = sessions.filter(s => 
+      s.countsForProgress && 
+      s.date >= mondayStr && 
+      s.date <= sundayStr &&
+      s.status !== "cancelled"
+    );
+
+    const baseXp = weekSessions.reduce((sum, s) => sum + (s.xpPotential || 0), 0);
+    const completedXp = weekSessions
+      .filter(s => s.status === "completed")
+      .reduce((sum, s) => sum + (s.xpPotential || 0), 0);
+    const upcomingXp = weekSessions
+      .filter(s => s.status === "upcoming")
+      .reduce((sum, s) => sum + (s.xpPotential || 0), 0);
+    
+    let streakMultiplier = 0;
+    if (attendanceStreak >= 7) streakMultiplier = 0.20;
+    else if (attendanceStreak >= 5) streakMultiplier = 0.15;
+    else if (attendanceStreak >= 3) streakMultiplier = 0.10;
+    
+    const bonusXp = Math.round(baseXp * streakMultiplier);
+    const totalXp = baseXp + bonusXp;
+
+    return {
+      baseXp,
+      bonusXp,
+      totalXp,
+      completedXp,
+      upcomingXp,
+      streakMultiplier,
+      sessionCount: weekSessions.length,
+      completedCount: weekSessions.filter(s => s.status === "completed").length,
+    };
+  }, [sessions, attendanceStreak]);
 
   const formatLocalDate = (date: Date) => {
     const year = date.getFullYear();
@@ -354,11 +404,75 @@ export default function PlayerScheduleScreen() {
       contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header */}
+      {/* Quest Timeline Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Schedule</Text>
-        <Text style={styles.subtitle}>Your upcoming sessions</Text>
+        <Text style={styles.title}>Quest Timeline</Text>
+        <Text style={styles.subtitle}>Complete training for XP rewards</Text>
       </View>
+
+      {/* Weekly XP Quest Card */}
+      <LinearGradient
+        colors={["rgba(46, 204, 64, 0.15)", "rgba(46, 204, 64, 0.05)"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.weeklyQuestCard}
+      >
+        <View style={styles.weeklyQuestHeader}>
+          <View style={styles.weeklyQuestIcon}>
+            <Ionicons name="trophy" size={20} color={Colors.dark.gold} />
+          </View>
+          <Text style={styles.weeklyQuestLabel}>WEEKLY XP QUEST</Text>
+          {weeklyXpStats.streakMultiplier > 0 ? (
+            <View style={styles.streakBonusBadge}>
+              <Ionicons name="flame" size={12} color={Colors.dark.orange} />
+              <Text style={styles.streakBonusText}>+{Math.round(weeklyXpStats.streakMultiplier * 100)}%</Text>
+            </View>
+          ) : null}
+        </View>
+        
+        <View style={styles.weeklyQuestProgressSection}>
+          <View style={styles.xpProgressBar}>
+            <View 
+              style={[
+                styles.xpProgressFill, 
+                { width: weeklyXpStats.totalXp > 0 ? `${Math.min((weeklyXpStats.completedXp / weeklyXpStats.totalXp) * 100, 100)}%` : "0%" }
+              ]} 
+            />
+          </View>
+          <View style={styles.xpStats}>
+            <View style={styles.xpStatItem}>
+              <Text style={styles.xpStatValue}>{weeklyXpStats.completedXp}</Text>
+              <Text style={styles.xpStatLabel}>Earned</Text>
+            </View>
+            <View style={styles.xpStatDivider} />
+            <View style={styles.xpStatItem}>
+              <Text style={styles.xpStatValue}>{weeklyXpStats.upcomingXp}</Text>
+              <Text style={styles.xpStatLabel}>Pending</Text>
+            </View>
+            <View style={styles.xpStatDivider} />
+            <View style={styles.xpStatItem}>
+              <Text style={[styles.xpStatValue, { color: Colors.dark.gold }]}>{weeklyXpStats.totalXp}</Text>
+              <Text style={styles.xpStatLabel}>Total</Text>
+            </View>
+          </View>
+        </View>
+        
+        <View style={styles.weeklyQuestInfo}>
+          <Text style={styles.weeklyQuestProgressText}>
+            <Text style={{ color: Colors.dark.primary, fontWeight: "700" }}>{weeklyXpStats.completedCount}</Text>
+            <Text style={{ color: Colors.dark.textMuted }}> / {weeklyXpStats.sessionCount} quests completed</Text>
+          </Text>
+          {weeklyXpStats.bonusXp > 0 ? (
+            <Text style={styles.bonusXpText}>
+              <Ionicons name="flash" size={12} color={Colors.dark.gold} /> +{weeklyXpStats.bonusXp} streak bonus
+            </Text>
+          ) : attendanceStreak > 0 && attendanceStreak < 3 ? (
+            <Text style={styles.streakHintText}>
+              <Ionicons name="flame-outline" size={12} color={Colors.dark.textMuted} /> {3 - attendanceStreak} more days for streak bonus
+            </Text>
+          ) : null}
+        </View>
+      </LinearGradient>
 
       {/* NEXT TRAINING Hero Card */}
       {nextSession ? (
@@ -1506,5 +1620,107 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.text,
     fontWeight: "600",
+  },
+
+  weeklyQuestCard: {
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(46, 204, 64, 0.3)",
+  },
+  weeklyQuestHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  weeklyQuestIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  weeklyQuestLabel: {
+    ...Typography.caption,
+    color: Colors.dark.gold,
+    fontWeight: "700",
+    letterSpacing: 1,
+    flex: 1,
+  },
+  streakBonusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(255, 165, 0, 0.2)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  streakBonusText: {
+    ...Typography.small,
+    color: Colors.dark.orange,
+    fontWeight: "700",
+  },
+  xpProgressBar: {
+    height: 8,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: 4,
+    marginBottom: Spacing.md,
+    overflow: "hidden",
+  },
+  xpProgressFill: {
+    height: "100%",
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 4,
+  },
+  xpStats: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+  },
+  xpStatItem: {
+    alignItems: "center",
+  },
+  xpStatValue: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  xpStatLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  xpStatDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: Colors.dark.border,
+  },
+  weeklyQuestInfo: {
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+    gap: Spacing.xs,
+  },
+  bonusXpText: {
+    ...Typography.small,
+    color: Colors.dark.gold,
+    fontWeight: "500",
+  },
+  streakHintText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  weeklyQuestProgressSection: {
+    marginBottom: Spacing.sm,
+  },
+  weeklyQuestProgressText: {
+    ...Typography.body,
+    color: Colors.dark.text,
   },
 });
