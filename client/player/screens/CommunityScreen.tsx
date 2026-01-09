@@ -286,14 +286,7 @@ function MomentCard({
                 style={styles.deleteButton}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  Alert.alert(
-                    "Delete Post",
-                    "Are you sure you want to delete this post?",
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      { text: "Delete", style: "destructive", onPress: () => onDelete(post.id) }
-                    ]
-                  );
+                  onDelete(post.id);
                 }}
               >
                 <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
@@ -397,6 +390,126 @@ function FilterTabs({ active, onChange }: { active: FeedFilter; onChange: (f: Fe
         })}
       </ScrollView>
     </View>
+  );
+}
+
+interface CommentsModalProps {
+  visible: boolean;
+  postId: string | null;
+  onClose: () => void;
+}
+
+function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
+  const insets = useSafeAreaInsets();
+  const [commentText, setCommentText] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const queryClient = useQueryClient();
+  
+  // Fetch comments for this post
+  const { data: comments = [], refetch } = useQuery<any[]>({
+    queryKey: ["/api/social/posts", postId, "comments"],
+    queryFn: async () => {
+      if (!postId) return [];
+      const response = await apiFetch(`/api/social/posts/${postId}/comments`);
+      if (!response.ok) throw new Error("Failed to fetch comments");
+      return response.json();
+    },
+    enabled: !!postId && visible,
+  });
+  
+  const handleSubmitComment = async () => {
+    if (!commentText.trim() || !postId || isSubmitting) return;
+    
+    setIsSubmitting(true);
+    try {
+      await apiRequest("POST", `/api/social/posts/${postId}/comments`, { content: commentText.trim() });
+      setCommentText("");
+      refetch();
+      // Also invalidate the main feed to update comment counts
+      queryClient.invalidateQueries({ queryKey: ["/api/social/feed"] });
+    } catch (error) {
+      console.log("Comment error:", error);
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.alert("Failed to post comment. Please try again.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.modalContainer}
+      >
+        <LinearGradient
+          colors={[Colors.dark.backgroundRoot, "#0a1a2e", Colors.dark.backgroundRoot]}
+          style={StyleSheet.absoluteFill}
+        />
+        
+        <View style={[styles.modalHeader, { paddingTop: insets.top + Spacing.md }]}>
+          <Pressable onPress={onClose} style={{ padding: Spacing.sm }}>
+            <Ionicons name="close" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <ThemedText style={styles.modalTitle}>Comments</ThemedText>
+          <View style={{ width: 32 }} />
+        </View>
+        
+        <FlatList
+          data={comments}
+          keyExtractor={(item: any) => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.commentItem}>
+              <View style={styles.commentAvatar}>
+                <ThemedText style={styles.commentAvatarText}>
+                  {(item.author?.name || "?").charAt(0).toUpperCase()}
+                </ThemedText>
+              </View>
+              <View style={styles.commentContent}>
+                <ThemedText style={styles.commentAuthor}>{item.author?.name || "Unknown"}</ThemedText>
+                <ThemedText style={styles.commentText}>{item.content}</ThemedText>
+              </View>
+            </View>
+          )}
+          ListEmptyComponent={
+            <View style={styles.emptyComments}>
+              <Ionicons name="chatbubble-outline" size={48} color={Colors.dark.textMuted} />
+              <ThemedText style={styles.emptyCommentsText}>No comments yet</ThemedText>
+              <ThemedText style={styles.emptyCommentsSubtext}>Be the first to comment!</ThemedText>
+            </View>
+          }
+          contentContainerStyle={styles.commentsList}
+        />
+        
+        <View style={[styles.commentInputContainer, { paddingBottom: insets.bottom + Spacing.md }]}>
+          <TextInput
+            style={styles.commentInput}
+            placeholder="Write a comment..."
+            placeholderTextColor={Colors.dark.textMuted}
+            value={commentText}
+            onChangeText={setCommentText}
+            multiline
+          />
+          <Pressable 
+            style={[styles.sendButton, (!commentText.trim() || isSubmitting) && styles.sendButtonDisabled]}
+            onPress={handleSubmitComment}
+            disabled={!commentText.trim() || isSubmitting}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Ionicons name="send" size={18} color="#fff" />
+            )}
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
 
@@ -717,8 +830,12 @@ export default function CommunityScreen() {
     reactMutation.mutate({ postId, type });
   };
 
+  const [selectedCommentPostId, setSelectedCommentPostId] = useState<string | null>(null);
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  
   const handleComment = (postId: string) => {
-    Alert.alert("Comments", "Comments feature coming in the next update!");
+    setSelectedCommentPostId(postId);
+    setShowCommentModal(true);
   };
 
   const handleShare = async (post: Post) => {
@@ -729,7 +846,10 @@ export default function CommunityScreen() {
       
       if (Platform.OS === "web") {
         await Clipboard.setStringAsync(message);
-        Alert.alert("Copied!", "Message copied to clipboard");
+        // Use window.alert for web compatibility
+        if (typeof window !== "undefined") {
+          window.alert("Copied to clipboard!");
+        }
       } else {
         await Share.share({
           message,
@@ -740,15 +860,31 @@ export default function CommunityScreen() {
       console.log("Share error:", error);
       try {
         await Clipboard.setStringAsync(post.caption || "Check out this moment!");
-        Alert.alert("Copied!", "Message copied to clipboard");
+        if (Platform.OS === "web" && typeof window !== "undefined") {
+          window.alert("Copied to clipboard!");
+        }
       } catch (e) {
-        Alert.alert("Error", "Unable to share at this time");
+        console.log("Clipboard error:", e);
       }
     }
   };
 
   const handleDelete = (postId: string) => {
-    deletePostMutation.mutate(postId);
+    // Use window.confirm for web, Alert.alert for native
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined" && window.confirm("Are you sure you want to delete this post?")) {
+        deletePostMutation.mutate(postId);
+      }
+    } else {
+      Alert.alert(
+        "Delete Post",
+        "Are you sure you want to delete this post?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Delete", style: "destructive", onPress: () => deletePostMutation.mutate(postId) }
+        ]
+      );
+    }
   };
 
   const handleCreateMoment = () => {
@@ -826,6 +962,15 @@ export default function CommunityScreen() {
         onClose={() => setShowCreateModal(false)}
         onSubmit={(data) => createPostMutation.mutate(data)}
         isSubmitting={createPostMutation.isPending}
+      />
+      
+      <CommentsModal
+        visible={showCommentModal}
+        postId={selectedCommentPostId}
+        onClose={() => {
+          setShowCommentModal(false);
+          setSelectedCommentPostId(null);
+        }}
       />
     </ThemedView>
   );
@@ -1502,5 +1647,93 @@ const styles = StyleSheet.create({
   },
   cheerOptionEmoji: {
     fontSize: 22,
+  },
+  // Comments modal styles
+  commentItem: {
+    flexDirection: "row",
+    padding: Spacing.md,
+    gap: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  commentAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.primary + "30",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  commentAvatarText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  commentContent: {
+    flex: 1,
+    gap: 4,
+  },
+  commentAuthor: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  commentText: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+    lineHeight: 20,
+  },
+  emptyComments: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingTop: 100,
+    gap: Spacing.md,
+  },
+  emptyCommentsText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
+  },
+  emptyCommentsSubtext: {
+    fontSize: 14,
+    color: Colors.dark.textMuted,
+  },
+  commentsList: {
+    flexGrow: 1,
+    paddingHorizontal: Spacing.md,
+  },
+  commentInputContainer: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  commentInput: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: 20,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    color: Colors.dark.text,
+    fontSize: 14,
+    maxHeight: 100,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  sendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.primary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  sendButtonDisabled: {
+    backgroundColor: Colors.dark.primary + "50",
   },
 });

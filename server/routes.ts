@@ -20276,14 +20276,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const authorIds = [...new Set(posts.map(p => p.authorId).filter(Boolean))] as string[];
       let authorMap = new Map<string, { id: string; username: string; name: string; photoUrl: string | null; ballLevel: string | null; isCoach: boolean }>();
       
+      
       if (authorIds.length > 0) {
         try {
           // Use a single JOIN query for each author ID
           for (const authorId of authorIds) {
             const authorResult = await db.execute(sql`
               SELECT u.id, u.username, u.player_id, u.coach_id,
-                     p.name as player_name, p.photo_url as player_photo, p.ball_level,
-                     c.name as coach_name, c.photo_url as coach_photo
+                     p.name as player_name, p.profile_photo_url as player_photo, p.ball_level,
+                     c.name as coach_name, c.profile_photo_url as coach_photo
               FROM users u
               LEFT JOIN players p ON u.player_id = p.id
               LEFT JOIN coaches c ON u.coach_id = c.id
@@ -20291,16 +20292,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
               LIMIT 1
             `);
             
+            
             if (authorResult.rows && authorResult.rows.length > 0) {
               const row = authorResult.rows[0] as any;
-              authorMap.set(authorId, {
+              const authorData = {
                 id: row.id,
                 username: row.username || "Unknown",
                 name: row.player_name || row.coach_name || row.username || "Unknown",
                 photoUrl: row.player_photo || row.coach_photo || null,
                 ballLevel: row.ball_level || null,
                 isCoach: !!row.coach_id,
-              });
+              };
+              authorMap.set(authorId, authorData);
             }
           }
         } catch (authorError) {
