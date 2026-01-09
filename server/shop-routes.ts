@@ -29,6 +29,110 @@ function requirePlayerProfile(req: AuthRequest, res: Response, next: NextFunctio
 
 // ==================== PLAYER SHOP ENDPOINTS ====================
 
+// Search products and services
+router.get("/player/shop/search", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+  try {
+    const { q } = req.query;
+    const playerId = req.user?.playerId;
+    if (!playerId) {
+      return res.status(403).json({ error: "Player profile required" });
+    }
+    
+    const player = await db.select().from(players).where(eq(players.id, playerId)).limit(1);
+    if (!player[0]?.academyId) {
+      return res.status(400).json({ error: "Player has no academy" });
+    }
+    const academyId = player[0].academyId;
+
+    if (!q || typeof q !== "string" || q.length < 2) {
+      return res.json({ products: [], services: [] });
+    }
+
+    const sanitizedQuery = q.replace(/[%_\\]/g, "\\$&");
+    const searchTerm = `%${sanitizedQuery.toLowerCase()}%`;
+
+    const [products, services] = await Promise.all([
+      db.select().from(shopProducts)
+        .where(and(
+          eq(shopProducts.academyId, academyId),
+          eq(shopProducts.isActive, true),
+          sql`(LOWER(${shopProducts.name}) LIKE ${searchTerm} ESCAPE '\\' OR LOWER(COALESCE(${shopProducts.shortDescription}, '')) LIKE ${searchTerm} ESCAPE '\\')`
+        ))
+        .limit(20),
+      
+      db.select().from(shopServices)
+        .where(and(
+          eq(shopServices.academyId, academyId),
+          eq(shopServices.isActive, true),
+          sql`(LOWER(${shopServices.name}) LIKE ${searchTerm} ESCAPE '\\' OR LOWER(COALESCE(${shopServices.shortDescription}, '')) LIKE ${searchTerm} ESCAPE '\\')`
+        ))
+        .limit(10),
+    ]);
+
+    res.json({ products, services });
+  } catch (error) {
+    console.error("[Shop] Error searching:", error);
+    res.status(500).json({ error: "Failed to search" });
+  }
+});
+
+// Get XP discount for player
+router.get("/player/shop/xp-discount", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) {
+      return res.status(403).json({ error: "Player profile required" });
+    }
+    
+    const player = await db.select().from(players).where(eq(players.id, playerId)).limit(1);
+    if (!player[0]) {
+      return res.json({ discountPercent: 0, nextTierXP: 100, currentXP: 0 });
+    }
+
+    const currentXP = (player[0] as any).xp || 0;
+    const level = (player[0] as any).level || 1;
+    
+    let discountPercent = 0;
+    let nextTierXP: number | null = 500;
+    let tierName = "Starter";
+
+    if (currentXP >= 5000) {
+      discountPercent = 15;
+      tierName = "Legend";
+      nextTierXP = null;
+    } else if (currentXP >= 2500) {
+      discountPercent = 10;
+      tierName = "Elite";
+      nextTierXP = 5000;
+    } else if (currentXP >= 1000) {
+      discountPercent = 7;
+      tierName = "Champion";
+      nextTierXP = 2500;
+    } else if (currentXP >= 500) {
+      discountPercent = 5;
+      tierName = "Rising Star";
+      nextTierXP = 1000;
+    } else if (currentXP >= 100) {
+      discountPercent = 2;
+      tierName = "Rookie";
+      nextTierXP = 500;
+    } else {
+      nextTierXP = 100;
+    }
+
+    res.json({
+      discountPercent,
+      tierName,
+      currentXP,
+      nextTierXP,
+      level,
+    });
+  } catch (error) {
+    console.error("[Shop] Error getting XP discount:", error);
+    res.status(500).json({ error: "Failed to get discount" });
+  }
+});
+
 // Get shop home data (categories, featured products, featured services)
 router.get("/player/shop", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
   try {
@@ -133,6 +237,23 @@ router.get("/player/shop/products/:id", authMiddleware, requirePlayerProfile, as
   } catch (error) {
     console.error("[Shop] Error fetching product:", error);
     res.status(500).json({ error: "Failed to load product" });
+  }
+});
+
+// Get single service
+router.get("/player/shop/services/:id", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const service = await db.select().from(shopServices).where(eq(shopServices.id, id)).limit(1);
+    
+    if (!service[0]) {
+      return res.status(404).json({ error: "Service not found" });
+    }
+
+    res.json(service[0]);
+  } catch (error) {
+    console.error("[Shop] Error fetching service:", error);
+    res.status(500).json({ error: "Failed to load service" });
   }
 });
 

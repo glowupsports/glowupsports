@@ -46,7 +46,12 @@ import PlayerCoachProfileScreen from "@/player/screens/PlayerCoachProfileScreen"
 import CommunityScreen from "@/player/screens/CommunityScreen";
 import QuestsScreen from "@/player/screens/QuestsScreen";
 import ShopScreen from "@/player/screens/ShopScreen";
+import ProductDetailScreen from "@/player/screens/ProductDetailScreen";
+import ServiceDetailScreen from "@/player/screens/ServiceDetailScreen";
+import CartScreen from "@/player/screens/CartScreen";
+import ShopCategoryScreen from "@/player/screens/ShopCategoryScreen";
 import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
+import { CartProvider } from "@/player/contexts/CartContext";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -98,6 +103,10 @@ export type PlayerStackParamList = {
   CoachProfile: { coachId: string };
   Quests: undefined;
   Shop: undefined;
+  ProductDetail: { productId: string };
+  ServiceDetail: { serviceId: string };
+  Cart: undefined;
+  ShopCategory: { categoryId: string; categoryName: string };
 };
 
 const Tab = createBottomTabNavigator<PlayerTabParamList>();
@@ -477,6 +486,38 @@ function PlayerStackNavigator() {
           headerShown: false,
         }}
       />
+      <Stack.Screen 
+        name="ProductDetail" 
+        component={ProductDetailScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="ServiceDetail" 
+        component={ServiceDetailScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="Cart" 
+        component={CartScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="ShopCategory" 
+        component={ShopCategoryScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
     </Stack.Navigator>
   );
 }
@@ -535,7 +576,11 @@ export default function PlayerNavigator() {
     return <PlayerOnboardingScreen onComplete={handleOnboardingComplete} />;
   }
 
-  return <PlayerStackNavigator />;
+  return (
+    <CartProvider>
+      <PlayerStackNavigator />
+    </CartProvider>
+  );
 }
 
 const styles = StyleSheet.create({
