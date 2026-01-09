@@ -72,6 +72,7 @@ import { sendFeedbackNotification, sendLevelUpNotification, sendBadgeEarnedNotif
 import { sendFeedbackNotificationEmail, sendLevelUpEmail, sendWelcomeEmail, sendSessionReminderEmail, sendCoachInviteEmail } from "./emailService";
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, checkConnection as checkCalendarConnection, SessionEventData } from "./googleCalendarService";
 import { generateInvoiceHtml, parseLineItems } from "./services/invoicePdf";
+import shopRoutes from "./shop-routes";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -161,6 +162,9 @@ function parsePagination(query: { limit?: string; offset?: string; page?: string
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize storage for fresh user data fetching in auth middleware
   setFreshUserStorage(storage);
+
+  // Register shop routes
+  app.use("/api", shopRoutes);
 
   // ==================== HEALTH CHECK ====================
   
