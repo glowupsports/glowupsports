@@ -18,13 +18,30 @@ interface AuthRequest extends Request {
   user?: JWTPayload;
 }
 
+// Middleware to require a player profile (allows multi-role users who have playerId)
+function requirePlayerProfile(req: AuthRequest, res: Response, next: NextFunction): void {
+  if (!req.user?.playerId) {
+    res.status(403).json({ error: "Player profile required" });
+    return;
+  }
+  next();
+}
+
 // ==================== PLAYER SHOP ENDPOINTS ====================
 
 // Get shop home data (categories, featured products, featured services)
-router.get("/player/shop", authMiddleware, requireRole("player"), async (req: AuthRequest, res: Response) => {
+router.get("/player/shop", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
   try {
-    const player = await db.select().from(players).where(eq(players.id, req.user!.playerId!)).limit(1);
-    if (!player[0]?.academyId) {
+    const playerId = req.user?.playerId;
+    if (!playerId) {
+      return res.status(403).json({ error: "Player profile required" });
+    }
+    
+    const player = await db.select().from(players).where(eq(players.id, playerId)).limit(1);
+    if (!player[0]) {
+      return res.status(404).json({ error: "Player profile not found" });
+    }
+    if (!player[0].academyId) {
       return res.status(400).json({ error: "Player has no academy" });
     }
     const academyId = player[0].academyId;
@@ -68,10 +85,15 @@ router.get("/player/shop", authMiddleware, requireRole("player"), async (req: Au
 });
 
 // Get products by category
-router.get("/player/shop/products", authMiddleware, requireRole("player"), async (req: AuthRequest, res: Response) => {
+router.get("/player/shop/products", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
   try {
     const { categoryId } = req.query;
-    const player = await db.select().from(players).where(eq(players.id, req.user!.playerId!)).limit(1);
+    const playerId = req.user?.playerId;
+    if (!playerId) {
+      return res.status(403).json({ error: "Player profile required" });
+    }
+    
+    const player = await db.select().from(players).where(eq(players.id, playerId)).limit(1);
     if (!player[0]?.academyId) {
       return res.status(400).json({ error: "Player has no academy" });
     }
@@ -98,7 +120,7 @@ router.get("/player/shop/products", authMiddleware, requireRole("player"), async
 });
 
 // Get single product
-router.get("/player/shop/products/:id", authMiddleware, requireRole("player"), async (req: AuthRequest, res: Response) => {
+router.get("/player/shop/products/:id", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const product = await db.select().from(shopProducts).where(eq(shopProducts.id, id)).limit(1);
@@ -115,9 +137,14 @@ router.get("/player/shop/products/:id", authMiddleware, requireRole("player"), a
 });
 
 // Get services
-router.get("/player/shop/services", authMiddleware, requireRole("player"), async (req: AuthRequest, res: Response) => {
+router.get("/player/shop/services", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
   try {
-    const player = await db.select().from(players).where(eq(players.id, req.user!.playerId!)).limit(1);
+    const playerId = req.user?.playerId;
+    if (!playerId) {
+      return res.status(403).json({ error: "Player profile required" });
+    }
+    
+    const player = await db.select().from(players).where(eq(players.id, playerId)).limit(1);
     if (!player[0]?.academyId) {
       return res.status(400).json({ error: "Player has no academy" });
     }
@@ -138,7 +165,7 @@ router.get("/player/shop/services", authMiddleware, requireRole("player"), async
 });
 
 // Get player's wishlist
-router.get("/player/shop/wishlist", authMiddleware, requireRole("player"), async (req: AuthRequest, res: Response) => {
+router.get("/player/shop/wishlist", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
   try {
     const wishlistItems = await db.select({
       id: shopWishlist.id,
@@ -173,7 +200,7 @@ router.get("/player/shop/wishlist", authMiddleware, requireRole("player"), async
 });
 
 // Add to wishlist
-router.post("/player/shop/wishlist", authMiddleware, requireRole("player"), async (req: AuthRequest, res: Response) => {
+router.post("/player/shop/wishlist", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
   try {
     const { productId, serviceId } = req.body;
     
@@ -206,7 +233,7 @@ router.post("/player/shop/wishlist", authMiddleware, requireRole("player"), asyn
 });
 
 // Remove from wishlist
-router.delete("/player/shop/wishlist/:id", authMiddleware, requireRole("player"), async (req: AuthRequest, res: Response) => {
+router.delete("/player/shop/wishlist/:id", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -224,7 +251,7 @@ router.delete("/player/shop/wishlist/:id", authMiddleware, requireRole("player")
 });
 
 // Get player's orders
-router.get("/player/shop/orders", authMiddleware, requireRole("player"), async (req: AuthRequest, res: Response) => {
+router.get("/player/shop/orders", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
   try {
     const orders = await db.select().from(shopOrders)
       .where(eq(shopOrders.playerId, req.user!.playerId!))
@@ -238,7 +265,7 @@ router.get("/player/shop/orders", authMiddleware, requireRole("player"), async (
 });
 
 // Get order details
-router.get("/player/shop/orders/:id", authMiddleware, requireRole("player"), async (req: AuthRequest, res: Response) => {
+router.get("/player/shop/orders/:id", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -264,7 +291,7 @@ router.get("/player/shop/orders/:id", authMiddleware, requireRole("player"), asy
 });
 
 // Create order (cart checkout)
-router.post("/player/shop/orders", authMiddleware, requireRole("player"), async (req: AuthRequest, res: Response) => {
+router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
   try {
     const { items, contactName, contactPhone, contactEmail, notes } = req.body;
     

@@ -98,9 +98,6 @@ export type PlayerStackParamList = {
   CoachProfile: { coachId: string };
   Quests: undefined;
   Shop: undefined;
-  ShopCategory: { categoryId: string; categoryName: string };
-  ProductDetail: { productId: string };
-  ServiceDetail: { serviceId: string };
 };
 
 const Tab = createBottomTabNavigator<PlayerTabParamList>();

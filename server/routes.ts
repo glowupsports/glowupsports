@@ -20145,9 +20145,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         additionalCondition = inArray(postsTable.authorId, friendUserIds);
       } else if (filter === "groups") {
         // Get user's groups
-        const userGroups = await db.select({ groupId: groupMembers.groupId })
-          .from(groupMembers)
-          .where(eq(groupMembers.userId, userId));
+        const userGroups = await db.select({ groupId: groupMembersTable.groupId })
+          .from(groupMembersTable)
+          .where(eq(groupMembersTable.userId, userId));
         const groupIds = userGroups.map(g => g.groupId);
         
         if (groupIds.length === 0) {

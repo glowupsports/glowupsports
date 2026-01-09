@@ -74,15 +74,18 @@ export default function ShopScreen() {
   };
 
   const handleCategoryPress = (category: ShopCategory) => {
-    navigation.navigate("ShopCategory", { categoryId: category.id, categoryName: category.name });
+    // TODO: Navigate to ShopCategory screen when implemented
+    console.log("Category pressed:", category.name);
   };
 
   const handleProductPress = (product: ShopProduct) => {
-    navigation.navigate("ProductDetail", { productId: product.id });
+    // TODO: Navigate to ProductDetail screen when implemented  
+    console.log("Product pressed:", product.name);
   };
 
   const handleServicePress = (service: ShopService) => {
-    navigation.navigate("ServiceDetail", { serviceId: service.id });
+    // TODO: Navigate to ServiceDetail screen when implemented
+    console.log("Service pressed:", service.name);
   };
 
   if (isLoading) {
