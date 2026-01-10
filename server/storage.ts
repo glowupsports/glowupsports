@@ -2079,12 +2079,44 @@ export const storage = {
     playerId: string,
     sessionId: string,
     academyId?: string
-  ): Promise<{ success: boolean; creditType?: string; reason?: string; alreadyRefunded?: boolean }> {
+  ): Promise<{ success: boolean; creditType?: string; reason?: string; alreadyRefunded?: boolean; debtRemoved?: boolean }> {
     // Find the original debit transaction for this session
     const transactions = await this.getCreditTransactionsBySession(sessionId);
-    const originalDebit = transactions.find(
+    
+    // First check for regular session_booking transactions
+    let originalDebit = transactions.find(
       t => t.playerId === playerId && t.type === "debit" && t.reason === "session_booking"
     );
+    
+    // If no session_booking found, check for session_join_debt (players without packages)
+    if (!originalDebit) {
+      const debtTransaction = transactions.find(
+        t => t.playerId === playerId && t.type === "debit" && t.reason === "session_join_debt"
+      );
+      
+      if (debtTransaction) {
+        // Remove the debt transaction (no package to refund to)
+        await db.delete(creditTransactions).where(eq(creditTransactions.id, debtTransaction.id));
+        
+        // Clear session_player record
+        await db.update(sessionPlayers)
+          .set({ 
+            creditDeductedAt: null,
+            creditTransactionId: null,
+          })
+          .where(and(
+            eq(sessionPlayers.sessionId, sessionId),
+            eq(sessionPlayers.playerId, playerId)
+          ));
+        
+        console.log(`[Refund] Removed debt transaction for player ${playerId} in session ${sessionId}`);
+        return { 
+          success: true, 
+          creditType: debtTransaction.creditType || "group",
+          debtRemoved: true
+        };
+      }
+    }
     
     if (!originalDebit || !originalDebit.packageId) {
       return { success: false, reason: "no_original_transaction" };
