@@ -569,9 +569,10 @@ export default function SeriesDetailDrawer({
     });
     
     // First, fetch existing attendance records from the API (source of truth)
+    // Add timestamp to prevent 304 caching and get fresh data
     let savedStatuses: Record<string, "present" | "absent" | "vacation"> = {};
     try {
-      const sessionPlayers = await apiRequest("GET", `/api/coach/sessions/${session.id}/players`) as Array<{ playerId: string; attendanceStatus: string }>;
+      const sessionPlayers = await apiRequest("GET", `/api/coach/sessions/${session.id}/players?t=${Date.now()}`) as Array<{ playerId: string; attendanceStatus: string }>;
       
       // Build a map of saved statuses from the API
       if (Array.isArray(sessionPlayers)) {
