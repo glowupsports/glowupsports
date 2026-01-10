@@ -784,6 +784,17 @@ function PlayerDetailView({
     queryKey: [`/api/players/${player.id}/xp`],
   });
 
+  // Fetch attendance summary
+  interface AttendanceSummary {
+    totalLessons: number;
+    presentCount: number;
+    attendancePercentage: number;
+    lateCount: number;
+  }
+  const { data: attendanceSummary } = useQuery<AttendanceSummary>({
+    queryKey: [`/api/coach/players/${player.id}/attendance-summary`],
+  });
+
   // Calculate level readiness (returns null for max level or invalid level)
   const levelReadiness = getLevelReadiness(player.ballLevel, xpData?.totalXp || 0);
 
@@ -1124,15 +1135,21 @@ function PlayerDetailView({
           <Text style={styles.sectionLabel}>Attendance Pattern</Text>
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>-</Text>
+              <Text style={styles.statValue}>
+                {attendanceSummary?.totalLessons ?? "-"}
+              </Text>
               <Text style={styles.statLabel}>Total lessons</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>-</Text>
+              <Text style={styles.statValue}>
+                {attendanceSummary ? `${attendanceSummary.attendancePercentage}%` : "-"}
+              </Text>
               <Text style={styles.statLabel}>Attendance %</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>-</Text>
+              <Text style={styles.statValue}>
+                {attendanceSummary?.lateCount ?? "-"}
+              </Text>
               <Text style={styles.statLabel}>Late</Text>
             </View>
           </View>

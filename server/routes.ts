@@ -3304,18 +3304,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // If markCompleted flag is set, mark session as completed and consume credits
         let creditConsumptionResult = null;
+        const presentPlayers = req.body.attendance.filter((a: { status: string }) => a.status === "present");
+        
         if (req.body.markCompleted) {
           await storage.updateSession(id, { status: "completed" });
           
-          // Consume credits for class session with dynamic credit type
+          // Consume credits for class session with dynamic credit type (only for series-based sessions)
           if (session.seriesId) {
             try {
               // FIRST: Delete any existing credit transactions for this session
               // This prevents duplicate debts when attendance is edited
               await storage.deleteSessionCreditTransactions(id);
               
-              // Count present players for dynamic credit type
-              const presentPlayers = req.body.attendance.filter((a: { status: string }) => a.status === "present");
               const presentCount = presentPlayers.length;
               
               creditConsumptionResult = await storage.consumeCreditsForClassSessionWithAttendance(
@@ -3328,6 +3328,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.log(`[Credits] Session ${id}: consumed ${creditConsumptionResult.consumed}, skipped ${creditConsumptionResult.skipped}, actualCreditType: ${creditConsumptionResult.actualCreditType}`);
             } catch (creditError) {
               console.error("[Credits] Error consuming credits for class session:", creditError);
+            }
+          }
+          
+          // Award XP to ALL players marked as present (works for both series and standalone sessions)
+          const xpPerSession = session.xpPerSession || 20;
+          for (const presentPlayer of presentPlayers) {
+            try {
+              // Check if XP already awarded for this session to prevent duplicates
+              const existingXp = await storage.getPlayerXpTransactions(presentPlayer.playerId, 100, academyId);
+              const alreadyAwarded = existingXp.some(t => t.sessionId === id && t.source === "session");
+              
+              if (!alreadyAwarded) {
+                await storage.createXpTransaction({
+                  playerId: presentPlayer.playerId,
+                  sessionId: id,
+                  xpAmount: xpPerSession,
+                  source: "session",
+                  description: `Attended training session`,
+                  metadata: session.seriesId ? { seriesId: session.seriesId } : {},
+                });
+                console.log(`[XP] Awarded ${xpPerSession} XP to player ${presentPlayer.playerId} for session ${id}`);
+              }
+            } catch (xpError) {
+              console.error(`[XP] Error awarding XP to player ${presentPlayer.playerId}:`, xpError);
             }
           }
         }
@@ -5275,6 +5299,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching players with progress:", error);
       res.status(500).json({ error: "Failed to fetch players with progress" });
+    }
+  });
+
+  // Get player attendance summary (for player profile)
+  app.get("/api/coach/players/:playerId/attendance-summary", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { playerId } = req.params;
+      const academyId = req.user!.academyId;
+
+      const { valid } = await validatePlayerOwnership(playerId, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      // Get all session_players records for this player
+      const sessionPlayerRecords = await db
+        .select({
+          sessionId: sessionPlayers.sessionId,
+          attendanceStatus: sessionPlayers.attendanceStatus,
+          lateMinutes: sessionPlayers.lateMinutes,
+        })
+        .from(sessionPlayers)
+        .where(eq(sessionPlayers.playerId, playerId));
+
+      const totalLessons = sessionPlayerRecords.length;
+      const presentCount = sessionPlayerRecords.filter(r => r.attendanceStatus === "present").length;
+      const lateCount = sessionPlayerRecords.filter(r => r.lateMinutes && r.lateMinutes > 0).length;
+      const attendancePercentage = totalLessons > 0 ? Math.round((presentCount / totalLessons) * 100) : 0;
+
+      res.json({
+        totalLessons,
+        presentCount,
+        attendancePercentage,
+        lateCount,
+      });
+    } catch (error) {
+      console.error("Error fetching player attendance summary:", error);
+      res.status(500).json({ error: "Failed to fetch attendance summary" });
     }
   });
 
