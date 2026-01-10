@@ -193,6 +193,12 @@ export default function SeriesDetailDrawer({
   const [removePlayerId, setRemovePlayerId] = useState<string | null>(null);
   const [removeDate, setRemoveDate] = useState<Date>(new Date());
   const [showRemoveDatePicker, setShowRemoveDatePicker] = useState(false);
+  
+  // Create package inline form state
+  const [showCreatePackageForm, setShowCreatePackageForm] = useState(false);
+  const [newPackageName, setNewPackageName] = useState("");
+  const [newPackageCredits, setNewPackageCredits] = useState("");
+  const [newPackagePricePerCredit, setNewPackagePricePerCredit] = useState("");
 
   const { data: series, isLoading } = useQuery<SeriesDetail>({
     queryKey: [`/api/coach/series/${seriesId}`],
@@ -379,6 +385,53 @@ export default function SeriesDetailDrawer({
       setRemovingPlayerId(null);
     },
   });
+
+  // Mutation to create a new package template
+  const createPackageMutation = useMutation({
+    mutationFn: async (data: { name: string; credits: number; pricePerCredit: number }) => {
+      const result = await apiRequest("POST", "/api/billing/package-templates", {
+        name: data.name,
+        credits: data.credits,
+        pricePerCredit: data.pricePerCredit,
+        validityDays: 90,
+        currency: "AED",
+      });
+      return result as { id: string; name: string; credits: number; price: string };
+    },
+    onSuccess: async (newTemplate) => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/billing/package-templates"] });
+      // Auto-select the newly created package
+      if (newTemplate?.id) {
+        setSelectedPackageTemplateId(newTemplate.id);
+      }
+      // Reset form and hide it
+      setNewPackageName("");
+      setNewPackageCredits("");
+      setNewPackagePricePerCredit("");
+      setShowCreatePackageForm(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      if (Platform.OS === "web") {
+        window.alert("Failed to create package. Please try again.");
+      }
+    },
+  });
+
+  const handleCreatePackage = () => {
+    const credits = parseInt(newPackageCredits, 10);
+    const pricePerCredit = parseFloat(newPackagePricePerCredit);
+    
+    if (!newPackageName.trim() || isNaN(credits) || credits <= 0 || isNaN(pricePerCredit) || pricePerCredit <= 0) {
+      return;
+    }
+    
+    createPackageMutation.mutate({
+      name: newPackageName.trim(),
+      credits,
+      pricePerCredit,
+    });
+  };
 
   const handlePausePlayer = (playerId: string) => {
     setPausePlayerId(playerId);
@@ -1380,38 +1433,126 @@ export default function SeriesDetailDrawer({
               </ScrollView>
             ) : showPackageSelection ? (
               // Package selection screen
-              <ScrollView style={styles.addPlayerContent} contentContainerStyle={{ paddingBottom: 100 }}>
+              <KeyboardAwareScrollViewCompat style={styles.addPlayerContent} contentContainerStyle={{ paddingBottom: 100 }}>
                 <Text style={styles.backfillSubtitle}>
                   Optionally assign a credit package to this player
                 </Text>
                 
-                {packageTemplates.length === 0 ? (
-                  <View style={styles.emptyState}>
-                    <Ionicons name="cube-outline" size={40} color={Colors.dark.textMuted} />
-                    <Text style={styles.emptyText}>No packages available</Text>
-                    <Text style={styles.emptySubtext}>Create packages in billing settings</Text>
+                {showCreatePackageForm ? (
+                  <View style={styles.createPackageForm}>
+                    <Text style={styles.createPackageTitle}>Create New Package</Text>
+                    
+                    <View style={styles.formField}>
+                      <Text style={styles.formLabel}>Package Name</Text>
+                      <TextInput
+                        style={styles.formInput}
+                        placeholder="e.g., 10 Lesson Pack"
+                        placeholderTextColor={Colors.dark.textMuted}
+                        value={newPackageName}
+                        onChangeText={setNewPackageName}
+                      />
+                    </View>
+                    
+                    <View style={styles.formRow}>
+                      <View style={[styles.formField, { flex: 1 }]}>
+                        <Text style={styles.formLabel}>Credits</Text>
+                        <TextInput
+                          style={styles.formInput}
+                          placeholder="10"
+                          placeholderTextColor={Colors.dark.textMuted}
+                          keyboardType="numeric"
+                          value={newPackageCredits}
+                          onChangeText={setNewPackageCredits}
+                        />
+                      </View>
+                      
+                      <View style={[styles.formField, { flex: 1, marginLeft: Spacing.sm }]}>
+                        <Text style={styles.formLabel}>Price/Credit (AED)</Text>
+                        <TextInput
+                          style={styles.formInput}
+                          placeholder="150"
+                          placeholderTextColor={Colors.dark.textMuted}
+                          keyboardType="decimal-pad"
+                          value={newPackagePricePerCredit}
+                          onChangeText={setNewPackagePricePerCredit}
+                        />
+                      </View>
+                    </View>
+                    
+                    {newPackageCredits && newPackagePricePerCredit ? (
+                      <Text style={styles.totalPricePreview}>
+                        Total: AED {(parseInt(newPackageCredits, 10) * parseFloat(newPackagePricePerCredit) || 0).toFixed(0)}
+                      </Text>
+                    ) : null}
+                    
+                    <View style={styles.formActions}>
+                      <Pressable
+                        style={styles.formCancelButton}
+                        onPress={() => {
+                          setShowCreatePackageForm(false);
+                          setNewPackageName("");
+                          setNewPackageCredits("");
+                          setNewPackagePricePerCredit("");
+                        }}
+                      >
+                        <Text style={styles.formCancelButtonText}>Cancel</Text>
+                      </Pressable>
+                      
+                      <Pressable
+                        style={[
+                          styles.formSaveButton,
+                          (!newPackageName.trim() || !newPackageCredits || !newPackagePricePerCredit || createPackageMutation.isPending) && styles.formSaveButtonDisabled,
+                        ]}
+                        onPress={handleCreatePackage}
+                        disabled={!newPackageName.trim() || !newPackageCredits || !newPackagePricePerCredit || createPackageMutation.isPending}
+                      >
+                        {createPackageMutation.isPending ? (
+                          <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                        ) : (
+                          <Text style={styles.formSaveButtonText}>Create Package</Text>
+                        )}
+                      </Pressable>
+                    </View>
                   </View>
                 ) : (
-                  packageTemplates.map((template) => (
+                  <>
                     <Pressable
-                      key={template.id}
-                      style={[
-                        styles.packageCard,
-                        selectedPackageTemplateId === template.id && styles.packageCardSelected,
-                      ]}
-                      onPress={() => handleSelectPackage(template.id)}
+                      style={styles.createPackageButton}
+                      onPress={() => setShowCreatePackageForm(true)}
                     >
-                      <View style={styles.packageInfo}>
-                        <Text style={styles.packageName}>{template.name}</Text>
-                        <Text style={styles.packageDetails}>
-                          {template.credits} credits - Valid {template.validityDays} days
-                        </Text>
-                      </View>
-                      <Text style={styles.packagePrice}>
-                        {template.currency} {parseFloat(template.price).toFixed(0)}
-                      </Text>
+                      <Ionicons name="add-circle-outline" size={20} color={Colors.dark.successNeon} />
+                      <Text style={styles.createPackageButtonText}>Create New Package</Text>
                     </Pressable>
-                  ))
+                    
+                    {packageTemplates.length === 0 ? (
+                      <View style={styles.emptyState}>
+                        <Ionicons name="cube-outline" size={40} color={Colors.dark.textMuted} />
+                        <Text style={styles.emptyText}>No packages available</Text>
+                        <Text style={styles.emptySubtext}>Create one above or skip</Text>
+                      </View>
+                    ) : (
+                      packageTemplates.map((template) => (
+                        <Pressable
+                          key={template.id}
+                          style={[
+                            styles.packageCard,
+                            selectedPackageTemplateId === template.id && styles.packageCardSelected,
+                          ]}
+                          onPress={() => handleSelectPackage(template.id)}
+                        >
+                          <View style={styles.packageInfo}>
+                            <Text style={styles.packageName}>{template.name}</Text>
+                            <Text style={styles.packageDetails}>
+                              {template.credits} credits - Valid {template.validityDays} days
+                            </Text>
+                          </View>
+                          <Text style={styles.packagePrice}>
+                            {template.currency} {parseFloat(template.price).toFixed(0)}
+                          </Text>
+                        </Pressable>
+                      ))
+                    )}
+                  </>
                 )}
                 
                 <Pressable
@@ -1423,7 +1564,7 @@ export default function SeriesDetailDrawer({
                     {addPlayerMutation.isPending ? "Adding..." : "Skip - Add Without Package"}
                   </Text>
                 </Pressable>
-              </ScrollView>
+              </KeyboardAwareScrollViewCompat>
             ) : selectedPlayerId ? (
               // Join date picker screen
               <View style={styles.addPlayerContent}>
@@ -2604,6 +2745,99 @@ const styles = StyleSheet.create({
     fontSize: Typography.body.fontSize,
     color: Colors.dark.textMuted,
     textDecorationLine: "underline",
+  },
+  createPackageButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.successNeon,
+    borderStyle: "dashed",
+    marginBottom: Spacing.lg,
+  },
+  createPackageButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.successNeon,
+  },
+  createPackageForm: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.successNeon,
+  },
+  createPackageTitle: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: Spacing.lg,
+  },
+  formField: {
+    marginBottom: Spacing.md,
+  },
+  formRow: {
+    flexDirection: "row",
+    marginBottom: Spacing.sm,
+  },
+  formLabel: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "500",
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.xs,
+  },
+  formInput: {
+    backgroundColor: Colors.dark.backgroundHighlight,
+    borderRadius: BorderRadius.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+    borderWidth: 1,
+    borderColor: Colors.dark.backgroundLight,
+  },
+  totalPricePreview: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.successNeon,
+    textAlign: "center",
+    marginBottom: Spacing.lg,
+  },
+  formActions: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  formCancelButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    alignItems: "center",
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundLight,
+  },
+  formCancelButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "500",
+    color: Colors.dark.textMuted,
+  },
+  formSaveButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    alignItems: "center",
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.successNeon,
+  },
+  formSaveButtonDisabled: {
+    opacity: 0.5,
+  },
+  formSaveButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.backgroundRoot,
   },
   timelineContentClickable: {
     backgroundColor: Colors.dark.backgroundRoot,
