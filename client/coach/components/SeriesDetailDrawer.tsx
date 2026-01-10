@@ -669,7 +669,13 @@ export default function SeriesDetailDrawer({
           </View>
         </View>
 
-        <View style={styles.infoSection}>
+        <View style={[styles.infoSection, { overflow: "visible" }]}>
+          {playerActionMenuId ? (
+            <Pressable 
+              style={StyleSheet.absoluteFill}
+              onPress={() => setPlayerActionMenuId(null)}
+            />
+          ) : null}
           {(() => {
             const activePlayers = series.players.filter(p => p.status === "active");
             const pausedPlayers = series.players.filter(p => p.status === "paused");
@@ -1756,6 +1762,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
     paddingVertical: Spacing.xs,
+    position: "relative",
+    overflow: "visible",
+    zIndex: 1,
   },
   playerAvatar: {
     width: 36,
