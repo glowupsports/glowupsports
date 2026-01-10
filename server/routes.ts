@@ -6654,7 +6654,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // First add player to session if not already
             const sessionPlayersList = await storage.getSessionPlayers(sessionId);
             if (!sessionPlayersList.some(p => p.id === playerId)) {
-              await storage.addPlayerToSession(sessionId, playerId);
+              await storage.addPlayerToSession({ sessionId, playerId });
             }
             // Mark as attended - returns object with isNewAttendance flag
             const attendanceResult = await storage.markAttendance(sessionId, playerId, true, academyId);
