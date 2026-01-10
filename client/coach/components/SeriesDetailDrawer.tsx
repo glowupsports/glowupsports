@@ -168,6 +168,8 @@ export default function SeriesDetailDrawer({
   const [sessionAttendance, setSessionAttendance] = useState<Record<string, "present" | "absent">>({});
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [cancellingSession, setCancellingSession] = useState(false);
+  const [editingMaxPlayers, setEditingMaxPlayers] = useState(false);
+  const [newMaxPlayers, setNewMaxPlayers] = useState("");
 
   const { data: series, isLoading } = useQuery<SeriesDetail>({
     queryKey: [`/api/coach/series/${seriesId}`],
@@ -276,6 +278,26 @@ export default function SeriesDetailDrawer({
     },
   });
 
+  // Mutation to update max players
+  const updateMaxPlayersMutation = useMutation({
+    mutationFn: async (maxPlayers: number) => {
+      return apiRequest("PATCH", `/api/coach/series/${seriesId}`, { maxPlayers });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      setEditingMaxPlayers(false);
+      setNewMaxPlayers("");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  const handleSaveMaxPlayers = () => {
+    const value = parseInt(newMaxPlayers, 10);
+    if (!isNaN(value) && value >= 1 && value <= 20) {
+      updateMaxPlayersMutation.mutate(value);
+    }
+  };
+
   // Get past sessions for attendance backfill
   const getPastSessionsSinceJoinDate = () => {
     if (!series) return [];
@@ -360,7 +382,14 @@ export default function SeriesDetailDrawer({
     setSelectedSession(session);
     
     const initialAttendance: Record<string, "present" | "absent"> = {};
-    const activePlayers = series?.players?.filter(p => p.status === "active") || [];
+    const sessionDate = new Date(session.startTime);
+    
+    // Filter players who had joined by the session date
+    const activePlayers = (series?.players?.filter(p => p.status === "active") || []).filter(p => {
+      if (!p.joinedAt) return true; // No join date = show player
+      const joinDate = new Date(p.joinedAt);
+      return joinDate <= sessionDate;
+    });
     
     // Default all players to present initially
     activePlayers.forEach(p => {
@@ -574,10 +603,39 @@ export default function SeriesDetailDrawer({
             return (
               <>
                 <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionTitle}>
-                    Active Players ({activePlayers.length}/{series.maxPlayers})
-                  </Text>
-                  {canAddMore ? (
+                  {editingMaxPlayers ? (
+                    <View style={styles.editMaxPlayersRow}>
+                      <Text style={styles.sectionTitle}>Active Players ({activePlayers.length}/</Text>
+                      <TextInput
+                        style={styles.maxPlayersInput}
+                        value={newMaxPlayers}
+                        onChangeText={setNewMaxPlayers}
+                        keyboardType="number-pad"
+                        placeholder={String(series.maxPlayers)}
+                        placeholderTextColor={Colors.dark.textMuted}
+                        maxLength={2}
+                        autoFocus
+                      />
+                      <Text style={styles.sectionTitle}>)</Text>
+                      <Pressable onPress={handleSaveMaxPlayers} style={styles.saveMaxPlayersBtn}>
+                        <Ionicons name="checkmark" size={18} color={Colors.dark.successNeon} />
+                      </Pressable>
+                      <Pressable onPress={() => { setEditingMaxPlayers(false); setNewMaxPlayers(""); }} style={styles.cancelMaxPlayersBtn}>
+                        <Ionicons name="close" size={18} color={Colors.dark.error} />
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <Pressable 
+                      onPress={() => { setEditingMaxPlayers(true); setNewMaxPlayers(String(series.maxPlayers)); }}
+                      style={styles.editableTitle}
+                    >
+                      <Text style={styles.sectionTitle}>
+                        Active Players ({activePlayers.length}/{series.maxPlayers})
+                      </Text>
+                      <Ionicons name="pencil" size={14} color={Colors.dark.textMuted} style={{ marginLeft: 6 }} />
+                    </Pressable>
+                  )}
+                  {canAddMore && !editingMaxPlayers ? (
                     <Pressable 
                       onPress={handleAddPlayerPress}
                       style={styles.addPlayerButton}
@@ -1307,7 +1365,13 @@ export default function SeriesDetailDrawer({
 
             <ScrollView style={{ flex: 1 }}>
               {(() => {
-                const activePlayers = series?.players?.filter(p => p.status === "active") || [];
+                const sessionDate = selectedSession ? new Date(selectedSession.startTime) : new Date();
+                // Filter players who had joined by the session date
+                const activePlayers = (series?.players?.filter(p => p.status === "active") || []).filter(p => {
+                  if (!p.joinedAt) return true; // No join date = show player
+                  const joinDate = new Date(p.joinedAt);
+                  return joinDate <= sessionDate;
+                });
                 const presentCount = Object.values(sessionAttendance).filter(s => s === "present").length;
                 const sessionType = series?.sessionType || "group";
                 
@@ -1832,6 +1896,36 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: Spacing.sm,
+  },
+  editMaxPlayersRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  maxPlayersInput: {
+    width: 32,
+    height: 28,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderWidth: 1,
+    borderColor: Colors.dark.successNeon,
+    borderRadius: BorderRadius.sm,
+    color: Colors.dark.text,
+    textAlign: "center",
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    paddingHorizontal: 4,
+    marginHorizontal: 2,
+  },
+  saveMaxPlayersBtn: {
+    marginLeft: Spacing.sm,
+    padding: 4,
+  },
+  cancelMaxPlayersBtn: {
+    marginLeft: Spacing.xs,
+    padding: 4,
+  },
+  editableTitle: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   addPlayerButton: {
     flexDirection: "row",
