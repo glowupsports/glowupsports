@@ -580,6 +580,10 @@ export default function SeriesDetailDrawer({
       joinDate: formatLocalDate(joinDate),
       attendedSessionIds,
       packageTemplateId: selectedPackageTemplateId,
+      creditPackage: selectedCreditPackage ? {
+        creditType: selectedCreditPackage.creditType,
+        credits: selectedCreditPackage.credits,
+      } : null,
     });
   };
 
@@ -1612,11 +1616,14 @@ export default function SeriesDetailDrawer({
                                       styles.creditOption,
                                       isSelected && styles.creditOptionSelected,
                                     ]}
-                                    onPress={() => setSelectedCreditPackage({
-                                      creditType: pkg.creditType,
-                                      credits: pkg.credits,
-                                      price: pkg.totalPrice,
-                                    })}
+                                    onPress={() => {
+                                      setSelectedPackageTemplateId(null);
+                                      setSelectedCreditPackage({
+                                        creditType: pkg.creditType,
+                                        credits: pkg.credits,
+                                        price: pkg.totalPrice,
+                                      });
+                                    }}
                                   >
                                     <Text style={[styles.creditOptionCredits, isSelected && styles.creditOptionTextSelected]}>
                                       {pkg.credits}
