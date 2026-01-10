@@ -210,7 +210,7 @@ export default function CoachingScreen() {
       <View style={styles.calmTabBar}>
         {([
           { id: "series", label: "Classes", icon: "layers-outline" },
-          { id: "today", label: "Sessions", icon: "flag-outline" },
+          { id: "today", label: "Standalone", icon: "flag-outline" },
           { id: "progress", label: "Stats", icon: "stats-chart-outline" },
           { id: "plans", label: "Plans", icon: "bulb-outline" },
         ] as const).map((tab) => {
@@ -669,10 +669,13 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
     const now = new Date();
     
     return calendarData.ownSessions
-      .filter((session) => {
+      .filter((session: any) => {
         const sessionDate = new Date(session.startTime);
         const endTime = new Date(session.endTime);
+        // Only show standalone sessions (not part of a class/series)
+        const isStandalone = !session.seriesId;
         return (
+          isStandalone &&
           sessionDate >= start &&
           sessionDate < end &&
           session.status !== "cancelled" &&
@@ -1506,13 +1509,13 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
           </View>
           <Text style={styles.calmEmptyText}>
             {filteredSessions.length === 0 
-              ? `No completed lessons ${feedbackPeriod === "today" ? "today" : "in this period"}`
-              : `No ${statusFilter === "complete" ? "completed" : statusFilter} lessons`
+              ? `No standalone lessons ${feedbackPeriod === "today" ? "today" : "in this period"}`
+              : `No ${statusFilter === "complete" ? "completed" : statusFilter} standalone lessons`
             }
           </Text>
           <Text style={styles.calmEmptySubtext}>
             {filteredSessions.length === 0 
-              ? "Feedback will appear here after each lesson"
+              ? "One-off lessons not part of a class appear here"
               : "Try selecting a different filter"
             }
           </Text>
