@@ -3416,11 +3416,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: "cancelled",
         notes: reason || "Session cancelled" 
       });
+      
+      // Refund credits for any players who had credits deducted for this session
+      const sessionPlayersForRefund = await storage.getSessionPlayers(id);
+      let refundedCount = 0;
+      
+      for (const sp of sessionPlayersForRefund) {
+        if (sp.creditDeductedAt) {
+          const refundResult = await storage.refundCreditsForSession(sp.playerId, id, academyId);
+          if (refundResult.success) {
+            refundedCount++;
+            console.log(`[Cancel PATCH] Refunded credit to player ${sp.playerId}`);
+          }
+        }
+      }
 
       res.json({ 
         success: true, 
-        message: "Session cancelled successfully",
-        sessionId: id
+        message: refundedCount > 0 
+          ? `Session cancelled. ${refundedCount} credit(s) refunded.`
+          : "Session cancelled successfully",
+        sessionId: id,
+        creditsRefunded: refundedCount
       });
     } catch (error) {
       console.error("Error cancelling session:", error);
@@ -3667,6 +3684,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Delete the unified time block to free up this time slot
       await storage.deleteCoachTimeBlockBySession(id);
       
+      // Refund credits for any players who had credits deducted for this session
+      const sessionPlayersForRefund = await storage.getSessionPlayers(id);
+      const refundResults: { playerId: string; playerName?: string; success: boolean; reason?: string }[] = [];
+      
+      for (const sp of sessionPlayersForRefund) {
+        // Only refund if credits were actually deducted (creditDeductedAt is set)
+        if (sp.creditDeductedAt) {
+          const refundResult = await storage.refundCreditsForSession(sp.playerId, id, academyId);
+          const player = await storage.getPlayer(sp.playerId, academyId);
+          refundResults.push({
+            playerId: sp.playerId,
+            playerName: player?.name,
+            success: refundResult.success,
+            reason: refundResult.reason,
+          });
+          
+          if (refundResult.success) {
+            console.log(`[Cancel] Refunded ${refundResult.creditType} credit to player ${player?.name || sp.playerId}`);
+          }
+        }
+      }
+      
       // Audit log
       await storage.createAuditLog({
         entityType: "session",
@@ -3677,13 +3716,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           reason: reason || "Cancelled by coach",
           cancelledBy: "coach",
           noCharge: true,
+          creditsRefunded: refundResults.filter(r => r.success).length,
         }),
         academyId: academyId!,
       });
       
+      const refundedCount = refundResults.filter(r => r.success).length;
       res.json({
         success: true,
-        message: "Session has been cancelled successfully.",
+        message: refundedCount > 0 
+          ? `Session cancelled. ${refundedCount} credit(s) refunded to players.`
+          : "Session has been cancelled successfully.",
+        creditsRefunded: refundResults,
       });
     } catch (error) {
       console.error("Error cancelling session:", error);
