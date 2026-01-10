@@ -170,6 +170,9 @@ export default function SeriesDetailDrawer({
   const [cancellingSession, setCancellingSession] = useState(false);
   const [editingMaxPlayers, setEditingMaxPlayers] = useState(false);
   const [newMaxPlayers, setNewMaxPlayers] = useState("");
+  const [playerActionMenuId, setPlayerActionMenuId] = useState<string | null>(null);
+  const [pausingPlayerId, setPausingPlayerId] = useState<string | null>(null);
+  const [removingPlayerId, setRemovingPlayerId] = useState<string | null>(null);
 
   const { data: series, isLoading } = useQuery<SeriesDetail>({
     queryKey: [`/api/coach/series/${seriesId}`],
@@ -296,6 +299,79 @@ export default function SeriesDetailDrawer({
     if (!isNaN(value) && value >= 1 && value <= 20) {
       updateMaxPlayersMutation.mutate(value);
     }
+  };
+
+  // Mutation to pause a player
+  const pausePlayerMutation = useMutation({
+    mutationFn: async (playerId: string) => {
+      return apiRequest("POST", `/api/coach/series/${seriesId}/players/${playerId}/pause`, {
+        pauseReason: "vacation",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      setPausingPlayerId(null);
+      setPlayerActionMenuId(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      setPausingPlayerId(null);
+    },
+  });
+
+  // Mutation to unpause/reactivate a player
+  const unpausePlayerMutation = useMutation({
+    mutationFn: async (playerId: string) => {
+      return apiRequest("POST", `/api/coach/series/${seriesId}/players/${playerId}/unpause`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  // Mutation to remove a player (mark as left)
+  const removePlayerMutation = useMutation({
+    mutationFn: async (playerId: string) => {
+      return apiRequest("POST", `/api/coach/series/${seriesId}/players/${playerId}/leave`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      setRemovingPlayerId(null);
+      setPlayerActionMenuId(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      setRemovingPlayerId(null);
+    },
+  });
+
+  const handlePausePlayer = (playerId: string) => {
+    if (Platform.OS === "web") {
+      if (window.confirm("Pause this player? They will not appear in upcoming sessions.")) {
+        setPausingPlayerId(playerId);
+        pausePlayerMutation.mutate(playerId);
+      }
+    } else {
+      setPausingPlayerId(playerId);
+      pausePlayerMutation.mutate(playerId);
+    }
+  };
+
+  const handleRemovePlayer = (playerId: string) => {
+    if (Platform.OS === "web") {
+      if (window.confirm("Remove this player from the series? This marks them as a former player.")) {
+        setRemovingPlayerId(playerId);
+        removePlayerMutation.mutate(playerId);
+      }
+    } else {
+      setRemovingPlayerId(playerId);
+      removePlayerMutation.mutate(playerId);
+    }
+  };
+
+  const handleReactivatePlayer = (playerId: string) => {
+    unpausePlayerMutation.mutate(playerId);
   };
 
   // Get past sessions for attendance backfill
@@ -672,6 +748,10 @@ export default function SeriesDetailDrawer({
                     const hasNoCredits = relevantCredits <= 0;
                     const hasDebt = credits?.hasDebt || false;
                     
+                    const isMenuOpen = playerActionMenuId === player.id;
+                    const isPausing = pausingPlayerId === player.id;
+                    const isRemoving = removingPlayerId === player.id;
+                    
                     return (
                       <View key={player.id} style={styles.playerRow}>
                         <View style={[styles.playerAvatar, { backgroundColor: Colors.dark.successNeon + "30" }]}>
@@ -701,6 +781,44 @@ export default function SeriesDetailDrawer({
                             </Text>
                           </View>
                         ) : null}
+                        <Pressable 
+                          onPress={() => setPlayerActionMenuId(isMenuOpen ? null : player.id)}
+                          style={styles.playerMenuButton}
+                        >
+                          <Ionicons name="ellipsis-vertical" size={18} color={Colors.dark.textMuted} />
+                        </Pressable>
+                        {isMenuOpen ? (
+                          <View style={styles.playerActionMenu}>
+                            <Pressable 
+                              onPress={() => handlePausePlayer(player.id)}
+                              style={styles.playerActionItem}
+                              disabled={isPausing}
+                            >
+                              {isPausing ? (
+                                <ActivityIndicator size="small" color={Colors.dark.gold} />
+                              ) : (
+                                <>
+                                  <Ionicons name="pause-circle-outline" size={18} color={Colors.dark.gold} />
+                                  <Text style={[styles.playerActionText, { color: Colors.dark.gold }]}>Pause</Text>
+                                </>
+                              )}
+                            </Pressable>
+                            <Pressable 
+                              onPress={() => handleRemovePlayer(player.id)}
+                              style={styles.playerActionItem}
+                              disabled={isRemoving}
+                            >
+                              {isRemoving ? (
+                                <ActivityIndicator size="small" color={Colors.dark.error} />
+                              ) : (
+                                <>
+                                  <Ionicons name="person-remove-outline" size={18} color={Colors.dark.error} />
+                                  <Text style={[styles.playerActionText, { color: Colors.dark.error }]}>Remove</Text>
+                                </>
+                              )}
+                            </Pressable>
+                          </View>
+                        ) : null}
                       </View>
                     );
                   })
@@ -724,6 +842,13 @@ export default function SeriesDetailDrawer({
                               : player.pauseReason || "On vacation"}
                           </Text>
                         </View>
+                        <Pressable 
+                          onPress={() => handleReactivatePlayer(player.id)}
+                          style={styles.reactivateButton}
+                        >
+                          <Ionicons name="play-circle-outline" size={18} color={Colors.dark.successNeon} />
+                          <Text style={styles.reactivateButtonText}>Reactivate</Text>
+                        </Pressable>
                       </View>
                     ))}
                   </>
@@ -1681,6 +1806,52 @@ const styles = StyleSheet.create({
   },
   creditBadgeTextDebt: {
     color: Colors.dark.error,
+  },
+  playerMenuButton: {
+    padding: Spacing.xs,
+    marginLeft: Spacing.xs,
+  },
+  playerActionMenu: {
+    position: "absolute",
+    right: 0,
+    top: 36,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.backgroundTertiary,
+    padding: Spacing.xs,
+    minWidth: 120,
+    zIndex: 100,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  playerActionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+  },
+  playerActionText: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "500",
+  },
+  reactivateButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.successNeon + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+  },
+  reactivateButtonText: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.successNeon,
   },
   emptyState: {
     alignItems: "center",
