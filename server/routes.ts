@@ -7519,10 +7519,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Helper function to calculate session earning based on contract
   async function calculateSessionEarning(
-    session: { academyId?: string | null; duration?: number | null; sessionType?: string | null },
+    session: { id?: string; academyId?: string | null; duration?: number | null; sessionType?: string | null },
     coachId: string,
     contracts: any[]
-  ): Promise<{ amount: number; currency: string; warning?: string }> {
+  ): Promise<{ amount: number; currency: string; warning?: string; playerCount?: number }> {
+    const sessionId = session.id;
     const academyId = session.academyId;
     const duration = session.duration || 60;
     const rawSessionType = session.sessionType || "private";
@@ -7546,6 +7547,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     const currency = contract.currency || "AED";
     let amount = 0;
+    
+    // Get player count for group/semi-private sessions (needed for percentage-based pay)
+    let playerCount = 1;
+    if (sessionId && (sessionType === "group" || sessionType === "semi_private")) {
+      const sessionPlayers = await storage.getSessionPlayers(sessionId);
+      // Count all assigned players (for revenue calculation, we count all players in the class)
+      playerCount = sessionPlayers.length || 1;
+    }
     
     // Check for session-type specific rates first
     if (sessionType === "private" && contract.privateRate) {
@@ -7591,13 +7600,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return { amount: 0, currency, warning: "missing_academy_pricing" };
           }
           
-          let sessionPrice = 0;
+          // Calculate per-player price
+          let perPlayerPrice = 0;
           if (pricing.pricePerHour) {
-            sessionPrice = Number(pricing.pricePerHour) * (duration / 60);
+            perPlayerPrice = Number(pricing.pricePerHour) * (duration / 60);
           } else {
-            sessionPrice = Number(pricing.pricePerSession) || 0;
+            perPlayerPrice = Number(pricing.pricePerSession) || 0;
           }
-          amount = sessionPrice * (percentageRate / 100);
+          
+          // For group/semi-private sessions, total revenue = per-player price × player count
+          const totalSessionRevenue = perPlayerPrice * playerCount;
+          amount = totalSessionRevenue * (percentageRate / 100);
           break;
         default:
           console.warn(`[Earnings] Unknown pay type: ${contract.payType}`);
@@ -7605,7 +7618,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
     
-    return { amount, currency };
+    return { amount, currency, playerCount };
   }
 
   // Get coach earnings summary (this month + projected)
