@@ -572,7 +572,10 @@ export default function SeriesDetailDrawer({
     // Add timestamp to prevent 304 caching and get fresh data
     let savedStatuses: Record<string, "present" | "absent" | "vacation"> = {};
     try {
-      const sessionPlayers = await apiRequest("GET", `/api/coach/sessions/${session.id}/players?t=${Date.now()}`) as Array<{ playerId: string; attendanceStatus: string }>;
+      const response = await apiRequest("GET", `/api/coach/sessions/${session.id}/players?t=${Date.now()}`);
+      const sessionPlayers = await response.json() as Array<{ playerId: string; attendanceStatus: string }>;
+      
+      console.log("[AttendanceLoad] Raw API response:", JSON.stringify(sessionPlayers));
       
       // Build a map of saved statuses from the API
       if (Array.isArray(sessionPlayers)) {
@@ -581,17 +584,21 @@ export default function SeriesDetailDrawer({
             const status = sp.attendanceStatus;
             if (status === "present" || status === "absent" || status === "vacation") {
               savedStatuses[sp.playerId] = status;
+              console.log("[AttendanceLoad] Mapped", sp.playerId, "->", status);
             }
           }
         });
       }
+      console.log("[AttendanceLoad] Saved statuses map:", savedStatuses);
     } catch (error) {
       console.error("Error loading attendance:", error);
     }
     
     // Now build initialAttendance: use saved status if exists, otherwise default to present
     activePlayers.forEach(p => {
-      initialAttendance[p.id] = savedStatuses[p.id] || "present";
+      const lookupStatus = savedStatuses[p.id];
+      console.log("[AttendanceLoad] Player", p.name, "lookup:", lookupStatus, "-> final:", lookupStatus || "present");
+      initialAttendance[p.id] = lookupStatus || "present";
     });
     
     setSessionAttendance(initialAttendance);
@@ -599,11 +606,16 @@ export default function SeriesDetailDrawer({
   };
 
   const handleSetAttendance = (playerId: string, status: "present" | "absent" | "vacation") => {
+    console.log("[Attendance] Setting status:", { playerId, status });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSessionAttendance(prev => ({
-      ...prev,
-      [playerId]: status,
-    }));
+    setSessionAttendance(prev => {
+      const newState = {
+        ...prev,
+        [playerId]: status,
+      };
+      console.log("[Attendance] New state:", newState);
+      return newState;
+    });
   };
 
   const handleSaveAttendance = async () => {
@@ -2044,6 +2056,7 @@ const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
+    zIndex: 1,
   },
   drawer: {
     backgroundColor: Colors.dark.backgroundSecondary,
@@ -2051,6 +2064,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: BorderRadius.xl,
     maxHeight: "90%",
     minHeight: "60%",
+    zIndex: 2,
   },
   handleContainer: {
     alignItems: "center",

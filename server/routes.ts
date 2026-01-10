@@ -3261,6 +3261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const playersWithDetails = await storage.getSessionPlayersWithPlayerInfo(id);
+      console.log("[SessionPlayers] Returning players for session", id, ":", JSON.stringify(playersWithDetails.map(p => ({ playerId: p.playerId, attendanceStatus: p.attendanceStatus }))));
       res.json(playersWithDetails);
     } catch (error) {
       console.error("Error fetching players:", error);
