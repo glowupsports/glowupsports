@@ -623,63 +623,61 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
   };
 
   // Helper to get date range for each period
-  // Returns start (inclusive) and end (exclusive) dates for filtering
+  // For standalone tab: Returns full day/week ranges (including future)
   const getDateRangeForPeriod = (period: FeedbackPeriod): { start: Date; end: Date } => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
     
     switch (period) {
       case "today":
-        // From start of today to now (only show past sessions)
-        return { start: today, end: now };
+        // Full day - from start of today to start of tomorrow (includes future sessions today)
+        return { start: today, end: tomorrow };
       case "yesterday": {
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
-        // From start of yesterday to start of today (full day)
         return { start: yesterday, end: today };
       }
       case "this_week": {
         const weekStart = new Date(today);
         weekStart.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
-        return { start: weekStart, end: now };
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 7); // Full week including future
+        return { start: weekStart, end: weekEnd };
       }
       case "last_week": {
         const thisWeekStart = new Date(today);
         thisWeekStart.setDate(today.getDate() - today.getDay());
         const lastWeekStart = new Date(thisWeekStart);
         lastWeekStart.setDate(lastWeekStart.getDate() - 7);
-        const lastWeekEnd = new Date(thisWeekStart); // End of last week = start of this week
-        return { start: lastWeekStart, end: lastWeekEnd };
+        return { start: lastWeekStart, end: thisWeekStart };
       }
       case "last_month": {
         const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
         const lastMonthStart = new Date(thisMonthStart);
         lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
-        // End is start of current month (exclusive)
         return { start: lastMonthStart, end: thisMonthStart };
       }
       default:
-        return { start: today, end: now };
+        return { start: today, end: tomorrow };
     }
   };
 
   const filteredSessions = useMemo(() => {
     if (!calendarData?.ownSessions) return [];
     const { start, end } = getDateRangeForPeriod(feedbackPeriod);
-    const now = new Date();
     
     return calendarData.ownSessions
       .filter((session: any) => {
         const sessionDate = new Date(session.startTime);
-        const endTime = new Date(session.endTime);
         // Only show standalone sessions (not part of a class/series)
         const isStandalone = !session.seriesId;
         return (
           isStandalone &&
           sessionDate >= start &&
           sessionDate < end &&
-          session.status !== "cancelled" &&
-          endTime < now
+          session.status !== "cancelled"
         );
       })
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()); // Chronological order
