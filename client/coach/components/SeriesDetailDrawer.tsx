@@ -576,15 +576,19 @@ export default function SeriesDetailDrawer({
     // If session is completed, fetch existing attendance records
     if (session.status === "completed") {
       try {
-        const response = await apiRequest("GET", `/api/coach/sessions/${session.id}/players`);
-        const sessionPlayers = await response.json();
+        const sessionPlayers = await apiRequest("GET", `/api/coach/sessions/${session.id}/players`) as Array<{ playerId: string; attendanceStatus: string }>;
         
         // Override with saved attendance status
         if (Array.isArray(sessionPlayers)) {
           activePlayers.forEach(p => {
-            const savedAttendance = sessionPlayers.find((sp: { playerId: string; attendanceStatus: string }) => sp.playerId === p.id);
+            const savedAttendance = sessionPlayers.find(sp => sp.playerId === p.id);
             if (savedAttendance) {
-              initialAttendance[p.id] = savedAttendance.attendanceStatus === "present" ? "present" : "absent";
+              const status = savedAttendance.attendanceStatus;
+              if (status === "present" || status === "absent" || status === "vacation") {
+                initialAttendance[p.id] = status;
+              } else {
+                initialAttendance[p.id] = "absent";
+              }
             }
           });
         }
