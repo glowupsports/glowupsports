@@ -16,7 +16,7 @@ import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { Card } from "@/components/Card";
 
 type CreditType = "group" | "private" | "semi_private";
@@ -63,6 +63,8 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [packageToDelete, setPackageToDelete] = useState<Package | null>(null);
+  const [showForceDeleteModal, setShowForceDeleteModal] = useState(false);
+  const [forceDeleteInfo, setForceDeleteInfo] = useState<{ packageId: string; creditsUsed: number } | null>(null);
 
   const { data: packages = [], isLoading } = useQuery<Package[]>({
     queryKey: [`/api/players/${playerId}/packages`],
@@ -146,7 +148,15 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
   const deleteMutation = useMutation({
     mutationFn: async ({ packageId, force }: { packageId: string; force?: boolean }): Promise<{ success: boolean; error?: string; creditsUsed?: number }> => {
       const url = force ? `/api/packages/${packageId}?force=true` : `/api/packages/${packageId}`;
-      const response = await apiRequest("DELETE", url);
+      const baseUrl = getApiUrl();
+      const fullUrl = new URL(url, baseUrl);
+      
+      const response = await fetch(fullUrl, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      
       const data = await response.json();
       if (!response.ok) {
         return { success: false, error: data.error, creditsUsed: data.creditsUsed };
@@ -155,23 +165,18 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
     },
     onSuccess: (data, variables) => {
       if (!data.success && data.creditsUsed) {
-        Alert.alert(
-          "Credits Already Used",
-          `${data.creditsUsed} credit(s) from this package have been used. Delete anyway?`,
-          [
-            { text: "Cancel", style: "cancel" },
-            { 
-              text: "Delete Anyway", 
-              style: "destructive", 
-              onPress: () => deleteMutation.mutate({ packageId: variables.packageId, force: true }) 
-            },
-          ]
-        );
+        // Show force delete confirmation modal (works on web unlike Alert.alert)
+        setForceDeleteInfo({ packageId: variables.packageId, creditsUsed: data.creditsUsed });
+        setShowForceDeleteModal(true);
         return;
       }
       
       if (!data.success) {
-        Alert.alert("Error", data.error || "Failed to delete package");
+        if (Platform.OS === "web") {
+          window.alert(data.error || "Failed to delete package");
+        } else {
+          Alert.alert("Error", data.error || "Failed to delete package");
+        }
         return;
       }
       
@@ -532,6 +537,57 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
               >
                 <Text style={styles.deleteConfirmButtonText}>
                   {deleteMutation.isPending ? "Deleting..." : "Delete"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Force Delete Confirmation Modal - Works on web unlike Alert.alert */}
+      <Modal visible={showForceDeleteModal} animationType="fade" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.deleteModalContent}>
+            <Text style={styles.modalTitle}>Credits Already Used</Text>
+            {forceDeleteInfo && (
+              <Text style={styles.deleteMessage}>
+                {forceDeleteInfo.creditsUsed} credit(s) from this package have been used. This will also delete any associated billing records. Delete anyway?
+              </Text>
+            )}
+            <View style={styles.modalButtons}>
+              <Pressable 
+                onPress={() => {
+                  setShowForceDeleteModal(false);
+                  setForceDeleteInfo(null);
+                }} 
+                style={styles.cancelButton}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={async () => {
+                  if (forceDeleteInfo) {
+                    setShowForceDeleteModal(false);
+                    try {
+                      const result = await deleteMutation.mutateAsync({ packageId: forceDeleteInfo.packageId, force: true });
+                      if (result.success) {
+                        queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/packages`] });
+                        queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/credit-balance`] });
+                        if (Platform.OS !== "web") {
+                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        }
+                      }
+                    } catch (e) {
+                      // Error handled by mutation's onError
+                    }
+                  }
+                  setForceDeleteInfo(null);
+                }}
+                disabled={deleteMutation.isPending}
+                style={styles.deleteConfirmButton}
+              >
+                <Text style={styles.deleteConfirmButtonText}>
+                  {deleteMutation.isPending ? "Deleting..." : "Delete Anyway"}
                 </Text>
               </Pressable>
             </View>

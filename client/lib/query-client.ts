@@ -51,7 +51,7 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-function getAuthHeaders(): Record<string, string> {
+export function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
   
   const token = getAuthToken();
