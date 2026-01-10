@@ -759,7 +759,7 @@ export default function SeriesDetailDrawer({
                     const isRemoving = removingPlayerId === player.id;
                     
                     return (
-                      <View key={player.id} style={styles.playerRow}>
+                      <View key={player.id} style={[styles.playerRow, isMenuOpen && { zIndex: 999 }]}>
                         <View style={[styles.playerAvatar, { backgroundColor: Colors.dark.successNeon + "30" }]}>
                           <Text style={[styles.playerInitial, { color: Colors.dark.successNeon }]}>
                             {player.name.charAt(0).toUpperCase()}
