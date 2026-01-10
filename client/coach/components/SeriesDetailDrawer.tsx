@@ -21,6 +21,7 @@ import { apiRequest } from "@/lib/query-client";
 import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 import { useCoach } from "@/coach/context/CoachContext";
 import { WebCalendarPicker } from "@/components/WebCalendarPicker";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 interface PlayerCredits {
   group: number;
@@ -173,6 +174,25 @@ export default function SeriesDetailDrawer({
   const [playerActionMenuId, setPlayerActionMenuId] = useState<string | null>(null);
   const [pausingPlayerId, setPausingPlayerId] = useState<string | null>(null);
   const [removingPlayerId, setRemovingPlayerId] = useState<string | null>(null);
+  
+  // Pause modal state
+  const [showPauseModal, setShowPauseModal] = useState(false);
+  const [pausePlayerId, setPausePlayerId] = useState<string | null>(null);
+  const [pauseFromDate, setPauseFromDate] = useState<Date>(new Date());
+  const [pauseUntilDate, setPauseUntilDate] = useState<Date>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d;
+  });
+  const [pauseReason, setPauseReason] = useState("");
+  const [showPauseFromPicker, setShowPauseFromPicker] = useState(false);
+  const [showPauseUntilPicker, setShowPauseUntilPicker] = useState(false);
+  
+  // Remove modal state
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [removePlayerId, setRemovePlayerId] = useState<string | null>(null);
+  const [removeDate, setRemoveDate] = useState<Date>(new Date());
+  const [showRemoveDatePicker, setShowRemoveDatePicker] = useState(false);
 
   const { data: series, isLoading } = useQuery<SeriesDetail>({
     queryKey: [`/api/coach/series/${seriesId}`],
@@ -303,15 +323,25 @@ export default function SeriesDetailDrawer({
 
   // Mutation to pause a player
   const pausePlayerMutation = useMutation({
-    mutationFn: async (playerId: string) => {
+    mutationFn: async ({ playerId, pauseFrom, pauseUntil, reason }: { 
+      playerId: string; 
+      pauseFrom: Date; 
+      pauseUntil: Date; 
+      reason?: string;
+    }) => {
       return apiRequest("POST", `/api/coach/series/${seriesId}/players/${playerId}/pause`, {
-        pauseReason: "vacation",
+        pauseFrom: pauseFrom.toISOString(),
+        pauseUntil: pauseUntil.toISOString(),
+        reason: reason || "vacation",
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
       setPausingPlayerId(null);
       setPlayerActionMenuId(null);
+      setShowPauseModal(false);
+      setPausePlayerId(null);
+      setPauseReason("");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: () => {
@@ -332,13 +362,17 @@ export default function SeriesDetailDrawer({
 
   // Mutation to remove a player (mark as left)
   const removePlayerMutation = useMutation({
-    mutationFn: async (playerId: string) => {
-      return apiRequest("POST", `/api/coach/series/${seriesId}/players/${playerId}/leave`, {});
+    mutationFn: async ({ playerId, leftAt }: { playerId: string; leftAt: Date }) => {
+      return apiRequest("POST", `/api/coach/series/${seriesId}/players/${playerId}/leave`, {
+        leftAt: leftAt.toISOString(),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
       setRemovingPlayerId(null);
       setPlayerActionMenuId(null);
+      setShowRemoveModal(false);
+      setRemovePlayerId(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: () => {
@@ -347,27 +381,41 @@ export default function SeriesDetailDrawer({
   });
 
   const handlePausePlayer = (playerId: string) => {
-    if (Platform.OS === "web") {
-      if (window.confirm("Pause this player? They will not appear in upcoming sessions.")) {
-        setPausingPlayerId(playerId);
-        pausePlayerMutation.mutate(playerId);
-      }
-    } else {
-      setPausingPlayerId(playerId);
-      pausePlayerMutation.mutate(playerId);
-    }
+    setPausePlayerId(playerId);
+    setPauseFromDate(new Date());
+    const nextWeek = new Date();
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    setPauseUntilDate(nextWeek);
+    setPauseReason("");
+    setPlayerActionMenuId(null);
+    setShowPauseModal(true);
+  };
+
+  const handleConfirmPause = () => {
+    if (!pausePlayerId) return;
+    setPausingPlayerId(pausePlayerId);
+    pausePlayerMutation.mutate({
+      playerId: pausePlayerId,
+      pauseFrom: pauseFromDate,
+      pauseUntil: pauseUntilDate,
+      reason: pauseReason || "vacation",
+    });
   };
 
   const handleRemovePlayer = (playerId: string) => {
-    if (Platform.OS === "web") {
-      if (window.confirm("Remove this player from the series? This marks them as a former player.")) {
-        setRemovingPlayerId(playerId);
-        removePlayerMutation.mutate(playerId);
-      }
-    } else {
-      setRemovingPlayerId(playerId);
-      removePlayerMutation.mutate(playerId);
-    }
+    setRemovePlayerId(playerId);
+    setRemoveDate(new Date());
+    setPlayerActionMenuId(null);
+    setShowRemoveModal(true);
+  };
+
+  const handleConfirmRemove = () => {
+    if (!removePlayerId) return;
+    setRemovingPlayerId(removePlayerId);
+    removePlayerMutation.mutate({
+      playerId: removePlayerId,
+      leftAt: removeDate,
+    });
   };
 
   const handleReactivatePlayer = (playerId: string) => {
@@ -1615,6 +1663,233 @@ export default function SeriesDetailDrawer({
           </View>
         </View>
       </Modal>
+
+      {/* Pause Player Modal */}
+      <Modal
+        visible={showPauseModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPauseModal(false)}
+      >
+        <View style={styles.overlay}>
+          <Pressable style={styles.backdrop} onPress={() => setShowPauseModal(false)} />
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <KeyboardAwareScrollViewCompat>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Pause Player</Text>
+                <Pressable onPress={() => setShowPauseModal(false)} style={styles.closeButton}>
+                  <Ionicons name="close" size={24} color={Colors.dark.text} />
+                </Pressable>
+              </View>
+              
+              <Text style={styles.modalSubtitle}>
+                Player will not appear in sessions during this period
+              </Text>
+
+              <View style={styles.dateFieldsRow}>
+                <View style={styles.dateField}>
+                  <Text style={styles.fieldLabel}>From Date</Text>
+                  {Platform.OS === "web" ? (
+                    <WebCalendarPicker
+                      value={pauseFromDate}
+                      onChange={(date) => {
+                        setPauseFromDate(date);
+                        if (pauseUntilDate < date) {
+                          const newUntil = new Date(date);
+                          newUntil.setDate(newUntil.getDate() + 7);
+                          setPauseUntilDate(newUntil);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <Pressable 
+                        style={styles.dateButton} 
+                        onPress={() => setShowPauseFromPicker(true)}
+                      >
+                        <Ionicons name="calendar-outline" size={18} color={Colors.dark.gold} />
+                        <Text style={styles.dateButtonText}>
+                          {pauseFromDate.toLocaleDateString()}
+                        </Text>
+                      </Pressable>
+                      {showPauseFromPicker ? (
+                        <DateTimePicker
+                          value={pauseFromDate}
+                          mode="date"
+                          display="default"
+                          onChange={(e, date) => {
+                            setShowPauseFromPicker(false);
+                            if (date) {
+                              setPauseFromDate(date);
+                              if (pauseUntilDate < date) {
+                                const newUntil = new Date(date);
+                                newUntil.setDate(newUntil.getDate() + 7);
+                                setPauseUntilDate(newUntil);
+                              }
+                            }
+                          }}
+                        />
+                      ) : null}
+                    </>
+                  )}
+                </View>
+
+                <View style={styles.dateField}>
+                  <Text style={styles.fieldLabel}>Until Date</Text>
+                  {Platform.OS === "web" ? (
+                    <WebCalendarPicker
+                      value={pauseUntilDate}
+                      onChange={setPauseUntilDate}
+                    />
+                  ) : (
+                    <>
+                      <Pressable 
+                        style={styles.dateButton} 
+                        onPress={() => setShowPauseUntilPicker(true)}
+                      >
+                        <Ionicons name="calendar-outline" size={18} color={Colors.dark.gold} />
+                        <Text style={styles.dateButtonText}>
+                          {pauseUntilDate.toLocaleDateString()}
+                        </Text>
+                      </Pressable>
+                      {showPauseUntilPicker ? (
+                        <DateTimePicker
+                          value={pauseUntilDate}
+                          mode="date"
+                          display="default"
+                          minimumDate={pauseFromDate}
+                          onChange={(e, date) => {
+                            setShowPauseUntilPicker(false);
+                            if (date) setPauseUntilDate(date);
+                          }}
+                        />
+                      ) : null}
+                    </>
+                  )}
+                </View>
+              </View>
+
+              {pauseUntilDate < pauseFromDate ? (
+                <Text style={styles.dateValidationError}>
+                  Until date must be on or after from date
+                </Text>
+              ) : null}
+
+              <View style={styles.reasonField}>
+                <Text style={styles.fieldLabel}>Reason (optional)</Text>
+                <TextInput
+                  style={styles.reasonInput}
+                  placeholder="e.g., Family vacation, Injury..."
+                  placeholderTextColor={Colors.dark.textMuted}
+                  value={pauseReason}
+                  onChangeText={setPauseReason}
+                />
+              </View>
+
+              <View style={styles.modalActions}>
+                <Pressable 
+                  style={styles.cancelButton} 
+                  onPress={() => setShowPauseModal(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </Pressable>
+                <Pressable 
+                  style={[
+                    styles.confirmButton, 
+                    styles.pauseConfirmButton,
+                    pauseUntilDate < pauseFromDate && styles.confirmButtonDisabled
+                  ]}
+                  onPress={handleConfirmPause}
+                  disabled={pausePlayerMutation.isPending || pauseUntilDate < pauseFromDate}
+                >
+                  {pausePlayerMutation.isPending ? (
+                    <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                  ) : (
+                    <Text style={styles.confirmButtonText}>Pause Player</Text>
+                  )}
+                </Pressable>
+              </View>
+            </KeyboardAwareScrollViewCompat>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Remove Player Modal */}
+      <Modal
+        visible={showRemoveModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRemoveModal(false)}
+      >
+        <View style={styles.overlay}>
+          <Pressable style={styles.backdrop} onPress={() => setShowRemoveModal(false)} />
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Remove Player</Text>
+              <Pressable onPress={() => setShowRemoveModal(false)} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+            
+            <Text style={styles.modalSubtitle}>
+              This will mark the player as a former player from the selected date
+            </Text>
+
+            <View style={styles.dateField}>
+              <Text style={styles.fieldLabel}>Effective Date</Text>
+              {Platform.OS === "web" ? (
+                <WebCalendarPicker
+                  value={removeDate}
+                  onChange={setRemoveDate}
+                />
+              ) : (
+                <>
+                  <Pressable 
+                    style={styles.dateButton} 
+                    onPress={() => setShowRemoveDatePicker(true)}
+                  >
+                    <Ionicons name="calendar-outline" size={18} color={Colors.dark.error} />
+                    <Text style={styles.dateButtonText}>
+                      {removeDate.toLocaleDateString()}
+                    </Text>
+                  </Pressable>
+                  {showRemoveDatePicker ? (
+                    <DateTimePicker
+                      value={removeDate}
+                      mode="date"
+                      display="default"
+                      onChange={(e, date) => {
+                        setShowRemoveDatePicker(false);
+                        if (date) setRemoveDate(date);
+                      }}
+                    />
+                  ) : null}
+                </>
+              )}
+            </View>
+
+            <View style={styles.modalActions}>
+              <Pressable 
+                style={styles.cancelButton} 
+                onPress={() => setShowRemoveModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.confirmButton, styles.removeConfirmButton]}
+                onPress={handleConfirmRemove}
+                disabled={removePlayerMutation.isPending}
+              >
+                {removePlayerMutation.isPending ? (
+                  <ActivityIndicator size="small" color={Colors.dark.text} />
+                ) : (
+                  <Text style={styles.confirmButtonText}>Remove Player</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 }
@@ -2464,5 +2739,110 @@ const styles = StyleSheet.create({
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
     color: Colors.dark.error,
+  },
+  modalContent: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  modalTitle: {
+    fontSize: Typography.h3.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  modalSubtitle: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.lg,
+  },
+  dateFieldsRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  dateField: {
+    flex: 1,
+  },
+  fieldLabel: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.xs,
+  },
+  dateButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.backgroundTertiary,
+  },
+  dateButtonText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+  },
+  reasonField: {
+    marginBottom: Spacing.lg,
+  },
+  reasonInput: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+    borderWidth: 1,
+    borderColor: Colors.dark.backgroundTertiary,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.backgroundTertiary,
+  },
+  cancelButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  confirmButton: {
+    flex: 1,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    alignItems: "center",
+  },
+  pauseConfirmButton: {
+    backgroundColor: Colors.dark.gold,
+  },
+  removeConfirmButton: {
+    backgroundColor: Colors.dark.error,
+  },
+  confirmButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.backgroundRoot,
+  },
+  confirmButtonDisabled: {
+    opacity: 0.5,
+  },
+  dateValidationError: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.error,
+    marginBottom: Spacing.md,
+    textAlign: "center",
   },
 });

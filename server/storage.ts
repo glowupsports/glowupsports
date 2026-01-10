@@ -2982,12 +2982,12 @@ export const storage = {
   },
 
   // Mark a player as left (not deleted - keeps history)
-  async markPlayerLeftSeries(seriesId: string, playerId: string): Promise<SeriesPlayer | undefined> {
+  async markPlayerLeftSeries(seriesId: string, playerId: string, leftAtDate?: Date): Promise<SeriesPlayer | undefined> {
     const result = await db
       .update(seriesPlayers)
       .set({
         status: "left",
-        leftAt: new Date(),
+        leftAt: leftAtDate || new Date(),
       })
       .where(and(
         eq(seriesPlayers.seriesId, seriesId),

@@ -6713,6 +6713,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/coach/series/:id/players/:playerId/leave", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id, playerId } = req.params;
+      const { leftAt } = req.body;
       const coachId = req.user!.coachId;
       
       const existing = await storage.getCoachingSeriesById(id);
@@ -6724,7 +6725,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Not authorized to manage this class" });
       }
       
-      const updated = await storage.markPlayerLeftSeries(id, playerId);
+      const leftAtDate = leftAt ? new Date(leftAt) : undefined;
+      const updated = await storage.markPlayerLeftSeries(id, playerId, leftAtDate);
       if (!updated) {
         return res.status(404).json({ error: "Player not found in this class" });
       }
