@@ -558,7 +558,7 @@ export default function SeriesDetailDrawer({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedSession(session);
     
-    const initialAttendance: Record<string, "present" | "absent"> = {};
+    const initialAttendance: Record<string, "present" | "absent" | "vacation"> = {};
     const sessionDate = new Date(session.startTime);
     
     // Filter players who had joined by the session date
@@ -573,28 +573,24 @@ export default function SeriesDetailDrawer({
       initialAttendance[p.id] = "present";
     });
     
-    // If session is completed, fetch existing attendance records
-    if (session.status === "completed") {
-      try {
-        const sessionPlayers = await apiRequest("GET", `/api/coach/sessions/${session.id}/players`) as Array<{ playerId: string; attendanceStatus: string }>;
-        
-        // Override with saved attendance status
-        if (Array.isArray(sessionPlayers)) {
-          activePlayers.forEach(p => {
-            const savedAttendance = sessionPlayers.find(sp => sp.playerId === p.id);
-            if (savedAttendance) {
-              const status = savedAttendance.attendanceStatus;
-              if (status === "present" || status === "absent" || status === "vacation") {
-                initialAttendance[p.id] = status;
-              } else {
-                initialAttendance[p.id] = "absent";
-              }
+    // Always fetch existing attendance records (not just when completed)
+    try {
+      const sessionPlayers = await apiRequest("GET", `/api/coach/sessions/${session.id}/players`) as Array<{ playerId: string; attendanceStatus: string }>;
+      
+      // Override with saved attendance status
+      if (Array.isArray(sessionPlayers)) {
+        activePlayers.forEach(p => {
+          const savedAttendance = sessionPlayers.find(sp => sp.playerId === p.id);
+          if (savedAttendance && savedAttendance.attendanceStatus) {
+            const status = savedAttendance.attendanceStatus;
+            if (status === "present" || status === "absent" || status === "vacation") {
+              initialAttendance[p.id] = status;
             }
-          });
-        }
-      } catch (error) {
-        console.error("Error loading attendance:", error);
+          }
+        });
       }
+    } catch (error) {
+      console.error("Error loading attendance:", error);
     }
     
     setSessionAttendance(initialAttendance);
