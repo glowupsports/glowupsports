@@ -400,6 +400,17 @@ export default function SeriesDetailDrawer({
     },
   });
 
+  // Mutation to delete a package template
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (templateId: string) => {
+      return apiRequest("DELETE", `/api/billing/package-templates/${templateId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/billing/package-templates"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
   // Mutation to remove a player (mark as left)
   const removePlayerMutation = useMutation({
     mutationFn: async ({ playerId, leftAt }: { playerId: string; leftAt: Date }) => {
@@ -1672,27 +1683,36 @@ export default function SeriesDetailDrawer({
                       <View style={styles.templateSection}>
                         <Text style={styles.templateSectionTitle}>Or select a saved package:</Text>
                         {packageTemplates.map((template) => (
-                          <Pressable
-                            key={template.id}
-                            style={[
-                              styles.packageCard,
-                              selectedPackageTemplateId === template.id && styles.packageCardSelected,
-                            ]}
-                            onPress={() => {
-                              setSelectedCreditPackage(null);
-                              handleSelectPackage(template.id);
-                            }}
-                          >
-                            <View style={styles.packageInfo}>
-                              <Text style={styles.packageName}>{template.name}</Text>
-                              <Text style={styles.packageDetails}>
-                                {template.credits} credits - Valid {template.validityDays} days
+                          <View key={template.id} style={styles.templateRow}>
+                            <Pressable
+                              style={[
+                                styles.packageCard,
+                                styles.packageCardFlex,
+                                selectedPackageTemplateId === template.id && styles.packageCardSelected,
+                              ]}
+                              onPress={() => {
+                                setSelectedCreditPackage(null);
+                                handleSelectPackage(template.id);
+                              }}
+                            >
+                              <View style={styles.packageInfo}>
+                                <Text style={styles.packageName}>{template.name}</Text>
+                                <Text style={styles.packageDetails}>
+                                  {template.credits} credits - Valid {template.validityDays} days
+                                </Text>
+                              </View>
+                              <Text style={styles.packagePrice}>
+                                {template.currency} {parseFloat(template.price).toFixed(0)}
                               </Text>
-                            </View>
-                            <Text style={styles.packagePrice}>
-                              {template.currency} {parseFloat(template.price).toFixed(0)}
-                            </Text>
-                          </Pressable>
+                            </Pressable>
+                            <Pressable
+                              style={styles.templateDeleteButton}
+                              onPress={() => deleteTemplateMutation.mutate(template.id)}
+                              disabled={deleteTemplateMutation.isPending}
+                            >
+                              <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+                            </Pressable>
+                          </View>
                         ))}
                       </View>
                     ) : null}
@@ -2872,6 +2892,23 @@ const styles = StyleSheet.create({
   },
   packageCardSelected: {
     borderColor: Colors.dark.successNeon,
+  },
+  packageCardFlex: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  templateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  templateDeleteButton: {
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.error + "15",
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
   },
   packageInfo: {
     flex: 1,
