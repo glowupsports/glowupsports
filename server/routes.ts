@@ -11831,6 +11831,968 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== ADMIN SERIES MANAGEMENT ====================
+  // Admin can view and manage all series for all coaches in the academy
+
+  // Get all coaching series for the academy (with optional coach filter)
+  app.get("/api/admin/series", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const { coachId, status } = req.query;
+
+      // Get all series for the academy, optionally filtered by coach
+      let allSeries: any[] = [];
+      if (coachId && typeof coachId === "string") {
+        if (status === "active") {
+          allSeries = await storage.getActiveCoachingSeries(coachId, academyId);
+        } else {
+          allSeries = await storage.getCoachingSeries(coachId, academyId);
+        }
+      } else {
+        // Get all coaches in the academy and fetch their series
+        const academyCoaches = await storage.getCoachesByAcademy(academyId);
+        for (const coach of academyCoaches) {
+          const coachSeries = status === "active"
+            ? await storage.getActiveCoachingSeries(coach.id, academyId)
+            : await storage.getCoachingSeries(coach.id, academyId);
+          allSeries.push(...coachSeries);
+        }
+      }
+
+      // Enrich each series with player count, coach name, and sessions completed
+      const academyCoaches = await storage.getCoachesByAcademy(academyId);
+      const coachMap = new Map(academyCoaches.map(c => [c.id, c]));
+
+      const enrichedSeries = await Promise.all(allSeries.map(async (s) => {
+        const seriesPlayers = await storage.getSeriesPlayers(s.id);
+        const activePlayers = seriesPlayers.filter(p => p.status === "active");
+
+        const sessionsForSeries = await db
+          .select()
+          .from(sessions)
+          .where(and(
+            eq(sessions.seriesId, s.id),
+            eq(sessions.status, "completed")
+          ));
+
+        const completedSessionIds = sessionsForSeries.map(sess => sess.id);
+        let pendingFeedback = 0;
+        if (completedSessionIds.length > 0) {
+          const feedbackCount = await db
+            .select({ count: sql<number>`count(distinct ${sessionFeedback.sessionId})` })
+            .from(sessionFeedback)
+            .where(inArray(sessionFeedback.sessionId, completedSessionIds));
+          pendingFeedback = sessionsForSeries.length - (feedbackCount[0]?.count || 0);
+        }
+
+        const coach = coachMap.get(s.coachId);
+
+        return {
+          ...s,
+          coachName: coach?.name || "Unknown Coach",
+          playerCount: activePlayers.length,
+          sessionsCompleted: sessionsForSeries.length,
+          pendingFeedback: Math.max(0, pendingFeedback),
+        };
+      }));
+
+      res.json(enrichedSeries);
+    } catch (error) {
+      console.error("Error fetching admin series:", error);
+      res.status(500).json({ error: "Failed to fetch series" });
+    }
+  });
+
+  // Get a single coaching series by ID (admin can view any series in their academy)
+  app.get("/api/admin/series/:id", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const series = await storage.getCoachingSeriesById(id);
+
+      if (!series) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+
+      // Verify academy ownership
+      if (series.academyId !== academyId) {
+        return res.status(403).json({ error: "Not authorized to view this series" });
+      }
+
+      // Get coach info
+      const coach = await storage.getCoach(series.coachId);
+
+      // Get players in this series
+      const seriesPlayers = await storage.getSeriesPlayers(id);
+
+      // Get credit balances for all players
+      const playerIds = seriesPlayers.map(sp => sp.playerId);
+      const creditBalances = await storage.getPlayersCreditBalances(playerIds);
+
+      const playerDetails = await Promise.all(seriesPlayers.map(async (sp) => {
+        const player = await storage.getPlayer(sp.playerId);
+        const credits = creditBalances[sp.playerId] || { group: 0, semi_private: 0, private: 0, totalDebt: 0, hasDebt: false };
+        return {
+          id: sp.playerId,
+          name: player?.name || "Unknown Player",
+          ballLevel: player?.ballLevel || null,
+          status: sp.status,
+          sessionsAttended: sp.sessionsAttended || 0,
+          totalXpEarned: sp.totalXpEarned || 0,
+          joinedAt: sp.joinedAt?.toISOString() || null,
+          leftAt: sp.leftAt?.toISOString() || null,
+          pauseFrom: sp.pauseFrom || null,
+          pauseUntil: sp.pauseUntil || null,
+          pauseReason: sp.pauseReason || null,
+          linkedPackageId: sp.linkedPackageId || null,
+          credits,
+        };
+      }));
+
+      // Get all sessions for this series
+      const seriesSessions = await db
+        .select()
+        .from(sessions)
+        .where(eq(sessions.seriesId, id))
+        .orderBy(asc(sessions.startTime));
+
+      // Get location and court names
+      let locationName = null;
+      if (series.locationId) {
+        const location = await storage.getLocationById(series.locationId);
+        locationName = location?.name;
+      }
+
+      let courtName = null;
+      if (series.courtId) {
+        const court = await storage.getCourt(series.courtId);
+        courtName = court?.name;
+      }
+
+      res.json({
+        ...series,
+        coachName: coach?.name || "Unknown Coach",
+        locationName,
+        courtName,
+        players: playerDetails,
+        sessions: seriesSessions,
+        stats: {
+          totalSessions: series.weekCount || seriesSessions.length,
+          completedSessions: seriesSessions.filter(s => s.status === "completed").length,
+          upcomingSessions: seriesSessions.filter(s => s.status === "scheduled" && new Date(s.startTime) > new Date()).length,
+          cancelledSessions: seriesSessions.filter(s => s.status === "cancelled").length,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching admin series details:", error);
+      res.status(500).json({ error: "Failed to fetch series details" });
+    }
+  });
+
+  // Create a new coaching series (admin can create for any coach)
+  app.post("/api/admin/series", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const {
+        coachId,
+        title,
+        dayOfWeek,
+        startTime,
+        duration,
+        sessionType,
+        ballLevel,
+        skillLevel,
+        maxPlayers,
+        weekCount,
+        seriesStartDate,
+        seriesEndDate,
+        xpPerSession,
+        vibe,
+        price,
+        courtId,
+        locationId,
+        playerIds,
+      } = req.body;
+
+      if (!coachId) {
+        return res.status(400).json({ error: "coachId is required for admin series creation" });
+      }
+
+      if (!title || dayOfWeek === undefined || !startTime || !duration || !sessionType || !seriesStartDate) {
+        return res.status(400).json({ error: "title, dayOfWeek, startTime, duration, sessionType, and seriesStartDate are required" });
+      }
+
+      // Verify coach belongs to this academy
+      const coach = await storage.getCoach(coachId);
+      if (!coach) {
+        return res.status(404).json({ error: "Coach not found" });
+      }
+
+      // Create the series
+      const series = await storage.createCoachingSeries({
+        academyId,
+        coachId,
+        courtId: courtId || null,
+        locationId: locationId || null,
+        title: sanitizeTemplateName(title),
+        dayOfWeek,
+        startTime,
+        duration,
+        sessionType,
+        ballLevel,
+        skillLevel,
+        maxPlayers: maxPlayers || 4,
+        weekCount: weekCount || null,
+        seriesStartDate,
+        seriesEndDate: seriesEndDate || null,
+        xpPerSession: xpPerSession || 20,
+        vibe: vibe || "casual",
+        price: price || null,
+        status: "active",
+      });
+
+      // Add players if provided
+      if (playerIds && Array.isArray(playerIds) && playerIds.length > 0) {
+        for (const playerId of playerIds) {
+          await storage.addPlayerToSeries({
+            seriesId: series.id,
+            playerId,
+            status: "active",
+          });
+        }
+      }
+
+      // Generate session instances (same logic as coach endpoint)
+      const createdSessions: any[] = [];
+      const skippedWeeks: { week: number; reason: string }[] = [];
+
+      const academy = await storage.getAcademy(academyId);
+      const academyTimezone = academy?.timezone || "Asia/Dubai";
+
+      const initialResolution = ensureResolvableLocalTime(seriesStartDate, startTime, academyTimezone);
+      if (!initialResolution.ok) {
+        return res.status(400).json({ error: initialResolution.error });
+      }
+
+      const firstSessionResult = getFirstSessionDate(
+        seriesStartDate,
+        dayOfWeek,
+        startTime,
+        academyTimezone
+      );
+
+      if (firstSessionResult.status === "error") {
+        return res.status(400).json({
+          error: { code: "TIME_UNRESOLVABLE", message: firstSessionResult.message }
+        });
+      }
+      if (firstSessionResult.status === "gap") {
+        return res.status(400).json({
+          error: {
+            code: "TIME_UNRESOLVABLE",
+            requestedTime: startTime,
+            suggestedNext: firstSessionResult.suggestedTime,
+            date: firstSessionResult.dateStr,
+            message: `The time ${startTime} does not exist on ${firstSessionResult.dateStr} in timezone ${academyTimezone} (DST transition). Please use ${firstSessionResult.suggestedTime} instead.`
+          }
+        });
+      }
+
+      const { dateStr: firstDateStr, utcDate: firstSessionDate } = firstSessionResult;
+      let currentLocalDateStr = firstDateStr;
+
+      let seriesEnd: Date | null = null;
+      if (seriesEndDate) {
+        const endResolution = ensureResolvableLocalTime(seriesEndDate, "23:59", academyTimezone);
+        if (endResolution.ok) {
+          seriesEnd = endResolution.utcDate;
+        }
+      }
+
+      let calculatedMaxWeeks = weekCount || 52;
+      if (seriesEnd) {
+        const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+        const weeksBetween = Math.floor((seriesEnd.getTime() - firstSessionDate.getTime()) / msPerWeek) + 1;
+        calculatedMaxWeeks = Math.min(calculatedMaxWeeks, Math.max(0, weeksBetween));
+      }
+
+      const maxSessions = weekCount ? Math.min(weekCount, calculatedMaxWeeks) : calculatedMaxWeeks;
+
+      for (let weekIndex = 0; weekIndex < maxSessions; weekIndex++) {
+        const sessionDateStr = addDaysToLocalDate(currentLocalDateStr, weekIndex * 7);
+
+        const weekResolution = ensureResolvableLocalTime(sessionDateStr, startTime, academyTimezone);
+        if (!weekResolution.ok) {
+          skippedWeeks.push({
+            week: weekIndex + 1,
+            reason: weekResolution.error.message
+          });
+          continue;
+        }
+
+        const sessionDate = weekResolution.utcDate;
+
+        if (seriesEnd && sessionDate.getTime() > seriesEnd.getTime()) {
+          break;
+        }
+
+        const weekNumber = weekIndex + 1;
+        const sessionEndTime = new Date(sessionDate.getTime() + duration * 60000);
+
+        const coachConflict = await storage.checkCoachConflict(coachId, sessionDate, sessionEndTime, undefined, academyId);
+        const courtConflict = courtId ? await storage.checkCourtConflict(courtId, sessionDate, sessionEndTime, undefined, academyId) : false;
+
+        if (coachConflict || courtConflict) {
+          const reasons: string[] = [];
+          if (coachConflict) reasons.push("Coach already booked");
+          if (courtConflict) reasons.push("Court already booked");
+
+          skippedWeeks.push({
+            week: weekNumber,
+            reason: reasons.join(" and "),
+          });
+          continue;
+        }
+
+        let pricingSnapshot: { academyPrice?: string; coachPayout?: string; academyMargin?: string } = {};
+        if (academyId && coachId) {
+          try {
+            const pricing = await storage.calculateSessionPricing(academyId, coachId, sessionType, duration);
+            pricingSnapshot = {
+              academyPrice: String(pricing.academyPrice),
+              coachPayout: String(pricing.coachPayout),
+              academyMargin: String(pricing.academyMargin),
+            };
+          } catch (err: any) {
+            return res.status(422).json({
+              error: "Pricing error",
+              message: err.message || "Could not calculate session pricing"
+            });
+          }
+        }
+
+        const session = await storage.createSession({
+          academyId,
+          coachId,
+          courtId: courtId || null,
+          locationId: locationId || null,
+          startTime: sessionDate,
+          endTime: sessionEndTime,
+          duration,
+          sessionType,
+          ballLevel,
+          skillLevel,
+          isRecurring: true,
+          recurringGroupId: series.id,
+          weekCount: maxSessions,
+          seriesId: series.id,
+          weekNumber,
+          travelTime: 0,
+          paymentStatus: "unpaid",
+          status: "scheduled",
+          ...pricingSnapshot,
+        });
+
+        createdSessions.push(session);
+      }
+
+      res.status(201).json({
+        series,
+        sessionsCreated: createdSessions.length,
+        skippedWeeks,
+      });
+    } catch (error) {
+      console.error("Error creating admin series:", error);
+      res.status(500).json({ error: "Failed to create series" });
+    }
+  });
+
+  // Update a coaching series (admin)
+  app.patch("/api/admin/series/:id", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const series = await storage.getCoachingSeriesById(id);
+      if (!series) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+
+      if (series.academyId !== academyId) {
+        return res.status(403).json({ error: "Not authorized to update this series" });
+      }
+
+      const updates = req.body;
+      const updatedSeries = await storage.updateCoachingSeries(id, updates);
+
+      res.json(updatedSeries);
+    } catch (error) {
+      console.error("Error updating admin series:", error);
+      res.status(500).json({ error: "Failed to update series" });
+    }
+  });
+
+  // Delete a coaching series (admin)
+  app.delete("/api/admin/series/:id", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const series = await storage.getCoachingSeriesById(id);
+      if (!series) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+
+      if (series.academyId !== academyId) {
+        return res.status(403).json({ error: "Not authorized to delete this series" });
+      }
+
+      await storage.deleteCoachingSeries(id);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting admin series:", error);
+      res.status(500).json({ error: "Failed to delete series" });
+    }
+  });
+
+  // Add player to series (admin)
+  app.post("/api/admin/series/:id/players", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const series = await storage.getCoachingSeriesById(id);
+      if (!series) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+
+      if (series.academyId !== academyId) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+
+      const { playerId, packageId, effectiveDate } = req.body;
+
+      if (!playerId) {
+        return res.status(400).json({ error: "playerId is required" });
+      }
+
+      const existingPlayer = await storage.getSeriesPlayer(id, playerId);
+      if (existingPlayer && existingPlayer.status === "active") {
+        return res.status(400).json({ error: "Player is already in this series" });
+      }
+
+      if (existingPlayer) {
+        await storage.updateSeriesPlayer(id, playerId, {
+          status: "active",
+          leftAt: null,
+          pauseFrom: null,
+          pauseUntil: null,
+          pauseReason: null,
+          linkedPackageId: packageId || null,
+        });
+      } else {
+        await storage.addPlayerToSeries({
+          seriesId: id,
+          playerId,
+          status: "active",
+          linkedPackageId: packageId || null,
+          joinedAt: effectiveDate ? new Date(effectiveDate) : new Date(),
+        });
+      }
+
+      const updatedSeries = await storage.getCoachingSeriesById(id);
+      const seriesPlayers = await storage.getSeriesPlayers(id);
+
+      res.json({ success: true, players: seriesPlayers });
+    } catch (error) {
+      console.error("Error adding player to admin series:", error);
+      res.status(500).json({ error: "Failed to add player" });
+    }
+  });
+
+  // Remove player from series (admin)
+  app.delete("/api/admin/series/:id/players/:playerId", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id, playerId } = req.params;
+      const academyId = req.user?.academyId;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const series = await storage.getCoachingSeriesById(id);
+      if (!series) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+
+      if (series.academyId !== academyId) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+
+      await storage.removePlayerFromSeries(id, playerId);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing player from admin series:", error);
+      res.status(500).json({ error: "Failed to remove player" });
+    }
+  });
+
+  // Pause player in series (admin)
+  app.post("/api/admin/series/:id/players/:playerId/pause", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id, playerId } = req.params;
+      const academyId = req.user?.academyId;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const series = await storage.getCoachingSeriesById(id);
+      if (!series) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+
+      if (series.academyId !== academyId) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+
+      const { pauseFrom, pauseUntil, pauseReason } = req.body;
+
+      await storage.updateSeriesPlayer(id, playerId, {
+        status: "paused",
+        pauseFrom: pauseFrom || null,
+        pauseUntil: pauseUntil || null,
+        pauseReason: pauseReason || null,
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error pausing player in admin series:", error);
+      res.status(500).json({ error: "Failed to pause player" });
+    }
+  });
+
+  // Unpause player in series (admin)
+  app.post("/api/admin/series/:id/players/:playerId/unpause", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id, playerId } = req.params;
+      const academyId = req.user?.academyId;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const series = await storage.getCoachingSeriesById(id);
+      if (!series) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+
+      if (series.academyId !== academyId) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+
+      await storage.updateSeriesPlayer(id, playerId, {
+        status: "active",
+        pauseFrom: null,
+        pauseUntil: null,
+        pauseReason: null,
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error unpausing player in admin series:", error);
+      res.status(500).json({ error: "Failed to unpause player" });
+    }
+  });
+
+  // Get series feedback (admin)
+  app.get("/api/admin/series/:id/feedback", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const series = await storage.getCoachingSeriesById(id);
+      if (!series) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+
+      if (series.academyId !== academyId) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+
+      const seriesSessions = await db
+        .select()
+        .from(sessions)
+        .where(eq(sessions.seriesId, id));
+
+      const sessionIds = seriesSessions.map(s => s.id);
+
+      if (sessionIds.length === 0) {
+        return res.json([]);
+      }
+
+      const feedback = await db
+        .select()
+        .from(sessionFeedback)
+        .where(inArray(sessionFeedback.sessionId, sessionIds))
+        .orderBy(desc(sessionFeedback.createdAt));
+
+      const enrichedFeedback = await Promise.all(feedback.map(async (f) => {
+        const player = await storage.getPlayer(f.playerId);
+        const session = seriesSessions.find(s => s.id === f.sessionId);
+        return {
+          ...f,
+          playerName: player?.name || "Unknown",
+          sessionDate: session?.startTime,
+        };
+      }));
+
+      res.json(enrichedFeedback);
+    } catch (error) {
+      console.error("Error fetching admin series feedback:", error);
+      res.status(500).json({ error: "Failed to fetch feedback" });
+    }
+  });
+
+  // Get series progress (admin)
+  app.get("/api/admin/series/:id/progress", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const series = await storage.getCoachingSeriesById(id);
+      if (!series) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+
+      if (series.academyId !== academyId) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+
+      const seriesPlayers = await storage.getSeriesPlayers(id);
+
+      const playerProgress = await Promise.all(seriesPlayers.map(async (sp) => {
+        const player = await storage.getPlayer(sp.playerId);
+        const xpTransactions = await storage.getPlayerXPTransactions(sp.playerId, 30);
+        const recentXP = xpTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+
+        return {
+          playerId: sp.playerId,
+          playerName: player?.name || "Unknown",
+          sessionsAttended: sp.sessionsAttended || 0,
+          totalXpEarned: sp.totalXpEarned || 0,
+          recentXP,
+          status: sp.status,
+        };
+      }));
+
+      res.json(playerProgress);
+    } catch (error) {
+      console.error("Error fetching admin series progress:", error);
+      res.status(500).json({ error: "Failed to fetch progress" });
+    }
+  });
+
+  // Get series timeline (admin)
+  app.get("/api/admin/series/:id/timeline", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const series = await storage.getCoachingSeriesById(id);
+      if (!series) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+
+      if (series.academyId !== academyId) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+
+      const seriesSessions = await db
+        .select()
+        .from(sessions)
+        .where(eq(sessions.seriesId, id))
+        .orderBy(asc(sessions.startTime));
+
+      const timeline = seriesSessions.map((s, index) => ({
+        id: s.id,
+        weekNumber: s.weekNumber || index + 1,
+        date: s.startTime,
+        status: s.status,
+        duration: s.duration,
+      }));
+
+      res.json(timeline);
+    } catch (error) {
+      console.error("Error fetching admin series timeline:", error);
+      res.status(500).json({ error: "Failed to fetch timeline" });
+    }
+  });
+
+  // Admin create session (for any coach in the academy)
+  app.post("/api/admin/sessions", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const {
+        coachId,
+        courtId,
+        locationId,
+        startTime,
+        duration,
+        sessionType,
+        ballLevel,
+        skillLevel,
+        weekCount,
+        travelTime,
+        playerIds,
+        maxPlayers,
+        isRecurring,
+        visibleToPlayers,
+        enableWaitlist,
+        isOpen,
+      } = req.body;
+
+      if (!coachId || !courtId || !startTime || !duration || !sessionType) {
+        return res.status(400).json({ error: "Missing required fields: coachId, courtId, startTime, duration, sessionType" });
+      }
+
+      // Verify coach belongs to this academy
+      const coach = await storage.getCoach(coachId, academyId);
+      if (!coach) {
+        return res.status(404).json({ error: "Coach not found in this academy" });
+      }
+
+      const start = new Date(startTime);
+      const end = new Date(start.getTime() + duration * 60000);
+      const dateStr = start.toISOString().split('T')[0];
+      const startTimeStr = start.toISOString().split('T')[1].slice(0, 5);
+      const endTimeStr = end.toISOString().split('T')[1].slice(0, 5);
+
+      // Check unified time block conflict
+      const unifiedConflict = await storage.checkUnifiedCoachConflict(coachId, dateStr, startTimeStr, endTimeStr, undefined, academyId);
+      if (unifiedConflict.hasConflict && !unifiedConflict.isOwnAcademy) {
+        return res.status(409).json({ 
+          error: "Coach conflict", 
+          level: 3,
+          message: "Coach is already booked at another academy for this time slot" 
+        });
+      }
+
+      const coachConflict = await storage.checkCoachConflict(coachId, start, end, undefined, academyId);
+      if (coachConflict) {
+        return res.status(409).json({ 
+          error: "Coach conflict", 
+          level: 3,
+          message: "Coach is already booked for this time slot" 
+        });
+      }
+
+      const courtConflict = await storage.checkCourtConflict(courtId, start, end, undefined, academyId);
+      if (courtConflict) {
+        return res.status(409).json({ 
+          error: "Court conflict", 
+          level: 3,
+          message: "Court is already booked for this time slot" 
+        });
+      }
+
+      // Create sessions (single or recurring)
+      const sessionsToCreate = isRecurring && weekCount && weekCount > 1 ? weekCount : 1;
+      const recurringGroupId = sessionsToCreate > 1 ? crypto.randomUUID() : null;
+      const createdSessions = [];
+      const skippedWeeks: number[] = [];
+
+      // If recurring, create a coaching series
+      let seriesId: string | null = null;
+      if (sessionsToCreate > 1) {
+        const dayOfWeek = start.getDay();
+        const localTime = startTimeStr;
+
+        const newSeries = await storage.createCoachingSeries({
+          academyId,
+          coachId,
+          title: `${sessionType.charAt(0).toUpperCase() + sessionType.slice(1).replace('_', ' ')} - ${coach.name}`,
+          dayOfWeek,
+          startTime: localTime,
+          duration,
+          sessionType,
+          status: "active",
+          maxPlayers: maxPlayers || (sessionType === "private" ? 1 : 4),
+          xpPerSession: 100,
+          seriesStartDate: dateStr,
+          weekCount: sessionsToCreate,
+        });
+        seriesId = newSeries.id;
+      }
+
+      for (let week = 0; week < sessionsToCreate; week++) {
+        const weekStart = new Date(start.getTime() + week * 7 * 24 * 60 * 60 * 1000);
+        const weekEnd = new Date(weekStart.getTime() + duration * 60000);
+        const weekDateStr = weekStart.toISOString().split('T')[0];
+        const weekStartTimeStr = weekStart.toISOString().split('T')[1].slice(0, 5);
+        const weekEndTimeStr = weekEnd.toISOString().split('T')[1].slice(0, 5);
+
+        const weekUnifiedConflict = await storage.checkUnifiedCoachConflict(coachId, weekDateStr, weekStartTimeStr, weekEndTimeStr, undefined, academyId);
+        const weekCoachConflict = await storage.checkCoachConflict(coachId, weekStart, weekEnd, undefined, academyId);
+        const weekCourtConflict = await storage.checkCourtConflict(courtId, weekStart, weekEnd, undefined, academyId);
+        
+        if ((weekUnifiedConflict.hasConflict && !weekUnifiedConflict.isOwnAcademy) || weekCoachConflict || weekCourtConflict) {
+          skippedWeeks.push(week + 1);
+          continue;
+        }
+
+        let pricingSnapshot: { academyPrice?: string; coachPayout?: string; academyMargin?: string } = {};
+        try {
+          const pricing = await storage.calculateSessionPricing(academyId, coachId, sessionType, duration);
+          pricingSnapshot = {
+            academyPrice: String(pricing.academyPrice),
+            coachPayout: String(pricing.coachPayout),
+            academyMargin: String(pricing.academyMargin),
+          };
+        } catch (err: any) {
+          return res.status(422).json({ 
+            error: "Pricing error", 
+            message: err.message || "Could not calculate session pricing"
+          });
+        }
+
+        const session = await storage.createSession({
+          academyId,
+          coachId,
+          courtId,
+          locationId,
+          startTime: weekStart,
+          endTime: weekEnd,
+          duration,
+          sessionType,
+          ballLevel,
+          skillLevel,
+          isRecurring: sessionsToCreate > 1,
+          recurringGroupId,
+          weekCount: sessionsToCreate,
+          weekNumber: week + 1,
+          seriesId,
+          travelTime: travelTime || 0,
+          paymentStatus: "unpaid",
+          status: "scheduled",
+          maxPlayers: maxPlayers || (sessionType === "private" ? 1 : 4),
+          visibleToPlayers,
+          enableWaitlist,
+          isOpen,
+          ...pricingSnapshot,
+        });
+
+        await storage.createCoachTimeBlock({
+          coachId,
+          sourceType: 'session',
+          sourceAcademyId: academyId,
+          sourceSessionId: session.id,
+          date: weekDateStr,
+          startTime: weekStartTimeStr,
+          endTime: weekEndTimeStr,
+          isPrivate: true,
+        });
+
+        // Add players if provided (with credit deduction and notifications)
+        if (playerIds && Array.isArray(playerIds)) {
+          for (const playerId of playerIds) {
+            const player = await storage.getPlayer(playerId, academyId);
+            
+            await storage.addPlayerToSession({ sessionId: session.id, playerId });
+            
+            const creditResult = await storage.deductTypedCreditsForSession(playerId, sessionType, session.id, academyId);
+            
+            // Create notification if credits couldn't be deducted
+            if (!creditResult.success && player) {
+              const creditTypeLabel = (creditResult.creditType || sessionType).replace("_", "-");
+              await storage.createNotification({
+                playerId,
+                type: "credits_needed",
+                title: "Credits Required",
+                message: `You've been added to a ${creditTypeLabel} lesson but don't have matching credits.`,
+                metadata: JSON.stringify({
+                  sessionId: session.id,
+                  sessionType,
+                  requiredCreditType: creditResult.creditType,
+                }),
+              });
+            }
+            
+            // Also add to series if it exists
+            if (seriesId && week === 0) {
+              await storage.addPlayerToSeries({ seriesId, playerId });
+            }
+          }
+        }
+
+        createdSessions.push(session);
+      }
+
+      if (createdSessions.length === 0) {
+        return res.status(409).json({ 
+          error: "All sessions had conflicts",
+          skippedWeeks 
+        });
+      }
+
+      res.status(201).json({
+        sessions: createdSessions,
+        seriesId,
+        skippedWeeks: skippedWeeks.length > 0 ? skippedWeeks : undefined,
+        message: skippedWeeks.length > 0 
+          ? `Created ${createdSessions.length} sessions, skipped weeks ${skippedWeeks.join(", ")} due to conflicts`
+          : `Created ${createdSessions.length} session(s) successfully`
+      });
+    } catch (error) {
+      console.error("Error creating admin session:", error);
+      res.status(500).json({ error: "Failed to create session" });
+    }
+  });
+
   // Admin Dashboard - Comprehensive stats and alerts for academy admins
   app.get("/api/admin/dashboard", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {

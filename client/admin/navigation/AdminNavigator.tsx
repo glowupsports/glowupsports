@@ -8,6 +8,7 @@ import AdminDashboardScreen from "@/admin/screens/AdminDashboardScreen";
 import AdminCoachesScreen from "@/admin/screens/AdminCoachesScreen";
 import AdminPlayersScreen from "@/admin/screens/AdminPlayersScreen";
 import AdminCalendarScreen from "@/admin/screens/AdminCalendarScreen";
+import AdminClassesScreen from "@/admin/screens/AdminClassesScreen";
 import AdminReportsScreen from "@/admin/screens/AdminReportsScreen";
 import AdminSettingsScreen from "@/admin/screens/AdminSettingsScreen";
 import AdminPaymentsScreen from "@/admin/screens/AdminPaymentsScreen";
@@ -21,6 +22,7 @@ export type AdminTabParamList = {
   AdminDashboard: undefined;
   AdminCoaches: undefined;
   AdminPlayers: undefined;
+  AdminClasses: undefined;
   AdminSchedule: undefined;
   AdminReports: undefined;
   AdminSettings: undefined;
@@ -93,6 +95,16 @@ function AdminTabs() {
           tabBarLabel: "Players",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="AdminClasses"
+        component={AdminClassesScreen}
+        options={{
+          tabBarLabel: "Classes",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="albums-outline" size={size} color={color} />
           ),
         }}
       />

@@ -623,15 +623,26 @@ export default function CreateSessionWizard({
   // Create session mutation
   const createSessionMutation = useMutation({
     mutationFn: async (sessionData: any) => {
-      return apiRequest("POST", "/api/coach/sessions", sessionData);
+      const endpoint = adminMode ? "/api/admin/sessions" : "/api/coach/sessions";
+      return apiRequest("POST", endpoint, sessionData);
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      refetchCalendar();
+      if (!adminMode) {
+        refetchCalendar();
+      }
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const key = query.queryKey[0];
-          return typeof key === 'string' && key.startsWith('/api/coach/calendar');
+          if (typeof key !== 'string') return false;
+          if (adminMode) {
+            // Match all admin series and calendar queries including those with query params
+            const baseKey = key.split('?')[0];
+            return baseKey === '/api/admin/series' || 
+                   baseKey.startsWith('/api/admin/series/') || 
+                   baseKey.startsWith('/api/admin/calendar');
+          }
+          return key.startsWith('/api/coach/calendar');
         }
       });
       onClose();
