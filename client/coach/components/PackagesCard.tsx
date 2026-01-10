@@ -283,9 +283,9 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
         })}
       </View>
 
-      {activePackages.length === 0 && !isLoading ? (
+      {packages.length === 0 && !isLoading ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyText}>No active packages</Text>
+          <Text style={styles.emptyText}>No packages</Text>
           <Pressable onPress={() => setShowAddModal(true)} style={styles.emptyButton}>
             <Text style={styles.emptyButtonText}>Add Package</Text>
           </Pressable>
@@ -295,7 +295,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
           {packages.map((pkg) => {
             const creditType = (pkg.creditType || "group") as CreditType;
             const progressPercent = pkg.totalCredits > 0 ? (pkg.remainingCredits / pkg.totalCredits) * 100 : 0;
-            const isDepleted = pkg.remainingCredits === 0;
+            const isDepleted = pkg.remainingCredits <= 0;
             const expired = isExpired(pkg.expiryDate);
             const typeColor = creditType === "private" ? Colors.dark.sessionPrivate 
               : creditType === "semi_private" ? Colors.dark.sessionSemiPrivate 
@@ -317,6 +317,11 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
                         {CREDIT_TYPE_LABELS[creditType]}
                       </Text>
                     </View>
+                    {isDepleted && !expired ? (
+                      <View style={styles.depletedBadge}>
+                        <Text style={styles.depletedBadgeText}>Depleted</Text>
+                      </View>
+                    ) : null}
                     {expired ? (
                       <View style={styles.expiredBadge}>
                         <Text style={styles.expiredBadgeText}>Expired</Text>
@@ -754,6 +759,18 @@ const styles = StyleSheet.create({
   expiredBadgeText: {
     ...Typography.caption,
     color: Colors.dark.error,
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  depletedBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    backgroundColor: Colors.dark.warning + "20",
+    borderRadius: BorderRadius.xs,
+  },
+  depletedBadgeText: {
+    ...Typography.caption,
+    color: Colors.dark.warning,
     fontSize: 10,
     fontWeight: "600",
   },
