@@ -7549,11 +7549,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let amount = 0;
     
     // Get player count for group/semi-private sessions (needed for percentage-based pay)
+    // Players can be tracked either in session_players (for individual sessions) or series_players (for recurring series)
     let playerCount = 1;
-    if (sessionId && (sessionType === "group" || sessionType === "semi_private")) {
-      const sessionPlayers = await storage.getSessionPlayers(sessionId);
-      // Count all assigned players (for revenue calculation, we count all players in the class)
-      playerCount = sessionPlayers.length || 1;
+    if (sessionType === "group" || sessionType === "semi_private") {
+      // First check session_players table
+      if (sessionId) {
+        const sessionPlayers = await storage.getSessionPlayers(sessionId);
+        if (sessionPlayers.length > 0) {
+          playerCount = sessionPlayers.length;
+        }
+      }
+      
+      // If no session_players found and session has a series, check series_players
+      if (playerCount === 1 && (session as any).seriesId) {
+        const seriesPlayers = await storage.getSeriesPlayers((session as any).seriesId);
+        // Count active players in the series
+        const activeSeriesPlayers = seriesPlayers.filter((sp: any) => sp.status === "active");
+        if (activeSeriesPlayers.length > 0) {
+          playerCount = activeSeriesPlayers.length;
+        }
+      }
     }
     
     // Check for session-type specific rates first
