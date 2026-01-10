@@ -39,7 +39,8 @@ export function WebCalendarPicker({ value, onChange, maximumDate, minimumDate }:
     return days;
   }, [viewYear, viewMonth]);
 
-  const goToPrevMonth = () => {
+  const goToPrevMonth = (event?: any) => {
+    event?.stopPropagation?.();
     if (viewMonth === 0) {
       setViewYear(viewYear - 1);
       setViewMonth(11);
@@ -48,7 +49,8 @@ export function WebCalendarPicker({ value, onChange, maximumDate, minimumDate }:
     }
   };
 
-  const goToNextMonth = () => {
+  const goToNextMonth = (event?: any) => {
+    event?.stopPropagation?.();
     if (viewMonth === 11) {
       setViewYear(viewYear + 1);
       setViewMonth(0);
@@ -81,7 +83,8 @@ export function WebCalendarPicker({ value, onChange, maximumDate, minimumDate }:
     );
   };
 
-  const handleDayPress = (day: number) => {
+  const handleDayPress = (day: number, event?: any) => {
+    event?.stopPropagation?.();
     if (isDateDisabled(day)) return;
     const newDate = new Date(viewYear, viewMonth, day);
     onChange(newDate);
@@ -92,14 +95,14 @@ export function WebCalendarPicker({ value, onChange, maximumDate, minimumDate }:
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={goToPrevMonth} style={styles.navButton}>
+        <Pressable onPress={(e) => goToPrevMonth(e)} style={styles.navButton}>
           <Ionicons name="chevron-back" size={20} color={Colors.dark.text} />
         </Pressable>
         <Text style={styles.monthYear}>
           {MONTHS[viewMonth]} {viewYear}
         </Text>
         <Pressable 
-          onPress={goToNextMonth} 
+          onPress={(e) => goToNextMonth(e)} 
           style={[styles.navButton, !canGoNext && styles.navButtonDisabled]}
           disabled={!canGoNext}
         >
@@ -118,7 +121,7 @@ export function WebCalendarPicker({ value, onChange, maximumDate, minimumDate }:
           <View key={index} style={styles.dayCell}>
             {day !== null ? (
               <Pressable
-                onPress={() => handleDayPress(day)}
+                onPress={(e) => handleDayPress(day, e)}
                 disabled={isDateDisabled(day)}
                 style={[
                   styles.dayButton,

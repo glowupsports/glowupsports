@@ -2116,7 +2116,11 @@ export default function SeriesDetailDrawer({
       >
         <View style={styles.overlay}>
           <Pressable style={styles.backdrop} onPress={() => setShowRemoveModal(false)} />
-          <View style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+          <View 
+            style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg, zIndex: 2 }]}
+            onStartShouldSetResponderCapture={() => true}
+            onResponderRelease={(e) => e.stopPropagation?.()}
+          >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Remove Player</Text>
               <Pressable onPress={() => setShowRemoveModal(false)} style={styles.closeButton}>
@@ -3254,6 +3258,10 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
+  },
+  modalContentElevated: {
+    position: "relative",
+    zIndex: 10,
   },
   modalHeader: {
     flexDirection: "row",
