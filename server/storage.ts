@@ -1913,7 +1913,37 @@ export const storage = {
       };
     }
     
-    await db.delete(packages).where(eq(packages.id, id));
+    // Use transaction to cascade delete all dependent records
+    // Dependency chain: packages → invoices → payments → refunds
+    await db.transaction(async (tx) => {
+      // Get invoice IDs associated with this package
+      const packageInvoices = await tx.select({ id: invoices.id }).from(invoices).where(eq(invoices.packageId, id));
+      const invoiceIds = packageInvoices.map(inv => inv.id);
+      
+      if (invoiceIds.length > 0) {
+        // Get payment IDs for these invoices
+        const invoicePayments = await tx.select({ id: payments.id }).from(payments).where(inArray(payments.invoiceId, invoiceIds));
+        const paymentIds = invoicePayments.map(p => p.id);
+        
+        // 1. Delete refunds first (they reference payments)
+        if (paymentIds.length > 0) {
+          await tx.delete(refunds).where(inArray(refunds.paymentId, paymentIds));
+        }
+        
+        // 2. Delete payments for these invoices
+        await tx.delete(payments).where(inArray(payments.invoiceId, invoiceIds));
+        
+        // 3. Delete payment reminders for these invoices
+        await tx.delete(paymentReminders).where(inArray(paymentReminders.invoiceId, invoiceIds));
+        
+        // 4. Delete the invoices
+        await tx.delete(invoices).where(eq(invoices.packageId, id));
+      }
+      
+      // 5. Finally delete the package
+      await tx.delete(packages).where(eq(packages.id, id));
+    });
+    
     return { success: true };
   },
 
