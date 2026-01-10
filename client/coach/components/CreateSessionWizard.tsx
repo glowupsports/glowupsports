@@ -67,6 +67,7 @@ interface CreateSessionWizardProps {
   coaches?: Coach[];
   selectedCoachId?: string;
   onCoachIdChange?: (coachId: string) => void;
+  createSeriesMode?: boolean;
 }
 
 type SessionType = "private" | "semi_private" | "group" | "physical" | "activity";
@@ -171,6 +172,7 @@ export default function CreateSessionWizard({
   coaches = [],
   selectedCoachId,
   onCoachIdChange,
+  createSeriesMode = false,
 }: CreateSessionWizardProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -190,9 +192,16 @@ export default function CreateSessionWizard({
   // Slide 0: Session Type
   const [sessionType, setSessionType] = useState<SessionType>("private");
   
-  // Slide 1: Recurring
-  const [isRecurring, setIsRecurring] = useState(false);
+  // Slide 1: Recurring (auto-enable for series mode)
+  const [isRecurring, setIsRecurring] = useState(createSeriesMode);
   const [weekCount, setWeekCount] = useState(10);
+  
+  // Auto-enable recurring for series mode
+  useEffect(() => {
+    if (createSeriesMode && visible) {
+      setIsRecurring(true);
+    }
+  }, [createSeriesMode, visible]);
   
   // Slide 2: When & Where
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -623,7 +632,12 @@ export default function CreateSessionWizard({
   // Create session mutation
   const createSessionMutation = useMutation({
     mutationFn: async (sessionData: any) => {
-      const endpoint = adminMode ? "/api/admin/sessions" : "/api/coach/sessions";
+      let endpoint: string;
+      if (createSeriesMode) {
+        endpoint = adminMode ? "/api/admin/series" : "/api/coach/series";
+      } else {
+        endpoint = adminMode ? "/api/admin/sessions" : "/api/coach/sessions";
+      }
       return apiRequest("POST", endpoint, sessionData);
     },
     onSuccess: () => {
@@ -635,8 +649,16 @@ export default function CreateSessionWizard({
         predicate: (query) => {
           const key = query.queryKey[0];
           if (typeof key !== 'string') return false;
+          if (createSeriesMode) {
+            const baseKey = key.split('?')[0];
+            return baseKey === '/api/coach/series' || 
+                   baseKey.startsWith('/api/coach/series/') ||
+                   baseKey === '/api/admin/series' || 
+                   baseKey.startsWith('/api/admin/series/') ||
+                   baseKey === '/api/coach/calendar' ||
+                   baseKey.startsWith('/api/coach/calendar');
+          }
           if (adminMode) {
-            // Match all admin series and calendar queries including those with query params
             const baseKey = key.split('?')[0];
             return baseKey === '/api/admin/series' || 
                    baseKey.startsWith('/api/admin/series/') || 
@@ -649,7 +671,7 @@ export default function CreateSessionWizard({
       resetForm();
     },
     onError: (error: Error) => {
-      Alert.alert("Error", error.message || "Failed to create session");
+      Alert.alert("Error", error.message || (createSeriesMode ? "Failed to create class" : "Failed to create session"));
     },
   });
 
@@ -677,6 +699,40 @@ export default function CreateSessionWizard({
     const sessionEnd = new Date(sessionStart);
     sessionEnd.setMinutes(sessionEnd.getMinutes() + duration);
 
+    // For series mode, we need different data structure
+    if (createSeriesMode) {
+      const dayOfWeek = selectedDate.getDay(); // 0=Sunday, 1=Monday, etc.
+      const seriesStartDateStr = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
+      
+      // Generate title based on session type and time
+      const sessionTypeLabel = SESSION_TYPE_CARDS.find(t => t.value === sessionType)?.label || sessionType;
+      const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayOfWeek];
+      const title = `${sessionTypeLabel} Session - ${dayName} ${startTime}`;
+      
+      const seriesData = {
+        coachId: effectiveCoach?.id,
+        title,
+        dayOfWeek,
+        startTime, // "HH:MM" format
+        duration,
+        sessionType,
+        ballLevel,
+        skillLevel,
+        maxPlayers: sessionType === "private" ? 1 : maxPlayers,
+        weekCount: weekCount || 10,
+        seriesStartDate: seriesStartDateStr,
+        xpPerSession: 20,
+        vibe: "casual",
+        courtId: selectedCourtId,
+        playerIds: selectedPlayers.map(p => p.id),
+        isRecurring: true,
+      };
+
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      createSessionMutation.mutate(seriesData);
+      return;
+    }
+
     const sessionData = {
       coachId: effectiveCoach?.id,
       courtId: selectedCourtId,
@@ -703,7 +759,7 @@ export default function CreateSessionWizard({
     isOffline, selectedCourtId, startTime, selectedDate, duration,
     sessionType, ballLevel, skillLevel, notes, travelTime,
     selectedPlayers, effectiveCoach, isRecurring, weekCount, maxPlayers,
-    isOpenGroup, visibleToPlayers, enableWaitlist
+    isOpenGroup, visibleToPlayers, enableWaitlist, createSeriesMode
   ]);
 
   // Progress bar animated style
@@ -1549,7 +1605,7 @@ export default function CreateSessionWizard({
                 ) : (
                   <>
                     <Ionicons name="flash" size={20} color={Colors.dark.backgroundRoot} />
-                    <Text style={styles.createBtnText}>Create Session</Text>
+                    <Text style={styles.createBtnText}>{createSeriesMode ? "Create Class" : "Create Session"}</Text>
                   </>
                 )}
               </LinearGradient>

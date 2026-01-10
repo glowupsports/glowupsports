@@ -32,6 +32,7 @@ import { ObservationTrendChart } from "@/components/ObservationTrendChart";
 import { NeoLoadoutPanel, NeoGlowBadge } from "@/components/NeoLoadoutPanel";
 import { CoachingSeriesSection } from "@/coach/components/CoachingSeriesSection";
 import SeriesDetailDrawer from "@/coach/components/SeriesDetailDrawer";
+import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
 
 interface ProgressSummary {
   skillArea: string;
@@ -309,6 +310,7 @@ const FEEDBACK_XP_REWARDS: Record<string, number> = {
 function SeriesTab({ insets, tabBarHeight }: { insets: { bottom: number }; tabBarHeight: number }) {
   const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(null);
   const [showSeriesDetail, setShowSeriesDetail] = useState(false);
+  const [showCreateWizard, setShowCreateWizard] = useState(false);
 
   const handleSeriesPress = (series: any) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -317,11 +319,8 @@ function SeriesTab({ insets, tabBarHeight }: { insets: { bottom: number }; tabBa
   };
 
   const handleCreatePress = () => {
-    Alert.alert(
-      "Create Class",
-      "Class creation coming soon! This will allow you to set up recurring training blocks.",
-      [{ text: "OK" }]
-    );
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setShowCreateWizard(true);
   };
 
   const handleCloseDetail = () => {
@@ -348,6 +347,11 @@ function SeriesTab({ insets, tabBarHeight }: { insets: { bottom: number }; tabBa
         visible={showSeriesDetail}
         seriesId={selectedSeriesId}
         onClose={handleCloseDetail}
+      />
+      <CreateSessionWizard
+        visible={showCreateWizard}
+        onClose={() => setShowCreateWizard(false)}
+        createSeriesMode={true}
       />
     </>
   );
