@@ -443,6 +443,46 @@ export default function SeriesDetailDrawer({
     }
   };
 
+  // Delete entire series
+  const [deletingSeries, setDeletingSeries] = useState(false);
+  
+  const handleDeleteSeries = async () => {
+    if (!seriesId) return;
+    
+    // Confirmation dialog (web-compatible)
+    const confirmDelete = Platform.OS === "web" && typeof window !== "undefined"
+      ? window.confirm("Delete this entire class series? This will cancel all upcoming sessions and remove all players. This action cannot be undone.")
+      : await new Promise<boolean>((resolve) => {
+          const Alert = require("react-native").Alert;
+          Alert.alert(
+            "Delete Class Series",
+            "This will cancel all upcoming sessions and remove all players. This action cannot be undone.",
+            [
+              { text: "Cancel", onPress: () => resolve(false), style: "cancel" },
+              { text: "Delete", onPress: () => resolve(true), style: "destructive" },
+            ]
+          );
+        });
+    
+    if (!confirmDelete) return;
+    
+    setDeletingSeries(true);
+    try {
+      await apiRequest("DELETE", `/api/coach/series/${seriesId}`);
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onClose();
+    } catch (error) {
+      console.error("Error deleting series:", error);
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.alert("Failed to delete class series. Please try again.");
+      }
+    } finally {
+      setDeletingSeries(false);
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString("en-US", {
@@ -660,6 +700,23 @@ export default function SeriesDetailDrawer({
               </>
             );
           })()}
+        </View>
+
+        <View style={styles.deleteSeriesSection}>
+          <Pressable
+            onPress={handleDeleteSeries}
+            style={[styles.deleteSeriesButton, deletingSeries && styles.deleteSeriesButtonDisabled]}
+            disabled={deletingSeries}
+          >
+            {deletingSeries ? (
+              <ActivityIndicator size="small" color={Colors.dark.error} />
+            ) : (
+              <>
+                <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+                <Text style={styles.deleteSeriesButtonText}>Delete Entire Class</Text>
+              </>
+            )}
+          </Pressable>
         </View>
       </View>
     );
@@ -2088,5 +2145,31 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     textAlign: "center",
     marginTop: Spacing.md,
+  },
+  deleteSeriesSection: {
+    marginTop: Spacing.xl,
+    paddingTop: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  deleteSeriesButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.dark.error + "15",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.error + "40",
+  },
+  deleteSeriesButtonDisabled: {
+    opacity: 0.5,
+  },
+  deleteSeriesButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.error,
   },
 });
