@@ -61,6 +61,8 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
   const [purchaseDate, setPurchaseDate] = useState(new Date());
   const [isPaid, setIsPaid] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [packageToDelete, setPackageToDelete] = useState<Package | null>(null);
 
   const { data: packages = [], isLoading } = useQuery<Package[]>({
     queryKey: [`/api/players/${playerId}/packages`],
@@ -213,19 +215,16 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
   };
 
   const handleDeletePackage = (pkg: Package) => {
-    const creditsUsed = pkg.totalCredits - pkg.remainingCredits;
-    const message = creditsUsed > 0 
-      ? `This package has ${creditsUsed} used and ${pkg.remainingCredits} remaining credits. Delete it?`
-      : `Delete this package with ${pkg.remainingCredits} credits?`;
-    
-    Alert.alert(
-      "Delete Package",
-      message,
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: () => deleteMutation.mutate({ packageId: pkg.id }) },
-      ]
-    );
+    setPackageToDelete(pkg);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeletePackage = () => {
+    if (packageToDelete) {
+      deleteMutation.mutate({ packageId: packageToDelete.id });
+      setShowDeleteConfirm(false);
+      setPackageToDelete(null);
+    }
   };
 
   const formatExpiryDate = (date: string | null) => {
@@ -504,6 +503,41 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
           </ScrollView>
         </View>
       </Modal>
+
+      <Modal visible={showDeleteConfirm} animationType="fade" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.deleteModalContent}>
+            <Text style={styles.modalTitle}>Delete Package</Text>
+            {packageToDelete && (
+              <Text style={styles.deleteMessage}>
+                {packageToDelete.totalCredits - packageToDelete.remainingCredits > 0
+                  ? `This package has ${packageToDelete.totalCredits - packageToDelete.remainingCredits} used and ${packageToDelete.remainingCredits} remaining credits. Delete it?`
+                  : `Delete this package with ${packageToDelete.remainingCredits} credits?`}
+              </Text>
+            )}
+            <View style={styles.modalButtons}>
+              <Pressable 
+                onPress={() => {
+                  setShowDeleteConfirm(false);
+                  setPackageToDelete(null);
+                }} 
+                style={styles.cancelButton}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={confirmDeletePackage}
+                disabled={deleteMutation.isPending}
+                style={styles.deleteConfirmButton}
+              >
+                <Text style={styles.deleteConfirmButtonText}>
+                  {deleteMutation.isPending ? "Deleting..." : "Delete"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Card>
   );
 }
@@ -692,6 +726,32 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     width: "100%",
     maxWidth: 400,
+  },
+  deleteModalContent: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    width: "90%",
+    maxWidth: 360,
+  },
+  deleteMessage: {
+    ...Typography.body,
+    color: Colors.dark.textSecondary,
+    marginBottom: Spacing.lg,
+    lineHeight: 22,
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    backgroundColor: Colors.dark.error,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deleteConfirmButtonText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
   },
   modalTitle: {
     ...Typography.h3,

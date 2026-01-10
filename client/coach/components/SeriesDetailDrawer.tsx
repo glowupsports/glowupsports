@@ -198,6 +198,10 @@ export default function SeriesDetailDrawer({
   const [showCreatePackageForm, setShowCreatePackageForm] = useState(false);
   const [newPackageName, setNewPackageName] = useState("");
   const [newPackageCredits, setNewPackageCredits] = useState("");
+  
+  // Credit packages accordion state
+  const [expandedCreditType, setExpandedCreditType] = useState<string | null>(null);
+  const [selectedCreditPackage, setSelectedCreditPackage] = useState<{ creditType: string; credits: number; price: string } | null>(null);
   const [newPackagePricePerCredit, setNewPackagePricePerCredit] = useState("");
 
   const { data: series, isLoading } = useQuery<SeriesDetail>({
@@ -269,6 +273,32 @@ export default function SeriesDetailDrawer({
     enabled: showPackageSelection,
   });
 
+  // Query credit packages (auto-priced based on session pricing)
+  interface CreditPackage {
+    creditType: string;
+    credits: number;
+    pricePerCredit: string;
+    totalPrice: string;
+    currency: string;
+  }
+  const { data: creditPackages = [] } = useQuery<CreditPackage[]>({
+    queryKey: ["/api/billing/credit-packages"],
+    enabled: showPackageSelection,
+  });
+
+  // Group credit packages by type
+  const creditPackagesByType = creditPackages.reduce((acc, pkg) => {
+    if (!acc[pkg.creditType]) acc[pkg.creditType] = [];
+    acc[pkg.creditType].push(pkg);
+    return acc;
+  }, {} as Record<string, CreditPackage[]>);
+
+  const CREDIT_TYPE_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
+    private: { label: "Private Credits", color: Colors.dark.sessionPrivate, icon: "person" },
+    semi: { label: "Semi-Private Credits", color: Colors.dark.sessionSemiPrivate, icon: "people" },
+    group: { label: "Group Credits", color: Colors.dark.sessionGroup, icon: "people-circle" },
+  };
+
   // Filter players not already in the series
   const existingPlayerIds = new Set(series?.players?.map(p => p.id) || []);
   const filteredPlayers = allPlayers.filter(p => 
@@ -283,13 +313,15 @@ export default function SeriesDetailDrawer({
       joinDate: string; 
       attendedSessionIds: string[];
       packageTemplateId?: string | null;
+      creditPackage?: { creditType: string; credits: number } | null;
     }) => {
-      // Add player to class - backend handles package creation if templateId provided
+      // Add player to class - backend handles package creation if templateId or creditPackage provided
       return apiRequest("POST", `/api/coach/series/${seriesId}/players`, {
         playerId: data.playerId,
         joinDate: data.joinDate,
         attendedSessionIds: data.attendedSessionIds,
         packageTemplateId: data.packageTemplateId,
+        creditPackage: data.creditPackage,
       });
     },
     onSuccess: () => {
@@ -300,6 +332,8 @@ export default function SeriesDetailDrawer({
       setShowAttendanceBackfill(false);
       setSelectedPlayerId(null);
       setSelectedPackageTemplateId(null);
+      setSelectedCreditPackage(null);
+      setExpandedCreditType(null);
       setJoinDate(new Date());
       setSelectedAttendance({});
       setPlayerSearch("");
@@ -1529,42 +1563,140 @@ export default function SeriesDetailDrawer({
                   </View>
                 ) : (
                   <>
+                    <View style={styles.infoBox}>
+                      <Ionicons name="information-circle-outline" size={16} color={Colors.dark.textMuted} />
+                      <Text style={styles.infoBoxText}>
+                        Credit packages are automatically priced based on your session pricing.
+                      </Text>
+                    </View>
+                    
+                    {Object.entries(creditPackagesByType).map(([creditType, packages]) => {
+                      const config = CREDIT_TYPE_CONFIG[creditType] || { label: creditType, color: Colors.dark.textMuted, icon: "cube" };
+                      const isExpanded = expandedCreditType === creditType;
+                      const pricePerCredit = packages[0]?.pricePerCredit || "0";
+                      const currency = packages[0]?.currency || "AED";
+                      
+                      return (
+                        <View key={creditType} style={styles.creditAccordion}>
+                          <Pressable
+                            style={[styles.creditAccordionHeader, isExpanded && styles.creditAccordionHeaderExpanded]}
+                            onPress={() => setExpandedCreditType(isExpanded ? null : creditType)}
+                          >
+                            <View style={styles.creditAccordionLeft}>
+                              <View style={[styles.creditTypeIcon, { backgroundColor: config.color + "30" }]}>
+                                <Ionicons name={config.icon as any} size={20} color={config.color} />
+                              </View>
+                              <View>
+                                <Text style={styles.creditAccordionTitle}>{config.label}</Text>
+                                <Text style={styles.creditAccordionSubtitle}>
+                                  {currency} {parseFloat(pricePerCredit).toFixed(2)} per credit
+                                </Text>
+                              </View>
+                            </View>
+                            <Ionicons 
+                              name={isExpanded ? "chevron-up" : "chevron-down"} 
+                              size={20} 
+                              color={Colors.dark.textMuted} 
+                            />
+                          </Pressable>
+                          
+                          {isExpanded ? (
+                            <View style={styles.creditOptionsGrid}>
+                              {packages.map((pkg) => {
+                                const isSelected = selectedCreditPackage?.creditType === pkg.creditType && 
+                                                   selectedCreditPackage?.credits === pkg.credits;
+                                return (
+                                  <Pressable
+                                    key={`${pkg.creditType}-${pkg.credits}`}
+                                    style={[
+                                      styles.creditOption,
+                                      isSelected && styles.creditOptionSelected,
+                                    ]}
+                                    onPress={() => setSelectedCreditPackage({
+                                      creditType: pkg.creditType,
+                                      credits: pkg.credits,
+                                      price: pkg.totalPrice,
+                                    })}
+                                  >
+                                    <Text style={[styles.creditOptionCredits, isSelected && styles.creditOptionTextSelected]}>
+                                      {pkg.credits}
+                                    </Text>
+                                    <Text style={[styles.creditOptionLabel, isSelected && styles.creditOptionTextSelected]}>
+                                      {pkg.credits === 1 ? "credit" : "credits"}
+                                    </Text>
+                                    <Text style={[styles.creditOptionPrice, isSelected && styles.creditOptionTextSelected]}>
+                                      {pkg.currency} {parseFloat(pkg.totalPrice).toFixed(0)}
+                                    </Text>
+                                  </Pressable>
+                                );
+                              })}
+                            </View>
+                          ) : null}
+                        </View>
+                      );
+                    })}
+                    
+                    {selectedCreditPackage ? (
+                      <Pressable
+                        style={[styles.assignPackageButton, addPlayerMutation.isPending && styles.assignPackageButtonDisabled]}
+                        onPress={() => {
+                          addPlayerMutation.mutate({
+                            playerId: selectedPlayerId!,
+                            joinDate: joinDate.toISOString().split("T")[0],
+                            attendedSessionIds: Object.entries(selectedAttendance)
+                              .filter(([_, attended]) => attended)
+                              .map(([id]) => id),
+                            packageTemplateId: null,
+                            creditPackage: {
+                              creditType: selectedCreditPackage.creditType,
+                              credits: selectedCreditPackage.credits,
+                            },
+                          });
+                        }}
+                        disabled={addPlayerMutation.isPending}
+                      >
+                        <Text style={styles.assignPackageButtonText}>
+                          {addPlayerMutation.isPending ? "Adding..." : `Assign ${selectedCreditPackage.credits} ${selectedCreditPackage.creditType} Credits`}
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                    
+                    {packageTemplates.length > 0 ? (
+                      <View style={styles.templateSection}>
+                        <Text style={styles.templateSectionTitle}>Or select a saved package:</Text>
+                        {packageTemplates.map((template) => (
+                          <Pressable
+                            key={template.id}
+                            style={[
+                              styles.packageCard,
+                              selectedPackageTemplateId === template.id && styles.packageCardSelected,
+                            ]}
+                            onPress={() => {
+                              setSelectedCreditPackage(null);
+                              handleSelectPackage(template.id);
+                            }}
+                          >
+                            <View style={styles.packageInfo}>
+                              <Text style={styles.packageName}>{template.name}</Text>
+                              <Text style={styles.packageDetails}>
+                                {template.credits} credits - Valid {template.validityDays} days
+                              </Text>
+                            </View>
+                            <Text style={styles.packagePrice}>
+                              {template.currency} {parseFloat(template.price).toFixed(0)}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    ) : null}
+                    
                     <Pressable
                       style={styles.createPackageButton}
                       onPress={() => setShowCreatePackageForm(true)}
                     >
                       <Ionicons name="add-circle-outline" size={20} color={Colors.dark.successNeon} />
-                      <Text style={styles.createPackageButtonText}>Create New Package</Text>
+                      <Text style={styles.createPackageButtonText}>Create Custom Package</Text>
                     </Pressable>
-                    
-                    {packageTemplates.length === 0 ? (
-                      <View style={styles.emptyState}>
-                        <Ionicons name="cube-outline" size={40} color={Colors.dark.textMuted} />
-                        <Text style={styles.emptyText}>No packages available</Text>
-                        <Text style={styles.emptySubtext}>Create one above or skip</Text>
-                      </View>
-                    ) : (
-                      packageTemplates.map((template) => (
-                        <Pressable
-                          key={template.id}
-                          style={[
-                            styles.packageCard,
-                            selectedPackageTemplateId === template.id && styles.packageCardSelected,
-                          ]}
-                          onPress={() => handleSelectPackage(template.id)}
-                        >
-                          <View style={styles.packageInfo}>
-                            <Text style={styles.packageName}>{template.name}</Text>
-                            <Text style={styles.packageDetails}>
-                              {template.credits} credits - Valid {template.validityDays} days
-                            </Text>
-                          </View>
-                          <Text style={styles.packagePrice}>
-                            {template.currency} {parseFloat(template.price).toFixed(0)}
-                          </Text>
-                        </Pressable>
-                      ))
-                    )}
                   </>
                 )}
                 
@@ -2772,12 +2904,133 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.dark.successNeon,
     borderStyle: "dashed",
+    marginTop: Spacing.lg,
     marginBottom: Spacing.lg,
   },
   createPackageButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
     color: Colors.dark.successNeon,
+  },
+  infoBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundHighlight,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  infoBoxText: {
+    flex: 1,
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    lineHeight: 18,
+  },
+  creditAccordion: {
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.backgroundLight,
+  },
+  creditAccordionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: Spacing.md,
+  },
+  creditAccordionHeaderExpanded: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundLight,
+  },
+  creditAccordionLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  creditTypeIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  creditAccordionTitle: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  creditAccordionSubtitle: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  creditOptionsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  creditOption: {
+    width: "48%",
+    aspectRatio: 1.3,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  creditOptionSelected: {
+    borderColor: Colors.dark.successNeon,
+    backgroundColor: Colors.dark.successNeon + "15",
+  },
+  creditOptionCredits: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  creditOptionLabel: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  creditOptionPrice: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.successNeon,
+    marginTop: Spacing.xs,
+  },
+  creditOptionTextSelected: {
+    color: Colors.dark.successNeon,
+  },
+  assignPackageButton: {
+    backgroundColor: Colors.dark.successNeon,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    marginTop: Spacing.md,
+  },
+  assignPackageButtonDisabled: {
+    opacity: 0.5,
+  },
+  assignPackageButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.backgroundRoot,
+  },
+  templateSection: {
+    marginTop: Spacing.lg,
+    paddingTop: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.backgroundLight,
+  },
+  templateSectionTitle: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.md,
   },
   createPackageForm: {
     backgroundColor: Colors.dark.backgroundRoot,

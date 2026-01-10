@@ -6536,7 +6536,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/coach/series/:id/players", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const { playerId, joinDate, joinedAt, packageId, packageTemplateId, attendedSessionIds = [] } = req.body;
+      const { playerId, joinDate, joinedAt, packageId, packageTemplateId, creditPackage, attendedSessionIds = [] } = req.body;
       const coachId = req.user!.coachId;
       const academyId = req.user!.academyId!;
       
@@ -6572,6 +6572,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         } catch (pkgError) {
           console.error("[AddPlayer] Failed to assign package:", pkgError);
+          // Continue without package - don't fail the enrollment
+        }
+      }
+      
+      // If creditPackage provided (from accordion selector), create a package from credit packages
+      if (creditPackage && !assignedPackageId) {
+        try {
+          const { creditType, credits } = creditPackage;
+          // Map credit type to session type for pricing lookup
+          const sessionTypeMap: Record<string, string> = { private: "private", semi: "semi_private", group: "group" };
+          const sessionType = sessionTypeMap[creditType] || creditType;
+          
+          // Get pricing for this credit type
+          const pricing = await storage.getAcademyPricing(academyId);
+          const pricingItem = pricing.find(p => p.sessionType === sessionType && p.isActive);
+          const pricePerCredit = pricingItem ? parseFloat(pricingItem.pricePerSession) : 0;
+          const totalPrice = pricePerCredit * credits;
+          const currency = pricingItem?.currency || "AED";
+          
+          // Create package with 12 month validity
+          const expiryDate = new Date();
+          expiryDate.setMonth(expiryDate.getMonth() + 12);
+          
+          const pkg = await storage.createPackage({
+            academyId,
+            playerId,
+            creditType: sessionType,
+            name: `${credits} ${creditType.charAt(0).toUpperCase() + creditType.slice(1)} Credits`,
+            totalCredits: credits,
+            remainingCredits: credits,
+            price: totalPrice.toString(),
+            currency,
+            expiryDate: expiryDate.toISOString().split('T')[0],
+            status: 'active',
+          });
+          assignedPackageId = pkg.id;
+          console.log(`[AddPlayer] Created credit package ${pkg.id} (${credits} ${creditType} credits) for player ${playerId}`);
+        } catch (pkgError) {
+          console.error("[AddPlayer] Failed to create credit package:", pkgError);
           // Continue without package - don't fail the enrollment
         }
       }

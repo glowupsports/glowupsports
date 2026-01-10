@@ -3573,6 +3573,18 @@ export const storage = {
     return result[0];
   },
 
+  async addPlayerXP(playerId: string, xpAmount: number, sessionId?: string, description?: string): Promise<void> {
+    await db.insert(xpTransactions).values({
+      playerId,
+      xpAmount,
+      sessionId: sessionId || null,
+      description: description || "XP earned",
+    });
+    await db.update(players).set({
+      totalXp: sql`COALESCE(${players.totalXp}, 0) + ${xpAmount}`,
+    }).where(eq(players.id, playerId));
+  },
+
   async getPlayerTotalXp(playerId: string, academyId?: string): Promise<number> {
     // Validate player belongs to academy if provided
     if (academyId) {
