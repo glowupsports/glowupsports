@@ -568,23 +568,18 @@ export default function SeriesDetailDrawer({
       return joinDate <= sessionDate;
     });
     
-    // Default all players to present initially
-    activePlayers.forEach(p => {
-      initialAttendance[p.id] = "present";
-    });
-    
-    // Always fetch existing attendance records (not just when completed)
+    // First, fetch existing attendance records from the API (source of truth)
+    let savedStatuses: Record<string, "present" | "absent" | "vacation"> = {};
     try {
       const sessionPlayers = await apiRequest("GET", `/api/coach/sessions/${session.id}/players`) as Array<{ playerId: string; attendanceStatus: string }>;
       
-      // Override with saved attendance status
+      // Build a map of saved statuses from the API
       if (Array.isArray(sessionPlayers)) {
-        activePlayers.forEach(p => {
-          const savedAttendance = sessionPlayers.find(sp => sp.playerId === p.id);
-          if (savedAttendance && savedAttendance.attendanceStatus) {
-            const status = savedAttendance.attendanceStatus;
+        sessionPlayers.forEach(sp => {
+          if (sp.playerId && sp.attendanceStatus) {
+            const status = sp.attendanceStatus;
             if (status === "present" || status === "absent" || status === "vacation") {
-              initialAttendance[p.id] = status;
+              savedStatuses[sp.playerId] = status;
             }
           }
         });
@@ -592,6 +587,11 @@ export default function SeriesDetailDrawer({
     } catch (error) {
       console.error("Error loading attendance:", error);
     }
+    
+    // Now build initialAttendance: use saved status if exists, otherwise default to present
+    activePlayers.forEach(p => {
+      initialAttendance[p.id] = savedStatuses[p.id] || "present";
+    });
     
     setSessionAttendance(initialAttendance);
     setShowAttendanceModal(true);
