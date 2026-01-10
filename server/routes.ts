@@ -3306,6 +3306,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let creditConsumptionResult = null;
         const presentPlayers = req.body.attendance.filter((a: { status: string }) => a.status === "present");
         
+        // For GROUP sessions: charge both present AND absent players (vacation players are exempt)
+        // For PRIVATE/SEMI-PRIVATE sessions: only charge present players (no-show = no charge)
+        const isGroupSession = session.sessionType === "group" || session.sessionType === "camp" || session.sessionType === "team_training" || session.sessionType === "clinic";
+        const chargeablePlayers = isGroupSession
+          ? req.body.attendance.filter((a: { status: string }) => 
+              a.status === "present" || a.status === "absent"
+            )
+          : presentPlayers;
+        
         if (req.body.markCompleted) {
           await storage.updateSession(id, { status: "completed" });
           
@@ -3316,13 +3325,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // This prevents duplicate debts when attendance is edited
               await storage.deleteSessionCreditTransactions(id);
               
+              // Use presentCount for credit type determination, but charge all non-vacation players
               const presentCount = presentPlayers.length;
               
               creditConsumptionResult = await storage.consumeCreditsForClassSessionWithAttendance(
                 session.seriesId,
                 id,
                 new Date(session.startTime),
-                presentPlayers.map((p: { playerId: string }) => p.playerId),
+                chargeablePlayers.map((p: { playerId: string }) => p.playerId),
                 presentCount
               );
               console.log(`[Credits] Session ${id}: consumed ${creditConsumptionResult.consumed}, skipped ${creditConsumptionResult.skipped}, actualCreditType: ${creditConsumptionResult.actualCreditType}`);
@@ -3331,7 +3341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
           
-          // Award XP to ALL players marked as present (works for both series and standalone sessions)
+          // Award XP ONLY to players marked as present (not absent, not vacation)
           const xpPerSession = session.xpPerSession || 20;
           for (const presentPlayer of presentPlayers) {
             try {

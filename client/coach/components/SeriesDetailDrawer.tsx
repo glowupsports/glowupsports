@@ -165,7 +165,7 @@ export default function SeriesDetailDrawer({
   const [selectedAttendance, setSelectedAttendance] = useState<Record<string, boolean>>({});
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [selectedSession, setSelectedSession] = useState<SessionInstance | null>(null);
-  const [sessionAttendance, setSessionAttendance] = useState<Record<string, "present" | "absent">>({});
+  const [sessionAttendance, setSessionAttendance] = useState<Record<string, "present" | "absent" | "vacation">>({});
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [cancellingSession, setCancellingSession] = useState(false);
   const [editingMaxPlayers, setEditingMaxPlayers] = useState(false);
@@ -496,11 +496,11 @@ export default function SeriesDetailDrawer({
     setShowAttendanceModal(true);
   };
 
-  const handleToggleAttendance = (playerId: string) => {
+  const handleSetAttendance = (playerId: string, status: "present" | "absent" | "vacation") => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSessionAttendance(prev => ({
       ...prev,
-      [playerId]: prev[playerId] === "present" ? "absent" : "present",
+      [playerId]: status,
     }));
   };
 
@@ -1535,7 +1535,7 @@ export default function SeriesDetailDrawer({
                                 styles.attendanceToggleOption,
                                 status === "present" && styles.attendanceToggleActive,
                               ]}
-                              onPress={() => handleToggleAttendance(player.id)}
+                              onPress={() => handleSetAttendance(player.id, "present")}
                             >
                               <Text
                                 style={[
@@ -1551,7 +1551,7 @@ export default function SeriesDetailDrawer({
                                 styles.attendanceToggleOption,
                                 status === "absent" && styles.attendanceToggleAbsent,
                               ]}
-                              onPress={() => handleToggleAttendance(player.id)}
+                              onPress={() => handleSetAttendance(player.id, "absent")}
                             >
                               <Text
                                 style={[
@@ -1560,6 +1560,22 @@ export default function SeriesDetailDrawer({
                                 ]}
                               >
                                 Absent
+                              </Text>
+                            </Pressable>
+                            <Pressable
+                              style={[
+                                styles.attendanceToggleOption,
+                                status === "vacation" && styles.attendanceToggleVacation,
+                              ]}
+                              onPress={() => handleSetAttendance(player.id, "vacation")}
+                            >
+                              <Text
+                                style={[
+                                  styles.attendanceToggleText,
+                                  status === "vacation" && styles.attendanceToggleTextActive,
+                                ]}
+                              >
+                                Vacation
                               </Text>
                             </Pressable>
                           </View>
@@ -2388,6 +2404,9 @@ const styles = StyleSheet.create({
   },
   attendanceToggleAbsent: {
     backgroundColor: Colors.dark.error,
+  },
+  attendanceToggleVacation: {
+    backgroundColor: Colors.dark.gold,
   },
   attendanceToggleText: {
     fontSize: Typography.caption.fontSize,
