@@ -2079,7 +2079,7 @@ export const storage = {
     playerId: string,
     sessionId: string,
     academyId?: string
-  ): Promise<{ success: boolean; creditType?: string; reason?: string }> {
+  ): Promise<{ success: boolean; creditType?: string; reason?: string; alreadyRefunded?: boolean }> {
     // Find the original debit transaction for this session
     const transactions = await this.getCreditTransactionsBySession(sessionId);
     const originalDebit = transactions.find(
@@ -2088,6 +2088,34 @@ export const storage = {
     
     if (!originalDebit || !originalDebit.packageId) {
       return { success: false, reason: "no_original_transaction" };
+    }
+    
+    // Check if already refunded (idempotency check)
+    const existingRefund = transactions.find(t => {
+      if (t.playerId !== playerId || t.type !== "credit" || t.reason !== "session_removal_refund") {
+        return false;
+      }
+      // Parse metadata JSON to check originalTransactionId
+      try {
+        const meta = t.metadata ? JSON.parse(t.metadata) : {};
+        return meta.originalTransactionId === originalDebit.id;
+      } catch {
+        return false;
+      }
+    });
+    
+    if (existingRefund) {
+      // Still normalize session_player record in case previous refund left it in charged state
+      await db.update(sessionPlayers)
+        .set({ 
+          creditDeductedAt: null,
+          creditTransactionId: null,
+        })
+        .where(and(
+          eq(sessionPlayers.sessionId, sessionId),
+          eq(sessionPlayers.playerId, playerId)
+        ));
+      return { success: true, creditType: originalDebit.creditType || "group", alreadyRefunded: true };
     }
     
     // Find the package and refund the credit
@@ -2122,6 +2150,17 @@ export const storage = {
         refundedBy: "coach",
       }),
     });
+    
+    // Clear creditDeductedAt on session_player record to mark as refunded
+    await db.update(sessionPlayers)
+      .set({ 
+        creditDeductedAt: null,
+        creditTransactionId: null,
+      })
+      .where(and(
+        eq(sessionPlayers.sessionId, sessionId),
+        eq(sessionPlayers.playerId, playerId)
+      ));
     
     return { 
       success: true, 
