@@ -209,11 +209,11 @@ export default function SeriesDetailDrawer({
     enabled: !!seriesId && visible,
   });
 
-  // Build display title with local time (startTime is already stored as local academy time)
+  // Build display title with local time (startTime is stored as UTC, convert to local)
   const displayTitle = useMemo(() => {
     if (!series) return "";
-    // startTime is already in local academy time (HH:MM), use directly
-    const localStartTime = series.startTime || "00:00";
+    const timezone = academy?.timezone || "Asia/Dubai";
+    const localStartTime = convertUTCTimeToLocal(series.startTime, timezone);
     
     const sessionTypeLabels: Record<string, string> = {
       private: "Private Lesson",
@@ -229,7 +229,7 @@ export default function SeriesDetailDrawer({
     const typeLabel = sessionTypeLabels[series.sessionType] || series.sessionType || "Training";
     const dayName = DAY_NAMES[series.dayOfWeek];
     return `${typeLabel} - ${dayName} ${localStartTime}`;
-  }, [series]);
+  }, [series, academy?.timezone]);
 
   const { data: feedbackData, isLoading: feedbackLoading } = useQuery<FeedbackData>({
     queryKey: [`/api/coach/series/${seriesId}/feedback`],
@@ -755,8 +755,9 @@ export default function SeriesDetailDrawer({
   };
 
   const formatTime = (timeStr: string) => {
-    // timeStr is already in local academy time (HH:MM), just display it directly
-    return timeStr || "00:00";
+    // timeStr is stored as UTC (HH:MM), convert to local academy time for display
+    const timezone = academy?.timezone || "Asia/Dubai";
+    return convertUTCTimeToLocal(timeStr, timezone);
   };
 
   const accentColor = series ? getSessionTypeColor(series.sessionType) : Colors.dark.successNeon;
