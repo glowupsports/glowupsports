@@ -180,6 +180,7 @@ interface DraggableSessionProps {
   isActive: boolean;
   gradientColors: readonly [string, string, ...string[]];
   sessionLabel: string;
+  formattedTime: string; // Pre-formatted time in academy timezone
   hourHeight: number;
   onTap: () => void;
   onLongPress: () => void;
@@ -197,6 +198,7 @@ function DraggableSessionBlock({
   isActive,
   gradientColors,
   sessionLabel,
+  formattedTime,
   hourHeight,
   onTap,
   onLongPress,
@@ -302,11 +304,7 @@ function DraggableSessionBlock({
             {sessionLabel}
           </Text>
           <Text style={dragStyles.sessionTime} numberOfLines={1}>
-            {parseUTCTimestamp(session.startTime).toLocaleTimeString("en-US", {
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: false,
-            })}
+            {formattedTime}
           </Text>
         </LinearGradient>
       </Animated.View>
@@ -322,6 +320,7 @@ interface WeekDraggableSessionProps {
   isActive: boolean;
   gradientColors: readonly [string, string, ...string[]];
   sessionLabel: string;
+  formattedTime: string; // Pre-formatted time in academy timezone
   hourHeight: number;
   onTap: () => void;
   onLongPress: () => void;
@@ -338,6 +337,7 @@ function WeekDraggableSessionBlock({
   isActive,
   gradientColors,
   sessionLabel,
+  formattedTime,
   hourHeight,
   onTap,
   onLongPress,
@@ -426,11 +426,7 @@ function WeekDraggableSessionBlock({
           </Text>
           {height > 40 && (
             <Text style={dragStyles.weekSessionTime} numberOfLines={1}>
-              {parseUTCTimestamp(session.startTime).toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: false,
-              })}
+              {formattedTime}
             </Text>
           )}
         </LinearGradient>
@@ -1253,7 +1249,7 @@ export default function CalendarScreen() {
     
     Alert.alert(
       `${sessionType} Session`,
-      `${parseUTCTimestamp(session.startTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })} - ${parseUTCTimestamp(session.endTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}`,
+      `${formatTimeInTimezone(session.startTime, academyTimezone)} - ${formatTimeInTimezone(session.endTime, academyTimezone)}`,
       options
     );
   };
@@ -1703,6 +1699,7 @@ export default function CalendarScreen() {
                             isActive={isActive}
                             gradientColors={gradientColors}
                             sessionLabel={sessionLabel}
+                            formattedTime={formatTimeInTimezone(session.startTime, academyTimezone)}
                             hourHeight={hourHeight}
                             courtLaneWidth={COURT_LANE_WIDTH}
                             onTap={() => handleSessionTap(session)}
@@ -1990,6 +1987,7 @@ export default function CalendarScreen() {
                                 isActive={isActive}
                                 gradientColors={gradientColors}
                                 sessionLabel={sessionLabel}
+                                formattedTime={formatTimeInTimezone(session.startTime, academyTimezone)}
                                 hourHeight={hourHeight}
                                 dayColumnWidth={dayColumnWidth}
                                 onTap={() => {
