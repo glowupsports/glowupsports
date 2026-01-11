@@ -23,6 +23,9 @@ import PricingScreen from "@/owner/screens/PricingScreen";
 import CoachCompensationScreen from "@/owner/screens/CoachCompensationScreen";
 import CreditPackagesScreen from "@/owner/screens/CreditPackagesScreen";
 import ShopManagementScreen from "@/owner/screens/ShopManagementScreen";
+import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors } from "@/constants/theme";
 
 export type OwnerTabParamList = {
@@ -151,6 +154,86 @@ function OwnerTabs() {
   );
 }
 
+function OwnerStackNavigator({ onboardingCompleted }: { onboardingCompleted: boolean }) {
+  return (
+    <Stack.Navigator 
+      key={onboardingCompleted ? "owner-main" : "owner-onboarding"}
+      screenOptions={{ headerShown: false }}
+      initialRouteName={onboardingCompleted ? "OwnerTabs" : "AcademyOnboarding"}
+    >
+      <Stack.Screen name="OwnerTabs" component={OwnerTabs} />
+      <Stack.Screen name="OwnerMain" component={OwnerTabs} />
+      <Stack.Screen name="AcademyOnboarding" component={AcademyOnboardingScreen} />
+      <Stack.Screen name="InviteManagement" component={InviteManagementScreen} />
+      <Stack.Screen name="OwnerProfile" component={OwnerProfileScreen} />
+      <Stack.Screen name="AcademyProfile" component={AcademyProfileScreen} />
+      <Stack.Screen name="CourtsManagement" component={CourtsManagementScreen} />
+      <Stack.Screen name="RulesAndPolicies" component={RulesAndPoliciesScreen} />
+      <Stack.Screen name="Pricing" component={PricingScreen} />
+      <Stack.Screen name="CoachCompensation" component={CoachCompensationScreen} />
+      <Stack.Screen name="CreditPackages" component={CreditPackagesScreen} />
+      <Stack.Screen name="ShopManagement" component={ShopManagementScreen} />
+    </Stack.Navigator>
+  );
+}
+
+function OwnerQuickActionsFAB() {
+  const navigation = useNavigation<NativeStackNavigationProp<OwnerStackParamList>>();
+
+  const ownerActions: QuickAction[] = [
+    {
+      id: "invite-coach",
+      label: "Invite Coach",
+      icon: "person-add-outline",
+      color: Colors.dark.primary,
+      onPress: () => navigation.navigate("InviteManagement", { role: "coach" }),
+    },
+    {
+      id: "pricing",
+      label: "Pricing",
+      icon: "pricetag-outline",
+      color: Colors.dark.gold,
+      onPress: () => navigation.navigate("Pricing"),
+    },
+    {
+      id: "courts",
+      label: "Courts",
+      icon: "tennisball-outline",
+      color: Colors.dark.successNeon,
+      onPress: () => navigation.navigate("CourtsManagement"),
+    },
+    {
+      id: "shop",
+      label: "Shop",
+      icon: "storefront-outline",
+      color: Colors.dark.xpCyan,
+      onPress: () => navigation.navigate("ShopManagement"),
+    },
+    {
+      id: "credits",
+      label: "Credits",
+      icon: "wallet-outline",
+      color: Colors.dark.orange,
+      onPress: () => navigation.navigate("CreditPackages"),
+    },
+    {
+      id: "rules",
+      label: "Rules",
+      icon: "document-text-outline",
+      color: Colors.dark.ballGlow,
+      onPress: () => navigation.navigate("RulesAndPolicies"),
+    },
+  ];
+
+  return (
+    <QuickActionsFAB
+      actions={ownerActions}
+      primaryColor={Colors.dark.gold}
+      secondaryColor={Colors.dark.orange}
+    />
+  );
+}
+
 export default function OwnerNavigator() {
   const { data: meData, isLoading } = useQuery<{ user?: { academyId?: string | null }; coach: { onboardingCompleted?: boolean } | null }>({
     queryKey: ["/api/me"],
@@ -174,28 +257,20 @@ export default function OwnerNavigator() {
   const onboardingCompleted = meData?.coach?.onboardingCompleted ?? false;
   
   return (
-    <Stack.Navigator 
-      key={onboardingCompleted ? "owner-main" : "owner-onboarding"}
-      screenOptions={{ headerShown: false }}
-      initialRouteName={onboardingCompleted ? "OwnerTabs" : "AcademyOnboarding"}
-    >
-      <Stack.Screen name="OwnerTabs" component={OwnerTabs} />
-      <Stack.Screen name="OwnerMain" component={OwnerTabs} />
-      <Stack.Screen name="AcademyOnboarding" component={AcademyOnboardingScreen} />
-      <Stack.Screen name="InviteManagement" component={InviteManagementScreen} />
-      <Stack.Screen name="OwnerProfile" component={OwnerProfileScreen} />
-      <Stack.Screen name="AcademyProfile" component={AcademyProfileScreen} />
-      <Stack.Screen name="CourtsManagement" component={CourtsManagementScreen} />
-      <Stack.Screen name="RulesAndPolicies" component={RulesAndPoliciesScreen} />
-      <Stack.Screen name="Pricing" component={PricingScreen} />
-      <Stack.Screen name="CoachCompensation" component={CoachCompensationScreen} />
-      <Stack.Screen name="CreditPackages" component={CreditPackagesScreen} />
-      <Stack.Screen name="ShopManagement" component={ShopManagementScreen} />
-    </Stack.Navigator>
+    <>
+      <View style={styles.container}>
+        <OwnerStackNavigator onboardingCompleted={onboardingCompleted} />
+      </View>
+      {onboardingCompleted ? <OwnerQuickActionsFAB /> : null}
+    </>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",

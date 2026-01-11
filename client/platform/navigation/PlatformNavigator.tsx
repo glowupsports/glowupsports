@@ -20,6 +20,9 @@ import BillingConfigScreen from "@/platform/screens/BillingConfigScreen";
 import NotificationTemplatesScreen from "@/platform/screens/NotificationTemplatesScreen";
 import AuditLogsScreen from "@/platform/screens/AuditLogsScreen";
 import DiagnosticsScreen from "@/platform/screens/DiagnosticsScreen";
+import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors } from "@/constants/theme";
 
 export type PlatformTabParamList = {
@@ -138,7 +141,7 @@ function PlatformTabs() {
   );
 }
 
-export default function PlatformNavigator() {
+function PlatformStackNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="PlatformTabs" component={PlatformTabs} />
@@ -156,7 +159,81 @@ export default function PlatformNavigator() {
   );
 }
 
+const PLATFORM_FAB_COLOR = "#9B59B6";
+
+function PlatformQuickActionsFAB() {
+  const navigation = useNavigation<NativeStackNavigationProp<PlatformStackParamList>>();
+
+  const platformActions: QuickAction[] = [
+    {
+      id: "academies",
+      label: "Academies",
+      icon: "business-outline",
+      color: PLATFORM_FAB_COLOR,
+      onPress: () => navigation.navigate("Academies"),
+    },
+    {
+      id: "xp-config",
+      label: "XP Config",
+      icon: "star-outline",
+      color: Colors.dark.gold,
+      onPress: () => navigation.navigate("XPMultipliers"),
+    },
+    {
+      id: "billing",
+      label: "Billing",
+      icon: "card-outline",
+      color: Colors.dark.successNeon,
+      onPress: () => navigation.navigate("BillingConfig"),
+    },
+    {
+      id: "diagnostics",
+      label: "Diagnostics",
+      icon: "pulse-outline",
+      color: Colors.dark.xpCyan,
+      onPress: () => navigation.navigate("Diagnostics"),
+    },
+    {
+      id: "audit-logs",
+      label: "Audit Logs",
+      icon: "document-text-outline",
+      color: Colors.dark.orange,
+      onPress: () => navigation.navigate("AuditLogs"),
+    },
+    {
+      id: "anti-abuse",
+      label: "Anti-Abuse",
+      icon: "shield-outline",
+      color: Colors.dark.error,
+      onPress: () => navigation.navigate("AntiAbuseRules"),
+    },
+  ];
+
+  return (
+    <QuickActionsFAB
+      actions={platformActions}
+      primaryColor={PLATFORM_FAB_COLOR}
+      secondaryColor={Colors.dark.xpCyan}
+    />
+  );
+}
+
+export default function PlatformNavigator() {
+  return (
+    <>
+      <View style={styles.container}>
+        <PlatformStackNavigator />
+      </View>
+      <PlatformQuickActionsFAB />
+    </>
+  );
+}
+
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
   tabBar: {
     position: "absolute",
     borderTopWidth: 0,

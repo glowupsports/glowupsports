@@ -60,6 +60,8 @@ import { Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { PlayerDrawerProvider, usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
+import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 export { usePlayerDrawer };
 
@@ -608,12 +610,76 @@ export default function PlayerNavigator() {
 
   return (
     <CartProvider>
-      <PlayerStackNavigator />
+      <View style={styles.container}>
+        <PlayerStackNavigator />
+      </View>
+      <PlayerQuickActionsFAB />
     </CartProvider>
   );
 }
 
+function PlayerQuickActionsFAB() {
+  const navigation = useNavigation<NativeStackNavigationProp<PlayerStackParamList>>();
+
+  const playerActions: QuickAction[] = [
+    {
+      id: "book-lesson",
+      label: "Book Lesson",
+      icon: "calendar-outline",
+      color: Colors.dark.primary,
+      onPress: () => navigation.navigate("LessonBooking"),
+    },
+    {
+      id: "find-match",
+      label: "Find Match",
+      icon: "game-controller-outline",
+      color: Colors.dark.xpCyan,
+      onPress: () => navigation.navigate("PlayerFinder"),
+    },
+    {
+      id: "messages",
+      label: "Messages",
+      icon: "chatbubbles-outline",
+      color: Colors.dark.ballGlow,
+      onPress: () => navigation.navigate("PlayerMessages"),
+    },
+    {
+      id: "shop",
+      label: "Shop",
+      icon: "cart-outline",
+      color: Colors.dark.gold,
+      onPress: () => navigation.navigate("Shop"),
+    },
+    {
+      id: "marketplace",
+      label: "Marketplace",
+      icon: "storefront-outline",
+      color: Colors.dark.orange,
+      onPress: () => navigation.navigate("Marketplace"),
+    },
+    {
+      id: "quests",
+      label: "Quests",
+      icon: "flag-outline",
+      color: Colors.dark.successNeon,
+      onPress: () => navigation.navigate("Quests"),
+    },
+  ];
+
+  return (
+    <QuickActionsFAB
+      actions={playerActions}
+      primaryColor={Colors.dark.ballGlow}
+      secondaryColor={Colors.dark.xpCyan}
+    />
+  );
+}
+
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
   tabsContainer: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,

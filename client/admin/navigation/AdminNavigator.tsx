@@ -16,6 +16,9 @@ import AdminCourtsScreen from "@/admin/screens/AdminCourtsScreen";
 import AdminLocationsScreen from "@/admin/screens/AdminLocationsScreen";
 import AdminSubscriptionsScreen from "@/admin/screens/AdminSubscriptionsScreen";
 import AdminRolesPermissionsScreen from "@/admin/screens/AdminRolesPermissionsScreen";
+import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors } from "@/constants/theme";
 
 export type AdminTabParamList = {
@@ -142,7 +145,7 @@ function AdminTabs() {
   );
 }
 
-export default function AdminNavigator() {
+function AdminStackNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="AdminTabs" component={AdminTabs} />
@@ -155,7 +158,79 @@ export default function AdminNavigator() {
   );
 }
 
+function AdminQuickActionsFAB() {
+  const navigation = useNavigation<NativeStackNavigationProp<AdminStackParamList>>();
+
+  const adminActions: QuickAction[] = [
+    {
+      id: "add-coach",
+      label: "Add Coach",
+      icon: "person-add-outline",
+      color: Colors.dark.primary,
+      onPress: () => navigation.navigate("AdminCoaches"),
+    },
+    {
+      id: "add-player",
+      label: "Add Player",
+      icon: "people-outline",
+      color: Colors.dark.xpCyan,
+      onPress: () => navigation.navigate("AdminPlayers"),
+    },
+    {
+      id: "new-class",
+      label: "New Class",
+      icon: "albums-outline",
+      color: Colors.dark.gold,
+      onPress: () => navigation.navigate("AdminClasses"),
+    },
+    {
+      id: "payments",
+      label: "Payments",
+      icon: "card-outline",
+      color: Colors.dark.successNeon,
+      onPress: () => navigation.navigate("AdminPayments"),
+    },
+    {
+      id: "reports",
+      label: "Reports",
+      icon: "bar-chart-outline",
+      color: Colors.dark.ballGlow,
+      onPress: () => navigation.navigate("AdminReports"),
+    },
+    {
+      id: "courts",
+      label: "Courts",
+      icon: "tennisball-outline",
+      color: Colors.dark.orange,
+      onPress: () => navigation.navigate("AdminCourts"),
+    },
+  ];
+
+  return (
+    <QuickActionsFAB
+      actions={adminActions}
+      primaryColor={Colors.dark.orange}
+      secondaryColor={Colors.dark.gold}
+    />
+  );
+}
+
+export default function AdminNavigator() {
+  return (
+    <>
+      <View style={styles.container}>
+        <AdminStackNavigator />
+      </View>
+      <AdminQuickActionsFAB />
+    </>
+  );
+}
+
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
   tabBar: {
     position: "absolute",
     borderTopWidth: 0,

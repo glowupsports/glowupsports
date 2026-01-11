@@ -31,8 +31,11 @@ import EvidenceCaptureScreen from "@/coach/screens/glow/EvidenceCaptureScreen";
 import LevelCardsScreen from "@/coach/screens/glow/LevelCardsScreen";
 import CoachCalibrationScreen from "@/coach/screens/glow/CoachCalibrationScreen";
 import OfflineBanner from "@/components/OfflineBanner";
+import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 
 function GamingTabIcon({ name, focused, size }: { name: keyof typeof Ionicons.glyphMap; focused: boolean; size: number }) {
@@ -334,10 +337,70 @@ export default function CoachNavigator() {
   }
 
   return (
-    <View style={styles.container}>
-      <OfflineBanner />
-      <CoachStackNavigator />
-    </View>
+    <>
+      <View style={styles.container}>
+        <OfflineBanner />
+        <CoachStackNavigator />
+      </View>
+      <CoachQuickActionsFAB />
+    </>
+  );
+}
+
+function CoachQuickActionsFAB() {
+  const navigation = useNavigation<NativeStackNavigationProp<CoachStackParamList>>();
+
+  const coachActions: QuickAction[] = [
+    {
+      id: "new-session",
+      label: "New Session",
+      icon: "add-circle-outline",
+      color: Colors.dark.primary,
+      onPress: () => navigation.navigate("Calendar"),
+    },
+    {
+      id: "quick-feedback",
+      label: "Quick Feedback",
+      icon: "chatbubble-ellipses-outline",
+      color: Colors.dark.xpCyan,
+      onPress: () => navigation.navigate("Coaching"),
+    },
+    {
+      id: "add-player",
+      label: "Add Player",
+      icon: "person-add-outline",
+      color: Colors.dark.orange,
+      onPress: () => navigation.navigate("Players"),
+    },
+    {
+      id: "log-match",
+      label: "Log Match",
+      icon: "trophy-outline",
+      color: Colors.dark.gold,
+      onPress: () => navigation.navigate("CoachHQ"),
+    },
+    {
+      id: "chat",
+      label: "Messages",
+      icon: "mail-outline",
+      color: Colors.dark.ballGlow,
+      onPress: () => navigation.navigate("ChatInbox"),
+    },
+    {
+      id: "level-cards",
+      label: "Level Cards",
+      icon: "ribbon-outline",
+      color: Colors.dark.successNeon,
+      onPress: () => navigation.navigate("LevelCards"),
+    },
+  ];
+
+  return (
+    <QuickActionsFAB
+      actions={coachActions}
+      primaryColor={Colors.dark.xpCyan}
+      secondaryColor={Colors.dark.primary}
+    />
   );
 }
 
