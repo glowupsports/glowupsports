@@ -474,6 +474,51 @@ function SkillBar({ domain, onPress }: { domain: SkillDomain; onPress: () => voi
   );
 }
 
+interface AttendanceClass {
+  id: string;
+  title: string;
+  dayOfWeek: string;
+  time: string;
+  sessionType: string;
+  status: string;
+  joinedAt: string | null;
+  leftAt: string | null;
+  attendance: {
+    present: number;
+    vacation: number;
+    absent: number;
+    total: number;
+    rate: number;
+  };
+}
+
+interface AttendanceData {
+  classes: AttendanceClass[];
+  summary: {
+    totalPresent: number;
+    totalSessions: number;
+    attendanceRate: number;
+  };
+}
+
+function getSessionTypeIcon(type: string): string {
+  const map: Record<string, string> = {
+    private: "person",
+    semi_private: "people",
+    group: "people-circle",
+  };
+  return map[type] || "tennisball";
+}
+
+function getSessionTypeColor(type: string): string {
+  const map: Record<string, string> = {
+    private: Colors.dark.sessionPrivate,
+    semi_private: Colors.dark.sessionSemiPrivate,
+    group: Colors.dark.sessionGroup,
+  };
+  return map[type] || Colors.dark.textMuted;
+}
+
 export default function PlayerProgressScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -485,6 +530,10 @@ export default function PlayerProgressScreen() {
 
   const { data, isLoading, error } = useQuery<ProgressData>({
     queryKey: ["/api/player/me/progress"],
+  });
+
+  const { data: attendanceData } = useQuery<AttendanceData>({
+    queryKey: ["/api/player/me/attendance"],
   });
 
   if (isLoading) {
@@ -629,6 +678,72 @@ export default function PlayerProgressScreen() {
                 </View>
               ))}
             </View>
+          </View>
+        ) : null}
+
+        {attendanceData && attendanceData.classes.length > 0 ? (
+          <View style={styles.attendanceSection}>
+            <Text style={styles.sectionTitle}>My Classes</Text>
+            
+            <View style={styles.attendanceSummary}>
+              <View style={styles.attendanceSummaryItem}>
+                <Text style={styles.attendanceSummaryValue}>{attendanceData.summary.totalPresent}</Text>
+                <Text style={styles.attendanceSummaryLabel}>Attended</Text>
+              </View>
+              <View style={styles.attendanceSummaryDivider} />
+              <View style={styles.attendanceSummaryItem}>
+                <Text style={styles.attendanceSummaryValue}>{attendanceData.summary.totalSessions}</Text>
+                <Text style={styles.attendanceSummaryLabel}>Total</Text>
+              </View>
+              <View style={styles.attendanceSummaryDivider} />
+              <View style={styles.attendanceSummaryItem}>
+                <Text style={[styles.attendanceSummaryValue, { color: Colors.dark.primary }]}>
+                  {attendanceData.summary.attendanceRate}%
+                </Text>
+                <Text style={styles.attendanceSummaryLabel}>Rate</Text>
+              </View>
+            </View>
+
+            {attendanceData.classes.map((cls) => (
+              <View key={cls.id} style={styles.attendanceCard}>
+                <View style={styles.attendanceCardHeader}>
+                  <View style={[styles.attendanceTypeIcon, { backgroundColor: getSessionTypeColor(cls.sessionType) + "20" }]}>
+                    <Ionicons 
+                      name={getSessionTypeIcon(cls.sessionType) as any} 
+                      size={18} 
+                      color={getSessionTypeColor(cls.sessionType)} 
+                    />
+                  </View>
+                  <View style={styles.attendanceCardInfo}>
+                    <Text style={styles.attendanceCardTitle}>{cls.title}</Text>
+                    <Text style={styles.attendanceCardTime}>{cls.dayOfWeek} at {cls.time}</Text>
+                  </View>
+                  {cls.status === "left" ? (
+                    <View style={styles.formerBadge}>
+                      <Text style={styles.formerBadgeText}>Former</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <View style={styles.attendanceStats}>
+                  <View style={styles.attendanceStat}>
+                    <Ionicons name="checkmark-circle" size={14} color={Colors.dark.primary} />
+                    <Text style={styles.attendanceStatText}>{cls.attendance.present} present</Text>
+                  </View>
+                  <View style={styles.attendanceStat}>
+                    <Ionicons name="airplane" size={14} color={Colors.dark.gold} />
+                    <Text style={styles.attendanceStatText}>{cls.attendance.vacation} vacation</Text>
+                  </View>
+                  <View style={styles.attendanceStat}>
+                    <Ionicons name="close-circle" size={14} color={Colors.dark.error} />
+                    <Text style={styles.attendanceStatText}>{cls.attendance.absent} absent</Text>
+                  </View>
+                </View>
+                <View style={styles.attendanceRateBar}>
+                  <View style={[styles.attendanceRateFill, { width: `${cls.attendance.rate}%` }]} />
+                </View>
+                <Text style={styles.attendanceRateText}>{cls.attendance.rate}% attendance rate</Text>
+              </View>
+            ))}
           </View>
         ) : null}
 
@@ -990,6 +1105,108 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
+  },
+  attendanceSection: {
+    paddingHorizontal: Spacing.xl,
+    marginBottom: Spacing.xl,
+  },
+  attendanceSummary: {
+    flexDirection: "row",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    alignItems: "center",
+    justifyContent: "space-around",
+  },
+  attendanceSummaryItem: {
+    alignItems: "center",
+    flex: 1,
+  },
+  attendanceSummaryValue: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+  },
+  attendanceSummaryLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  attendanceSummaryDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: Colors.dark.backgroundTertiary,
+  },
+  attendanceCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  attendanceCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  attendanceTypeIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: Spacing.md,
+  },
+  attendanceCardInfo: {
+    flex: 1,
+  },
+  attendanceCardTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  attendanceCardTime: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  formerBadge: {
+    backgroundColor: Colors.dark.textMuted + "30",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  formerBadgeText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontSize: 10,
+  },
+  attendanceStats: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+  },
+  attendanceStat: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  attendanceStatText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  attendanceRateBar: {
+    height: 6,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: 3,
+    marginBottom: Spacing.xs,
+  },
+  attendanceRateFill: {
+    height: "100%",
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 3,
+  },
+  attendanceRateText: {
+    ...Typography.caption,
+    color: Colors.dark.primary,
+    textAlign: "right",
   },
 });
 

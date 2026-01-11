@@ -14770,6 +14770,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get player attendance summary per series/class
+  app.get("/api/player/me/attendance", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user!.playerId) {
+        return res.json({ classes: [], summary: { totalPresent: 0, totalSessions: 0, attendanceRate: 0 } });
+      }
+      const playerId = req.user!.playerId!;
+      
+      // Get all series this player is enrolled in
+      const playerSeriesRecords = await db
+        .select({
+          seriesId: seriesPlayers.seriesId,
+          status: seriesPlayers.status,
+          joinedAt: seriesPlayers.joinedAt,
+          leftAt: seriesPlayers.leftAt,
+        })
+        .from(seriesPlayers)
+        .where(eq(seriesPlayers.playerId, playerId));
+      
+      if (playerSeriesRecords.length === 0) {
+        return res.json({ classes: [], summary: { totalPresent: 0, totalSessions: 0, attendanceRate: 0 } });
+      }
+      
+      const seriesIds = playerSeriesRecords.map(r => r.seriesId);
+      
+      // Get series details
+      const seriesDetails = await db
+        .select()
+        .from(coachingSeries)
+        .where(inArray(coachingSeries.id, seriesIds));
+      
+      // Get attendance counts per series
+      const classes = await Promise.all(seriesDetails.map(async (series) => {
+        const seriesRecord = playerSeriesRecords.find(r => r.seriesId === series.id);
+        
+        // Get all sessions for this series
+        const seriesSessions = await db
+          .select({ id: sessions.id, startTime: sessions.startTime })
+          .from(sessions)
+          .where(eq(sessions.seriesId, series.id));
+        
+        const sessionIds = seriesSessions.map(s => s.id);
+        
+        // Count attendance by status
+        const attendanceRecords = sessionIds.length > 0 ? await db
+          .select({
+            status: sessionPlayers.attendanceStatus,
+            count: count(),
+          })
+          .from(sessionPlayers)
+          .where(and(
+            inArray(sessionPlayers.sessionId, sessionIds),
+            eq(sessionPlayers.playerId, playerId)
+          ))
+          .groupBy(sessionPlayers.attendanceStatus) : [];
+        
+        const presentOnTimeCount = Number(attendanceRecords.find(r => r.status === "present")?.count || 0);
+        const lateCount = Number(attendanceRecords.find(r => r.status === "late")?.count || 0);
+        const presentCount = presentOnTimeCount + lateCount;
+        const vacationCount = Number(attendanceRecords.find(r => r.status === "vacation")?.count || 0);
+        const absentCount = Number(attendanceRecords.find(r => r.status === "absent")?.count || 0);
+        const totalRecorded = presentCount + vacationCount + absentCount;
+        
+        const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        
+        return {
+          id: series.id,
+          title: series.title,
+          dayOfWeek: dayNames[series.dayOfWeek || 0],
+          time: series.startTime,
+          sessionType: series.sessionType,
+          status: seriesRecord?.status || "active",
+          joinedAt: seriesRecord?.joinedAt?.toISOString() || null,
+          leftAt: seriesRecord?.leftAt?.toISOString() || null,
+          attendance: {
+            present: Number(presentCount),
+            vacation: Number(vacationCount),
+            absent: Number(absentCount),
+            total: totalRecorded,
+            rate: totalRecorded > 0 ? Math.round((Number(presentCount) / totalRecorded) * 100) : 0,
+          },
+        };
+      }));
+      
+      // Calculate overall summary
+      const totalPresent = classes.reduce((sum, c) => sum + c.attendance.present, 0);
+      const totalSessions = classes.reduce((sum, c) => sum + c.attendance.total, 0);
+      const overallRate = totalSessions > 0 ? Math.round((totalPresent / totalSessions) * 100) : 0;
+      
+      res.json({
+        classes: classes.sort((a, b) => a.dayOfWeek.localeCompare(b.dayOfWeek)),
+        summary: {
+          totalPresent,
+          totalSessions,
+          attendanceRate: overallRate,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching player attendance:", error);
+      res.status(500).json({ error: "Failed to fetch attendance" });
+    }
+  });
+  
   // Get player journey (milestones, badges, achievements)
   app.get("/api/player/me/journey", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     // Return empty journey for users without player profile
