@@ -3709,3 +3709,352 @@ export const sellerProfiles = pgTable("seller_profiles", {
 export const insertSellerProfileSchema = createInsertSchema(sellerProfiles).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertSellerProfile = z.infer<typeof insertSellerProfileSchema>;
 export type SellerProfile = typeof sellerProfiles.$inferSelect;
+
+// ==================== GLOW LEVELING OS ====================
+// Ball Level System: RED_3 → RED_2 → RED_1 → ORANGE_3 → ... → YELLOW_1
+// 6 Pillars: Technical, Tactical, Physical, Mental, Social, Match
+// Rubrics: 0=Not Yet, 1=Emerging, 2=Achieved
+
+export const glowPillars = ["TECHNIQUE", "TACTICAL", "PHYSICAL", "MENTAL", "SOCIAL", "MATCH"] as const;
+export type GlowPillar = typeof glowPillars[number];
+
+export const glowStages = ["RED", "ORANGE", "GREEN", "YELLOW"] as const;
+export type GlowStage = typeof glowStages[number];
+
+export const glowLanguageTiers = ["RED", "ORANGE", "GREEN", "YELLOW"] as const;
+export type GlowLanguageTier = typeof glowLanguageTiers[number];
+
+// Ball Levels - 12 levels total (RED_3 → YELLOW_1)
+export const ballLevels = pgTable("ball_levels", {
+  id: varchar("id").primaryKey(), // e.g., "RED_3", "ORANGE_2", "GREEN_1"
+  stage: text("stage").notNull(), // RED, ORANGE, GREEN, YELLOW
+  rank: integer("rank").notNull(), // 3, 2, 1 (3 = entry, 1 = graduate)
+  languageTier: text("language_tier").notNull(), // Controls UI language/complexity
+  displayNamePlayer: text("display_name_player").notNull(), // "Red 3"
+  displayNameCoach: text("display_name_coach").notNull(), // "Red 3 (Entry)"
+  identity: text("identity"), // Kid-friendly description: "Ik kan de bal raken"
+  courtType: text("court_type"), // "mini court (36')", "3/4 court", "full court"
+  ballType: text("ball_type"), // "Red foam / 75% low compression", etc.
+  matchFormat: text("match_format"), // "Mini points to 7", "Best of 3 short sets"
+  socialGoals: jsonb("social_goals").$type<string[]>(), // ["HIGH_FIVE", "TURN_TAKING"]
+  rewardBadge: text("reward_badge"), // "Red Starter Unlocked"
+  rewardUnlock: text("reward_unlock"), // Description of what unlocks
+  
+  // Promotion requirements (JSONB for flexibility)
+  promotionToLevelId: varchar("promotion_to_level_id"), // Next level ID
+  promotionRequirements: jsonb("promotion_requirements").$type<{
+    skillAchievedCount: number;
+    pillarMinimum: Record<string, number>;
+    matchMinEvents?: number;
+    matchType?: string;
+    evidenceMinItems?: number;
+  }>(),
+  trialEnabled: boolean("trial_enabled").default(true),
+  trialDays: integer("trial_days").default(14),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertBallLevelSchema = createInsertSchema(ballLevels).omit({ createdAt: true });
+export type InsertBallLevel = z.infer<typeof insertBallLevelSchema>;
+export type BallLevel = typeof ballLevels.$inferSelect;
+
+// Glow Skills - All skills across all levels
+export const glowSkills = pgTable("glow_skills", {
+  id: varchar("id").primaryKey(), // e.g., "FH_CONTACT", "RALLY_COOP", "RESET_ROUTINE"
+  pillar: text("pillar").notNull(), // TECHNIQUE, TACTICAL, PHYSICAL, MENTAL, SOCIAL, MATCH
+  name: text("name").notNull(), // "Forehand contact"
+  stage: text("stage").notNull(), // RED, ORANGE, GREEN, YELLOW (which stage this skill belongs to)
+  description: text("description"), // Detailed description
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("glow_skills_pillar_idx").on(table.pillar),
+  index("glow_skills_stage_idx").on(table.stage),
+]);
+
+export const insertGlowSkillSchema = createInsertSchema(glowSkills).omit({ createdAt: true });
+export type InsertGlowSkill = z.infer<typeof insertGlowSkillSchema>;
+export type GlowSkill = typeof glowSkills.$inferSelect;
+
+// Skill Rubrics - Observable criteria for 0/1/2 scoring
+export const skillRubrics = pgTable("skill_rubrics", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  skillId: varchar("skill_id").references(() => glowSkills.id).notNull(),
+  score: integer("score").notNull(), // 0, 1, or 2
+  observable: text("observable").notNull(), // What coach observes for this score
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("skill_rubrics_skill_idx").on(table.skillId),
+  unique("skill_rubrics_skill_score").on(table.skillId, table.score),
+]);
+
+export const insertSkillRubricSchema = createInsertSchema(skillRubrics).omit({ id: true, createdAt: true });
+export type InsertSkillRubric = z.infer<typeof insertSkillRubricSchema>;
+export type SkillRubric = typeof skillRubrics.$inferSelect;
+
+// Level Skills - Skills required per level with target scores
+export const levelSkills = pgTable("level_skills", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  levelId: varchar("level_id").references(() => ballLevels.id).notNull(),
+  skillId: varchar("skill_id").references(() => glowSkills.id).notNull(),
+  targetScore: integer("target_score").notNull().default(2), // Target: 0, 1, or 2
+  weight: numeric("weight", { precision: 3, scale: 2 }).default("1.00"), // For weighted average
+  isRequired: boolean("is_required").default(true), // Must-have vs nice-to-have
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("level_skills_level_idx").on(table.levelId),
+  index("level_skills_skill_idx").on(table.skillId),
+  unique("level_skills_level_skill").on(table.levelId, table.skillId),
+]);
+
+export const insertLevelSkillSchema = createInsertSchema(levelSkills).omit({ id: true, createdAt: true });
+export type InsertLevelSkill = z.infer<typeof insertLevelSkillSchema>;
+export type LevelSkill = typeof levelSkills.$inferSelect;
+
+// Level Tests - Trial tests required for level-up
+export const levelTests = pgTable("level_tests", {
+  id: varchar("id").primaryKey(), // e.g., "RED3_CONTACT_GATE"
+  levelId: varchar("level_id").references(() => ballLevels.id).notNull(),
+  name: text("name").notNull(), // "Contact Gate"
+  testType: text("test_type").notNull(), // COACH_OBSERVED, MATCH_LOG, AUTO_TRACKED
+  description: text("description"),
+  metrics: jsonb("metrics").$type<{
+    inPlayMin?: number;
+    attempts?: number;
+    minRallies?: number;
+    rallyLen?: number;
+    servesInMin?: number;
+    zone?: string;
+    minEvents?: number;
+    format?: string;
+    effortFlagsMin?: number;
+    noQuit?: boolean;
+    followsRules?: boolean;
+  }>(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("level_tests_level_idx").on(table.levelId),
+]);
+
+export const insertLevelTestSchema = createInsertSchema(levelTests).omit({ createdAt: true });
+export type InsertLevelTest = z.infer<typeof insertLevelTestSchema>;
+export type LevelTest = typeof levelTests.$inferSelect;
+
+// Player Ball Level - Player's current level + trial state
+export const playerBallLevels = pgTable("player_ball_levels", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  levelId: varchar("level_id").references(() => ballLevels.id).notNull(),
+  status: text("status").notNull().default("active"), // active, trial, graduated, needs_support
+  
+  // Trial tracking
+  trialStartedAt: timestamp("trial_started_at"),
+  trialEndsAt: timestamp("trial_ends_at"),
+  trialFromLevelId: varchar("trial_from_level_id").references(() => ballLevels.id),
+  
+  // History
+  assignedAt: timestamp("assigned_at").defaultNow(),
+  assignedBy: varchar("assigned_by"), // Coach/system who assigned
+  previousLevelId: varchar("previous_level_id").references(() => ballLevels.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("player_ball_levels_player_idx").on(table.playerId),
+  index("player_ball_levels_level_idx").on(table.levelId),
+  index("player_ball_levels_status_idx").on(table.status),
+]);
+
+export const insertPlayerBallLevelSchema = createInsertSchema(playerBallLevels).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertPlayerBallLevel = z.infer<typeof insertPlayerBallLevelSchema>;
+export type PlayerBallLevel = typeof playerBallLevels.$inferSelect;
+
+// Player Skill Scores - Time-series tracking of skill progress
+export const playerSkillScores = pgTable("player_skill_scores", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  skillId: varchar("skill_id").references(() => glowSkills.id).notNull(),
+  score: integer("score").notNull(), // 0, 1, or 2
+  
+  // Context
+  sessionId: varchar("session_id").references(() => sessions.id),
+  coachId: varchar("coach_id").references(() => coaches.id),
+  
+  // Weighted average tracking
+  movingAverage: numeric("moving_average", { precision: 4, scale: 2 }), // Running weighted average
+  observationCount: integer("observation_count").default(1), // How many times this skill has been scored
+  
+  note: text("note"), // Optional coach note
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("player_skill_scores_player_idx").on(table.playerId),
+  index("player_skill_scores_skill_idx").on(table.skillId),
+  index("player_skill_scores_session_idx").on(table.sessionId),
+  index("player_skill_scores_created_idx").on(table.createdAt),
+]);
+
+export const insertPlayerSkillScoreSchema = createInsertSchema(playerSkillScores).omit({ id: true, createdAt: true });
+export type InsertPlayerSkillScore = z.infer<typeof insertPlayerSkillScoreSchema>;
+export type PlayerSkillScore = typeof playerSkillScores.$inferSelect;
+
+// Player Pillar Progress - Aggregated progress per pillar
+export const playerPillarProgress = pgTable("player_pillar_progress", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  pillar: text("pillar").notNull(), // TECHNIQUE, TACTICAL, PHYSICAL, MENTAL, SOCIAL, MATCH
+  
+  // Current state
+  currentScore: numeric("current_score", { precision: 4, scale: 2 }).default("0.00"), // 0-2 average
+  trend: text("trend").default("stable"), // improving, stable, declining
+  lastSessionDelta: text("last_session_delta"), // +, -, =
+  
+  // Session tracking
+  lastUpdatedAt: timestamp("last_updated_at").defaultNow(),
+  lastSessionId: varchar("last_session_id").references(() => sessions.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("player_pillar_progress_player_idx").on(table.playerId),
+  unique("player_pillar_progress_unique").on(table.playerId, table.pillar),
+]);
+
+export const insertPlayerPillarProgressSchema = createInsertSchema(playerPillarProgress).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertPlayerPillarProgress = z.infer<typeof insertPlayerPillarProgressSchema>;
+export type PlayerPillarProgress = typeof playerPillarProgress.$inferSelect;
+
+// Level Trials - Trial attempts with test results
+export const levelTrials = pgTable("level_trials", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  fromLevelId: varchar("from_level_id").references(() => ballLevels.id).notNull(),
+  toLevelId: varchar("to_level_id").references(() => ballLevels.id).notNull(),
+  
+  status: text("status").notNull().default("in_progress"), // in_progress, passed, failed, cancelled
+  
+  // Timing
+  startedAt: timestamp("started_at").defaultNow(),
+  endsAt: timestamp("ends_at").notNull(), // startedAt + trialDays
+  completedAt: timestamp("completed_at"),
+  
+  // Test results
+  testResults: jsonb("test_results").$type<{
+    testId: string;
+    passed: boolean;
+    score?: number;
+    maxScore?: number;
+    completedAt?: string;
+    coachId?: string;
+    notes?: string;
+  }[]>(),
+  
+  // Evidence
+  evidenceCount: integer("evidence_count").default(0),
+  matchCount: integer("match_count").default(0),
+  
+  // Outcome tracking
+  evaluatedBy: varchar("evaluated_by").references(() => coaches.id),
+  evaluationNotes: text("evaluation_notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("level_trials_player_idx").on(table.playerId),
+  index("level_trials_status_idx").on(table.status),
+  index("level_trials_from_level_idx").on(table.fromLevelId),
+  index("level_trials_to_level_idx").on(table.toLevelId),
+]);
+
+export const insertLevelTrialSchema = createInsertSchema(levelTrials).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertLevelTrial = z.infer<typeof insertLevelTrialSchema>;
+export type LevelTrial = typeof levelTrials.$inferSelect;
+
+// Session Skill Feedback - New quick feedback per session (Effort/Execution/Understanding)
+export const sessionSkillFeedback = pgTable("session_skill_feedback", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => sessions.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  
+  // Quick ratings (1-5 stars or 0-2 scale)
+  effort: integer("effort").notNull(), // 0, 1, 2
+  execution: integer("execution").notNull(), // 0, 1, 2
+  understanding: integer("understanding").notNull(), // 0, 1, 2
+  
+  // Overall progress indicator
+  overall: text("overall").notNull(), // improved, stable, declined
+  
+  // Pillar quick ratings (optional, 0-2)
+  techniquePillar: integer("technique_pillar"),
+  tacticalPillar: integer("tactical_pillar"),
+  physicalPillar: integer("physical_pillar"),
+  mentalPillar: integer("mental_pillar"),
+  socialPillar: integer("social_pillar"),
+  matchPillar: integer("match_pillar"),
+  
+  // Skill ratings (JSONB for flexibility)
+  skillRatings: jsonb("skill_ratings").$type<{
+    skillId: string;
+    score: number; // 0, 1, 2
+  }[]>(),
+  
+  // Trial readiness flag
+  trialReady: boolean("trial_ready").default(false),
+  
+  // Notes
+  note: text("note"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("session_skill_feedback_session_idx").on(table.sessionId),
+  index("session_skill_feedback_player_idx").on(table.playerId),
+  index("session_skill_feedback_coach_idx").on(table.coachId),
+  unique("session_skill_feedback_unique").on(table.sessionId, table.playerId),
+]);
+
+export const insertSessionSkillFeedbackSchema = createInsertSchema(sessionSkillFeedback).omit({ id: true, createdAt: true });
+export type InsertSessionSkillFeedback = z.infer<typeof insertSessionSkillFeedbackSchema>;
+export type SessionSkillFeedback = typeof sessionSkillFeedback.$inferSelect;
+
+// Coach Calibration - Tracks coach scoring accuracy/bias
+export const coachCalibration = pgTable("coach_calibration", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull().unique(),
+  
+  // Bias tracking
+  biasScore: numeric("bias_score", { precision: 4, scale: 2 }).default("0.00"), // -1 to +1 (negative = too harsh, positive = too lenient)
+  calibrationCount: integer("calibration_count").default(0), // How many calibration clips rated
+  lastCalibrationAt: timestamp("last_calibration_at"),
+  
+  // Anomaly flags
+  bulkRatingFlag: boolean("bulk_rating_flag").default(false), // Flagged for bulk ratings
+  consistencyScore: numeric("consistency_score", { precision: 4, scale: 2 }).default("1.00"), // 0-1 (1 = consistent)
+  
+  // Weight adjustment
+  scoreWeight: numeric("score_weight", { precision: 3, scale: 2 }).default("1.00"), // Multiplier for this coach's scores
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("coach_calibration_coach_idx").on(table.coachId),
+]);
+
+export const insertCoachCalibrationSchema = createInsertSchema(coachCalibration).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCoachCalibration = z.infer<typeof insertCoachCalibrationSchema>;
+export type CoachCalibration = typeof coachCalibration.$inferSelect;
