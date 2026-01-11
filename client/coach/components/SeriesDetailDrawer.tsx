@@ -209,17 +209,11 @@ export default function SeriesDetailDrawer({
     enabled: !!seriesId && visible,
   });
 
-  // Build display title with local time (not UTC time from DB)
+  // Build display title with local time (startTime is already stored as local academy time)
   const displayTitle = useMemo(() => {
     if (!series) return "";
-    const timezone = academy?.timezone || "Asia/Dubai";
-    const localStartTime = convertUTCTimeToLocal(series.startTime, timezone);
-    
-    // Format to 12-hour with AM/PM (matching subtitle format)
-    const [hours, minutes] = localStartTime.split(":").map(Number);
-    const period = hours >= 12 ? "PM" : "AM";
-    const displayHours = hours % 12 || 12;
-    const formattedTime = `${displayHours}:${String(minutes).padStart(2, "0")} ${period}`;
+    // startTime is already in local academy time (HH:MM), use directly
+    const localStartTime = series.startTime || "00:00";
     
     const sessionTypeLabels: Record<string, string> = {
       private: "Private Lesson",
@@ -234,8 +228,8 @@ export default function SeriesDetailDrawer({
     };
     const typeLabel = sessionTypeLabels[series.sessionType] || series.sessionType || "Training";
     const dayName = DAY_NAMES[series.dayOfWeek];
-    return `${typeLabel} - ${dayName} ${formattedTime}`;
-  }, [series, academy?.timezone]);
+    return `${typeLabel} - ${dayName} ${localStartTime}`;
+  }, [series]);
 
   const { data: feedbackData, isLoading: feedbackLoading } = useQuery<FeedbackData>({
     queryKey: [`/api/coach/series/${seriesId}/feedback`],
@@ -761,14 +755,8 @@ export default function SeriesDetailDrawer({
   };
 
   const formatTime = (timeStr: string) => {
-    // First convert UTC time to local academy time
-    const timezone = academy?.timezone || "Asia/Dubai";
-    const localTime = convertUTCTimeToLocal(timeStr, timezone);
-    
-    const [hours, minutes] = localTime.split(":").map(Number);
-    const period = hours >= 12 ? "PM" : "AM";
-    const displayHours = hours % 12 || 12;
-    return `${displayHours}:${String(minutes).padStart(2, "0")} ${period}`;
+    // timeStr is already in local academy time (HH:MM), just display it directly
+    return timeStr || "00:00";
   };
 
   const accentColor = series ? getSessionTypeColor(series.sessionType) : Colors.dark.successNeon;

@@ -10,7 +10,6 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
-import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 
 interface CoachingSeries {
   id: string;
@@ -65,11 +64,8 @@ export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
   const dayName = DAY_NAMES[series.dayOfWeek];
   const totalWeeks = series.weekCount || "Open";
   
-  // Convert UTC startTime to local academy time for display
-  const localStartTime = useMemo(() => {
-    const timezone = academy?.timezone || "Asia/Dubai";
-    return convertUTCTimeToLocal(series.startTime, timezone);
-  }, [series.startTime, academy?.timezone]);
+  // startTime is already stored as local academy time (HH:MM), display directly
+  const localStartTime = series.startTime || "00:00";
   
   // Build display title with correct local time (title in DB may have hardcoded UTC time)
   const displayTitle = useMemo(() => {
