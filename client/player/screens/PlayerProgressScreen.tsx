@@ -8,6 +8,9 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
 import Svg, { Polygon, Circle, Text as SvgText, Line } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
+import BallLevelBadge from "@/components/BallLevelBadge";
+import PillarProgressRings from "@/components/PillarProgressRings";
+import { getStageFromLevel, type BallStage } from "@shared/language-switch";
 
 interface DomainInsights {
   recentHighlights: string[];
@@ -582,6 +585,17 @@ export default function PlayerProgressScreen() {
           <Text style={styles.subtitle}>Coach-validated skill development</Text>
         </View>
 
+        {/* Ball Level Badge - Prominent Display */}
+        {data.ballLevel ? (
+          <View style={styles.ballLevelSection}>
+            <BallLevelBadge 
+              levelId={data.ballLevel} 
+              size="large" 
+              showLabel={true}
+            />
+          </View>
+        ) : null}
+
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <View style={styles.glowCircle}>
@@ -633,6 +647,28 @@ export default function PlayerProgressScreen() {
             currentLevel={data.ballLevel}
             nextLevel={data.nextBallLevel}
           />
+        ) : null}
+
+        {/* Pillar Progress Rings - 6 Core Pillars */}
+        {data.ballLevel ? (
+          <View style={styles.pillarRingsSection}>
+            <Text style={styles.sectionTitle}>Core Pillars</Text>
+            <PillarProgressRings 
+              pillars={Object.fromEntries(
+                domains.map(d => [
+                  d.id.toUpperCase(), 
+                  { 
+                    pillar: d.id.toUpperCase(), 
+                    currentScore: d.value, 
+                    trend: d.trend === "rising" ? "up" : d.trend === "falling" ? "down" : "stable" 
+                  }
+                ])
+              )}
+              stage={getStageFromLevel(data.ballLevel)}
+              role="player"
+              onPillarPress={(pillar) => handleDomainPress(pillar.toLowerCase())}
+            />
+          </View>
         ) : null}
 
         <View style={styles.radarSection}>
@@ -804,6 +840,14 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     marginTop: 4,
   },
+  ballLevelSection: {
+    alignItems: "center",
+    paddingVertical: Spacing.lg,
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+  },
   statsRow: {
     flexDirection: "row",
     paddingHorizontal: Spacing.xl,
@@ -890,6 +934,10 @@ const styles = StyleSheet.create({
   xpBarFill: {
     height: "100%",
     borderRadius: 5,
+  },
+  pillarRingsSection: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.xl,
   },
   radarSection: {
     paddingHorizontal: Spacing.xl,
