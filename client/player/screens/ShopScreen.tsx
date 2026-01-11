@@ -174,6 +174,29 @@ export default function ShopScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Fixed Header - Always visible */}
+      <View style={styles.fixedHeader}>
+        <View style={styles.headerTitleRow}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Glow Market</Text>
+          <View style={styles.headerActions}>
+            <Pressable onPress={() => navigation.navigate("Marketplace")} style={styles.marketplaceButton}>
+              <Ionicons name="storefront-outline" size={22} color={Colors.dark.xpCyan} />
+            </Pressable>
+            <Pressable onPress={handleCartPress} style={styles.cartButton}>
+              <Ionicons name="bag-outline" size={24} color={Colors.dark.text} />
+              {itemCount > 0 && (
+                <View style={styles.cartBadge}>
+                  <Text style={styles.cartBadgeText}>{itemCount > 9 ? "9+" : itemCount}</Text>
+                </View>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </View>
+      
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -188,25 +211,6 @@ export default function ShopScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <Animated.View entering={FadeIn.duration(400)} style={styles.header}>
-          <View style={styles.headerTitleRow}>
-            <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
-            </Pressable>
-            <Text style={styles.headerTitle}>Glow Market</Text>
-            <View style={styles.headerActions}>
-              <Pressable onPress={() => navigation.navigate("Marketplace")} style={styles.marketplaceButton}>
-                <Ionicons name="storefront-outline" size={22} color={Colors.dark.xpCyan} />
-              </Pressable>
-              <Pressable onPress={handleCartPress} style={styles.cartButton}>
-                <Ionicons name="bag-outline" size={24} color={Colors.dark.text} />
-                {itemCount > 0 && (
-                  <View style={styles.cartBadge}>
-                    <Text style={styles.cartBadgeText}>{itemCount > 9 ? "9+" : itemCount}</Text>
-                  </View>
-                )}
-              </Pressable>
-            </View>
-          </View>
           <Text style={styles.headerSubtitle}>Premium gear & services for champions</Text>
         </Animated.View>
 
@@ -557,14 +561,21 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
     paddingBottom: Spacing.md,
   },
+  fixedHeader: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
   headerTitleRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: Spacing.xs,
   },
   backButton: {
-    padding: Spacing.xs,
+    padding: Spacing.sm,
+    marginRight: Spacing.sm,
   },
   headerActions: {
     flexDirection: "row",
