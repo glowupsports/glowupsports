@@ -23,7 +23,20 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
 
   const { trackInteraction } = useUIInteraction();
   const [showReportModal, setShowReportModal] = useState(false);
-  const currentRoute = state.routes[state.index]?.name;
+  const currentRouteName = state.routes[state.index]?.name;
+  const routeToMenuId: Record<string, string> = {
+    Lessons: "lessons",
+    Quest: "quest",
+    Match: "match",
+    Ranking: "ranking",
+    AdultGlowRank: "adultGlowRank",
+    Friends: "friends",
+    GameLobby: "gameLobby",
+    Events: "events",
+    Payments: "payments",
+    Settings: "settings",
+  };
+  const currentMenuId = routeToMenuId[currentRouteName] || currentRouteName;
 
   const handleLogout = () => {
     if (Platform.OS === "web") {
@@ -58,6 +71,7 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
       quest: "Quest",
       match: "Match",
       ranking: "Ranking",
+      adultGlowRank: "AdultGlowRank",
       friends: "Friends",
       gameLobby: "GameLobby",
       events: "Events",
@@ -81,7 +95,7 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
 
       <View style={styles.menuItems}>
         {DRAWER_ITEMS.map((item) => {
-          const isActive = currentRoute === item.id;
+          const isActive = currentMenuId === item.id;
           return (
             <Pressable
               key={item.id}
@@ -110,7 +124,7 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
       <View style={styles.footer}>
         <Pressable
           onPress={() => {
-            trackInteraction("button", "Report an Issue", currentRoute || "Drawer");
+            trackInteraction("button", "Report an Issue", currentRouteName || "Drawer");
             navigation.closeDrawer();
             setShowReportModal(true);
           }}
@@ -132,7 +146,7 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
       <ReportIssueModal
         visible={showReportModal}
         onClose={() => setShowReportModal(false)}
-        currentScreen={currentRoute}
+        currentScreen={currentRouteName}
       />
     </View>
   );

@@ -12,6 +12,9 @@ import GameLobbyScreen from "@/screens/GameLobbyScreen";
 import EventsScreen from "@/screens/EventsScreen";
 import PaymentsScreen from "@/screens/PaymentsScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
+import AdultGlowRankScreen from "@/screens/AdultGlowRankScreen";
+import AdultRanksListScreen from "@/screens/AdultRanksListScreen";
+import RecordAdultMatchScreen from "@/screens/RecordAdultMatchScreen";
 import { DrawerContent } from "@/components/DrawerContent";
 import { Colors } from "@/constants/theme";
 
@@ -21,6 +24,9 @@ export type DrawerParamList = {
   Quest: undefined;
   Match: undefined;
   Ranking: undefined;
+  AdultGlowRank: undefined;
+  AdultRanksList: undefined;
+  RecordAdultMatch: undefined;
   Friends: undefined;
   GameLobby: undefined;
   Events: undefined;
@@ -75,6 +81,21 @@ export default function DrawerNavigator() {
         name="Ranking"
         component={RankingScreen}
         options={{ headerShown: true, headerTitle: "Ranking" }}
+      />
+      <Drawer.Screen
+        name="AdultGlowRank"
+        component={AdultGlowRankScreen}
+        options={{ headerShown: true, headerTitle: "Glow Rank" }}
+      />
+      <Drawer.Screen
+        name="AdultRanksList"
+        component={AdultRanksListScreen}
+        options={{ headerShown: true, headerTitle: "All Ranks" }}
+      />
+      <Drawer.Screen
+        name="RecordAdultMatch"
+        component={RecordAdultMatchScreen}
+        options={{ headerShown: true, headerTitle: "Record Match" }}
       />
       <Drawer.Screen
         name="Friends"

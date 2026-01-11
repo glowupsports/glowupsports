@@ -158,6 +158,7 @@ export const DRAWER_ITEMS = [
   { id: "quest", name: "Quest", icon: "compass-outline" },
   { id: "match", name: "Match", icon: "play-circle-outline" },
   { id: "ranking", name: "Ranking", icon: "bar-chart-outline" },
+  { id: "adultGlowRank", name: "Glow Rank (Adults)", icon: "trophy-outline" },
   { id: "friends", name: "Friends", icon: "people-outline" },
   { id: "gameLobby", name: "Game Lobby", icon: "grid-outline" },
   { id: "events", name: "Events Calendar", icon: "calendar-outline" },
