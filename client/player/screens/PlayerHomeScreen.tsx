@@ -1207,7 +1207,15 @@ export default function PlayerHomeScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* A) HERO: Next Mission Card - Always first */}
+        {/* A) Player Profile Bar - Always first at top */}
+        <PlayerStatusBar 
+          player={player}
+          coach={coach}
+          lastFeedback={lastFeedback}
+          onAvatarPress={openDrawer}
+        />
+
+        {/* B) HERO: Next Mission Card */}
         {nextSession ? (
           <MissionCard
             session={nextSession}
@@ -1272,19 +1280,11 @@ export default function PlayerHomeScreen() {
           onViewAll={() => navigation.navigate("Quests")}
         />
 
-        {/* D) Social Highlights - Always show */}
+        {/* E) Social Highlights - Always show */}
         <SocialPulseCard 
           newMoments={missionControlData?.social?.newMoments || 0}
           openToPlay={missionControlData?.social?.openToPlay || 0}
           onMomentsPress={() => navigation.navigate("CommunityTab")}
-        />
-
-        {/* E) Player Profile Bar - after Mission Control */}
-        <PlayerStatusBar 
-          player={player}
-          coach={coach}
-          lastFeedback={lastFeedback}
-          onAvatarPress={openDrawer}
         />
 
         {/* Vacation Badge - contextual notification */}
