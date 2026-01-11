@@ -82,6 +82,7 @@ import skillEvidenceRoutes from "./routes/skill-evidence";
 import levelUpEventsRoutes from "./routes/level-up-events";
 import coachCalibrationRoutes from "./routes/coach-calibration";
 import parentDashboardRoutes from "./routes/parent-dashboard";
+import adultGlowRankRoutes from "./routes/adult-glow-rank";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -211,6 +212,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register Glow Leveling OS routes
   app.use(glowLevelingRoutes);
+  app.use("/api/adult-glow", adultGlowRankRoutes);
   
   // Session Plans, Match Logs, Evidence, Level-Up Events
   app.use(sessionPlansRoutes);

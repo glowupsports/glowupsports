@@ -817,6 +817,74 @@ export const insertPlayerMatchSchema = createInsertSchema(playerMatches).omit({
 export type InsertPlayerMatch = z.infer<typeof insertPlayerMatchSchema>;
 export type PlayerMatch = typeof playerMatches.$inferSelect;
 
+// Adult Glow MMR Matches - Tracked matches for Elo ranking system
+export const adultGlowMatches = pgTable("adult_glow_matches", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  opponentId: varchar("opponent_id").references(() => players.id).notNull(),
+  
+  // Result
+  didWin: boolean("did_win").notNull(),
+  gamesDiff: integer("games_diff").default(0), // positive = won more games
+  setScore: text("set_score"), // e.g., "6-4, 7-5"
+  
+  // Match context
+  matchType: text("match_type").default("friendly"), // friendly/ladder/tournament
+  verification: text("verification").default("self_reported"), // system_verified/coach_verified/self_reported
+  
+  // MMR at time of match
+  playerMmrBefore: integer("player_mmr_before"),
+  opponentMmrBefore: integer("opponent_mmr_before"),
+  mmrDelta: integer("mmr_delta"),
+  
+  // Timestamps
+  matchDate: timestamp("match_date").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  playerIdx: index("adult_glow_matches_player_idx").on(table.playerId),
+  opponentIdx: index("adult_glow_matches_opponent_idx").on(table.opponentId),
+  matchDateIdx: index("adult_glow_matches_date_idx").on(table.matchDate),
+}));
+
+export const insertAdultGlowMatchSchema = createInsertSchema(adultGlowMatches).omit({ 
+  id: true, 
+  createdAt: true,
+});
+export type InsertAdultGlowMatch = z.infer<typeof insertAdultGlowMatchSchema>;
+export type AdultGlowMatch = typeof adultGlowMatches.$inferSelect;
+
+// Adult Skill Assessments - Coach-evaluated skill scores for adults
+export const adultSkillAssessments = pgTable("adult_skill_assessments", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  
+  skillId: text("skill_id").notNull(), // e.g., "ADULT_FH_CONTACT"
+  score: integer("score").notNull(), // 0, 1, or 2
+  
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  playerIdx: index("adult_skill_assessments_player_idx").on(table.playerId),
+  skillIdx: index("adult_skill_assessments_skill_idx").on(table.skillId),
+}));
+
+export const insertAdultSkillAssessmentSchema = createInsertSchema(adultSkillAssessments).omit({ 
+  id: true, 
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAdultSkillAssessment = z.infer<typeof insertAdultSkillAssessmentSchema>;
+export type AdultSkillAssessment = typeof adultSkillAssessments.$inferSelect;
+
 // Player Connections - Track who has played together and friend requests
 export const playerConnections = pgTable("player_connections", {
   id: varchar("id")
