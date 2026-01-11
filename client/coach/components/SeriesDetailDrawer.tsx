@@ -146,6 +146,31 @@ function getSessionTypeColor(type: string): string {
   return SESSION_TYPE_COLORS[type] || Colors.dark.textMuted;
 }
 
+function isPlayerActiveForSession(player: Player, sessionDate: Date): boolean {
+  if (!player.joinedAt) return true;
+  
+  const joinDate = new Date(player.joinedAt);
+  if (joinDate > sessionDate) return false;
+  
+  if (player.leftAt) {
+    const leftDate = new Date(player.leftAt);
+    if (leftDate < sessionDate) return false;
+  }
+  
+  if (player.pauseFrom) {
+    const pauseStart = new Date(player.pauseFrom);
+    if (sessionDate >= pauseStart) {
+      if (!player.pauseUntil) {
+        return false;
+      }
+      const pauseEnd = new Date(player.pauseUntil);
+      if (sessionDate <= pauseEnd) return false;
+    }
+  }
+  
+  return true;
+}
+
 export default function SeriesDetailDrawer({
   visible,
   seriesId,
@@ -604,12 +629,8 @@ export default function SeriesDetailDrawer({
     const initialAttendance: Record<string, "present" | "absent" | "vacation"> = {};
     const sessionDate = new Date(session.startTime);
     
-    // Filter players who had joined by the session date
-    const activePlayers = (series?.players?.filter(p => p.status === "active") || []).filter(p => {
-      if (!p.joinedAt) return true; // No join date = show player
-      const joinDate = new Date(p.joinedAt);
-      return joinDate <= sessionDate;
-    });
+    // Filter players who were active at the session date (including former players who were active then)
+    const activePlayers = (series?.players || []).filter(p => isPlayerActiveForSession(p, sessionDate));
     
     // First, fetch existing attendance records from the API (source of truth)
     // Add timestamp to prevent 304 caching and get fresh data
@@ -1847,12 +1868,8 @@ export default function SeriesDetailDrawer({
             <ScrollView style={{ flex: 1 }}>
               {(() => {
                 const sessionDate = selectedSession ? new Date(selectedSession.startTime) : new Date();
-                // Filter players who had joined by the session date
-                const activePlayers = (series?.players?.filter(p => p.status === "active") || []).filter(p => {
-                  if (!p.joinedAt) return true; // No join date = show player
-                  const joinDate = new Date(p.joinedAt);
-                  return joinDate <= sessionDate;
-                });
+                // Filter players who were active at the session date (including former players who were active then)
+                const activePlayers = (series?.players || []).filter(p => isPlayerActiveForSession(p, sessionDate));
                 const presentCount = Object.values(sessionAttendance).filter(s => s === "present").length;
                 const sessionType = series?.sessionType || "group";
                 
