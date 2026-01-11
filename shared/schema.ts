@@ -4058,3 +4058,321 @@ export const coachCalibration = pgTable("coach_calibration", {
 export const insertCoachCalibrationSchema = createInsertSchema(coachCalibration).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertCoachCalibration = z.infer<typeof insertCoachCalibrationSchema>;
 export type CoachCalibration = typeof coachCalibration.$inferSelect;
+
+// ==================== LESSON TEMPLATES & DRILL BLOCKS ====================
+
+// Lesson Templates - Pre-built lesson structures per level
+export const lessonTemplates = pgTable("lesson_templates", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id), // null = global templates
+  levelId: varchar("level_id").references(() => ballLevels.id), // Target level (null = any level)
+  
+  // Template info
+  name: text("name").notNull(), // "Red Ball Fundamentals", "Rally Master Session"
+  description: text("description"),
+  focus: text("focus").notNull(), // primary, technique, tactical, match_play, assessment
+  
+  // Duration
+  durationMinutes: integer("duration_minutes").notNull().default(60),
+  
+  // Target settings
+  minPlayers: integer("min_players").default(1),
+  maxPlayers: integer("max_players").default(4),
+  ageGroup: text("age_group"), // kids, juniors, teens, adults
+  
+  // Template metadata
+  tags: jsonb("tags").$type<string[]>().default([]),
+  isActive: boolean("is_active").default(true),
+  usageCount: integer("usage_count").default(0),
+  
+  createdBy: varchar("created_by").references(() => coaches.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("lesson_templates_academy_idx").on(table.academyId),
+  index("lesson_templates_level_idx").on(table.levelId),
+  index("lesson_templates_focus_idx").on(table.focus),
+]);
+
+export const insertLessonTemplateSchema = createInsertSchema(lessonTemplates).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertLessonTemplate = z.infer<typeof insertLessonTemplateSchema>;
+export type LessonTemplate = typeof lessonTemplates.$inferSelect;
+
+// Drill Blocks - Components of a lesson template
+export const drillBlocks = pgTable("drill_blocks", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  templateId: varchar("template_id").references(() => lessonTemplates.id).notNull(),
+  
+  // Block info
+  name: text("name").notNull(), // "Warm-up Rally", "Forehand Drill", "Match Play"
+  description: text("description"),
+  blockType: text("block_type").notNull(), // warmup, drill, game, cooldown, break, assessment
+  
+  // Timing
+  orderIndex: integer("order_index").notNull(),
+  durationMinutes: integer("duration_minutes").notNull(),
+  
+  // Skill tags
+  skillIds: jsonb("skill_ids").$type<string[]>().default([]), // Linked glow_skills
+  pillars: jsonb("pillars").$type<string[]>().default([]), // TECHNIQUE, TACTICAL, etc.
+  
+  // Instructions
+  coachInstructions: text("coach_instructions"),
+  playerInstructions: text("player_instructions"),
+  equipmentNeeded: jsonb("equipment_needed").$type<string[]>().default([]),
+  
+  // Variations
+  variations: jsonb("variations").$type<{
+    name: string;
+    description: string;
+    difficulty: string;
+  }[]>().default([]),
+  
+  // Success criteria
+  successCriteria: jsonb("success_criteria").$type<{
+    metric: string;
+    target: number;
+    unit: string;
+  }[]>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("drill_blocks_template_idx").on(table.templateId),
+  index("drill_blocks_type_idx").on(table.blockType),
+]);
+
+export const insertDrillBlockSchema = createInsertSchema(drillBlocks).omit({ id: true, createdAt: true });
+export type InsertDrillBlock = z.infer<typeof insertDrillBlockSchema>;
+export type DrillBlock = typeof drillBlocks.$inferSelect;
+
+// Generated Session Plans - Auto-generated lessons for sessions
+export const sessionPlans = pgTable("session_plans", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => sessions.id).notNull(),
+  templateId: varchar("template_id").references(() => lessonTemplates.id),
+  
+  // Plan metadata
+  status: text("status").notNull().default("draft"), // draft, active, completed, cancelled
+  
+  // Customized blocks (copy from template with modifications)
+  blocks: jsonb("blocks").$type<{
+    id: string;
+    name: string;
+    blockType: string;
+    durationMinutes: number;
+    orderIndex: number;
+    skillIds: string[];
+    coachInstructions?: string;
+    playerInstructions?: string;
+    equipmentNeeded?: string[];
+    status: string; // pending, in_progress, completed, skipped
+    startedAt?: string;
+    completedAt?: string;
+    notes?: string;
+  }[]>().default([]),
+  
+  // Execution tracking
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  currentBlockIndex: integer("current_block_index").default(0),
+  
+  // Notes
+  coachNotes: text("coach_notes"),
+  
+  generatedBy: varchar("generated_by").references(() => coaches.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("session_plans_session_idx").on(table.sessionId),
+  index("session_plans_template_idx").on(table.templateId),
+  unique("session_plans_session_unique").on(table.sessionId),
+]);
+
+export const insertSessionPlanSchema = createInsertSchema(sessionPlans).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertSessionPlan = z.infer<typeof insertSessionPlanSchema>;
+export type SessionPlan = typeof sessionPlans.$inferSelect;
+
+// ==================== MATCH LOGGING ====================
+
+// Match Logs - Track player matches and results
+export const matchLogs = pgTable("match_logs", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  sessionId: varchar("session_id").references(() => sessions.id), // null = external match
+  coachId: varchar("coach_id").references(() => coaches.id),
+  
+  // Match info
+  matchType: text("match_type").notNull(), // singles, doubles, practice, tournament, friendly
+  matchFormat: text("match_format").notNull(), // tiebreak_only, short_set, full_set, best_of_3
+  courtSurface: text("court_surface"), // hard, clay, grass, indoor
+  ballType: text("ball_type"), // red, orange, green, yellow
+  
+  // Opponent
+  opponentName: text("opponent_name"),
+  opponentPlayerId: varchar("opponent_player_id").references(() => players.id),
+  opponentLevel: text("opponent_level"), // RED_3, ORANGE_2, etc.
+  
+  // Score
+  playerScore: jsonb("player_score").$type<number[]>().notNull(), // [6, 3, 7] for sets
+  opponentScore: jsonb("opponent_score").$type<number[]>().notNull(),
+  result: text("result").notNull(), // won, lost, draw
+  
+  // Performance metrics
+  aces: integer("aces").default(0),
+  doubleFaults: integer("double_faults").default(0),
+  winners: integer("winners").default(0),
+  unforcedErrors: integer("unforced_errors").default(0),
+  
+  // Observations (linked to pillars)
+  observations: jsonb("observations").$type<{
+    pillar: string;
+    rating: number; // 0, 1, 2
+    note?: string;
+  }[]>(),
+  
+  // Coach notes
+  coachNotes: text("coach_notes"),
+  playerNotes: text("player_notes"),
+  
+  // Timing
+  playedAt: timestamp("played_at").notNull(),
+  duration: integer("duration"), // minutes
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("match_logs_player_idx").on(table.playerId),
+  index("match_logs_session_idx").on(table.sessionId),
+  index("match_logs_played_at_idx").on(table.playedAt),
+]);
+
+export const insertMatchLogSchema = createInsertSchema(matchLogs).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertMatchLog = z.infer<typeof insertMatchLogSchema>;
+export type MatchLog = typeof matchLogs.$inferSelect;
+
+// ==================== EVIDENCE CAPTURE ====================
+
+// Skill Evidence - Video clips linked to skill observations
+export const skillEvidence = pgTable("skill_evidence", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  skillId: varchar("skill_id").references(() => glowSkills.id).notNull(),
+  sessionId: varchar("session_id").references(() => sessions.id),
+  trialId: varchar("trial_id").references(() => levelTrials.id),
+  
+  // Video info
+  videoUrl: text("video_url").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
+  durationSeconds: integer("duration_seconds").notNull(), // 10 sec clips
+  
+  // Capture context
+  captureType: text("capture_type").notNull(), // skill_demo, trial_gate, match_highlight, practice
+  
+  // Rating at time of capture
+  skillScore: integer("skill_score"), // 0, 1, 2
+  
+  // Coach review
+  reviewedBy: varchar("reviewed_by").references(() => coaches.id),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewScore: integer("review_score"), // 0, 1, 2 (coach validation)
+  reviewNotes: text("review_notes"),
+  
+  // Status
+  status: text("status").notNull().default("pending"), // pending, approved, rejected
+  
+  capturedBy: varchar("captured_by").references(() => coaches.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("skill_evidence_player_idx").on(table.playerId),
+  index("skill_evidence_skill_idx").on(table.skillId),
+  index("skill_evidence_session_idx").on(table.sessionId),
+  index("skill_evidence_trial_idx").on(table.trialId),
+]);
+
+export const insertSkillEvidenceSchema = createInsertSchema(skillEvidence).omit({ id: true, createdAt: true });
+export type InsertSkillEvidence = z.infer<typeof insertSkillEvidenceSchema>;
+export type SkillEvidence = typeof skillEvidence.$inferSelect;
+
+// ==================== MULTI-LANGUAGE ROLE VIEWS ====================
+
+// Role Message Templates - Different views for coach/player/parent
+export const roleMessageTemplates = pgTable("role_message_templates", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id), // null = global
+  
+  // Template key
+  templateKey: text("template_key").notNull(), // feedback_summary, level_up, session_reminder, etc.
+  
+  // Role-specific messages
+  coachMessage: text("coach_message").notNull(), // Technical language
+  playerMessage: text("player_message").notNull(), // Fun, encouraging language
+  parentMessage: text("parent_message").notNull(), // Informative, supportive language
+  
+  // Placeholders info
+  placeholders: jsonb("placeholders").$type<string[]>().default([]), // {playerName}, {skillName}, {level}
+  
+  // Category
+  category: text("category").notNull(), // feedback, progress, notification, celebration
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("role_message_templates_academy_idx").on(table.academyId),
+  index("role_message_templates_key_idx").on(table.templateKey),
+  unique("role_message_templates_unique").on(table.academyId, table.templateKey),
+]);
+
+export const insertRoleMessageTemplateSchema = createInsertSchema(roleMessageTemplates).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertRoleMessageTemplate = z.infer<typeof insertRoleMessageTemplateSchema>;
+export type RoleMessageTemplate = typeof roleMessageTemplates.$inferSelect;
+
+// Level Up Events - Track promotions with rewards
+export const levelUpEvents = pgTable("level_up_events", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  
+  // Level transition
+  fromLevelId: varchar("from_level_id").references(() => ballLevels.id).notNull(),
+  toLevelId: varchar("to_level_id").references(() => ballLevels.id).notNull(),
+  trialId: varchar("trial_id").references(() => levelTrials.id),
+  
+  // Rewards earned
+  xpAwarded: integer("xp_awarded").default(0),
+  badgesAwarded: jsonb("badges_awarded").$type<string[]>().default([]),
+  titleUnlocked: varchar("title_unlocked"),
+  
+  // Celebration status
+  celebrationShown: boolean("celebration_shown").default(false),
+  celebrationShownAt: timestamp("celebration_shown_at"),
+  
+  // Messages sent
+  playerNotified: boolean("player_notified").default(false),
+  parentNotified: boolean("parent_notified").default(false),
+  
+  promotedBy: varchar("promoted_by").references(() => coaches.id),
+  promotedAt: timestamp("promoted_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("level_up_events_player_idx").on(table.playerId),
+  index("level_up_events_from_level_idx").on(table.fromLevelId),
+  index("level_up_events_to_level_idx").on(table.toLevelId),
+]);
+
+export const insertLevelUpEventSchema = createInsertSchema(levelUpEvents).omit({ id: true, createdAt: true });
+export type InsertLevelUpEvent = z.infer<typeof insertLevelUpEventSchema>;
+export type LevelUpEvent = typeof levelUpEvents.$inferSelect;

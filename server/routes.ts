@@ -75,6 +75,10 @@ import { generateInvoiceHtml, parseLineItems } from "./services/invoicePdf";
 import shopRoutes from "./shop-routes";
 import marketplaceRoutes from "./marketplace-routes";
 import glowLevelingRoutes from "./routes/glow-leveling";
+import sessionPlansRoutes from "./routes/session-plans";
+import matchLogsRoutes from "./routes/match-logs";
+import skillEvidenceRoutes from "./routes/skill-evidence";
+import levelUpEventsRoutes from "./routes/level-up-events";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -204,6 +208,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register Glow Leveling OS routes
   app.use(glowLevelingRoutes);
+  
+  // Session Plans, Match Logs, Evidence, Level-Up Events
+  app.use(sessionPlansRoutes);
+  app.use(matchLogsRoutes);
+  app.use(skillEvidenceRoutes);
+  app.use(levelUpEventsRoutes);
 
   // ==================== HEALTH CHECK ====================
   
