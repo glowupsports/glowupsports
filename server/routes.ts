@@ -2365,9 +2365,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ownSessions = await storage.getSessionsByCoach(coachId as string, startDate, endDate, academyId ?? undefined);
       
       // Fetch players for each session using efficient join query
+      // For series sessions, fallback to series players if no session-specific players
       const sessionsWithPlayers = await Promise.all(
         ownSessions.map(async (session) => {
-          const players = await storage.getSessionPlayersWithDetails(session.id, academyId ?? undefined);
+          // First try to get session-specific players
+          let players = await storage.getSessionPlayersWithDetails(session.id, academyId ?? undefined);
+          
+          // If no session players but session has a seriesId, get players from the series
+          if (players.length === 0 && session.seriesId) {
+            const seriesPlayersList = await storage.getSeriesPlayersWithDetails(session.seriesId);
+            players = seriesPlayersList.map(sp => ({
+              id: sp.playerId,
+              name: sp.playerName || "Unknown",
+              level: sp.playerBallLevel || "green",
+              ballLevel: sp.playerBallLevel || null,
+              skillLevel: null,
+              status: null, // No attendance status yet for series players
+              lateMinutes: null,
+              absentReason: null,
+              fromSeries: true, // Mark as coming from series
+            }));
+          }
+          
           return {
             ...session,
             players,

@@ -2988,6 +2988,32 @@ export const storage = {
       .orderBy(asc(seriesPlayers.joinedAt));
   },
 
+  async getSeriesPlayersWithDetails(seriesId: string): Promise<Array<{
+    playerId: string;
+    playerName: string | null;
+    playerBallLevel: string | null;
+    status: string | null;
+    joinedAt: Date | null;
+  }>> {
+    const result = await db
+      .select({
+        playerId: seriesPlayers.playerId,
+        playerName: players.name,
+        playerBallLevel: players.ballLevel,
+        status: seriesPlayers.status,
+        joinedAt: seriesPlayers.joinedAt,
+      })
+      .from(seriesPlayers)
+      .innerJoin(players, eq(seriesPlayers.playerId, players.id))
+      .where(and(
+        eq(seriesPlayers.seriesId, seriesId),
+        eq(seriesPlayers.status, "active")
+      ))
+      .orderBy(asc(seriesPlayers.joinedAt));
+    
+    return result;
+  },
+
   async addPlayerToSeries(data: InsertSeriesPlayer): Promise<SeriesPlayer> {
     const result = await db.insert(seriesPlayers).values(data).returning();
     return result[0];
