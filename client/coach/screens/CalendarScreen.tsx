@@ -30,6 +30,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useRoute, RouteProp } from "@react-navigation/native";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { 
+  getLocalDateString, 
+  formatLocalDateToString, 
+  getTimeInTimezone,
+  formatTimeInTimezone,
+} from "@/lib/dateUtils";
 
 import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
 import NowPlayingCard from "@/coach/components/NowPlayingCard";
@@ -579,7 +585,11 @@ export default function CalendarScreen() {
     setFocusMode,
     calendarData,
     isLoading,
+    academy,
   } = useCoach();
+
+  // Academy timezone for correct local time display - default to Dubai if not set
+  const academyTimezone = academy?.timezone || "Asia/Dubai";
 
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{ courtId: string; time: Date } | null>(null);
@@ -950,10 +960,11 @@ export default function CalendarScreen() {
   };
 
   const getSessionPosition = (session: Session | BlockedSession) => {
-    const startTime = parseUTCTimestamp(session.startTime);
-    const endTime = parseUTCTimestamp(session.endTime);
-    const startHour = startTime.getHours() + startTime.getMinutes() / 60;
-    const endHour = endTime.getHours() + endTime.getMinutes() / 60;
+    // Use timezone-aware time extraction to position sessions correctly in local academy time
+    const startLocal = getTimeInTimezone(session.startTime, academyTimezone);
+    const endLocal = getTimeInTimezone(session.endTime, academyTimezone);
+    const startHour = startLocal.hours + startLocal.minutes / 60;
+    const endHour = endLocal.hours + endLocal.minutes / 60;
     const top = (startHour - focusBaseHour) * hourHeight;
     const height = (endHour - startHour) * hourHeight;
     return { top, height };
@@ -1062,9 +1073,11 @@ export default function CalendarScreen() {
   };
 
   const getSessionsForDate = (date: Date) => {
+    // Use academy timezone for correct local date filtering
+    const targetDateStr = formatLocalDateToString(date);
     return ownSessions.filter((s) => {
-      const sessionDate = parseUTCTimestamp(s.startTime);
-      return sessionDate.toDateString() === date.toDateString();
+      const sessionDateStr = getLocalDateString(s.startTime, academyTimezone);
+      return sessionDateStr === targetDateStr;
     });
   };
 
@@ -1089,13 +1102,13 @@ export default function CalendarScreen() {
     let eveningMinutes = 0;
     
     daySessions.forEach(s => {
-      const startTime = parseUTCTimestamp(s.startTime);
-      const endTime = parseUTCTimestamp(s.endTime);
       const duration = getSessionDuration(s);
       
-      // Use decimal hours for accurate period allocation
-      const startDecimal = startTime.getHours() + startTime.getMinutes() / 60;
-      const endDecimal = endTime.getHours() + endTime.getMinutes() / 60;
+      // Use academy timezone for accurate period allocation
+      const startLocal = getTimeInTimezone(s.startTime, academyTimezone);
+      const endLocal = getTimeInTimezone(s.endTime, academyTimezone);
+      const startDecimal = startLocal.hours + startLocal.minutes / 60;
+      const endDecimal = endLocal.hours + endLocal.minutes / 60;
       const sessionSpan = endDecimal - startDecimal || 1;
       
       // Morning: 6-12, Afternoon: 12-17, Evening: 17-23
@@ -1660,9 +1673,9 @@ export default function CalendarScreen() {
                     {/* Render draggable sessions for this court (or unassigned sessions in first court) */}
                     {ownSessions
                       .filter((s) => {
-                        // Filter by selected date using UTC comparison (server already filtered by date, but double-check)
-                        const sessionDateStr = getUTCDateString(s.startTime);
-                        const selectedDateStr = selectedDate.toISOString().split('T')[0];
+                        // Filter by selected date using academy timezone (not UTC!)
+                        const sessionDateStr = getLocalDateString(s.startTime, academyTimezone);
+                        const selectedDateStr = formatLocalDateToString(selectedDate);
                         if (sessionDateStr !== selectedDateStr) return false;
                         // Then filter by court
                         return s.courtId === court.id || (s.courtId === null && courtIndex === 0);
@@ -1719,18 +1732,17 @@ export default function CalendarScreen() {
                     {/* Render travel time blocks (only on first court lane) */}
                     {courtIndex === 0 && travelTimeBlocks
                       .filter((block) => {
-                        const blockDate = new Date(block.startTime);
-                        return (
-                          blockDate.getFullYear() === selectedDate.getFullYear() &&
-                          blockDate.getMonth() === selectedDate.getMonth() &&
-                          blockDate.getDate() === selectedDate.getDate()
-                        );
+                        // Use academy timezone for date comparison
+                        const blockDateStr = getLocalDateString(block.startTime, academyTimezone);
+                        const selectedDateStr = formatLocalDateToString(selectedDate);
+                        return blockDateStr === selectedDateStr;
                       })
                       .map((block) => {
-                        const startTime = parseUTCTimestamp(block.startTime);
-                        const endTime = parseUTCTimestamp(block.endTime);
-                        const startHour = startTime.getHours() + startTime.getMinutes() / 60;
-                        const endHour = endTime.getHours() + endTime.getMinutes() / 60;
+                        // Use timezone-aware time extraction for positioning
+                        const startLocal = getTimeInTimezone(block.startTime, academyTimezone);
+                        const endLocal = getTimeInTimezone(block.endTime, academyTimezone);
+                        const startHour = startLocal.hours + startLocal.minutes / 60;
+                        const endHour = endLocal.hours + endLocal.minutes / 60;
                         const top = (startHour - focusBaseHour) * hourHeight;
                         const height = (endHour - startHour) * hourHeight;
                         return (
@@ -1877,11 +1889,12 @@ export default function CalendarScreen() {
               };
               const weekNowPosition = getWeekNowPosition();
               
-              // Get blocked sessions for a specific date
+              // Get blocked sessions for a specific date (using academy timezone)
               const getBlockedSessionsForDate = (date: Date) => {
+                const targetDateStr = formatLocalDateToString(date);
                 return blockedSessions.filter((s) => {
-                  const sessionDate = parseUTCTimestamp(s.startTime);
-                  return sessionDate.toDateString() === date.toDateString();
+                  const sessionDateStr = getLocalDateString(s.startTime, academyTimezone);
+                  return sessionDateStr === targetDateStr;
                 });
               };
               
@@ -1903,12 +1916,12 @@ export default function CalendarScreen() {
                       const daySessions = getSessionsForDate(date);
                       const dayBlockedSessions = getBlockedSessionsForDate(date);
                       
-                      // Calculate session positions for this day
+                      // Calculate session positions for this day (using academy timezone)
                       const getWeekSessionPosition = (session: Session | BlockedSession) => {
-                        const startTime = parseUTCTimestamp(session.startTime);
-                        const endTime = parseUTCTimestamp(session.endTime);
-                        const startHour = startTime.getHours() + startTime.getMinutes() / 60;
-                        const endHour = endTime.getHours() + endTime.getMinutes() / 60;
+                        const startLocal = getTimeInTimezone(session.startTime, academyTimezone);
+                        const endLocal = getTimeInTimezone(session.endTime, academyTimezone);
+                        const startHour = startLocal.hours + startLocal.minutes / 60;
+                        const endHour = endLocal.hours + endLocal.minutes / 60;
                         const top = (startHour - START_HOUR) * hourHeight;
                         const height = (endHour - startHour) * hourHeight;
                         return { top, height };

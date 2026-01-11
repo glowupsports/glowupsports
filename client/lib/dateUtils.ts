@@ -155,3 +155,99 @@ export function convertUTCTimeToLocal(utcTime: string, timezone: string): string
     return utcTime; // Return original if conversion fails
   }
 }
+
+/**
+ * Get the local date string (YYYY-MM-DD) for a UTC timestamp in a specific timezone.
+ * This is critical for calendar filtering - ensures sessions are shown on the correct local day.
+ */
+export function getLocalDateString(isoDateString: string, timezone: string): string {
+  try {
+    const date = new Date(isoDateString);
+    if (isNaN(date.getTime())) return "";
+    
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    
+    // en-CA format gives YYYY-MM-DD
+    return formatter.format(date);
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Format a local Date object to YYYY-MM-DD string (preserving local date, not converting to UTC).
+ * Use this for selectedDate in calendars where the date picker returns a local Date.
+ */
+export function formatLocalDateToString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Get hours and minutes in a specific timezone from a UTC timestamp.
+ * Returns { hours, minutes } in the target timezone.
+ * Used for positioning sessions on the calendar grid.
+ */
+export function getTimeInTimezone(isoDateString: string, timezone: string): { hours: number; minutes: number } {
+  try {
+    const date = new Date(isoDateString);
+    if (isNaN(date.getTime())) return { hours: 0, minutes: 0 };
+    
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      hour: "numeric",
+      minute: "numeric",
+      hour12: false,
+    });
+    
+    const parts = formatter.formatToParts(date);
+    const hourPart = parts.find(p => p.type === "hour");
+    const minutePart = parts.find(p => p.type === "minute");
+    
+    return {
+      hours: parseInt(hourPart?.value || "0", 10),
+      minutes: parseInt(minutePart?.value || "0", 10),
+    };
+  } catch {
+    return { hours: 0, minutes: 0 };
+  }
+}
+
+/**
+ * Check if a session's local date (in academy timezone) matches the selected local date string.
+ */
+export function sessionMatchesLocalDate(sessionStartTime: string, localDateString: string, timezone: string): boolean {
+  const sessionLocalDate = getLocalDateString(sessionStartTime, timezone);
+  return sessionLocalDate === localDateString;
+}
+
+/**
+ * Get the day of week (0=Sun, 1=Mon, ..., 6=Sat) for a UTC timestamp in a specific timezone.
+ */
+export function getDayOfWeekFromTimestamp(isoDateString: string, timezone: string): number {
+  try {
+    const date = new Date(isoDateString);
+    if (isNaN(date.getTime())) return 0;
+    
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      weekday: "short",
+    });
+    
+    const weekday = formatter.format(date);
+    const dayMap: Record<string, number> = {
+      Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+    };
+    
+    return dayMap[weekday] ?? 0;
+  } catch {
+    return 0;
+  }
+}
