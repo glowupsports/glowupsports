@@ -78,7 +78,25 @@ router.get("/api/glow/levels/:levelId", async (req, res: Response) => {
     
     const tests = await db.select().from(levelTests).where(eq(levelTests.levelId, levelId));
     
-    // Group skills by pillar
+    // Get rubrics for all skills
+    const skillIds = levelSkillsData.map(s => s.skill.id);
+    const rubrics = skillIds.length > 0
+      ? await db.select().from(skillRubrics).where(inArray(skillRubrics.skillId, skillIds))
+      : [];
+    
+    // Group rubrics by skill
+    const rubricsBySkill: Record<string, any[]> = {};
+    for (const rubric of rubrics) {
+      if (!rubricsBySkill[rubric.skillId]) {
+        rubricsBySkill[rubric.skillId] = [];
+      }
+      rubricsBySkill[rubric.skillId].push({
+        score: rubric.score,
+        observable: rubric.observable,
+      });
+    }
+    
+    // Group skills by pillar with rubrics
     const skillsByPillar: Record<string, any[]> = {};
     for (const { mapping, skill } of levelSkillsData) {
       if (!skillsByPillar[skill.pillar]) {
@@ -89,6 +107,7 @@ router.get("/api/glow/levels/:levelId", async (req, res: Response) => {
         targetScore: mapping.targetScore,
         weight: mapping.weight,
         isRequired: mapping.isRequired,
+        rubric: rubricsBySkill[skill.id] || [],
       });
     }
     
@@ -100,6 +119,78 @@ router.get("/api/glow/levels/:levelId", async (req, res: Response) => {
   } catch (error) {
     console.error("Error fetching level details:", error);
     res.status(500).json({ error: "Failed to fetch level details" });
+  }
+});
+
+// Get all levels with full skill and rubric data for Level Cards view
+router.get("/api/glow-leveling/levels", async (req, res: Response) => {
+  try {
+    const { stage } = req.query;
+    
+    let levelsQuery = db.select().from(ballLevels).orderBy(ballLevels.stage, desc(ballLevels.rank));
+    const levels = await levelsQuery;
+    
+    // Filter by stage if provided
+    const filteredLevels = stage 
+      ? levels.filter(l => l.stage === stage)
+      : levels;
+    
+    // Get all skills and rubrics
+    const allLevelSkillsData = await db
+      .select({
+        mapping: levelSkills,
+        skill: glowSkills,
+      })
+      .from(levelSkills)
+      .innerJoin(glowSkills, eq(levelSkills.skillId, glowSkills.id));
+    
+    const allTests = await db.select().from(levelTests);
+    const allRubrics = await db.select().from(skillRubrics);
+    
+    // Group rubrics by skill
+    const rubricsBySkill: Record<string, any[]> = {};
+    for (const rubric of allRubrics) {
+      if (!rubricsBySkill[rubric.skillId]) {
+        rubricsBySkill[rubric.skillId] = [];
+      }
+      rubricsBySkill[rubric.skillId].push({
+        score: rubric.score,
+        observable: rubric.observable,
+      });
+    }
+    
+    // Build response with full details
+    const levelsWithDetails = filteredLevels.map(level => {
+      const levelSkillsForLevel = allLevelSkillsData.filter(s => s.mapping.levelId === level.id);
+      const testsForLevel = allTests.filter(t => t.levelId === level.id);
+      
+      const skills = levelSkillsForLevel.map(({ mapping, skill }) => ({
+        skillId: skill.id,
+        skillName: skill.name,
+        pillar: skill.pillar,
+        targetScore: mapping.targetScore,
+        weight: mapping.weight,
+        isRequired: mapping.isRequired,
+        rubric: (rubricsBySkill[skill.id] || []).sort((a: any, b: any) => a.score - b.score),
+      }));
+      
+      return {
+        ...level,
+        skills,
+        tests: testsForLevel.map(t => ({
+          id: t.id,
+          name: t.name,
+          description: t.description,
+          type: t.type,
+          metrics: t.metrics,
+        })),
+      };
+    });
+    
+    res.json(levelsWithDetails);
+  } catch (error) {
+    console.error("Error fetching level cards:", error);
+    res.status(500).json({ error: "Failed to fetch level cards" });
   }
 });
 
@@ -567,6 +658,45 @@ router.get("/api/glow/players/:playerId/readiness", authMiddleware, requireAcade
   } catch (error) {
     console.error("Error checking readiness:", error);
     res.status(500).json({ error: "Failed to check readiness" });
+  }
+});
+
+// Enhanced trial readiness check with full analysis
+router.get("/api/glow/players/:playerId/trial-readiness", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { playerId } = req.params;
+    const academyId = req.user!.academyId;
+    
+    if (!await validatePlayerAccess(playerId, academyId)) {
+      return res.status(404).json({ error: "Player not found" });
+    }
+    
+    const { calculateTrialReadiness } = await import("../services/trial-readiness-engine");
+    const readiness = await calculateTrialReadiness(playerId);
+    
+    res.json(readiness);
+  } catch (error) {
+    console.error("Error calculating trial readiness:", error);
+    res.status(500).json({ error: "Failed to calculate trial readiness" });
+  }
+});
+
+// Get all players ready for trial in academy
+router.get("/api/glow/trial-ready-players", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const academyId = req.user!.academyId;
+    
+    if (!academyId) {
+      return res.status(403).json({ error: "Academy required" });
+    }
+    
+    const { getPlayersReadyForTrial } = await import("../services/trial-readiness-engine");
+    const readyPlayers = await getPlayersReadyForTrial(academyId);
+    
+    res.json({ players: readyPlayers });
+  } catch (error) {
+    console.error("Error fetching trial-ready players:", error);
+    res.status(500).json({ error: "Failed to fetch trial-ready players" });
   }
 });
 
@@ -1241,6 +1371,76 @@ router.get("/api/glow/players/:playerId/active-trial", authMiddleware, requireAc
   } catch (error) {
     console.error("Error fetching active trial:", error);
     res.status(500).json({ error: "Failed to fetch active trial" });
+  }
+});
+
+// ==================== ROLE LANGUAGE ENGINE ====================
+
+// Get role-specific message
+router.post("/api/glow/messages/render", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { templateKey, role, context } = req.body;
+    const academyId = req.user?.academyId;
+    
+    if (!templateKey || !role) {
+      return res.status(400).json({ error: "templateKey and role are required" });
+    }
+    
+    if (!["coach", "player", "parent"].includes(role)) {
+      return res.status(400).json({ error: "role must be coach, player, or parent" });
+    }
+    
+    const { getMessage } = await import("../services/role-language-engine");
+    const message = await getMessage(templateKey, role, context || {}, academyId);
+    
+    res.json({ message, role, templateKey });
+  } catch (error) {
+    console.error("Error rendering message:", error);
+    res.status(500).json({ error: "Failed to render message" });
+  }
+});
+
+// Get messages for all roles
+router.post("/api/glow/messages/render-all", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { templateKey, context } = req.body;
+    const academyId = req.user?.academyId;
+    
+    if (!templateKey) {
+      return res.status(400).json({ error: "templateKey is required" });
+    }
+    
+    const { getMessagesForAllRoles } = await import("../services/role-language-engine");
+    const messages = await getMessagesForAllRoles(templateKey, context || {}, academyId);
+    
+    res.json({ templateKey, messages });
+  } catch (error) {
+    console.error("Error rendering messages:", error);
+    res.status(500).json({ error: "Failed to render messages" });
+  }
+});
+
+// Seed role message templates
+router.post("/api/glow/messages/seed", async (_req, res: Response) => {
+  try {
+    const { seedDefaultTemplates } = await import("../services/role-language-engine");
+    const count = await seedDefaultTemplates();
+    res.json({ success: true, templatesSeeded: count });
+  } catch (error) {
+    console.error("Error seeding message templates:", error);
+    res.status(500).json({ error: "Failed to seed templates" });
+  }
+});
+
+// Get available template keys
+router.get("/api/glow/messages/templates", async (_req, res: Response) => {
+  try {
+    const { getDefaultTemplates } = await import("../services/role-language-engine");
+    const templates = getDefaultTemplates();
+    res.json({ templates: Object.keys(templates) });
+  } catch (error) {
+    console.error("Error fetching templates:", error);
+    res.status(500).json({ error: "Failed to fetch templates" });
   }
 });
 

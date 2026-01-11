@@ -371,18 +371,65 @@ async function autoGeneratePlan(sessionId: string, academyId: string): Promise<a
   const targetLevel = Object.entries(levelCount)
     .sort((a, b) => b[1] - a[1])[0]?.[0] || "RED_3";
   
-  return getDefaultPlan(targetLevel);
+  return await getPlanFromTemplateOrDefault(targetLevel);
+}
+
+async function getPlanFromTemplateOrDefault(levelId: string): Promise<any[]> {
+  const { lessonTemplates, drillBlocks } = await import("../../shared/schema");
+  
+  const templates = await db
+    .select()
+    .from(lessonTemplates)
+    .where(eq(lessonTemplates.levelId, levelId));
+  
+  if (templates.length > 0) {
+    const template = templates[Math.floor(Math.random() * templates.length)];
+    
+    const blocks = await db
+      .select()
+      .from(drillBlocks)
+      .where(eq(drillBlocks.templateId, template.id))
+      .orderBy(drillBlocks.orderIndex);
+    
+    if (blocks.length > 0) {
+      return blocks.map((block, index) => ({
+        id: `BLOCK_${index + 1}`,
+        name: block.name,
+        blockType: block.blockType,
+        durationMinutes: block.durationMinutes,
+        orderIndex: index,
+        skillIds: block.skillIds || [],
+        pillars: block.pillars || [],
+        status: "pending",
+        coachInstructions: block.coachInstructions || "",
+        playerInstructions: block.playerInstructions || "",
+        successCriteria: block.successCriteria || "",
+        equipment: block.equipment || [],
+      }));
+    }
+  }
+  
+  return getDefaultPlan(levelId);
 }
 
 function getDefaultPlan(levelId: string): any[] {
-  const stage = levelId.split("_")[0]; // RED, ORANGE, GREEN, YELLOW
+  const stage = levelId.split("_")[0];
+  
+  const stageSkills: Record<string, string[]> = {
+    RED: ["FH_CONTACT", "BH_CONTACT", "RALLY_COOP"],
+    ORANGE: ["BASELINE_RALLY_OR", "SERVE_FULL_MOTION", "CROSSCOURT_INTENT"],
+    GREEN: ["FULL_COURT_RALLY_8", "DEPTH_CONTROL_6_10", "RECOVERY_NEUTRAL"],
+    YELLOW: ["RALLY_PRESSURE_12_15", "SERVE_60_PERCENT", "HIGH_PERCENTAGE_TENNIS"],
+  };
+  
+  const skills = stageSkills[stage] || stageSkills.RED;
   
   const basePlan = [
-    { id: "BLOCK_1", name: "Warm-up", blockType: "warmup", durationMinutes: 10, orderIndex: 0, skillIds: [], status: "pending", coachInstructions: "Dynamic stretching and light hitting" },
-    { id: "BLOCK_2", name: "Technical Focus", blockType: "drill", durationMinutes: 15, orderIndex: 1, skillIds: [], status: "pending", coachInstructions: "Focus on fundamentals for this level" },
-    { id: "BLOCK_3", name: "Rally Practice", blockType: "drill", durationMinutes: 15, orderIndex: 2, skillIds: [], status: "pending", coachInstructions: "Build consistency" },
-    { id: "BLOCK_4", name: "Game Play", blockType: "game", durationMinutes: 15, orderIndex: 3, skillIds: [], status: "pending", coachInstructions: "Apply skills in match situations" },
-    { id: "BLOCK_5", name: "Cool Down", blockType: "cooldown", durationMinutes: 5, orderIndex: 4, skillIds: [], status: "pending", coachInstructions: "Stretching and session review" },
+    { id: "BLOCK_1", name: "Warm-up", blockType: "warmup", durationMinutes: 10, orderIndex: 0, skillIds: [], pillars: ["PHYSICAL"], status: "pending", coachInstructions: "Dynamic stretching, light hitting, and movement prep", playerInstructions: "Get your body ready to move!" },
+    { id: "BLOCK_2", name: "Technical Focus", blockType: "drill", durationMinutes: 15, orderIndex: 1, skillIds: [skills[0]], pillars: ["TECHNIQUE"], status: "pending", coachInstructions: `Focus on ${skills[0].replace(/_/g, " ").toLowerCase()}`, playerInstructions: "Watch the ball and stay balanced" },
+    { id: "BLOCK_3", name: "Rally Practice", blockType: "drill", durationMinutes: 15, orderIndex: 2, skillIds: [skills[1]], pillars: ["TECHNIQUE", "TACTICAL"], status: "pending", coachInstructions: "Build consistency and depth", playerInstructions: "Keep the ball in play!" },
+    { id: "BLOCK_4", name: "Game Play", blockType: "game", durationMinutes: 15, orderIndex: 3, skillIds: [skills[2]], pillars: ["MATCH", "MENTAL"], status: "pending", coachInstructions: "Apply skills in match situations", playerInstructions: "Play your best!" },
+    { id: "BLOCK_5", name: "Cool Down", blockType: "cooldown", durationMinutes: 5, orderIndex: 4, skillIds: [], pillars: ["PHYSICAL", "MENTAL"], status: "pending", coachInstructions: "Stretching and session review", playerInstructions: "What did you learn today?" },
   ];
   
   return basePlan;
