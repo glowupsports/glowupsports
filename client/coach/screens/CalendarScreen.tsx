@@ -76,6 +76,19 @@ const parseUTCTimestamp = (timestamp: string | Date): Date => {
   return new Date(timestamp);
 };
 
+// Compare dates by UTC date string to avoid timezone issues
+const isSameUTCDate = (date1: Date, date2: Date): boolean => {
+  return date1.getUTCFullYear() === date2.getUTCFullYear() &&
+         date1.getUTCMonth() === date2.getUTCMonth() &&
+         date1.getUTCDate() === date2.getUTCDate();
+};
+
+// Get UTC date string (YYYY-MM-DD) from a timestamp
+const getUTCDateString = (timestamp: string | Date): string => {
+  const date = parseUTCTimestamp(timestamp);
+  return date.toISOString().split('T')[0];
+};
+
 function PulsingDot() {
   const opacity = useSharedValue(1);
   const scale = useSharedValue(1);
@@ -1647,9 +1660,10 @@ export default function CalendarScreen() {
                     {/* Render draggable sessions for this court (or unassigned sessions in first court) */}
                     {ownSessions
                       .filter((s) => {
-                        // Filter by selected date first
-                        const sessionDate = parseUTCTimestamp(s.startTime);
-                        if (sessionDate.toDateString() !== selectedDate.toDateString()) return false;
+                        // Filter by selected date using UTC comparison (server already filtered by date, but double-check)
+                        const sessionDateStr = getUTCDateString(s.startTime);
+                        const selectedDateStr = selectedDate.toISOString().split('T')[0];
+                        if (sessionDateStr !== selectedDateStr) return false;
                         // Then filter by court
                         return s.courtId === court.id || (s.courtId === null && courtIndex === 0);
                       })

@@ -2362,9 +2362,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get own sessions (full data) - filtered by academy
-      console.log(`[Calendar] Fetching for date=${dateStr}, view=${view}, startDate=${startDate.toISOString()}, endDate=${endDate.toISOString()}, coachId=${coachId}, academyId=${academyId}`);
       const ownSessions = await storage.getSessionsByCoach(coachId as string, startDate, endDate, academyId ?? undefined);
-      console.log(`[Calendar] Found ${ownSessions.length} sessions for ${dateStr}`);
       
       // Fetch players for each session using efficient join query
       const sessionsWithPlayers = await Promise.all(
