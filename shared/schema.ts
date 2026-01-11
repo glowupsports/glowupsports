@@ -667,6 +667,14 @@ export const players = pgTable("players", {
   glowScore: integer("glow_score").default(0),
   streak: integer("streak").default(0),
   
+  // Adult Glow Rank System (Elo-based)
+  glowMmr: integer("glow_mmr").default(1000), // Elo-like MMR rating (0-3000)
+  glowRank: integer("glow_rank").default(9), // Bucket 1-9 (9=beginner, 1=international)
+  totalMatchesPlayed: integer("total_matches_played").default(0),
+  rageQuitCount: integer("rage_quit_count").default(0),
+  noShowCount: integer("no_show_count").default(0),
+  isAdult: boolean("is_adult").default(false), // Adults use Glow Rank, youth use ball levels
+  
   onboardingCompleted: boolean("onboarding_completed").default(false),
   motivationType: text("motivation_type"), // fun/improve/compete/unsure
   experienceLevel: text("experience_level"), // new/6-12months/1-3years/3-5years/5-10years/10-20years/20+years
