@@ -31,6 +31,7 @@ import {
   playerBadges as playerBadgesTable,
   titles as titlesTable,
   playerTitles as playerTitlesTable,
+  sessionPlans,
 } from "@shared/schema";
 import { setupWebSocket, broadcastNewMessage } from "./websocket";
 import { 
@@ -79,6 +80,8 @@ import sessionPlansRoutes from "./routes/session-plans";
 import matchLogsRoutes from "./routes/match-logs";
 import skillEvidenceRoutes from "./routes/skill-evidence";
 import levelUpEventsRoutes from "./routes/level-up-events";
+import coachCalibrationRoutes from "./routes/coach-calibration";
+import parentDashboardRoutes from "./routes/parent-dashboard";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -214,6 +217,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(matchLogsRoutes);
   app.use(skillEvidenceRoutes);
   app.use(levelUpEventsRoutes);
+  app.use("/api/coach/calibration", coachCalibrationRoutes);
+  app.use(parentDashboardRoutes);
 
   // ==================== HEALTH CHECK ====================
   
@@ -2438,6 +2443,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching calendar:", error);
       res.status(500).json({ error: "Failed to fetch calendar" });
+    }
+  });
+
+  // Get today's sessions for Coach HQ
+  app.get("/api/coach/sessions/today", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      
+      if (!coachId) {
+        return res.status(400).json({ error: "Coach ID required" });
+      }
+      
+      const today = new Date();
+      const startOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0, 0));
+      const endOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59, 999));
+      
+      const todaySessions = await storage.getSessionsByCoach(coachId, startOfDay, endOfDay, academyId ?? undefined);
+      
+      const sessionsWithDetails = await Promise.all(
+        todaySessions.map(async (session) => {
+          const players = await storage.getSessionRoster(session.id, session.seriesId || null, academyId ?? undefined);
+          
+          const [plan] = await db
+            .select({ id: sessionPlans.id, status: sessionPlans.status })
+            .from(sessionPlans)
+            .where(eq(sessionPlans.sessionId, session.id));
+          
+          const firstPlayer = players[0];
+          
+          return {
+            id: session.id,
+            playerId: firstPlayer?.id || null,
+            playerName: firstPlayer ? `${firstPlayer.firstName} ${firstPlayer.lastName}` : "No Player",
+            playerLevel: firstPlayer?.ballLevel || "RED_3",
+            startTime: session.startTime,
+            endTime: session.endTime,
+            type: session.type || "private",
+            status: session.status === "completed" ? "completed" : session.status === "in_progress" ? "in_progress" : "scheduled",
+            sessionPlanId: plan?.id || null,
+          };
+        })
+      );
+      
+      res.json(sessionsWithDetails);
+    } catch (error) {
+      console.error("Error fetching today's sessions:", error);
+      res.status(500).json({ error: "Failed to fetch today's sessions" });
     }
   });
 

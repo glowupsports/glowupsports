@@ -24,6 +24,12 @@ import CoachInvitationsScreen from "@/coach/screens/CoachInvitationsScreen";
 import CoachOnboardingScreen from "@/coach/screens/CoachOnboardingScreen";
 import CoachEarningsScreen from "@/coach/screens/CoachEarningsScreen";
 import MyReviewsScreen from "@/coach/screens/MyReviewsScreen";
+import CoachHQScreen from "@/coach/screens/glow/CoachHQScreen";
+import SessionPlanScreen from "@/coach/screens/glow/SessionPlanScreen";
+import ActiveSessionScreen from "@/coach/screens/glow/ActiveSessionScreen";
+import EvidenceCaptureScreen from "@/coach/screens/glow/EvidenceCaptureScreen";
+import LevelCardsScreen from "@/coach/screens/glow/LevelCardsScreen";
+import CoachCalibrationScreen from "@/coach/screens/glow/CoachCalibrationScreen";
 import OfflineBanner from "@/components/OfflineBanner";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
@@ -64,6 +70,12 @@ export type CoachStackParamList = {
   CoachInvitations: undefined;
   CoachEarnings: undefined;
   MyReviews: undefined;
+  CoachHQ: undefined;
+  SessionPlan: { sessionId: string; playerId: string };
+  ActiveSession: { sessionId: string; planId?: string };
+  EvidenceCapture: { skillTags?: string[]; sessionId?: string; blockId?: string; playerId?: string };
+  LevelCards: undefined;
+  CoachCalibration: undefined;
 };
 
 const Tab = createBottomTabNavigator<CoachTabParamList>();
@@ -227,6 +239,54 @@ function CoachStackNavigator() {
         component={MyReviewsScreen}
         options={{
           headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="CoachHQ" 
+        component={CoachHQScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Coach HQ",
+        }}
+      />
+      <Stack.Screen 
+        name="SessionPlan" 
+        component={SessionPlanScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Session Plan",
+        }}
+      />
+      <Stack.Screen 
+        name="ActiveSession" 
+        component={ActiveSessionScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Active Session",
+        }}
+      />
+      <Stack.Screen 
+        name="EvidenceCapture" 
+        component={EvidenceCaptureScreen}
+        options={{
+          headerShown: false,
+          presentation: "fullScreenModal",
+        }}
+      />
+      <Stack.Screen 
+        name="LevelCards" 
+        component={LevelCardsScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Level Cards",
+        }}
+      />
+      <Stack.Screen 
+        name="CoachCalibration" 
+        component={CoachCalibrationScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Coach Calibration",
         }}
       />
     </Stack.Navigator>
