@@ -35,6 +35,7 @@ import {
   formatLocalDateToString, 
   getTimeInTimezone,
   formatTimeInTimezone,
+  parseUTCTimestamp,
 } from "@/lib/dateUtils";
 
 import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
@@ -72,15 +73,6 @@ const HOUR_HEIGHT_30 = 60;
 const START_HOUR = 6;
 const END_HOUR = 23;
 
-// Parse timestamps ensuring they're treated as UTC (add "Z" if missing timezone indicator)
-const parseUTCTimestamp = (timestamp: string | Date): Date => {
-  if (timestamp instanceof Date) return timestamp;
-  // If the timestamp doesn't have a timezone indicator, treat it as UTC
-  if (!timestamp.endsWith('Z') && !timestamp.includes('+') && !timestamp.includes('-', 10)) {
-    return new Date(timestamp + 'Z');
-  }
-  return new Date(timestamp);
-};
 
 // Compare dates by UTC date string to avoid timezone issues
 const isSameUTCDate = (date1: Date, date2: Date): boolean => {

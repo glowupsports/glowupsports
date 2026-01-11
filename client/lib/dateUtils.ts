@@ -2,6 +2,17 @@ export function isSameDay(date1: Date, date2: Date): boolean {
   return date1.toDateString() === date2.toDateString();
 }
 
+// Parse timestamps ensuring they're treated as UTC (add "Z" if missing timezone indicator)
+// This is critical for handling API responses that may return timestamps without timezone suffix
+export function parseUTCTimestamp(timestamp: string | Date): Date {
+  if (timestamp instanceof Date) return timestamp;
+  // If the timestamp doesn't have a timezone indicator, treat it as UTC
+  if (!timestamp.endsWith('Z') && !timestamp.includes('+') && !timestamp.includes('-', 10)) {
+    return new Date(timestamp + 'Z');
+  }
+  return new Date(timestamp);
+}
+
 export function filterSessionsByDate<T extends { startTime: string; status?: string | null }>(
   sessions: T[],
   targetDate: Date,
@@ -36,7 +47,7 @@ export function formatDateShort(date: Date): string {
 
 export function formatTimeInTimezone(isoDateString: string, timezone: string): string {
   try {
-    const date = new Date(isoDateString);
+    const date = parseUTCTimestamp(isoDateString);
     if (isNaN(date.getTime())) return "--:--";
     
     return date.toLocaleTimeString("en-US", {
