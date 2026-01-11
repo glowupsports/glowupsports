@@ -20,6 +20,11 @@ export default function BallLevelBadge({
   showLabel = true,
   trialEndsAt,
 }: BallLevelBadgeProps) {
+  // Guard against undefined levelId
+  if (!levelId) {
+    return null;
+  }
+  
   const stage = getStageFromLevel(levelId);
   const stageColor = getStageColor(stage);
   const levelLabel = translateLevelLabel(levelId, { stage, role: "player" });
