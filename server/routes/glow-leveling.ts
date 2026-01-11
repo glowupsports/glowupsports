@@ -982,4 +982,17 @@ async function updateCoachCalibration(coachId: string) {
   }
 }
 
+// ==================== SEED ENDPOINT ====================
+
+router.post("/api/glow/seed", async (_req, res: Response) => {
+  try {
+    const { seedGlowLevelingData } = await import("../seeds/glow-leveling-seed");
+    const result = await seedGlowLevelingData();
+    res.json(result);
+  } catch (error) {
+    console.error("Error seeding glow leveling data:", error);
+    res.status(500).json({ error: "Failed to seed data", details: String(error) });
+  }
+});
+
 export default router;
