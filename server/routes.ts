@@ -2364,29 +2364,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get own sessions (full data) - filtered by academy
       const ownSessions = await storage.getSessionsByCoach(coachId as string, startDate, endDate, academyId ?? undefined);
       
-      // Fetch players for each session using efficient join query
-      // For series sessions, fallback to series players if no session-specific players
+      // Fetch players for each session using unified roster helper
+      // This combines series players (base roster) with session-specific overrides (attendance, guests)
       const sessionsWithPlayers = await Promise.all(
         ownSessions.map(async (session) => {
-          // First try to get session-specific players
-          let players = await storage.getSessionPlayersWithDetails(session.id, academyId ?? undefined);
-          
-          // If no session players but session has a seriesId, get players from the series
-          if (players.length === 0 && session.seriesId) {
-            const seriesPlayersList = await storage.getSeriesPlayersWithDetails(session.seriesId);
-            players = seriesPlayersList.map(sp => ({
-              id: sp.playerId,
-              name: sp.playerName || "Unknown",
-              level: sp.playerBallLevel || "green",
-              ballLevel: sp.playerBallLevel || null,
-              skillLevel: null,
-              status: null, // No attendance status yet for series players
-              lateMinutes: null,
-              absentReason: null,
-              fromSeries: true, // Mark as coming from series
-            }));
-          }
-          
+          const players = await storage.getSessionRoster(session.id, session.seriesId || null, academyId ?? undefined);
           return {
             ...session,
             players,
@@ -6093,22 +6075,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get players in this series
-      const seriesPlayers = await storage.getSeriesPlayers(id);
+      const seriesPlayersList = await storage.getSeriesPlayers(id);
       
       // Get credit balances for all players in batch (efficient)
-      const playerIds = seriesPlayers.map(sp => sp.playerId);
+      const playerIds = seriesPlayersList.map(sp => sp.playerId);
       const creditBalances = await storage.getPlayersCreditBalances(playerIds);
       
+      // Get real attendance counts aggregated from sessionPlayers (source of truth)
+      const attendanceSummary = await storage.getSeriesPlayerAttendanceSummary(id);
+      
       // Get player details with full membership data for frontend consumption
-      const playerDetails = await Promise.all(seriesPlayers.map(async (sp) => {
+      const playerDetails = await Promise.all(seriesPlayersList.map(async (sp) => {
         const player = await storage.getPlayer(sp.playerId);
         const credits = creditBalances[sp.playerId] || { group: 0, semi_private: 0, private: 0, totalDebt: 0, hasDebt: false };
+        const realAttendanceCount = attendanceSummary.get(sp.playerId) || 0;
         return {
           id: sp.playerId,
           name: player?.name || "Unknown Player",
           ballLevel: player?.ballLevel || null,
           status: sp.status,
-          sessionsAttended: sp.sessionsAttended || 0,
+          sessionsAttended: realAttendanceCount,
           totalXpEarned: sp.totalXpEarned || 0,
           joinedAt: sp.joinedAt?.toISOString() || null,
           leftAt: sp.leftAt?.toISOString() || null,

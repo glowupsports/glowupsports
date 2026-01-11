@@ -2532,6 +2532,134 @@ export const storage = {
     }));
   },
 
+  // UNIFIED SESSION ROSTER - Single source of truth for session players
+  // Combines series players (members) with session-specific overrides (attendance, guests)
+  async getSessionRoster(sessionId: string, seriesId: string | null, academyId?: string): Promise<Array<{
+    id: string;
+    name: string;
+    level: string | null;
+    ballLevel: string | null;
+    skillLevel: number | null;
+    status: string | null;
+    lateMinutes: number | null;
+    absentReason: string | null;
+    isGuest: boolean;
+    fromSeries: boolean;
+  }>> {
+    // Step 1: Get session-specific player records (attendance overrides, guests)
+    const sessionPlayerRecords = await db
+      .select({
+        playerId: sessionPlayers.playerId,
+        status: sessionPlayers.attendanceStatus,
+        lateMinutes: sessionPlayers.lateMinutes,
+        absentReason: sessionPlayers.absenceReason,
+        isGuest: sessionPlayers.isGuest,
+      })
+      .from(sessionPlayers)
+      .where(eq(sessionPlayers.sessionId, sessionId));
+
+    // Create a map of session-specific overrides
+    const sessionOverrides = new Map<string, {
+      status: string | null;
+      lateMinutes: number | null;
+      absentReason: string | null;
+      isGuest: boolean | null;
+    }>();
+    
+    for (const sp of sessionPlayerRecords) {
+      if (sp.playerId) {
+        sessionOverrides.set(sp.playerId, {
+          status: sp.status,
+          lateMinutes: sp.lateMinutes,
+          absentReason: sp.absentReason,
+          isGuest: sp.isGuest,
+        });
+      }
+    }
+
+    const roster: Array<{
+      id: string;
+      name: string;
+      level: string | null;
+      ballLevel: string | null;
+      skillLevel: number | null;
+      status: string | null;
+      lateMinutes: number | null;
+      absentReason: string | null;
+      isGuest: boolean;
+      fromSeries: boolean;
+    }> = [];
+
+    // Step 2: If session has a series, get series players as the base roster
+    if (seriesId) {
+      const seriesPlayersList = await db
+        .select({
+          playerId: seriesPlayers.playerId,
+          playerName: players.name,
+          playerBallLevel: players.ballLevel,
+          playerSkillLevel: players.skillLevel,
+          seriesStatus: seriesPlayers.status,
+        })
+        .from(seriesPlayers)
+        .innerJoin(players, eq(seriesPlayers.playerId, players.id))
+        .where(and(
+          eq(seriesPlayers.seriesId, seriesId),
+          eq(seriesPlayers.status, "active")
+        ));
+
+      for (const sp of seriesPlayersList) {
+        const override = sessionOverrides.get(sp.playerId);
+        roster.push({
+          id: sp.playerId,
+          name: sp.playerName,
+          level: sp.playerBallLevel || "green",
+          ballLevel: sp.playerBallLevel,
+          skillLevel: sp.playerSkillLevel,
+          status: override?.status || null,
+          lateMinutes: override?.lateMinutes || null,
+          absentReason: override?.absentReason || null,
+          isGuest: false,
+          fromSeries: true,
+        });
+        // Remove from overrides map so we can add remaining guests/extras
+        sessionOverrides.delete(sp.playerId);
+      }
+    }
+
+    // Step 3: Add session-specific players (guests, or standalone session players not in series)
+    for (const [playerId, override] of sessionOverrides) {
+      // Fetch player details
+      const playerData = await db
+        .select({
+          id: players.id,
+          name: players.name,
+          ballLevel: players.ballLevel,
+          skillLevel: players.skillLevel,
+        })
+        .from(players)
+        .where(eq(players.id, playerId))
+        .limit(1);
+
+      if (playerData.length > 0) {
+        const p = playerData[0];
+        roster.push({
+          id: p.id,
+          name: override.isGuest ? `${p.name} (Guest)` : p.name,
+          level: p.ballLevel || "green",
+          ballLevel: p.ballLevel,
+          skillLevel: p.skillLevel,
+          status: override.status,
+          lateMinutes: override.lateMinutes,
+          absentReason: override.absentReason,
+          isGuest: override.isGuest || false,
+          fromSeries: false,
+        });
+      }
+    }
+
+    return roster;
+  },
+
   async addPlayerToSession(data: InsertSessionPlayer): Promise<SessionPlayer> {
     // Check if player is already in the session to prevent duplicates
     if (data.sessionId && data.playerId) {
@@ -3011,6 +3139,42 @@ export const storage = {
       ))
       .orderBy(asc(seriesPlayers.joinedAt));
     
+    return result;
+  },
+
+  async getSeriesPlayerAttendanceSummary(seriesId: string): Promise<Map<string, number>> {
+    const seriesSessions = await db
+      .select({ id: sessions.id })
+      .from(sessions)
+      .where(eq(sessions.seriesId, seriesId));
+    
+    if (seriesSessions.length === 0) {
+      return new Map();
+    }
+    
+    const sessionIds = seriesSessions.map(s => s.id);
+    
+    const attendanceCounts = await db
+      .select({
+        playerId: sessionPlayers.playerId,
+        presentCount: count(),
+      })
+      .from(sessionPlayers)
+      .where(and(
+        inArray(sessionPlayers.sessionId, sessionIds),
+        or(
+          eq(sessionPlayers.attendanceStatus, "present"),
+          eq(sessionPlayers.attendanceStatus, "late")
+        )
+      ))
+      .groupBy(sessionPlayers.playerId);
+    
+    const result = new Map<string, number>();
+    for (const row of attendanceCounts) {
+      if (row.playerId) {
+        result.set(row.playerId, Number(row.presentCount));
+      }
+    }
     return result;
   },
 
