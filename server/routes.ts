@@ -74,6 +74,7 @@ import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, checkCon
 import { generateInvoiceHtml, parseLineItems } from "./services/invoicePdf";
 import shopRoutes from "./shop-routes";
 import marketplaceRoutes from "./marketplace-routes";
+import glowLevelingRoutes from "./routes/glow-leveling";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -200,6 +201,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register marketplace routes
   app.use("/api", marketplaceRoutes);
+  
+  // Register Glow Leveling OS routes
+  app.use(glowLevelingRoutes);
 
   // ==================== HEALTH CHECK ====================
   
