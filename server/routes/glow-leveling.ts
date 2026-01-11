@@ -257,6 +257,69 @@ router.get("/api/glow/players/:playerId/pillars", authMiddleware, requireAcademy
   }
 });
 
+// Get suggested skills for player's current level (for quick feedback)
+router.get("/api/glow/players/:playerId/suggested-skills", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { playerId } = req.params;
+    const academyId = req.user!.academyId;
+    
+    if (!await validatePlayerAccess(playerId, academyId)) {
+      return res.status(404).json({ error: "Player not found" });
+    }
+    
+    // Get player's current level
+    const [playerLevel] = await db
+      .select({
+        levelId: playerBallLevels.levelId,
+      })
+      .from(playerBallLevels)
+      .where(and(
+        eq(playerBallLevels.playerId, playerId),
+        or(eq(playerBallLevels.status, "active"), eq(playerBallLevels.status, "trial"))
+      ))
+      .limit(1);
+    
+    if (!playerLevel?.levelId) {
+      return res.json([]);
+    }
+    
+    // Get skills for this level
+    const skills = await db
+      .select({
+        id: glowSkills.id,
+        name: glowSkills.name,
+        pillarId: glowSkills.pillar,
+        pillarName: glowSkills.pillar,
+        description: glowSkills.description,
+      })
+      .from(levelSkills)
+      .innerJoin(glowSkills, eq(levelSkills.skillId, glowSkills.id))
+      .where(eq(levelSkills.levelId, playerLevel.levelId))
+      .orderBy(glowSkills.pillar, glowSkills.name);
+    
+    // Map pillar names
+    const pillarNames: Record<string, string> = {
+      TECHNIQUE: "Technical",
+      TACTICAL: "Tactical",
+      PHYSICAL: "Physical",
+      MENTAL: "Mental",
+      SOCIAL: "Social",
+      MATCH: "Match Play",
+    };
+    
+    res.json(skills.map(s => ({
+      id: s.id,
+      name: s.name,
+      pillarId: s.pillarId.toLowerCase(),
+      pillarName: pillarNames[s.pillarId] || s.pillarId,
+      description: s.description,
+    })));
+  } catch (error) {
+    console.error("Error fetching suggested skills:", error);
+    res.status(500).json({ error: "Failed to fetch suggested skills" });
+  }
+});
+
 // ==================== SESSION SKILL FEEDBACK ====================
 
 // Submit quick feedback after session (30-second flow)

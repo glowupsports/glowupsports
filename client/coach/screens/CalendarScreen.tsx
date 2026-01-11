@@ -42,6 +42,7 @@ import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
 import NowPlayingCard from "@/coach/components/NowPlayingCard";
 import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
 import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
+import QuickFeedbackModal from "@/coach/components/QuickFeedbackModal";
 
 import CoachLoadIndicator from "@/coach/components/CoachLoadIndicator";
 
@@ -584,6 +585,7 @@ export default function CalendarScreen() {
   const [selectedSessionForAttendance, setSelectedSessionForAttendance] = useState<Session | null>(null);
   const [selectedSessionForDetail, setSelectedSessionForDetail] = useState<Session | null>(null);
   const [detailInitialAction, setDetailInitialAction] = useState<"attendance" | "detail" | "extend" | "end" | undefined>(undefined);
+  const [selectedSessionForFeedback, setSelectedSessionForFeedback] = useState<Session | null>(null);
   const [weekMode, setWeekMode] = useState<"overview" | "availability">("availability");
   const [monthMode, setMonthMode] = useState<"load" | "availability">("load");
   const [draggingSession, setDraggingSession] = useState<string | null>(null);
@@ -2398,6 +2400,12 @@ export default function CalendarScreen() {
             handleAttendance(selectedSessionForDetail);
           }
         }}
+        onFeedback={() => {
+          if (selectedSessionForDetail) {
+            setSelectedSessionForFeedback(selectedSessionForDetail);
+            setSelectedSessionForDetail(null);
+          }
+        }}
         initialAction={detailInitialAction}
       />
 
@@ -2408,6 +2416,16 @@ export default function CalendarScreen() {
         onClose={() => setSelectedSessionForAttendance(null)}
         onSave={() => {
           setSelectedSessionForAttendance(null);
+        }}
+      />
+
+      {/* Quick Feedback Modal */}
+      <QuickFeedbackModal
+        visible={!!selectedSessionForFeedback}
+        session={selectedSessionForFeedback}
+        onClose={() => setSelectedSessionForFeedback(null)}
+        onComplete={() => {
+          setSelectedSessionForFeedback(null);
         }}
       />
     </View>
