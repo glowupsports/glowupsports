@@ -208,6 +208,7 @@ function PlayerTabsContent() {
         />
       </Tab.Navigator>
       <CoachChatFooter mode="player" />
+      <PlayerQuickActionsFAB />
     </View>
   );
 }
@@ -613,7 +614,6 @@ export default function PlayerNavigator() {
       <View style={styles.container}>
         <PlayerStackNavigator />
       </View>
-      <PlayerQuickActionsFAB />
     </CartProvider>
   );
 }

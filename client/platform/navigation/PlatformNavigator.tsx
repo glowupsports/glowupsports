@@ -55,89 +55,92 @@ const PLATFORM_COLOR = "#9B59B6";
 
 function PlatformTabs() {
   return (
-    <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: styles.tabBar,
-        tabBarBackground: () => (
-          <View style={styles.tabBarBackground}>
-            {Platform.OS === "ios" ? (
-              <BlurView
-                intensity={80}
-                tint="dark"
-                style={StyleSheet.absoluteFill}
-              />
-            ) : (
-              <View style={[StyleSheet.absoluteFill, styles.androidTabBackground]} />
-            )}
-          </View>
-        ),
-        tabBarActiveTintColor: PLATFORM_COLOR,
-        tabBarInactiveTintColor: Colors.dark.tabIconDefault,
-        tabBarLabelStyle: styles.tabLabel,
-      }}
-    >
-      <Tab.Screen
-        name="CommandCenter"
-        component={CommandCenterScreen}
-        options={{
-          tabBarLabel: "Overview",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="grid" size={size - 2} color={color} />
+    <View style={styles.tabsWrapper}>
+      <Tab.Navigator
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: styles.tabBar,
+          tabBarBackground: () => (
+            <View style={styles.tabBarBackground}>
+              {Platform.OS === "ios" ? (
+                <BlurView
+                  intensity={80}
+                  tint="dark"
+                  style={StyleSheet.absoluteFill}
+                />
+              ) : (
+                <View style={[StyleSheet.absoluteFill, styles.androidTabBackground]} />
+              )}
+            </View>
           ),
+          tabBarActiveTintColor: PLATFORM_COLOR,
+          tabBarInactiveTintColor: Colors.dark.tabIconDefault,
+          tabBarLabelStyle: styles.tabLabel,
         }}
-      />
-      <Tab.Screen
-        name="Academies"
-        component={AcademiesScreen}
-        options={{
-          tabBarLabel: "Academies",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="business" size={size - 2} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="CoachHealth"
-        component={CoachHealthScreen}
-        options={{
-          tabBarLabel: "Coaches",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="fitness" size={size - 2} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="PlayerHealth"
-        component={PlayerHealthScreen}
-        options={{
-          tabBarLabel: "Players",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people" size={size - 2} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Financials"
-        component={FinancialsScreen}
-        options={{
-          tabBarLabel: "Finance",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="card" size={size - 2} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="System"
-        component={SystemScreen}
-        options={{
-          tabBarLabel: "System",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="cog" size={size - 2} color={color} />
-          ),
-        }}
-      />
-    </Tab.Navigator>
+      >
+        <Tab.Screen
+          name="CommandCenter"
+          component={CommandCenterScreen}
+          options={{
+            tabBarLabel: "Overview",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="grid" size={size - 2} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Academies"
+          component={AcademiesScreen}
+          options={{
+            tabBarLabel: "Academies",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="business" size={size - 2} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="CoachHealth"
+          component={CoachHealthScreen}
+          options={{
+            tabBarLabel: "Coaches",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="fitness" size={size - 2} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="PlayerHealth"
+          component={PlayerHealthScreen}
+          options={{
+            tabBarLabel: "Players",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="people" size={size - 2} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Financials"
+          component={FinancialsScreen}
+          options={{
+            tabBarLabel: "Finance",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="card" size={size - 2} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="System"
+          component={SystemScreen}
+          options={{
+            tabBarLabel: "System",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="cog" size={size - 2} color={color} />
+            ),
+          }}
+        />
+      </Tab.Navigator>
+      <PlatformQuickActionsFAB />
+    </View>
   );
 }
 
@@ -220,17 +223,18 @@ function PlatformQuickActionsFAB() {
 
 export default function PlatformNavigator() {
   return (
-    <>
-      <View style={styles.container}>
-        <PlatformStackNavigator />
-      </View>
-      <PlatformQuickActionsFAB />
-    </>
+    <View style={styles.container}>
+      <PlatformStackNavigator />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  tabsWrapper: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
   },

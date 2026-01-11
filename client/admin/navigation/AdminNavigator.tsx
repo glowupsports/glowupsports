@@ -49,99 +49,102 @@ const Stack = createNativeStackNavigator<AdminStackParamList>();
 
 function AdminTabs() {
   return (
-    <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: styles.tabBar,
-        tabBarBackground: () => (
-          <View style={styles.tabBarBackground}>
-            {Platform.OS === "ios" ? (
-              <BlurView
-                intensity={80}
-                tint="dark"
-                style={StyleSheet.absoluteFill}
-              />
-            ) : (
-              <View style={[StyleSheet.absoluteFill, styles.androidTabBackground]} />
-            )}
-          </View>
-        ),
-        tabBarActiveTintColor: Colors.dark.orange,
-        tabBarInactiveTintColor: Colors.dark.tabIconDefault,
-        tabBarLabelStyle: styles.tabLabel,
-      }}
-    >
-      <Tab.Screen
-        name="AdminDashboard"
-        component={AdminDashboardScreen}
-        options={{
-          tabBarLabel: "Dashboard",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="grid-outline" size={size} color={color} />
+    <View style={styles.tabsWrapper}>
+      <Tab.Navigator
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: styles.tabBar,
+          tabBarBackground: () => (
+            <View style={styles.tabBarBackground}>
+              {Platform.OS === "ios" ? (
+                <BlurView
+                  intensity={80}
+                  tint="dark"
+                  style={StyleSheet.absoluteFill}
+                />
+              ) : (
+                <View style={[StyleSheet.absoluteFill, styles.androidTabBackground]} />
+              )}
+            </View>
           ),
+          tabBarActiveTintColor: Colors.dark.orange,
+          tabBarInactiveTintColor: Colors.dark.tabIconDefault,
+          tabBarLabelStyle: styles.tabLabel,
         }}
-      />
-      <Tab.Screen
-        name="AdminCoaches"
-        component={AdminCoachesScreen}
-        options={{
-          tabBarLabel: "Coaches",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="AdminPlayers"
-        component={AdminPlayersScreen}
-        options={{
-          tabBarLabel: "Players",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="AdminClasses"
-        component={AdminClassesScreen}
-        options={{
-          tabBarLabel: "Classes",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="albums-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="AdminSchedule"
-        component={AdminCalendarScreen}
-        options={{
-          tabBarLabel: "Schedule",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="AdminReports"
-        component={AdminReportsScreen}
-        options={{
-          tabBarLabel: "Reports",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="bar-chart-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="AdminSettings"
-        component={AdminSettingsScreen}
-        options={{
-          tabBarLabel: "Settings",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" size={size} color={color} />
-          ),
-        }}
-      />
-    </Tab.Navigator>
+      >
+        <Tab.Screen
+          name="AdminDashboard"
+          component={AdminDashboardScreen}
+          options={{
+            tabBarLabel: "Dashboard",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="grid-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="AdminCoaches"
+          component={AdminCoachesScreen}
+          options={{
+            tabBarLabel: "Coaches",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="people-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="AdminPlayers"
+          component={AdminPlayersScreen}
+          options={{
+            tabBarLabel: "Players",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="person-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="AdminClasses"
+          component={AdminClassesScreen}
+          options={{
+            tabBarLabel: "Classes",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="albums-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="AdminSchedule"
+          component={AdminCalendarScreen}
+          options={{
+            tabBarLabel: "Schedule",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="calendar-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="AdminReports"
+          component={AdminReportsScreen}
+          options={{
+            tabBarLabel: "Reports",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="bar-chart-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="AdminSettings"
+          component={AdminSettingsScreen}
+          options={{
+            tabBarLabel: "Settings",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="settings-outline" size={size} color={color} />
+            ),
+          }}
+        />
+      </Tab.Navigator>
+      <AdminQuickActionsFAB />
+    </View>
   );
 }
 
@@ -217,17 +220,18 @@ function AdminQuickActionsFAB() {
 
 export default function AdminNavigator() {
   return (
-    <>
-      <View style={styles.container}>
-        <AdminStackNavigator />
-      </View>
-      <AdminQuickActionsFAB />
-    </>
+    <View style={styles.container}>
+      <AdminStackNavigator />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  tabsWrapper: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
   },

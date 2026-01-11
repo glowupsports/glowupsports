@@ -86,85 +86,88 @@ const Stack = createNativeStackNavigator<CoachStackParamList>();
 
 function CoachTabs() {
   return (
-    <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: styles.tabBar,
-        tabBarBackground: () => (
-          <View style={styles.tabBarBackground}>
-            <LinearGradient
-              colors={[Colors.dark.primary + "40", "transparent", Colors.dark.xpCyan + "40"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.tabBarTopLine}
-            />
-            {Platform.OS === "ios" ? (
-              <BlurView
-                intensity={90}
-                tint="dark"
-                style={StyleSheet.absoluteFill}
+    <View style={styles.tabsWrapper}>
+      <Tab.Navigator
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: styles.tabBar,
+          tabBarBackground: () => (
+            <View style={styles.tabBarBackground}>
+              <LinearGradient
+                colors={[Colors.dark.primary + "40", "transparent", Colors.dark.xpCyan + "40"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.tabBarTopLine}
               />
-            ) : (
-              <View style={[StyleSheet.absoluteFill, styles.androidTabBackground]} />
-            )}
-          </View>
-        ),
-        tabBarActiveTintColor: Colors.dark.primary,
-        tabBarInactiveTintColor: Colors.dark.tabIconDefault,
-        tabBarLabelStyle: styles.tabLabel,
-      }}
-    >
-      <Tab.Screen
-        name="Dashboard"
-        component={DashboardScreen}
-        options={{
-          tabBarLabel: "Home",
-          tabBarIcon: ({ focused, size }) => (
-            <GamingTabIcon name="home-outline" focused={focused} size={size} />
+              {Platform.OS === "ios" ? (
+                <BlurView
+                  intensity={90}
+                  tint="dark"
+                  style={StyleSheet.absoluteFill}
+                />
+              ) : (
+                <View style={[StyleSheet.absoluteFill, styles.androidTabBackground]} />
+              )}
+            </View>
           ),
+          tabBarActiveTintColor: Colors.dark.primary,
+          tabBarInactiveTintColor: Colors.dark.tabIconDefault,
+          tabBarLabelStyle: styles.tabLabel,
         }}
-      />
-      <Tab.Screen
-        name="Calendar"
-        component={CalendarScreen}
-        options={{
-          tabBarLabel: "Calendar",
-          tabBarIcon: ({ focused, size }) => (
-            <GamingTabIcon name="calendar-outline" focused={focused} size={size} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Players"
-        component={PlayersScreen}
-        options={{
-          tabBarLabel: "Players",
-          tabBarIcon: ({ focused, size }) => (
-            <GamingTabIcon name="people-outline" focused={focused} size={size} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Coaching"
-        component={CoachingScreen}
-        options={{
-          tabBarLabel: "Coaching",
-          tabBarIcon: ({ focused, size }) => (
-            <GamingTabIcon name="clipboard-outline" focused={focused} size={size} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Settings"
-        component={SettingsScreen}
-        options={{
-          tabBarLabel: "Settings",
-          tabBarIcon: ({ focused, size }) => (
-            <GamingTabIcon name="settings-outline" focused={focused} size={size} />
-          ),
-        }}
-      />
-    </Tab.Navigator>
+      >
+        <Tab.Screen
+          name="Dashboard"
+          component={DashboardScreen}
+          options={{
+            tabBarLabel: "Home",
+            tabBarIcon: ({ focused, size }) => (
+              <GamingTabIcon name="home-outline" focused={focused} size={size} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Calendar"
+          component={CalendarScreen}
+          options={{
+            tabBarLabel: "Calendar",
+            tabBarIcon: ({ focused, size }) => (
+              <GamingTabIcon name="calendar-outline" focused={focused} size={size} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Players"
+          component={PlayersScreen}
+          options={{
+            tabBarLabel: "Players",
+            tabBarIcon: ({ focused, size }) => (
+              <GamingTabIcon name="people-outline" focused={focused} size={size} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Coaching"
+          component={CoachingScreen}
+          options={{
+            tabBarLabel: "Coaching",
+            tabBarIcon: ({ focused, size }) => (
+              <GamingTabIcon name="clipboard-outline" focused={focused} size={size} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{
+            tabBarLabel: "Settings",
+            tabBarIcon: ({ focused, size }) => (
+              <GamingTabIcon name="settings-outline" focused={focused} size={size} />
+            ),
+          }}
+        />
+      </Tab.Navigator>
+      <CoachQuickActionsFAB />
+    </View>
   );
 }
 
@@ -337,18 +340,15 @@ export default function CoachNavigator() {
   }
 
   return (
-    <>
-      <View style={styles.container}>
-        <OfflineBanner />
-        <CoachStackNavigator />
-      </View>
-      <CoachQuickActionsFAB />
-    </>
+    <View style={styles.container}>
+      <OfflineBanner />
+      <CoachStackNavigator />
+    </View>
   );
 }
 
 function CoachQuickActionsFAB() {
-  const navigation = useNavigation<NativeStackNavigationProp<CoachStackParamList>>();
+  const navigation = useNavigation<any>();
 
   const coachActions: QuickAction[] = [
     {
@@ -356,21 +356,21 @@ function CoachQuickActionsFAB() {
       label: "New Session",
       icon: "add-circle-outline",
       color: Colors.dark.primary,
-      onPress: () => navigation.navigate("Calendar"),
+      onPress: () => navigation.navigate("CoachTabs", { screen: "Calendar" }),
     },
     {
       id: "quick-feedback",
       label: "Quick Feedback",
       icon: "chatbubble-ellipses-outline",
       color: Colors.dark.xpCyan,
-      onPress: () => navigation.navigate("Coaching"),
+      onPress: () => navigation.navigate("CoachTabs", { screen: "Coaching" }),
     },
     {
       id: "add-player",
       label: "Add Player",
       icon: "person-add-outline",
       color: Colors.dark.orange,
-      onPress: () => navigation.navigate("Players"),
+      onPress: () => navigation.navigate("CoachTabs", { screen: "Players" }),
     },
     {
       id: "log-match",
@@ -406,6 +406,10 @@ function CoachQuickActionsFAB() {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  tabsWrapper: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
   },
