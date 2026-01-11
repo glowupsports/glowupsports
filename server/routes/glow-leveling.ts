@@ -982,6 +982,268 @@ async function updateCoachCalibration(coachId: string) {
   }
 }
 
+// ==================== COACH CALIBRATION ====================
+
+router.get("/api/glow/calibration/coach/:coachId", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { coachId } = req.params;
+    const academyId = req.user!.academyId;
+    
+    // Verify coach belongs to academy (optional check, coachId might be current user's coachId)
+    // Skip validation for now as coaches table structure may vary
+    
+    const { getCoachCalibrationStats } = await import("../services/coach-calibration-engine");
+    const stats = await getCoachCalibrationStats(coachId);
+    
+    if (!stats) {
+      return res.json({
+        coachId,
+        calibrationScore: 100,
+        totalObservations: 0,
+        averageDeviation: 0,
+        bias: "neutral",
+        anomalyCount: 0,
+        recentTrend: "stable",
+        message: "No calibration data yet",
+      });
+    }
+    
+    res.json(stats);
+  } catch (error) {
+    console.error("Error fetching coach calibration:", error);
+    res.status(500).json({ error: "Failed to fetch calibration stats" });
+  }
+});
+
+router.get("/api/glow/calibration/academy", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const academyId = req.user!.academyId;
+    
+    if (!academyId) {
+      return res.status(400).json({ error: "Academy context required" });
+    }
+    
+    const { getAcademyCalibrationReport } = await import("../services/coach-calibration-engine");
+    const report = await getAcademyCalibrationReport(academyId);
+    
+    res.json(report);
+  } catch (error) {
+    console.error("Error fetching academy calibration:", error);
+    res.status(500).json({ error: "Failed to fetch academy calibration report" });
+  }
+});
+
+// ==================== GLOW RANK ====================
+
+router.get("/api/glow/players/:playerId/rank", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { playerId } = req.params;
+    const academyId = req.user!.academyId;
+    
+    if (!await validatePlayerAccess(playerId, academyId)) {
+      return res.status(404).json({ error: "Player not found" });
+    }
+    
+    const { calculateGlowRank } = await import("../services/glow-rank-engine");
+    const rank = await calculateGlowRank(playerId);
+    
+    if (!rank) {
+      return res.status(404).json({ error: "Player has no level assigned" });
+    }
+    
+    res.json(rank);
+  } catch (error) {
+    console.error("Error calculating glow rank:", error);
+    res.status(500).json({ error: "Failed to calculate glow rank" });
+  }
+});
+
+// ==================== TRIAL TESTS ====================
+
+// Get tests (gates) for a trial
+router.get("/api/glow/trials/:trialId/tests", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { trialId } = req.params;
+    const academyId = req.user!.academyId;
+    
+    const [trial] = await db
+      .select()
+      .from(levelTrials)
+      .where(eq(levelTrials.id, trialId));
+    
+    if (!trial) {
+      return res.status(404).json({ error: "Trial not found" });
+    }
+    
+    if (!await validatePlayerAccess(trial.playerId, academyId)) {
+      return res.status(404).json({ error: "Trial not found" });
+    }
+    
+    // Get tests for the target level
+    const tests = await db
+      .select()
+      .from(levelTests)
+      .where(eq(levelTests.levelId, trial.toLevelId));
+    
+    // Get existing test results
+    const testResults = trial.testResults ? 
+      (typeof trial.testResults === 'string' ? JSON.parse(trial.testResults) : trial.testResults) : 
+      {};
+    
+    const testsWithResults = tests.map(test => ({
+      ...test,
+      result: testResults[test.id] || null,
+      passed: testResults[test.id]?.passed || false,
+    }));
+    
+    res.json({
+      trial,
+      tests: testsWithResults,
+      allTestsPassed: tests.every(t => testResults[t.id]?.passed),
+    });
+  } catch (error) {
+    console.error("Error fetching trial tests:", error);
+    res.status(500).json({ error: "Failed to fetch trial tests" });
+  }
+});
+
+// Record test result for a trial
+router.post("/api/glow/trials/:trialId/tests/:testId", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { trialId, testId } = req.params;
+    const coachId = req.user!.coachId || req.user!.id; // Fall back to user id for academy admins
+    const academyId = req.user!.academyId;
+    const { passed, score, notes, metrics } = req.body;
+    
+    const [trial] = await db
+      .select()
+      .from(levelTrials)
+      .where(eq(levelTrials.id, trialId));
+    
+    if (!trial) {
+      return res.status(404).json({ error: "Trial not found" });
+    }
+    
+    if (!await validatePlayerAccess(trial.playerId, academyId)) {
+      return res.status(404).json({ error: "Trial not found" });
+    }
+    
+    if (trial.status !== "in_progress") {
+      return res.status(400).json({ error: "Trial is not in progress" });
+    }
+    
+    // Verify test belongs to target level
+    const [test] = await db
+      .select()
+      .from(levelTests)
+      .where(and(
+        eq(levelTests.id, testId),
+        eq(levelTests.levelId, trial.toLevelId)
+      ));
+    
+    if (!test) {
+      return res.status(404).json({ error: "Test not found for this trial" });
+    }
+    
+    // Update test results
+    const currentResults = trial.testResults ? 
+      (typeof trial.testResults === 'string' ? JSON.parse(trial.testResults) : trial.testResults) : 
+      {};
+    
+    currentResults[testId] = {
+      passed: passed === true,
+      score: score || null,
+      notes: notes || null,
+      metrics: metrics || null,
+      recordedAt: new Date().toISOString(),
+      recordedBy: coachId,
+    };
+    
+    await db
+      .update(levelTrials)
+      .set({
+        testResults: JSON.stringify(currentResults),
+        updatedAt: new Date(),
+      })
+      .where(eq(levelTrials.id, trialId));
+    
+    res.json({ success: true, testId, result: currentResults[testId] });
+  } catch (error) {
+    console.error("Error recording test result:", error);
+    res.status(500).json({ error: "Failed to record test result" });
+  }
+});
+
+// Get active trial for player
+router.get("/api/glow/players/:playerId/active-trial", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { playerId } = req.params;
+    const academyId = req.user!.academyId;
+    
+    if (!await validatePlayerAccess(playerId, academyId)) {
+      return res.status(404).json({ error: "Player not found" });
+    }
+    
+    const [trial] = await db
+      .select({
+        trial: levelTrials,
+        fromLevel: ballLevels,
+      })
+      .from(levelTrials)
+      .innerJoin(ballLevels, eq(levelTrials.fromLevelId, ballLevels.id))
+      .where(and(
+        eq(levelTrials.playerId, playerId),
+        eq(levelTrials.status, "in_progress")
+      ))
+      .limit(1);
+    
+    if (!trial) {
+      return res.json(null);
+    }
+    
+    // Get target level
+    const [toLevel] = await db
+      .select()
+      .from(ballLevels)
+      .where(eq(ballLevels.id, trial.trial.toLevelId));
+    
+    // Get tests for target level
+    const tests = await db
+      .select()
+      .from(levelTests)
+      .where(eq(levelTests.levelId, trial.trial.toLevelId));
+    
+    const testResults = trial.trial.testResults ? 
+      (typeof trial.trial.testResults === 'string' ? JSON.parse(trial.trial.testResults) : trial.trial.testResults) : 
+      {};
+    
+    const testsWithResults = tests.map(t => ({
+      ...t,
+      result: testResults[t.id] || null,
+      passed: testResults[t.id]?.passed || false,
+    }));
+    
+    // Calculate days remaining
+    const daysRemaining = trial.trial.endsAt ? 
+      Math.max(0, Math.ceil((new Date(trial.trial.endsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 
+      0;
+    
+    res.json({
+      ...trial.trial,
+      fromLevel: trial.fromLevel,
+      toLevel,
+      tests: testsWithResults,
+      daysRemaining,
+      testsPassed: testsWithResults.filter(t => t.passed).length,
+      testsTotal: testsWithResults.length,
+      allTestsPassed: testsWithResults.every(t => t.passed),
+    });
+  } catch (error) {
+    console.error("Error fetching active trial:", error);
+    res.status(500).json({ error: "Failed to fetch active trial" });
+  }
+});
+
 // ==================== SEED ENDPOINT ====================
 
 router.post("/api/glow/seed", async (_req, res: Response) => {

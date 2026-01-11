@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -32,7 +32,14 @@ interface Skill {
   id: string;
   name: string;
   pillarId: string;
-  pillarName: string;
+  pillarName?: string;
+}
+
+interface Rubric {
+  id: string;
+  skillId: string;
+  score: number;
+  observable: string;
 }
 
 interface QuickFeedbackModalProps {
@@ -45,19 +52,24 @@ interface QuickFeedbackModalProps {
 type RatingValue = 0 | 1 | 2;
 type OverallStatus = "improved" | "stable" | "declined";
 
+interface SkillScore {
+  skillId: string;
+  score: RatingValue;
+}
+
 interface PlayerFeedback {
   playerId: string;
   effort: RatingValue;
   execution: RatingValue;
   understanding: RatingValue;
   overall: OverallStatus;
-  skillIds: string[];
+  skillScores: SkillScore[];
 }
 
-const RATING_LABELS: Record<RatingValue, { label: string; color: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  0: { label: "Needs Work", color: Colors.dark.error, icon: "close-circle" },
-  1: { label: "Developing", color: Colors.dark.orange, icon: "ellipse-outline" },
-  2: { label: "Strong", color: Colors.dark.primary, icon: "checkmark-circle" },
+const RUBRIC_LABELS: Record<RatingValue, { label: string; shortLabel: string; color: string; icon: keyof typeof Ionicons.glyphMap }> = {
+  0: { label: "Not Yet", shortLabel: "0", color: Colors.dark.error, icon: "close-circle" },
+  1: { label: "Emerging", shortLabel: "1", color: Colors.dark.orange, icon: "ellipse-outline" },
+  2: { label: "Achieved", shortLabel: "2", color: Colors.dark.primary, icon: "checkmark-circle" },
 };
 
 const OVERALL_OPTIONS: { value: OverallStatus; label: string; icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
@@ -67,21 +79,21 @@ const OVERALL_OPTIONS: { value: OverallStatus; label: string; icon: keyof typeof
 ];
 
 const PILLAR_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
-  technical: "construct",
-  tactical: "bulb",
-  physical: "barbell",
-  mental: "brain",
-  social: "people",
-  match: "trophy",
+  TECHNIQUE: "construct",
+  TACTICAL: "bulb",
+  PHYSICAL: "barbell",
+  MENTAL: "brain",
+  SOCIAL: "people",
+  MATCH: "trophy",
 };
 
 const PILLAR_COLORS: Record<string, string> = {
-  technical: "#10B981",
-  tactical: "#F59E0B",
-  physical: "#EF4444",
-  mental: "#8B5CF6",
-  social: "#EC4899",
-  match: "#3B82F6",
+  TECHNIQUE: "#10B981",
+  TACTICAL: "#F59E0B",
+  PHYSICAL: "#EF4444",
+  MENTAL: "#8B5CF6",
+  SOCIAL: "#EC4899",
+  MATCH: "#3B82F6",
 };
 
 export default function QuickFeedbackModal({
@@ -95,6 +107,7 @@ export default function QuickFeedbackModal({
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
   const [feedbacks, setFeedbacks] = useState<Map<string, PlayerFeedback>>(new Map());
   const [showSkillPicker, setShowSkillPicker] = useState(false);
+  const [selectedSkillForRubric, setSelectedSkillForRubric] = useState<string | null>(null);
   
   const players = session?.players || [];
   const currentPlayer = players[currentPlayerIndex];
@@ -104,11 +117,23 @@ export default function QuickFeedbackModal({
     queryFn: async () => {
       if (!currentPlayer) return [];
       const url = new URL(`/api/glow/players/${currentPlayer.id}/suggested-skills`, getApiUrl());
-      const res = await fetch(url.toString());
+      const res = await fetch(url.toString(), { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
     },
     enabled: visible && !!currentPlayer?.id,
+  });
+
+  const { data: rubrics } = useQuery<Rubric[]>({
+    queryKey: ["/api/glow/skills", selectedSkillForRubric, "rubrics"],
+    queryFn: async () => {
+      if (!selectedSkillForRubric) return [];
+      const url = new URL(`/api/glow/skills/${selectedSkillForRubric}/rubrics`, getApiUrl());
+      const res = await fetch(url.toString(), { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!selectedSkillForRubric,
   });
   
   useEffect(() => {
@@ -121,11 +146,12 @@ export default function QuickFeedbackModal({
           execution: 1,
           understanding: 1,
           overall: "stable",
-          skillIds: [],
+          skillScores: [],
         });
       });
       setFeedbacks(initial);
       setCurrentPlayerIndex(0);
+      setSelectedSkillForRubric(null);
     }
   }, [visible, players.length]);
   
@@ -134,8 +160,8 @@ export default function QuickFeedbackModal({
       if (!session) throw new Error("No session");
       const results = [];
       for (const feedback of data) {
-        const skillRatings = feedback.skillIds.reduce((acc, skillId) => {
-          acc[skillId] = { score: 2 };
+        const skillRatings = feedback.skillScores.reduce((acc, ss) => {
+          acc[ss.skillId] = { score: ss.score };
           return acc;
         }, {} as Record<string, { score: number }>);
         
@@ -179,20 +205,47 @@ export default function QuickFeedbackModal({
     });
   };
   
-  const toggleSkill = (skillId: string) => {
+  const setSkillScore = (skillId: string, score: RatingValue) => {
     if (!currentPlayer) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setFeedbacks(prev => {
       const updated = new Map(prev);
       const current = updated.get(currentPlayer.id);
       if (current) {
-        const skills = current.skillIds.includes(skillId)
-          ? current.skillIds.filter(id => id !== skillId)
-          : [...current.skillIds, skillId].slice(0, 3);
-        updated.set(currentPlayer.id, { ...current, skillIds: skills });
+        const existingIndex = current.skillScores.findIndex(ss => ss.skillId === skillId);
+        let newSkillScores: SkillScore[];
+        if (existingIndex >= 0) {
+          newSkillScores = [...current.skillScores];
+          newSkillScores[existingIndex] = { skillId, score };
+        } else {
+          newSkillScores = [...current.skillScores, { skillId, score }];
+        }
+        updated.set(currentPlayer.id, { ...current, skillScores: newSkillScores });
       }
       return updated;
     });
+    setSelectedSkillForRubric(null);
+  };
+
+  const removeSkillScore = (skillId: string) => {
+    if (!currentPlayer) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setFeedbacks(prev => {
+      const updated = new Map(prev);
+      const current = updated.get(currentPlayer.id);
+      if (current) {
+        const newSkillScores = current.skillScores.filter(ss => ss.skillId !== skillId);
+        updated.set(currentPlayer.id, { ...current, skillScores: newSkillScores });
+      }
+      return updated;
+    });
+  };
+
+  const getSkillScore = (skillId: string): RatingValue | null => {
+    const feedback = getCurrentFeedback();
+    if (!feedback) return null;
+    const ss = feedback.skillScores.find(s => s.skillId === skillId);
+    return ss ? ss.score : null;
   };
   
   const handleNext = () => {
@@ -200,6 +253,7 @@ export default function QuickFeedbackModal({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setCurrentPlayerIndex(prev => prev + 1);
       setShowSkillPicker(false);
+      setSelectedSkillForRubric(null);
     } else {
       handleSubmit();
     }
@@ -210,6 +264,7 @@ export default function QuickFeedbackModal({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setCurrentPlayerIndex(prev => prev - 1);
       setShowSkillPicker(false);
+      setSelectedSkillForRubric(null);
     }
   };
   
@@ -242,6 +297,8 @@ export default function QuickFeedbackModal({
       </Modal>
     );
   }
+
+  const selectedSkill = suggestedSkills?.find(s => s.id === selectedSkillForRubric);
   
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -271,12 +328,6 @@ export default function QuickFeedbackModal({
               </View>
             ) : null}
             <Text style={styles.playerName}>{currentPlayer?.name}</Text>
-            {currentPlayer?.ballLevel?.includes("trial") ? (
-              <View style={styles.trialBadge}>
-                <Ionicons name="time" size={12} color={Colors.dark.orange} />
-                <Text style={styles.trialText}>Trial</Text>
-              </View>
-            ) : null}
           </View>
           
           <View style={styles.section}>
@@ -284,7 +335,7 @@ export default function QuickFeedbackModal({
             <Text style={styles.sectionDesc}>How hard did they work today?</Text>
             <View style={styles.ratingRow}>
               {([0, 1, 2] as RatingValue[]).map(val => {
-                const opt = RATING_LABELS[val];
+                const opt = RUBRIC_LABELS[val];
                 const isSelected = currentFeedback?.effort === val;
                 return (
                   <Pressable
@@ -305,7 +356,7 @@ export default function QuickFeedbackModal({
             <Text style={styles.sectionDesc}>Technical skill application</Text>
             <View style={styles.ratingRow}>
               {([0, 1, 2] as RatingValue[]).map(val => {
-                const opt = RATING_LABELS[val];
+                const opt = RUBRIC_LABELS[val];
                 const isSelected = currentFeedback?.execution === val;
                 return (
                   <Pressable
@@ -326,7 +377,7 @@ export default function QuickFeedbackModal({
             <Text style={styles.sectionDesc}>Grasped concepts and instructions</Text>
             <View style={styles.ratingRow}>
               {([0, 1, 2] as RatingValue[]).map(val => {
-                const opt = RATING_LABELS[val];
+                const opt = RUBRIC_LABELS[val];
                 const isSelected = currentFeedback?.understanding === val;
                 return (
                   <Pressable
@@ -363,47 +414,134 @@ export default function QuickFeedbackModal({
           </View>
           
           <View style={styles.section}>
-            <Pressable style={styles.skillsHeader} onPress={() => setShowSkillPicker(!showSkillPicker)}>
+            <Pressable style={styles.skillsHeader} onPress={() => { setShowSkillPicker(!showSkillPicker); setSelectedSkillForRubric(null); }}>
               <View>
-                <Text style={styles.sectionTitle}>Skills Observed</Text>
+                <Text style={styles.sectionTitle}>Skill Observations (0/1/2)</Text>
                 <Text style={styles.sectionDesc}>
-                  {currentFeedback?.skillIds.length ? `${currentFeedback.skillIds.length} selected` : "Optional - max 3"}
+                  {currentFeedback?.skillScores.length ? `${currentFeedback.skillScores.length} skills scored` : "Tap to add skill scores"}
                 </Text>
               </View>
               <Ionicons name={showSkillPicker ? "chevron-up" : "chevron-down"} size={24} color={Colors.dark.disabled} />
             </Pressable>
+
+            {currentFeedback && currentFeedback.skillScores.length > 0 ? (
+              <View style={styles.scoredSkillsList}>
+                {currentFeedback.skillScores.map(ss => {
+                  const skill = suggestedSkills?.find(s => s.id === ss.skillId);
+                  const opt = RUBRIC_LABELS[ss.score];
+                  const pillarColor = skill ? PILLAR_COLORS[skill.pillarId] || Colors.dark.primary : Colors.dark.primary;
+                  return (
+                    <View key={ss.skillId} style={[styles.scoredSkillChip, { borderColor: pillarColor }]}>
+                      <Ionicons name={opt.icon} size={14} color={opt.color} />
+                      <Text style={[styles.scoredSkillName, { color: pillarColor }]} numberOfLines={1}>
+                        {skill?.name || ss.skillId}
+                      </Text>
+                      <View style={[styles.scoreBadge, { backgroundColor: opt.color }]}>
+                        <Text style={styles.scoreBadgeText}>{ss.score}</Text>
+                      </View>
+                      <Pressable onPress={() => removeSkillScore(ss.skillId)} hitSlop={8}>
+                        <Ionicons name="close-circle" size={16} color={Colors.dark.disabled} />
+                      </Pressable>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : null}
             
-            {showSkillPicker ? (
+            {showSkillPicker && !selectedSkillForRubric ? (
               <View style={styles.skillsGrid}>
                 {loadingSkills ? (
                   <ActivityIndicator size="small" color={Colors.dark.primary} />
                 ) : suggestedSkills && suggestedSkills.length > 0 ? (
                   suggestedSkills.map(skill => {
-                    const isSelected = currentFeedback?.skillIds.includes(skill.id);
+                    const existingScore = getSkillScore(skill.id);
                     const pillarColor = PILLAR_COLORS[skill.pillarId] || Colors.dark.primary;
+                    const isScored = existingScore !== null;
                     return (
                       <Pressable
                         key={skill.id}
-                        style={[styles.skillChip, isSelected && { backgroundColor: pillarColor + "30", borderColor: pillarColor }]}
-                        onPress={() => toggleSkill(skill.id)}
+                        style={[
+                          styles.skillChip, 
+                          isScored && { backgroundColor: pillarColor + "20", borderColor: pillarColor }
+                        ]}
+                        onPress={() => setSelectedSkillForRubric(skill.id)}
                       >
                         <Ionicons
                           name={PILLAR_ICONS[skill.pillarId] || "ellipse"}
                           size={14}
-                          color={isSelected ? pillarColor : Colors.dark.disabled}
+                          color={isScored ? pillarColor : Colors.dark.disabled}
                         />
-                        <Text style={[styles.skillChipText, isSelected && { color: pillarColor }]} numberOfLines={1}>
+                        <Text style={[styles.skillChipText, isScored && { color: pillarColor }]} numberOfLines={1}>
                           {skill.name}
                         </Text>
-                        {isSelected ? (
-                          <Ionicons name="checkmark-circle" size={14} color={pillarColor} />
-                        ) : null}
+                        {isScored ? (
+                          <View style={[styles.miniScoreBadge, { backgroundColor: RUBRIC_LABELS[existingScore].color }]}>
+                            <Text style={styles.miniScoreText}>{existingScore}</Text>
+                          </View>
+                        ) : (
+                          <Ionicons name="add-circle-outline" size={14} color={Colors.dark.disabled} />
+                        )}
                       </Pressable>
                     );
                   })
                 ) : (
                   <Text style={styles.noSkillsText}>No skills available for this level</Text>
                 )}
+              </View>
+            ) : null}
+
+            {selectedSkillForRubric && selectedSkill ? (
+              <View style={styles.rubricPanel}>
+                <View style={styles.rubricHeader}>
+                  <View style={styles.rubricTitleRow}>
+                    <Ionicons 
+                      name={PILLAR_ICONS[selectedSkill.pillarId] || "ellipse"} 
+                      size={18} 
+                      color={PILLAR_COLORS[selectedSkill.pillarId] || Colors.dark.primary} 
+                    />
+                    <Text style={styles.rubricTitle}>{selectedSkill.name}</Text>
+                  </View>
+                  <Pressable onPress={() => setSelectedSkillForRubric(null)}>
+                    <Ionicons name="close" size={20} color={Colors.dark.disabled} />
+                  </Pressable>
+                </View>
+                
+                <View style={styles.rubricOptions}>
+                  {([0, 1, 2] as RatingValue[]).map(score => {
+                    const opt = RUBRIC_LABELS[score];
+                    const rubric = rubrics?.find(r => r.score === score);
+                    const currentScore = getSkillScore(selectedSkill.id);
+                    const isSelected = currentScore === score;
+                    
+                    return (
+                      <Pressable
+                        key={score}
+                        style={[
+                          styles.rubricOption,
+                          isSelected && { backgroundColor: opt.color + "20", borderColor: opt.color }
+                        ]}
+                        onPress={() => setSkillScore(selectedSkill.id, score)}
+                      >
+                        <View style={styles.rubricScoreHeader}>
+                          <View style={[styles.rubricScoreBadge, { backgroundColor: opt.color }]}>
+                            <Text style={styles.rubricScoreText}>{score}</Text>
+                          </View>
+                          <Text style={[styles.rubricScoreLabel, isSelected && { color: opt.color }]}>
+                            {opt.label}
+                          </Text>
+                          {isSelected ? (
+                            <Ionicons name="checkmark-circle" size={18} color={opt.color} style={{ marginLeft: "auto" }} />
+                          ) : null}
+                        </View>
+                        {rubric ? (
+                          <Text style={styles.rubricObservable}>{rubric.observable}</Text>
+                        ) : (
+                          <Text style={styles.rubricObservablePlaceholder}>No observable criteria defined</Text>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
               </View>
             ) : null}
           </View>
@@ -486,6 +624,16 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: Spacing.lg,
   },
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.md,
+  },
+  emptyText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.disabled,
+  },
   playerCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -511,20 +659,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.text,
     flex: 1,
-  },
-  trialBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: Colors.dark.orange + "20",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.sm,
-  },
-  trialText: {
-    fontSize: Typography.small.fontSize,
-    fontWeight: "500",
-    color: Colors.dark.orange,
   },
   section: {
     marginTop: Spacing.xl,
@@ -587,6 +721,38 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
+  scoredSkillsList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  scoredSkillChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  scoredSkillName: {
+    fontSize: Typography.small.fontSize,
+    maxWidth: 100,
+  },
+  scoreBadge: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scoreBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#FFF",
+  },
   skillsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -607,12 +773,90 @@ const styles = StyleSheet.create({
   skillChipText: {
     fontSize: Typography.small.fontSize,
     color: Colors.dark.disabled,
-    maxWidth: 120,
+    maxWidth: 100,
+  },
+  miniScoreBadge: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  miniScoreText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#FFF",
   },
   noSkillsText: {
     fontSize: Typography.small.fontSize,
     color: Colors.dark.disabled,
     fontStyle: "italic",
+  },
+  rubricPanel: {
+    marginTop: Spacing.md,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+  },
+  rubricHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  rubricTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  rubricTitle: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  rubricOptions: {
+    gap: Spacing.sm,
+  },
+  rubricOption: {
+    padding: Spacing.md,
+    backgroundColor: "rgba(255,255,255,0.03)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  rubricScoreHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  rubricScoreBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rubricScoreText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#FFF",
+  },
+  rubricScoreLabel: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "500",
+    color: Colors.dark.disabled,
+  },
+  rubricObservable: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.textSecondary,
+    marginLeft: 32,
+  },
+  rubricObservablePlaceholder: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.disabled,
+    fontStyle: "italic",
+    marginLeft: 32,
   },
   footer: {
     flexDirection: "row",
@@ -656,15 +900,5 @@ const styles = StyleSheet.create({
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
     color: "#FFF",
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.md,
-  },
-  emptyText: {
-    fontSize: Typography.body.fontSize,
-    color: Colors.dark.disabled,
   },
 });
