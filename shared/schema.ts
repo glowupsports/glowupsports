@@ -4917,3 +4917,250 @@ export const matchTrainingSuggestions = pgTable("match_training_suggestions", {
 export const insertMatchTrainingSuggestionSchema = createInsertSchema(matchTrainingSuggestions).omit({ id: true, createdAt: true });
 export type InsertMatchTrainingSuggestion = z.infer<typeof insertMatchTrainingSuggestionSchema>;
 export type MatchTrainingSuggestion = typeof matchTrainingSuggestions.$inferSelect;
+
+// ==================== PLAYER LEVEL SYSTEM (Solo Leveling) ====================
+// This is the app engagement progression system, separate from tennis skill levels
+
+// Player Level titles based on level ranges
+export const playerLevelTitles = [
+  "Rookie",      // 1-3
+  "Player",      // 4-6
+  "Competitor",  // 7-9
+  "Strategist",  // 10-12
+  "Champion",    // 13-15
+  "Legend",      // 16-18
+  "Elite",       // 19-20
+] as const;
+export type PlayerLevelTitle = typeof playerLevelTitles[number];
+
+// XP action sources
+export const xpActionSources = [
+  "session_attendance",
+  "feedback_received",
+  "feedback_read",
+  "match_played",
+  "match_evaluation",
+  "quest_daily",
+  "quest_weekly",
+  "streak_bonus",
+  "profile_complete",
+  "first_community_post",
+  "first_friend_added",
+  "level_up_bonus",
+  "badge_earned",
+  "skill_validation",
+  "court_booking",
+  "lesson_booking",
+] as const;
+export type XPActionSource = typeof xpActionSources[number];
+
+// Player Level Thresholds - How much XP needed per level (configurable by platform owner)
+export const playerLevelThresholds = pgTable("player_level_thresholds", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  
+  level: integer("level").notNull().unique(), // 1, 2, 3, ... 20
+  xpRequired: integer("xp_required").notNull(), // XP needed to reach this level (resets each level)
+  title: text("title").notNull(), // Rookie, Player, Competitor, etc.
+  
+  // Optional rewards at this level
+  badgeUnlock: text("badge_unlock"),
+  titleUnlock: text("title_unlock"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("player_level_thresholds_level_idx").on(table.level),
+]);
+
+export const insertPlayerLevelThresholdSchema = createInsertSchema(playerLevelThresholds).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertPlayerLevelThreshold = z.infer<typeof insertPlayerLevelThresholdSchema>;
+export type PlayerLevelThreshold = typeof playerLevelThresholds.$inferSelect;
+
+// Player Level XP Rules - How much XP each action gives (configurable by platform owner)
+export const playerLevelXpRules = pgTable("player_level_xp_rules", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  
+  actionSource: text("action_source").notNull().unique(), // session_attendance, feedback_received, etc.
+  xpAmount: integer("xp_amount").notNull().default(10),
+  description: text("description"),
+  
+  // Optional multipliers
+  isOneTime: boolean("is_one_time").default(false), // Can only be earned once (e.g., profile_complete)
+  cooldownMinutes: integer("cooldown_minutes"), // Prevent spam (e.g., can only earn XP every 60 minutes for same action)
+  maxPerDay: integer("max_per_day"), // Daily cap for this action
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("player_level_xp_rules_source_idx").on(table.actionSource),
+]);
+
+export const insertPlayerLevelXpRuleSchema = createInsertSchema(playerLevelXpRules).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertPlayerLevelXpRule = z.infer<typeof insertPlayerLevelXpRuleSchema>;
+export type PlayerLevelXpRule = typeof playerLevelXpRules.$inferSelect;
+
+// Feature unlock keys - all features in the app that can be gated by level
+export const featureUnlockKeys = [
+  // Core (always unlocked)
+  "home_dashboard",
+  "profile",
+  "settings",
+  "notifications",
+  "help",
+  "coach_chat",
+  // Payments & Bookings (early unlock - important for academy)
+  "credit_store",
+  "lesson_booking",
+  "my_lesson_requests",
+  "parent_dashboard",
+  "invoices",
+  "payments",
+  "schedule",
+  // Engagement
+  "quests",
+  "coach_profile_view",
+  "training_history",
+  "skill_journey",
+  // Progress & Analysis
+  "progress_overview",
+  "skill_details",
+  "match_preparation",
+  "match_analysis",
+  // Social
+  "community_feed",
+  "player_finder",
+  "friends_list",
+  "groups",
+  "public_profile",
+  "glow_leaderboard",
+  // Shop & Marketplace
+  "academy_shop",
+  "marketplace",
+  "my_listings",
+  // Advanced
+  "court_booking",
+  "my_court_bookings",
+  "academy_browser",
+  "coach_directory",
+] as const;
+export type FeatureUnlockKey = typeof featureUnlockKeys[number];
+
+// Player Feature Unlocks - Which level unlocks which feature (configurable by platform owner)
+export const playerFeatureUnlocks = pgTable("player_feature_unlocks", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  
+  featureKey: text("feature_key").notNull().unique(), // from featureUnlockKeys
+  requiredLevel: integer("required_level").notNull().default(1),
+  
+  // UI metadata
+  featureName: text("feature_name").notNull(), // Display name
+  featureDescription: text("feature_description"), // Short description
+  featureIcon: text("feature_icon"), // Ionicons icon name
+  
+  // Onboarding content
+  onboardingTitle: text("onboarding_title"),
+  onboardingDescription: text("onboarding_description"),
+  onboardingTips: jsonb("onboarding_tips").$type<string[]>().default([]),
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("player_feature_unlocks_key_idx").on(table.featureKey),
+  index("player_feature_unlocks_level_idx").on(table.requiredLevel),
+]);
+
+export const insertPlayerFeatureUnlockSchema = createInsertSchema(playerFeatureUnlocks).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertPlayerFeatureUnlock = z.infer<typeof insertPlayerFeatureUnlockSchema>;
+export type PlayerFeatureUnlock = typeof playerFeatureUnlocks.$inferSelect;
+
+// Player XP Events - Log of all XP transactions
+export const playerXpEvents = pgTable("player_xp_events", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  
+  // XP details
+  actionSource: text("action_source").notNull(), // from xpActionSources
+  xpAmount: integer("xp_amount").notNull(),
+  
+  // Context
+  contextType: text("context_type"), // session, match, quest, etc.
+  contextId: varchar("context_id"), // Reference to the related entity
+  
+  // Level at time of event
+  levelAtEvent: integer("level_at_event").notNull(),
+  xpBeforeEvent: integer("xp_before_event").notNull(),
+  xpAfterEvent: integer("xp_after_event").notNull(),
+  
+  // Did this trigger a level up?
+  triggeredLevelUp: boolean("triggered_level_up").default(false),
+  newLevel: integer("new_level"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("player_xp_events_player_idx").on(table.playerId),
+  index("player_xp_events_source_idx").on(table.actionSource),
+  index("player_xp_events_created_idx").on(table.createdAt),
+]);
+
+export const insertPlayerXpEventSchema = createInsertSchema(playerXpEvents).omit({ id: true, createdAt: true });
+export type InsertPlayerXpEvent = z.infer<typeof insertPlayerXpEventSchema>;
+export type PlayerXpEvent = typeof playerXpEvents.$inferSelect;
+
+// Player Level Up Events - Celebration tracking (separate from skill level ups)
+export const playerLevelUpCelebrations = pgTable("player_level_up_celebrations", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  
+  // Level transition
+  fromLevel: integer("from_level").notNull(),
+  toLevel: integer("to_level").notNull(),
+  newTitle: text("new_title"),
+  
+  // Rewards
+  xpBonusAwarded: integer("xp_bonus_awarded").default(0),
+  badgesAwarded: jsonb("badges_awarded").$type<string[]>().default([]),
+  featuresUnlocked: jsonb("features_unlocked").$type<string[]>().default([]),
+  
+  // Celebration status
+  celebrationShown: boolean("celebration_shown").default(false),
+  celebrationShownAt: timestamp("celebration_shown_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("player_level_up_celebrations_player_idx").on(table.playerId),
+  index("player_level_up_celebrations_pending_idx").on(table.celebrationShown),
+]);
+
+export const insertPlayerLevelUpCelebrationSchema = createInsertSchema(playerLevelUpCelebrations).omit({ id: true, createdAt: true });
+export type InsertPlayerLevelUpCelebration = z.infer<typeof insertPlayerLevelUpCelebrationSchema>;
+export type PlayerLevelUpCelebration = typeof playerLevelUpCelebrations.$inferSelect;
+
+// Player Feature Unlock History - Track when features were unlocked
+export const playerFeatureUnlockHistory = pgTable("player_feature_unlock_history", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  featureKey: text("feature_key").notNull(),
+  
+  unlockedAtLevel: integer("unlocked_at_level").notNull(),
+  onboardingShown: boolean("onboarding_shown").default(false),
+  onboardingShownAt: timestamp("onboarding_shown_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("player_feature_unlock_history_player_idx").on(table.playerId),
+  unique("player_feature_unlock_history_unique").on(table.playerId, table.featureKey),
+]);

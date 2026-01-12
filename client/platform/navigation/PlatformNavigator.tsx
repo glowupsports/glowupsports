@@ -12,6 +12,7 @@ import PlayerHealthScreen from "@/platform/screens/PlayerHealthScreen";
 import FinancialsScreen from "@/platform/screens/FinancialsScreen";
 import SystemScreen from "@/platform/screens/SystemScreen";
 import XPMultipliersScreen from "@/platform/screens/XPMultipliersScreen";
+import FeatureUnlocksScreen from "@/platform/screens/FeatureUnlocksScreen";
 import AntiAbuseRulesScreen from "@/platform/screens/AntiAbuseRulesScreen";
 import LevelThresholdsScreen from "@/platform/screens/LevelThresholdsScreen";
 import BadgeDefinitionsScreen from "@/platform/screens/BadgeDefinitionsScreen";
@@ -38,6 +39,7 @@ export type PlatformStackParamList = {
   PlatformTabs: undefined;
   AcademyDetail: { academyId: string; academyName: string };
   XPMultipliers: undefined;
+  FeatureUnlocks: undefined;
   AntiAbuseRules: undefined;
   LevelThresholds: undefined;
   BadgeDefinitions: undefined;
@@ -150,6 +152,7 @@ function PlatformStackNavigator() {
       <Stack.Screen name="PlatformTabs" component={PlatformTabs} />
       <Stack.Screen name="AcademyDetail" component={AcademyDetailScreen} />
       <Stack.Screen name="XPMultipliers" component={XPMultipliersScreen} />
+      <Stack.Screen name="FeatureUnlocks" component={FeatureUnlocksScreen} />
       <Stack.Screen name="AntiAbuseRules" component={AntiAbuseRulesScreen} />
       <Stack.Screen name="LevelThresholds" component={LevelThresholdsScreen} />
       <Stack.Screen name="BadgeDefinitions" component={BadgeDefinitionsScreen} />

@@ -336,6 +336,12 @@ export default function SystemScreen() {
               description="Manage achievement badges"
               onPress={() => navigation.navigate("BadgeDefinitions")}
             />
+            <SettingRow 
+              icon="lock-open" 
+              label="Feature Unlocks" 
+              description="Configure which level unlocks each feature"
+              onPress={() => navigation.navigate("FeatureUnlocks")}
+            />
           </View>
         </View>
 

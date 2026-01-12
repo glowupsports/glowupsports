@@ -85,6 +85,7 @@ import parentDashboardRoutes from "./routes/parent-dashboard";
 import adultGlowRankRoutes from "./routes/adult-glow-rank";
 import lessonGroupsRoutes from "./routes/lesson-groups";
 import matchIntelligenceRoutes from "./routes/match-intelligence";
+import playerLevelRoutes from "./routes/player-level";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -225,6 +226,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(parentDashboardRoutes);
   app.use("/api/lesson-groups", lessonGroupsRoutes);
   app.use("/api/match-intelligence", matchIntelligenceRoutes);
+  app.use("/api/player-level", playerLevelRoutes);
 
   // ==================== HEALTH CHECK ====================
   
