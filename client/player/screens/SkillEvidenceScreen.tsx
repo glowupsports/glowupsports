@@ -21,6 +21,7 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { LockedScreen } from "../components/LockedScreen";
+import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 
 interface Skill {
   id: string;
@@ -73,6 +74,7 @@ export default function SkillEvidenceScreen() {
   const cameraRef = useRef<CameraView>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
+  const [selectedVideo, setSelectedVideo] = useState<Evidence | null>(null);
 
   const { data: evidence = [], isLoading: loadingEvidence } = useQuery<Evidence[]>({
     queryKey: [`/api/players/${player?.id}/evidence`],
@@ -195,44 +197,61 @@ export default function SkillEvidenceScreen() {
     setShowCamera(true);
   };
 
+  const handlePlayVideo = (item: Evidence) => {
+    setSelectedVideo(item);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
   const renderEvidenceCard = (item: Evidence) => {
     const status = STATUS_CONFIG[item.evidence.status] || STATUS_CONFIG.pending;
     const pillarColor = item.skill ? PILLAR_COLORS[item.skill.pillar] : Colors.dark.textMuted;
     
     return (
-      <Pressable key={item.evidence.id} style={styles.evidenceCard}>
-        <View style={styles.evidenceHeader}>
-          <View style={[styles.pillarBadge, { backgroundColor: pillarColor + "20" }]}>
-            <Text style={[styles.pillarText, { color: pillarColor }]}>
-              {item.skill?.pillar || "Unknown"}
-            </Text>
-          </View>
-          <View style={[styles.statusBadge, { backgroundColor: status.color + "20" }]}>
-            <Ionicons name={status.icon as any} size={14} color={status.color} />
-            <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
+      <Pressable 
+        key={item.evidence.id} 
+        style={styles.evidenceCard}
+        onPress={() => handlePlayVideo(item)}
+      >
+        <View style={styles.videoPreviewContainer}>
+          <View style={styles.videoPlayOverlay}>
+            <Ionicons name="play-circle" size={48} color={Colors.dark.primary} />
           </View>
         </View>
         
-        <Text style={styles.skillName}>{item.skill?.name || "Unknown Skill"}</Text>
-        
-        <View style={styles.evidenceFooter}>
-          <View style={styles.captureInfo}>
-            <Ionicons name="videocam-outline" size={16} color={Colors.dark.textSecondary} />
-            <Text style={styles.captureType}>
-              {item.evidence.captureType.replace("_", " ")}
+        <View style={styles.evidenceContent}>
+          <View style={styles.evidenceHeader}>
+            <View style={[styles.pillarBadge, { backgroundColor: pillarColor + "20" }]}>
+              <Text style={[styles.pillarText, { color: pillarColor }]}>
+                {item.skill?.pillar || "Unknown"}
+              </Text>
+            </View>
+            <View style={[styles.statusBadge, { backgroundColor: status.color + "20" }]}>
+              <Ionicons name={status.icon as any} size={14} color={status.color} />
+              <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
+            </View>
+          </View>
+          
+          <Text style={styles.skillName}>{item.skill?.name || "Unknown Skill"}</Text>
+          
+          <View style={styles.evidenceFooter}>
+            <View style={styles.captureInfo}>
+              <Ionicons name="videocam-outline" size={16} color={Colors.dark.textSecondary} />
+              <Text style={styles.captureType}>
+                {item.evidence.captureType.replace("_", " ")}
+              </Text>
+            </View>
+            <Text style={styles.dateText}>
+              {new Date(item.evidence.createdAt).toLocaleDateString()}
             </Text>
           </View>
-          <Text style={styles.dateText}>
-            {new Date(item.evidence.createdAt).toLocaleDateString()}
-          </Text>
+          
+          {item.evidence.reviewNotes ? (
+            <View style={styles.reviewNotesContainer}>
+              <Text style={styles.reviewNotesLabel}>Coach Feedback:</Text>
+              <Text style={styles.reviewNotes}>{item.evidence.reviewNotes}</Text>
+            </View>
+          ) : null}
         </View>
-        
-        {item.evidence.reviewNotes ? (
-          <View style={styles.reviewNotesContainer}>
-            <Text style={styles.reviewNotesLabel}>Coach Feedback:</Text>
-            <Text style={styles.reviewNotes}>{item.evidence.reviewNotes}</Text>
-          </View>
-        ) : null}
       </Pressable>
     );
   };
@@ -443,6 +462,13 @@ export default function SkillEvidenceScreen() {
           </View>
         </ScrollView>
       </View>
+
+      <VideoPlayerModal
+        visible={!!selectedVideo}
+        videoUrl={selectedVideo?.evidence.videoUrl || ""}
+        title={selectedVideo?.skill?.name || "Skill Evidence"}
+        onClose={() => setSelectedVideo(null)}
+      />
     </LockedScreen>
   );
 }
@@ -571,8 +597,23 @@ const styles = StyleSheet.create({
   evidenceCard: {
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
-    padding: Spacing.md,
     marginBottom: Spacing.md,
+    flexDirection: "row",
+    overflow: "hidden",
+  },
+  videoPreviewContainer: {
+    width: 80,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  videoPlayOverlay: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  evidenceContent: {
+    flex: 1,
+    padding: Spacing.md,
   },
   evidenceHeader: {
     flexDirection: "row",
