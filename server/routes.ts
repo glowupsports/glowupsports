@@ -83,6 +83,7 @@ import levelUpEventsRoutes from "./routes/level-up-events";
 import coachCalibrationRoutes from "./routes/coach-calibration";
 import parentDashboardRoutes from "./routes/parent-dashboard";
 import adultGlowRankRoutes from "./routes/adult-glow-rank";
+import lessonGroupsRoutes from "./routes/lesson-groups";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -221,6 +222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(levelUpEventsRoutes);
   app.use("/api/coach/calibration", coachCalibrationRoutes);
   app.use(parentDashboardRoutes);
+  app.use("/api/lesson-groups", lessonGroupsRoutes);
 
   // ==================== HEALTH CHECK ====================
   
@@ -14792,33 +14794,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allFocusAreas = skillRadar.flatMap(s => s.insights.focusAreas).slice(0, 5);
       
       // Calculate level readiness for next level
-      const nextLevel = player.ballLevel === 'red1' ? 'red2' : 
-                        player.ballLevel === 'red2' ? 'red3' :
-                        player.ballLevel === 'red3' ? 'orange1' :
-                        player.ballLevel === 'orange1' ? 'orange2' :
-                        player.ballLevel === 'orange2' ? 'orange3' :
-                        player.ballLevel === 'orange3' ? 'green1' :
-                        player.ballLevel === 'green1' ? 'green2' :
-                        player.ballLevel === 'green2' ? 'green3' :
-                        player.ballLevel === 'green3' ? 'yellow1' :
-                        player.ballLevel === 'yellow1' ? 'yellow2' :
-                        player.ballLevel === 'yellow2' ? 'yellow3' :
-                        player.ballLevel === 'yellow3' ? 'glow' : 'glow';
+      // Support both legacy composite (red1, red2) and new split (ballLevel=red, skillLevel=1) formats
+      const currentBallLevel = player.ballLevel || 'red';
+      const currentSkillLevel = player.skillLevel || 1;
+      
+      // Determine next level based on current ball level and skill level
+      // Returns normalized underscore format: BALL_SUBLEVEL (e.g., GREEN_2)
+      const getNextLevel = (ball: string, skill: number): { composite: string; ballLevel: string; subLevel: number } => {
+        // Normalize input: extract ball color and skill number
+        const ballColor = ball.replace(/\d+$/, '').toLowerCase();
+        const currentSub = ball.match(/\d$/) ? parseInt(ball.slice(-1)) : skill;
+        
+        const ballOrder = ['red', 'orange', 'green', 'yellow'];
+        
+        // Move to next sub-level within same ball
+        if (currentSub < 3) {
+          const nextSub = currentSub + 1;
+          return { 
+            composite: `${ballColor.toUpperCase()}_${nextSub}`,
+            ballLevel: ballColor,
+            subLevel: nextSub,
+          };
+        }
+        
+        // Move to next ball level
+        const currentIndex = ballOrder.indexOf(ballColor);
+        if (currentIndex >= 0 && currentIndex < ballOrder.length - 1) {
+          const nextBall = ballOrder[currentIndex + 1];
+          return {
+            composite: `${nextBall.toUpperCase()}_1`,
+            ballLevel: nextBall,
+            subLevel: 1,
+          };
+        }
+        
+        // At maximum level (YELLOW_3) - transition to Glow
+        return { composite: 'GLOW', ballLevel: 'glow', subLevel: 0 };
+      };
+      
+      const nextLevel = getNextLevel(currentBallLevel, currentSkillLevel);
       
       let levelReadiness = null;
       try {
-        levelReadiness = await storage.calculatePlayerLevelReadiness(playerId, nextLevel);
+        levelReadiness = await storage.calculatePlayerLevelReadiness(playerId, nextLevel.composite);
       } catch (e) {
         // Silently fail - readiness is optional
       }
+      
+      // Calculate Glow Battle Power (sum of 6 pillar scores)
+      const pillarScores = {
+        technique: 0,
+        tactical: 0,
+        physical: 0,
+        mental: 0,
+        social: 0,
+        match: 0,
+      };
+      
+      skillRadar.forEach((skill) => {
+        const domainLower = skill.domainId.toLowerCase();
+        if (domainLower in pillarScores) {
+          pillarScores[domainLower as keyof typeof pillarScores] = skill.progress;
+        }
+      });
+      
+      const battlePower = Object.values(pillarScores).reduce((sum, score) => sum + score, 0);
+      const maxBattlePower = 600;
+      const battlePowerPercentage = Math.round((battlePower / maxBattlePower) * 100);
+      
+      const getPowerLevel = (power: number) => {
+        if (power >= 500) return { level: "Legendary", tier: 6 };
+        if (power >= 400) return { level: "Elite", tier: 5 };
+        if (power >= 300) return { level: "Champion", tier: 4 };
+        if (power >= 200) return { level: "Contender", tier: 3 };
+        if (power >= 100) return { level: "Rising", tier: 2 };
+        return { level: "Novice", tier: 1 };
+      };
+      
+      const powerInfo = getPowerLevel(battlePower);
+      
+      // Normalize ball level to always use underscore format
+      const normalizedBallLevel = currentBallLevel.replace(/\d+$/, '').toLowerCase();
+      const normalizedSkillLevel = currentBallLevel.match(/\d$/) ? parseInt(currentBallLevel.slice(-1)) : currentSkillLevel;
+      const compositeLevel = `${normalizedBallLevel.toUpperCase()}_${normalizedSkillLevel}`;
       
       res.json({
         level,
         xp: totalXp,
         xpForNextLevel: (level + 1) * 500,
         glowScore,
-        ballLevel: player.ballLevel,
-        nextBallLevel: nextLevel,
+        ballLevel: compositeLevel, // Always use composite format: GREEN_2
+        stage: normalizedBallLevel, // Just the color: green
+        skillLevel: normalizedSkillLevel, // Just the number: 2
+        nextBallLevel: nextLevel.composite, // Next level in composite format
+        nextLevelDetails: {
+          composite: nextLevel.composite,
+          stage: nextLevel.ballLevel,
+          subLevel: nextLevel.subLevel,
+        },
         skillRadar,
         overallInsights: {
           strengths: allHighlights,
@@ -14832,6 +14905,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           coachApprovalRequired: true,
           coachApprovalStatus: "pending",
         } : null,
+        glowBattlePower: {
+          total: battlePower,
+          max: maxBattlePower,
+          percentage: battlePowerPercentage,
+          pillars: pillarScores,
+          powerLevel: powerInfo.level,
+          powerTier: powerInfo.tier,
+        },
+        threeTierProgression: {
+          xpLevel: { level, xp: totalXp, xpForNext: (level + 1) * 500 },
+          skillLevel: { 
+            ballLevel: normalizedBallLevel,
+            subLevel: normalizedSkillLevel,
+            composite: compositeLevel,
+          },
+          battlePower: { total: battlePower, level: powerInfo.level, tier: powerInfo.tier },
+        },
       });
     } catch (error) {
       console.error("Error fetching player progress:", error);

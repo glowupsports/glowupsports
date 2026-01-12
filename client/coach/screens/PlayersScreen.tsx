@@ -259,6 +259,7 @@ export default function PlayersScreen() {
   const [newPlayerEmail, setNewPlayerEmail] = useState("");
   const [newPlayerPhone, setNewPlayerPhone] = useState("");
   const [newPlayerBallLevel, setNewPlayerBallLevel] = useState<string>("green");
+  const [newPlayerSkillLevel, setNewPlayerSkillLevel] = useState<number>(1);
   const [newPlayerParentName, setNewPlayerParentName] = useState("");
   const [newPlayerParentPhone, setNewPlayerParentPhone] = useState("");
 
@@ -267,7 +268,7 @@ export default function PlayersScreen() {
   });
 
   const createPlayerMutation = useMutation({
-    mutationFn: async (data: { name: string; email?: string; phone?: string; ballLevel?: string; coachId?: string; parentName?: string; parentPhone?: string }) => {
+    mutationFn: async (data: { name: string; email?: string; phone?: string; ballLevel?: string; skillLevel?: number; coachId?: string; parentName?: string; parentPhone?: string }) => {
       return apiRequest("POST", "/api/players", data);
     },
     onSuccess: (data: any) => {
@@ -285,6 +286,7 @@ export default function PlayersScreen() {
       setNewPlayerEmail("");
       setNewPlayerPhone("");
       setNewPlayerBallLevel("green");
+      setNewPlayerSkillLevel(1);
       setNewPlayerParentName("");
       setNewPlayerParentPhone("");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -632,6 +634,39 @@ export default function PlayersScreen() {
               </View>
             </View>
 
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Skill Level (1-3)</Text>
+              <Text style={styles.formHint}>
+                {newPlayerBallLevel.toUpperCase()}_{newPlayerSkillLevel} - Level {newPlayerSkillLevel} within {newPlayerBallLevel} ball
+              </Text>
+              <View style={styles.skillLevelPicker}>
+                {[1, 2, 3].map((level) => {
+                  const isSelected = newPlayerSkillLevel === level;
+                  const ballColor = getPlayerLevelColor(newPlayerBallLevel);
+                  return (
+                    <Pressable
+                      key={level}
+                      style={[
+                        styles.skillLevelOption,
+                        isSelected && { backgroundColor: ballColor + "30", borderColor: ballColor },
+                      ]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setNewPlayerSkillLevel(level);
+                      }}
+                    >
+                      <Text style={[
+                        styles.skillLevelText,
+                        isSelected && { color: ballColor, fontWeight: "700" },
+                      ]}>
+                        {level}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
             <Text style={styles.sectionHeader}>PARENT/GUARDIAN</Text>
 
             <View style={styles.formGroup}>
@@ -676,6 +711,7 @@ export default function PlayersScreen() {
                       email: newPlayerEmail.trim() || undefined,
                       phone: newPlayerPhone.trim() || undefined,
                       ballLevel: newPlayerBallLevel,
+                      skillLevel: newPlayerSkillLevel,
                       coachId: coach?.id,
                       parentName: newPlayerParentName.trim() || undefined,
                       parentPhone: newPlayerParentPhone.trim() || undefined,
@@ -2874,6 +2910,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: Spacing.sm,
+  },
+  formHint: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.primary,
+    marginBottom: Spacing.sm,
+    fontWeight: "500",
+  },
+  skillLevelPicker: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  skillLevelOption: {
+    width: 56,
+    height: 56,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderWidth: 2,
+    borderColor: Colors.dark.tabIconDefault + "40",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  skillLevelText: {
+    fontSize: Typography.h3.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.tabIconDefault,
   },
   levelOption: {
     flexDirection: "row",

@@ -667,6 +667,12 @@ export const players = pgTable("players", {
   glowScore: integer("glow_score").default(0),
   streak: integer("streak").default(0),
   
+  // 3-Tier Progression System
+  // Tier 1: XP Level (level, totalXp) - Gamification, engagement rewards
+  // Tier 2: Skill Level (ballLevel, skillLevel) - Tennis skill certification (RED_1 to YELLOW_3)
+  // Tier 3: Glow Battle Power - 6 pillar scores combined for future game element
+  glowBattlePower: integer("glow_battle_power").default(0), // Calculated from 6 pillar scores (0-600)
+  
   // Adult Glow Rank System (Elo-based)
   glowMmr: integer("glow_mmr").default(1000), // Elo-like MMR rating (0-3000)
   glowRank: integer("glow_rank").default(9), // Bucket 1-9 (9=beginner, 1=international)
@@ -674,6 +680,7 @@ export const players = pgTable("players", {
   rageQuitCount: integer("rage_quit_count").default(0),
   noShowCount: integer("no_show_count").default(0),
   isAdult: boolean("is_adult").default(false), // Adults use Glow Rank, youth use ball levels
+  playerPathway: text("player_pathway").default("youth"), // youth | adult | hybrid
   
   onboardingCompleted: boolean("onboarding_completed").default(false),
   motivationType: text("motivation_type"), // fun/improve/compete/unsure
@@ -731,6 +738,118 @@ export const updatePlayerSchema = z.object({
 export type InsertPlayer = z.infer<typeof insertPlayerSchema>;
 export type UpdatePlayer = z.infer<typeof updatePlayerSchema>;
 export type Player = typeof players.$inferSelect;
+
+// Youth Ball Stages - Constants for skill level progression
+export const youthBallStages = ["red", "orange", "green", "yellow"] as const;
+export type YouthBallStage = typeof youthBallStages[number];
+
+// Helper to convert ball level to composite level (1-12)
+export function getCompositeLevel(ballLevel: string, skillLevel: number): number {
+  const stageIndex = youthBallStages.indexOf(ballLevel as YouthBallStage);
+  if (stageIndex === -1) return 1;
+  return stageIndex * 3 + skillLevel;
+}
+
+// Helper to convert composite level to ball level and skill level
+export function decomposeLevel(compositeLevel: number): { ballLevel: YouthBallStage; skillLevel: number } {
+  const clamped = Math.max(1, Math.min(12, compositeLevel));
+  const stageIndex = Math.floor((clamped - 1) / 3);
+  const skillLevel = ((clamped - 1) % 3) + 1;
+  return { ballLevel: youthBallStages[stageIndex], skillLevel };
+}
+
+// Lesson Groups - For organizing players by skill level
+export const lessonGroups = pgTable("lesson_groups", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  coachId: varchar("coach_id").references(() => coaches.id),
+  
+  name: text("name").notNull(),
+  description: text("description"),
+  
+  groupType: text("group_type").default("youth"), // youth | adult | mixed
+  
+  // Youth level filtering (for groupType = youth or mixed)
+  allowedBallLevels: jsonb("allowed_ball_levels").$type<string[]>(), // ["red", "orange"] etc.
+  minSkillLevel: integer("min_skill_level").default(1), // 1-3 within ball level
+  maxSkillLevel: integer("max_skill_level").default(3), // 1-3 within ball level
+  
+  // Adult rank filtering (for groupType = adult or mixed)
+  minGlowRank: integer("min_glow_rank"), // 1-9 (1=highest, 9=beginner)
+  maxGlowRank: integer("max_glow_rank"), // 1-9
+  
+  maxPlayers: integer("max_players").default(8),
+  isActive: boolean("is_active").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertLessonGroupSchema = createInsertSchema(lessonGroups).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertLessonGroup = z.infer<typeof insertLessonGroupSchema>;
+export type LessonGroup = typeof lessonGroups.$inferSelect;
+
+// Lesson Group Members - Players assigned to groups
+export const lessonGroupMembers = pgTable("lesson_group_members", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  groupId: varchar("group_id").references(() => lessonGroups.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  
+  joinedAt: timestamp("joined_at").defaultNow(),
+  status: text("status").default("active"), // active | paused | removed
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  groupPlayerUnique: unique("lesson_group_member_unique").on(table.groupId, table.playerId),
+}));
+
+export const insertLessonGroupMemberSchema = createInsertSchema(lessonGroupMembers).omit({ id: true, createdAt: true });
+export type InsertLessonGroupMember = z.infer<typeof insertLessonGroupMemberSchema>;
+export type LessonGroupMember = typeof lessonGroupMembers.$inferSelect;
+
+// Player Level Events - Audit trail for skill level changes
+export const playerLevelEvents = pgTable("player_level_events", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  
+  eventType: text("event_type").notNull(), // promotion | demotion | initial_assignment | coach_override
+  
+  // Previous level
+  fromBallLevel: text("from_ball_level"),
+  fromSkillLevel: integer("from_skill_level"),
+  
+  // New level
+  toBallLevel: text("to_ball_level").notNull(),
+  toSkillLevel: integer("to_skill_level").notNull(),
+  
+  // Who made the change
+  actorId: varchar("actor_id"), // coach/admin who made the change (null for system)
+  actorType: text("actor_type"), // coach | admin | system
+  
+  // Reason for change
+  reason: text("reason"),
+  evidenceIds: jsonb("evidence_ids").$type<string[]>(), // linked skill evidence IDs
+  
+  // Approval status (for pending promotions)
+  status: text("status").default("applied"), // pending_approval | approved | rejected | applied
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  playerIdx: index("player_level_events_player_idx").on(table.playerId),
+  eventTypeIdx: index("player_level_events_type_idx").on(table.eventType),
+}));
+
+export const insertPlayerLevelEventSchema = createInsertSchema(playerLevelEvents).omit({ id: true, createdAt: true });
+export type InsertPlayerLevelEvent = z.infer<typeof insertPlayerLevelEventSchema>;
+export type PlayerLevelEvent = typeof playerLevelEvents.$inferSelect;
 
 // Player Invites - For inviting players/parents to join the app
 export const playerInvites = pgTable("player_invites", {
