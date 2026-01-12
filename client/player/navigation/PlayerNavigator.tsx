@@ -62,6 +62,7 @@ import { Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { PlayerDrawerProvider, usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
+import { PlayerLevelProvider } from "@/player/context/PlayerLevelContext";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
@@ -629,11 +630,15 @@ export default function PlayerNavigator() {
     return <PlayerOnboardingScreen onComplete={handleOnboardingComplete} />;
   }
 
+  const playerId = user?.playerId || dashboard?.player?.id || null;
+
   return (
     <CartProvider>
-      <View style={styles.container}>
-        <PlayerStackNavigator />
-      </View>
+      <PlayerLevelProvider playerId={playerId}>
+        <View style={styles.container}>
+          <PlayerStackNavigator />
+        </View>
+      </PlayerLevelProvider>
     </CartProvider>
   );
 }

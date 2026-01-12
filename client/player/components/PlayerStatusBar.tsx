@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { View, Text, StyleSheet, Pressable, Modal, Platform, Image as RNImage } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
@@ -14,6 +14,7 @@ import Animated, {
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { getStaticAssetsUrl } from "@/lib/query-client";
+import { usePlayerLevel } from "../hooks/usePlayerLevel";
 
 interface PlayerData {
   id: string;
@@ -101,6 +102,8 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
   const glowPulse = useSharedValue(0);
   const profilePhotoUri = player.profilePhotoUrl ? `${getStaticAssetsUrl()}${player.profilePhotoUrl}` : null;
   
+  const { data: levelStatus } = usePlayerLevel(player.id);
+  
   React.useEffect(() => {
     glowPulse.value = withRepeat(
       withTiming(1, { duration: 2000 }),
@@ -109,10 +112,14 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
     );
   }, []);
   
-  const xpProgress = getXpProgress(player.level, player.xp);
-  const earnedTitle = getEarnedTitle(player);
+  const earnedTitle = levelStatus?.title || getEarnedTitle(player);
   const currentFocus = getCurrentFocus(lastFeedback);
   const ballLevelColor = getBallLevelColor(player.ballLevel);
+  
+  const currentLevel = levelStatus?.level ?? player.level;
+  const xpInLevel = levelStatus?.xpInCurrentLevel ?? 0;
+  const xpNeeded = levelStatus?.xpNeededForNextLevel ?? 100;
+  const xpProgress = xpNeeded > 0 ? Math.min(xpInLevel / xpNeeded, 1) : 0;
   
   const glowRingStyle = useAnimatedStyle(() => {
     const scale = interpolate(
@@ -149,12 +156,6 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
     }
   };
 
-  const xpForCurrentLevel = 500 + (player.level - 1) * 100;
-  let accumulatedXp = 0;
-  for (let lvl = 1; lvl < player.level; lvl++) {
-    accumulatedXp += 500 + (lvl - 1) * 100;
-  }
-  const currentLevelXp = Math.max(0, player.xp - accumulatedXp);
   const streakColor = player.streak >= 6 ? "#FF4136" : player.streak >= 3 ? Colors.dark.orange : Colors.dark.xpCyan;
 
   return (
@@ -216,8 +217,8 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
               <View style={styles.xpBarGlow} />
             </View>
             <View style={styles.xpLabels}>
-              <Text style={styles.xpLevelLabel}>LVL {player.level}</Text>
-              <Text style={styles.xpValueLabel}>{currentLevelXp}/{xpForCurrentLevel} XP</Text>
+              <Text style={styles.xpLevelLabel}>LVL {currentLevel}</Text>
+              <Text style={styles.xpValueLabel}>{xpInLevel}/{xpNeeded} XP</Text>
             </View>
           </View>
         </View>
