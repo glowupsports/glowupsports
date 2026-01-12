@@ -629,26 +629,30 @@ export default function CalendarScreen() {
         const courtName = court?.name || "Court";
         const location = court?.locationId ? allLocations.find(l => l.id === court.locationId)?.name : "";
         
-        return `BEGIN:VEVENT
-UID:${session.id}@glowupsports.com
-DTSTAMP:${formatICSDate(new Date().toISOString())}
-DTSTART:${formatICSDate(session.startTime)}
-DTEND:${formatICSDate(session.endTime)}
-SUMMARY:${escapeICS(`Tennis Session - ${session.sessionType || "Training"}`)}
-LOCATION:${escapeICS(`${courtName}${location ? ` - ${location}` : ""}`)}
-DESCRIPTION:${escapeICS(`Duration: ${session.duration} min | Status: ${session.status || "scheduled"}`)}
-STATUS:CONFIRMED
-END:VEVENT`;
+        return [
+          "BEGIN:VEVENT",
+          `UID:${session.id}@glowupsports.com`,
+          `DTSTAMP:${formatICSDate(new Date().toISOString())}`,
+          `DTSTART:${formatICSDate(session.startTime)}`,
+          `DTEND:${formatICSDate(session.endTime)}`,
+          `SUMMARY:${escapeICS(`Tennis Session - ${session.sessionType || "Training"}`)}`,
+          `LOCATION:${escapeICS(`${courtName}${location ? ` - ${location}` : ""}`)}`,
+          `DESCRIPTION:${escapeICS(`Duration: ${session.duration} min | Status: ${session.status || "scheduled"}`)}`,
+          "STATUS:CONFIRMED",
+          "END:VEVENT",
+        ].join("\r\n");
       });
 
-      const icsContent = `BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Glow Up Sports//Coach Calendar//EN
-CALSCALE:GREGORIAN
-METHOD:PUBLISH
-X-WR-CALNAME:Coach Sessions
-${events.join("\n")}
-END:VCALENDAR`;
+      const icsContent = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Glow Up Sports//Coach Calendar//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        "X-WR-CALNAME:Coach Sessions",
+        ...events,
+        "END:VCALENDAR",
+      ].join("\r\n");
 
       const fileName = `coach-calendar-${formatLocalDateToString(selectedDate).replace(/\//g, "-")}.ics`;
       const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
