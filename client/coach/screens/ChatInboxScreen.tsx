@@ -126,6 +126,14 @@ function ConversationCard({
   );
 }
 
+type ChatFilter = "all" | "players" | "parents";
+
+const CHAT_FILTERS: { value: ChatFilter; label: string; icon: any }[] = [
+  { value: "all", label: "All", icon: "chatbubbles" },
+  { value: "players", label: "Players", icon: "tennisball" },
+  { value: "parents", label: "Parents", icon: "people" },
+];
+
 export default function ChatInboxScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -134,6 +142,7 @@ export default function ChatInboxScreen() {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [inputText, setInputText] = useState("");
   const [showReactions, setShowReactions] = useState<string | null>(null);
+  const [chatFilter, setChatFilter] = useState<ChatFilter>("all");
   const flatListRef = React.useRef<FlatList>(null);
 
   const sendScale = useSharedValue(1);
@@ -146,6 +155,18 @@ export default function ChatInboxScreen() {
     queryKey: ["/api/coaches", coach?.id, "conversations"],
     enabled: !!coach?.id,
   });
+
+  // Filter conversations based on selected chat filter
+  const filteredConversations = React.useMemo(() => {
+    if (chatFilter === "all") return conversations;
+    if (chatFilter === "players") {
+      return conversations.filter(c => c.type === "coach_player");
+    }
+    if (chatFilter === "parents") {
+      return conversations.filter(c => c.type === "coach_parent");
+    }
+    return conversations;
+  }, [conversations, chatFilter]);
 
   const { data: messages = [], isLoading: loadingMessages } = useQuery<Message[]>({
     queryKey: ["/api/conversations", selectedConversation?.id, "messages"],
@@ -386,23 +407,66 @@ export default function ChatInboxScreen() {
         </View>
       </View>
 
+      {/* Chat Filter Tabs */}
+      <View style={styles.filterTabsContainer}>
+        {CHAT_FILTERS.map((filter) => (
+          <Pressable
+            key={filter.value}
+            style={[
+              styles.filterTab,
+              chatFilter === filter.value && styles.filterTabActive,
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setChatFilter(filter.value);
+            }}
+          >
+            <Ionicons
+              name={filter.icon as any}
+              size={16}
+              color={chatFilter === filter.value ? Colors.dark.xpCyan : Colors.dark.textSecondary}
+            />
+            <ThemedText
+              style={[
+                styles.filterTabText,
+                chatFilter === filter.value && styles.filterTabTextActive,
+              ]}
+            >
+              {filter.label}
+            </ThemedText>
+          </Pressable>
+        ))}
+      </View>
+
       {loadingConversations ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator color={Colors.dark.primary} size="large" />
         </View>
-      ) : conversations.length === 0 ? (
+      ) : filteredConversations.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={styles.emptyIcon}>
-            <Ionicons name="chatbubbles-outline" size={48} color={Colors.dark.xpCyan} />
+            <Ionicons 
+              name={chatFilter === "parents" ? "people-outline" : "chatbubbles-outline"} 
+              size={48} 
+              color={Colors.dark.xpCyan} 
+            />
           </View>
-          <ThemedText style={styles.emptyTitle}>No conversations yet</ThemedText>
+          <ThemedText style={styles.emptyTitle}>
+            {chatFilter === "all" 
+              ? "No conversations yet" 
+              : chatFilter === "parents"
+              ? "No parent conversations"
+              : "No player conversations"}
+          </ThemedText>
           <ThemedText style={styles.emptySubtitle}>
-            Start chatting with your players from their profile
+            {chatFilter === "parents"
+              ? "Start chatting with parents from their player's profile"
+              : "Start chatting with your players from their profile"}
           </ThemedText>
         </View>
       ) : (
         <FlatList
-          data={conversations}
+          data={filteredConversations}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <ConversationCard
@@ -467,6 +531,37 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 40,
+  },
+  filterTabsContainer: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  filterTab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  filterTabActive: {
+    backgroundColor: Colors.dark.xpCyan + "15",
+    borderColor: Colors.dark.xpCyan + "50",
+  },
+  filterTabText: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "500",
+    color: Colors.dark.textSecondary,
+  },
+  filterTabTextActive: {
+    color: Colors.dark.xpCyan,
   },
   loadingContainer: {
     flex: 1,
