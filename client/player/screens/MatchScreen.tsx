@@ -19,6 +19,7 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { apiRequest } from "@/lib/query-client";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
+import { LockedScreen } from "../components/LockedScreen";
 
 interface Opponent {
   id: string;
@@ -213,19 +214,20 @@ export default function MatchScreen() {
   );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Matches</Text>
-        <Pressable
-          style={styles.addButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            setShowPrepareModal(true);
-          }}
-        >
-          <Ionicons name="add" size={24} color={Colors.text} />
-        </Pressable>
-      </View>
+    <LockedScreen featureKey="match_preparation">
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Matches</Text>
+          <Pressable
+            style={styles.addButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setShowPrepareModal(true);
+            }}
+          >
+            <Ionicons name="add" size={24} color={Colors.dark.text} />
+          </Pressable>
+        </View>
 
       <View style={styles.tabs}>
         <Pressable
@@ -301,7 +303,8 @@ export default function MatchScreen() {
           navigation.navigate("MatchDetail", { matchId });
         }}
       />
-    </View>
+      </View>
+    </LockedScreen>
   );
 }
 

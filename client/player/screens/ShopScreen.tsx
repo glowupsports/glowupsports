@@ -20,6 +20,7 @@ import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing } from "@/constants/theme";
 import { useCart } from "../contexts/CartContext";
+import { LockedScreen } from "../components/LockedScreen";
 import { getApiUrl } from "@/lib/query-client";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -155,17 +156,6 @@ export default function ShopScreen() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.loadingContainer}>
-          <Ionicons name="storefront" size={48} color={Colors.dark.primary} />
-          <Text style={styles.loadingText}>Loading Glow Market...</Text>
-        </View>
-      </View>
-    );
-  }
-
   const categories = shopData?.categories || [];
   const featuredProducts = shopData?.featuredProducts || [];
   const featuredServices = shopData?.featuredServices || [];
@@ -173,103 +163,109 @@ export default function ShopScreen() {
   const showSearchResults = searchQuery.length >= 2 && searchResults;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Fixed Header - Always visible */}
-      <View style={styles.fixedHeader}>
-        <View style={styles.headerTitleRow}>
-          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
-          </Pressable>
-          <Text style={styles.headerTitle}>Glow Market</Text>
-          <View style={styles.headerActions}>
-            <Pressable onPress={() => navigation.navigate("Marketplace")} style={styles.marketplaceButton}>
-              <Ionicons name="storefront-outline" size={22} color={Colors.dark.xpCyan} />
-            </Pressable>
-            <Pressable onPress={handleCartPress} style={styles.cartButton}>
-              <Ionicons name="bag-outline" size={24} color={Colors.dark.text} />
-              {itemCount > 0 && (
-                <View style={styles.cartBadge}>
-                  <Text style={styles.cartBadgeText}>{itemCount > 9 ? "9+" : itemCount}</Text>
+    <LockedScreen featureKey="academy_shop">
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <Ionicons name="storefront" size={48} color={Colors.dark.primary} />
+            <Text style={styles.loadingText}>Loading Glow Market...</Text>
+          </View>
+        ) : (
+          <>
+            <View style={styles.fixedHeader}>
+              <View style={styles.headerTitleRow}>
+                <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+                  <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+                </Pressable>
+                <Text style={styles.headerTitle}>Glow Market</Text>
+                <View style={styles.headerActions}>
+                  <Pressable onPress={() => navigation.navigate("Marketplace")} style={styles.marketplaceButton}>
+                    <Ionicons name="storefront-outline" size={22} color={Colors.dark.xpCyan} />
+                  </Pressable>
+                  <Pressable onPress={handleCartPress} style={styles.cartButton}>
+                    <Ionicons name="bag-outline" size={24} color={Colors.dark.text} />
+                    {itemCount > 0 && (
+                      <View style={styles.cartBadge}>
+                        <Text style={styles.cartBadgeText}>{itemCount > 9 ? "9+" : itemCount}</Text>
+                      </View>
+                    )}
+                  </Pressable>
                 </View>
+              </View>
+            </View>
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={Colors.dark.primary}
+                />
+              }
+              keyboardShouldPersistTaps="handled"
+            >
+              <Animated.View entering={FadeIn.duration(400)} style={styles.header}>
+                <Text style={styles.headerSubtitle}>Premium gear & services for champions</Text>
+              </Animated.View>
+
+              <Animated.View entering={FadeInUp.delay(50).duration(400)} style={styles.searchContainer}>
+                <View style={styles.searchInputContainer}>
+                  <Ionicons name="search" size={20} color={Colors.dark.textSecondary} />
+                  <TextInput
+                    style={styles.searchInput}
+                    value={searchQuery}
+                    onChangeText={handleSearch}
+                    placeholder="Search products & services..."
+                    placeholderTextColor={Colors.dark.textSecondary + "80"}
+                  />
+                  {searchQuery.length > 0 && (
+                    <Pressable onPress={() => { setSearchQuery(""); setSearchResults(null); }}>
+                      <Ionicons name="close-circle" size={20} color={Colors.dark.textSecondary} />
+                    </Pressable>
+                  )}
+                </View>
+              </Animated.View>
+
+              {xpDiscount && xpDiscount.discountPercent > 0 && (
+                <Animated.View entering={FadeInUp.delay(100).duration(400)} style={styles.xpDiscountBanner}>
+                  <LinearGradient
+                    colors={[Colors.dark.gold + "20", Colors.dark.backgroundSecondary]}
+                    style={styles.xpDiscountGradient}
+                  >
+                    <Ionicons name="flash" size={20} color={Colors.dark.gold} />
+                    <View style={styles.xpDiscountContent}>
+                      <Text style={styles.xpDiscountTitle}>
+                        {xpDiscount.tierName} Member - {xpDiscount.discountPercent}% Off
+                      </Text>
+                      <Text style={styles.xpDiscountText}>
+                        XP discount applied to all purchases!
+                      </Text>
+                    </View>
+                  </LinearGradient>
+                </Animated.View>
               )}
-            </Pressable>
-          </View>
-        </View>
-      </View>
-      
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={Colors.dark.primary}
-          />
-        }
-        keyboardShouldPersistTaps="handled"
-      >
-        <Animated.View entering={FadeIn.duration(400)} style={styles.header}>
-          <Text style={styles.headerSubtitle}>Premium gear & services for champions</Text>
-        </Animated.View>
 
-        <Animated.View entering={FadeInUp.delay(50).duration(400)} style={styles.searchContainer}>
-          <View style={styles.searchInputContainer}>
-            <Ionicons name="search" size={20} color={Colors.dark.textSecondary} />
-            <TextInput
-              style={styles.searchInput}
-              value={searchQuery}
-              onChangeText={handleSearch}
-              placeholder="Search products & services..."
-              placeholderTextColor={Colors.dark.textSecondary + "80"}
-            />
-            {searchQuery.length > 0 && (
-              <Pressable onPress={() => { setSearchQuery(""); setSearchResults(null); }}>
-                <Ionicons name="close-circle" size={20} color={Colors.dark.textSecondary} />
-              </Pressable>
-            )}
-          </View>
-        </Animated.View>
+              <Animated.View entering={FadeInUp.delay(150).duration(400)} style={styles.marketplaceBanner}>
+                <Pressable onPress={() => navigation.navigate("Marketplace")}>
+                  <LinearGradient
+                    colors={[Colors.dark.xpCyan + "15", Colors.dark.backgroundSecondary]}
+                    style={styles.marketplaceBannerGradient}
+                  >
+                    <View style={styles.marketplaceBannerIcon}>
+                      <Ionicons name="people" size={24} color={Colors.dark.xpCyan} />
+                    </View>
+                    <View style={styles.marketplaceBannerContent}>
+                      <Text style={styles.marketplaceBannerTitle}>Community Marketplace</Text>
+                      <Text style={styles.marketplaceBannerText}>Buy & sell used gear from fellow players</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color={Colors.dark.xpCyan} />
+                  </LinearGradient>
+                </Pressable>
+              </Animated.View>
 
-        {xpDiscount && xpDiscount.discountPercent > 0 && (
-          <Animated.View entering={FadeInUp.delay(100).duration(400)} style={styles.xpDiscountBanner}>
-            <LinearGradient
-              colors={[Colors.dark.gold + "20", Colors.dark.backgroundSecondary]}
-              style={styles.xpDiscountGradient}
-            >
-              <Ionicons name="flash" size={20} color={Colors.dark.gold} />
-              <View style={styles.xpDiscountContent}>
-                <Text style={styles.xpDiscountTitle}>
-                  {xpDiscount.tierName} Member - {xpDiscount.discountPercent}% Off
-                </Text>
-                <Text style={styles.xpDiscountText}>
-                  XP discount applied to all purchases!
-                </Text>
-              </View>
-            </LinearGradient>
-          </Animated.View>
-        )}
-
-        <Animated.View entering={FadeInUp.delay(150).duration(400)} style={styles.marketplaceBanner}>
-          <Pressable onPress={() => navigation.navigate("Marketplace")}>
-            <LinearGradient
-              colors={[Colors.dark.xpCyan + "15", Colors.dark.backgroundSecondary]}
-              style={styles.marketplaceBannerGradient}
-            >
-              <View style={styles.marketplaceBannerIcon}>
-                <Ionicons name="people" size={24} color={Colors.dark.xpCyan} />
-              </View>
-              <View style={styles.marketplaceBannerContent}>
-                <Text style={styles.marketplaceBannerTitle}>Community Marketplace</Text>
-                <Text style={styles.marketplaceBannerText}>Buy & sell used gear from fellow players</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={Colors.dark.xpCyan} />
-            </LinearGradient>
-          </Pressable>
-        </Animated.View>
-
-        {showSearchResults ? (
+              {showSearchResults ? (
           <Animated.View entering={FadeIn.duration(300)}>
             <Text style={styles.sectionTitle}>Search Results</Text>
             {isSearching ? (
@@ -527,12 +523,14 @@ export default function ShopScreen() {
                 </View>
               </LinearGradient>
             </Animated.View>
+                <View style={{ height: insets.bottom + 100 }} />
+              </>
+            )}
+            </ScrollView>
           </>
         )}
-
-        <View style={{ height: insets.bottom + 100 }} />
-      </ScrollView>
-    </View>
+      </View>
+    </LockedScreen>
   );
 }
 

@@ -15,6 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
+import { LockedScreen } from "../components/LockedScreen";
 
 type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
 
@@ -120,14 +121,15 @@ export default function CourtBookingScreen() {
   const dateOptions = getDateOptions();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={28} color={Colors.dark.text} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Book a Court</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+    <LockedScreen featureKey="court_booking">
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={28} color={Colors.dark.text} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Book a Court</Text>
+          <View style={styles.headerSpacer} />
+        </View>
 
       <View style={styles.searchContainer}>
         <View style={styles.searchInputWrapper}>
@@ -280,8 +282,9 @@ export default function CourtBookingScreen() {
             </Pressable>
           ))
         )}
-      </ScrollView>
-    </View>
+        </ScrollView>
+      </View>
+    </LockedScreen>
   );
 }
 

@@ -12,6 +12,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { getStaticAssetsUrl, apiFetch } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
+import { LockedScreen } from "../components/LockedScreen";
 
 interface PlayerResult {
   id: string;
@@ -149,20 +150,21 @@ export default function PlayerFinderScreen() {
   const refetch = activeTab === "search" ? refetchSearch : activeTab === "openToPlay" ? refetchOTP : refetchDiscover;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Pressable
-          style={styles.backButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            navigation.goBack();
-          }}
-        >
-          <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Find Players</Text>
-        <View style={{ width: 40 }} />
-      </View>
+    <LockedScreen featureKey="player_finder">
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Pressable
+            style={styles.backButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.goBack();
+            }}
+          >
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Find Players</Text>
+          <View style={{ width: 40 }} />
+        </View>
 
       <View style={styles.tabsContainer}>
         <Pressable
@@ -355,8 +357,9 @@ export default function PlayerFinderScreen() {
             </View>
           }
         />
-      )}
-    </View>
+        )}
+      </View>
+    </LockedScreen>
   );
 }
 

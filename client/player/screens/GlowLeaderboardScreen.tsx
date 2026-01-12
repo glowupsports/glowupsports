@@ -12,6 +12,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { getStaticAssetsUrl, apiFetch } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
+import { LockedScreen } from "../components/LockedScreen";
 
 interface RankedPlayer {
   rank: number;
@@ -161,20 +162,21 @@ export default function GlowLeaderboardScreen() {
   const restOfRankings = data?.rankings.slice(3) || [];
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Pressable
-          style={styles.backButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            navigation.goBack();
-          }}
-        >
-          <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Glow Rank</Text>
-        <View style={{ width: 40 }} />
-      </View>
+    <LockedScreen featureKey="glow_leaderboard">
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Pressable
+            style={styles.backButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.goBack();
+            }}
+          >
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Glow Rank</Text>
+          <View style={{ width: 40 }} />
+        </View>
 
       <View style={styles.scopeToggle}>
         <Pressable
@@ -251,8 +253,9 @@ export default function GlowLeaderboardScreen() {
             </View>
           }
         />
-      )}
-    </View>
+        )}
+      </View>
+    </LockedScreen>
   );
 }
 

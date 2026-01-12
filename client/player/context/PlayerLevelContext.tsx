@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";
 
 interface PlayerLevelContextValue {
+  playerId: string | null;
   level: number;
   title: string;
   xpInCurrentLevel: number;
@@ -79,6 +80,7 @@ export function PlayerLevelProvider({ playerId, children }: PlayerLevelProviderP
   }, [levelStatus?.unlockedFeatures]);
 
   const value: PlayerLevelContextValue = {
+    playerId,
     level: levelStatus?.level ?? 1,
     title: levelStatus?.title ?? "Rookie",
     xpInCurrentLevel: levelStatus?.xpInCurrentLevel ?? 0,

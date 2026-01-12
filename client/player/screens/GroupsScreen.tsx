@@ -22,6 +22,7 @@ import { ThemedText as Text } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { apiRequest } from "@/lib/query-client";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { LockedScreen } from "../components/LockedScreen";
 
 interface Group {
   id: string;
@@ -310,18 +311,19 @@ export default function GroupsScreen({ navigation }: Props) {
   );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Groups</Text>
-        <Pressable 
-          style={styles.createIconButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setShowCreateModal(true);
-          }}
-        >
-          <Ionicons name="add-circle" size={28} color={Colors.dark.primary} />
-        </Pressable>
+    <LockedScreen featureKey="groups">
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Groups</Text>
+          <Pressable 
+            style={styles.createIconButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowCreateModal(true);
+            }}
+          >
+            <Ionicons name="add-circle" size={28} color={Colors.dark.primary} />
+          </Pressable>
       </View>
 
       <View style={styles.tabs}>
@@ -386,7 +388,8 @@ export default function GroupsScreen({ navigation }: Props) {
         onClose={() => setShowCreateModal(false)}
         onCreate={(data) => createMutation.mutate(data)}
       />
-    </View>
+      </View>
+    </LockedScreen>
   );
 }
 

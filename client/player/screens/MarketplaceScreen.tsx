@@ -23,6 +23,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useNavigation } from "@react-navigation/native";
 import { Colors, Spacing } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { LockedScreen } from "../components/LockedScreen";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = (SCREEN_WIDTH - Spacing.lg * 3) / 2;
@@ -110,16 +111,17 @@ export default function MarketplaceScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Marketplace</Text>
-        <Pressable onPress={() => navigation.navigate("MyListings")} style={styles.headerButton}>
-          <Ionicons name="list" size={22} color={Colors.dark.text} />
-        </Pressable>
-      </View>
+    <LockedScreen featureKey="marketplace">
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Marketplace</Text>
+          <Pressable onPress={() => navigation.navigate("MyListings")} style={styles.headerButton}>
+            <Ionicons name="list" size={22} color={Colors.dark.text} />
+          </Pressable>
+        </View>
 
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
@@ -297,7 +299,8 @@ export default function MarketplaceScreen() {
           refetch();
         }}
       />
-    </View>
+      </View>
+    </LockedScreen>
   );
 }
 

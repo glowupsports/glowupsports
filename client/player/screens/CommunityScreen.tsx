@@ -29,6 +29,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { apiRequest, apiFetch, getApiUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
+import { LockedScreen } from "../components/LockedScreen";
 import * as Clipboard from "expo-clipboard";
 
 type FeedFilter = "for_you" | "friends" | "groups" | "academy" | "events";
@@ -893,11 +894,12 @@ export default function CommunityScreen() {
   };
   
   return (
-    <ThemedView style={styles.container}>
-      <LinearGradient
-        colors={[Colors.dark.backgroundRoot, "#0a1a2e", Colors.dark.backgroundRoot]}
-        style={StyleSheet.absoluteFill}
-      />
+    <LockedScreen featureKey="community_feed">
+      <ThemedView style={styles.container}>
+        <LinearGradient
+          colors={[Colors.dark.backgroundRoot, "#0a1a2e", Colors.dark.backgroundRoot]}
+          style={StyleSheet.absoluteFill}
+        />
       
       <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
         <ThemedText style={styles.title}>Community</ThemedText>
@@ -972,7 +974,8 @@ export default function CommunityScreen() {
           setSelectedCommentPostId(null);
         }}
       />
-    </ThemedView>
+      </ThemedView>
+    </LockedScreen>
   );
 }
 
