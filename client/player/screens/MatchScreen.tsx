@@ -151,7 +151,7 @@ export default function MatchScreen() {
 
         <View style={styles.cardActions}>
           <Pressable style={styles.actionButton}>
-            <Ionicons name="create-outline" size={18} color={Colors.primary} />
+            <Ionicons name="create-outline" size={18} color={Colors.dark.primary} />
             <Text style={styles.actionText}>Edit Plan</Text>
           </Pressable>
           <Pressable 
