@@ -20,6 +20,7 @@ import { Button } from "@/components/Button";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { usePlayer } from "@/player/context/PlayerContext";
 
 type MatchType = "friendly" | "ladder" | "tournament";
 type Verification = "self_reported" | "coach_verified";
@@ -43,6 +44,7 @@ export default function RecordAdultMatchScreen() {
   const headerHeight = useHeaderHeight();
   const navigation = useNavigation();
   const queryClient = useQueryClient();
+  const { playerId, isLoading: playerLoading } = usePlayer();
 
   const [opponentName, setOpponentName] = useState("");
   const [didWin, setDidWin] = useState<boolean | null>(null);
@@ -51,6 +53,7 @@ export default function RecordAdultMatchScreen() {
   const [verification, setVerification] = useState<Verification>("self_reported");
   const [showResult, setShowResult] = useState(false);
   const [matchResult, setMatchResult] = useState<MatchResult | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const recordMatchMutation = useMutation({
     mutationFn: async (data: {
@@ -68,9 +71,11 @@ export default function RecordAdultMatchScreen() {
     onSuccess: (result: MatchResult) => {
       setMatchResult(result);
       setShowResult(true);
-      queryClient.invalidateQueries({ queryKey: ["/api/adult-glow"] });
+      setIsSubmitting(false);
+      queryClient.invalidateQueries({ queryKey: [`/api/adult-glow/player/${playerId}/full-profile`] });
     },
     onError: (error) => {
+      setIsSubmitting(false);
       Alert.alert("Error", "Failed to record match. Please try again.");
       console.error("Match recording error:", error);
     },
@@ -86,7 +91,11 @@ export default function RecordAdultMatchScreen() {
     return didWin ? Math.abs(totalDiff) : -Math.abs(totalDiff);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (!playerId) {
+      Alert.alert("Error", "You must be logged in to record a match.");
+      return;
+    }
     if (!opponentName.trim()) {
       Alert.alert("Missing Information", "Please enter the opponent's name.");
       return;
@@ -96,15 +105,34 @@ export default function RecordAdultMatchScreen() {
       return;
     }
 
-    recordMatchMutation.mutate({
-      playerId: "demo-player-1",
-      opponentId: "demo-opponent-1",
-      didWin,
-      gamesDiff: parseGamesDiff(setScore),
-      setScore: setScore || "Unknown",
-      matchType,
-      verification,
-    });
+    setIsSubmitting(true);
+
+    try {
+      const opponentRes = await apiRequest("POST", "/api/adult-glow/find-or-create-opponent", {
+        name: opponentName.trim(),
+      });
+      const opponentData = await opponentRes.json();
+      
+      if (!opponentData.opponent?.id) {
+        Alert.alert("Error", "Could not find or create opponent.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      recordMatchMutation.mutate({
+        playerId,
+        opponentId: opponentData.opponent.id,
+        didWin,
+        gamesDiff: parseGamesDiff(setScore),
+        setScore: setScore || "Unknown",
+        matchType,
+        verification,
+      });
+    } catch (error) {
+      setIsSubmitting(false);
+      Alert.alert("Error", "Failed to process opponent. Please try again.");
+      console.error("Opponent lookup error:", error);
+    }
   };
 
   const handleNewMatch = () => {
@@ -116,6 +144,26 @@ export default function RecordAdultMatchScreen() {
     setMatchType("friendly");
     setVerification("self_reported");
   };
+
+  if (playerLoading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color={Colors.dark.primary} />
+      </View>
+    );
+  }
+
+  if (!playerId) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.orange} />
+        <ThemedText style={styles.errorTitle}>Not Available</ThemedText>
+        <ThemedText style={styles.errorText}>
+          You need to be logged in as a player to record matches.
+        </ThemedText>
+      </View>
+    );
+  }
 
   if (showResult && matchResult) {
     return (
@@ -360,10 +408,10 @@ export default function RecordAdultMatchScreen() {
         </ThemedText>
 
         <View style={styles.submitSection}>
-          {recordMatchMutation.isPending ? (
+          {isSubmitting || recordMatchMutation.isPending ? (
             <ActivityIndicator size="large" color={Colors.dark.primary} />
           ) : (
-            <Button title="Record Match" onPress={handleSubmit} />
+            <Button title="Record Match" onPress={handleSubmit} disabled={!playerId} />
           )}
         </View>
       </KeyboardAwareScrollViewCompat>
@@ -375,6 +423,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  centered: {
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: Spacing.xl,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
+  },
+  errorText: {
+    fontSize: 14,
+    color: Colors.dark.text,
+    opacity: 0.7,
+    textAlign: "center",
   },
   sectionTitle: {
     fontSize: 14,

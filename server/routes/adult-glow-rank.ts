@@ -509,6 +509,56 @@ router.post("/templates/select", async (req, res) => {
 // =============================================================================
 
 /**
+ * POST /api/adult-glow/find-or-create-opponent
+ * Find an existing opponent by name or create a placeholder opponent record
+ */
+router.post("/find-or-create-opponent", async (req, res) => {
+  try {
+    const { name, academyId } = req.body;
+    
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: "Opponent name is required" });
+    }
+    
+    const trimmedName = name.trim();
+    
+    // Try to find existing player by name
+    const existingPlayers = await db
+      .select({ id: players.id, name: players.name })
+      .from(players)
+      .where(sql`LOWER(${players.name}) = LOWER(${trimmedName})`)
+      .limit(5);
+    
+    if (existingPlayers.length > 0) {
+      // Return first match
+      return res.json({
+        opponent: existingPlayers[0],
+        created: false,
+        suggestions: existingPlayers,
+      });
+    }
+    
+    // Create a new "external" opponent
+    const [newOpponent] = await db.insert(players).values({
+      name: trimmedName,
+      academyId: academyId || null,
+      isAdult: true,
+      glowMmr: 1000,
+      glowRank: 9,
+    }).returning({ id: players.id, name: players.name });
+    
+    res.json({
+      opponent: newOpponent,
+      created: true,
+      suggestions: [],
+    });
+  } catch (error) {
+    console.error("Error finding/creating opponent:", error);
+    res.status(500).json({ error: "Failed to process opponent" });
+  }
+});
+
+/**
  * POST /api/adult-glow/player/:playerId/toggle-adult
  * Toggle player between youth (ball levels) and adult (Glow Rank) system
  */
@@ -540,6 +590,139 @@ router.post("/player/:playerId/toggle-adult", async (req, res) => {
   } catch (error) {
     console.error("Error toggling adult status:", error);
     res.status(500).json({ error: "Failed to toggle adult status" });
+  }
+});
+
+/**
+ * GET /api/adult-glow/player/:playerId/full-profile
+ * Get complete adult glow profile: rank, matches, gates, stats in one call
+ */
+router.get("/player/:playerId/full-profile", async (req, res) => {
+  try {
+    const { playerId } = req.params;
+    
+    // Get player
+    const [player] = await db
+      .select({
+        id: players.id,
+        name: players.name,
+        glowMmr: players.glowMmr,
+        glowRank: players.glowRank,
+        totalMatchesPlayed: players.totalMatchesPlayed,
+        isAdult: players.isAdult,
+        rageQuitCount: players.rageQuitCount,
+        noShowCount: players.noShowCount,
+      })
+      .from(players)
+      .where(eq(players.id, playerId))
+      .limit(1);
+    
+    if (!player) {
+      return res.status(404).json({ error: "Player not found" });
+    }
+    
+    const currentRank = player.glowRank || 9;
+    const rankInfo = getRankInfo(currentRank);
+    const nextRankInfo = getRankInfo(currentRank - 1);
+    const fullRankData = ADULT_GLOW_RANKS.find(r => r.rank === currentRank);
+    
+    // Get recent matches (last 10)
+    const recentMatches = await db
+      .select({
+        id: adultGlowMatches.id,
+        opponentId: adultGlowMatches.opponentId,
+        didWin: adultGlowMatches.didWin,
+        setScore: adultGlowMatches.setScore,
+        matchType: adultGlowMatches.matchType,
+        mmrDelta: adultGlowMatches.mmrDelta,
+        matchDate: adultGlowMatches.matchDate,
+      })
+      .from(adultGlowMatches)
+      .where(eq(adultGlowMatches.playerId, playerId))
+      .orderBy(desc(adultGlowMatches.matchDate))
+      .limit(10);
+    
+    // Get opponent names for matches
+    const opponentIds = [...new Set(recentMatches.map(m => m.opponentId))];
+    const opponents = opponentIds.length > 0 
+      ? await db
+          .select({ id: players.id, name: players.name })
+          .from(players)
+          .where(sql`${players.id} IN ${opponentIds}`)
+      : [];
+    const opponentMap = new Map(opponents.map(o => [o.id, o.name]));
+    
+    // Get skill assessments
+    const assessments = await db
+      .select({
+        skillId: adultSkillAssessments.skillId,
+        score: adultSkillAssessments.score,
+      })
+      .from(adultSkillAssessments)
+      .where(eq(adultSkillAssessments.playerId, playerId));
+    
+    // Calculate unlocked gates based on assessments
+    const assessmentArray = assessments.map(a => ({ skillId: a.skillId, score: a.score }));
+    const skillGatesUnlocked = getUnlockedSkillGates(assessmentArray);
+    
+    // Calculate stats
+    const wins = recentMatches.filter(m => m.didWin).length;
+    const matchesWithResults = recentMatches.length;
+    const winRate = matchesWithResults > 0 ? Math.round((wins / matchesWithResults) * 100) : 0;
+    
+    // Calculate current streak
+    let streak = 0;
+    for (const match of recentMatches) {
+      if (match.didWin) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    
+    const nextFullRankData = ADULT_GLOW_RANKS.find(r => r.rank === currentRank - 1);
+    
+    res.json({
+      playerId: player.id,
+      name: player.name,
+      mmr: player.glowMmr || 1000,
+      rank: currentRank,
+      rankName: rankInfo?.name || "Beginner Starter",
+      rankDescription: rankInfo?.abilitySnapshot || "",
+      mmrRange: rankInfo?.mmrRange || { min: 0, max: 300 },
+      nextRank: nextRankInfo && nextFullRankData ? {
+        rank: nextFullRankData.rank,
+        name: nextRankInfo.name,
+        mmrMin: nextRankInfo.mmrRange.min,
+      } : null,
+      isAdult: player.isAdult || false,
+      stats: {
+        totalMatches: player.totalMatchesPlayed || 0,
+        wins,
+        winRate,
+        streak,
+      },
+      behaviorFlags: {
+        rageQuits: player.rageQuitCount || 0,
+        noShows: player.noShowCount || 0,
+      },
+      skillGates: {
+        unlocked: skillGatesUnlocked,
+        required: fullRankData?.skillGates || [],
+      },
+      recentMatches: recentMatches.map(m => ({
+        id: m.id,
+        opponentName: opponentMap.get(m.opponentId) || "Unknown",
+        didWin: m.didWin,
+        setScore: m.setScore,
+        matchType: m.matchType,
+        mmrDelta: m.mmrDelta,
+        matchDate: m.matchDate,
+      })),
+    });
+  } catch (error) {
+    console.error("Error fetching full profile:", error);
+    res.status(500).json({ error: "Failed to fetch full profile" });
   }
 });
 

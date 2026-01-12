@@ -3,9 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/coach/context/AuthContext";
 
 interface PlayerContextData {
-  playerId: number | null;
-  academyId: number | null;
-  coachId: number | null;
+  playerId: string | null;
+  academyId: string | null;
+  coachId: string | null;
   coachName: string | null;
   level: number;
   xp: number;
@@ -14,6 +14,10 @@ interface PlayerContextData {
   dateOfBirth: string | null;
   isMinor: boolean;
   isLoading: boolean;
+  isAdult: boolean;
+  glowMmr: number;
+  glowRank: number;
+  totalMatchesPlayed: number;
 }
 
 function calculateAge(dateOfBirth: string | null): number {
@@ -36,17 +40,21 @@ interface PlayerProviderProps {
 
 interface PlayerProfile {
   player: {
-    id: number;
-    academyId: number;
-    coachId: number;
+    id: string;
+    academyId: string;
+    coachId: string;
     level: number;
     xp: number;
     glowScore: number;
     ballLevel: string;
     dateOfBirth?: string | null;
+    isAdult?: boolean;
+    glowMmr?: number;
+    glowRank?: number;
+    totalMatchesPlayed?: number;
   };
   coach?: {
-    id: number;
+    id: string;
     username: string;
   };
 }
@@ -63,17 +71,21 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
   const age = calculateAge(dateOfBirth);
   
   const value: PlayerContextData = {
-    playerId: profile?.player?.id || null,
-    academyId: profile?.player?.academyId || null,
-    coachId: profile?.player?.coachId || null,
-    coachName: profile?.coach?.username || null,
-    level: profile?.player?.level || 1,
-    xp: profile?.player?.xp || 0,
-    glowScore: profile?.player?.glowScore || 0,
-    ballLevel: profile?.player?.ballLevel || "red",
+    playerId: profile?.player?.id ?? null,
+    academyId: profile?.player?.academyId ?? null,
+    coachId: profile?.player?.coachId ?? null,
+    coachName: profile?.coach?.username ?? null,
+    level: profile?.player?.level ?? 1,
+    xp: profile?.player?.xp ?? 0,
+    glowScore: profile?.player?.glowScore ?? 0,
+    ballLevel: profile?.player?.ballLevel ?? "red",
     dateOfBirth,
     isMinor: age <= 17,
     isLoading,
+    isAdult: profile?.player?.isAdult ?? false,
+    glowMmr: profile?.player?.glowMmr ?? 1000,
+    glowRank: profile?.player?.glowRank ?? 9,
+    totalMatchesPlayed: profile?.player?.totalMatchesPlayed ?? 0,
   };
 
   return (

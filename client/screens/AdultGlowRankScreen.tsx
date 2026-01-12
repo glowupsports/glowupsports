@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { View, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -9,20 +9,30 @@ import type { DrawerNavigationProp } from "@react-navigation/drawer";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { usePlayer } from "@/player/context/PlayerContext";
 
 type DrawerParamList = {
   AdultRanksList: undefined;
   RecordAdultMatch: undefined;
 };
 
-interface RankInfo {
-  rank: number;
-  name: string;
-  mmrRange: { min: number; max: number };
+interface SkillGate {
+  id: string;
+  description: string;
 }
 
-interface PlayerRankData {
+interface RecentMatch {
+  id: string;
+  opponentName: string;
+  didWin: boolean;
+  setScore: string | null;
+  matchType: string;
+  mmrDelta: number | null;
+  matchDate: string;
+}
+
+interface FullProfileResponse {
   playerId: string;
   name: string;
   mmr: number;
@@ -30,14 +40,23 @@ interface PlayerRankData {
   rankName: string;
   rankDescription: string;
   mmrRange: { min: number; max: number };
-  totalMatches: number;
+  nextRank: { rank: number; name: string; mmrMin: number } | null;
   isAdult: boolean;
-}
-
-interface RanksResponse {
-  ranks: RankInfo[];
-  totalRanks: number;
-  mmrConfig: { minMmr: number; maxMmr: number; startingMmr: number };
+  stats: {
+    totalMatches: number;
+    wins: number;
+    winRate: number;
+    streak: number;
+  };
+  behaviorFlags: {
+    rageQuits: number;
+    noShows: number;
+  };
+  skillGates: {
+    unlocked: string[];
+    required: SkillGate[];
+  };
+  recentMatches: RecentMatch[];
 }
 
 const RANK_COLORS: Record<number, string> = {
@@ -56,28 +75,35 @@ export default function AdultGlowRankScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const navigation = useNavigation<DrawerNavigationProp<DrawerParamList>>();
+  const { playerId, isLoading: playerLoading } = usePlayer();
 
-  const { data: ranksData, isLoading: ranksLoading } = useQuery<RanksResponse>({
-    queryKey: ["/api/adult-glow/ranks"],
+  const { data: profileData, isLoading } = useQuery<FullProfileResponse>({
+    queryKey: [`/api/adult-glow/player/${playerId}/full-profile`],
+    enabled: !!playerId,
   });
 
-  const playerMmr = 1000;
-  const playerRank = 7;
-  const playerRankName = "Club Player";
-  const totalMatches = 12;
+  if (playerLoading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <ThemedText style={styles.loadingText}>Loading...</ThemedText>
+      </View>
+    );
+  }
 
-  const currentRankInfo = ranksData?.ranks.find((r) => r.rank === playerRank);
-  const nextRankInfo = ranksData?.ranks.find((r) => r.rank === playerRank - 1);
+  if (!playerId) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.orange} />
+        <ThemedText style={styles.errorTitle}>Not Available</ThemedText>
+        <ThemedText style={styles.errorText}>
+          You need to be logged in as a player to view your Glow Rank.
+        </ThemedText>
+      </View>
+    );
+  }
 
-  const mmrProgress = currentRankInfo
-    ? ((playerMmr - currentRankInfo.mmrRange.min) /
-        (currentRankInfo.mmrRange.max - currentRankInfo.mmrRange.min)) *
-      100
-    : 0;
-
-  const mmrToNextRank = nextRankInfo ? nextRankInfo.mmrRange.min - playerMmr : 0;
-
-  if (ranksLoading) {
+  if (isLoading || !profileData) {
     return (
       <View style={[styles.container, styles.centered]}>
         <ActivityIndicator size="large" color={Colors.dark.primary} />
@@ -85,6 +111,24 @@ export default function AdultGlowRankScreen() {
       </View>
     );
   }
+
+  const {
+    mmr,
+    rank,
+    rankName,
+    mmrRange,
+    nextRank,
+    stats,
+    skillGates,
+    recentMatches,
+  } = profileData;
+
+  const mmrProgress =
+    mmrRange.max > mmrRange.min
+      ? ((mmr - mmrRange.min) / (mmrRange.max - mmrRange.min)) * 100
+      : 0;
+
+  const mmrToNextRank = nextRank ? nextRank.mmrMin - mmr : 0;
 
   return (
     <View style={styles.container}>
@@ -101,26 +145,22 @@ export default function AdultGlowRankScreen() {
             <View
               style={[
                 styles.rankBadge,
-                { backgroundColor: RANK_COLORS[playerRank] || Colors.dark.primary },
+                { backgroundColor: RANK_COLORS[rank] || Colors.dark.primary },
               ]}
             >
-              <ThemedText style={styles.rankNumber}>{playerRank}</ThemedText>
+              <ThemedText style={styles.rankNumber}>{rank}</ThemedText>
             </View>
             <View style={styles.rankInfo}>
-              <ThemedText style={styles.rankName}>{playerRankName}</ThemedText>
-              <ThemedText style={styles.mmrValue}>{playerMmr} MMR</ThemedText>
+              <ThemedText style={styles.rankName}>{rankName}</ThemedText>
+              <ThemedText style={styles.mmrValue}>{mmr} MMR</ThemedText>
             </View>
             <Ionicons name="trophy-outline" size={32} color={Colors.dark.gold} />
           </View>
 
           <View style={styles.progressSection}>
             <View style={styles.progressLabels}>
-              <ThemedText style={styles.progressLabel}>
-                {currentRankInfo?.mmrRange.min || 0}
-              </ThemedText>
-              <ThemedText style={styles.progressLabel}>
-                {currentRankInfo?.mmrRange.max || 0}
-              </ThemedText>
+              <ThemedText style={styles.progressLabel}>{mmrRange.min}</ThemedText>
+              <ThemedText style={styles.progressLabel}>{mmrRange.max}</ThemedText>
             </View>
             <View style={styles.progressBarBg}>
               <View
@@ -128,14 +168,14 @@ export default function AdultGlowRankScreen() {
                   styles.progressBarFill,
                   {
                     width: `${Math.min(100, Math.max(0, mmrProgress))}%`,
-                    backgroundColor: RANK_COLORS[playerRank] || Colors.dark.primary,
+                    backgroundColor: RANK_COLORS[rank] || Colors.dark.primary,
                   },
                 ]}
               />
             </View>
-            {nextRankInfo && mmrToNextRank > 0 && (
+            {nextRank && mmrToNextRank > 0 && (
               <ThemedText style={styles.nextRankText}>
-                {mmrToNextRank} MMR to {nextRankInfo.name}
+                {mmrToNextRank} MMR to {nextRank.name}
               </ThemedText>
             )}
           </View>
@@ -144,17 +184,17 @@ export default function AdultGlowRankScreen() {
         <View style={styles.statsRow}>
           <Card elevation={1} style={styles.statCard}>
             <Ionicons name="tennisball-outline" size={24} color={Colors.dark.xpCyan} />
-            <ThemedText style={styles.statValue}>{totalMatches}</ThemedText>
+            <ThemedText style={styles.statValue}>{stats.totalMatches}</ThemedText>
             <ThemedText style={styles.statLabel}>Matches</ThemedText>
           </Card>
           <Card elevation={1} style={styles.statCard}>
             <Ionicons name="trending-up-outline" size={24} color={Colors.dark.successNeon} />
-            <ThemedText style={styles.statValue}>65%</ThemedText>
+            <ThemedText style={styles.statValue}>{stats.winRate}%</ThemedText>
             <ThemedText style={styles.statLabel}>Win Rate</ThemedText>
           </Card>
           <Card elevation={1} style={styles.statCard}>
             <Ionicons name="flame-outline" size={24} color={Colors.dark.orange} />
-            <ThemedText style={styles.statValue}>3</ThemedText>
+            <ThemedText style={styles.statValue}>{stats.streak}</ThemedText>
             <ThemedText style={styles.statLabel}>Win Streak</ThemedText>
           </Card>
         </View>
@@ -203,83 +243,70 @@ export default function AdultGlowRankScreen() {
         </ThemedText>
 
         <Card elevation={1} style={styles.gatesCard}>
-          <View style={styles.gateItem}>
-            <View style={[styles.gateStatus, styles.gateCompleted]}>
-              <Feather name="check" size={16} color={Colors.dark.buttonText} />
-            </View>
-            <View style={styles.gateInfo}>
-              <ThemedText style={styles.gateName}>Rally Ability</ThemedText>
-              <ThemedText style={styles.gateDesc}>Maintain 8+ ball rallies</ThemedText>
-            </View>
-          </View>
-          <View style={styles.gateDivider} />
-          <View style={styles.gateItem}>
-            <View style={[styles.gateStatus, styles.gateCompleted]}>
-              <Feather name="check" size={16} color={Colors.dark.buttonText} />
-            </View>
-            <View style={styles.gateInfo}>
-              <ThemedText style={styles.gateName}>Overhead Serve</ThemedText>
-              <ThemedText style={styles.gateDesc}>6+/10 serves in with proper motion</ThemedText>
-            </View>
-          </View>
-          <View style={styles.gateDivider} />
-          <View style={styles.gateItem}>
-            <View style={[styles.gateStatus, styles.gatePending]}>
-              <Feather name="clock" size={16} color={Colors.dark.text} />
-            </View>
-            <View style={styles.gateInfo}>
-              <ThemedText style={styles.gateName}>Depth Control</ThemedText>
-              <ThemedText style={styles.gateDesc}>7+/10 balls past service line</ThemedText>
-            </View>
-          </View>
+          {skillGates.required.length === 0 ? (
+            <ThemedText style={styles.noGatesText}>
+              No skill gates required at this rank
+            </ThemedText>
+          ) : (
+            skillGates.required.map((gate, index) => {
+              const isUnlocked = skillGates.unlocked.includes(gate.id);
+              return (
+                <React.Fragment key={gate.id}>
+                  {index > 0 && <View style={styles.gateDivider} />}
+                  <View style={styles.gateItem}>
+                    <View
+                      style={[
+                        styles.gateStatus,
+                        isUnlocked ? styles.gateCompleted : styles.gatePending,
+                      ]}
+                    >
+                      {isUnlocked ? (
+                        <Feather name="check" size={16} color={Colors.dark.buttonText} />
+                      ) : (
+                        <Feather name="clock" size={16} color={Colors.dark.text} />
+                      )}
+                    </View>
+                    <View style={styles.gateInfo}>
+                      <ThemedText style={styles.gateName}>{gate.id}</ThemedText>
+                      <ThemedText style={styles.gateDesc}>{gate.description}</ThemedText>
+                    </View>
+                  </View>
+                </React.Fragment>
+              );
+            })
+          )}
         </Card>
 
         <ThemedText style={styles.sectionTitle}>Recent Matches</ThemedText>
 
-        <Card elevation={1} style={styles.matchCard}>
-          <View style={styles.matchRow}>
-            <View style={[styles.matchResult, styles.matchWin]}>
-              <ThemedText style={styles.matchResultText}>W</ThemedText>
-            </View>
-            <View style={styles.matchInfo}>
-              <ThemedText style={styles.matchOpponent}>vs. Alex Johnson</ThemedText>
-              <ThemedText style={styles.matchScore}>6-4, 6-3</ThemedText>
-            </View>
-            <View style={styles.matchMmr}>
-              <ThemedText style={styles.mmrGain}>+24</ThemedText>
-            </View>
-          </View>
-        </Card>
-
-        <Card elevation={1} style={styles.matchCard}>
-          <View style={styles.matchRow}>
-            <View style={[styles.matchResult, styles.matchLoss]}>
-              <ThemedText style={styles.matchResultText}>L</ThemedText>
-            </View>
-            <View style={styles.matchInfo}>
-              <ThemedText style={styles.matchOpponent}>vs. Sarah Miller</ThemedText>
-              <ThemedText style={styles.matchScore}>4-6, 5-7</ThemedText>
-            </View>
-            <View style={styles.matchMmr}>
-              <ThemedText style={styles.mmrLoss}>-18</ThemedText>
-            </View>
-          </View>
-        </Card>
-
-        <Card elevation={1} style={styles.matchCard}>
-          <View style={styles.matchRow}>
-            <View style={[styles.matchResult, styles.matchWin]}>
-              <ThemedText style={styles.matchResultText}>W</ThemedText>
-            </View>
-            <View style={styles.matchInfo}>
-              <ThemedText style={styles.matchOpponent}>vs. Mike Chen</ThemedText>
-              <ThemedText style={styles.matchScore}>6-2, 6-1</ThemedText>
-            </View>
-            <View style={styles.matchMmr}>
-              <ThemedText style={styles.mmrGain}>+28</ThemedText>
-            </View>
-          </View>
-        </Card>
+        {recentMatches.length === 0 ? (
+          <Card elevation={1} style={styles.matchCard}>
+            <ThemedText style={styles.noMatchesText}>
+              No matches recorded yet. Play your first match!
+            </ThemedText>
+          </Card>
+        ) : (
+          recentMatches.map((match) => (
+            <Card key={match.id} elevation={1} style={styles.matchCard}>
+              <View style={styles.matchRow}>
+                <View style={[styles.matchResult, match.didWin ? styles.matchWin : styles.matchLoss]}>
+                  <ThemedText style={styles.matchResultText}>{match.didWin ? "W" : "L"}</ThemedText>
+                </View>
+                <View style={styles.matchInfo}>
+                  <ThemedText style={styles.matchOpponent}>vs. {match.opponentName}</ThemedText>
+                  <ThemedText style={styles.matchScore}>{match.setScore || match.matchType}</ThemedText>
+                </View>
+                <View style={styles.matchMmr}>
+                  {match.mmrDelta !== null && (
+                    <ThemedText style={match.mmrDelta >= 0 ? styles.mmrGain : styles.mmrLoss}>
+                      {match.mmrDelta >= 0 ? "+" : ""}{match.mmrDelta}
+                    </ThemedText>
+                  )}
+                </View>
+              </View>
+            </Card>
+          ))
+        )}
       </ScrollView>
     </View>
   );
@@ -297,6 +324,20 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: Spacing.md,
     opacity: 0.7,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
+  },
+  errorText: {
+    fontSize: 14,
+    color: Colors.dark.text,
+    opacity: 0.7,
+    textAlign: "center",
+    paddingHorizontal: Spacing.xl,
   },
   rankCard: {
     marginBottom: Spacing.lg,
@@ -400,9 +441,9 @@ const styles = StyleSheet.create({
   actionButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundDefault,
-    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
     padding: Spacing.md,
+    borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
   },
   actionContent: {
@@ -419,6 +460,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     marginLeft: Spacing.md,
+    flex: 1,
   },
   actionTitle: {
     fontSize: 15,
@@ -426,13 +468,13 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   actionDesc: {
-    fontSize: 12,
+    fontSize: 13,
     color: Colors.dark.text,
     opacity: 0.6,
     marginTop: 2,
   },
   gatesCard: {
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
   gateItem: {
     flexDirection: "row",
@@ -445,20 +487,22 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
+    marginRight: Spacing.md,
   },
   gateCompleted: {
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.successNeon,
   },
   gatePending: {
-    backgroundColor: Colors.dark.backgroundTertiary,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderWidth: 2,
+    borderColor: Colors.dark.border,
   },
   gateInfo: {
     flex: 1,
-    marginLeft: Spacing.md,
   },
   gateName: {
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: "600",
     color: Colors.dark.text,
   },
   gateDesc: {
@@ -469,12 +513,17 @@ const styles = StyleSheet.create({
   },
   gateDivider: {
     height: 1,
-    backgroundColor: Colors.dark.backgroundTertiary,
-    marginVertical: Spacing.xs,
+    backgroundColor: Colors.dark.border,
+  },
+  noGatesText: {
+    fontSize: 14,
+    color: Colors.dark.text,
+    opacity: 0.6,
+    textAlign: "center",
+    paddingVertical: Spacing.md,
   },
   matchCard: {
     marginBottom: Spacing.sm,
-    padding: Spacing.md,
   },
   matchRow: {
     flexDirection: "row",
@@ -486,9 +535,10 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
+    marginRight: Spacing.md,
   },
   matchWin: {
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.successNeon,
   },
   matchLoss: {
     backgroundColor: Colors.dark.error,
@@ -500,7 +550,6 @@ const styles = StyleSheet.create({
   },
   matchInfo: {
     flex: 1,
-    marginLeft: Spacing.md,
   },
   matchOpponent: {
     fontSize: 14,
@@ -514,7 +563,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   matchMmr: {
-    alignItems: "flex-end",
+    marginLeft: Spacing.md,
   },
   mmrGain: {
     fontSize: 16,
@@ -525,5 +574,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: Colors.dark.error,
+  },
+  noMatchesText: {
+    fontSize: 14,
+    color: Colors.dark.text,
+    opacity: 0.6,
+    textAlign: "center",
+    paddingVertical: Spacing.md,
   },
 });
