@@ -55,6 +55,10 @@ import MarketplaceListingDetailScreen from "@/player/screens/MarketplaceListingD
 import MyListingsScreen from "@/player/screens/MyListingsScreen";
 import MatchScreen from "@/player/screens/MatchScreen";
 import MatchDetailScreen from "@/player/screens/MatchDetailScreen";
+import SkillEvidenceScreen from "@/player/screens/SkillEvidenceScreen";
+import TrialGatesScreen from "@/player/screens/TrialGatesScreen";
+import CollectionScreen from "@/player/screens/CollectionScreen";
+import XPHistoryScreen from "@/player/screens/XPHistoryScreen";
 import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
 import { CartProvider } from "@/player/contexts/CartContext";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
@@ -120,6 +124,10 @@ export type PlayerStackParamList = {
   MyListings: undefined;
   Match: { opponentId?: string } | undefined;
   MatchDetail: { matchId: string };
+  SkillEvidence: undefined;
+  TrialGates: undefined;
+  Collection: undefined;
+  XPHistory: undefined;
 };
 
 const Tab = createBottomTabNavigator<PlayerTabParamList>();
@@ -567,6 +575,38 @@ function PlayerStackNavigator() {
       <Stack.Screen 
         name="MatchDetail" 
         component={MatchDetailScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="SkillEvidence" 
+        component={SkillEvidenceScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="TrialGates" 
+        component={TrialGatesScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="Collection" 
+        component={CollectionScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="XPHistory" 
+        component={XPHistoryScreen}
         options={{
           presentation: "card",
           headerShown: false,
