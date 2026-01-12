@@ -28,6 +28,17 @@ The application employs a dark-themed gaming aesthetic with neon green and cyan 
 - **Timezone Handling**: Each academy has an IANA timezone. Session `startTime` is stored as local academy time ("HH:MM") and converted to UTC by the backend. Client-side utilities display UTC timestamps in local academy time. A consistent DST handling policy ensures proper time resolution.
 - **Role-Specific Applications**: Dedicated applications for Coaches (player/session management, feedback, progress), Players (progress visualization, social features, schedules), and Platform Owners (platform-wide statistics, academy management, financial overviews, system configuration).
 - **Glow Market & Community Marketplace**: Features an Academy Shop for managing products/services and a Player Shop Experience with XP-based discounts. A Community Marketplace allows players to buy/sell used equipment, including listing creation, category/condition filters, and seller profiles with verification levels.
+- **Player Level System (XP Engine)**: A comprehensive gamification system for player engagement:
+  - **20-Level Progression**: Non-linear XP curve from Rookie (L1-3) to Elite (L19-20) with increasing XP requirements per level
+  - **XP Bar Resets Per Level**: Like video games, the XP bar resets to 0 upon leveling up - not cumulative progress
+  - **XP Triggers**: Automatic XP awards for session attendance, positive feedback, matches played, match wins, and match reflections
+  - **Anti-Abuse Rules**: Configurable one-time bonuses, cooldown periods, and daily caps per action source
+  - **Feature Unlocks**: 30+ features gated by player level, with revenue-driving features (credit store, lesson booking) at Level 1
+  - **Level-Up Celebrations**: Animated modals showing new level, title, badge/title unlocks, and newly unlocked features
+  - **Feature Onboarding**: New feature discovery modals when features are unlocked
+  - **Platform Owner Configuration**: Full control over XP amounts, level thresholds, and feature unlock levels via System > XP Engine Configuration
+  - **Database Tables**: `player_level_thresholds`, `player_level_xp_rules`, `player_feature_unlocks`, `player_xp_events`, `player_level_up_celebrations`, `player_feature_unlock_history`
+  - **API Routes**: `/api/player-level/*` for XP awarding, level status, celebrations, and configuration
 
 ## External Dependencies
 
