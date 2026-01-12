@@ -11,6 +11,8 @@ import {
   Platform,
 } from "react-native";
 import * as Haptics from "expo-haptics";
+import * as Sharing from "expo-sharing";
+import * as FileSystem from "expo-file-system";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -598,6 +600,81 @@ export default function CalendarScreen() {
   const [dragConflict, setDragConflict] = useState<string | null>(null);
   const [selectedLocationFilter, setSelectedLocationFilter] = useState<string | null>(null); // null = all locations
   const [selectedCourtFilter, setSelectedCourtFilter] = useState<string | null>(null); // null = all courts
+  const [isExporting, setIsExporting] = useState(false);
+
+  const exportCalendarToICS = useCallback(async () => {
+    if (!calendarData?.ownSessions || calendarData.ownSessions.length === 0) {
+      Alert.alert("No Sessions", "There are no sessions to export.");
+      return;
+    }
+
+    setIsExporting(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    try {
+      const formatICSDate = (dateStr: string): string => {
+        const date = parseUTCTimestamp(dateStr);
+        return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+      };
+
+      const escapeICS = (text: string): string => {
+        return text.replace(/[\\;,\n]/g, (match) => {
+          if (match === "\n") return "\\n";
+          return "\\" + match;
+        });
+      };
+
+      const events = calendarData.ownSessions.map((session) => {
+        const court = allCourts.find(c => c.id === session.courtId);
+        const courtName = court?.name || "Court";
+        const location = court?.locationId ? allLocations.find(l => l.id === court.locationId)?.name : "";
+        
+        return `BEGIN:VEVENT
+UID:${session.id}@glowupsports.com
+DTSTAMP:${formatICSDate(new Date().toISOString())}
+DTSTART:${formatICSDate(session.startTime)}
+DTEND:${formatICSDate(session.endTime)}
+SUMMARY:${escapeICS(`Tennis Session - ${session.sessionType || "Training"}`)}
+LOCATION:${escapeICS(`${courtName}${location ? ` - ${location}` : ""}`)}
+DESCRIPTION:${escapeICS(`Duration: ${session.duration} min | Status: ${session.status || "scheduled"}`)}
+STATUS:CONFIRMED
+END:VEVENT`;
+      });
+
+      const icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Glow Up Sports//Coach Calendar//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Coach Sessions
+${events.join("\n")}
+END:VCALENDAR`;
+
+      const fileName = `coach-calendar-${formatLocalDateToString(selectedDate).replace(/\//g, "-")}.ics`;
+      const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+      
+      await FileSystem.writeAsStringAsync(fileUri, icsContent, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: "text/calendar",
+          dialogTitle: "Export Calendar",
+          UTI: "public.calendar-event",
+        });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        Alert.alert("Export Ready", "Calendar file created but sharing is not available on this device.");
+      }
+    } catch (error) {
+      console.error("Error exporting calendar:", error);
+      Alert.alert("Export Failed", "Could not export calendar. Please try again.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [calendarData?.ownSessions, allCourts, allLocations, selectedDate]);
 
   // Fetch travel times for this coach
   const { data: travelTimes = [] } = useQuery<Array<{
@@ -1356,38 +1433,55 @@ export default function CalendarScreen() {
         />
         <View style={styles.headerTop}>
           <Text style={styles.headerTitle}>COACH CALENDAR</Text>
-          {viewMode === "day" && (
-            <View style={styles.headerActions}>
-              {lastMove ? (
-                <Pressable
-                  style={[styles.toggleButton, styles.undoButton]}
-                  onPress={undoLastMove}
-                >
-                  <Ionicons
-                    name="arrow-undo-outline"
-                    size={18}
-                    color={Colors.dark.gold}
-                  />
-                </Pressable>
-              ) : null}
+          <View style={styles.headerActions}>
+            <Pressable
+              style={[styles.toggleButton, isExporting && styles.toggleActive]}
+              onPress={exportCalendarToICS}
+              disabled={isExporting}
+            >
+              {isExporting ? (
+                <ActivityIndicator size="small" color={Colors.dark.primary} />
+              ) : (
+                <Ionicons
+                  name="download-outline"
+                  size={18}
+                  color={Colors.dark.primary}
+                />
+              )}
+            </Pressable>
+            {viewMode === "day" && lastMove ? (
               <Pressable
-                style={[styles.toggleButton, focusMode && styles.toggleActive]}
-                onPress={() => setFocusMode(!focusMode)}
+                style={[styles.toggleButton, styles.undoButton]}
+                onPress={undoLastMove}
               >
                 <Ionicons
-                  name="eye-outline"
+                  name="arrow-undo-outline"
                   size={18}
-                  color={focusMode ? Colors.dark.backgroundRoot : Colors.dark.text}
+                  color={Colors.dark.gold}
                 />
               </Pressable>
-              <Pressable
-                style={styles.gridToggle}
-                onPress={() => setTimeGrid(timeGrid === 30 ? 60 : 30)}
-              >
-                <Text style={styles.gridToggleText}>{timeGrid}m</Text>
-              </Pressable>
-            </View>
-          )}
+            ) : null}
+            {viewMode === "day" && (
+              <>
+                <Pressable
+                  style={[styles.toggleButton, focusMode && styles.toggleActive]}
+                  onPress={() => setFocusMode(!focusMode)}
+                >
+                  <Ionicons
+                    name="eye-outline"
+                    size={18}
+                    color={focusMode ? Colors.dark.backgroundRoot : Colors.dark.text}
+                  />
+                </Pressable>
+                <Pressable
+                  style={styles.gridToggle}
+                  onPress={() => setTimeGrid(timeGrid === 30 ? 60 : 30)}
+                >
+                  <Text style={styles.gridToggleText}>{timeGrid}m</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
           {viewMode === "week" && (
             <View style={styles.weekModeToggle}>
               <Pressable
