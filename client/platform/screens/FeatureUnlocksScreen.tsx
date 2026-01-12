@@ -6,7 +6,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
 const PLATFORM_COLOR = "#9B59B6";
@@ -229,7 +229,7 @@ export default function FeatureUnlocksScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: Colors.dark.backgroundRoot,
   },
   loadingContainer: {
     justifyContent: "center",
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: Spacing.md,
     color: Colors.dark.textSecondary,
-    fontSize: Typography.sizes.md,
+    fontSize: 16,
   },
   headerGradient: {
     position: "absolute",
@@ -263,8 +263,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   topBarTitle: {
-    fontSize: Typography.sizes.xl,
-    fontWeight: Typography.weights.bold as any,
+    fontSize: 20,
+    fontWeight: "700",
     color: Colors.dark.text,
   },
   scrollView: {
@@ -274,12 +274,12 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   subtitle: {
-    fontSize: Typography.sizes.md,
+    fontSize: 16,
     color: Colors.dark.textSecondary,
     marginBottom: Spacing.xs,
   },
   hint: {
-    fontSize: Typography.sizes.sm,
+    fontSize: 14,
     color: Colors.dark.textMuted,
     marginBottom: Spacing.xl,
   },
@@ -297,13 +297,13 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
   },
   levelBadgeText: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.bold as any,
+    fontSize: 14,
+    fontWeight: "700",
     color: "#fff",
   },
   levelSubtext: {
     marginLeft: Spacing.sm,
-    fontSize: Typography.sizes.sm,
+    fontSize: 14,
     color: Colors.dark.textMuted,
   },
   card: {
@@ -333,41 +333,41 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   featureName: {
-    fontSize: Typography.sizes.md,
-    fontWeight: Typography.weights.medium as any,
+    fontSize: 16,
+    fontWeight: "500",
     color: Colors.dark.text,
   },
   featureDescription: {
-    fontSize: Typography.sizes.sm,
+    fontSize: 14,
     color: Colors.dark.textMuted,
     marginTop: 2,
   },
   levelIndicator: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.background,
+    backgroundColor: Colors.dark.backgroundRoot,
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.md,
   },
   levelText: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.medium as any,
+    fontSize: 14,
+    fontWeight: "500",
     color: PLATFORM_COLOR,
     marginRight: Spacing.xs,
   },
   emptyState: {
     alignItems: "center",
-    paddingVertical: Spacing.xxl,
+    paddingVertical: Spacing["2xl"],
   },
   emptyText: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.medium as any,
+    fontSize: 18,
+    fontWeight: "500",
     color: Colors.dark.text,
     marginTop: Spacing.md,
   },
   emptySubtext: {
-    fontSize: Typography.sizes.sm,
+    fontSize: 14,
     color: Colors.dark.textMuted,
     marginTop: Spacing.xs,
   },
@@ -390,12 +390,12 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.dark.border,
   },
   modalTitle: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.bold as any,
+    fontSize: 18,
+    fontWeight: "700",
     color: Colors.dark.text,
   },
   modalSubtitle: {
-    fontSize: Typography.sizes.sm,
+    fontSize: 14,
     color: Colors.dark.textMuted,
     marginTop: Spacing.xs,
   },
@@ -414,15 +414,15 @@ const styles = StyleSheet.create({
     backgroundColor: PLATFORM_COLOR + "15",
   },
   optionText: {
-    fontSize: Typography.sizes.md,
+    fontSize: 16,
     color: Colors.dark.text,
   },
   optionTextSelected: {
-    fontWeight: Typography.weights.bold as any,
+    fontWeight: "700",
     color: PLATFORM_COLOR,
   },
   optionHint: {
-    fontSize: Typography.sizes.sm,
+    fontSize: 14,
     color: Colors.dark.textMuted,
     flex: 1,
     textAlign: "right",
@@ -435,8 +435,8 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.dark.border,
   },
   cancelButtonText: {
-    fontSize: Typography.sizes.md,
-    fontWeight: Typography.weights.medium as any,
+    fontSize: 16,
+    fontWeight: "500",
     color: Colors.dark.textSecondary,
   },
 });
