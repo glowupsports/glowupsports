@@ -3,8 +3,18 @@ import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '@/coach/context/AuthContext';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
+
+type DeepLinkData = {
+  screen?: string;
+  params?: Record<string, unknown>;
+  playerId?: string;
+  sessionId?: string;
+  matchId?: string;
+  conversationId?: string;
+};
 
 if (Platform.OS !== 'web') {
   Notifications.setNotificationHandler({
@@ -27,6 +37,7 @@ interface PushNotificationState {
 
 export function usePushNotifications() {
   const { user } = useAuth();
+  const navigation = useNavigation<any>();
   const [state, setState] = useState<PushNotificationState>({
     expoPushToken: null,
     isRegistered: false,
@@ -36,6 +47,66 @@ export function usePushNotifications() {
   
   const notificationListener = useRef<Notifications.EventSubscription | null>(null);
   const responseListener = useRef<Notifications.EventSubscription | null>(null);
+
+  const handleDeepLink = useCallback((data: DeepLinkData) => {
+    if (!data || !navigation) return;
+
+    try {
+      if (data.screen) {
+        const params = data.params || {};
+        
+        if (data.playerId) params.playerId = data.playerId;
+        if (data.sessionId) params.sessionId = data.sessionId;
+        if (data.matchId) params.matchId = data.matchId;
+        if (data.conversationId) params.conversationId = data.conversationId;
+
+        switch (data.screen) {
+          case 'PlayerMessages':
+          case 'Messages':
+            navigation.navigate('PlayerMessages', params);
+            break;
+          case 'PlayerNotifications':
+          case 'Notifications':
+            navigation.navigate('PlayerNotifications');
+            break;
+          case 'TrainingDetail':
+          case 'Session':
+            if (data.sessionId) {
+              navigation.navigate('TrainingDetail', { sessionId: data.sessionId });
+            }
+            break;
+          case 'MatchDetail':
+          case 'Match':
+            if (data.matchId) {
+              navigation.navigate('MatchDetail', { matchId: data.matchId });
+            }
+            break;
+          case 'Progress':
+            navigation.navigate('PlayerTabs', { screen: 'Progress' });
+            break;
+          case 'Schedule':
+            navigation.navigate('PlayerTabs', { screen: 'Schedule' });
+            break;
+          case 'Quests':
+            navigation.navigate('Quests');
+            break;
+          case 'LevelUpHistory':
+            navigation.navigate('LevelUpHistory');
+            break;
+          case 'Collection':
+            navigation.navigate('Collection');
+            break;
+          case 'XPHistory':
+            navigation.navigate('XPHistory');
+            break;
+          default:
+            console.log('Unknown deep link screen:', data.screen);
+        }
+      }
+    } catch (error) {
+      console.error('Error handling deep link:', error);
+    }
+  }, [navigation]);
 
   const registerForPushNotificationsAsync = useCallback(async (): Promise<string | null> => {
     if (Platform.OS === 'web') {
@@ -148,8 +219,9 @@ export function usePushNotifications() {
     });
 
     responseListener.current = Notifications.addNotificationResponseReceivedListener((response: Notifications.NotificationResponse) => {
-      const data = response.notification.request.content.data;
+      const data = response.notification.request.content.data as DeepLinkData;
       console.log('Notification response:', data);
+      handleDeepLink(data);
     });
 
     return () => {
@@ -160,7 +232,7 @@ export function usePushNotifications() {
         responseListener.current.remove();
       }
     };
-  }, []);
+  }, [handleDeepLink]);
 
   useEffect(() => {
     if (user?.id && Platform.OS !== 'web' && Device.isDevice) {

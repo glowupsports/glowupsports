@@ -59,6 +59,7 @@ import SkillEvidenceScreen from "@/player/screens/SkillEvidenceScreen";
 import TrialGatesScreen from "@/player/screens/TrialGatesScreen";
 import CollectionScreen from "@/player/screens/CollectionScreen";
 import XPHistoryScreen from "@/player/screens/XPHistoryScreen";
+import LevelUpHistoryScreen from "@/player/screens/LevelUpHistoryScreen";
 import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
 import { CartProvider } from "@/player/contexts/CartContext";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
@@ -128,6 +129,7 @@ export type PlayerStackParamList = {
   TrialGates: undefined;
   Collection: undefined;
   XPHistory: undefined;
+  LevelUpHistory: undefined;
 };
 
 const Tab = createBottomTabNavigator<PlayerTabParamList>();
@@ -607,6 +609,14 @@ function PlayerStackNavigator() {
       <Stack.Screen 
         name="XPHistory" 
         component={XPHistoryScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="LevelUpHistory" 
+        component={LevelUpHistoryScreen}
         options={{
           presentation: "card",
           headerShown: false,

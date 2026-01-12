@@ -28,6 +28,7 @@ export default function PlayerSettingsScreen() {
   const [coachMessages, setCoachMessages] = useState(true);
   const [testPushLoading, setTestPushLoading] = useState(false);
   const [testFeedbackLoading, setTestFeedbackLoading] = useState(false);
+  const [messageLanguage, setMessageLanguage] = useState<"player" | "coach" | "parent">("player");
 
   const handleTestPushNotification = async () => {
     setTestPushLoading(true);
@@ -112,6 +113,12 @@ export default function PlayerSettingsScreen() {
       value: coachMessages,
       onPress: () => setCoachMessages(!coachMessages),
     },
+  ];
+
+  const languageOptions = [
+    { id: "player", label: "Fun & Encouraging", description: "Kid-friendly messages" },
+    { id: "coach", label: "Technical", description: "Coach-style technical terms" },
+    { id: "parent", label: "Informative", description: "Parent-friendly updates" },
   ];
 
   const discoverySettings: SettingItem[] = [
@@ -207,6 +214,40 @@ export default function PlayerSettingsScreen() {
           <Text style={styles.sectionTitle}>Notifications</Text>
           <View style={styles.sectionCard}>
             {notificationSettings.map(renderSettingItem)}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Message Style</Text>
+          <View style={styles.sectionCard}>
+            {languageOptions.map((option) => (
+              <Pressable
+                key={option.id}
+                style={styles.settingItem}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setMessageLanguage(option.id as "player" | "coach" | "parent");
+                }}
+              >
+                <View style={styles.settingIcon}>
+                  <Ionicons 
+                    name={option.id === "player" ? "happy" : option.id === "coach" ? "code" : "people"} 
+                    size={20} 
+                    color={Colors.dark.xpCyan} 
+                  />
+                </View>
+                <View style={styles.languageTextContainer}>
+                  <Text style={styles.settingLabel}>{option.label}</Text>
+                  <Text style={styles.languageDescription}>{option.description}</Text>
+                </View>
+                <View style={[
+                  styles.radioOuter,
+                  messageLanguage === option.id && styles.radioOuterSelected
+                ]}>
+                  {messageLanguage === option.id && <View style={styles.radioInner} />}
+                </View>
+              </Pressable>
+            ))}
           </View>
         </View>
 
@@ -376,6 +417,32 @@ const styles = StyleSheet.create({
   settingValue: {
     ...Typography.body,
     color: Colors.dark.textMuted,
+  },
+  languageTextContainer: {
+    flex: 1,
+  },
+  languageDescription: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  radioOuter: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: Colors.dark.textMuted,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  radioOuterSelected: {
+    borderColor: Colors.dark.primary,
+  },
+  radioInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: Colors.dark.primary,
   },
   devToolsCard: {
     ...CardStyles.elevated,
