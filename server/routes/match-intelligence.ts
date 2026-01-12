@@ -12,6 +12,7 @@ import {
   players 
 } from "../../shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
+import { awardXP } from "../services/xp-service";
 
 const router = Router();
 
@@ -285,6 +286,18 @@ router.post("/matches", async (req: Request, res: Response) => {
         .where(eq(matchPlans.id, planId));
     }
 
+    // Award XP for match played
+    try {
+      await awardXP(playerId, "match_played", "match", match.id);
+      
+      // Bonus XP for match win
+      if (result === "won") {
+        await awardXP(playerId, "match_win", "match", match.id);
+      }
+    } catch (xpError) {
+      console.error("Error awarding match XP:", xpError);
+    }
+
     res.status(201).json(match);
   } catch (error) {
     console.error("Error creating match:", error);
@@ -422,6 +435,13 @@ router.post("/matches/:id/reflection", async (req: Request, res: Response) => {
 
     await generatePillarScores(id, playerId, reflection);
     await generateTrainingSuggestions(id, playerId, reflection);
+
+    // Award XP for completing match reflection
+    try {
+      await awardXP(playerId, "match_reflection", "match", id);
+    } catch (xpError) {
+      console.error("Error awarding reflection XP:", xpError);
+    }
 
     res.status(201).json(reflection);
   } catch (error) {

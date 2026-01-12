@@ -16,6 +16,7 @@ import {
 } from "../../shared/schema";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { AuthenticatedRequest, authMiddlewareWithFreshData as authMiddleware, requireAcademy } from "../auth";
+import { awardXP } from "../services/xp-service";
 
 const router = Router();
 
@@ -503,6 +504,18 @@ router.post("/api/glow/sessions/:sessionId/feedback", authMiddleware, requireAca
     // Update coach calibration
     if (coachId) {
       await updateCoachCalibration(coachId);
+    }
+    
+    // Award XP to player for receiving feedback (session attendance)
+    try {
+      await awardXP(playerId, "session_attend", "session", sessionId);
+      
+      // Bonus XP for positive feedback
+      if (overall === "improved") {
+        await awardXP(playerId, "feedback_positive", "session", sessionId);
+      }
+    } catch (xpError) {
+      console.error("Error awarding XP:", xpError);
     }
     
     res.status(201).json(feedback);
