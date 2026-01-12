@@ -251,7 +251,7 @@ export default function LevelUpHistoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: Colors.dark.backgroundRoot,
   },
   loadingContainer: {
     justifyContent: "center",
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: Spacing.md,
     color: Colors.dark.textSecondary,
-    fontSize: Typography.fontSizes.md,
+    fontSize: Typography.body.fontSize,
   },
   header: {
     flexDirection: "row",
@@ -275,8 +275,8 @@ const styles = StyleSheet.create({
     padding: Spacing.xs,
   },
   headerTitle: {
-    fontSize: Typography.fontSizes.xl,
-    fontWeight: Typography.fontWeights.bold as any,
+    fontSize: Typography.h2.fontSize,
+    fontWeight: Typography.h1.fontWeight,
     color: Colors.dark.text,
   },
   headerSpacer: {
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    backgroundColor: Colors.dark.card,
+    backgroundColor: Colors.dark.backgroundSecondary,
     marginHorizontal: Spacing.lg,
     marginTop: Spacing.md,
     padding: Spacing.lg,
@@ -296,12 +296,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   statValue: {
-    fontSize: Typography.fontSizes.xl,
-    fontWeight: Typography.fontWeights.bold as any,
+    fontSize: Typography.h2.fontSize,
+    fontWeight: Typography.h1.fontWeight,
     color: Colors.dark.text,
   },
   statLabel: {
-    fontSize: Typography.fontSizes.xs,
+    fontSize: Typography.caption.fontSize,
     color: Colors.dark.textSecondary,
     marginTop: 2,
   },
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   levelUpCard: {
-    backgroundColor: Colors.dark.card,
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     overflow: "hidden",
@@ -339,11 +339,11 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   levelBadgeText: {
-    fontSize: Typography.fontSizes.sm,
-    fontWeight: Typography.fontWeights.semibold as any,
+    fontSize: Typography.small.fontSize,
+    fontWeight: Typography.h2.fontWeight,
   },
   dateText: {
-    fontSize: Typography.fontSizes.sm,
+    fontSize: Typography.small.fontSize,
     color: Colors.dark.textSecondary,
   },
   rewardsSection: {
@@ -363,9 +363,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   rewardText: {
-    fontSize: Typography.fontSizes.md,
+    fontSize: Typography.body.fontSize,
     color: Colors.dark.text,
-    fontWeight: Typography.fontWeights.medium as any,
+    fontWeight: Typography.caption.fontWeight,
   },
   badgesRow: {
     flexDirection: "row",
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   badgeText: {
-    fontSize: Typography.fontSizes.xs,
+    fontSize: Typography.caption.fontSize,
     color: Colors.dark.primary,
   },
   trialIndicator: {
@@ -396,32 +396,32 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.dark.border,
   },
   trialText: {
-    fontSize: Typography.fontSizes.sm,
+    fontSize: Typography.small.fontSize,
     color: Colors.dark.primary,
   },
   emptyContainer: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: Spacing.xxxl,
+    paddingVertical: Spacing["3xl"],
     paddingHorizontal: Spacing.xl,
   },
   emptyIconContainer: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: Colors.dark.card,
+    backgroundColor: Colors.dark.backgroundSecondary,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.lg,
   },
   emptyTitle: {
-    fontSize: Typography.fontSizes.xl,
-    fontWeight: Typography.fontWeights.bold as any,
+    fontSize: Typography.h2.fontSize,
+    fontWeight: Typography.h1.fontWeight,
     color: Colors.dark.text,
     marginBottom: Spacing.sm,
   },
   emptySubtitle: {
-    fontSize: Typography.fontSizes.md,
+    fontSize: Typography.body.fontSize,
     color: Colors.dark.textSecondary,
     textAlign: "center",
     lineHeight: 22,
