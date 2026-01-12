@@ -58,10 +58,15 @@ interface Session {
   id: string;
   coachId: string | null;
   courtId: string | null;
+  locationId?: string | null;
   startTime: string;
   endTime: string;
   duration: number;
   sessionType: string;
+  ballLevel?: string | null;
+  skillLevel?: number | null;
+  isRecurring?: boolean;
+  paymentStatus?: string | null;
   status: string | null;
   players?: Player[];
 }

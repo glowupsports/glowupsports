@@ -54,7 +54,7 @@ export default function ActiveSessionScreen() {
   const [blockTimer, setBlockTimer] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const progressWidth = useSharedValue(0);
 
@@ -312,9 +312,9 @@ export default function ActiveSessionScreen() {
                 key={block.id}
                 style={[
                   styles.blockCard,
-                  isCurrent && styles.currentBlockCard,
-                  status === "completed" && styles.completedBlockCard,
-                ]}
+                  isCurrent ? styles.currentBlockCard : null,
+                  status === "completed" ? styles.completedBlockCard : null,
+                ].filter(Boolean)}
               >
                 <View style={styles.blockHeader}>
                   <View style={[styles.blockIndicator, { backgroundColor: getStatusColor(status) }]}>

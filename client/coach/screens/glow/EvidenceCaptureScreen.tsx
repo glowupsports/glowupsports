@@ -34,7 +34,7 @@ export default function EvidenceCaptureScreen() {
   const [facing, setFacing] = useState<"front" | "back">("back");
   const [selectedSkill, setSelectedSkill] = useState<string | null>(skillTags[0] || null);
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const progressWidth = useSharedValue(0);
 
   const startRecording = useCallback(async () => {

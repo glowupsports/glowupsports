@@ -86,6 +86,8 @@ export const Colors = {
     sessionGroup: "#F39C12",
     sessionPhysical: "#9B59B6",
     sessionActivity: "#888888",
+    // Warning color for cancel/alert actions
+    warning: "#FF851B",
   },
 };
 

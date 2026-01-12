@@ -536,7 +536,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.primary + "40",
   },
   testCardSelected: {
-    borderColor: Colors.dark.cyan,
+    borderColor: Colors.dark.xpCyan,
   },
   testHeader: {
     flexDirection: "row",
@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     marginTop: Spacing.lg,
     borderWidth: 1,
-    borderColor: Colors.dark.cyan + "40",
+    borderColor: Colors.dark.xpCyan + "40",
   },
   recordHeader: {
     flexDirection: "row",

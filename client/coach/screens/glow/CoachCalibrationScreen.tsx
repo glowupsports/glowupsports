@@ -230,7 +230,7 @@ export default function CoachCalibrationScreen() {
           filteredAnomalies.map((anomaly) => (
             <Card 
               key={anomaly.id} 
-              style={[styles.anomalyCard, anomaly.resolved && styles.resolvedCard]}
+              style={[styles.anomalyCard, anomaly.resolved ? styles.resolvedCard : null].filter(Boolean)}
             >
               <View style={styles.anomalyIconRow}>
                 <View style={[styles.anomalyIcon, { backgroundColor: ANOMALY_COLORS[anomaly.type] + "20" }]}>
