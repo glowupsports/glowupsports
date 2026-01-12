@@ -83,6 +83,15 @@ interface TravelTimeConfig {
   travelTimeMinutes: number;
 }
 
+interface PushPreferences {
+  sessionReminders: boolean;
+  feedbackRequests: boolean;
+  packageExpiry: boolean;
+  loadWarnings: boolean;
+  chatMessages: boolean;
+  reminderMinutesBefore: number;
+}
+
 const TRAVEL_TIME_OPTIONS = [15, 30, 45, 60, 90, 120];
 
 const SETTINGS_KEY = "@coach_settings";
@@ -237,6 +246,37 @@ export default function SettingsScreen() {
   const { data: travelTimes = [] } = useQuery<TravelTimeConfig[]>({
     queryKey: ["/api/coach/travel-times"],
   });
+
+  const defaultPushPrefs: PushPreferences = {
+    sessionReminders: true,
+    feedbackRequests: true,
+    packageExpiry: true,
+    loadWarnings: true,
+    chatMessages: true,
+    reminderMinutesBefore: 30,
+  };
+
+  const { data: pushPreferences = defaultPushPrefs } = useQuery<PushPreferences>({
+    queryKey: ["/api/push/preferences"],
+    enabled: !!coach?.id,
+  });
+
+  const updatePushPrefsMutation = useMutation({
+    mutationFn: async (prefs: Partial<PushPreferences>) => {
+      return apiRequest("PATCH", "/api/push/preferences", prefs);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/push/preferences"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+
+  const updatePushPref = (key: keyof PushPreferences, value: boolean | number) => {
+    updatePushPrefsMutation.mutate({ [key]: value });
+  };
 
   const createTravelTimeMutation = useMutation({
     mutationFn: async (data: { fromLocationId: string; toLocationId: string; travelTimeMinutes: number }) => {
@@ -1186,6 +1226,89 @@ export default function SettingsScreen() {
               onValueChange={(value) => updateSetting("travelTimeWarning", value)} 
             />
           </View>
+
+          <View style={styles.settingRowDivider} />
+          <Text style={styles.subsectionLabel}>Push Notification Types</Text>
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <View style={styles.settingIconWrapper}>
+                <Ionicons name="calendar-outline" size={20} color={Colors.dark.xpCyan} />
+              </View>
+              <View>
+                <Text style={styles.settingLabel}>Session reminders</Text>
+                <Text style={styles.settingDescription}>Get notified before sessions</Text>
+              </View>
+            </View>
+            <GlowSwitch 
+              value={pushPreferences.sessionReminders} 
+              onValueChange={(value) => updatePushPref("sessionReminders", value)} 
+            />
+          </View>
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <View style={styles.settingIconWrapper}>
+                <Ionicons name="star-outline" size={20} color={Colors.dark.gold} />
+              </View>
+              <View>
+                <Text style={styles.settingLabel}>Feedback requests</Text>
+                <Text style={styles.settingDescription}>Reminders to submit player feedback</Text>
+              </View>
+            </View>
+            <GlowSwitch 
+              value={pushPreferences.feedbackRequests} 
+              onValueChange={(value) => updatePushPref("feedbackRequests", value)} 
+            />
+          </View>
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <View style={styles.settingIconWrapper}>
+                <Ionicons name="card-outline" size={20} color={Colors.dark.orange} />
+              </View>
+              <View>
+                <Text style={styles.settingLabel}>Package expiry</Text>
+                <Text style={styles.settingDescription}>Alerts when player packages expire</Text>
+              </View>
+            </View>
+            <GlowSwitch 
+              value={pushPreferences.packageExpiry} 
+              onValueChange={(value) => updatePushPref("packageExpiry", value)} 
+            />
+          </View>
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <View style={styles.settingIconWrapper}>
+                <Ionicons name="speedometer-outline" size={20} color={Colors.dark.error} />
+              </View>
+              <View>
+                <Text style={styles.settingLabel}>Load warnings</Text>
+                <Text style={styles.settingDescription}>High workload alerts</Text>
+              </View>
+            </View>
+            <GlowSwitch 
+              value={pushPreferences.loadWarnings} 
+              onValueChange={(value) => updatePushPref("loadWarnings", value)} 
+            />
+          </View>
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <View style={styles.settingIconWrapper}>
+                <Ionicons name="chatbubble-outline" size={20} color={Colors.dark.primary} />
+              </View>
+              <View>
+                <Text style={styles.settingLabel}>Chat messages</Text>
+                <Text style={styles.settingDescription}>New messages from players/parents</Text>
+              </View>
+            </View>
+            <GlowSwitch 
+              value={pushPreferences.chatMessages} 
+              onValueChange={(value) => updatePushPref("chatMessages", value)} 
+            />
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -1784,6 +1907,20 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  settingRowDivider: {
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    marginVertical: Spacing.md,
+  },
+  subsectionLabel: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1.5,
+    marginBottom: Spacing.sm,
+    marginLeft: Spacing.xs,
   },
   linkRow: {
     flexDirection: "row",

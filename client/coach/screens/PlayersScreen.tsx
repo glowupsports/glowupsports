@@ -21,6 +21,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 import Animated, { 
   useAnimatedStyle, 
   useSharedValue, 
@@ -811,6 +813,52 @@ function PlayerDetailView({
   const [showAddNote, setShowAddNote] = useState(false);
   const [newNoteContent, setNewNoteContent] = useState("");
   const [newNoteCategory, setNewNoteCategory] = useState("general");
+  const [isExportingReport, setIsExportingReport] = useState(false);
+
+  const handleExportProgressReport = async () => {
+    try {
+      setIsExportingReport(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      
+      const response = await fetch(new URL(`/api/players/${player.id}/progress-report`, getApiUrl()).toString(), {
+        credentials: "include",
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to generate progress report");
+      }
+      
+      const html = await response.text();
+      
+      if (Platform.OS === "web") {
+        const printWindow = window.open("", "_blank");
+        if (printWindow) {
+          printWindow.document.write(html);
+          printWindow.document.close();
+          printWindow.print();
+        }
+      } else {
+        const { uri } = await Print.printToFileAsync({ html });
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(uri, {
+            mimeType: "application/pdf",
+            dialogTitle: `${player.name} Progress Report`,
+            UTI: "com.adobe.pdf",
+          });
+        } else {
+          await Print.printAsync({ uri });
+        }
+      }
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error("Error exporting progress report:", error);
+      Alert.alert("Error", "Failed to generate progress report. Please try again.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setIsExportingReport(false);
+    }
+  };
 
   const { data: notes = [], isLoading: notesLoading } = useQuery<PlayerNote[]>({
     queryKey: [`/api/players/${player.id}/notes`],
@@ -914,7 +962,17 @@ function PlayerDetailView({
           <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
         </Pressable>
         <Text style={styles.detailTitle}>Player Profile</Text>
-        <View style={{ width: 40 }} />
+        <Pressable 
+          style={styles.exportButton} 
+          onPress={handleExportProgressReport}
+          disabled={isExportingReport}
+        >
+          {isExportingReport ? (
+            <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+          ) : (
+            <Ionicons name="document-text-outline" size={22} color={Colors.dark.xpCyan} />
+          )}
+        </Pressable>
       </View>
 
       <ScrollView
@@ -2569,6 +2627,13 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: Spacing.xs,
+  },
+  exportButton: {
+    padding: Spacing.xs,
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
   },
   detailTitle: {
     ...Typography.h3,

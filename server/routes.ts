@@ -5403,6 +5403,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate progress report PDF for a player
+  app.get("/api/players/:id/progress-report", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      const coachId = req.user!.coachId;
+      
+      const { valid } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const { generateProgressReportHtml, ProgressReportData } = await import("./services/progressReportPdf");
+      
+      const player = await storage.getPlayer(id);
+      const academy = academyId ? await storage.getAcademy(academyId) : null;
+      const coach = coachId ? await storage.getCoach(coachId) : null;
+      const progressRecords = await storage.getPlayerProgress(id, academyId || undefined);
+      const summary = await storage.getProgressSummary(id, academyId || undefined);
+      
+      const now = new Date();
+      const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+      
+      const allSessions = await storage.getSessionsByAcademy(academyId || "");
+      const playerSessions = await Promise.all(
+        allSessions.map(async (session) => {
+          const players = await storage.getSessionPlayers(session.id);
+          const playerRecord = players.find(p => p.playerId === id);
+          return playerRecord ? { session, playerRecord } : null;
+        })
+      ).then(results => results.filter(Boolean) as Array<{ session: any; playerRecord: any }>);
+      
+      const recentSessions = playerSessions.filter(ps => {
+        const sessionDate = new Date(ps.session.date);
+        return sessionDate >= threeMonthsAgo && sessionDate <= now;
+      });
+      
+      const attendedSessions = recentSessions.filter(ps => 
+        ps.playerRecord.attendanceStatus === "present" || ps.playerRecord.attendanceStatus === "late"
+      );
+      
+      const totalMinutes = attendedSessions.reduce((sum, ps) => sum + (ps.session.duration || 60), 0);
+      const attendanceRate = recentSessions.length > 0 
+        ? Math.round((attendedSessions.length / recentSessions.length) * 100) 
+        : 0;
+      
+      const pillars = (summary as Array<{ skillArea: string; latestRating: number; trend: string }> || []).map(s => ({
+        name: s.skillArea || "General",
+        score: s.latestRating || 0,
+        maxScore: 10,
+        trend: (s.trend as "up" | "down" | "stable") || "stable",
+      }));
+      
+      const defaultPillars = ["Technique", "Tactical", "Physical", "Mental", "Social", "Match"];
+      const existingPillarNames = pillars.map(p => p.name);
+      const missingPillars = defaultPillars.filter(p => !existingPillarNames.includes(p));
+      missingPillars.forEach(name => {
+        pillars.push({ name, score: 0, maxScore: 10, trend: "stable" as const });
+      });
+      
+      const reportData: typeof ProgressReportData = {
+        reportDate: now.toISOString(),
+        period: {
+          from: threeMonthsAgo.toISOString(),
+          to: now.toISOString(),
+        },
+        academy: {
+          name: academy?.name || "Tennis Academy",
+        },
+        coach: {
+          name: coach?.name || "Coach",
+          title: coach?.specialty || undefined,
+        },
+        player: {
+          name: player?.name || "Player",
+          age: player?.age || undefined,
+          ballLevel: player?.ballLevel || "RED_1",
+          xpLevel: player?.level || 1,
+          totalXp: player?.totalXp || 0,
+        },
+        pillars,
+        skills: [],
+        sessionsSummary: {
+          totalSessions: recentSessions.length,
+          attendedSessions: attendedSessions.length,
+          attendanceRate,
+          totalMinutes,
+        },
+        achievements: [],
+        recommendations: [
+          "Continue with regular practice sessions",
+          "Focus on developing identified improvement areas",
+          "Participate in match play opportunities when available",
+        ],
+      };
+      
+      const html = generateProgressReportHtml(reportData as any);
+      
+      res.setHeader("Content-Type", "text/html");
+      res.send(html);
+    } catch (error) {
+      console.error("Error generating progress report:", error);
+      res.status(500).json({ error: "Failed to generate progress report" });
+    }
+  });
+
   // Add progress entry for a player
   app.post("/api/players/:id/progress", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
