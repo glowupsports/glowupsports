@@ -316,3 +316,55 @@ export async function validateNotificationOwnership(
   return { valid: !!notification, notification };
 }
 
+// Feature unlock check interface - will be injected from routes
+export interface FeatureUnlockChecker {
+  isFeatureUnlocked(playerId: string, featureKey: string): Promise<boolean>;
+}
+
+let featureUnlockChecker: FeatureUnlockChecker | null = null;
+
+export function setFeatureUnlockChecker(checker: FeatureUnlockChecker): void {
+  featureUnlockChecker = checker;
+}
+
+// Middleware factory to require a specific feature to be unlocked for the player
+export function requireFeatureUnlock(featureKey: string) {
+  return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    if (!req.user) {
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
+
+    // Only apply to players
+    if (!req.user.playerId) {
+      // Non-players (coaches, owners) bypass feature gates
+      return next();
+    }
+
+    if (!featureUnlockChecker) {
+      console.error("[FeatureGate] Feature unlock checker not initialized");
+      // Fail open for now but log error - could fail closed in production
+      return next();
+    }
+
+    try {
+      const isUnlocked = await featureUnlockChecker.isFeatureUnlocked(req.user.playerId, featureKey);
+      
+      if (!isUnlocked) {
+        res.status(403).json({ 
+          error: "Feature locked",
+          featureKey,
+          message: "This feature requires a higher player level to access"
+        });
+        return;
+      }
+      
+      next();
+    } catch (error) {
+      console.error("[FeatureGate] Error checking feature unlock:", error);
+      // Fail open on error to prevent blocking legitimate users
+      next();
+    }
+  };
+}
+

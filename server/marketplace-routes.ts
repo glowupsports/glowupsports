@@ -8,6 +8,7 @@ import { eq, and, desc, asc, sql, ne, or, ilike, gte, lte } from "drizzle-orm";
 import { 
   authMiddlewareWithFreshData as authMiddleware,
   requireRole, 
+  requireFeatureUnlock,
   JWTPayload 
 } from "./auth";
 import multer from "multer";
@@ -69,6 +70,7 @@ router.post(
   "/player/marketplace/upload-images",
   authMiddleware,
   requirePlayerProfile,
+  requireFeatureUnlock("marketplace"),
   marketplacePhotoUpload.array("images", 5),
   async (req: AuthRequest, res: Response) => {
     try {
@@ -95,7 +97,7 @@ router.post(
 // ==================== MARKETPLACE LISTINGS ====================
 
 // Get marketplace listings (browse)
-router.get("/player/marketplace", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.get("/player/marketplace", authMiddleware, requirePlayerProfile, requireFeatureUnlock("marketplace"), async (req: AuthRequest, res: Response) => {
   try {
     const { category, condition, minPrice, maxPrice, search } = req.query;
     const playerId = req.user!.playerId!;
@@ -175,7 +177,7 @@ router.get("/player/marketplace", authMiddleware, requirePlayerProfile, async (r
 });
 
 // Get my listings (MUST be before /:id route)
-router.get("/player/marketplace/my/listings", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.get("/player/marketplace/my/listings", authMiddleware, requirePlayerProfile, requireFeatureUnlock("marketplace"), async (req: AuthRequest, res: Response) => {
   try {
     const playerId = req.user!.playerId!;
 
@@ -191,7 +193,7 @@ router.get("/player/marketplace/my/listings", authMiddleware, requirePlayerProfi
 });
 
 // Get favorites (MUST be before /:id route)
-router.get("/player/marketplace/favorites", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.get("/player/marketplace/favorites", authMiddleware, requirePlayerProfile, requireFeatureUnlock("marketplace"), async (req: AuthRequest, res: Response) => {
   try {
     const playerId = req.user!.playerId!;
 
@@ -212,7 +214,7 @@ router.get("/player/marketplace/favorites", authMiddleware, requirePlayerProfile
 });
 
 // Get single listing
-router.get("/player/marketplace/:id", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.get("/player/marketplace/:id", authMiddleware, requirePlayerProfile, requireFeatureUnlock("marketplace"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -249,7 +251,7 @@ router.get("/player/marketplace/:id", authMiddleware, requirePlayerProfile, asyn
 });
 
 // Create listing
-router.post("/player/marketplace", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.post("/player/marketplace", authMiddleware, requirePlayerProfile, requireFeatureUnlock("marketplace"), async (req: AuthRequest, res: Response) => {
   try {
     const playerId = req.user!.playerId!;
 
@@ -295,7 +297,7 @@ router.post("/player/marketplace", authMiddleware, requirePlayerProfile, async (
 });
 
 // Update listing
-router.patch("/player/marketplace/:id", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.patch("/player/marketplace/:id", authMiddleware, requirePlayerProfile, requireFeatureUnlock("marketplace"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const playerId = req.user!.playerId!;
@@ -320,7 +322,7 @@ router.patch("/player/marketplace/:id", authMiddleware, requirePlayerProfile, as
 });
 
 // Delete listing
-router.delete("/player/marketplace/:id", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.delete("/player/marketplace/:id", authMiddleware, requirePlayerProfile, requireFeatureUnlock("marketplace"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const playerId = req.user!.playerId!;
@@ -339,7 +341,7 @@ router.delete("/player/marketplace/:id", authMiddleware, requirePlayerProfile, a
 });
 
 // Mark listing as sold
-router.post("/player/marketplace/:id/sold", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.post("/player/marketplace/:id/sold", authMiddleware, requirePlayerProfile, requireFeatureUnlock("marketplace"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const playerId = req.user!.playerId!;
@@ -378,7 +380,7 @@ router.post("/player/marketplace/:id/sold", authMiddleware, requirePlayerProfile
 // ==================== FAVORITES ====================
 
 // Add to favorites
-router.post("/player/marketplace/:id/favorite", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.post("/player/marketplace/:id/favorite", authMiddleware, requirePlayerProfile, requireFeatureUnlock("marketplace"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const playerId = req.user!.playerId!;
@@ -412,7 +414,7 @@ router.post("/player/marketplace/:id/favorite", authMiddleware, requirePlayerPro
 });
 
 // Remove from favorites
-router.delete("/player/marketplace/:id/favorite", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.delete("/player/marketplace/:id/favorite", authMiddleware, requirePlayerProfile, requireFeatureUnlock("marketplace"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const playerId = req.user!.playerId!;
@@ -438,7 +440,7 @@ router.delete("/player/marketplace/:id/favorite", authMiddleware, requirePlayerP
 // ==================== MESSAGES ====================
 
 // Get conversations (grouped by listing)
-router.get("/player/marketplace/messages", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.get("/player/marketplace/messages", authMiddleware, requirePlayerProfile, requireFeatureUnlock("marketplace"), async (req: AuthRequest, res: Response) => {
   try {
     const playerId = req.user!.playerId!;
 
@@ -468,7 +470,7 @@ router.get("/player/marketplace/messages", authMiddleware, requirePlayerProfile,
 });
 
 // Send message
-router.post("/player/marketplace/:id/message", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.post("/player/marketplace/:id/message", authMiddleware, requirePlayerProfile, requireFeatureUnlock("marketplace"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { message } = req.body;
@@ -509,7 +511,7 @@ router.post("/player/marketplace/:id/message", authMiddleware, requirePlayerProf
 // ==================== SELLER PROFILE ====================
 
 // Get seller profile
-router.get("/player/marketplace/seller/:playerId", authMiddleware, async (req: AuthRequest, res: Response) => {
+router.get("/player/marketplace/seller/:playerId", authMiddleware, requireFeatureUnlock("marketplace"), async (req: AuthRequest, res: Response) => {
   try {
     const { playerId } = req.params;
 

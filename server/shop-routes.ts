@@ -9,6 +9,7 @@ import { eq, and, desc, asc, sql } from "drizzle-orm";
 import { 
   authMiddlewareWithFreshData as authMiddleware,
   requireRole, 
+  requireFeatureUnlock,
   JWTPayload 
 } from "./auth";
 
@@ -28,9 +29,10 @@ function requirePlayerProfile(req: AuthRequest, res: Response, next: NextFunctio
 }
 
 // ==================== PLAYER SHOP ENDPOINTS ====================
+// All player shop endpoints require the academy_shop feature to be unlocked
 
 // Search products and services
-router.get("/player/shop/search", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.get("/player/shop/search", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {
     const { q } = req.query;
     const playerId = req.user?.playerId;
@@ -77,7 +79,7 @@ router.get("/player/shop/search", authMiddleware, requirePlayerProfile, async (r
 });
 
 // Get XP discount for player
-router.get("/player/shop/xp-discount", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.get("/player/shop/xp-discount", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) {
@@ -134,7 +136,7 @@ router.get("/player/shop/xp-discount", authMiddleware, requirePlayerProfile, asy
 });
 
 // Get shop home data (categories, featured products, featured services)
-router.get("/player/shop", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.get("/player/shop", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) {
@@ -189,7 +191,7 @@ router.get("/player/shop", authMiddleware, requirePlayerProfile, async (req: Aut
 });
 
 // Get products by category
-router.get("/player/shop/products", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.get("/player/shop/products", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {
     const { categoryId } = req.query;
     const playerId = req.user?.playerId;
@@ -224,7 +226,7 @@ router.get("/player/shop/products", authMiddleware, requirePlayerProfile, async 
 });
 
 // Get single product
-router.get("/player/shop/products/:id", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.get("/player/shop/products/:id", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const product = await db.select().from(shopProducts).where(eq(shopProducts.id, id)).limit(1);
@@ -241,7 +243,7 @@ router.get("/player/shop/products/:id", authMiddleware, requirePlayerProfile, as
 });
 
 // Get single service
-router.get("/player/shop/services/:id", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.get("/player/shop/services/:id", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const service = await db.select().from(shopServices).where(eq(shopServices.id, id)).limit(1);
@@ -258,7 +260,7 @@ router.get("/player/shop/services/:id", authMiddleware, requirePlayerProfile, as
 });
 
 // Get services
-router.get("/player/shop/services", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.get("/player/shop/services", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) {
@@ -286,7 +288,7 @@ router.get("/player/shop/services", authMiddleware, requirePlayerProfile, async 
 });
 
 // Get player's wishlist
-router.get("/player/shop/wishlist", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.get("/player/shop/wishlist", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {
     const wishlistItems = await db.select({
       id: shopWishlist.id,
@@ -321,7 +323,7 @@ router.get("/player/shop/wishlist", authMiddleware, requirePlayerProfile, async 
 });
 
 // Add to wishlist
-router.post("/player/shop/wishlist", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.post("/player/shop/wishlist", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {
     const { productId, serviceId } = req.body;
     
@@ -354,7 +356,7 @@ router.post("/player/shop/wishlist", authMiddleware, requirePlayerProfile, async
 });
 
 // Remove from wishlist
-router.delete("/player/shop/wishlist/:id", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.delete("/player/shop/wishlist/:id", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -372,7 +374,7 @@ router.delete("/player/shop/wishlist/:id", authMiddleware, requirePlayerProfile,
 });
 
 // Get player's orders
-router.get("/player/shop/orders", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.get("/player/shop/orders", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {
     const orders = await db.select().from(shopOrders)
       .where(eq(shopOrders.playerId, req.user!.playerId!))
@@ -386,7 +388,7 @@ router.get("/player/shop/orders", authMiddleware, requirePlayerProfile, async (r
 });
 
 // Get order details
-router.get("/player/shop/orders/:id", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.get("/player/shop/orders/:id", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -412,7 +414,7 @@ router.get("/player/shop/orders/:id", authMiddleware, requirePlayerProfile, asyn
 });
 
 // Create order (cart checkout)
-router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {
     const { items, contactName, contactPhone, contactEmail, notes } = req.body;
     

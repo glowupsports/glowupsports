@@ -42,6 +42,8 @@ import {
   requireRole, 
   requireAcademy,
   setFreshUserStorage,
+  setFeatureUnlockChecker,
+  requireFeatureUnlock,
   validatePlayerOwnership,
   validateCourtOwnership,
   validateSessionOwnership,
@@ -206,6 +208,35 @@ function parsePagination(query: { limit?: string; offset?: string; page?: string
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize storage for fresh user data fetching in auth middleware
   setFreshUserStorage(storage);
+  
+  // Initialize feature unlock checker for server-side feature authorization
+  setFeatureUnlockChecker({
+    isFeatureUnlocked: async (playerId: string, featureKey: string): Promise<boolean> => {
+      try {
+        // Get player's current level
+        const [player] = await db.select({ level: players.level }).from(players).where(eq(players.id, playerId));
+        if (!player) return false;
+        
+        const playerLevel = player.level || 1;
+        
+        // Get feature unlock requirement
+        const { playerFeatureUnlocks } = await import("@shared/schema");
+        const [feature] = await db.select().from(playerFeatureUnlocks).where(eq(playerFeatureUnlocks.featureKey, featureKey));
+        
+        // If feature not configured, allow access (fail open)
+        if (!feature) return true;
+        
+        // If feature is inactive, allow access
+        if (!feature.isActive) return true;
+        
+        // Check if player level meets requirement
+        return playerLevel >= feature.requiredLevel;
+      } catch (error) {
+        console.error("[FeatureUnlockChecker] Error:", error);
+        return true; // Fail open on error
+      }
+    }
+  });
 
   // Register shop routes
   app.use("/api", shopRoutes);
@@ -14059,7 +14090,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get player court bookings
-  app.get("/api/player/me/court-bookings", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/player/me/court-bookings", authMiddleware, requirePlayerOrOwner, requireFeatureUnlock("court_booking"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user!.userId;
       const playerId = req.user!.playerId;
@@ -15389,7 +15420,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============================================
 
   // Get all groups for player
-  app.get("/api/player/groups", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/player/groups", authMiddleware, requirePlayerOrOwner, requireFeatureUnlock("groups"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const playerId = req.user!.playerId!;
       const player = await storage.getPlayer(playerId);
@@ -15426,7 +15457,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get single group details with members
-  app.get("/api/player/groups/:groupId", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/player/groups/:groupId", authMiddleware, requirePlayerOrOwner, requireFeatureUnlock("groups"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { groupId } = req.params;
       const userId = req.user!.userId!;
@@ -15495,7 +15526,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get group feed (posts within group)
-  app.get("/api/player/groups/:groupId/feed", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/player/groups/:groupId/feed", authMiddleware, requirePlayerOrOwner, requireFeatureUnlock("groups"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { groupId } = req.params;
       const userId = req.user!.userId!;
@@ -15536,7 +15567,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Join a group
-  app.post("/api/player/groups/:groupId/join", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/player/groups/:groupId/join", authMiddleware, requirePlayerOrOwner, requireFeatureUnlock("groups"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { groupId } = req.params;
       const userId = req.user!.userId!;
@@ -15598,7 +15629,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Leave a group
-  app.post("/api/player/groups/:groupId/leave", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/player/groups/:groupId/leave", authMiddleware, requirePlayerOrOwner, requireFeatureUnlock("groups"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { groupId } = req.params;
       const userId = req.user!.userId!;
@@ -15640,7 +15671,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create a new group (player-created groups)
-  app.post("/api/player/groups", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/player/groups", authMiddleware, requirePlayerOrOwner, requireFeatureUnlock("groups"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user!.userId!;
       const playerId = req.user!.playerId!;
@@ -21539,7 +21570,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== SOCIAL FEATURES API ====================
 
   // Get social feed for user
-  app.get("/api/social/feed", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/social/feed", authMiddleware, requireFeatureUnlock("community_feed"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user!.userId;
       const academyId = req.user!.academyId;
@@ -21777,7 +21808,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Upload images for social posts
-  app.post("/api/social/posts/upload-images", authMiddleware, socialPostUpload.array("images", 5), async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/social/posts/upload-images", authMiddleware, requireFeatureUnlock("community_feed"), socialPostUpload.array("images", 5), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const files = req.files as Express.Multer.File[];
       
@@ -21799,7 +21830,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create a new post (Moment)
-  app.post("/api/social/posts", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/social/posts", authMiddleware, requireFeatureUnlock("community_feed"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user!.userId;
       const academyId = req.user!.academyId;
@@ -21849,7 +21880,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get single post with details
-  app.get("/api/social/posts/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/social/posts/:id", authMiddleware, requireFeatureUnlock("community_feed"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const userId = req.user!.userId;
@@ -21912,7 +21943,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a post
-  app.delete("/api/social/posts/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.delete("/api/social/posts/:id", authMiddleware, requireFeatureUnlock("community_feed"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const userId = req.user!.userId;
@@ -21941,7 +21972,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Add/update reaction to post
-  app.post("/api/social/posts/:id/reactions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/social/posts/:id/reactions", authMiddleware, requireFeatureUnlock("community_feed"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id: postId } = req.params;
       const userId = req.user!.userId;
@@ -21987,7 +22018,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Remove reaction from post
-  app.delete("/api/social/posts/:id/reactions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.delete("/api/social/posts/:id/reactions", authMiddleware, requireFeatureUnlock("community_feed"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id: postId } = req.params;
       const userId = req.user!.userId;
@@ -22013,7 +22044,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get comments for a post
-  app.get("/api/social/posts/:id/comments", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/social/posts/:id/comments", authMiddleware, requireFeatureUnlock("community_feed"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id: postId } = req.params;
       
@@ -22053,7 +22084,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Add comment to post
-  app.post("/api/social/posts/:id/comments", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/social/posts/:id/comments", authMiddleware, requireFeatureUnlock("community_feed"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id: postId } = req.params;
       const userId = req.user!.userId;
@@ -23098,7 +23129,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get leaderboard rankings
-  app.get("/api/player/leaderboard", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/player/leaderboard", authMiddleware, requireFeatureUnlock("glow_leaderboard"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId;
       const playerId = req.user!.playerId;
@@ -23244,7 +23275,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Discover players with filters (recommended, sameLevel, academy)
-  app.get("/api/player/discover", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/player/discover", authMiddleware, requireFeatureUnlock("player_finder"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId;
       const playerId = req.user!.playerId;
@@ -23332,7 +23363,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get Open to Play players
-  app.get("/api/player/open-to-play", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/player/open-to-play", authMiddleware, requireFeatureUnlock("player_finder"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId;
       const playerId = req.user!.playerId;
