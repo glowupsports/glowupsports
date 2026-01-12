@@ -33,7 +33,7 @@ import {
   playerTitles as playerTitlesTable,
   sessionPlans,
 } from "@shared/schema";
-import { setupWebSocket, broadcastNewMessage } from "./websocket";
+import { setupWebSocket, broadcastNewMessage, broadcastNewSession, broadcastFeedbackReceived, broadcastSessionUpdate } from "./websocket";
 import { 
   hashPassword, 
   verifyPassword, 
@@ -2955,6 +2955,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         performedBy: coachId,
       });
 
+      // Broadcast new session via WebSocket for real-time updates
+      if (academyId) {
+        for (const session of createdSessions) {
+          broadcastNewSession(academyId, {
+            sessionId: session.id,
+            sessionName: session.name || `${sessionType} Session`,
+            coachId: coachId!,
+            startTime: session.startTime?.toISOString() || "",
+          });
+        }
+      }
+
       // For recurring sessions, return summary with skipped weeks info
       if (sessionsToCreate > 1) {
         res.status(201).json({
@@ -3065,6 +3077,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         action: "update",
         performedBy: coachId!,
       });
+
+      // Broadcast session update via WebSocket
+      if (academyId) {
+        broadcastSessionUpdate(academyId, {
+          sessionId: id,
+          type: "updated",
+        });
+      }
 
       res.json(updated);
     } catch (error) {
@@ -3727,6 +3747,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sendFeedbackNotification(sp.playerId, coachName, session.name || "Training session").catch(err =>
             console.error("Failed to send feedback notification:", err)
           );
+          // Broadcast feedback received via WebSocket for real-time updates
+          if (academyId && sp.playerId) {
+            broadcastFeedbackReceived(academyId, {
+              playerId: sp.playerId,
+              sessionId: id,
+              coachName,
+            });
+          }
           // Send feedback email if player has email
           const feedbackPlayer = await storage.getPlayer(sp.playerId);
           if (feedbackPlayer?.email) {
@@ -3827,6 +3855,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }),
         academyId: academyId!,
       });
+
+      // Broadcast session cancellation via WebSocket
+      if (academyId) {
+        broadcastSessionUpdate(academyId, {
+          sessionId: id,
+          type: "cancelled",
+        });
+      }
       
       const refundedCount = refundResults.filter(r => r.success).length;
       res.json({
@@ -23028,6 +23064,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               badgeId: badge.id,
             });
             newlyEarnedBadges.push(badge.id);
+            // Send push notification for earned badge
+            sendBadgeEarnedNotification(playerId, badge.name, badge.description || "").catch(err =>
+              console.error("Failed to send badge earned notification:", err)
+            );
           } catch (e) {
             // Ignore duplicate key errors
           }

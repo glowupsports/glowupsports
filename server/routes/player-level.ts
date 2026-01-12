@@ -10,6 +10,7 @@ import {
   playerLevelUpCelebrations,
   playerFeatureUnlockHistory,
 } from "@shared/schema";
+import { sendLevelUpNotification, sendXPGainNotification } from "../pushNotifications";
 
 const router = Router();
 
@@ -204,6 +205,11 @@ router.post("/award-xp", async (req: Request, res: Response) => {
       })
       .where(eq(players.id, playerId));
 
+    // Send XP gain notification
+    sendXPGainNotification(playerId, xpToAward, rule.displayName || actionSource).catch(err =>
+      console.error("Failed to send XP gain notification:", err)
+    );
+
     // Handle level up
     if (triggeredLevelUp) {
       const newTitle = await getTitleForLevel(newLevel);
@@ -226,6 +232,11 @@ router.post("/award-xp", async (req: Request, res: Response) => {
           unlockedAtLevel: newLevel,
         }).onConflictDoNothing();
       }
+
+      // Send level up push notification
+      sendLevelUpNotification(playerId, newLevel, newTitle).catch(err =>
+        console.error("Failed to send level up notification:", err)
+      );
     }
 
     res.json({

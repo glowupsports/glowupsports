@@ -39,16 +39,40 @@ interface OnlineStatusPayload {
   isOnline: boolean;
 }
 
+interface NewSessionPayload {
+  sessionId: string;
+  sessionName: string;
+  coachId: string;
+  startTime: string;
+}
+
+interface FeedbackReceivedPayload {
+  playerId: string;
+  sessionId: string;
+  coachName: string;
+}
+
+interface SessionUpdatePayload {
+  sessionId: string;
+  type: "cancelled" | "updated" | "attendance";
+}
+
 type MessageHandler = (payload: NewMessagePayload) => void;
 type TypingHandler = (payload: TypingPayload) => void;
 type ReadReceiptHandler = (payload: ReadReceiptPayload) => void;
 type OnlineStatusHandler = (payload: OnlineStatusPayload) => void;
+type NewSessionHandler = (payload: NewSessionPayload) => void;
+type FeedbackReceivedHandler = (payload: FeedbackReceivedPayload) => void;
+type SessionUpdateHandler = (payload: SessionUpdatePayload) => void;
 
 interface UseWebSocketOptions {
   onNewMessage?: MessageHandler;
   onTyping?: TypingHandler;
   onReadReceipt?: ReadReceiptHandler;
   onOnlineStatus?: OnlineStatusHandler;
+  onNewSession?: NewSessionHandler;
+  onFeedbackReceived?: FeedbackReceivedHandler;
+  onSessionUpdate?: SessionUpdateHandler;
   onConnected?: () => void;
   onDisconnected?: () => void;
 }
@@ -116,6 +140,15 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
                 return next;
               });
               optionsRef.current.onOnlineStatus?.(statusPayload);
+              break;
+            case "new_session":
+              optionsRef.current.onNewSession?.(message.payload as NewSessionPayload);
+              break;
+            case "feedback_received":
+              optionsRef.current.onFeedbackReceived?.(message.payload as FeedbackReceivedPayload);
+              break;
+            case "session_update":
+              optionsRef.current.onSessionUpdate?.(message.payload as SessionUpdatePayload);
               break;
             case "connected":
               break;
@@ -196,4 +229,4 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   };
 }
 
-export type { NewMessagePayload, TypingPayload, ReadReceiptPayload, OnlineStatusPayload };
+export type { NewMessagePayload, TypingPayload, ReadReceiptPayload, OnlineStatusPayload, NewSessionPayload, FeedbackReceivedPayload, SessionUpdatePayload };

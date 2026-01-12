@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback } from "react";
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import Animated, {
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { useWebSocket } from "@/lib/useWebSocket";
 
 interface Notification {
   id: string;
@@ -180,6 +181,25 @@ export default function NotificationsScreen() {
   const navigation = useNavigation();
   const queryClient = useQueryClient();
   const { coach } = useCoach();
+
+  // WebSocket for real-time notification updates
+  useWebSocket({
+    onNewMessage: useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/notifications"] });
+    }, [queryClient]),
+    onNewSession: useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/notifications"] });
+    }, [queryClient]),
+    onFeedbackReceived: useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/notifications"] });
+    }, [queryClient]),
+    onSessionUpdate: useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/notifications"] });
+    }, [queryClient]),
+    onConnected: useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/notifications"] });
+    }, [queryClient]),
+  });
 
   const { data: notifications = [], isLoading } = useQuery<Notification[]>({
     queryKey: ["/api/coach/notifications"],

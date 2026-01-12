@@ -45,6 +45,7 @@ import { NextSessionCountdown } from "@/coach/components/NextSessionCountdown";
 import { SeriesSummaryCard } from "@/coach/components/SeriesSummaryCard";
 import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
 import { PlayersByLevelCard } from "@/coach/components/PlayersByLevelCard";
+import { useWebSocket } from "@/lib/useWebSocket";
 
 interface Player {
   id: string;
@@ -100,7 +101,7 @@ export default function DashboardScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentSecond, setCurrentSecond] = useState(() => Math.floor(Date.now() / 1000));
   const [selectedSessionForDetail, setSelectedSessionForDetail] = useState<Session | null>(null);
-  
+
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentSecond(Math.floor(Date.now() / 1000));
@@ -115,6 +116,31 @@ export default function DashboardScreen() {
   const { data: weeklyCalendarData, refetch: refetchWeeklyCalendar } = useQuery<WeeklyCalendarData>({
     queryKey: [weeklyCalendarPath],
     enabled: !!coach?.id && !!weeklyCalendarPath,
+  });
+
+  // WebSocket for real-time updates (placed after weeklyCalendar query to access refetchWeeklyCalendar)
+  useWebSocket({
+    onNewMessage: useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/unread-count"] });
+    }, [queryClient]),
+    onNewSession: useCallback(() => {
+      if (refetchCalendar) refetchCalendar();
+      refetchWeeklyCalendar();
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/sessions"] });
+    }, [queryClient, refetchCalendar, refetchWeeklyCalendar]),
+    onSessionUpdate: useCallback(() => {
+      if (refetchCalendar) refetchCalendar();
+      refetchWeeklyCalendar();
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/sessions"] });
+    }, [queryClient, refetchCalendar, refetchWeeklyCalendar]),
+    onConnected: useCallback(() => {
+      // Refresh calendar data when WebSocket reconnects
+      if (refetchCalendar) {
+        refetchCalendar();
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/notifications"] });
+    }, [queryClient, refetchCalendar]),
   });
 
   const onRefresh = useCallback(async () => {

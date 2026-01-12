@@ -22,6 +22,7 @@ import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import Animated, { FadeIn, FadeOut, SlideInUp, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, withRepeat } from "react-native-reanimated";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
+import { useWebSocket } from "@/lib/useWebSocket";
 
 interface VacationData {
   active: boolean;
@@ -817,6 +818,7 @@ export default function PlayerHomeScreen() {
   const { user } = useAuth();
   const { mode } = useAppMode();
   const { openDrawer } = usePlayerDrawer();
+  const queryClient = useQueryClient();
   
   const isPlayer = user?.role === "player";
   const isOwnerRole = user?.role === "owner" || user?.role === "academy_owner" || user?.role === "platform_owner";
@@ -827,6 +829,33 @@ export default function PlayerHomeScreen() {
   
   const showPlayerDashboard = isInPlayerMode && hasPlayerProfile;
   const showOwnerOverview = isOwnerRole && !showPlayerDashboard;
+
+  // WebSocket for real-time updates
+  useWebSocket({
+    onNewMessage: useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/unread-count"] });
+    }, [queryClient]),
+    onNewSession: useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/sessions"] });
+    }, [queryClient]),
+    onFeedbackReceived: useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/notifications"] });
+    }, [queryClient]),
+    onSessionUpdate: useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/sessions"] });
+    }, [queryClient]),
+    onConnected: useCallback(() => {
+      // Refresh dashboard data when WebSocket reconnects
+      if (showPlayerDashboard) {
+        queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+      }
+    }, [queryClient, showPlayerDashboard]),
+  });
   
   const { data, isLoading, error } = useQuery<DashboardData>({
     queryKey: ["/api/player/me/dashboard"],
@@ -845,8 +874,6 @@ export default function PlayerHomeScreen() {
     queryKey: ["/api/player/academy-owner"],
     enabled: canAccessPlayerMode && showPlayerDashboard,
   });
-
-  const queryClient = useQueryClient();
   
   // Refresh dashboard data when screen comes into focus (for credit updates)
   useFocusEffect(

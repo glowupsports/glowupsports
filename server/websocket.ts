@@ -250,6 +250,27 @@ export function broadcastNewMessage(academyId: string, payload: NewMessagePayloa
   });
 }
 
+export function broadcastNewSession(academyId: string, payload: { sessionId: string; sessionName: string; coachId: string; startTime: string }) {
+  broadcastToAcademy(academyId, {
+    type: "new_session",
+    payload,
+  });
+}
+
+export function broadcastFeedbackReceived(academyId: string, payload: { playerId: string; sessionId: string; coachName: string }) {
+  broadcastToAcademy(academyId, {
+    type: "feedback_received",
+    payload,
+  });
+}
+
+export function broadcastSessionUpdate(academyId: string, payload: { sessionId: string; type: "cancelled" | "updated" | "attendance" }) {
+  broadcastToAcademy(academyId, {
+    type: "session_update",
+    payload,
+  });
+}
+
 export function getOnlineUsers(academyId: string): string[] {
   const users = onlineUsers.get(academyId);
   return users ? Array.from(users) : [];
