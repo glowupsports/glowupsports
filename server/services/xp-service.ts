@@ -211,15 +211,15 @@ export async function awardXP(
         badgeUnlock: threshold?.badgeUnlock || null,
         titleUnlock: threshold?.titleUnlock || null,
         featuresUnlocked: levelFeatures,
-        isCelebrated: false,
+        celebrationShown: false,
       });
 
       for (const featureKey of levelFeatures) {
         await db.insert(playerFeatureUnlockHistory).values({
           playerId,
           featureKey,
-          levelAtUnlock: level,
-          isOnboardingCompleted: false,
+          unlockedAtLevel: level,
+          onboardingShown: false,
         });
       }
     }
@@ -305,7 +305,7 @@ export async function getPlayerLevelStatus(playerId: string) {
     .from(playerLevelUpCelebrations)
     .where(and(
       eq(playerLevelUpCelebrations.playerId, playerId),
-      eq(playerLevelUpCelebrations.isCelebrated, false)
+      eq(playerLevelUpCelebrations.celebrationShown, false)
     ))
     .orderBy(desc(playerLevelUpCelebrations.createdAt));
 
@@ -324,8 +324,8 @@ export async function getPlayerLevelStatus(playerId: string) {
 
 export async function markCelebrationComplete(celebrationId: string): Promise<boolean> {
   await db.update(playerLevelUpCelebrations).set({
-    isCelebrated: true,
-    celebratedAt: new Date(),
+    celebrationShown: true,
+    celebrationShownAt: new Date(),
   }).where(eq(playerLevelUpCelebrations.id, celebrationId));
   
   return true;
