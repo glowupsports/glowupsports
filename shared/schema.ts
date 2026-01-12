@@ -4571,3 +4571,349 @@ export const levelUpEvents = pgTable("level_up_events", {
 export const insertLevelUpEventSchema = createInsertSchema(levelUpEvents).omit({ id: true, createdAt: true });
 export type InsertLevelUpEvent = z.infer<typeof insertLevelUpEventSchema>;
 export type LevelUpEvent = typeof levelUpEvents.$inferSelect;
+
+// ==================== MATCH INTELLIGENCE SYSTEM ====================
+
+// Match playstyle tags for opponent scouting
+export const playstyleTags = [
+  "baseline_grinder",
+  "aggressive_hitter",
+  "serve_focused",
+  "consistent_defender",
+  "net_player",
+  "counterpuncher",
+  "all_court",
+  "pusher",
+  "big_server",
+  "touch_player",
+] as const;
+export type PlaystyleTag = typeof playstyleTags[number];
+
+// Match types
+export const matchTypes = ["practice", "competitive", "tournament", "friendly", "league"] as const;
+export type MatchType = typeof matchTypes[number];
+
+// Match Opponents - Opponent profiles for scouting
+export const matchOpponents = pgTable("match_opponents", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(), // The player who has this opponent
+  
+  // Opponent info
+  name: text("name").notNull(),
+  club: text("club"),
+  glowRank: integer("glow_rank"), // If known from system
+  externalRating: text("external_rating"), // UTR, NTRP, etc.
+  
+  // Playstyle profile
+  playstyleTags: jsonb("playstyle_tags").$type<PlaystyleTag[]>().default([]),
+  strongerSide: text("stronger_side"), // FH, BH, Neutral
+  weakerSide: text("weaker_side"),
+  
+  // Patterns
+  typicalPatterns: jsonb("typical_patterns").$type<string[]>().default([]), // Long rallies, Short points, Errors under pressure
+  
+  // Recent form (auto-calculated from matches)
+  last5Matches: jsonb("last_5_matches").$type<{ result: "W" | "L"; date: string }[]>().default([]),
+  winRate: integer("win_rate"), // Percentage against this opponent
+  
+  // Notes
+  coachNotes: text("coach_notes"),
+  playerNotes: text("player_notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("match_opponents_player_idx").on(table.playerId),
+]);
+
+export const insertMatchOpponentSchema = createInsertSchema(matchOpponents).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertMatchOpponent = z.infer<typeof insertMatchOpponentSchema>;
+export type MatchOpponent = typeof matchOpponents.$inferSelect;
+
+// Match Plans - Pre-match strategy and check-in
+export const matchPlans = pgTable("match_plans", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  opponentId: varchar("opponent_id").references(() => matchOpponents.id),
+  matchId: varchar("match_id"), // Set after match is created
+  
+  // Scheduled match info
+  scheduledDate: date("scheduled_date"),
+  scheduledTime: text("scheduled_time"),
+  venue: text("venue"),
+  matchType: text("match_type").$type<MatchType>().default("competitive"),
+  
+  // Focus points (max 3)
+  primaryTactic: text("primary_tactic"), // e.g., "Rally crosscourt to BH"
+  mentalCue: text("mental_cue"), // e.g., "Stay patient first 5 shots"
+  energyFocus: text("energy_focus"), // e.g., "Reset after every point"
+  
+  // Auto-suggested tactics based on opponent
+  suggestedTactics: jsonb("suggested_tactics").$type<string[]>().default([]),
+  
+  // Pre-match check-in
+  preMatchEnergy: text("pre_match_energy"), // low, ok, high
+  preMatchMood: text("pre_match_mood"), // neutral, positive, fired_up
+  preMatchConfidence: integer("pre_match_confidence"), // 1-10
+  
+  status: text("status").notNull().default("draft"), // draft, active, completed
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("match_plans_player_idx").on(table.playerId),
+  index("match_plans_opponent_idx").on(table.opponentId),
+  index("match_plans_date_idx").on(table.scheduledDate),
+]);
+
+export const insertMatchPlanSchema = createInsertSchema(matchPlans).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertMatchPlan = z.infer<typeof insertMatchPlanSchema>;
+export type MatchPlan = typeof matchPlans.$inferSelect;
+
+// Matches - Played match records
+export const matches = pgTable("matches", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  opponentId: varchar("opponent_id").references(() => matchOpponents.id),
+  planId: varchar("plan_id").references(() => matchPlans.id),
+  academyId: varchar("academy_id").references(() => academies.id),
+  
+  // Match details
+  matchDate: date("match_date").notNull(),
+  matchType: text("match_type").$type<MatchType>().default("competitive"),
+  surface: text("surface"), // hard, clay, grass, indoor
+  venue: text("venue"),
+  
+  // Score
+  result: text("result").notNull(), // win, loss
+  score: text("score").notNull(), // e.g., "6-4 3-6 7-5"
+  setsWon: integer("sets_won").default(0),
+  setsLost: integer("sets_lost").default(0),
+  gamesWon: integer("games_won").default(0),
+  gamesLost: integer("games_lost").default(0),
+  
+  // Duration
+  durationMinutes: integer("duration_minutes"),
+  
+  // Performance metrics
+  aces: integer("aces").default(0),
+  doubleFaults: integer("double_faults").default(0),
+  winners: integer("winners").default(0),
+  unforcedErrors: integer("unforced_errors").default(0),
+  
+  // Trust level
+  trustLevel: text("trust_level").notNull().default("self_reported"), // self_reported, coach_verified, tournament
+  verifiedBy: varchar("verified_by").references(() => coaches.id),
+  verifiedAt: timestamp("verified_at"),
+  
+  // Glow Rank impact
+  glowRankBefore: integer("glow_rank_before"),
+  glowRankAfter: integer("glow_rank_after"),
+  glowRankChange: integer("glow_rank_change").default(0),
+  confidenceChange: integer("confidence_change").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("matches_player_idx").on(table.playerId),
+  index("matches_opponent_idx").on(table.opponentId),
+  index("matches_date_idx").on(table.matchDate),
+  index("matches_academy_idx").on(table.academyId),
+]);
+
+export const insertMatchSchema = createInsertSchema(matches).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertMatch = z.infer<typeof insertMatchSchema>;
+export type Match = typeof matches.$inferSelect;
+
+// Match Reflections - Post-match player input
+export const matchReflections = pgTable("match_reflections", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  matchId: varchar("match_id").references(() => matches.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  
+  // What worked (tap selection)
+  whatWorked: jsonb("what_worked").$type<string[]>().default([]), // serve, return, forehand, backhand, volleys, movement, tactics, mental
+  
+  // What didn't work (tap selection)
+  whatDidntWork: jsonb("what_didnt_work").$type<string[]>().default([]),
+  
+  // Biggest challenge (single selection)
+  biggestChallenge: text("biggest_challenge"), // errors, nerves, fitness, opponent_strength, tactics, concentration
+  
+  // Post-match feeling
+  postMatchEnergy: text("post_match_energy"), // exhausted, tired, ok, good, great
+  postMatchMood: text("post_match_mood"), // frustrated, disappointed, neutral, satisfied, happy
+  postMatchConfidence: integer("post_match_confidence"), // 1-10
+  
+  // Free text (optional, limited)
+  keyTakeaway: text("key_takeaway"), // Max 100 chars
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("match_reflections_match_idx").on(table.matchId),
+  index("match_reflections_player_idx").on(table.playerId),
+]);
+
+export const insertMatchReflectionSchema = createInsertSchema(matchReflections).omit({ id: true, createdAt: true });
+export type InsertMatchReflection = z.infer<typeof insertMatchReflectionSchema>;
+export type MatchReflection = typeof matchReflections.$inferSelect;
+
+// Match Pillar Scores - 6-pillar performance per match
+export const matchPillarScores = pgTable("match_pillar_scores", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  matchId: varchar("match_id").references(() => matches.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  
+  // Pillar scores (0-100)
+  technicalScore: integer("technical_score"), // Based on errors/winners
+  tacticalScore: integer("tactical_score"), // Plan execution
+  physicalScore: integer("physical_score"), // Stamina/movement
+  mentalScore: integer("mental_score"), // Pressure points performance
+  socialScore: integer("social_score"), // Fair play, sportsmanship
+  matchScore: integer("match_score"), // Experience gained
+  
+  // Pillar status for display
+  technicalStatus: text("technical_status"), // good, warning, poor
+  tacticalStatus: text("tactical_status"),
+  physicalStatus: text("physical_status"),
+  mentalStatus: text("mental_status"),
+  socialStatus: text("social_status"),
+  matchStatus: text("match_status"),
+  
+  // Insights per pillar
+  technicalInsight: text("technical_insight"),
+  tacticalInsight: text("tactical_insight"),
+  physicalInsight: text("physical_insight"),
+  mentalInsight: text("mental_insight"),
+  socialInsight: text("social_insight"),
+  matchInsight: text("match_insight"),
+  
+  // Auto-generated or coach-provided
+  source: text("source").notNull().default("auto"), // auto, coach
+  coachId: varchar("coach_id").references(() => coaches.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("match_pillar_scores_match_idx").on(table.matchId),
+  index("match_pillar_scores_player_idx").on(table.playerId),
+]);
+
+export const insertMatchPillarScoreSchema = createInsertSchema(matchPillarScores).omit({ id: true, createdAt: true });
+export type InsertMatchPillarScore = z.infer<typeof insertMatchPillarScoreSchema>;
+export type MatchPillarScore = typeof matchPillarScores.$inferSelect;
+
+// Coach Match Reviews - Quick coach feedback
+export const coachMatchReviews = pgTable("coach_match_reviews", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  matchId: varchar("match_id").references(() => matches.id).notNull(),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  
+  // Quick pillar feedback (thumbs up/down)
+  technicalFeedback: text("technical_feedback"), // good, needs_work
+  tacticalFeedback: text("tactical_feedback"),
+  physicalFeedback: text("physical_feedback"),
+  mentalFeedback: text("mental_feedback"),
+  socialFeedback: text("social_feedback"),
+  matchFeedback: text("match_feedback"),
+  
+  // Top improvements (max 3)
+  topImprovements: jsonb("top_improvements").$type<string[]>().default([]),
+  
+  // Strength to reinforce (1)
+  strengthToReinforce: text("strength_to_reinforce"),
+  
+  // Suggested next lesson focus (auto-generated or selected)
+  suggestedLessonFocus: jsonb("suggested_lesson_focus").$type<string[]>().default([]),
+  
+  // Optional voice note or comment
+  voiceNoteUrl: text("voice_note_url"),
+  comment: text("comment"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("coach_match_reviews_match_idx").on(table.matchId),
+  index("coach_match_reviews_coach_idx").on(table.coachId),
+  index("coach_match_reviews_player_idx").on(table.playerId),
+]);
+
+export const insertCoachMatchReviewSchema = createInsertSchema(coachMatchReviews).omit({ id: true, createdAt: true });
+export type InsertCoachMatchReview = z.infer<typeof insertCoachMatchReviewSchema>;
+export type CoachMatchReview = typeof coachMatchReviews.$inferSelect;
+
+// Pressure Moments - Auto-detected key moments in match
+export const pressureMoments = pgTable("pressure_moments", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  matchId: varchar("match_id").references(() => matches.id).notNull(),
+  
+  // Moment type
+  momentType: text("moment_type").notNull(), // break_point, set_point, match_point, tiebreak, comeback
+  
+  // Context
+  setNumber: integer("set_number"),
+  gameScore: text("game_score"), // e.g., "5-4"
+  pointScore: text("point_score"), // e.g., "30-40"
+  
+  // Outcome
+  outcome: text("outcome").notNull(), // won, lost
+  
+  // Performance indicators
+  confidenceLevel: integer("confidence_level"), // 1-10 at this moment
+  errorIncrease: boolean("error_increase").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("pressure_moments_match_idx").on(table.matchId),
+]);
+
+export const insertPressureMomentSchema = createInsertSchema(pressureMoments).omit({ id: true, createdAt: true });
+export type InsertPressureMoment = z.infer<typeof insertPressureMomentSchema>;
+export type PressureMoment = typeof pressureMoments.$inferSelect;
+
+// Match Training Suggestions - Auto-generated training focus
+export const matchTrainingSuggestions = pgTable("match_training_suggestions", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  matchId: varchar("match_id").references(() => matches.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  
+  // Focus area
+  focusArea: text("focus_area").notNull(), // backhand_under_pressure, serve_consistency, net_approaches
+  pillar: text("pillar").notNull(), // technique, tactical, physical, mental, social, match
+  
+  // Priority
+  priority: integer("priority").notNull().default(1), // 1 = highest
+  
+  // Duration
+  suggestedWeeks: integer("suggested_weeks").default(2),
+  
+  // Related lesson templates
+  relatedTemplateIds: jsonb("related_template_ids").$type<string[]>().default([]),
+  
+  // Status
+  status: text("status").notNull().default("pending"), // pending, in_progress, completed, dismissed
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("match_training_suggestions_match_idx").on(table.matchId),
+  index("match_training_suggestions_player_idx").on(table.playerId),
+]);
+
+export const insertMatchTrainingSuggestionSchema = createInsertSchema(matchTrainingSuggestions).omit({ id: true, createdAt: true });
+export type InsertMatchTrainingSuggestion = z.infer<typeof insertMatchTrainingSuggestionSchema>;
+export type MatchTrainingSuggestion = typeof matchTrainingSuggestions.$inferSelect;

@@ -53,6 +53,8 @@ import ShopCategoryScreen from "@/player/screens/ShopCategoryScreen";
 import MarketplaceScreen from "@/player/screens/MarketplaceScreen";
 import MarketplaceListingDetailScreen from "@/player/screens/MarketplaceListingDetailScreen";
 import MyListingsScreen from "@/player/screens/MyListingsScreen";
+import MatchScreen from "@/player/screens/MatchScreen";
+import MatchDetailScreen from "@/player/screens/MatchDetailScreen";
 import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
 import { CartProvider } from "@/player/contexts/CartContext";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
@@ -115,6 +117,8 @@ export type PlayerStackParamList = {
   Marketplace: undefined;
   MarketplaceListing: { listingId: string };
   MyListings: undefined;
+  Match: { opponentId?: string } | undefined;
+  MatchDetail: { matchId: string };
 };
 
 const Tab = createBottomTabNavigator<PlayerTabParamList>();
@@ -551,6 +555,22 @@ function PlayerStackNavigator() {
           headerShown: false,
         }}
       />
+      <Stack.Screen 
+        name="Match" 
+        component={MatchScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="MatchDetail" 
+        component={MatchDetailScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
     </Stack.Navigator>
   );
 }
@@ -630,10 +650,17 @@ function PlayerQuickActionsFAB() {
       onPress: () => navigation.navigate("LessonBooking"),
     },
     {
-      id: "find-match",
-      label: "Find Match",
-      icon: "game-controller-outline",
+      id: "match-prepare",
+      label: "Match",
+      icon: "tennisball-outline",
       color: Colors.dark.xpCyan,
+      onPress: () => navigation.navigate("Match"),
+    },
+    {
+      id: "find-match",
+      label: "Find Player",
+      icon: "people-outline",
+      color: Colors.dark.successNeon,
       onPress: () => navigation.navigate("PlayerFinder"),
     },
     {

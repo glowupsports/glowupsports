@@ -30,6 +30,7 @@ import ActiveSessionScreen from "@/coach/screens/glow/ActiveSessionScreen";
 import EvidenceCaptureScreen from "@/coach/screens/glow/EvidenceCaptureScreen";
 import LevelCardsScreen from "@/coach/screens/glow/LevelCardsScreen";
 import CoachCalibrationScreen from "@/coach/screens/glow/CoachCalibrationScreen";
+import MatchReviewScreen from "@/coach/screens/glow/MatchReviewScreen";
 import OfflineBanner from "@/components/OfflineBanner";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -79,6 +80,7 @@ export type CoachStackParamList = {
   EvidenceCapture: { skillTags?: string[]; sessionId?: string; blockId?: string; playerId?: string };
   LevelCards: undefined;
   CoachCalibration: undefined;
+  MatchReview: { matchId: string };
 };
 
 const Tab = createBottomTabNavigator<CoachTabParamList>();
@@ -293,6 +295,14 @@ function CoachStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Coach Calibration",
+        }}
+      />
+      <Stack.Screen 
+        name="MatchReview" 
+        component={MatchReviewScreen}
+        options={{
+          headerShown: false,
+          presentation: "card",
         }}
       />
     </Stack.Navigator>

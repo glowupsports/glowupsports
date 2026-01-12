@@ -44,6 +44,7 @@ import { getApiUrl } from "@/lib/query-client";
 import { NextSessionCountdown } from "@/coach/components/NextSessionCountdown";
 import { SeriesSummaryCard } from "@/coach/components/SeriesSummaryCard";
 import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
+import { PlayersByLevelCard } from "@/coach/components/PlayersByLevelCard";
 
 interface Player {
   id: string;
@@ -1116,6 +1117,9 @@ export default function DashboardScreen() {
             handleNavigate("Coaching");
           }}
         />
+
+        {/* === PLAYERS BY LEVEL DASHBOARD === */}
+        <PlayersByLevelCard />
 
         {/* === ACTION QUEUE - Gaming Alerts HUD === */}
         {alerts.length > 0 ? (

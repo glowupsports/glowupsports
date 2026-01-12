@@ -84,6 +84,7 @@ import coachCalibrationRoutes from "./routes/coach-calibration";
 import parentDashboardRoutes from "./routes/parent-dashboard";
 import adultGlowRankRoutes from "./routes/adult-glow-rank";
 import lessonGroupsRoutes from "./routes/lesson-groups";
+import matchIntelligenceRoutes from "./routes/match-intelligence";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -223,6 +224,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/coach/calibration", coachCalibrationRoutes);
   app.use(parentDashboardRoutes);
   app.use("/api/lesson-groups", lessonGroupsRoutes);
+  app.use("/api/match-intelligence", matchIntelligenceRoutes);
 
   // ==================== HEALTH CHECK ====================
   
