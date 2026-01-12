@@ -33,7 +33,11 @@ The application employs a dark-themed gaming aesthetic with neon green and cyan 
   - **XP Bar Resets Per Level**: Like video games, the XP bar resets to 0 upon leveling up - not cumulative progress
   - **XP Triggers**: Automatic XP awards for session attendance, positive feedback, matches played, match wins, and match reflections
   - **Anti-Abuse Rules**: Configurable one-time bonuses, cooldown periods, and daily caps per action source
-  - **Feature Unlocks**: 30+ features gated by player level, with revenue-driving features (credit store, lesson booking) at Level 1
+  - **Feature Unlocks (Solo Leveling Style)**: 30+ features gated by player level with teaser UI for locked content. Implemented feature gates:
+    - Marketplace (Level 12), Match Preparation (Level 7), Community Feed (Level 4), Academy Shop (Level 9)
+    - Glow Leaderboard (Level 5), Groups (Level 7), Player Finder (Level 6), Court Booking (Level 10)
+    - Each locked screen shows a teaser UI with unlock requirements via `LockedScreen` component
+    - Uses `PlayerLevelContext` for level checks and `isFeatureUnlocked()` for gate logic
   - **Level-Up Celebrations**: Animated modals showing new level, title, badge/title unlocks, and newly unlocked features
   - **Feature Onboarding**: New feature discovery modals when features are unlocked
   - **Platform Owner Configuration**: Full control over XP amounts, level thresholds, and feature unlock levels via System > XP Engine Configuration
