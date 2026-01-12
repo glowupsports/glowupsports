@@ -135,26 +135,20 @@ export function LockedFeatureCard({
 }
 
 interface UpcomingUnlocksListProps {
-  playerId: string | null;
   maxItems?: number;
 }
 
 export function UpcomingUnlocksList({
-  playerId,
   maxItems = 5,
 }: UpcomingUnlocksListProps) {
-  const { data: levelStatus } = usePlayerLevel(playerId);
-  
-  const { data: featureUnlocks } = useQuery<FeatureUnlock[]>({
-    queryKey: ["/api/player-level/config/feature-unlocks"],
-  });
+  const { level, featureUnlockConfig } = usePlayerLevelContext();
 
-  if (!levelStatus || !featureUnlocks) {
+  if (!featureUnlockConfig || featureUnlockConfig.length === 0) {
     return null;
   }
 
-  const currentLevel = levelStatus.level;
-  const lockedFeatures = featureUnlocks
+  const currentLevel = level;
+  const lockedFeatures = featureUnlockConfig
     .filter(f => f.requiredLevel > currentLevel && f.requiredLevel <= currentLevel + 5)
     .sort((a, b) => a.requiredLevel - b.requiredLevel)
     .slice(0, maxItems);
