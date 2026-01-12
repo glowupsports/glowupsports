@@ -1,10 +1,10 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Platform, Modal } from "react-native";
+import React from "react";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
+import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 
 const PLATFORM_COLOR = "#9B59B6";
@@ -16,38 +16,45 @@ interface Badge {
   icon: string;
   xpReward: number;
   criteria: string;
+  category?: string;
+  tier?: string;
+  isActive: boolean;
+  order?: number;
 }
+
+const BADGE_TIER_COLORS: Record<string, string> = {
+  bronze: "#CD7F32",
+  silver: "#C0C0C0",
+  gold: "#FFD700",
+  platinum: "#E5E4E2",
+  diamond: "#B9F2FF",
+};
 
 export default function BadgeDefinitionsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
 
-  const [badges, setBadges] = useState<Badge[]>([
-    { id: "1", name: "First Steps", description: "Attend your first session", icon: "footsteps", xpReward: 100, criteria: "first_session" },
-    { id: "2", name: "Week Warrior", description: "Attend 5 sessions in a week", icon: "flame", xpReward: 200, criteria: "5_sessions_week" },
-    { id: "3", name: "Level Up", description: "Advance to the next ball level", icon: "arrow-up-circle", xpReward: 300, criteria: "level_advance" },
-    { id: "4", name: "Perfect Attendance", description: "100% attendance for a month", icon: "checkmark-done-circle", xpReward: 500, criteria: "perfect_month" },
-    { id: "5", name: "Social Butterfly", description: "Train with 10 different partners", icon: "people", xpReward: 150, criteria: "10_partners" },
-    { id: "6", name: "Glow Champion", description: "Reach Glow level", icon: "star", xpReward: 1000, criteria: "glow_level" },
-  ]);
+  const { data: badges = [], isLoading } = useQuery<Badge[]>({
+    queryKey: ["/api/badges"],
+  });
 
-  const handleDelete = (id: string) => {
-    const badge = badges.find(b => b.id === id);
-    const confirmDelete = () => {
-      setBadges(prev => prev.filter(b => b.id !== id));
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    };
+  const groupedBadges = badges.reduce((acc, badge) => {
+    const category = badge.category || "General";
+    if (!acc[category]) acc[category] = [];
+    acc[category].push(badge);
+    return acc;
+  }, {} as Record<string, Badge[]>);
 
-    if (Platform.OS === "web") {
-      const confirmed = window.confirm(`Delete badge "${badge?.name}"?`);
-      if (confirmed) confirmDelete();
-    } else {
-      Alert.alert("Delete Badge", `Delete badge "${badge?.name}"?`, [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: confirmDelete },
-      ]);
-    }
-  };
+  const categories = Object.keys(groupedBadges).sort();
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={PLATFORM_COLOR} />
+        <Text style={styles.loadingText}>Loading badges...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -61,9 +68,7 @@ export default function BadgeDefinitionsScreen() {
           <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
         </Pressable>
         <Text style={styles.topBarTitle}>Badge Definitions</Text>
-        <Pressable style={styles.addButton}>
-          <Ionicons name="add" size={24} color={PLATFORM_COLOR} />
-        </Pressable>
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView
@@ -71,28 +76,58 @@ export default function BadgeDefinitionsScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.subtitle}>Manage achievement badges and their rewards</Text>
+        <Text style={styles.subtitle}>View all achievement badges and their rewards</Text>
 
-        <View style={styles.badgeGrid}>
-          {badges.map((badge) => (
-            <View key={badge.id} style={[styles.badgeCard, CardStyles.elevated]}>
-              <Pressable 
-                style={styles.deleteBtn}
-                onPress={() => handleDelete(badge.id)}
-              >
-                <Ionicons name="close-circle" size={20} color={Colors.dark.error} />
-              </Pressable>
-              <View style={styles.badgeIcon}>
-                <Ionicons name={badge.icon as any} size={28} color={Colors.dark.gold} />
-              </View>
-              <Text style={styles.badgeName}>{badge.name}</Text>
-              <Text style={styles.badgeDescription}>{badge.description}</Text>
-              <View style={styles.badgeReward}>
-                <Ionicons name="flash" size={14} color={Colors.dark.xpCyan} />
-                <Text style={styles.rewardText}>+{badge.xpReward} XP</Text>
-              </View>
+        {badges.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="ribbon-outline" size={48} color={Colors.dark.textMuted} />
+            <Text style={styles.emptyTitle}>No Badges Configured</Text>
+            <Text style={styles.emptyDescription}>
+              Badges will be seeded when the system initializes.
+            </Text>
+          </View>
+        ) : null}
+
+        {categories.map((category) => (
+          <View key={category} style={styles.categorySection}>
+            <Text style={styles.categoryTitle}>{category}</Text>
+            <View style={styles.badgeGrid}>
+              {groupedBadges[category].map((badge) => (
+                <View key={badge.id} style={[styles.badgeCard, CardStyles.elevated]}>
+                  <View style={[
+                    styles.tierIndicator,
+                    { backgroundColor: BADGE_TIER_COLORS[badge.tier || "bronze"] || Colors.dark.gold }
+                  ]} />
+                  <View style={styles.badgeIcon}>
+                    <Ionicons 
+                      name={(badge.icon as any) || "ribbon-outline"} 
+                      size={28} 
+                      color={Colors.dark.gold} 
+                    />
+                  </View>
+                  <Text style={styles.badgeName}>{badge.name}</Text>
+                  <Text style={styles.badgeDescription} numberOfLines={2}>{badge.description}</Text>
+                  <View style={styles.badgeReward}>
+                    <Ionicons name="flash" size={14} color={Colors.dark.xpCyan} />
+                    <Text style={styles.rewardText}>+{badge.xpReward} XP</Text>
+                  </View>
+                  {badge.criteria ? (
+                    <View style={styles.criteriaContainer}>
+                      <Text style={styles.criteriaLabel}>Trigger:</Text>
+                      <Text style={styles.criteriaValue}>{badge.criteria.replace(/_/g, " ")}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              ))}
             </View>
-          ))}
+          </View>
+        ))}
+
+        <View style={styles.infoCard}>
+          <Ionicons name="information-circle" size={20} color={Colors.dark.textMuted} />
+          <Text style={styles.infoText}>
+            Badges are automatically awarded when players complete specific achievements. Configuration is managed through database seeding.
+          </Text>
         </View>
       </ScrollView>
     </View>
@@ -103,6 +138,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  loadingContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
   },
   headerGradient: {
     position: "absolute",
@@ -131,14 +175,6 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: "center",
   },
-  addButton: {
-    width: 40,
-    height: 40,
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 20,
-    backgroundColor: `${PLATFORM_COLOR}20`,
-  },
   scrollView: {
     flex: 1,
   },
@@ -150,31 +186,59 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     marginBottom: Spacing.lg,
   },
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: Spacing.xxl,
+    paddingHorizontal: Spacing.lg,
+  },
+  emptyTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    marginTop: Spacing.md,
+  },
+  emptyDescription: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    marginTop: Spacing.sm,
+  },
+  categorySection: {
+    marginBottom: Spacing.xl,
+  },
+  categoryTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "700",
+    marginBottom: Spacing.md,
+  },
   badgeGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: Spacing.md,
   },
   badgeCard: {
-    width: "47%",
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
+    width: "47%",
     alignItems: "center",
+    overflow: "hidden",
   },
-  deleteBtn: {
+  tierIndicator: {
     position: "absolute",
-    top: Spacing.xs,
-    right: Spacing.xs,
-    zIndex: 1,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
   },
   badgeIcon: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: `${Colors.dark.gold}20`,
+    backgroundColor: Colors.dark.gold + "20",
     justifyContent: "center",
     alignItems: "center",
+    marginTop: Spacing.sm,
     marginBottom: Spacing.sm,
   },
   badgeName: {
@@ -188,20 +252,50 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     textAlign: "center",
     marginTop: Spacing.xs,
+    minHeight: 32,
   },
   badgeReward: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: Spacing.xs,
     marginTop: Spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.sm,
-    backgroundColor: `${Colors.dark.xpCyan}20`,
-    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
   },
   rewardText: {
     ...Typography.small,
     color: Colors.dark.xpCyan,
     fontWeight: "600",
+  },
+  criteriaContainer: {
+    marginTop: Spacing.sm,
+    alignItems: "center",
+  },
+  criteriaLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontSize: 10,
+  },
+  criteriaValue: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontSize: 10,
+    textTransform: "capitalize",
+  },
+  infoCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    marginTop: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+  },
+  infoText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    flex: 1,
   },
 });

@@ -1,110 +1,185 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, Switch, Modal, Alert, Platform } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, Pressable, ScrollView, Switch, Modal, Alert, Platform, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { apiRequest } from "@/lib/query-client";
 
 const PLATFORM_COLOR = "#9B59B6";
 
-const DAILY_XP_OPTIONS = [100, 200, 300, 400, 500, 600, 750, 1000, 1500, 2000];
-const WEEKLY_XP_OPTIONS = [500, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 7500, 10000];
-const MIN_DURATION_OPTIONS = [5, 10, 15, 20, 25, 30, 45, 60];
+const MAX_PER_DAY_OPTIONS = [1, 2, 3, 5, 10, 15, 20, 25, 50, 100];
+const COOLDOWN_OPTIONS = [5, 10, 15, 30, 60, 120, 180, 360, 720, 1440];
 
-type PickerType = "daily" | "weekly" | "duration" | null;
+type PickerType = { actionSource: string; field: "maxPerDay" | "cooldown" } | null;
+
+interface XPRule {
+  id?: number;
+  actionSource: string;
+  xpAmount: number;
+  description: string | null;
+  isOneTime: boolean | null;
+  cooldownMinutes: number | null;
+  maxPerDay: number | null;
+  isActive: boolean | null;
+}
+
+const ACTION_SOURCE_LABELS: Record<string, string> = {
+  session_attendance: "Session Attendance",
+  positive_feedback: "Positive Feedback",
+  level_up: "Level Up",
+  attendance_streak: "Attendance Streak",
+  badge_earned: "Badge Earned",
+  skill_validation: "Skill Validation",
+  match_played: "Match Played",
+  match_won: "Match Won",
+  match_reflection: "Match Reflection",
+};
 
 export default function AntiAbuseRulesScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const queryClient = useQueryClient();
 
-  const [dailyXpCap, setDailyXpCap] = useState(500);
-  const [weeklyXpCap, setWeeklyXpCap] = useState(2000);
-  const [patternDetection, setPatternDetection] = useState(true);
-  const [rapidFireProtection, setRapidFireProtection] = useState(true);
-  const [minSessionDuration, setMinSessionDuration] = useState(15);
+  const [localRules, setLocalRules] = useState<XPRule[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
   const [showPicker, setShowPicker] = useState<PickerType>(null);
+  const [savingRule, setSavingRule] = useState<string | null>(null);
 
-  const handleOpenPicker = (type: PickerType) => {
-    setShowPicker(type);
+  const { data: rules = [], isLoading } = useQuery<XPRule[]>({
+    queryKey: ["/api/player-level/config/xp-rules"],
+  });
+
+  useEffect(() => {
+    if (rules.length > 0) {
+      setLocalRules(rules);
+    }
+  }, [rules]);
+
+  const updateMutation = useMutation({
+    mutationFn: async (rule: XPRule) => {
+      return apiRequest("PUT", `/api/player-level/config/xp-rules/${rule.actionSource}`, {
+        xpAmount: rule.xpAmount,
+        description: rule.description ?? null,
+        isOneTime: rule.isOneTime ?? false,
+        cooldownMinutes: rule.cooldownMinutes ?? null,
+        maxPerDay: rule.maxPerDay ?? null,
+        isActive: rule.isActive ?? true,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player-level/config/xp-rules"] });
+    },
+  });
+
+  const handleToggleOneTime = (actionSource: string) => {
+    setLocalRules(prev => prev.map(r => 
+      r.actionSource === actionSource ? { ...r, isOneTime: !r.isOneTime } : r
+    ));
+    setHasChanges(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleToggleActive = (actionSource: string) => {
+    setLocalRules(prev => prev.map(r => 
+      r.actionSource === actionSource ? { ...r, isActive: !r.isActive } : r
+    ));
+    setHasChanges(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleOpenPicker = (actionSource: string, field: "maxPerDay" | "cooldown") => {
+    setShowPicker({ actionSource, field });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleSelectValue = (value: number) => {
-    if (showPicker === "daily") {
-      setDailyXpCap(value);
-    } else if (showPicker === "weekly") {
-      setWeeklyXpCap(value);
-    } else if (showPicker === "duration") {
-      setMinSessionDuration(value);
+    if (showPicker) {
+      const field = showPicker.field === "maxPerDay" ? "maxPerDay" : "cooldownMinutes";
+      setLocalRules(prev => prev.map(r => 
+        r.actionSource === showPicker.actionSource ? { ...r, [field]: value } : r
+      ));
+      setHasChanges(true);
     }
-    setHasChanges(true);
     setShowPicker(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const handleSave = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setHasChanges(false);
-    if (Platform.OS === "web") {
-      window.alert("Anti-abuse rules saved successfully!");
-    } else {
-      Alert.alert("Success", "Anti-abuse rules saved successfully!");
+  const handleSave = async () => {
+    const changedRules = localRules.filter(local => {
+      const original = rules.find(o => o.actionSource === local.actionSource);
+      return original && (
+        original.isOneTime !== local.isOneTime ||
+        original.cooldownMinutes !== local.cooldownMinutes ||
+        original.maxPerDay !== local.maxPerDay ||
+        original.isActive !== local.isActive
+      );
+    });
+
+    if (changedRules.length === 0) {
+      setHasChanges(false);
+      return;
+    }
+
+    try {
+      for (const rule of changedRules) {
+        setSavingRule(rule.actionSource);
+        await updateMutation.mutateAsync(rule);
+      }
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setHasChanges(false);
+      setSavingRule(null);
+
+      if (Platform.OS === "web") {
+        window.alert("Anti-abuse rules saved successfully!");
+      } else {
+        Alert.alert("Success", "Anti-abuse rules saved successfully!");
+      }
+    } catch (error) {
+      setSavingRule(null);
+      if (Platform.OS === "web") {
+        window.alert("Failed to save anti-abuse rules");
+      } else {
+        Alert.alert("Error", "Failed to save anti-abuse rules");
+      }
     }
   };
 
   const getPickerOptions = () => {
-    switch (showPicker) {
-      case "daily":
-        return DAILY_XP_OPTIONS;
-      case "weekly":
-        return WEEKLY_XP_OPTIONS;
-      case "duration":
-        return MIN_DURATION_OPTIONS;
-      default:
-        return [];
-    }
+    if (!showPicker) return [];
+    return showPicker.field === "maxPerDay" ? MAX_PER_DAY_OPTIONS : COOLDOWN_OPTIONS;
   };
 
   const getPickerTitle = () => {
-    switch (showPicker) {
-      case "daily":
-        return "Daily XP Cap";
-      case "weekly":
-        return "Weekly XP Cap";
-      case "duration":
-        return "Min Session Duration";
-      default:
-        return "";
-    }
+    if (!showPicker) return "";
+    return showPicker.field === "maxPerDay" ? "Max Per Day" : "Cooldown (minutes)";
   };
 
-  const getPickerSuffix = () => {
-    switch (showPicker) {
-      case "daily":
-      case "weekly":
-        return "XP";
-      case "duration":
-        return "min";
-      default:
-        return "";
-    }
+  const getCurrentPickerValue = () => {
+    if (!showPicker) return 0;
+    const rule = localRules.find(r => r.actionSource === showPicker.actionSource);
+    return showPicker.field === "maxPerDay" ? (rule?.maxPerDay || 0) : (rule?.cooldownMinutes || 0);
   };
 
-  const getCurrentValue = () => {
-    switch (showPicker) {
-      case "daily":
-        return dailyXpCap;
-      case "weekly":
-        return weeklyXpCap;
-      case "duration":
-        return minSessionDuration;
-      default:
-        return 0;
-    }
+  const formatCooldown = (minutes: number | null) => {
+    if (!minutes) return "None";
+    if (minutes < 60) return `${minutes}m`;
+    if (minutes < 1440) return `${Math.round(minutes / 60)}h`;
+    return `${Math.round(minutes / 1440)}d`;
   };
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={PLATFORM_COLOR} />
+        <Text style={styles.loadingText}>Loading anti-abuse rules...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -126,86 +201,96 @@ export default function AntiAbuseRulesScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.subtitle}>Configure XP caps and abuse detection</Text>
+        <Text style={styles.subtitle}>Configure XP abuse prevention rules per action type</Text>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>XP Caps</Text>
-          <View style={[styles.card, CardStyles.elevated]}>
-            <Pressable style={styles.row} onPress={() => handleOpenPicker("daily")}>
-              <View style={styles.rowInfo}>
-                <Text style={styles.rowLabel}>Daily XP Cap</Text>
-                <Text style={styles.rowDescription}>Maximum XP a player can earn per day</Text>
+        {localRules.map((rule) => (
+          <View key={rule.actionSource} style={[styles.card, CardStyles.elevated, { marginBottom: Spacing.md }]}>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardTitleRow}>
+                <Text style={styles.cardTitle}>
+                  {ACTION_SOURCE_LABELS[rule.actionSource] || rule.actionSource}
+                </Text>
+                {savingRule === rule.actionSource ? (
+                  <ActivityIndicator size="small" color={PLATFORM_COLOR} />
+                ) : null}
+              </View>
+              <View style={styles.activeToggle}>
+                <Text style={styles.toggleLabel}>Active</Text>
+                <Switch
+                  value={rule.isActive ?? true}
+                  onValueChange={() => handleToggleActive(rule.actionSource)}
+                  trackColor={{ false: Colors.dark.backgroundRoot, true: PLATFORM_COLOR + "60" }}
+                  thumbColor={rule.isActive ? PLATFORM_COLOR : Colors.dark.textMuted}
+                />
+              </View>
+            </View>
+
+            <View style={styles.ruleRow}>
+              <View style={styles.ruleInfo}>
+                <Text style={styles.ruleLabel}>One-Time Bonus</Text>
+                <Text style={styles.ruleDescription}>XP can only be earned once</Text>
+              </View>
+              <Switch
+                value={rule.isOneTime ?? false}
+                onValueChange={() => handleToggleOneTime(rule.actionSource)}
+                trackColor={{ false: Colors.dark.backgroundRoot, true: PLATFORM_COLOR + "60" }}
+                thumbColor={rule.isOneTime ? PLATFORM_COLOR : Colors.dark.textMuted}
+              />
+            </View>
+
+            <Pressable 
+              style={styles.ruleRow}
+              onPress={() => handleOpenPicker(rule.actionSource, "maxPerDay")}
+            >
+              <View style={styles.ruleInfo}>
+                <Text style={styles.ruleLabel}>Daily Cap</Text>
+                <Text style={styles.ruleDescription}>Max times per day</Text>
               </View>
               <View style={styles.valueContainer}>
-                <Text style={styles.valueText}>{dailyXpCap}</Text>
-                <Text style={styles.valueSuffix}>XP</Text>
+                <Text style={styles.valueText}>{rule.maxPerDay || "None"}</Text>
                 <Ionicons name="chevron-down" size={16} color={Colors.dark.textMuted} />
               </View>
             </Pressable>
-            <Pressable style={styles.row} onPress={() => handleOpenPicker("weekly")}>
-              <View style={styles.rowInfo}>
-                <Text style={styles.rowLabel}>Weekly XP Cap</Text>
-                <Text style={styles.rowDescription}>Maximum XP a player can earn per week</Text>
+
+            <Pressable 
+              style={[styles.ruleRow, { borderBottomWidth: 0 }]}
+              onPress={() => handleOpenPicker(rule.actionSource, "cooldown")}
+            >
+              <View style={styles.ruleInfo}>
+                <Text style={styles.ruleLabel}>Cooldown</Text>
+                <Text style={styles.ruleDescription}>Minimum time between awards</Text>
               </View>
               <View style={styles.valueContainer}>
-                <Text style={styles.valueText}>{weeklyXpCap}</Text>
-                <Text style={styles.valueSuffix}>XP</Text>
+                <Text style={styles.valueText}>{formatCooldown(rule.cooldownMinutes)}</Text>
                 <Ionicons name="chevron-down" size={16} color={Colors.dark.textMuted} />
               </View>
             </Pressable>
           </View>
-        </View>
+        ))}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Detection Settings</Text>
-          <View style={[styles.card, CardStyles.elevated]}>
-            <View style={styles.row}>
-              <View style={styles.rowInfo}>
-                <Text style={styles.rowLabel}>Pattern Detection</Text>
-                <Text style={styles.rowDescription}>Detect suspicious XP farming patterns</Text>
-              </View>
-              <Switch
-                value={patternDetection}
-                onValueChange={(v) => { setPatternDetection(v); setHasChanges(true); }}
-                trackColor={{ false: Colors.dark.backgroundRoot, true: `${PLATFORM_COLOR}80` }}
-                thumbColor={patternDetection ? PLATFORM_COLOR : Colors.dark.textMuted}
-              />
-            </View>
-            <View style={styles.row}>
-              <View style={styles.rowInfo}>
-                <Text style={styles.rowLabel}>Rapid Fire Protection</Text>
-                <Text style={styles.rowDescription}>Block multiple XP awards in short time</Text>
-              </View>
-              <Switch
-                value={rapidFireProtection}
-                onValueChange={(v) => { setRapidFireProtection(v); setHasChanges(true); }}
-                trackColor={{ false: Colors.dark.backgroundRoot, true: `${PLATFORM_COLOR}80` }}
-                thumbColor={rapidFireProtection ? PLATFORM_COLOR : Colors.dark.textMuted}
-              />
-            </View>
-            <Pressable style={styles.row} onPress={() => handleOpenPicker("duration")}>
-              <View style={styles.rowInfo}>
-                <Text style={styles.rowLabel}>Min Session Duration</Text>
-                <Text style={styles.rowDescription}>Minimum session length to award XP</Text>
-              </View>
-              <View style={styles.valueContainer}>
-                <Text style={styles.valueText}>{minSessionDuration}</Text>
-                <Text style={styles.valueSuffix}>min</Text>
-                <Ionicons name="chevron-down" size={16} color={Colors.dark.textMuted} />
-              </View>
-            </Pressable>
-          </View>
-        </View>
+        {localRules.length === 0 ? (
+          <Text style={[styles.subtitle, { textAlign: "center", marginTop: Spacing.xl }]}>
+            No XP rules configured. Add rules from the XP Multipliers screen first.
+          </Text>
+        ) : null}
 
         {hasChanges ? (
-          <Pressable style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveButtonText}>Save Changes</Text>
+          <Pressable
+            style={[styles.saveButton, updateMutation.isPending && styles.saveButtonDisabled]}
+            onPress={handleSave}
+            disabled={updateMutation.isPending}
+          >
+            {updateMutation.isPending ? (
+              <ActivityIndicator size="small" color={Colors.dark.text} />
+            ) : (
+              <Text style={styles.saveButtonText}>Save Changes</Text>
+            )}
           </Pressable>
         ) : null}
       </ScrollView>
 
       <Modal
-        visible={showPicker !== null}
+        visible={!!showPicker}
         transparent
         animationType="fade"
         onRequestClose={() => setShowPicker(null)}
@@ -216,24 +301,27 @@ export default function AntiAbuseRulesScreen() {
               <Text style={styles.modalTitle}>{getPickerTitle()}</Text>
             </View>
             <ScrollView style={styles.optionsList} showsVerticalScrollIndicator={false}>
+              <Pressable
+                style={[styles.optionItem, getCurrentPickerValue() === 0 && styles.optionItemSelected]}
+                onPress={() => handleSelectValue(0)}
+              >
+                <Text style={[styles.optionText, getCurrentPickerValue() === 0 && styles.optionTextSelected]}>
+                  None
+                </Text>
+                {getCurrentPickerValue() === 0 ? (
+                  <Ionicons name="checkmark" size={20} color={PLATFORM_COLOR} />
+                ) : null}
+              </Pressable>
               {getPickerOptions().map((value) => (
                 <Pressable
                   key={value}
-                  style={[
-                    styles.optionItem,
-                    getCurrentValue() === value && styles.optionItemSelected,
-                  ]}
+                  style={[styles.optionItem, getCurrentPickerValue() === value && styles.optionItemSelected]}
                   onPress={() => handleSelectValue(value)}
                 >
-                  <Text
-                    style={[
-                      styles.optionText,
-                      getCurrentValue() === value && styles.optionTextSelected,
-                    ]}
-                  >
-                    {value} {getPickerSuffix()}
+                  <Text style={[styles.optionText, getCurrentPickerValue() === value && styles.optionTextSelected]}>
+                    {showPicker?.field === "cooldown" ? formatCooldown(value) : value}
                   </Text>
-                  {getCurrentValue() === value ? (
+                  {getCurrentPickerValue() === value ? (
                     <Ionicons name="checkmark" size={20} color={PLATFORM_COLOR} />
                   ) : null}
                 </Pressable>
@@ -250,6 +338,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  loadingContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
   },
   headerGradient: {
     position: "absolute",
@@ -289,36 +386,56 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     marginBottom: Spacing.lg,
   },
-  section: {
-    marginBottom: Spacing.xl,
-  },
-  sectionTitle: {
-    ...Typography.h3,
-    color: Colors.dark.text,
-    marginBottom: Spacing.md,
-  },
   card: {
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
   },
-  row: {
+  cardHeader: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    padding: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundRoot,
+    backgroundColor: PLATFORM_COLOR + "10",
+  },
+  cardTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  cardTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  activeToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  toggleLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  ruleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Colors.dark.backgroundRoot,
   },
-  rowInfo: {
+  ruleInfo: {
     flex: 1,
     marginRight: Spacing.md,
   },
-  rowLabel: {
+  ruleLabel: {
     ...Typography.body,
     color: Colors.dark.text,
-    fontWeight: "600",
   },
-  rowDescription: {
+  ruleDescription: {
     ...Typography.small,
     color: Colors.dark.textMuted,
   },
@@ -334,11 +451,6 @@ const styles = StyleSheet.create({
   valueText: {
     ...Typography.body,
     color: Colors.dark.text,
-    fontWeight: "600",
-  },
-  valueSuffix: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
   },
   saveButton: {
     backgroundColor: PLATFORM_COLOR,
@@ -346,6 +458,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.lg,
     alignItems: "center",
     marginTop: Spacing.xl,
+  },
+  saveButtonDisabled: {
+    opacity: 0.7,
   },
   saveButtonText: {
     ...Typography.body,
@@ -360,7 +475,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: "85%",
-    maxHeight: "60%",
+    maxHeight: "70%",
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.xl,
     overflow: "hidden",
@@ -377,7 +492,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   optionsList: {
-    maxHeight: 350,
+    maxHeight: 400,
   },
   optionItem: {
     flexDirection: "row",

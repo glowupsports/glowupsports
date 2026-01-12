@@ -1,49 +1,139 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, TextInput, Alert, Platform } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, Pressable, TextInput, Alert, Platform, ActivityIndicator } from "react-native";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles, getPlayerLevelColor } from "@/constants/theme";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { apiRequest } from "@/lib/query-client";
 
 const PLATFORM_COLOR = "#9B59B6";
 
 interface LevelThreshold {
-  level: string;
+  id?: number;
+  level: number;
   xpRequired: number;
-  color: string;
+  title: string | null;
+  badgeUnlock: string | null;
+  titleUnlock: string | null;
 }
+
+const LEVEL_COLORS: Record<number, string> = {
+  1: "#E74C3C",
+  2: "#E67E22",
+  3: "#F1C40F",
+  4: "#2ECC71",
+  5: "#1ABC9C",
+  6: "#3498DB",
+  7: "#9B59B6",
+  8: "#E91E63",
+  9: "#FF5722",
+  10: "#00BCD4",
+  11: "#4CAF50",
+  12: "#CDDC39",
+  13: "#FFC107",
+  14: "#FF9800",
+  15: "#795548",
+  16: "#607D8B",
+  17: "#9C27B0",
+  18: "#673AB7",
+  19: "#3F51B5",
+  20: "#FFD700",
+};
 
 export default function LevelThresholdsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const queryClient = useQueryClient();
 
-  const [thresholds, setThresholds] = useState<LevelThreshold[]>([
-    { level: "Red", xpRequired: 0, color: getPlayerLevelColor("red") },
-    { level: "Orange", xpRequired: 500, color: getPlayerLevelColor("orange") },
-    { level: "Green", xpRequired: 1500, color: getPlayerLevelColor("green") },
-    { level: "Yellow", xpRequired: 3500, color: getPlayerLevelColor("yellow") },
-    { level: "Glow", xpRequired: 7000, color: getPlayerLevelColor("glow") },
-  ]);
+  const [localThresholds, setLocalThresholds] = useState<LevelThreshold[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+  const [savingLevel, setSavingLevel] = useState<number | null>(null);
 
-  const handleValueChange = (level: string, value: string) => {
+  const { data: thresholds = [], isLoading } = useQuery<LevelThreshold[]>({
+    queryKey: ["/api/player-level/config/thresholds"],
+  });
+
+  useEffect(() => {
+    if (thresholds.length > 0) {
+      setLocalThresholds(thresholds);
+    }
+  }, [thresholds]);
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ level, xpRequired }: { level: number; xpRequired: number }) => {
+      const existing = localThresholds.find(t => t.level === level);
+      if (!existing) throw new Error("Threshold not found");
+      return apiRequest("PUT", `/api/player-level/config/thresholds/${level}`, {
+        xpRequired,
+        title: existing.title ?? null,
+        badgeUnlock: existing.badgeUnlock ?? null,
+        titleUnlock: existing.titleUnlock ?? null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player-level/config/thresholds"] });
+    },
+  });
+
+  const handleValueChange = (level: number, value: string) => {
     const numValue = parseInt(value) || 0;
-    setThresholds(prev => prev.map(t => t.level === level ? { ...t, xpRequired: numValue } : t));
+    setLocalThresholds(prev => prev.map(t => t.level === level ? { ...t, xpRequired: numValue } : t));
     setHasChanges(true);
   };
 
-  const handleSave = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setHasChanges(false);
-    if (Platform.OS === "web") {
-      window.alert("Level thresholds saved successfully!");
-    } else {
-      Alert.alert("Success", "Level thresholds saved successfully!");
+  const handleSave = async () => {
+    const changedThresholds = localThresholds.filter(local => {
+      const original = thresholds.find(o => o.level === local.level);
+      return original && original.xpRequired !== local.xpRequired;
+    });
+
+    if (changedThresholds.length === 0) {
+      setHasChanges(false);
+      return;
+    }
+
+    try {
+      for (const threshold of changedThresholds) {
+        setSavingLevel(threshold.level);
+        await updateMutation.mutateAsync({
+          level: threshold.level,
+          xpRequired: threshold.xpRequired,
+        });
+      }
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setHasChanges(false);
+      setSavingLevel(null);
+
+      if (Platform.OS === "web") {
+        window.alert("Level thresholds saved successfully!");
+      } else {
+        Alert.alert("Success", "Level thresholds saved successfully!");
+      }
+    } catch (error) {
+      setSavingLevel(null);
+      if (Platform.OS === "web") {
+        window.alert("Failed to save level thresholds");
+      } else {
+        Alert.alert("Error", "Failed to save level thresholds");
+      }
     }
   };
+
+  const getLevelColor = (level: number) => LEVEL_COLORS[level] || PLATFORM_COLOR;
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={PLATFORM_COLOR} />
+        <Text style={styles.loadingText}>Loading level thresholds...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -68,38 +158,60 @@ export default function LevelThresholdsScreen() {
         <Text style={styles.subtitle}>Configure XP required for each player level</Text>
 
         <View style={[styles.card, CardStyles.elevated]}>
-          {thresholds.map((threshold, index) => (
+          {localThresholds.map((threshold, index) => (
             <View key={threshold.level} style={styles.row}>
-              <View style={[styles.levelBadge, { backgroundColor: `${threshold.color}20` }]}>
-                <View style={[styles.levelDot, { backgroundColor: threshold.color }]} />
-                <Text style={[styles.levelText, { color: threshold.color }]}>{threshold.level}</Text>
+              <View style={[styles.levelBadge, { backgroundColor: `${getLevelColor(threshold.level)}20` }]}>
+                <View style={[styles.levelDot, { backgroundColor: getLevelColor(threshold.level) }]} />
+                <Text style={[styles.levelText, { color: getLevelColor(threshold.level) }]}>
+                  {threshold.title || `Level ${threshold.level}`}
+                </Text>
               </View>
               <View style={styles.inputContainer}>
-                <TextInput
-                  style={[styles.input, index === 0 && styles.inputDisabled]}
-                  value={String(threshold.xpRequired)}
-                  onChangeText={(value) => handleValueChange(threshold.level, value)}
-                  keyboardType="numeric"
-                  placeholder="0"
-                  placeholderTextColor={Colors.dark.textMuted}
-                  editable={index !== 0}
-                />
-                <Text style={styles.inputSuffix}>XP</Text>
+                {savingLevel === threshold.level ? (
+                  <ActivityIndicator size="small" color={PLATFORM_COLOR} />
+                ) : (
+                  <>
+                    <TextInput
+                      style={[styles.input, threshold.level === 1 && styles.inputDisabled]}
+                      value={String(threshold.xpRequired)}
+                      onChangeText={(value) => handleValueChange(threshold.level, value)}
+                      keyboardType="numeric"
+                      placeholder="0"
+                      placeholderTextColor={Colors.dark.textMuted}
+                      editable={threshold.level !== 1}
+                    />
+                    <Text style={styles.inputSuffix}>XP</Text>
+                  </>
+                )}
               </View>
             </View>
           ))}
         </View>
 
+        {localThresholds.length === 0 ? (
+          <Text style={[styles.subtitle, { textAlign: "center", marginTop: Spacing.xl }]}>
+            No level thresholds configured. Seed defaults from system settings.
+          </Text>
+        ) : null}
+
         <View style={styles.infoCard}>
           <Ionicons name="information-circle" size={20} color={Colors.dark.textMuted} />
           <Text style={styles.infoText}>
-            Players start at Red level (0 XP). Each subsequent level requires more XP to achieve.
+            Players start at Level 1 (0 XP). Each subsequent level requires more XP to achieve.
           </Text>
         </View>
 
         {hasChanges ? (
-          <Pressable style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveButtonText}>Save Changes</Text>
+          <Pressable
+            style={[styles.saveButton, updateMutation.isPending && styles.saveButtonDisabled]}
+            onPress={handleSave}
+            disabled={updateMutation.isPending}
+          >
+            {updateMutation.isPending ? (
+              <ActivityIndicator size="small" color={Colors.dark.text} />
+            ) : (
+              <Text style={styles.saveButtonText}>Save Changes</Text>
+            )}
           </Pressable>
         ) : null}
       </KeyboardAwareScrollViewCompat>
@@ -111,6 +223,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  loadingContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
   },
   headerGradient: {
     position: "absolute",
@@ -186,6 +307,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundRoot,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.sm,
+    minWidth: 100,
+    justifyContent: "center",
   },
   input: {
     ...Typography.body,
@@ -222,6 +345,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.lg,
     alignItems: "center",
     marginTop: Spacing.xl,
+  },
+  saveButtonDisabled: {
+    opacity: 0.7,
   },
   saveButtonText: {
     ...Typography.body,

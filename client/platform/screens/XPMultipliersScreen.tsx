@@ -1,68 +1,148 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, Modal, Alert, Platform } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, Pressable, ScrollView, Modal, Alert, Platform, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { apiRequest } from "@/lib/query-client";
 
 const PLATFORM_COLOR = "#9B59B6";
 
 const XP_OPTIONS = [10, 15, 20, 25, 30, 40, 50, 60, 75, 100, 125, 150, 175, 200, 250, 300, 400, 500];
 
-interface XPMultiplier {
-  id: string;
-  source: string;
-  baseXp: number;
-  description: string;
+interface XPRule {
+  id?: number;
+  actionSource: string;
+  xpAmount: number;
+  description: string | null;
+  isOneTime: boolean | null;
+  cooldownMinutes: number | null;
+  maxPerDay: number | null;
+  isActive: boolean | null;
 }
+
+const ACTION_SOURCE_LABELS: Record<string, string> = {
+  session_attendance: "Session Attendance",
+  positive_feedback: "Positive Feedback",
+  level_up: "Level Up",
+  attendance_streak: "Attendance Streak",
+  badge_earned: "Badge Earned",
+  skill_validation: "Skill Validation",
+  match_played: "Match Played",
+  match_won: "Match Won",
+  match_reflection: "Match Reflection",
+};
 
 export default function XPMultipliersScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const queryClient = useQueryClient();
 
-  const defaultMultipliers: XPMultiplier[] = [
-    { id: "attendance", source: "Session Attendance", baseXp: 50, description: "XP awarded for attending a session" },
-    { id: "feedback", source: "Positive Feedback", baseXp: 25, description: "XP awarded for receiving positive coach feedback" },
-    { id: "level_up", source: "Level Up", baseXp: 200, description: "Bonus XP for advancing to next level" },
-    { id: "streak", source: "Attendance Streak", baseXp: 10, description: "Bonus XP per consecutive session (multiplied by streak count)" },
-    { id: "badge", source: "Badge Earned", baseXp: 100, description: "XP awarded when earning an achievement badge" },
-    { id: "validation", source: "Skill Validation", baseXp: 75, description: "XP for coach-validated skill improvement" },
-  ];
-
-  const [multipliers, setMultipliers] = useState<XPMultiplier[]>(defaultMultipliers);
+  const [localRules, setLocalRules] = useState<XPRule[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
-  const [selectedMultiplier, setSelectedMultiplier] = useState<string | null>(null);
+  const [selectedRule, setSelectedRule] = useState<string | null>(null);
+  const [savingRule, setSavingRule] = useState<string | null>(null);
 
-  const handleOpenPicker = (id: string) => {
-    setSelectedMultiplier(id);
+  const { data: rules = [], isLoading } = useQuery<XPRule[]>({
+    queryKey: ["/api/player-level/config/xp-rules"],
+  });
+
+  useEffect(() => {
+    if (rules.length > 0) {
+      setLocalRules(rules);
+    }
+  }, [rules]);
+
+  const updateRuleMutation = useMutation({
+    mutationFn: async ({ actionSource, xpAmount }: { actionSource: string; xpAmount: number }) => {
+      const existingRule = localRules.find(r => r.actionSource === actionSource);
+      if (!existingRule) throw new Error("Rule not found");
+      return apiRequest("PUT", `/api/player-level/config/xp-rules/${actionSource}`, {
+        xpAmount,
+        description: existingRule.description ?? null,
+        isOneTime: existingRule.isOneTime ?? false,
+        cooldownMinutes: existingRule.cooldownMinutes ?? null,
+        maxPerDay: existingRule.maxPerDay ?? null,
+        isActive: existingRule.isActive ?? true,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player-level/config/xp-rules"] });
+    },
+  });
+
+  const handleOpenPicker = (actionSource: string) => {
+    setSelectedRule(actionSource);
     setShowPicker(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleSelectValue = (value: number) => {
-    if (selectedMultiplier) {
-      setMultipliers(prev => prev.map(m => m.id === selectedMultiplier ? { ...m, baseXp: value } : m));
+    if (selectedRule) {
+      setLocalRules(prev => prev.map(r => 
+        r.actionSource === selectedRule ? { ...r, xpAmount: value } : r
+      ));
       setHasChanges(true);
     }
     setShowPicker(false);
-    setSelectedMultiplier(null);
+    setSelectedRule(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const handleSave = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setHasChanges(false);
-    if (Platform.OS === "web") {
-      window.alert("XP multipliers saved successfully!");
-    } else {
-      Alert.alert("Success", "XP multipliers saved successfully!");
+  const handleSave = async () => {
+    const originalRules = rules;
+    const changedRules = localRules.filter(local => {
+      const original = originalRules.find(o => o.actionSource === local.actionSource);
+      return original && original.xpAmount !== local.xpAmount;
+    });
+
+    if (changedRules.length === 0) {
+      setHasChanges(false);
+      return;
+    }
+
+    try {
+      for (const rule of changedRules) {
+        setSavingRule(rule.actionSource);
+        await updateRuleMutation.mutateAsync({
+          actionSource: rule.actionSource,
+          xpAmount: rule.xpAmount,
+        });
+      }
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setHasChanges(false);
+      setSavingRule(null);
+      
+      if (Platform.OS === "web") {
+        window.alert("XP multipliers saved successfully!");
+      } else {
+        Alert.alert("Success", "XP multipliers saved successfully!");
+      }
+    } catch (error) {
+      setSavingRule(null);
+      if (Platform.OS === "web") {
+        window.alert("Failed to save XP multipliers");
+      } else {
+        Alert.alert("Error", "Failed to save XP multipliers");
+      }
     }
   };
 
-  const currentMultiplier = multipliers.find(m => m.id === selectedMultiplier);
+  const currentRule = localRules.find(r => r.actionSource === selectedRule);
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top, justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" color={PLATFORM_COLOR} />
+        <Text style={[styles.subtitle, { marginTop: Spacing.md }]}>Loading XP rules...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -87,28 +167,52 @@ export default function XPMultipliersScreen() {
         <Text style={styles.subtitle}>Configure base XP values for different actions</Text>
 
         <View style={[styles.card, CardStyles.elevated]}>
-          {multipliers.map((multiplier) => (
+          {localRules.map((rule) => (
             <Pressable 
-              key={multiplier.id} 
+              key={rule.actionSource} 
               style={styles.row}
-              onPress={() => handleOpenPicker(multiplier.id)}
+              onPress={() => handleOpenPicker(rule.actionSource)}
             >
               <View style={styles.rowInfo}>
-                <Text style={styles.rowLabel}>{multiplier.source}</Text>
-                <Text style={styles.rowDescription}>{multiplier.description}</Text>
+                <Text style={styles.rowLabel}>
+                  {ACTION_SOURCE_LABELS[rule.actionSource] || rule.actionSource}
+                </Text>
+                <Text style={styles.rowDescription}>
+                  {rule.description || `XP awarded for ${rule.actionSource.replace(/_/g, " ")}`}
+                </Text>
               </View>
               <View style={styles.valueContainer}>
-                <Text style={styles.valueText}>{multiplier.baseXp}</Text>
-                <Text style={styles.valueSuffix}>XP</Text>
-                <Ionicons name="chevron-down" size={16} color={Colors.dark.textMuted} />
+                {savingRule === rule.actionSource ? (
+                  <ActivityIndicator size="small" color={PLATFORM_COLOR} />
+                ) : (
+                  <>
+                    <Text style={styles.valueText}>{rule.xpAmount}</Text>
+                    <Text style={styles.valueSuffix}>XP</Text>
+                    <Ionicons name="chevron-down" size={16} color={Colors.dark.textMuted} />
+                  </>
+                )}
               </View>
             </Pressable>
           ))}
         </View>
 
+        {localRules.length === 0 ? (
+          <Text style={[styles.subtitle, { textAlign: "center", marginTop: Spacing.xl }]}>
+            No XP rules configured. Add rules from the database.
+          </Text>
+        ) : null}
+
         {hasChanges ? (
-          <Pressable style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveButtonText}>Save Changes</Text>
+          <Pressable 
+            style={[styles.saveButton, updateRuleMutation.isPending && styles.saveButtonDisabled]} 
+            onPress={handleSave}
+            disabled={updateRuleMutation.isPending}
+          >
+            {updateRuleMutation.isPending ? (
+              <ActivityIndicator size="small" color={Colors.dark.text} />
+            ) : (
+              <Text style={styles.saveButtonText}>Save Changes</Text>
+            )}
           </Pressable>
         ) : null}
       </ScrollView>
@@ -123,8 +227,10 @@ export default function XPMultipliersScreen() {
           <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select XP Value</Text>
-              {currentMultiplier ? (
-                <Text style={styles.modalSubtitle}>{currentMultiplier.source}</Text>
+              {currentRule ? (
+                <Text style={styles.modalSubtitle}>
+                  {ACTION_SOURCE_LABELS[currentRule.actionSource] || currentRule.actionSource}
+                </Text>
               ) : null}
             </View>
             <ScrollView style={styles.optionsList} showsVerticalScrollIndicator={false}>
@@ -133,19 +239,19 @@ export default function XPMultipliersScreen() {
                   key={value}
                   style={[
                     styles.optionItem,
-                    currentMultiplier?.baseXp === value && styles.optionItemSelected,
+                    currentRule?.xpAmount === value && styles.optionItemSelected,
                   ]}
                   onPress={() => handleSelectValue(value)}
                 >
                   <Text
                     style={[
                       styles.optionText,
-                      currentMultiplier?.baseXp === value && styles.optionTextSelected,
+                      currentRule?.xpAmount === value && styles.optionTextSelected,
                     ]}
                   >
                     {value} XP
                   </Text>
-                  {currentMultiplier?.baseXp === value ? (
+                  {currentRule?.xpAmount === value ? (
                     <Ionicons name="checkmark" size={20} color={PLATFORM_COLOR} />
                   ) : null}
                 </Pressable>
@@ -234,6 +340,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     gap: Spacing.xs,
+    minWidth: 80,
+    justifyContent: "center",
   },
   valueText: {
     ...Typography.body,
@@ -250,6 +358,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.lg,
     alignItems: "center",
     marginTop: Spacing.xl,
+  },
+  saveButtonDisabled: {
+    opacity: 0.7,
   },
   saveButtonText: {
     ...Typography.body,

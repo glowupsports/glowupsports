@@ -1,36 +1,131 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, TextInput, Alert, Platform, ScrollView } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, Pressable, TextInput, Alert, Platform, ScrollView, ActivityIndicator } from "react-native";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { apiRequest } from "@/lib/query-client";
 
 const PLATFORM_COLOR = "#9B59B6";
+
+interface PlatformConfig {
+  id?: number;
+  key: string;
+  value: string;
+  description?: string;
+  updatedAt?: string;
+}
+
+const CONFIG_KEYS = {
+  DEFAULT_CURRENCY: "default_currency",
+  DEFAULT_TIMEZONE: "default_timezone",
+  DEFAULT_SESSION_DURATION: "default_session_duration",
+  DEFAULT_TRIAL_DAYS: "default_trial_days",
+};
+
+const CURRENCIES = ["AED", "USD", "EUR", "GBP", "SAR", "QAR", "KWD", "BHD", "OMR"];
 
 export default function AcademyDefaultsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const queryClient = useQueryClient();
 
-  const [defaultCurrency, setDefaultCurrency] = useState("AED");
-  const [defaultTimezone, setDefaultTimezone] = useState("Asia/Dubai");
-  const [defaultSessionDuration, setDefaultSessionDuration] = useState("60");
-  const [defaultTrialDays, setDefaultTrialDays] = useState("14");
+  const [localConfigs, setLocalConfigs] = useState<Record<string, string>>({
+    [CONFIG_KEYS.DEFAULT_CURRENCY]: "AED",
+    [CONFIG_KEYS.DEFAULT_TIMEZONE]: "Asia/Dubai",
+    [CONFIG_KEYS.DEFAULT_SESSION_DURATION]: "60",
+    [CONFIG_KEYS.DEFAULT_TRIAL_DAYS]: "14",
+  });
   const [hasChanges, setHasChanges] = useState(false);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
 
-  const currencies = ["AED", "USD", "EUR", "GBP", "SAR", "QAR", "KWD", "BHD", "OMR"];
+  const { data: configs = [], isLoading } = useQuery<PlatformConfig[]>({
+    queryKey: ["/api/platform/config"],
+  });
 
-  const handleSave = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setHasChanges(false);
-    if (Platform.OS === "web") {
-      window.alert("Academy defaults saved successfully!");
-    } else {
-      Alert.alert("Success", "Academy defaults saved successfully!");
+  useEffect(() => {
+    if (configs.length > 0) {
+      const configMap: Record<string, string> = {};
+      configs.forEach(config => {
+        configMap[config.key] = config.value;
+      });
+      setLocalConfigs(prev => ({
+        ...prev,
+        ...configMap,
+      }));
+    }
+  }, [configs]);
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ key, value }: { key: string; value: string }) => {
+      if (!value) throw new Error("Value is required");
+      return apiRequest("PUT", `/api/platform/config/${key}`, { value });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/platform/config"] });
+    },
+  });
+
+  const handleValueChange = (key: string, value: string) => {
+    setLocalConfigs(prev => ({ ...prev, [key]: value }));
+    setHasChanges(true);
+  };
+
+  const handleSave = async () => {
+    const originalConfigs: Record<string, string> = {};
+    configs.forEach(config => {
+      originalConfigs[config.key] = config.value;
+    });
+
+    const changedKeys = Object.keys(localConfigs).filter(key => 
+      localConfigs[key] !== originalConfigs[key]
+    );
+
+    if (changedKeys.length === 0) {
+      setHasChanges(false);
+      return;
+    }
+
+    try {
+      for (const key of changedKeys) {
+        setSavingKey(key);
+        await updateMutation.mutateAsync({
+          key,
+          value: localConfigs[key],
+        });
+      }
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setHasChanges(false);
+      setSavingKey(null);
+
+      if (Platform.OS === "web") {
+        window.alert("Academy defaults saved successfully!");
+      } else {
+        Alert.alert("Success", "Academy defaults saved successfully!");
+      }
+    } catch (error) {
+      setSavingKey(null);
+      if (Platform.OS === "web") {
+        window.alert("Failed to save academy defaults");
+      } else {
+        Alert.alert("Error", "Failed to save academy defaults");
+      }
     }
   };
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={PLATFORM_COLOR} />
+        <Text style={styles.loadingText}>Loading academy defaults...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -58,20 +153,25 @@ export default function AcademyDefaultsScreen() {
           <Text style={styles.sectionTitle}>Regional Settings</Text>
           <View style={[styles.card, CardStyles.elevated]}>
             <View style={styles.formRow}>
-              <Text style={styles.label}>Default Currency</Text>
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>Default Currency</Text>
+                {savingKey === CONFIG_KEYS.DEFAULT_CURRENCY ? (
+                  <ActivityIndicator size="small" color={PLATFORM_COLOR} />
+                ) : null}
+              </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.currencyScroll}>
-                {currencies.map((currency) => (
+                {CURRENCIES.map((currency) => (
                   <Pressable
                     key={currency}
                     style={[
                       styles.currencyChip,
-                      defaultCurrency === currency && styles.currencyChipActive
+                      localConfigs[CONFIG_KEYS.DEFAULT_CURRENCY] === currency && styles.currencyChipActive
                     ]}
-                    onPress={() => { setDefaultCurrency(currency); setHasChanges(true); }}
+                    onPress={() => handleValueChange(CONFIG_KEYS.DEFAULT_CURRENCY, currency)}
                   >
                     <Text style={[
                       styles.currencyText,
-                      defaultCurrency === currency && styles.currencyTextActive
+                      localConfigs[CONFIG_KEYS.DEFAULT_CURRENCY] === currency && styles.currencyTextActive
                     ]}>
                       {currency}
                     </Text>
@@ -81,11 +181,16 @@ export default function AcademyDefaultsScreen() {
             </View>
 
             <View style={styles.formRow}>
-              <Text style={styles.label}>Default Timezone</Text>
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>Default Timezone</Text>
+                {savingKey === CONFIG_KEYS.DEFAULT_TIMEZONE ? (
+                  <ActivityIndicator size="small" color={PLATFORM_COLOR} />
+                ) : null}
+              </View>
               <TextInput
                 style={styles.input}
-                value={defaultTimezone}
-                onChangeText={(v) => { setDefaultTimezone(v); setHasChanges(true); }}
+                value={localConfigs[CONFIG_KEYS.DEFAULT_TIMEZONE]}
+                onChangeText={(v) => handleValueChange(CONFIG_KEYS.DEFAULT_TIMEZONE, v)}
                 placeholder="Asia/Dubai"
                 placeholderTextColor={Colors.dark.textMuted}
               />
@@ -102,15 +207,21 @@ export default function AcademyDefaultsScreen() {
                 <Text style={styles.rowDescription}>Standard session length for new academies</Text>
               </View>
               <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.numberInput}
-                  value={defaultSessionDuration}
-                  onChangeText={(v) => { setDefaultSessionDuration(v); setHasChanges(true); }}
-                  keyboardType="numeric"
-                  placeholder="60"
-                  placeholderTextColor={Colors.dark.textMuted}
-                />
-                <Text style={styles.inputSuffix}>min</Text>
+                {savingKey === CONFIG_KEYS.DEFAULT_SESSION_DURATION ? (
+                  <ActivityIndicator size="small" color={PLATFORM_COLOR} />
+                ) : (
+                  <>
+                    <TextInput
+                      style={styles.smallInput}
+                      value={localConfigs[CONFIG_KEYS.DEFAULT_SESSION_DURATION]}
+                      onChangeText={(v) => handleValueChange(CONFIG_KEYS.DEFAULT_SESSION_DURATION, v)}
+                      keyboardType="numeric"
+                      placeholder="60"
+                      placeholderTextColor={Colors.dark.textMuted}
+                    />
+                    <Text style={styles.inputSuffix}>min</Text>
+                  </>
+                )}
               </View>
             </View>
           </View>
@@ -121,27 +232,41 @@ export default function AcademyDefaultsScreen() {
           <View style={[styles.card, CardStyles.elevated]}>
             <View style={styles.row}>
               <View style={styles.rowInfo}>
-                <Text style={styles.rowLabel}>Trial Period</Text>
+                <Text style={styles.rowLabel}>Default Trial Period</Text>
                 <Text style={styles.rowDescription}>Free trial duration for new academies</Text>
               </View>
               <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.numberInput}
-                  value={defaultTrialDays}
-                  onChangeText={(v) => { setDefaultTrialDays(v); setHasChanges(true); }}
-                  keyboardType="numeric"
-                  placeholder="14"
-                  placeholderTextColor={Colors.dark.textMuted}
-                />
-                <Text style={styles.inputSuffix}>days</Text>
+                {savingKey === CONFIG_KEYS.DEFAULT_TRIAL_DAYS ? (
+                  <ActivityIndicator size="small" color={PLATFORM_COLOR} />
+                ) : (
+                  <>
+                    <TextInput
+                      style={styles.smallInput}
+                      value={localConfigs[CONFIG_KEYS.DEFAULT_TRIAL_DAYS]}
+                      onChangeText={(v) => handleValueChange(CONFIG_KEYS.DEFAULT_TRIAL_DAYS, v)}
+                      keyboardType="numeric"
+                      placeholder="14"
+                      placeholderTextColor={Colors.dark.textMuted}
+                    />
+                    <Text style={styles.inputSuffix}>days</Text>
+                  </>
+                )}
               </View>
             </View>
           </View>
         </View>
 
         {hasChanges ? (
-          <Pressable style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveButtonText}>Save Changes</Text>
+          <Pressable
+            style={[styles.saveButton, updateMutation.isPending && styles.saveButtonDisabled]}
+            onPress={handleSave}
+            disabled={updateMutation.isPending}
+          >
+            {updateMutation.isPending ? (
+              <ActivityIndicator size="small" color={Colors.dark.text} />
+            ) : (
+              <Text style={styles.saveButtonText}>Save Changes</Text>
+            )}
           </Pressable>
         ) : null}
       </KeyboardAwareScrollViewCompat>
@@ -153,6 +278,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  loadingContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
   },
   headerGradient: {
     position: "absolute",
@@ -193,42 +327,43 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   section: {
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
   sectionTitle: {
-    ...Typography.h3,
+    ...Typography.body,
     color: Colors.dark.text,
-    marginBottom: Spacing.md,
+    fontWeight: "600",
+    marginBottom: Spacing.sm,
   },
   card: {
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
+    overflow: "hidden",
   },
   formRow: {
-    marginBottom: Spacing.md,
+    padding: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundRoot,
   },
-  label: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
+  labelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: Spacing.sm,
   },
-  input: {
+  label: {
     ...Typography.body,
     color: Colors.dark.text,
-    backgroundColor: Colors.dark.backgroundRoot,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    fontWeight: "500",
   },
   currencyScroll: {
-    marginTop: Spacing.xs,
+    flexGrow: 0,
   },
   currencyChip: {
-    paddingVertical: Spacing.xs,
+    paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
     backgroundColor: Colors.dark.backgroundRoot,
-    borderRadius: BorderRadius.full,
     marginRight: Spacing.sm,
   },
   currencyChipActive: {
@@ -236,15 +371,26 @@ const styles = StyleSheet.create({
   },
   currencyText: {
     ...Typography.body,
-    color: Colors.dark.textMuted,
+    color: Colors.dark.text,
   },
   currencyTextActive: {
     color: Colors.dark.text,
     fontWeight: "600",
   },
+  input: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    padding: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundRoot,
   },
   rowInfo: {
     flex: 1,
@@ -253,7 +399,7 @@ const styles = StyleSheet.create({
   rowLabel: {
     ...Typography.body,
     color: Colors.dark.text,
-    fontWeight: "600",
+    fontWeight: "500",
   },
   rowDescription: {
     ...Typography.small,
@@ -265,8 +411,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundRoot,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.sm,
+    minWidth: 100,
+    justifyContent: "center",
   },
-  numberInput: {
+  smallInput: {
     ...Typography.body,
     color: Colors.dark.text,
     width: 50,
@@ -283,6 +431,10 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.lg,
     alignItems: "center",
+    marginTop: Spacing.xl,
+  },
+  saveButtonDisabled: {
+    opacity: 0.7,
   },
   saveButtonText: {
     ...Typography.body,
