@@ -3,20 +3,10 @@ import { View, Text, StyleSheet, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
-import { usePlayerLevel } from "../hooks/usePlayerLevel";
-import { useQuery } from "@tanstack/react-query";
-
-interface FeatureUnlock {
-  featureKey: string;
-  requiredLevel: number;
-  featureName: string;
-  featureDescription: string | null;
-  featureIcon: string | null;
-}
+import { usePlayerLevelContext } from "../context/PlayerLevelContext";
 
 interface FeatureGateProps {
   featureKey: string;
-  playerId: string | null;
   children: React.ReactNode;
   showTeaser?: boolean;
   onLockedPress?: () => void;
@@ -24,22 +14,13 @@ interface FeatureGateProps {
 
 export function FeatureGate({
   featureKey,
-  playerId,
   children,
   showTeaser = true,
   onLockedPress,
 }: FeatureGateProps) {
-  const { data: levelStatus, isLoading: levelLoading } = usePlayerLevel(playerId);
-  
-  const { data: featureUnlocks } = useQuery<FeatureUnlock[]>({
-    queryKey: ["/api/player-level/config/feature-unlocks"],
-  });
+  const { isFeatureUnlocked, getFeatureInfo } = usePlayerLevelContext();
 
-  if (levelLoading) {
-    return null;
-  }
-
-  const isUnlocked = levelStatus?.unlockedFeatures?.includes(featureKey) ?? false;
+  const isUnlocked = isFeatureUnlocked(featureKey);
 
   if (isUnlocked) {
     return <>{children}</>;
@@ -49,7 +30,7 @@ export function FeatureGate({
     return null;
   }
 
-  const featureInfo = featureUnlocks?.find(f => f.featureKey === featureKey);
+  const featureInfo = getFeatureInfo(featureKey);
   const requiredLevel = featureInfo?.requiredLevel || 1;
   const featureName = featureInfo?.featureName || featureKey.replace(/_/g, " ");
   const featureIcon = featureInfo?.featureIcon || "lock-closed";

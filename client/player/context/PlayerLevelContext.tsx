@@ -1,9 +1,17 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { usePlayerLevel, useMarkCelebrationComplete, PendingCelebration } from "../hooks/usePlayerLevel";
+import { usePlayerLevel, useMarkCelebrationComplete, PendingCelebration, useFeatureUnlocks } from "../hooks/usePlayerLevel";
 import { LevelUpCelebrationModal } from "../components/LevelUpCelebrationModal";
 import { FeatureOnboardingModal } from "../components/FeatureOnboardingModal";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";
+
+interface FeatureUnlockConfig {
+  featureKey: string;
+  requiredLevel: number;
+  featureName: string;
+  featureDescription: string | null;
+  featureIcon: string | null;
+}
 
 interface PlayerLevelContextValue {
   playerId: string | null;
@@ -13,7 +21,9 @@ interface PlayerLevelContextValue {
   xpNeededForNextLevel: number;
   progressPercent: number;
   unlockedFeatures: string[];
+  featureUnlockConfig: FeatureUnlockConfig[];
   isFeatureUnlocked: (featureKey: string) => boolean;
+  getFeatureInfo: (featureKey: string) => FeatureUnlockConfig | null;
   refetch: () => void;
 }
 
@@ -27,6 +37,7 @@ interface PlayerLevelProviderProps {
 export function PlayerLevelProvider({ playerId, children }: PlayerLevelProviderProps) {
   const queryClient = useQueryClient();
   const { data: levelStatus, refetch } = usePlayerLevel(playerId);
+  const { data: featureUnlocks = [] } = useFeatureUnlocks();
   
   const [showCelebration, setShowCelebration] = useState(false);
   const [currentCelebration, setCurrentCelebration] = useState<PendingCelebration | null>(null);
@@ -79,6 +90,10 @@ export function PlayerLevelProvider({ playerId, children }: PlayerLevelProviderP
     return levelStatus?.unlockedFeatures?.includes(featureKey) ?? false;
   }, [levelStatus?.unlockedFeatures]);
 
+  const getFeatureInfo = useCallback((featureKey: string): FeatureUnlockConfig | null => {
+    return featureUnlocks.find((f: FeatureUnlockConfig) => f.featureKey === featureKey) ?? null;
+  }, [featureUnlocks]);
+
   const value: PlayerLevelContextValue = {
     playerId,
     level: levelStatus?.level ?? 1,
@@ -87,7 +102,9 @@ export function PlayerLevelProvider({ playerId, children }: PlayerLevelProviderP
     xpNeededForNextLevel: levelStatus?.xpNeededForNextLevel ?? 50,
     progressPercent: levelStatus?.progressPercent ?? 0,
     unlockedFeatures: levelStatus?.unlockedFeatures ?? [],
+    featureUnlockConfig: featureUnlocks as FeatureUnlockConfig[],
     isFeatureUnlocked,
+    getFeatureInfo,
     refetch,
   };
 

@@ -6,15 +6,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { usePlayerLevelContext } from "../context/PlayerLevelContext";
-import { useQuery } from "@tanstack/react-query";
-
-interface FeatureUnlock {
-  featureKey: string;
-  requiredLevel: number;
-  featureName: string;
-  featureDescription: string | null;
-  featureIcon: string | null;
-}
 
 interface LockedScreenProps {
   featureKey: string;
@@ -22,13 +13,9 @@ interface LockedScreenProps {
 }
 
 export function LockedScreen({ featureKey, children }: LockedScreenProps) {
-  const { isFeatureUnlocked, level } = usePlayerLevelContext();
+  const { isFeatureUnlocked, level, getFeatureInfo } = usePlayerLevelContext();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-
-  const { data: featureUnlocks } = useQuery<FeatureUnlock[]>({
-    queryKey: ["/api/player-level/config/feature-unlocks"],
-  });
 
   const isUnlocked = isFeatureUnlocked(featureKey);
 
@@ -36,7 +23,7 @@ export function LockedScreen({ featureKey, children }: LockedScreenProps) {
     return <>{children}</>;
   }
 
-  const featureInfo = featureUnlocks?.find(f => f.featureKey === featureKey);
+  const featureInfo = getFeatureInfo(featureKey);
   const requiredLevel = featureInfo?.requiredLevel || 1;
   const featureName = featureInfo?.featureName || featureKey.replace(/_/g, " ");
   const featureIcon = featureInfo?.featureIcon || "lock-closed";
@@ -134,11 +121,7 @@ interface LockedSectionProps {
 }
 
 export function LockedSection({ featureKey, children, fallback }: LockedSectionProps) {
-  const { isFeatureUnlocked, level } = usePlayerLevelContext();
-
-  const { data: featureUnlocks } = useQuery<FeatureUnlock[]>({
-    queryKey: ["/api/player-level/config/feature-unlocks"],
-  });
+  const { isFeatureUnlocked, getFeatureInfo } = usePlayerLevelContext();
 
   const isUnlocked = isFeatureUnlocked(featureKey);
 
@@ -150,10 +133,9 @@ export function LockedSection({ featureKey, children, fallback }: LockedSectionP
     return <>{fallback}</>;
   }
 
-  const featureInfo = featureUnlocks?.find(f => f.featureKey === featureKey);
+  const featureInfo = getFeatureInfo(featureKey);
   const requiredLevel = featureInfo?.requiredLevel || 1;
   const featureName = featureInfo?.featureName || featureKey.replace(/_/g, " ");
-  const featureIcon = featureInfo?.featureIcon || "lock-closed";
 
   return (
     <View style={styles.lockedSection}>

@@ -50,6 +50,8 @@ export function useMarkCelebrationComplete() {
 export function useFeatureUnlocks() {
   return useQuery({
     queryKey: ["/api/player-level/config/feature-unlocks"],
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 }
 
