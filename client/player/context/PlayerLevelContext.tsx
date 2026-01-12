@@ -1,0 +1,123 @@
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { usePlayerLevel, useMarkCelebrationComplete, PendingCelebration } from "../hooks/usePlayerLevel";
+import { LevelUpCelebrationModal } from "../components/LevelUpCelebrationModal";
+import { FeatureOnboardingModal } from "../components/FeatureOnboardingModal";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/query-client";
+
+interface PlayerLevelContextValue {
+  level: number;
+  title: string;
+  xpInCurrentLevel: number;
+  xpNeededForNextLevel: number;
+  progressPercent: number;
+  unlockedFeatures: string[];
+  isFeatureUnlocked: (featureKey: string) => boolean;
+  refetch: () => void;
+}
+
+const PlayerLevelContext = createContext<PlayerLevelContextValue | null>(null);
+
+interface PlayerLevelProviderProps {
+  playerId: string | null;
+  children: React.ReactNode;
+}
+
+export function PlayerLevelProvider({ playerId, children }: PlayerLevelProviderProps) {
+  const queryClient = useQueryClient();
+  const { data: levelStatus, refetch } = usePlayerLevel(playerId);
+  
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [currentCelebration, setCurrentCelebration] = useState<PendingCelebration | null>(null);
+  
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [currentOnboardingFeature, setCurrentOnboardingFeature] = useState<string | null>(null);
+
+  const markCelebrationShown = useMutation({
+    mutationFn: async (celebrationId: string) => {
+      if (!playerId) return;
+      return apiRequest(`/api/player-level/player/${playerId}/celebration/${celebrationId}/shown`, {
+        method: "POST",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player-level/player", playerId, "status"] });
+    },
+  });
+
+  useEffect(() => {
+    if (levelStatus?.pendingCelebrations && levelStatus.pendingCelebrations.length > 0) {
+      const celebration = levelStatus.pendingCelebrations[0];
+      setCurrentCelebration(celebration);
+      setShowCelebration(true);
+    }
+  }, [levelStatus?.pendingCelebrations]);
+
+  useEffect(() => {
+    if (!showCelebration && levelStatus?.pendingOnboardings && levelStatus.pendingOnboardings.length > 0) {
+      const featureKey = levelStatus.pendingOnboardings[0];
+      setCurrentOnboardingFeature(featureKey);
+      setShowOnboarding(true);
+    }
+  }, [showCelebration, levelStatus?.pendingOnboardings]);
+
+  const handleCelebrationDismiss = useCallback(() => {
+    if (currentCelebration) {
+      markCelebrationShown.mutate(currentCelebration.id);
+    }
+    setShowCelebration(false);
+    setCurrentCelebration(null);
+  }, [currentCelebration, markCelebrationShown]);
+
+  const handleOnboardingDismiss = useCallback(() => {
+    setShowOnboarding(false);
+    setCurrentOnboardingFeature(null);
+  }, []);
+
+  const isFeatureUnlocked = useCallback((featureKey: string) => {
+    return levelStatus?.unlockedFeatures?.includes(featureKey) ?? false;
+  }, [levelStatus?.unlockedFeatures]);
+
+  const value: PlayerLevelContextValue = {
+    level: levelStatus?.level ?? 1,
+    title: levelStatus?.title ?? "Rookie",
+    xpInCurrentLevel: levelStatus?.xpInCurrentLevel ?? 0,
+    xpNeededForNextLevel: levelStatus?.xpNeededForNextLevel ?? 50,
+    progressPercent: levelStatus?.progressPercent ?? 0,
+    unlockedFeatures: levelStatus?.unlockedFeatures ?? [],
+    isFeatureUnlocked,
+    refetch,
+  };
+
+  return (
+    <PlayerLevelContext.Provider value={value}>
+      {children}
+      
+      <LevelUpCelebrationModal
+        celebration={currentCelebration}
+        visible={showCelebration}
+        onDismiss={handleCelebrationDismiss}
+      />
+      
+      <FeatureOnboardingModal
+        featureKey={currentOnboardingFeature}
+        playerId={playerId}
+        visible={showOnboarding}
+        onDismiss={handleOnboardingDismiss}
+      />
+    </PlayerLevelContext.Provider>
+  );
+}
+
+export function usePlayerLevelContext() {
+  const context = useContext(PlayerLevelContext);
+  if (!context) {
+    throw new Error("usePlayerLevelContext must be used within PlayerLevelProvider");
+  }
+  return context;
+}
+
+export function useFeatureAccess(featureKey: string) {
+  const context = useContext(PlayerLevelContext);
+  return context?.isFeatureUnlocked(featureKey) ?? false;
+}
