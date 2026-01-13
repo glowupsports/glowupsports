@@ -59,7 +59,7 @@ The application employs a dark-themed gaming aesthetic with neon green and cyan 
 ## External Dependencies
 
 ### Core Services
-- **Database**: PostgreSQL (via Drizzle ORM)
+- **Database**: Supabase PostgreSQL (via Drizzle ORM) - uses `SUPABASE_DATABASE_URL` with Session Pooler connection, falls back to Replit's `DATABASE_URL` if not set
 - **Deployment**: Replit
 - **Push Notifications**: Expo Push API
 - **Email Service**: Resend API
