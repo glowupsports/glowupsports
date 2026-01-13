@@ -190,6 +190,21 @@ export function ProPlayerCard({
           </View>
           
           <View style={styles.formBarContainer}>
+            <View style={styles.formLabelRow}>
+              <Text style={styles.formLabelLeft}>FORM</Text>
+              <View style={styles.signalBars}>
+                {[1, 2, 3, 4, 5].map((bar) => (
+                  <View
+                    key={bar}
+                    style={[
+                      styles.signalBar,
+                      { height: 4 + bar * 2 },
+                      player.streak >= bar ? styles.signalBarActive : styles.signalBarInactive,
+                    ]}
+                  />
+                ))}
+              </View>
+            </View>
             <View style={styles.formBarTrack}>
               <Animated.View 
                 style={[
@@ -338,7 +353,33 @@ const styles = StyleSheet.create({
   },
   formBarContainer: {
     marginTop: 4,
+    gap: 3,
+  },
+  formLabelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  formLabelLeft: {
+    fontSize: 8,
+    fontWeight: "700",
+    color: ProTennisColors.textMuted,
+    letterSpacing: 1,
+  },
+  signalBars: {
+    flexDirection: "row",
+    alignItems: "flex-end",
     gap: 2,
+  },
+  signalBar: {
+    width: 4,
+    borderRadius: 1,
+  },
+  signalBarActive: {
+    backgroundColor: ProTennisColors.electricGreen,
+  },
+  signalBarInactive: {
+    backgroundColor: ProTennisColors.surfaceElevated,
   },
   formBarTrack: {
     height: 6,
