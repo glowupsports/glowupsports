@@ -43,6 +43,8 @@ interface BookingConfirmationCardProps {
   onEditFriends?: () => void;
   createOpenMatch?: boolean;
   onToggleCreateOpenMatch?: () => void;
+  openMatchType?: "singles" | "doubles";
+  onChangeMatchType?: (type: "singles" | "doubles") => void;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -67,6 +69,8 @@ export function BookingConfirmationCard({
   onEditFriends,
   createOpenMatch = false,
   onToggleCreateOpenMatch,
+  openMatchType = "singles",
+  onChangeMatchType,
 }: BookingConfirmationCardProps) {
   const buttonScale = useSharedValue(1);
   const xpPulse = useSharedValue(1);
@@ -237,13 +241,72 @@ export function BookingConfirmationCard({
 
         {createOpenMatch && (
           <View style={styles.openMatchInfo}>
+            <Text style={styles.openMatchConfigTitle}>Match Type</Text>
+            <View style={styles.matchTypeSelector}>
+              <Pressable
+                style={[
+                  styles.matchTypeOption,
+                  openMatchType === "singles" && styles.matchTypeOptionSelected,
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onChangeMatchType?.("singles");
+                }}
+              >
+                <Ionicons
+                  name="person"
+                  size={18}
+                  color={openMatchType === "singles" ? Colors.dark.text : Colors.dark.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.matchTypeText,
+                    openMatchType === "singles" && styles.matchTypeTextSelected,
+                  ]}
+                >
+                  Singles
+                </Text>
+                <Text style={styles.matchTypeSubtext}>1v1</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.matchTypeOption,
+                  openMatchType === "doubles" && styles.matchTypeOptionSelected,
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onChangeMatchType?.("doubles");
+                }}
+              >
+                <Ionicons
+                  name="people"
+                  size={18}
+                  color={openMatchType === "doubles" ? Colors.dark.text : Colors.dark.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.matchTypeText,
+                    openMatchType === "doubles" && styles.matchTypeTextSelected,
+                  ]}
+                >
+                  Doubles
+                </Text>
+                <Text style={styles.matchTypeSubtext}>2v2</Text>
+              </Pressable>
+            </View>
             <View style={styles.openMatchInfoRow}>
               <Ionicons name="flash" size={16} color={Colors.dark.gold} />
               <Text style={styles.openMatchInfoText}>+25 XP bonus for hosting</Text>
             </View>
             <View style={styles.openMatchInfoRow}>
-              <Ionicons name="people" size={16} color={Colors.dark.primary} />
-              <Text style={styles.openMatchInfoText}>Others can join and split costs</Text>
+              <Ionicons name="card" size={16} color={Colors.dark.primary} />
+              <Text style={styles.openMatchInfoText}>
+                Cost split: {selectedSlot.currency || "AED"}{" "}
+                {selectedSlot.price
+                  ? (parseFloat(selectedSlot.price) / (openMatchType === "doubles" ? 4 : 2)).toFixed(2)
+                  : "0"}{" "}
+                per player
+              </Text>
             </View>
           </View>
         )}
@@ -555,6 +618,44 @@ const styles = StyleSheet.create({
   openMatchInfoText: {
     fontSize: FontSizes.sm,
     color: Colors.dark.textSecondary,
+  },
+  openMatchConfigTitle: {
+    fontSize: FontSizes.sm,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    marginBottom: Spacing.sm,
+  },
+  matchTypeSelector: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  matchTypeOption: {
+    flex: 1,
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: Spacing.sm,
+    borderRadius: 12,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  matchTypeOptionSelected: {
+    backgroundColor: Colors.dark.primary + "30",
+    borderColor: Colors.dark.primary,
+  },
+  matchTypeText: {
+    fontSize: FontSizes.sm,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  matchTypeTextSelected: {
+    color: Colors.dark.text,
+  },
+  matchTypeSubtext: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.textMuted,
   },
 });
 

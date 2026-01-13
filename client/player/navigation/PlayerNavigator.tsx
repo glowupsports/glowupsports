@@ -62,6 +62,8 @@ import CollectionScreen from "@/player/screens/CollectionScreen";
 import XPHistoryScreen from "@/player/screens/XPHistoryScreen";
 import LevelUpHistoryScreen from "@/player/screens/LevelUpHistoryScreen";
 import OpenMatchFeedScreen from "@/player/screens/OpenMatchFeedScreen";
+import BookingPreferencesScreen from "@/player/screens/BookingPreferencesScreen";
+import BookingInvitesScreen from "@/player/screens/BookingInvitesScreen";
 import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
 import { CartProvider } from "@/player/contexts/CartContext";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
@@ -134,6 +136,8 @@ export type PlayerStackParamList = {
   XPHistory: undefined;
   LevelUpHistory: undefined;
   OpenMatches: undefined;
+  BookingPreferences: undefined;
+  BookingInvites: undefined;
 };
 
 const Tab = createBottomTabNavigator<PlayerTabParamList>();
@@ -636,6 +640,22 @@ function PlayerStackNavigator() {
       <Stack.Screen 
         name="OpenMatches" 
         component={OpenMatchFeedScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="BookingPreferences" 
+        component={BookingPreferencesScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="BookingInvites" 
+        component={BookingInvitesScreen}
         options={{
           presentation: "card",
           headerShown: false,

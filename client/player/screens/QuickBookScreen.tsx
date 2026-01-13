@@ -77,6 +77,7 @@ export default function QuickBookScreen() {
   const [selectedFriends, setSelectedFriends] = useState<SelectedFriend[]>([]);
   const [bookWithFriends, setBookWithFriends] = useState(false);
   const [createOpenMatch, setCreateOpenMatch] = useState(false);
+  const [openMatchType, setOpenMatchType] = useState<"singles" | "doubles">("singles");
 
   const dateStr = formatDateForAPI(selectedDate);
 
@@ -92,7 +93,7 @@ export default function QuickBookScreen() {
   });
 
   const bookMutation = useMutation({
-    mutationFn: async (data: { courtId: string; date: string; time: string; inviteFriends?: string[]; openMatch?: boolean }) => {
+    mutationFn: async (data: { courtId: string; date: string; time: string; inviteFriends?: string[]; openMatch?: boolean; matchType?: "singles" | "doubles" }) => {
       const response = await apiRequest(`${getApiUrl()}/api/courts/${data.courtId}/book`, {
         method: "POST",
         body: JSON.stringify({
@@ -101,6 +102,7 @@ export default function QuickBookScreen() {
           endTime: calculateEndTime(data.time),
           inviteFriendIds: data.inviteFriends,
           createOpenMatch: data.openMatch,
+          matchType: data.matchType,
         }),
       });
       return response;
@@ -176,6 +178,7 @@ export default function QuickBookScreen() {
       time: selectedSlot.time,
       inviteFriends: friendIds,
       openMatch: createOpenMatch && !bookWithFriends,
+      matchType: createOpenMatch ? openMatchType : undefined,
     });
   };
 
@@ -196,7 +199,12 @@ export default function QuickBookScreen() {
 
   const handleToggleCreateOpenMatch = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setCreateOpenMatch(!createOpenMatch);
+    const newValue = !createOpenMatch;
+    setCreateOpenMatch(newValue);
+    if (newValue) {
+      setBookWithFriends(false);
+      setSelectedFriends([]);
+    }
   };
 
   const handleCancelBooking = () => {
@@ -313,6 +321,8 @@ export default function QuickBookScreen() {
               onEditFriends={() => setShowFriendSelector(true)}
               createOpenMatch={createOpenMatch}
               onToggleCreateOpenMatch={handleToggleCreateOpenMatch}
+              openMatchType={openMatchType}
+              onChangeMatchType={setOpenMatchType}
             />
           )}
         </ScrollView>

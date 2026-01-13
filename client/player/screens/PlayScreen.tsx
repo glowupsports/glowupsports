@@ -542,6 +542,34 @@ export default function PlayScreen() {
         </Pressable>
       </View>
 
+      <View style={styles.bookingToolsRow}>
+        <Pressable 
+          style={styles.bookingToolButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.navigate("BookingInvites" as never);
+          }}
+        >
+          <View style={styles.bookingToolIcon}>
+            <Ionicons name="mail" size={18} color={Colors.dark.gold} />
+          </View>
+          <Text style={styles.bookingToolText}>Invites</Text>
+        </Pressable>
+
+        <Pressable 
+          style={styles.bookingToolButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.navigate("BookingPreferences" as never);
+          }}
+        >
+          <View style={styles.bookingToolIcon}>
+            <Ionicons name="options" size={18} color={Colors.dark.primary} />
+          </View>
+          <Text style={styles.bookingToolText}>Preferences</Text>
+        </Pressable>
+      </View>
+
       <View style={styles.tabs}>
         {TAB_OPTIONS.map((tab) => (
           <Pressable
@@ -1201,5 +1229,36 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.textMuted,
     textAlign: "center",
+  },
+  bookingToolsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.md,
+  },
+  bookingToolButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  bookingToolIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  bookingToolText: {
+    ...Typography.caption,
+    fontWeight: "600",
+    color: Colors.dark.text,
   },
 });
