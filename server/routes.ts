@@ -14294,11 +14294,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const openSessions: Array<{id: string; type: string; time: string; spotsLeft: number; coachName?: string}> = [];
       if (player.academyId) {
         const now = new Date();
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
         
-        const upcomingSessions = await storage.getAcademySessions(player.academyId, now, tomorrow);
-        for (const session of upcomingSessions.slice(0, 3)) {
+        const academySessions = await storage.getSessionsByAcademy(player.academyId);
+        const upcomingSessions = academySessions.filter(s => new Date(s.startTime) > now).slice(0, 3);
+        for (const session of upcomingSessions) {
           const coach = session.coachId ? await storage.getCoach(session.coachId) : null;
           const time = new Date(session.startTime);
           openSessions.push({
@@ -14326,10 +14325,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const diffHours = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60));
           const timeStr = diffHours < 24 ? `${diffHours}h ago` : `${Math.floor(diffHours / 24)}d ago`;
           
+          const content = post.content || "";
           communityEvents.push({
             id: post.id,
             type: "new_group",
-            title: post.content.slice(0, 50) + (post.content.length > 50 ? "..." : ""),
+            title: content.slice(0, 50) + (content.length > 50 ? "..." : ""),
             time: timeStr,
           });
         }
@@ -14349,14 +14349,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (player.academyId) {
         const now = new Date();
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
         
-        const academySessions = await storage.getAcademySessions(player.academyId, now, tomorrow);
-        groupSessions = academySessions.filter(s => s.sessionType === "group").length;
-        privateLessons = academySessions.filter(s => s.sessionType === "private").length;
+        const allSessions = await storage.getSessionsByAcademy(player.academyId);
+        const upcomingAll = allSessions.filter(s => new Date(s.startTime) > now);
+        groupSessions = upcomingAll.filter(s => s.sessionType === "group").length;
+        privateLessons = upcomingAll.filter(s => s.sessionType === "private").length;
         
-        const courts = await storage.getCourtsByAcademy(player.academyId);
+        const courts = await storage.getAllCourts(player.academyId);
         courtsAvailable = courts.length;
       }
 
