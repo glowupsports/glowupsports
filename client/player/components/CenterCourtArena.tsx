@@ -41,30 +41,36 @@ const BROADCAST_COPY: Record<BroadcastMode, {
   title: string; 
   subtitle: string;
   actionLabel?: string;
+  commentatorNote?: string;
 }> = {
   on_air: {
     title: "LIVE ON CENTER COURT",
-    subtitle: "Session in progress",
+    subtitle: "The spotlight is on you",
     actionLabel: "VIEW STATS",
+    commentatorNote: "Every point counts in this moment",
   },
   pre_game: {
-    title: "NEXT ON CENTER COURT",
-    subtitle: "Warming up for battle",
+    title: "STEPPING INTO THE ARENA",
+    subtitle: "Momentum is building",
     actionLabel: "CHECK IN",
+    commentatorNote: "The journey to greatness continues",
   },
   post_game: {
-    title: "SESSION COMPLETE",
-    subtitle: "Performance recorded",
+    title: "PERFORMANCE LOCKED IN",
+    subtitle: "Another chapter written",
     actionLabel: "VIEW RECAP",
+    commentatorNote: "Progress captured, growth recorded",
   },
   rest_day: {
-    title: "REST & RECOVERY",
-    subtitle: "Champions recover smart",
+    title: "RECOVERY MODE",
+    subtitle: "Champions rest to rise again",
+    commentatorNote: "The best prepare when others pause",
   },
   off_air: {
-    title: "CENTER COURT AWAITS",
-    subtitle: "Ready when you are",
-    actionLabel: "HIT THE COURT",
+    title: "YOUR COURT AWAITS",
+    subtitle: "The next breakthrough is one session away",
+    actionLabel: "ENTER THE ARENA",
+    commentatorNote: "Every champion started with a single swing",
   },
 };
 
@@ -296,6 +302,9 @@ export function CenterCourtArena({
             <Text style={styles.coachText}>with Coach {nextSession.coachName}</Text>
           )}
           <Text style={styles.subtitle}>{copy.subtitle}</Text>
+          {copy.commentatorNote && (
+            <Text style={styles.commentatorNote}>{copy.commentatorNote}</Text>
+          )}
         </View>
 
         {showCountdown && sessionDate && (
@@ -406,6 +415,14 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: ProTennisColors.textMuted,
     fontStyle: "italic",
+  },
+  commentatorNote: {
+    fontSize: 10,
+    fontWeight: "500",
+    color: ProTennisColors.electricGreen,
+    opacity: 0.7,
+    marginTop: 6,
+    letterSpacing: 0.3,
   },
   countdownContainer: {
     flexDirection: "row",

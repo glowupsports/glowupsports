@@ -26,7 +26,7 @@ const STORYLINE_MAP: Record<string, StorylineConfig> = {
   "PROMOTION PRESSURE": {
     icon: "arrow-up-circle",
     label: "PROMOTION PRESSURE",
-    description: "Level up is within reach",
+    description: "One session away from breaking through",
     color: ProTennisColors.electricGreen,
     bgColor: ProTennisColors.electricGreen + "15",
     intensity: "high",
@@ -34,7 +34,7 @@ const STORYLINE_MAP: Record<string, StorylineConfig> = {
   "ON FIRE": {
     icon: "flame",
     label: "ON FIRE",
-    description: "Momentum is building...",
+    description: "Momentum is locked in, stay in the zone",
     color: ProTennisColors.warning,
     bgColor: ProTennisColors.warning + "12",
     intensity: "high",
@@ -42,7 +42,7 @@ const STORYLINE_MAP: Record<string, StorylineConfig> = {
   "STREAK AT RISK": {
     icon: "warning",
     label: "STREAK AT RISK",
-    description: "Don't let the fire die",
+    description: "The streak hangs in the balance",
     color: ProTennisColors.danger,
     bgColor: ProTennisColors.danger + "12",
     intensity: "high",
@@ -50,7 +50,7 @@ const STORYLINE_MAP: Record<string, StorylineConfig> = {
   "MATCH DAY": {
     icon: "tennisball",
     label: "MATCH DAY",
-    description: "Time to compete",
+    description: "All eyes on center court today",
     color: ProTennisColors.neonCyan,
     bgColor: ProTennisColors.neonCyan + "12",
     intensity: "high",
@@ -58,7 +58,7 @@ const STORYLINE_MAP: Record<string, StorylineConfig> = {
   "WARMING UP": {
     icon: "fitness",
     label: "WARMING UP",
-    description: "Session approaching",
+    description: "The countdown to greatness begins",
     color: ProTennisColors.warning,
     bgColor: ProTennisColors.warning + "10",
     intensity: "medium",
@@ -66,7 +66,7 @@ const STORYLINE_MAP: Record<string, StorylineConfig> = {
   "ROAD TO ORANGE": {
     icon: "trending-up",
     label: "ROAD TO ORANGE",
-    description: "Every session counts",
+    description: "Every session brings orange closer",
     color: "#FF8C00",
     bgColor: "rgba(255, 140, 0, 0.1)",
     intensity: "low",
@@ -74,7 +74,7 @@ const STORYLINE_MAP: Record<string, StorylineConfig> = {
   "CHASING GREEN": {
     icon: "leaf",
     label: "CHASING GREEN",
-    description: "The next chapter awaits",
+    description: "The green ball milestone awaits",
     color: "#32CD32",
     bgColor: "rgba(50, 205, 50, 0.1)",
     intensity: "low",
@@ -82,7 +82,7 @@ const STORYLINE_MAP: Record<string, StorylineConfig> = {
   "YELLOW DREAM": {
     icon: "star",
     label: "YELLOW DREAM",
-    description: "Almost at the top",
+    description: "Elite status is within reach",
     color: "#FFD700",
     bgColor: "rgba(255, 215, 0, 0.1)",
     intensity: "medium",
