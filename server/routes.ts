@@ -3980,6 +3980,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           chargeAmount,
         }),
       });
+
+      // Broadcast session cancellation via WebSocket
+      if (academyId) {
+        broadcastSessionUpdate(academyId, {
+          sessionId: id,
+          type: "cancelled",
+        });
+      }
       
       res.json({
         success: true,
@@ -6064,6 +6072,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Cancel future sessions if requested
       if (cancelFutureSessions === 'true') {
         await storage.deleteRecurringSessionInstances(id, new Date(), academyId || undefined);
+        
+        // Broadcast session update via WebSocket so players see the change immediately
+        if (academyId) {
+          broadcastSessionUpdate(academyId, {
+            sessionId: id,
+            type: "cancelled",
+          });
+        }
       }
       
       res.json({ success: true, message: "Recurring series deleted" });
@@ -6090,6 +6106,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         skipReason: reason || "manual",
         status: "cancelled",
       });
+
+      // Broadcast session cancellation via WebSocket
+      if (academyId) {
+        broadcastSessionUpdate(academyId, {
+          sessionId: id,
+          type: "cancelled",
+        });
+      }
       
       res.json(updated);
     } catch (error) {
