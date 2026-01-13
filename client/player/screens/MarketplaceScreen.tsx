@@ -476,7 +476,7 @@ function CreateListingModal({ visible, onClose, onSuccess }: {
           </View>
 
           <View style={modalStyles.field}>
-            <Text style={modalStyles.label}>Price (AED) *</Text>
+            <Text style={modalStyles.label}>Price *</Text>
             <TextInput
               style={modalStyles.input}
               value={price}
