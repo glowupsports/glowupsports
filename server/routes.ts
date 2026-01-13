@@ -24421,18 +24421,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         orderBy = desc(players.glowScore);
       }
       
-      const results = await db.select({
-        id: players.id,
-        name: players.name,
-        photoUrl: players.photoUrl,
-        level: players.level,
-        glowScore: players.glowScore,
-        ballLevel: players.ballLevel,
-        openToPlay: players.openToPlay,
-      })
+      const results = await db.select()
       .from(players)
       .where(and(...conditions))
-      .orderBy(orderBy)
+      .orderBy(desc(players.glowScore))
       .limit(30);
       
       res.json({
