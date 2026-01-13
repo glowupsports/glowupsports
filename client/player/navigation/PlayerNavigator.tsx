@@ -7,7 +7,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import PlayerHomeScreen from "@/player/screens/PlayerHomeScreen";
+import ProPlayerHomeScreen from "@/player/screens/ProPlayerHomeScreen";
 import PlayerJourneyScreen from "@/player/screens/PlayerJourneyScreen";
 import PlayScreen from "@/player/screens/PlayScreen";
 import PlayerTrainingScreen from "@/player/screens/PlayerTrainingScreen";
@@ -175,7 +175,7 @@ function PlayerTabsContent() {
       >
         <Tab.Screen
           name="Home"
-          component={PlayerHomeScreen}
+          component={ProPlayerHomeScreen}
           options={{
             tabBarLabel: "Home",
             tabBarIcon: ({ color }) => (

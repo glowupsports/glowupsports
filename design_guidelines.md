@@ -1,5 +1,30 @@
 # Glow Up Tennis - Design Guidelines
 
+## Visual Identity: "Midnight Grand Slam"
+
+**Theme**: Sport-Tech, FIFA/EAFC-style Player Cards, Premium Athletic
+
+**Color Palette** (use ProTennisColors from theme.ts):
+- Background: Midnight Blue (#090E17) - deep, almost black blue
+- Card Surface: #151B29 - elevated surfaces
+- Primary Accent: Electric Green (#CCFF00) - tennis ball yellow/green for CTAs
+- Secondary Accent: Neon Cyan (#00F0FF) - social/cold actions
+- Text: White (#FFFFFF), Muted (#7A8AA3)
+
+**Visual Elements**:
+- No "hacker" look - pure sport-tech aesthetic
+- Aerodynamic curves (like tennis rackets, sports cars)
+- Tennis court line patterns as subtle background overlay
+- Glass-effect surfaces with blur
+- FIFA-style player cards for identity
+
+**Typography**:
+- Player names: Bold, uppercase
+- Numbers/Stats: Large, prominent
+- Labels: Small, subtle, supporting
+
+---
+
 ## Authentication Architecture
 
 **Auth Required**: Yes
@@ -13,76 +38,144 @@
 - Email/password as fallback option
 - Privacy policy and terms of service links on sign-up screens
 
-**Account Management**:
-- Settings screen includes:
-  - Avatar customization (tennis-themed avatars)
-  - Display name editing
-  - Log out with confirmation alert
-  - Delete account (nested: Settings > Account > Delete with double confirmation)
-
 ---
 
-## Navigation Architecture
+## Player Home Screen: 5-Zone Layout
 
-**Primary Navigation**: Hamburger Drawer + Fixed Header/Footer
-- App has 10+ feature areas requiring drawer navigation
-- Persistent header displays critical player stats (XP, currency, level)
-- Persistent footer provides quick chat access
-- Core action (earning XP/lessons) accessed via drawer menu
+The Player Home Screen uses a structured 5-zone layout inspired by sports broadcast interfaces.
 
-**Drawer Menu Structure**:
-1. Lessons
-2. Quest
-3. Match
-4. Ranking
-5. Friends
-6. Game Lobby
-7. Events Calendar
-8. Payments
-9. Settings
-10. Logout (with confirmation)
-
-**Information Hierarchy**:
-- Home screen = Glow Engine Score Dashboard (5 skill categories)
-- Header = Always visible player stats overlay
-- Footer = Collapsible chat interface
-- All screens maintain consistent header/footer presence
-
----
-
-## Screen Specifications
-
-### 1. Home Screen (Glow Engine Dashboard)
-**Purpose**: Display player's skill progression across 5 categories
+### ZONE 1: Player Card Header (FIFA-Style)
+**Purpose**: Player identity in a premium sports card format
 
 **Layout**:
-- **Header**: Custom persistent header (NOT navigation default)
-  - Left: Hamburger menu icon
-  - Center: Player avatar (circular, 40px) + name + level badge
-  - Right: Currency indicators (diamond rackets, bronze coins)
-  - Below: XP progress bar with glow effect (full-width, 6px height)
-  - Total Glow Engine Score displayed under XP bar
-  - Background: Semi-transparent #1A1A1A with blur
-  - Height: 140px including XP bar
+- **Left**: Pro Photo
+  - Avatar in circle with Electric Green glow ring (represents Form/Streak)
+  - Glow intensity increases with higher streak
+  
+- **Center**: Stats
+  - Name: Bold, uppercase (e.g., "THE LAW")
+  - Title: Current player title
+  - Level: Player level number
+  - Form Bar: XP progress bar (how close to next level)
+  
+- **Right**: Locker Room
+  - Credits/Wallet icon with balance
+  - "My Squad" switch (for parent family lobby)
 
-- **Main Content**: Scrollable card grid
-  - 5 skill category cards in 2-column grid (last row centered)
-  - Each card shows: icon, category name, current score, progress ring
-  - Cards: #2D2D2D background, 12px rounded corners, subtle glow on active
-  - Safe area top inset: headerHeight + 16px
-  - Safe area bottom inset: footerHeight + 16px
-
-- **Footer**: Custom collapsible chat (NOT tab bar)
-  - Collapsed: Shows latest message preview (60px height)
-  - Expanded: Full chat interface (60% screen height)
-  - Tap to expand/collapse with smooth animation
-  - Background: #2D2D2D with top border glow effect
-
-**Components**: Card grid, progress rings, custom header, collapsible panel
+**Styling**:
+- Background: Glass blur over midnight blue
+- Card has subtle glow border
+- Height: ~120px
 
 ---
 
-### 2. Chat Interface (Footer Expansion)
+### ZONE 2: Center Court (Dynamic Hero)
+**Purpose**: Main action area - shows next session or booking options
+
+**Scenario A - No Activity ("Training Block")**:
+- Visual: Dark tennis court image with spotlights
+- Text: "OFF SEASON MODE" or "REST DAY"
+- Two large action cards:
+  - [ HIT THE COURT ] - Book training session
+  - [ CHALLENGE PLAYER ] - Find a match/rival
+
+**Scenario B - Session Scheduled ("Match Day")**:
+- Visual: Active court graphic
+- Header: "NEXT SESSION" with pulsing green dot (LIVE indicator)
+- Countdown timer: HH:MM:SS format
+- Check-in button when within 60 minutes
+- Session type, coach name, court info
+
+**Styling**:
+- Cards use glass effect with Electric Green accents
+- Countdown uses large, bold numbers
+- Aerodynamic curved corners on cards
+
+---
+
+### ZONE 3: Performance Center (Grid)
+**Purpose**: Player toolkit for improvement
+
+**4 Glass Tiles**:
+1. **SWING LAB** (Video Analysis)
+   - Icon: Play button in focus frame
+   - Subtitle: "Analyze your strokes"
+   
+2. **MY DATA** (Stats)
+   - Icon: Radar chart / Activity icon
+   - Subtitle: "Track technical progress"
+   
+3. **PRO SHOP** (Gear)
+   - Icon: Shopping bag / Racket bag
+   - Subtitle: "Upgrade your equipment"
+   
+4. **ACADEMY HUB** (Social/News)
+   - Icon: Trophy / Globe
+   - Subtitle: "News & Rankings"
+
+**Styling**:
+- 2x2 grid layout
+- Glass-effect cards on midnight blue
+- White icons, Electric Green on hover/press
+- Locked features show lock icon with "Unlock at Level X"
+
+---
+
+### ZONE 4: Social Ticker (Footer)
+**Purpose**: Live activity feed combining all notifications
+
+**Content Types** (horizontally scrolling):
+- Chat messages from coach
+- Daily goals progress
+- Streak status
+- Academy news/announcements
+- Player achievements ("Max reached Level 5!")
+- System notifications
+
+**Styling**:
+- Black bar with white text, ESPN/Eurosport ticker style
+- Auto-scrolls horizontally
+- Icons before each item (target, lightning, megaphone, trophy)
+- Tap to expand into full feed/chat
+
+---
+
+### ZONE 5: Quick Serve FAB
+**Purpose**: Fast actions floating button
+
+**Position**: Bottom-right, Electric Green color
+
+**Menu Actions**:
+- Log Score (match result)
+- Chat Coach (quick message)
+- Record Video (capture evidence)
+
+**Styling**:
+- Electric Green (#CCFF00) primary button
+- Expands into radial menu on tap
+- Spring animation on open/close
+
+---
+
+## Feature Unlock System (Solo Leveling)
+
+Features are gated by player level with visual indicators:
+
+**Locked State**:
+- Show feature teaser with blur overlay
+- Lock icon in center
+- "Unlock at Level X" text
+- Subtle pulse animation
+
+**Unlock Celebration**:
+- Modal with confetti/particles
+- "NEW FEATURE UNLOCKED" header
+- Feature icon and description
+- XP reward for discovery
+
+---
+
+### Chat Interface
 **Purpose**: Quick access to 5 channel types with notifications
 
 **Layout**:

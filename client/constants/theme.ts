@@ -1,5 +1,45 @@
 import { Platform } from "react-native";
 
+// Pro Tennis "Midnight Grand Slam" palette for Player App
+export const ProTennisColors = {
+  // Backgrounds - Deep midnight blue
+  midnightBlue: "#090E17",
+  surfaceDark: "#151B29",
+  surfaceCard: "#1A2235",
+  surfaceElevated: "#202840",
+  
+  // Primary Accent - Electric Tennis Yellow/Green
+  electricGreen: "#CCFF00",
+  electricGreenLight: "#DFFF40",
+  electricGreenMuted: "#99CC00",
+  
+  // Secondary Accent - Neon Cyan for social/cold actions
+  neonCyan: "#00F0FF",
+  neonCyanMuted: "#00C4D4",
+  
+  // Text
+  white: "#FFFFFF",
+  textPrimary: "#FFFFFF",
+  textSecondary: "#B8C5D6",
+  textMuted: "#7A8AA3",
+  
+  // Status Colors
+  success: "#00E676",
+  danger: "#FF3333",
+  warning: "#FFAB00",
+  live: "#FF3333",
+  
+  // Form/XP Bar
+  formBarFill: "#CCFF00",
+  formBarBackground: "#1A2235",
+  
+  // Gradients
+  gradientElectric: ["#CCFF00", "#DFFF40"],
+  gradientMidnight: ["#090E17", "#151B29"],
+  gradientCard: ["rgba(26, 34, 53, 0.95)", "rgba(21, 27, 41, 0.98)"],
+  gradientGlow: ["rgba(204, 255, 0, 0.15)", "rgba(204, 255, 0, 0.02)"],
+};
+
 export const Colors = {
   light: {
     text: "#ECEDEE",
