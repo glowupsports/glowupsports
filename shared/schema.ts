@@ -930,6 +930,7 @@ export const players = pgTable("players", {
   privacyLevel: text("privacy_level").default("platform"), // public/platform/academy
   bio: text("bio"), // Short player bio
   lastActiveAt: timestamp("last_active_at"),
+  preferredTime: text("preferred_time"), // Preferred session time (morning/afternoon/evening)
   
   createdAt: timestamp("created_at").defaultNow(),
 });
