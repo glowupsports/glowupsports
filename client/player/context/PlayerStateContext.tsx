@@ -64,6 +64,7 @@ interface PlayerState {
   isNearLevelUp: boolean;
   isStreakAtRisk: boolean;
   minutesToNextSession: number | null;
+  minutesRemaining: number | null;
   currentStoryline: string | null;
   tensionLevel: number;
   nearbyPlayers: NearbyPlayer[];
@@ -77,6 +78,8 @@ interface PlayerState {
   formStatus: "rising" | "stable" | "declining";
   nextEventTime: string | null;
   sessionsToPromotion: number;
+  sessionCourtName: string | null;
+  sessionType: string | null;
 }
 
 interface PlayerStateContextType {
@@ -97,6 +100,7 @@ const defaultState: PlayerState = {
   isNearLevelUp: false,
   isStreakAtRisk: false,
   minutesToNextSession: null,
+  minutesRemaining: null,
   currentStoryline: null,
   tensionLevel: 0,
   nearbyPlayers: [],
@@ -110,6 +114,8 @@ const defaultState: PlayerState = {
   formStatus: "stable",
   nextEventTime: null,
   sessionsToPromotion: 3,
+  sessionCourtName: null,
+  sessionType: null,
 };
 
 const PlayerStateContext = createContext<PlayerStateContextType>({
@@ -136,19 +142,42 @@ function getLevelStage(ballLevel: string | null): LevelStage {
   return "adult";
 }
 
-function getSessionStatus(nextSession: any): { status: SessionStatus; minutesUntil: number | null } {
-  if (!nextSession?.date) return { status: "none", minutesUntil: null };
+function getSessionStatus(nextSession: any): { status: SessionStatus; minutesUntil: number | null; minutesRemaining: number | null } {
+  if (!nextSession?.date) return { status: "none", minutesUntil: null, minutesRemaining: null };
   
   const sessionDate = new Date(nextSession.date);
   const now = new Date();
   const diffMs = sessionDate.getTime() - now.getTime();
   const diffMinutes = Math.floor(diffMs / (1000 * 60));
   
-  if (diffMinutes < -60) return { status: "ended", minutesUntil: null };
-  if (diffMinutes <= 0) return { status: "live", minutesUntil: 0 };
-  if (diffMinutes <= 30) return { status: "soon", minutesUntil: diffMinutes };
-  if (diffMinutes <= 24 * 60) return { status: "upcoming", minutesUntil: diffMinutes };
-  return { status: "none", minutesUntil: diffMinutes };
+  // Check if server already marked this as live
+  if (nextSession.isLive) {
+    // Calculate remaining time using endTime
+    const endTime = nextSession.endTime ? new Date(nextSession.endTime) : null;
+    const remainingMs = endTime ? endTime.getTime() - now.getTime() : 0;
+    const remainingMinutes = Math.max(0, Math.floor(remainingMs / (1000 * 60)));
+    return { status: "live", minutesUntil: 0, minutesRemaining: remainingMinutes };
+  }
+  
+  // Check using endTime if available
+  if (nextSession.endTime) {
+    const endTime = new Date(nextSession.endTime);
+    if (sessionDate <= now && endTime > now) {
+      const remainingMs = endTime.getTime() - now.getTime();
+      const remainingMinutes = Math.max(0, Math.floor(remainingMs / (1000 * 60)));
+      return { status: "live", minutesUntil: 0, minutesRemaining: remainingMinutes };
+    }
+    if (endTime <= now) {
+      return { status: "ended", minutesUntil: null, minutesRemaining: null };
+    }
+  }
+  
+  // Fallback to original logic
+  if (diffMinutes < -60) return { status: "ended", minutesUntil: null, minutesRemaining: null };
+  if (diffMinutes <= 0) return { status: "live", minutesUntil: 0, minutesRemaining: 60 }; // Assume 60 min session
+  if (diffMinutes <= 30) return { status: "soon", minutesUntil: diffMinutes, minutesRemaining: null };
+  if (diffMinutes <= 24 * 60) return { status: "upcoming", minutesUntil: diffMinutes, minutesRemaining: null };
+  return { status: "none", minutesUntil: diffMinutes, minutesRemaining: null };
 }
 
 function getBroadcastMode(sessionStatus: SessionStatus, timeOfDay: TimeOfDay): BroadcastMode {
@@ -286,7 +315,7 @@ export function PlayerStateProvider({ children }: { children: ReactNode }) {
     if (!dashboardData?.player) return defaultState;
 
     const { player, nextSession } = dashboardData;
-    const { status: sessionStatus, minutesUntil } = getSessionStatus(nextSession);
+    const { status: sessionStatus, minutesUntil, minutesRemaining } = getSessionStatus(nextSession);
     const levelStage = getLevelStage(player.ballLevel);
     
     const xpInLevel = levelStatus?.xpInCurrentLevel ?? 0;
@@ -345,6 +374,7 @@ export function PlayerStateProvider({ children }: { children: ReactNode }) {
       isNearLevelUp: xpProgress >= 0.85,
       isStreakAtRisk: player.streak > 0 && sessionStatus === "none",
       minutesToNextSession: minutesUntil,
+      minutesRemaining,
       currentStoryline,
       tensionLevel,
       nearbyPlayers: socialData?.nearbyPlayers.length ? socialData.nearbyPlayers : fallbackNearbyPlayers,
@@ -366,6 +396,8 @@ export function PlayerStateProvider({ children }: { children: ReactNode }) {
       formStatus: getFormStatus(),
       nextEventTime: minutesUntil ? `${Math.floor(minutesUntil / 60)}:${(minutesUntil % 60).toString().padStart(2, "0")}` : null,
       sessionsToPromotion,
+      sessionCourtName: nextSession?.courtName || null,
+      sessionType: nextSession?.type || null,
     };
   }, [dashboardData, levelStatus, socialData, timeOfDay]);
 

@@ -1,13 +1,12 @@
 import React from "react";
-import { View, Text, StyleSheet, Pressable, Platform } from "react-native";
-import { BlurView } from "expo-blur";
-import { LinearGradient } from "expo-linear-gradient";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeInUp } from "react-native-reanimated";
 import { ProTennisColors, Spacing, BorderRadius } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
+import { GlassCard } from "./GlassCard";
 
 const eventTypeConfig: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
   new_member: { icon: "person-add-outline", color: ProTennisColors.neonCyan },
@@ -43,18 +42,7 @@ export function MiniFeed() {
         </Pressable>
       </View>
 
-      <View style={styles.card}>
-        {Platform.OS === "ios" ? (
-          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill}>
-            <LinearGradient
-              colors={[ProTennisColors.surfaceCard + "90", ProTennisColors.surfaceDark + "95"]}
-              style={StyleSheet.absoluteFill}
-            />
-          </BlurView>
-        ) : (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: ProTennisColors.surfaceCard }]} />
-        )}
-
+      <GlassCard variant="default" style={styles.card}>
         <View style={styles.eventsContainer}>
           {events.map((event, index) => {
             const config = eventTypeConfig[event.type] || eventTypeConfig.new_member;
@@ -72,7 +60,7 @@ export function MiniFeed() {
             );
           })}
         </View>
-      </View>
+      </GlassCard>
     </Animated.View>
   );
 }

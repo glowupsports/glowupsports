@@ -1,13 +1,12 @@
 import React from "react";
-import { View, Text, StyleSheet, Pressable, Platform } from "react-native";
-import { BlurView } from "expo-blur";
-import { LinearGradient } from "expo-linear-gradient";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { ProTennisColors, Spacing, BorderRadius } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
+import { GlassCard } from "./GlassCard";
 
 interface GlanceItem {
   id: string;
@@ -77,18 +76,7 @@ export function TodayAtAGlance() {
         </View>
       </View>
 
-      <View style={styles.card}>
-        {Platform.OS === "ios" ? (
-          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill}>
-            <LinearGradient
-              colors={[ProTennisColors.surfaceCard + "90", ProTennisColors.surfaceDark + "95"]}
-              style={StyleSheet.absoluteFill}
-            />
-          </BlurView>
-        ) : (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: ProTennisColors.surfaceCard }]} />
-        )}
-
+      <GlassCard variant="default" style={styles.card}>
         <View style={styles.itemsGrid}>
           {glanceItems.map((item) => (
             <Pressable
@@ -109,7 +97,7 @@ export function TodayAtAGlance() {
             </Pressable>
           ))}
         </View>
-      </View>
+      </GlassCard>
     </Animated.View>
   );
 }

@@ -14152,21 +14152,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         academy = await storage.getAcademy(player.academyId);
       }
       
-      // Get next upcoming session using player-specific query
-      const now = new Date();
+      // Get next upcoming OR currently active session using player-specific query
+      // Look back 3 hours to catch sessions that are currently in progress
+      const threeHoursAgo = new Date();
+      threeHoursAgo.setHours(threeHoursAgo.getHours() - 3);
       const future = new Date();
       future.setDate(future.getDate() + 30);
       
       let nextSession = null;
-      const upcomingSessions = await storage.getPlayerSessionsWithDetails(playerId, now, future);
-      if (upcomingSessions.length > 0) {
-        const session = upcomingSessions[0];
+      const now = new Date();
+      const upcomingSessions = await storage.getPlayerSessionsWithDetails(playerId, threeHoursAgo, future);
+      
+      // Find the most relevant session: either currently active, or next upcoming
+      // Sort by: 1) currently active sessions first, 2) then by start time
+      const sortedSessions = upcomingSessions
+        .map(s => ({
+          ...s,
+          isActive: s.startTime <= now && s.endTime > now,
+          isUpcoming: s.startTime > now,
+        }))
+        .sort((a, b) => {
+          // Active sessions first
+          if (a.isActive && !b.isActive) return -1;
+          if (!a.isActive && b.isActive) return 1;
+          // Then by start time (earliest first)
+          return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
+        });
+      
+      if (sortedSessions.length > 0) {
+        // Get first active session, or first upcoming if none active
+        const session = sortedSessions.find(s => s.isActive) || sortedSessions.find(s => s.isUpcoming) || sortedSessions[0];
         const court = session.courtId ? await storage.getCourt(session.courtId) : null;
+        const sessionCoach = session.coachId ? await storage.getCoach(session.coachId) : null;
         nextSession = {
           id: session.id,
           date: session.startTime,
+          endTime: session.endTime,
           type: session.sessionType,
           courtName: court?.name,
+          coachName: sessionCoach?.name || null,
+          isLive: session.isActive,
         };
       }
       

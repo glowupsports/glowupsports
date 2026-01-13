@@ -33,7 +33,7 @@ export function SessionHeroCard({
 }: SessionHeroCardProps) {
   const navigation = useNavigation<any>();
   const { state } = usePlayerState();
-  const { sessionStatus, minutesToNextSession, coachName } = state;
+  const { sessionStatus, minutesToNextSession, minutesRemaining, coachName, sessionCourtName, sessionType } = state;
 
   const pulseValue = useSharedValue(0);
   const [countdown, setCountdown] = useState({ hours: 0, minutes: 0, seconds: 0 });
@@ -52,8 +52,12 @@ export function SessionHeroCard({
   }, [sessionStatus, pulseValue]);
 
   useEffect(() => {
-    if (minutesToNextSession && minutesToNextSession > 0) {
-      const totalSeconds = minutesToNextSession * 60;
+    // For live sessions, use minutesRemaining (time until session ends)
+    // For upcoming sessions, use minutesToNextSession (time until session starts)
+    const timeToUse = sessionStatus === "live" ? minutesRemaining : minutesToNextSession;
+    
+    if (timeToUse && timeToUse > 0) {
+      const totalSeconds = timeToUse * 60;
       const hours = Math.floor(totalSeconds / 3600);
       const minutes = Math.floor((totalSeconds % 3600) / 60);
       const seconds = totalSeconds % 60;
@@ -83,7 +87,7 @@ export function SessionHeroCard({
 
       return () => clearInterval(interval);
     }
-  }, [minutesToNextSession]);
+  }, [sessionStatus, minutesToNextSession, minutesRemaining]);
 
   const livePulseStyle = useAnimatedStyle(() => {
     const backgroundColor = interpolateColor(
@@ -180,8 +184,11 @@ export function SessionHeroCard({
               pulsing
             />
             <View style={styles.sessionDetails}>
-              <Text style={styles.sessionType}>Private Training</Text>
+              <Text style={styles.sessionType}>{sessionType || "Training"}</Text>
               <Text style={styles.coachLabel}>with {coachName || "Your Coach"}</Text>
+              {sessionCourtName && (
+                <Text style={styles.courtLabel}>{sessionCourtName}</Text>
+              )}
             </View>
           </View>
 
@@ -409,6 +416,11 @@ const styles = StyleSheet.create({
   coachLabel: {
     ...Typography.small,
     color: ProTennisColors.textSecondary,
+  },
+  courtLabel: {
+    ...Typography.caption,
+    color: ProTennisColors.neonCyan,
+    marginTop: 2,
   },
   courtInfo: {
     ...Typography.caption,

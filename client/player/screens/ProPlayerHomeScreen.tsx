@@ -45,6 +45,9 @@ interface DashboardData {
     date: string;
     type: string;
     courtName?: string;
+    endTime?: string;
+    isLive?: boolean;
+    coachName?: string;
   } | null;
   credits?: {
     total: number;
@@ -113,7 +116,7 @@ function PlayerHomeContent() {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: insets.top, paddingBottom: 100 },
+          { paddingTop: insets.top, paddingBottom: insets.bottom + 180 },
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
