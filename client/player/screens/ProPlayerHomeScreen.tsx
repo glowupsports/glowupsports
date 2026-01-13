@@ -101,7 +101,7 @@ export default function ProPlayerHomeScreen() {
   const { user } = useAuth();
 
   const { data: dashboardData, isLoading, refetch, isRefetching } = useQuery<DashboardData>({
-    queryKey: ["/api/player/dashboard"],
+    queryKey: ["/api/player/me/dashboard"],
     enabled: !!user?.playerId,
   });
 
@@ -113,7 +113,7 @@ export default function ProPlayerHomeScreen() {
   useFocusEffect(
     useCallback(() => {
       if (user?.playerId) {
-        queryClient.invalidateQueries({ queryKey: ["/api/player/dashboard"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
         queryClient.invalidateQueries({ queryKey: ["/api/player/me/recognition"] });
       }
     }, [user?.playerId, queryClient])
