@@ -1454,7 +1454,7 @@ export default function PlayerHomeScreen() {
 
         <Pressable 
           style={styles.courtBookingCard}
-          onPress={() => navigation.navigate("CourtBooking")}
+          onPress={() => navigation.navigate("QuickBook")}
         >
           <LinearGradient
             colors={[Colors.dark.xpCyan + "15", Colors.dark.backgroundSecondary]}
@@ -1463,11 +1463,11 @@ export default function PlayerHomeScreen() {
             style={styles.courtBookingGradient}
           >
             <View style={styles.courtBookingIcon}>
-              <Ionicons name="tennisball" size={24} color={Colors.dark.xpCyan} />
+              <Ionicons name="flash" size={24} color={Colors.dark.xpCyan} />
             </View>
             <View style={styles.courtBookingContent}>
-              <Text style={styles.courtBookingTitle}>Book a Court</Text>
-              <Text style={styles.courtBookingSubtitle}>Find and reserve courts near you</Text>
+              <Text style={styles.courtBookingTitle}>Quick Book</Text>
+              <Text style={styles.courtBookingSubtitle}>3-tap booking - Book in seconds</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.xpCyan} />
           </LinearGradient>

@@ -20797,6 +20797,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== COURT BOOKING MARKETPLACE ====================
 
+  // Get all courts availability for a date (Playtomic-style quick booking)
+  app.get("/api/courts/availability", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      const academyId = req.user?.academyId;
+      const { date } = req.query;
+
+      if (!date) {
+        return res.status(400).json({ error: "date is required" });
+      }
+
+      // Get all courts accessible to this user
+      const courts = await storage.searchCourts({
+        userId,
+        userAcademyId: academyId,
+        limit: 50,
+        offset: 0,
+      });
+
+      // Generate time slots for each court
+      const slots: Array<{
+        courtId: string;
+        courtName: string;
+        time: string;
+        available: boolean;
+        price?: string;
+        currency?: string;
+      }> = [];
+
+      // Standard time slots (7am to 10pm)
+      const timeSlots = [
+        "07:00", "08:00", "09:00", "10:00", "11:00", "12:00",
+        "13:00", "14:00", "15:00", "16:00", "17:00", "18:00",
+        "19:00", "20:00", "21:00", "22:00"
+      ];
+
+      for (const court of courts) {
+        // Get existing bookings for this court on this date
+        const availability = await storage.getCourtAvailability(court.id, date as string);
+        const bookedTimes = new Set(availability.filter(a => !a.available).map(a => a.time));
+
+        for (const time of timeSlots) {
+          slots.push({
+            courtId: court.id,
+            courtName: court.name,
+            time,
+            available: !bookedTimes.has(time),
+            price: court.pricePerHour,
+            currency: court.currency || "AED",
+          });
+        }
+      }
+
+      res.json({
+        courts: courts.map(c => ({
+          id: c.id,
+          name: c.name,
+          surface: c.surface,
+          pricePerHour: c.pricePerHour,
+          currency: c.currency || "AED",
+        })),
+        slots,
+      });
+    } catch (error) {
+      console.error("Get courts availability error:", error);
+      res.status(500).json({ error: "Failed to get availability" });
+    }
+  });
+
   // Search public courts (available for all users)
   app.get("/api/courts/search", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {

@@ -31,6 +31,7 @@ import ParentCreditStoreScreen from "@/player/screens/ParentCreditStoreScreen";
 import CourtBookingScreen from "@/player/screens/CourtBookingScreen";
 import CourtDetailScreen from "@/player/screens/CourtDetailScreen";
 import MyCourtBookingsScreen from "@/player/screens/MyCourtBookingsScreen";
+import QuickBookScreen from "@/player/screens/QuickBookScreen";
 import LessonBookingScreen from "@/player/screens/LessonBookingScreen";
 import MyLessonRequestsScreen from "@/player/screens/MyLessonRequestsScreen";
 import PlayerFinderScreen from "@/player/screens/PlayerFinderScreen";
@@ -100,6 +101,7 @@ export type PlayerStackParamList = {
   ParentCreditStore: { playerId: string };
   ParentSettings: undefined;
   CourtBooking: undefined;
+  QuickBook: undefined;
   CourtDetail: { courtId: string; date: string };
   MyCourtBookings: undefined;
   LessonBooking: undefined;
@@ -376,6 +378,13 @@ function PlayerStackNavigator() {
       <Stack.Screen 
         name="CourtBooking" 
         component={CourtBookingScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="QuickBook" 
+        component={QuickBookScreen}
         options={{
           presentation: "card",
         }}
