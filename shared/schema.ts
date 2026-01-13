@@ -916,6 +916,9 @@ export const players = pgTable("players", {
   focusGoals: jsonb("focus_goals").$type<string[]>(), // multi-select
   selfConfidenceFlags: jsonb("self_confidence_flags").$type<string[]>(), // optional self-check
   
+  // Family Lobby - Link multiple players to same parent account
+  parentEmail: text("parent_email"), // Parent's email for family account linking
+  
   // Social Profile Fields (Game Character)
   profilePhotoUrl: text("profile_photo_url"),
   displayName: text("display_name"), // Optional nickname

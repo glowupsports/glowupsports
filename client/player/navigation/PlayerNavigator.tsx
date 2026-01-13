@@ -64,6 +64,7 @@ import LevelUpHistoryScreen from "@/player/screens/LevelUpHistoryScreen";
 import OpenMatchFeedScreen from "@/player/screens/OpenMatchFeedScreen";
 import BookingPreferencesScreen from "@/player/screens/BookingPreferencesScreen";
 import BookingInvitesScreen from "@/player/screens/BookingInvitesScreen";
+import FamilyLobbyScreen from "@/player/screens/FamilyLobbyScreen";
 import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
 import { CartProvider } from "@/player/contexts/CartContext";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
@@ -72,6 +73,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { PlayerDrawerProvider, usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 import { PlayerLevelProvider } from "@/player/context/PlayerLevelContext";
+import { FamilyProvider } from "@/player/context/FamilyContext";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
@@ -138,6 +140,7 @@ export type PlayerStackParamList = {
   OpenMatches: undefined;
   BookingPreferences: undefined;
   BookingInvites: undefined;
+  FamilyLobby: undefined;
 };
 
 const Tab = createBottomTabNavigator<PlayerTabParamList>();
@@ -661,6 +664,14 @@ function PlayerStackNavigator() {
           headerShown: false,
         }}
       />
+      <Stack.Screen 
+        name="FamilyLobby" 
+        component={FamilyLobbyScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
     </Stack.Navigator>
   );
 }
@@ -723,11 +734,13 @@ export default function PlayerNavigator() {
 
   return (
     <CartProvider>
-      <PlayerLevelProvider playerId={playerId}>
-        <View style={styles.container}>
-          <PlayerStackNavigator />
-        </View>
-      </PlayerLevelProvider>
+      <FamilyProvider playerId={playerId}>
+        <PlayerLevelProvider playerId={playerId}>
+          <View style={styles.container}>
+            <PlayerStackNavigator />
+          </View>
+        </PlayerLevelProvider>
+      </FamilyProvider>
     </CartProvider>
   );
 }
