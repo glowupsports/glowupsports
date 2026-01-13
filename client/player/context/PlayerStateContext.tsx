@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/coach/context/AuthContext";
+import { getStaticAssetsUrl } from "@/lib/query-client";
 
 type TimeOfDay = "morning" | "afternoon" | "evening" | "night";
 type SessionStatus = "none" | "upcoming" | "soon" | "live" | "ended";
@@ -411,7 +412,7 @@ export function PlayerStateProvider({ children }: { children: ReactNode }) {
       sessionsToPromotion,
       sessionCourtName: nextSession?.courtName || null,
       sessionType: nextSession?.type || null,
-      coachPhotoUrl: dashboardData.coach?.avatar || null,
+      coachPhotoUrl: dashboardData.coach?.avatar ? `${getStaticAssetsUrl()}${dashboardData.coach.avatar}` : null,
       sessionId: nextSession?.id || null,
     };
   }, [dashboardData, levelStatus, socialData, timeOfDay]);

@@ -1,5 +1,5 @@
 import React, { useCallback } from "react";
-import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -10,8 +10,7 @@ import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
 import { OnAirIndicator } from "@/player/components/OnAirIndicator";
 import { TodayAtAGlance } from "@/player/components/TodayAtAGlance";
-import { SocialDiscoveryStrip } from "@/player/components/SocialDiscoveryStrip";
-import { BookingHub } from "@/player/components/BookingHub";
+import { PlayersNearYouRow, OpenSessionsRow, TrainingSessionsRow, CommunityFeedPreview } from "@/player/components/DiscoveryRows";
 import { MiniFeed } from "@/player/components/MiniFeed";
 import { ProgressInsights } from "@/player/components/ProgressInsights";
 import { TrackingBanner } from "@/player/components/TrackingBanner";
@@ -149,22 +148,30 @@ function PlayerHomeContent() {
         {/* SESSION HERO - Dynamic session control card */}
         <SessionHeroCard />
 
-        {/* ZONE 1 - TODAY AT A GLANCE */}
+        {/* ZONE 1 - TODAY AT A GLANCE (Quick status) */}
         <TodayAtAGlance />
 
-        {/* ZONE 2 - PLAY & MEET (Social Discovery with player avatars) */}
-        <SocialDiscoveryStrip />
+        {/* DISCOVERY SECTION - Horizontal scrolling rows */}
+        <View style={styles.discoverySection}>
+          <Text style={styles.discoverySectionTitle}>DISCOVER</Text>
+          
+          {/* Players Near You - Horizontal avatar carousel */}
+          <PlayersNearYouRow />
+          
+          {/* Open Sessions - Join now cards */}
+          <OpenSessionsRow />
+          
+          {/* Book & Train - Lessons and courts */}
+          <TrainingSessionsRow />
+          
+          {/* Community - Latest activity preview */}
+          <CommunityFeedPreview />
+        </View>
 
-        {/* ZONE 3 - BOOK & PLAN */}
-        <BookingHub />
-
-        {/* ZONE 4 - COMMUNITY MINI-FEED */}
-        <MiniFeed />
-
-        {/* ZONE 5 - YOUR PROGRESS */}
+        {/* YOUR PROGRESS - Human-readable insights */}
         <ProgressInsights />
 
-        {/* TENNIS WORLD NEWS - Live news ticker */}
+        {/* TENNIS WORLD - News and updates */}
         <View style={styles.newsSection}>
           <NewsTicker />
         </View>
@@ -216,5 +223,16 @@ const styles = StyleSheet.create({
   newsSection: {
     marginTop: Spacing.lg,
     marginBottom: Spacing.xl,
+  },
+  discoverySection: {
+    gap: Spacing.xl,
+  },
+  discoverySectionTitle: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: ProTennisColors.textMuted,
+    letterSpacing: 2,
+    paddingHorizontal: Spacing.lg,
+    marginBottom: -Spacing.sm,
   },
 });
