@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable, Modal, TextInput, Alert } from "react-native";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import Animated, {
@@ -11,10 +12,13 @@ import Animated, {
   interpolateColor,
 } from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
+import { useMutation } from "@tanstack/react-query";
 import { GlassCard } from "./GlassCard";
 import { GlowAvatar } from "./GlowAvatar";
 import { ProTennisColors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { usePlayerState } from "../context/PlayerStateContext";
+import { apiRequest } from "@/lib/query-client";
+import * as Haptics from "expo-haptics";
 
 interface SessionHeroCardProps {
   onCheckIn?: () => void;
@@ -23,6 +27,14 @@ interface SessionHeroCardProps {
   onBookSession?: () => void;
   onFindMatch?: () => void;
 }
+
+const ISSUE_TYPES = [
+  { id: "equipment", label: "Equipment issue", icon: "tool" as const },
+  { id: "court", label: "Court problem", icon: "grid" as const },
+  { id: "safety", label: "Safety concern", icon: "alert-triangle" as const },
+  { id: "coach", label: "Coaching feedback", icon: "user" as const },
+  { id: "other", label: "Other issue", icon: "more-horizontal" as const },
+];
 
 export function SessionHeroCard({
   onCheckIn,
@@ -33,10 +45,41 @@ export function SessionHeroCard({
 }: SessionHeroCardProps) {
   const navigation = useNavigation<any>();
   const { state } = usePlayerState();
-  const { sessionStatus, minutesToNextSession, minutesRemaining, coachName, sessionCourtName, sessionType } = state;
+  const { sessionStatus, minutesToNextSession, minutesRemaining, coachName, sessionCourtName, sessionType, coachPhotoUrl, sessionId } = state;
 
   const pulseValue = useSharedValue(0);
   const [countdown, setCountdown] = useState({ hours: 0, minutes: 0, seconds: 0 });
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedIssueType, setSelectedIssueType] = useState<string | null>(null);
+  const [issueDescription, setIssueDescription] = useState("");
+
+  const reportIssueMutation = useMutation({
+    mutationFn: async ({ issueType, description }: { issueType: string; description: string }) => {
+      return apiRequest("POST", `/api/player/me/sessions/${sessionId}/report-issue`, { issueType, description });
+    },
+    onSuccess: () => {
+      setShowReportModal(false);
+      setSelectedIssueType(null);
+      setIssueDescription("");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Issue Reported", "Your coach will be notified about this issue.");
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error?.message || "Failed to report issue");
+    },
+  });
+
+  const handleReportSubmit = () => {
+    if (!sessionId) {
+      Alert.alert("Error", "No active session found. Please try again.");
+      return;
+    }
+    if (!selectedIssueType) {
+      Alert.alert("Select Issue Type", "Please select the type of issue you're experiencing.");
+      return;
+    }
+    reportIssueMutation.mutate({ issueType: selectedIssueType, description: issueDescription });
+  };
 
   useEffect(() => {
     if (sessionStatus === "soon" || sessionStatus === "live") {
@@ -177,6 +220,7 @@ export function SessionHeroCard({
 
           <View style={styles.sessionInfo}>
             <GlowAvatar
+              source={coachPhotoUrl}
               name={coachName || "Coach"}
               size="lg"
               showGlow
@@ -196,6 +240,20 @@ export function SessionHeroCard({
             <Pressable
               style={({ pressed }) => [
                 styles.liveButton,
+                styles.reportButton,
+                pressed && styles.buttonPressed,
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowReportModal(true);
+              }}
+            >
+              <Feather name="alert-circle" size={18} color={ProTennisColors.danger} />
+              <Text style={[styles.liveButtonText, { color: ProTennisColors.danger }]}>REPORT</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.liveButton,
                 styles.endButton,
                 pressed && styles.buttonPressed,
               ]}
@@ -205,6 +263,90 @@ export function SessionHeroCard({
               <Text style={styles.liveButtonText}>EXTEND</Text>
             </Pressable>
           </View>
+
+          {/* Report Issue Modal */}
+          <Modal
+            visible={showReportModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowReportModal(false)}
+          >
+            <Pressable style={styles.modalOverlay} onPress={() => setShowReportModal(false)}>
+              <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+                <KeyboardAwareScrollViewCompat 
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Report Issue</Text>
+                    <Pressable onPress={() => setShowReportModal(false)}>
+                      <Feather name="x" size={24} color={ProTennisColors.textMuted} />
+                    </Pressable>
+                  </View>
+                  
+                  <Text style={styles.modalSubtitle}>What's the issue?</Text>
+                  <View style={styles.issueTypesContainer}>
+                    {ISSUE_TYPES.map((type) => (
+                      <Pressable
+                        key={type.id}
+                        style={[
+                          styles.issueTypeButton,
+                          selectedIssueType === type.id && styles.issueTypeButtonSelected,
+                        ]}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          setSelectedIssueType(type.id);
+                        }}
+                      >
+                        <Feather
+                          name={type.icon}
+                          size={18}
+                          color={selectedIssueType === type.id ? ProTennisColors.danger : ProTennisColors.textMuted}
+                        />
+                        <Text
+                          style={[
+                            styles.issueTypeText,
+                            selectedIssueType === type.id && styles.issueTypeTextSelected,
+                          ]}
+                        >
+                          {type.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+
+                  <Text style={styles.modalSubtitle}>Details (optional)</Text>
+                  <TextInput
+                    style={styles.issueInput}
+                    placeholder="Describe the issue..."
+                    placeholderTextColor={ProTennisColors.textMuted}
+                    multiline
+                    numberOfLines={3}
+                    value={issueDescription}
+                    onChangeText={setIssueDescription}
+                  />
+
+                  <View style={styles.modalButtonsRow}>
+                    <Pressable
+                      style={[styles.modalButton, styles.modalCancelButton]}
+                      onPress={() => setShowReportModal(false)}
+                    >
+                      <Text style={styles.modalCancelButtonText}>Cancel</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.modalButton, styles.modalSubmitButton, !sessionId && styles.modalButtonDisabled]}
+                      onPress={handleReportSubmit}
+                      disabled={reportIssueMutation.isPending || !sessionId}
+                    >
+                      <Text style={styles.modalSubmitButtonText}>
+                        {reportIssueMutation.isPending ? "Sending..." : "Report Issue"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </KeyboardAwareScrollViewCompat>
+              </Pressable>
+            </Pressable>
+          </Modal>
         </View>
       </GlassCard>
     );
@@ -527,5 +669,107 @@ const styles = StyleSheet.create({
     color: ProTennisColors.danger,
     fontWeight: "600",
     fontSize: 14,
+  },
+  reportButton: {
+    backgroundColor: `${ProTennisColors.danger}15`,
+    borderWidth: 1,
+    borderColor: `${ProTennisColors.danger}40`,
+    marginRight: Spacing.sm,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  modalContent: {
+    backgroundColor: ProTennisColors.surfaceCard,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    width: "100%",
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: ProTennisColors.surfaceElevated,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  modalTitle: {
+    ...Typography.h2,
+    color: ProTennisColors.white,
+  },
+  modalSubtitle: {
+    ...Typography.labelSmall,
+    color: ProTennisColors.textMuted,
+    marginBottom: Spacing.sm,
+    letterSpacing: 1,
+  },
+  issueTypesContainer: {
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  issueTypeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: ProTennisColors.surfaceElevated,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  issueTypeButtonSelected: {
+    borderColor: ProTennisColors.danger,
+    backgroundColor: `${ProTennisColors.danger}15`,
+  },
+  issueTypeText: {
+    ...Typography.body,
+    color: ProTennisColors.textMuted,
+  },
+  issueTypeTextSelected: {
+    color: ProTennisColors.white,
+  },
+  issueInput: {
+    ...Typography.body,
+    color: ProTennisColors.white,
+    backgroundColor: ProTennisColors.surfaceElevated,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    minHeight: 80,
+    textAlignVertical: "top",
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: ProTennisColors.surfaceDark,
+  },
+  modalButtonsRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  modalButton: {
+    flex: 1,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+  },
+  modalCancelButton: {
+    backgroundColor: ProTennisColors.surfaceElevated,
+  },
+  modalCancelButtonText: {
+    color: ProTennisColors.textMuted,
+    fontWeight: "600",
+  },
+  modalSubmitButton: {
+    backgroundColor: ProTennisColors.danger,
+  },
+  modalSubmitButtonText: {
+    color: ProTennisColors.white,
+    fontWeight: "700",
+  },
+  modalButtonDisabled: {
+    opacity: 0.5,
   },
 });

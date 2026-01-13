@@ -80,6 +80,8 @@ interface PlayerState {
   sessionsToPromotion: number;
   sessionCourtName: string | null;
   sessionType: string | null;
+  coachPhotoUrl: string | null;
+  sessionId: string | null;
 }
 
 interface PlayerStateContextType {
@@ -116,6 +118,8 @@ const defaultState: PlayerState = {
   sessionsToPromotion: 3,
   sessionCourtName: null,
   sessionType: null,
+  coachPhotoUrl: null,
+  sessionId: null,
 };
 
 const PlayerStateContext = createContext<PlayerStateContextType>({
@@ -259,10 +263,19 @@ interface DashboardData {
     streak: number;
     ballLevel: string | null;
   };
+  coach: {
+    id: string;
+    name: string;
+    avatar: string | null;
+  } | null;
   nextSession: {
     id: string;
     date: string;
     type: string;
+    courtName?: string;
+    endTime?: string;
+    isLive?: boolean;
+    coachName?: string;
   } | null;
 }
 
@@ -391,13 +404,15 @@ export function PlayerStateProvider({ children }: { children: ReactNode }) {
         focusArea: "Consistency",
         performance: "good",
       } : null,
-      coachName: "Coach Lawrence",
+      coachName: nextSession?.coachName || dashboardData.coach?.name || null,
       courtStatus: getCourtStatus(),
       formStatus: getFormStatus(),
       nextEventTime: minutesUntil ? `${Math.floor(minutesUntil / 60)}:${(minutesUntil % 60).toString().padStart(2, "0")}` : null,
       sessionsToPromotion,
       sessionCourtName: nextSession?.courtName || null,
       sessionType: nextSession?.type || null,
+      coachPhotoUrl: dashboardData.coach?.avatar || null,
+      sessionId: nextSession?.id || null,
     };
   }, [dashboardData, levelStatus, socialData, timeOfDay]);
 

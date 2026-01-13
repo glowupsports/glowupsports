@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable, Linking, Platform } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, Text, StyleSheet, Pressable, Linking } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import Animated, {
@@ -34,7 +34,7 @@ export function NewsTicker({
   scrollSpeed = 50,
 }: NewsTickerProps) {
   const translateX = useSharedValue(0);
-  const contentWidth = useSharedValue(0);
+  const [measuredWidth, setMeasuredWidth] = useState(0);
 
   const { data: newsData, isLoading } = useQuery<{ articles: NewsArticle[] }>({
     queryKey: ["/api/player/news"],
@@ -42,25 +42,38 @@ export function NewsTicker({
   });
 
   const articles = newsData?.articles || [];
+  const articlesKey = articles.map(a => a.id).join(",");
 
   useEffect(() => {
-    if (autoScroll && articles.length > 0 && contentWidth.value > 0) {
-      const duration = (contentWidth.value / scrollSpeed) * 1000;
+    setMeasuredWidth(0);
+  }, [articlesKey]);
+
+  useEffect(() => {
+    if (autoScroll && articles.length > 0 && measuredWidth > 0) {
+      const duration = (measuredWidth / scrollSpeed) * 1000;
       translateX.value = 0;
-      translateX.value = withRepeat(
-        withTiming(-contentWidth.value, {
-          duration,
-          easing: Easing.linear,
-        }),
-        -1,
-        false
-      );
+      
+      const timer = setTimeout(() => {
+        translateX.value = withRepeat(
+          withTiming(-measuredWidth, {
+            duration,
+            easing: Easing.linear,
+          }),
+          -1,
+          false
+        );
+      }, 100);
+
+      return () => {
+        clearTimeout(timer);
+        cancelAnimation(translateX);
+      };
     }
 
     return () => {
       cancelAnimation(translateX);
     };
-  }, [articles.length, autoScroll, contentWidth.value, scrollSpeed, translateX]);
+  }, [articles.length, autoScroll, measuredWidth, scrollSpeed, translateX]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],
@@ -146,7 +159,10 @@ export function NewsTicker({
         <Animated.View
           style={[styles.tickerContent, animatedStyle]}
           onLayout={(e) => {
-            contentWidth.value = e.nativeEvent.layout.width;
+            const width = e.nativeEvent.layout.width;
+            if (width > 0 && width !== measuredWidth) {
+              setMeasuredWidth(width);
+            }
           }}
         >
           {renderTickerContent()}
