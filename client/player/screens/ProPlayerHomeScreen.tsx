@@ -10,7 +10,8 @@ import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
 import { OnAirIndicator } from "@/player/components/OnAirIndicator";
 import { TodayAtAGlance } from "@/player/components/TodayAtAGlance";
-import { PlayersNearYouRow, OpenSessionsRow, TrainingSessionsRow, CommunityFeedPreview } from "@/player/components/DiscoveryRows";
+import { PlayersNearYouRow, OpenSessionsRow, TrainingSessionsRow } from "@/player/components/DiscoveryRows";
+import { BookingHub } from "@/player/components/BookingHub";
 import { MiniFeed } from "@/player/components/MiniFeed";
 import { ProgressInsights } from "@/player/components/ProgressInsights";
 import { TrackingBanner } from "@/player/components/TrackingBanner";
@@ -161,12 +162,15 @@ function PlayerHomeContent() {
           {/* Open Sessions - Join now cards */}
           <OpenSessionsRow />
           
-          {/* Book & Train - Lessons and courts */}
+          {/* Trainings - Quick access to lessons */}
           <TrainingSessionsRow />
-          
-          {/* Community - Latest activity preview */}
-          <CommunityFeedPreview />
         </View>
+
+        {/* BOOK & PLAN - Full booking hub with all options */}
+        <BookingHub />
+
+        {/* COMMUNITY - Activity feed */}
+        <MiniFeed />
 
         {/* YOUR PROGRESS - Human-readable insights */}
         <ProgressInsights />

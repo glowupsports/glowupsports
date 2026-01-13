@@ -401,27 +401,28 @@ export function CommunityFeedPreview() {
         accentColor={ProTennisColors.electricGreen}
       />
 
-      <Pressable onPress={handlePress}>
-        <View style={styles.communityPreview}>
-          <View style={styles.communityLeft}>
-            <View style={[styles.communityIcon, { backgroundColor: `${getEventColor(latestEvent.type)}20` }]}>
-              <Feather name={getEventIcon(latestEvent.type) as any} size={18} color={getEventColor(latestEvent.type)} />
-            </View>
-            <View style={styles.communityContent}>
-              <Text style={styles.communityTitle} numberOfLines={1}>{latestEvent.title}</Text>
-              <Text style={styles.communityTime}>{latestEvent.time}</Text>
-            </View>
-          </View>
-          <View style={styles.communityArrow}>
-            <Feather name="chevron-right" size={18} color={ProTennisColors.textMuted} />
-          </View>
-        </View>
-      </Pressable>
+      <View style={styles.communityCard}>
+        {visibleEvents.map((event, index) => (
+          <React.Fragment key={event.id}>
+            <Pressable onPress={handlePress} style={styles.communityEventItem}>
+              <View style={[styles.communityIcon, { backgroundColor: `${getEventColor(event.type)}20` }]}>
+                <Feather name={getEventIcon(event.type) as any} size={16} color={getEventColor(event.type)} />
+              </View>
+              <View style={styles.communityContent}>
+                <Text style={styles.communityTitle} numberOfLines={1}>{event.title}</Text>
+                <Text style={styles.communityTime}>{event.time}</Text>
+              </View>
+              <Feather name="chevron-right" size={16} color={ProTennisColors.textMuted} />
+            </Pressable>
+            {index < visibleEvents.length - 1 && <View style={styles.communityDivider} />}
+          </React.Fragment>
+        ))}
+      </View>
 
-      {state.communityEvents.length > 1 && (
+      {communityEvents.length > 3 && (
         <Pressable onPress={handlePress} style={styles.moreEventsButton}>
           <Text style={styles.moreEventsText}>
-            +{state.communityEvents.length - 1} more updates
+            +{communityEvents.length - 3} more updates
           </Text>
         </Pressable>
       )}
@@ -691,22 +692,24 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: ProTennisColors.warning,
   },
-  communityPreview: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  communityCard: {
     backgroundColor: ProTennisColors.surfaceCard,
     marginHorizontal: Spacing.lg,
-    padding: Spacing.md,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: ProTennisColors.border,
+    overflow: "hidden",
   },
-  communityLeft: {
+  communityEventItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    flex: 1,
+    padding: Spacing.md,
+  },
+  communityDivider: {
+    height: 1,
+    backgroundColor: ProTennisColors.border,
+    marginHorizontal: Spacing.md,
   },
   communityIcon: {
     width: 40,
@@ -727,9 +730,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: ProTennisColors.textMuted,
     marginTop: 2,
-  },
-  communityArrow: {
-    marginLeft: Spacing.sm,
   },
   moreEventsButton: {
     alignSelf: "center",
