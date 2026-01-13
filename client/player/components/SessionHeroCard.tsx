@@ -12,7 +12,7 @@ import Animated, {
   interpolateColor,
 } from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { GlassCard } from "./GlassCard";
 import { GlowAvatar } from "./GlowAvatar";
 import { ProTennisColors, Spacing, BorderRadius, Typography } from "@/constants/theme";
@@ -36,6 +36,16 @@ const ISSUE_TYPES = [
   { id: "other", label: "Other issue", icon: "more-horizontal" as const },
 ];
 
+const CANCEL_REASONS = [
+  { id: "sick", label: "Feeling unwell", icon: "thermometer" as const },
+  { id: "schedule_conflict", label: "Schedule conflict", icon: "calendar" as const },
+  { id: "family_event", label: "Family event", icon: "users" as const },
+  { id: "work_trip", label: "Work/School trip", icon: "briefcase" as const },
+  { id: "other", label: "Other reason", icon: "more-horizontal" as const },
+];
+
+const LATE_MINUTES_OPTIONS = [5, 10, 15, 20, 30];
+
 export function SessionHeroCard({
   onCheckIn,
   onCancel,
@@ -44,6 +54,7 @@ export function SessionHeroCard({
   onFindMatch,
 }: SessionHeroCardProps) {
   const navigation = useNavigation<any>();
+  const queryClient = useQueryClient();
   const { state } = usePlayerState();
   const { sessionStatus, minutesToNextSession, minutesRemaining, coachName, sessionCourtName, sessionType, coachPhotoUrl, sessionId } = state;
 
@@ -52,6 +63,12 @@ export function SessionHeroCard({
   const [showReportModal, setShowReportModal] = useState(false);
   const [selectedIssueType, setSelectedIssueType] = useState<string | null>(null);
   const [issueDescription, setIssueDescription] = useState("");
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showLateModal, setShowLateModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState<string | null>(null);
+  const [cancelReasonText, setCancelReasonText] = useState("");
+  const [lateMinutes, setLateMinutes] = useState(10);
+  const [lateMessage, setLateMessage] = useState("");
 
   const reportIssueMutation = useMutation({
     mutationFn: async ({ issueType, description }: { issueType: string; description: string }) => {
@@ -66,6 +83,50 @@ export function SessionHeroCard({
     },
     onError: (error: any) => {
       Alert.alert("Error", error?.message || "Failed to report issue");
+    },
+  });
+
+  const cancelSessionMutation = useMutation({
+    mutationFn: async ({ reason, reasonText }: { reason: string; reasonText?: string }) => {
+      return apiRequest("POST", `/api/player/me/sessions/${sessionId}/cancel`, { reason, reasonText });
+    },
+    onSuccess: (response: any) => {
+      setShowCancelModal(false);
+      setCancelReason(null);
+      setCancelReasonText("");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      if (onCancel) {
+        onCancel();
+      }
+      Alert.alert(
+        "Session Cancelled",
+        response?.isLateCancellation 
+          ? "This counts as a late cancellation. -50 XP"
+          : "Your session has been cancelled."
+      );
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error?.message || "Failed to cancel session");
+    },
+  });
+
+  const notifyLateMutation = useMutation({
+    mutationFn: async ({ minutes, message }: { minutes: number; message?: string }) => {
+      return apiRequest("POST", `/api/player/me/sessions/${sessionId}/late`, { minutes, message });
+    },
+    onSuccess: () => {
+      setShowLateModal(false);
+      setLateMinutes(10);
+      setLateMessage("");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      Alert.alert("Coach Notified", "Your coach has been notified that you're running late.");
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error?.message || "Failed to notify coach");
     },
   });
 
@@ -179,25 +240,41 @@ export function SessionHeroCard({
   };
 
   const handleCancel = () => {
-    if (onCancel) {
-      onCancel();
-    } else {
-      Alert.alert(
-        "Cancel Session?",
-        "Canceling will cost you 50 XP. Are you sure?",
-        [
-          { text: "Keep Session", style: "cancel" },
-          { 
-            text: "Cancel (-50 XP)", 
-            style: "destructive",
-            onPress: () => {
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-              Alert.alert("Session Cancelled", "Your session has been cancelled. -50 XP");
-            }
-          },
-        ]
-      );
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowCancelModal(true);
+  };
+
+  const handleCancelSubmit = () => {
+    if (!sessionId) {
+      Alert.alert("Error", "No active session found.");
+      return;
     }
+    if (!cancelReason) {
+      Alert.alert("Select Reason", "Please select a reason for cancellation.");
+      return;
+    }
+    if (cancelReason === "other" && !cancelReasonText.trim()) {
+      Alert.alert("Enter Reason", "Please explain why you need to cancel.");
+      return;
+    }
+    cancelSessionMutation.mutate({ reason: cancelReason, reasonText: cancelReasonText });
+  };
+
+  const handleLate = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowLateModal(true);
+  };
+
+  const handleLateSubmit = () => {
+    if (!sessionId) {
+      Alert.alert("Error", "No active session found.");
+      return;
+    }
+    if (!lateMinutes || lateMinutes < 1) {
+      Alert.alert("Select Time", "Please select how late you'll be.");
+      return;
+    }
+    notifyLateMutation.mutate({ minutes: lateMinutes, message: lateMessage });
   };
 
   if (sessionStatus === "none") {
@@ -352,19 +429,31 @@ export function SessionHeroCard({
             </Pressable>
           </View>
 
-          <View style={styles.liveCancelRow}>
+          <View style={styles.sessionActionRow}>
             <Pressable
               style={({ pressed }) => [
-                styles.liveCancelButton,
+                styles.sessionActionButton,
                 pressed && styles.buttonPressed,
               ]}
               onPress={handleCancel}
             >
-              <View style={styles.cancelButtonContent}>
-                <Feather name="x-circle" size={16} color={ProTennisColors.danger} />
-                <Text style={styles.liveCancelText}>CANCEL SESSION</Text>
-                <Text style={styles.consequenceHint}>-50 XP</Text>
+              <View style={[styles.actionGlow, { backgroundColor: ProTennisColors.danger + "15" }]}>
+                <Feather name="x-circle" size={20} color={ProTennisColors.danger} />
               </View>
+              <Text style={[styles.actionLabel, { color: ProTennisColors.danger }]}>CANCEL</Text>
+            </Pressable>
+            <View style={styles.actionDivider} />
+            <Pressable
+              style={({ pressed }) => [
+                styles.sessionActionButton,
+                pressed && styles.buttonPressed,
+              ]}
+              onPress={handleLate}
+            >
+              <View style={[styles.actionGlow, { backgroundColor: ProTennisColors.warning + "15" }]}>
+                <Feather name="clock" size={20} color={ProTennisColors.warning} />
+              </View>
+              <Text style={[styles.actionLabel, { color: ProTennisColors.warning }]}>DELAY</Text>
             </Pressable>
           </View>
 
@@ -451,6 +540,182 @@ export function SessionHeroCard({
               </Pressable>
             </Pressable>
           </Modal>
+
+          {/* Cancel Session Modal */}
+          <Modal
+            visible={showCancelModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowCancelModal(false)}
+          >
+            <Pressable style={styles.modalOverlay} onPress={() => setShowCancelModal(false)}>
+              <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+                <KeyboardAwareScrollViewCompat 
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Cancel Session?</Text>
+                    <Pressable onPress={() => setShowCancelModal(false)}>
+                      <Feather name="x" size={24} color={ProTennisColors.textMuted} />
+                    </Pressable>
+                  </View>
+                  
+                  <View style={styles.lateCancelNotice}>
+                    <Feather name="alert-triangle" size={16} color={ProTennisColors.warning} />
+                    <Text style={styles.lateCancelText}>Late cancellations may affect your XP</Text>
+                  </View>
+                  
+                  <Text style={styles.modalSubtitle}>Reason for cancellation</Text>
+                  <View style={styles.issueTypesContainer}>
+                    {CANCEL_REASONS.map((reason) => (
+                      <Pressable
+                        key={reason.id}
+                        style={[
+                          styles.issueTypeButton,
+                          cancelReason === reason.id && styles.issueTypeButtonSelected,
+                        ]}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          setCancelReason(reason.id);
+                        }}
+                      >
+                        <Feather
+                          name={reason.icon}
+                          size={18}
+                          color={cancelReason === reason.id ? ProTennisColors.danger : ProTennisColors.textMuted}
+                        />
+                        <Text
+                          style={[
+                            styles.issueTypeText,
+                            cancelReason === reason.id && styles.issueTypeTextSelected,
+                          ]}
+                        >
+                          {reason.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+
+                  {cancelReason === "other" && (
+                    <>
+                      <Text style={styles.modalSubtitle}>Please explain</Text>
+                      <TextInput
+                        style={styles.issueInput}
+                        placeholder="Why do you need to cancel?"
+                        placeholderTextColor={ProTennisColors.textMuted}
+                        multiline
+                        numberOfLines={2}
+                        value={cancelReasonText}
+                        onChangeText={setCancelReasonText}
+                      />
+                    </>
+                  )}
+
+                  <View style={styles.modalButtonsRow}>
+                    <Pressable
+                      style={[styles.modalButton, styles.modalCancelButton]}
+                      onPress={() => { setShowCancelModal(false); setCancelReason(null); setCancelReasonText(""); }}
+                    >
+                      <Text style={styles.modalCancelButtonText}>Never Mind</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.modalButton, styles.modalDangerButton, !cancelReason && styles.modalButtonDisabled]}
+                      onPress={handleCancelSubmit}
+                      disabled={cancelSessionMutation.isPending || !cancelReason}
+                    >
+                      <Text style={styles.modalSubmitButtonText}>
+                        {cancelSessionMutation.isPending ? "Cancelling..." : "Confirm Cancel"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </KeyboardAwareScrollViewCompat>
+              </Pressable>
+            </Pressable>
+          </Modal>
+
+          {/* Running Late Modal */}
+          <Modal
+            visible={showLateModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowLateModal(false)}
+          >
+            <Pressable style={styles.modalOverlay} onPress={() => setShowLateModal(false)}>
+              <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+                <KeyboardAwareScrollViewCompat 
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  <View style={styles.modalHeader}>
+                    <View style={styles.modalTitleRow}>
+                      <Feather name="clock" size={24} color={ProTennisColors.warning} />
+                      <Text style={styles.modalTitle}>Running Late?</Text>
+                    </View>
+                    <Pressable onPress={() => setShowLateModal(false)}>
+                      <Feather name="x" size={24} color={ProTennisColors.textMuted} />
+                    </Pressable>
+                  </View>
+                  
+                  <Text style={styles.lateModalDescription}>
+                    Let your coach know you're on the way. How late will you be?
+                  </Text>
+                  
+                  <View style={styles.lateMinutesPicker}>
+                    {LATE_MINUTES_OPTIONS.map((mins) => (
+                      <Pressable
+                        key={mins}
+                        style={[
+                          styles.lateMinutesOption,
+                          lateMinutes === mins && styles.lateMinutesOptionSelected,
+                        ]}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          setLateMinutes(mins);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.lateMinutesText,
+                            lateMinutes === mins && styles.lateMinutesTextSelected,
+                          ]}
+                        >
+                          {mins} min
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+
+                  <Text style={styles.modalSubtitle}>Message (optional)</Text>
+                  <TextInput
+                    style={styles.issueInput}
+                    placeholder="e.g. Traffic, will be there soon!"
+                    placeholderTextColor={ProTennisColors.textMuted}
+                    value={lateMessage}
+                    onChangeText={setLateMessage}
+                  />
+
+                  <View style={styles.modalButtonsRow}>
+                    <Pressable
+                      style={[styles.modalButton, styles.modalCancelButton]}
+                      onPress={() => setShowLateModal(false)}
+                    >
+                      <Text style={styles.modalCancelButtonText}>Cancel</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.modalButton, styles.modalWarningButton]}
+                      onPress={handleLateSubmit}
+                      disabled={notifyLateMutation.isPending}
+                    >
+                      <Text style={styles.modalSubmitButtonText}>
+                        {notifyLateMutation.isPending ? "Notifying..." : "Notify Coach"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </KeyboardAwareScrollViewCompat>
+              </Pressable>
+            </Pressable>
+          </Modal>
         </View>
       </GlassCard>
     );
@@ -521,35 +786,223 @@ export function SessionHeroCard({
             </View>
           </View>
 
-          <View style={styles.upcomingButtonsRow}>
-            {isSoon && (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.actionButton,
-                  styles.checkInButton,
-                  pressed && styles.buttonPressed,
-                ]}
-                onPress={handleCheckIn}
-              >
-                <Feather name="check-circle" size={18} color={ProTennisColors.midnightBlue} />
-                <Text style={styles.checkInButtonText}>CHECK IN EARLY</Text>
-              </Pressable>
-            )}
+          {isSoon && (
             <Pressable
               style={({ pressed }) => [
                 styles.actionButton,
-                styles.cancelButton,
+                styles.checkInButton,
+                pressed && styles.buttonPressed,
+              ]}
+              onPress={handleCheckIn}
+            >
+              <Feather name="check-circle" size={18} color={ProTennisColors.midnightBlue} />
+              <Text style={styles.checkInButtonText}>CHECK IN EARLY</Text>
+            </Pressable>
+          )}
+
+          <View style={styles.sessionActionRow}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.sessionActionButton,
                 pressed && styles.buttonPressed,
               ]}
               onPress={handleCancel}
             >
-              <View style={styles.cancelButtonContent}>
-                <Feather name="x-circle" size={18} color={ProTennisColors.danger} />
-                <Text style={styles.cancelButtonText}>CANCEL</Text>
-                <Text style={styles.consequenceHint}>-50 XP</Text>
+              <View style={[styles.actionGlow, { backgroundColor: ProTennisColors.danger + "15" }]}>
+                <Feather name="x-circle" size={20} color={ProTennisColors.danger} />
               </View>
+              <Text style={[styles.actionLabel, { color: ProTennisColors.danger }]}>CANCEL</Text>
+            </Pressable>
+            <View style={styles.actionDivider} />
+            <Pressable
+              style={({ pressed }) => [
+                styles.sessionActionButton,
+                pressed && styles.buttonPressed,
+              ]}
+              onPress={handleLate}
+            >
+              <View style={[styles.actionGlow, { backgroundColor: ProTennisColors.warning + "15" }]}>
+                <Feather name="clock" size={20} color={ProTennisColors.warning} />
+              </View>
+              <Text style={[styles.actionLabel, { color: ProTennisColors.warning }]}>DELAY</Text>
             </Pressable>
           </View>
+
+          {/* Cancel Session Modal */}
+          <Modal
+            visible={showCancelModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowCancelModal(false)}
+          >
+            <Pressable style={styles.modalOverlay} onPress={() => setShowCancelModal(false)}>
+              <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+                <KeyboardAwareScrollViewCompat 
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Cancel Session?</Text>
+                    <Pressable onPress={() => setShowCancelModal(false)}>
+                      <Feather name="x" size={24} color={ProTennisColors.textMuted} />
+                    </Pressable>
+                  </View>
+                  
+                  <View style={styles.lateCancelNotice}>
+                    <Feather name="alert-triangle" size={16} color={ProTennisColors.warning} />
+                    <Text style={styles.lateCancelText}>Late cancellations may affect your XP</Text>
+                  </View>
+                  
+                  <Text style={styles.modalSubtitle}>Reason for cancellation</Text>
+                  <View style={styles.issueTypesContainer}>
+                    {CANCEL_REASONS.map((reason) => (
+                      <Pressable
+                        key={reason.id}
+                        style={[
+                          styles.issueTypeButton,
+                          cancelReason === reason.id && styles.issueTypeButtonSelected,
+                        ]}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          setCancelReason(reason.id);
+                        }}
+                      >
+                        <Feather
+                          name={reason.icon}
+                          size={18}
+                          color={cancelReason === reason.id ? ProTennisColors.danger : ProTennisColors.textMuted}
+                        />
+                        <Text
+                          style={[
+                            styles.issueTypeText,
+                            cancelReason === reason.id && styles.issueTypeTextSelected,
+                          ]}
+                        >
+                          {reason.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+
+                  {cancelReason === "other" && (
+                    <>
+                      <Text style={styles.modalSubtitle}>Please explain</Text>
+                      <TextInput
+                        style={styles.issueInput}
+                        placeholder="Why do you need to cancel?"
+                        placeholderTextColor={ProTennisColors.textMuted}
+                        multiline
+                        numberOfLines={2}
+                        value={cancelReasonText}
+                        onChangeText={setCancelReasonText}
+                      />
+                    </>
+                  )}
+
+                  <View style={styles.modalButtonsRow}>
+                    <Pressable
+                      style={[styles.modalButton, styles.modalCancelButton]}
+                      onPress={() => { setShowCancelModal(false); setCancelReason(null); setCancelReasonText(""); }}
+                    >
+                      <Text style={styles.modalCancelButtonText}>Never Mind</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.modalButton, styles.modalDangerButton, !cancelReason && styles.modalButtonDisabled]}
+                      onPress={handleCancelSubmit}
+                      disabled={cancelSessionMutation.isPending || !cancelReason}
+                    >
+                      <Text style={styles.modalSubmitButtonText}>
+                        {cancelSessionMutation.isPending ? "Cancelling..." : "Confirm Cancel"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </KeyboardAwareScrollViewCompat>
+              </Pressable>
+            </Pressable>
+          </Modal>
+
+          {/* Running Late Modal */}
+          <Modal
+            visible={showLateModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowLateModal(false)}
+          >
+            <Pressable style={styles.modalOverlay} onPress={() => setShowLateModal(false)}>
+              <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+                <KeyboardAwareScrollViewCompat 
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  <View style={styles.modalHeader}>
+                    <View style={styles.modalTitleRow}>
+                      <Feather name="clock" size={24} color={ProTennisColors.warning} />
+                      <Text style={styles.modalTitle}>Running Late?</Text>
+                    </View>
+                    <Pressable onPress={() => setShowLateModal(false)}>
+                      <Feather name="x" size={24} color={ProTennisColors.textMuted} />
+                    </Pressable>
+                  </View>
+                  
+                  <Text style={styles.lateModalDescription}>
+                    Let your coach know you're on the way. How late will you be?
+                  </Text>
+                  
+                  <View style={styles.lateMinutesPicker}>
+                    {LATE_MINUTES_OPTIONS.map((mins) => (
+                      <Pressable
+                        key={mins}
+                        style={[
+                          styles.lateMinutesOption,
+                          lateMinutes === mins && styles.lateMinutesOptionSelected,
+                        ]}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          setLateMinutes(mins);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.lateMinutesText,
+                            lateMinutes === mins && styles.lateMinutesTextSelected,
+                          ]}
+                        >
+                          {mins} min
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+
+                  <Text style={styles.modalSubtitle}>Message (optional)</Text>
+                  <TextInput
+                    style={styles.issueInput}
+                    placeholder="e.g. Traffic, will be there soon!"
+                    placeholderTextColor={ProTennisColors.textMuted}
+                    value={lateMessage}
+                    onChangeText={setLateMessage}
+                  />
+
+                  <View style={styles.modalButtonsRow}>
+                    <Pressable
+                      style={[styles.modalButton, styles.modalCancelButton]}
+                      onPress={() => setShowLateModal(false)}
+                    >
+                      <Text style={styles.modalCancelButtonText}>Cancel</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.modalButton, styles.modalWarningButton]}
+                      onPress={handleLateSubmit}
+                      disabled={notifyLateMutation.isPending}
+                    >
+                      <Text style={styles.modalSubmitButtonText}>
+                        {notifyLateMutation.isPending ? "Notifying..." : "Notify Coach"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </KeyboardAwareScrollViewCompat>
+              </Pressable>
+            </Pressable>
+          </Modal>
         </View>
       </GlassCard>
     );
@@ -1073,5 +1526,96 @@ const styles = StyleSheet.create({
   stakeCardLabel: {
     ...Typography.caption,
     color: ProTennisColors.textMuted,
+  },
+  sessionActionRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: `${ProTennisColors.surfaceElevated}60`,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginTop: Spacing.md,
+  },
+  sessionActionButton: {
+    flex: 1,
+    flexDirection: "column",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+  },
+  actionGlow: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  actionLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  actionDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    marginHorizontal: Spacing.md,
+  },
+  lateCancelNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: `${ProTennisColors.warning}15`,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  lateCancelText: {
+    ...Typography.small,
+    color: ProTennisColors.warning,
+    flex: 1,
+  },
+  modalDangerButton: {
+    backgroundColor: ProTennisColors.danger,
+  },
+  modalWarningButton: {
+    backgroundColor: ProTennisColors.warning,
+  },
+  modalTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  lateModalDescription: {
+    ...Typography.body,
+    color: ProTennisColors.textSecondary,
+    marginBottom: Spacing.lg,
+  },
+  lateMinutesPicker: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  lateMinutesOption: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: Spacing.md,
+    backgroundColor: `${ProTennisColors.surfaceElevated}80`,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  lateMinutesOptionSelected: {
+    backgroundColor: `${ProTennisColors.warning}20`,
+    borderColor: ProTennisColors.warning,
+  },
+  lateMinutesText: {
+    color: ProTennisColors.textSecondary,
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  lateMinutesTextSelected: {
+    color: ProTennisColors.warning,
   },
 });
