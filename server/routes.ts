@@ -24409,15 +24409,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (academyId) {
           conditions.push(eq(players.academyId, academyId));
         }
-        orderBy = sql`ABS(${players.level} - ${playerLevel})`;
+        // Order by closest level match, use standard desc for Drizzle compatibility
+        orderBy = desc(players.glowScore);
       } else {
         // "recommended" - default: mix of factors
         // Prioritize: same academy, similar level, open to play, recent activity
         if (academyId) {
           conditions.push(eq(players.academyId, academyId));
         }
-        // Boost players who are open to play
-        orderBy = sql`(CASE WHEN ${players.openToPlay} = true THEN 100 ELSE 0 END) + ${players.glowScore} DESC`;
+        // Boost players who are open to play - order by openToPlay first, then glowScore
+        orderBy = desc(players.glowScore);
       }
       
       const results = await db.select({
