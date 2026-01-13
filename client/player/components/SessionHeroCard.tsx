@@ -624,7 +624,7 @@ export function SessionHeroCard({
             </View>
           </View>
         </View>
-      </NeonBorderGlow>
+      </GlassCard>
     );
   }
 
