@@ -1,12 +1,22 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import Animated, { FadeInUp } from "react-native-reanimated";
+import Animated, { 
+  FadeInUp, 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withRepeat, 
+  withSequence, 
+  withTiming,
+  withSpring,
+  cancelAnimation 
+} from "react-native-reanimated";
+import { LinearGradient } from "expo-linear-gradient";
 import { ProTennisColors, Spacing, BorderRadius } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
-import { GlassCard } from "./GlassCard";
+import { NeonEdgeCard } from "./GlassCard";
 
 interface BookingOption {
   id: string;
@@ -59,30 +69,87 @@ export function BookingHub() {
 
   return (
     <Animated.View entering={FadeInUp.delay(100).duration(400)} style={styles.container}>
-      <Text style={styles.title}>BOOK & PLAN</Text>
+      <View style={styles.titleRow}>
+        <Text style={styles.titleGaming}>BOOK & PLAN</Text>
+        <View style={styles.titleGlow} />
+      </View>
 
-      <GlassCard variant="default" style={styles.card}>
-        <View style={styles.optionsContainer}>
-          {bookingOptions.map((option, index) => (
-            <React.Fragment key={option.id}>
-              <Pressable style={styles.option} onPress={() => handlePress(option)}>
-                <View style={[styles.iconContainer, { backgroundColor: option.color + "20" }]}>
-                  <Ionicons name={option.icon} size={18} color={option.color} />
-                </View>
-                <View style={styles.optionContent}>
-                  <Text style={styles.optionTitle}>{option.title}</Text>
-                  <Text style={styles.optionValue}>
-                    <Text style={[styles.optionCount, { color: option.color }]}>{option.count}</Text>
-                    {" "}{option.suffix}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={ProTennisColors.textMuted} />
-              </Pressable>
-              {index < bookingOptions.length - 1 ? <View style={styles.divider} /> : null}
-            </React.Fragment>
-          ))}
-        </View>
-      </GlassCard>
+      <View style={styles.optionsGrid}>
+        {bookingOptions.map((option, index) => (
+          <BookingOptionCard 
+            key={option.id} 
+            option={option} 
+            onPress={() => handlePress(option)} 
+            delay={index * 80}
+          />
+        ))}
+      </View>
+    </Animated.View>
+  );
+}
+
+function BookingOptionCard({ option, onPress, delay }: { option: BookingOption; onPress: () => void; delay: number }) {
+  const glowPulse = useSharedValue(0.3);
+  const scaleValue = useSharedValue(1);
+  
+  useEffect(() => {
+    glowPulse.value = withRepeat(
+      withSequence(
+        withTiming(0.6, { duration: 1800 }),
+        withTiming(0.3, { duration: 1800 })
+      ),
+      -1,
+      true
+    );
+    return () => cancelAnimation(glowPulse);
+  }, [glowPulse]);
+
+  const glowStyle = useAnimatedStyle(() => ({
+    shadowOpacity: glowPulse.value,
+  }));
+
+  const handlePressIn = () => {
+    scaleValue.value = withSpring(0.97, { damping: 15, stiffness: 150 });
+  };
+
+  const handlePressOut = () => {
+    scaleValue.value = withSpring(1, { damping: 15, stiffness: 150 });
+  };
+
+  const scaleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scaleValue.value }],
+  }));
+
+  return (
+    <Animated.View 
+      entering={FadeInUp.delay(delay).duration(400)} 
+      style={[scaleStyle]}
+    >
+      <Pressable 
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+      >
+        <Animated.View style={[styles.optionCard, { shadowColor: option.color }, glowStyle]}>
+          <LinearGradient
+            colors={[`${option.color}15`, `${option.color}05`, "rgba(21, 27, 41, 0.9)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.optionCardGradient}
+          >
+            <View style={[styles.iconContainerGaming, { backgroundColor: `${option.color}25`, borderColor: `${option.color}40` }]}>
+              <Ionicons name={option.icon} size={22} color={option.color} />
+            </View>
+            <Text style={styles.optionTitleGaming}>{option.title}</Text>
+            <View style={styles.optionValueRow}>
+              <Text style={[styles.optionCountGaming, { color: option.color, textShadowColor: option.color }]}>
+                {option.count}
+              </Text>
+              <Text style={styles.optionSuffix}>{option.suffix}</Text>
+            </View>
+          </LinearGradient>
+        </Animated.View>
+      </Pressable>
     </Animated.View>
   );
 }
@@ -90,54 +157,73 @@ export function BookingHub() {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: Spacing.lg,
+    gap: Spacing.md,
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.sm,
   },
-  title: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: ProTennisColors.textMuted,
-    letterSpacing: 2,
+  titleGaming: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: ProTennisColors.textSecondary,
+    letterSpacing: 3,
   },
-  card: {
+  titleGlow: {
+    flex: 1,
+    height: 1,
+    backgroundColor: `${ProTennisColors.neonCyan}30`,
+  },
+  optionsGrid: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  optionCard: {
+    flex: 1,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: ProTennisColors.surfaceElevated,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 12,
+    elevation: 6,
   },
-  optionsContainer: {
+  optionCardGradient: {
     padding: Spacing.md,
+    gap: Spacing.sm,
+    minHeight: 120,
   },
-  option: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: Spacing.sm,
-    gap: Spacing.md,
-  },
-  iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+  iconContainerGaming: {
+    width: 42,
+    height: 42,
+    borderRadius: BorderRadius.md,
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
   },
-  optionContent: {
-    flex: 1,
-  },
-  optionTitle: {
-    fontSize: 13,
+  optionTitleGaming: {
+    fontSize: 11,
     fontWeight: "600",
-    color: ProTennisColors.white,
+    color: ProTennisColors.textSecondary,
+    marginTop: Spacing.xs,
   },
-  optionValue: {
+  optionValueRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: Spacing.xs,
+    marginTop: "auto",
+  },
+  optionCountGaming: {
+    fontSize: 28,
+    fontWeight: "900",
+    fontVariant: ["tabular-nums"],
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
+  },
+  optionSuffix: {
     fontSize: 11,
     color: ProTennisColors.textMuted,
-  },
-  optionCount: {
-    fontWeight: "700",
-  },
-  divider: {
-    height: 1,
-    backgroundColor: ProTennisColors.surfaceElevated,
-    marginVertical: Spacing.xs,
+    fontWeight: "500",
   },
 });

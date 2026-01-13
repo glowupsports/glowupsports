@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { View, Text, StyleSheet, Pressable, Modal, Platform, Image as RNImage } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
@@ -8,10 +8,13 @@ import Animated, {
   useSharedValue,
   withRepeat,
   withTiming,
+  withSequence,
   interpolate,
   Extrapolation,
+  Easing,
+  cancelAnimation,
 } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, ProTennisColors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 import { usePlayerLevel } from "../hooks/usePlayerLevel";
@@ -100,17 +103,32 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
   const [showCoachModal, setShowCoachModal] = useState(false);
   const [showPlayerModal, setShowPlayerModal] = useState(false);
   const glowPulse = useSharedValue(0);
+  const shimmerPosition = useSharedValue(-1);
   const profilePhotoUri = player.profilePhotoUrl ? `${getStaticAssetsUrl()}${player.profilePhotoUrl}` : null;
   
   const { data: levelStatus } = usePlayerLevel(player.id);
   
-  React.useEffect(() => {
+  useEffect(() => {
     glowPulse.value = withRepeat(
-      withTiming(1, { duration: 2000 }),
+      withSequence(
+        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+      ),
       -1,
-      true
+      false
     );
-  }, []);
+    
+    shimmerPosition.value = withRepeat(
+      withTiming(2, { duration: 2500, easing: Easing.linear }),
+      -1,
+      false
+    );
+    
+    return () => {
+      cancelAnimation(glowPulse);
+      cancelAnimation(shimmerPosition);
+    };
+  }, [glowPulse, shimmerPosition]);
   
   const earnedTitle = levelStatus?.title || getEarnedTitle(player);
   const currentFocus = getCurrentFocus(lastFeedback);
@@ -125,18 +143,37 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
     const scale = interpolate(
       glowPulse.value,
       [0, 1],
-      [1, 1.05],
+      [1, 1.12],
       Extrapolation.CLAMP
     );
     const opacity = interpolate(
       glowPulse.value,
       [0, 0.5, 1],
-      [0.3, 0.6, 0.3],
+      [0.4, 0.85, 0.4],
       Extrapolation.CLAMP
     );
     return {
       transform: [{ scale }],
       opacity,
+    };
+  });
+
+  const shimmerStyle = useAnimatedStyle(() => {
+    const translateX = interpolate(
+      shimmerPosition.value,
+      [-1, 0, 1, 2],
+      [-50, 0, 100, 150],
+      Extrapolation.CLAMP
+    );
+    const shimmerOpacity = interpolate(
+      shimmerPosition.value,
+      [-1, 0, 0.5, 1, 2],
+      [0, 0.3, 0.6, 0.3, 0],
+      Extrapolation.CLAMP
+    );
+    return {
+      transform: [{ translateX }],
+      opacity: shimmerOpacity,
     };
   });
   
@@ -207,18 +244,37 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
           </View>
           
           <View style={styles.xpBarContainer}>
-            <View style={styles.xpBarTrack}>
-              <Animated.View 
-                style={[
-                  styles.xpBarFill, 
-                  { width: `${xpProgress * 100}%` }
-                ]} 
-              />
-              <View style={styles.xpBarGlow} />
+            <View style={styles.xpBarTrackGaming}>
+              {xpProgress > 0.05 ? (
+                <LinearGradient
+                  colors={[ProTennisColors.neonCyan, ProTennisColors.electricGreen, ProTennisColors.neonCyan]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[styles.xpBarFillGaming, { width: `${Math.max(xpProgress * 100, 8)}%` }]}
+                >
+                  {xpProgress > 0.15 ? (
+                    <Animated.View style={[styles.xpBarShimmer, shimmerStyle]}>
+                      <LinearGradient
+                        colors={["transparent", "rgba(255, 255, 255, 0.4)", "transparent"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.shimmerGradient}
+                      />
+                    </Animated.View>
+                  ) : null}
+                </LinearGradient>
+              ) : (
+                <View style={[styles.xpBarFillMinimal, { width: 4 }]} />
+              )}
+              {xpProgress > 0.1 ? (
+                <View style={[styles.xpBarGlowEffect, { width: `${xpProgress * 100}%` }]} />
+              ) : null}
             </View>
-            <View style={styles.xpLabels}>
-              <Text style={styles.xpLevelLabel}>LVL {currentLevel}</Text>
-              <Text style={styles.xpValueLabel}>{xpInLevel}/{xpNeeded} XP</Text>
+            <View style={styles.xpLabelsGaming}>
+              <View style={styles.levelBadgeGaming}>
+                <Text style={styles.xpLevelLabelGaming}>LVL {currentLevel}</Text>
+              </View>
+              <Text style={styles.xpValueLabelGaming}>{xpInLevel}/{xpNeeded} XP</Text>
             </View>
           </View>
         </View>
@@ -554,6 +610,82 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "500",
     color: Colors.dark.xpCyan,
+  },
+  xpBarTrackGaming: {
+    height: 8,
+    backgroundColor: "rgba(0, 240, 255, 0.15)",
+    borderRadius: 4,
+    overflow: "hidden",
+    position: "relative",
+    borderWidth: 1,
+    borderColor: "rgba(0, 240, 255, 0.25)",
+  },
+  xpBarFillGaming: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  xpBarFillMinimal: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    borderRadius: 4,
+    backgroundColor: ProTennisColors.neonCyan,
+  },
+  xpBarShimmer: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 40,
+  },
+  shimmerGradient: {
+    flex: 1,
+  },
+  xpBarGlowEffect: {
+    position: "absolute",
+    left: 0,
+    top: -2,
+    bottom: -2,
+    borderRadius: 6,
+    shadowColor: "#00F0FF",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 4,
+    backgroundColor: "transparent",
+  },
+  xpLabelsGaming: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 6,
+  },
+  levelBadgeGaming: {
+    backgroundColor: "rgba(255, 215, 0, 0.2)",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 215, 0, 0.3)",
+  },
+  xpLevelLabelGaming: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: Colors.dark.gold,
+    letterSpacing: 1,
+  },
+  xpValueLabelGaming: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#00F0FF",
+    textShadowColor: "#00F0FF",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 4,
   },
   streakSection: {
     alignItems: "center",

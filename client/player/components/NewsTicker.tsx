@@ -7,6 +7,7 @@ import Animated, {
   useSharedValue,
   withRepeat,
   withTiming,
+  withSequence,
   Easing,
   cancelAnimation,
 } from "react-native-reanimated";
@@ -34,6 +35,7 @@ export function NewsTicker({
   scrollSpeed = 50,
 }: NewsTickerProps) {
   const translateX = useSharedValue(0);
+  const glowPulse = useSharedValue(0);
   const [measuredWidth, setMeasuredWidth] = useState(0);
 
   const { data: newsData, isLoading } = useQuery<{ articles: NewsArticle[] }>({
@@ -47,6 +49,18 @@ export function NewsTicker({
   useEffect(() => {
     setMeasuredWidth(0);
   }, [articlesKey]);
+
+  useEffect(() => {
+    glowPulse.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      false
+    );
+    return () => cancelAnimation(glowPulse);
+  }, [glowPulse]);
 
   useEffect(() => {
     if (autoScroll && articles.length > 0 && measuredWidth > 0) {
@@ -78,6 +92,20 @@ export function NewsTicker({
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],
   }));
+
+  const glowLineStyle = useAnimatedStyle(() => {
+    const opacity = 0.4 + glowPulse.value * 0.6;
+    return { opacity };
+  });
+
+  const liveDotStyle = useAnimatedStyle(() => {
+    const scale = 1 + glowPulse.value * 0.3;
+    const pulseOpacity = 0.6 + glowPulse.value * 0.4;
+    return {
+      transform: [{ scale }],
+      opacity: pulseOpacity,
+    };
+  });
 
   const handleArticlePress = async (link: string) => {
     if (link && link !== "#") {
@@ -144,14 +172,17 @@ export function NewsTicker({
   return (
     <View style={[styles.container, style]}>
       <LinearGradient
-        colors={["rgba(0, 0, 0, 0.9)", "rgba(21, 27, 41, 0.95)"]}
+        colors={["rgba(0, 0, 0, 0.95)", "rgba(21, 27, 41, 0.9)", "rgba(0, 0, 0, 0.95)"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.gradientBg}
       />
       
+      <Animated.View style={[styles.neonGlowLine, glowLineStyle]} />
+      
       <View style={styles.labelContainer}>
-        <View style={styles.liveDot} />
+        <Animated.View style={[styles.liveDot, liveDotStyle]} />
+        <View style={styles.liveDotRing} />
         <Text style={styles.labelText}>TENNIS</Text>
       </View>
 
@@ -237,12 +268,29 @@ export function NewsCard({ article, style }: NewsCardProps) {
 
 const styles = StyleSheet.create({
   container: {
-    height: 40,
+    height: 42,
     overflow: "hidden",
     position: "relative",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0, 240, 255, 0.2)",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0, 240, 255, 0.2)",
   },
   gradientBg: {
     ...StyleSheet.absoluteFillObject,
+  },
+  neonGlowLine: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 2,
+    backgroundColor: ProTennisColors.neonCyan,
+    shadowColor: ProTennisColors.neonCyan,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+    zIndex: 5,
   },
   labelContainer: {
     position: "absolute",
@@ -252,27 +300,46 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: Spacing.md,
-    backgroundColor: ProTennisColors.midnightBlue,
+    paddingLeft: Spacing.sm,
+    backgroundColor: "rgba(9, 14, 23, 0.98)",
     zIndex: 10,
-    gap: Spacing.xs,
+    gap: 6,
     borderRightWidth: 1,
-    borderRightColor: "rgba(255, 255, 255, 0.1)",
+    borderRightColor: "rgba(0, 240, 255, 0.3)",
   },
   liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: ProTennisColors.electricGreen,
+    shadowColor: ProTennisColors.electricGreen,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    zIndex: 2,
+  },
+  liveDotRing: {
+    position: "absolute",
+    left: Spacing.sm - 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: `${ProTennisColors.electricGreen}40`,
   },
   labelText: {
     color: ProTennisColors.electricGreen,
-    fontWeight: "800",
-    fontSize: 10,
-    letterSpacing: 1,
+    fontWeight: "900",
+    fontSize: 11,
+    letterSpacing: 1.5,
+    textShadowColor: ProTennisColors.electricGreen,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 4,
+    marginLeft: 4,
   },
   tickerContainer: {
     flex: 1,
-    marginLeft: 80,
+    marginLeft: 90,
     overflow: "hidden",
   },
   tickerContent: {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Pressable, Modal, TextInput, Alert } from "react-native";
+import { View, Text, StyleSheet, Pressable, Modal, TextInput, Alert, Platform } from "react-native";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
@@ -10,6 +10,8 @@ import Animated, {
   withTiming,
   useSharedValue,
   interpolateColor,
+  withSpring,
+  Easing,
 } from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -45,6 +47,207 @@ const CANCEL_REASONS = [
 ];
 
 const LATE_MINUTES_OPTIONS = [5, 10, 15, 20, 30];
+
+function GradientCountdownDigit({ value, label }: { value: number; label: string }) {
+  const shimmerValue = useSharedValue(0);
+  
+  useEffect(() => {
+    shimmerValue.value = withRepeat(
+      withTiming(1, { duration: 2000, easing: Easing.linear }),
+      -1,
+      false
+    );
+  }, [shimmerValue]);
+
+  const shimmerStyle = useAnimatedStyle(() => ({
+    opacity: 0.3 + shimmerValue.value * 0.2,
+  }));
+
+  return (
+    <View style={gamingStyles.countdownDigitBox}>
+      <LinearGradient
+        colors={[ProTennisColors.neonCyan, ProTennisColors.electricGreen, ProTennisColors.neonCyan]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={gamingStyles.countdownGradientBg}
+      >
+        <Animated.View style={[gamingStyles.countdownShimmer, shimmerStyle]} />
+        <Text style={gamingStyles.countdownDigitValue}>
+          {String(value).padStart(2, "0")}
+        </Text>
+      </LinearGradient>
+      <Text style={gamingStyles.countdownDigitLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function AnimatedStakeCard({ icon, text, color, positive = true }: { icon: string; text: string; color: string; positive?: boolean }) {
+  const glowPulse = useSharedValue(0.3);
+  const scaleValue = useSharedValue(1);
+  
+  useEffect(() => {
+    glowPulse.value = withRepeat(
+      withSequence(
+        withTiming(0.6, { duration: 1500 }),
+        withTiming(0.3, { duration: 1500 })
+      ),
+      -1,
+      true
+    );
+  }, [glowPulse]);
+
+  const glowStyle = useAnimatedStyle(() => ({
+    shadowOpacity: glowPulse.value,
+    transform: [{ scale: scaleValue.value }],
+  }));
+
+  return (
+    <Animated.View style={[gamingStyles.stakeCard, { shadowColor: color }, glowStyle]}>
+      <LinearGradient
+        colors={[`${color}20`, `${color}08`]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={gamingStyles.stakeCardGradient}
+      >
+        <View style={[gamingStyles.stakeIconGlow, { backgroundColor: `${color}30` }]}>
+          <Feather name={icon as any} size={16} color={color} />
+        </View>
+        <Text style={[gamingStyles.stakeCardText, { color: positive ? color : ProTennisColors.textPrimary }]}>
+          {text}
+        </Text>
+      </LinearGradient>
+    </Animated.View>
+  );
+}
+
+function NeonBorderGlow({ color, children, style }: { color: string; children: React.ReactNode; style?: any }) {
+  const glowValue = useSharedValue(0.4);
+  
+  useEffect(() => {
+    glowValue.value = withRepeat(
+      withSequence(
+        withTiming(0.8, { duration: 1200 }),
+        withTiming(0.4, { duration: 1200 })
+      ),
+      -1,
+      true
+    );
+  }, [glowValue]);
+
+  const animatedGlowStyle = useAnimatedStyle(() => ({
+    shadowOpacity: glowValue.value,
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        gamingStyles.neonBorderContainer,
+        {
+          shadowColor: color,
+          borderColor: color,
+        },
+        animatedGlowStyle,
+        style,
+      ]}
+    >
+      <LinearGradient
+        colors={[`${color}15`, `${color}05`, `${color}10`]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={gamingStyles.neonBorderInner}
+      >
+        {children}
+      </LinearGradient>
+    </Animated.View>
+  );
+}
+
+const gamingStyles = StyleSheet.create({
+  countdownDigitBox: {
+    alignItems: "center",
+    marginHorizontal: Spacing.xs,
+  },
+  countdownGradientBg: {
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    minWidth: 70,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    position: "relative",
+  },
+  countdownShimmer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  countdownDigitValue: {
+    fontSize: 48,
+    fontWeight: "900",
+    color: ProTennisColors.midnightBlue,
+    fontVariant: ["tabular-nums"],
+    textShadowColor: "rgba(0, 0, 0, 0.3)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  countdownDigitLabel: {
+    marginTop: Spacing.xs,
+    fontSize: 10,
+    fontWeight: "700",
+    color: ProTennisColors.textMuted,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+  },
+  countdownSeparatorText: {
+    fontSize: 40,
+    fontWeight: "300",
+    color: ProTennisColors.neonCyan,
+    alignSelf: "center",
+    marginBottom: 20,
+    opacity: 0.7,
+  },
+  stakeCard: {
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 12,
+    elevation: 6,
+    flex: 1,
+  },
+  stakeCardGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    gap: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  stakeIconGlow: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stakeCardText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.3,
+  },
+  neonBorderContainer: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1.5,
+    overflow: "hidden",
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  neonBorderInner: {
+    borderRadius: BorderRadius.lg - 2,
+    overflow: "hidden",
+  },
+});
 
 export function SessionHeroCard({
   onCheckIn,
@@ -279,10 +482,91 @@ export function SessionHeroCard({
 
   if (sessionStatus === "none") {
     return (
+      <NeonBorderGlow color={ProTennisColors.electricGreen} style={styles.heroCard}>
+        <View style={styles.noSessionContent}>
+          <View style={styles.openDayHeader}>
+            <LinearGradient
+              colors={[`${ProTennisColors.electricGreen}30`, `${ProTennisColors.electricGreen}10`]}
+              style={styles.openDayIconContainer}
+            >
+              <Feather name="sun" size={32} color={ProTennisColors.electricGreen} />
+            </LinearGradient>
+            <View style={styles.openDayTextContainer}>
+              <Text style={styles.openDayTitleGlow}>TODAY IS OPEN</Text>
+              <Text style={styles.openDaySubtitle}>No sessions scheduled - make it count!</Text>
+            </View>
+          </View>
+
+          <View style={styles.gamingStakesRow}>
+            <AnimatedStakeCard 
+              icon="zap" 
+              text="+50 XP for booking" 
+              color={ProTennisColors.warning} 
+              positive
+            />
+            <AnimatedStakeCard 
+              icon="trending-up" 
+              text="Keep streak alive" 
+              color={ProTennisColors.electricGreen} 
+              positive
+            />
+          </View>
+
+          <View style={styles.openDayActions}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.gamingPrimaryButton,
+                pressed && styles.buttonPressed,
+              ]}
+              onPress={handleBookSession}
+            >
+              <LinearGradient
+                colors={[ProTennisColors.electricGreen, `${ProTennisColors.electricGreen}CC`]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.gamingButtonGradient}
+              >
+                <Feather name="calendar" size={20} color={ProTennisColors.midnightBlue} />
+                <Text style={styles.gamingPrimaryButtonText}>BOOK SESSION</Text>
+              </LinearGradient>
+            </Pressable>
+
+            <View style={styles.openDaySecondaryRow}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.gamingSecondaryButton,
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={handleFindMatch}
+              >
+                <Feather name="users" size={16} color={ProTennisColors.neonCyan} />
+                <Text style={[styles.gamingSecondaryButtonText, { color: ProTennisColors.neonCyan }]}>FIND PLAYERS</Text>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.gamingSecondaryButton,
+                  { borderColor: `${ProTennisColors.electricGreen}50` },
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={handleJoinOpenGroup}
+              >
+                <Feather name="play-circle" size={16} color={ProTennisColors.electricGreen} />
+                <Text style={[styles.gamingSecondaryButtonText, { color: ProTennisColors.electricGreen }]}>JOIN OPEN GROUP</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </NeonBorderGlow>
+    );
+  }
+
+  if (sessionStatus === "none_placeholder_for_old_code") {
+    return (
       <GlassCard variant="hero" style={styles.heroCard}>
         <View style={styles.noSessionContent}>
           <View style={styles.openDayHeader}>
-            <View style={styles.openDayIconContainer}>
+            <View style={styles.openDayIconContainerOld}>
               <Feather name="sun" size={32} color={ProTennisColors.electricGreen} />
             </View>
             <View style={styles.openDayTextContainer}>
@@ -340,24 +624,28 @@ export function SessionHeroCard({
             </View>
           </View>
         </View>
-      </GlassCard>
+      </NeonBorderGlow>
     );
   }
 
   if (sessionStatus === "live") {
     return (
-      <GlassCard variant="neon" neonColor={ProTennisColors.electricGreen} animated style={styles.heroCard}>
+      <NeonBorderGlow color={ProTennisColors.live} style={styles.heroCard}>
         <View style={styles.liveContent}>
           <View style={styles.liveHeader}>
             <View style={styles.liveIndicatorRow}>
               <Animated.View style={[styles.liveDot, livePulseStyle]} />
-              <Text style={styles.liveText}>LIVE NOW</Text>
+              <Text style={styles.liveTextGlow}>LIVE NOW</Text>
             </View>
             <View style={styles.liveTimerContainer}>
               <Text style={styles.liveTimerLabel}>TIME LEFT</Text>
-              <Text style={styles.liveTimer}>
-                {String(countdown.hours).padStart(2, "0")}:{String(countdown.minutes).padStart(2, "0")}:{String(countdown.seconds).padStart(2, "0")}
-              </Text>
+              <View style={styles.liveCountdownRow}>
+                <GradientCountdownDigit value={countdown.hours} label="HRS" />
+                <Text style={gamingStyles.countdownSeparatorText}>:</Text>
+                <GradientCountdownDigit value={countdown.minutes} label="MIN" />
+                <Text style={gamingStyles.countdownSeparatorText}>:</Text>
+                <GradientCountdownDigit value={countdown.seconds} label="SEC" />
+              </View>
             </View>
           </View>
 
@@ -367,11 +655,11 @@ export function SessionHeroCard({
               name={coachName || "Coach"}
               size="lg"
               showGlow
-              glowColor={ProTennisColors.electricGreen}
+              glowColor={ProTennisColors.live}
               pulsing
             />
             <View style={styles.sessionDetails}>
-              <Text style={styles.sessionType}>{sessionType || "Training"}</Text>
+              <Text style={styles.sessionTypeGlow}>{sessionType || "Training"}</Text>
               <Text style={styles.coachLabel}>with {coachName || "Your Coach"}</Text>
               {sessionCourtName && (
                 <Text style={styles.courtLabel}>{sessionCourtName}</Text>
@@ -379,15 +667,19 @@ export function SessionHeroCard({
             </View>
           </View>
 
-          <View style={styles.liveStakes}>
-            <View style={styles.stakeItem}>
-              <Feather name="eye" size={14} color={ProTennisColors.neonCyan} />
-              <Text style={styles.stakeText}>Coach is tracking your progress</Text>
-            </View>
-            <View style={styles.stakeItem}>
-              <Feather name="zap" size={14} color={ProTennisColors.electricGreen} />
-              <Text style={styles.stakeText}>+100 XP for completing session</Text>
-            </View>
+          <View style={styles.gamingStakesRow}>
+            <AnimatedStakeCard 
+              icon="eye" 
+              text="Coach tracking progress" 
+              color={ProTennisColors.neonCyan} 
+              positive
+            />
+            <AnimatedStakeCard 
+              icon="zap" 
+              text="+100 XP completion" 
+              color={ProTennisColors.electricGreen} 
+              positive
+            />
           </View>
 
           <View style={styles.liveButtonsRow}>
@@ -763,29 +1055,22 @@ export function SessionHeroCard({
             </Pressable>
           </Modal>
         </View>
-      </GlassCard>
+      </NeonBorderGlow>
     );
   }
 
   if (sessionStatus === "soon" || sessionStatus === "upcoming") {
     const isSoon = sessionStatus === "soon";
-    const formattedTime = countdown.hours > 0 
-      ? `${countdown.hours}h ${countdown.minutes}m`
-      : `${countdown.minutes}m ${countdown.seconds}s`;
+    const borderColor = isSoon ? ProTennisColors.warning : ProTennisColors.neonCyan;
     
     return (
-      <GlassCard 
-        variant={isSoon ? "neon" : "default"} 
-        neonColor={isSoon ? ProTennisColors.warning : undefined}
-        animated={isSoon}
-        style={styles.heroCard}
-      >
+      <NeonBorderGlow color={borderColor} style={styles.heroCard}>
         <View style={styles.upcomingContent}>
           <View style={styles.upcomingHeader}>
-            <View style={styles.nextSessionBadge}>
-              <Feather name="clock" size={14} color={isSoon ? ProTennisColors.warning : ProTennisColors.neonCyan} />
-              <Text style={[styles.nextSessionText, isSoon && { color: ProTennisColors.warning }]}>
-                NEXT SESSION IN {formattedTime.toUpperCase()}
+            <View style={[styles.nextSessionBadgeGaming, { borderColor: `${borderColor}50` }]}>
+              <Feather name="clock" size={14} color={borderColor} />
+              <Text style={[styles.nextSessionTextGlow, { color: borderColor, textShadowColor: borderColor }]}>
+                {isSoon ? "STARTING SOON" : "NEXT SESSION"}
               </Text>
             </View>
             {isSoon && (
@@ -793,56 +1078,57 @@ export function SessionHeroCard({
             )}
           </View>
 
+          <View style={styles.gamingCountdownRow}>
+            <GradientCountdownDigit value={countdown.hours} label="HRS" />
+            <Text style={gamingStyles.countdownSeparatorText}>:</Text>
+            <GradientCountdownDigit value={countdown.minutes} label="MIN" />
+            <Text style={gamingStyles.countdownSeparatorText}>:</Text>
+            <GradientCountdownDigit value={countdown.seconds} label="SEC" />
+          </View>
+
           <View style={styles.sessionInfo}>
             <GlowAvatar
               source={coachPhotoUrl}
               name={coachName || "Coach"}
               size="lg"
-              showGlow={isSoon}
-              glowColor={isSoon ? ProTennisColors.warning : ProTennisColors.electricGreen}
+              showGlow
+              glowColor={borderColor}
               pulsing={isSoon}
             />
             <View style={styles.sessionDetails}>
-              <Text style={styles.sessionType}>{sessionType || "Training Session"}</Text>
+              <Text style={styles.sessionTypeGlow}>{sessionType || "Training Session"}</Text>
               <Text style={styles.coachLabel}>with {coachName || "Your Coach"}</Text>
               {sessionCourtName && (
-                <Text style={styles.courtInfo}>{sessionCourtName}</Text>
+                <Text style={styles.courtLabel}>{sessionCourtName}</Text>
               )}
             </View>
           </View>
 
           <View style={styles.upcomingStakes}>
             <Text style={styles.stakesTitle}>WHAT'S AT STAKE</Text>
-            <View style={styles.stakesGrid}>
-              <View style={styles.stakeCard}>
-                <Feather name="zap" size={16} color={ProTennisColors.electricGreen} />
-                <Text style={styles.stakeCardValue}>+75 XP</Text>
-                <Text style={styles.stakeCardLabel}>Attendance</Text>
-              </View>
-              <View style={styles.stakeCard}>
-                <Feather name="trending-up" size={16} color={ProTennisColors.neonCyan} />
-                <Text style={styles.stakeCardValue}>Level Up</Text>
-                <Text style={styles.stakeCardLabel}>Progress</Text>
-              </View>
-              <View style={styles.stakeCard}>
-                <Feather name="eye" size={16} color={ProTennisColors.warning} />
-                <Text style={styles.stakeCardValue}>Focus</Text>
-                <Text style={styles.stakeCardLabel}>Coach Watch</Text>
-              </View>
+            <View style={styles.gamingStakesRow}>
+              <AnimatedStakeCard icon="zap" text="+75 XP Attendance" color={ProTennisColors.electricGreen} positive />
+              <AnimatedStakeCard icon="trending-up" text="Level Progress" color={ProTennisColors.neonCyan} positive />
             </View>
           </View>
 
           {isSoon && (
             <Pressable
               style={({ pressed }) => [
-                styles.actionButton,
-                styles.checkInButton,
+                styles.gamingPrimaryButton,
                 pressed && styles.buttonPressed,
               ]}
               onPress={handleCheckIn}
             >
-              <Feather name="check-circle" size={18} color={ProTennisColors.midnightBlue} />
-              <Text style={styles.checkInButtonText}>CHECK IN EARLY</Text>
+              <LinearGradient
+                colors={[ProTennisColors.electricGreen, `${ProTennisColors.electricGreen}CC`]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.gamingButtonGradient}
+              >
+                <Feather name="check-circle" size={20} color={ProTennisColors.midnightBlue} />
+                <Text style={styles.gamingPrimaryButtonText}>CHECK IN EARLY</Text>
+              </LinearGradient>
             </Pressable>
           )}
 
@@ -1096,7 +1382,7 @@ export function SessionHeroCard({
             </Pressable>
           </Modal>
         </View>
-      </GlassCard>
+      </NeonBorderGlow>
     );
   }
 
@@ -1112,6 +1398,110 @@ const styles = StyleSheet.create({
   noSessionContent: {
     alignItems: "center",
     paddingVertical: Spacing.xl,
+    padding: Spacing.lg,
+  },
+  gamingStakesRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginBottom: Spacing.xl,
+    width: "100%",
+  },
+  gamingPrimaryButton: {
+    width: "100%",
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+    shadowColor: ProTennisColors.electricGreen,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  gamingButtonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
+    gap: Spacing.md,
+  },
+  gamingPrimaryButtonText: {
+    color: ProTennisColors.midnightBlue,
+    fontWeight: "800",
+    fontSize: 16,
+    letterSpacing: 1.5,
+  },
+  gamingSecondaryButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1.5,
+    borderColor: `${ProTennisColors.neonCyan}50`,
+    backgroundColor: "rgba(0, 240, 255, 0.05)",
+  },
+  gamingSecondaryButtonText: {
+    fontWeight: "700",
+    fontSize: 11,
+    letterSpacing: 0.5,
+  },
+  openDayTitleGlow: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: ProTennisColors.electricGreen,
+    letterSpacing: 2,
+    textShadowColor: ProTennisColors.electricGreen,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
+  },
+  liveTextGlow: {
+    color: ProTennisColors.live,
+    fontWeight: "900",
+    fontSize: 16,
+    letterSpacing: 2,
+    textShadowColor: ProTennisColors.live,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  liveCountdownRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginTop: Spacing.md,
+  },
+  sessionTypeGlow: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: ProTennisColors.white,
+    marginBottom: Spacing.xs,
+    textShadowColor: ProTennisColors.neonCyan,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 6,
+  },
+  nextSessionBadgeGaming: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
+  },
+  nextSessionTextGlow: {
+    fontWeight: "800",
+    fontSize: 12,
+    letterSpacing: 1.5,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 6,
+  },
+  gamingCountdownRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "center",
+    marginVertical: Spacing.xl,
   },
   courtVisual: {
     width: 100,

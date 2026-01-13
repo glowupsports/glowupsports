@@ -1,7 +1,17 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import Animated, { FadeInRight, FadeIn } from "react-native-reanimated";
+import Animated, { 
+  FadeInRight, 
+  FadeIn, 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withRepeat, 
+  withSequence, 
+  withTiming,
+  withSpring,
+  cancelAnimation 
+} from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { ProTennisColors, Spacing, BorderRadius, getPlayerLevelColor } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
@@ -20,19 +30,41 @@ interface SectionHeaderProps {
 }
 
 function SectionHeader({ title, count, actionLabel, onAction, accentColor = ProTennisColors.neonCyan }: SectionHeaderProps) {
+  const glowValue = useSharedValue(0.4);
+  
+  useEffect(() => {
+    glowValue.value = withRepeat(
+      withSequence(
+        withTiming(0.7, { duration: 1500 }),
+        withTiming(0.4, { duration: 1500 })
+      ),
+      -1,
+      true
+    );
+    return () => cancelAnimation(glowValue);
+  }, [glowValue]);
+
+  const glowStyle = useAnimatedStyle(() => ({
+    shadowOpacity: glowValue.value,
+  }));
+
   return (
     <View style={styles.sectionHeader}>
       <View style={styles.sectionTitleRow}>
-        <Text style={styles.sectionTitle}>{title}</Text>
+        <Text style={[styles.sectionTitle, { textShadowColor: accentColor, textShadowRadius: 4 }]}>{title}</Text>
         {count !== undefined && count > 0 && (
-          <View style={[styles.countChip, { backgroundColor: `${accentColor}20` }]}>
-            <Text style={[styles.countChipText, { color: accentColor }]}>{count}</Text>
-          </View>
+          <Animated.View style={[
+            styles.countChipGaming, 
+            { backgroundColor: `${accentColor}20`, borderColor: `${accentColor}40`, shadowColor: accentColor }, 
+            glowStyle
+          ]}>
+            <Text style={[styles.countChipTextGaming, { color: accentColor }]}>{count}</Text>
+          </Animated.View>
         )}
       </View>
       {actionLabel && onAction && (
-        <Pressable onPress={onAction} style={styles.seeAllButton}>
-          <Text style={[styles.seeAllText, { color: accentColor }]}>{actionLabel}</Text>
+        <Pressable onPress={onAction} style={styles.seeAllButtonGaming}>
+          <Text style={[styles.seeAllTextGaming, { color: accentColor }]}>{actionLabel}</Text>
           <Feather name="chevron-right" size={14} color={accentColor} />
         </Pressable>
       )}
@@ -460,14 +492,42 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
   },
+  countChipGaming: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  countChipTextGaming: {
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
   seeAllButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 2,
   },
+  seeAllButtonGaming: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+  },
   seeAllText: {
     fontSize: 13,
     fontWeight: "600",
+  },
+  seeAllTextGaming: {
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
   rowScrollContent: {
     paddingHorizontal: Spacing.lg,
