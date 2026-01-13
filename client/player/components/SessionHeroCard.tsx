@@ -561,9 +561,55 @@ export function SessionHeroCard({
                     </Pressable>
                   </View>
                   
-                  <View style={styles.lateCancelNotice}>
-                    <Feather name="alert-triangle" size={16} color={ProTennisColors.warning} />
-                    <Text style={styles.lateCancelText}>Late cancellations may affect your XP</Text>
+                  <View style={styles.policySection}>
+                    <Text style={styles.policySectionTitle}>CANCELLATION POLICY</Text>
+                    
+                    <View style={styles.policyRule}>
+                      <View style={[styles.policyBadge, { backgroundColor: ProTennisColors.electricGreen + "20" }]}>
+                        <Feather name="check-circle" size={14} color={ProTennisColors.electricGreen} />
+                      </View>
+                      <View style={styles.policyRuleContent}>
+                        <Text style={styles.policyRuleTitle}>24+ hours before</Text>
+                        <Text style={styles.policyRuleDesc}>Free cancellation - No charge</Text>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.policyRule}>
+                      <View style={[styles.policyBadge, { backgroundColor: ProTennisColors.warning + "20" }]}>
+                        <Feather name="alert-circle" size={14} color={ProTennisColors.warning} />
+                      </View>
+                      <View style={styles.policyRuleContent}>
+                        <Text style={styles.policyRuleTitle}>2-24 hours before</Text>
+                        <Text style={styles.policyRuleDesc}>50% session fee charged, -25 XP</Text>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.policyRule}>
+                      <View style={[styles.policyBadge, { backgroundColor: ProTennisColors.danger + "20" }]}>
+                        <Feather name="x-circle" size={14} color={ProTennisColors.danger} />
+                      </View>
+                      <View style={styles.policyRuleContent}>
+                        <Text style={styles.policyRuleTitle}>Less than 2 hours</Text>
+                        <Text style={styles.policyRuleDesc}>100% session fee charged, -50 XP</Text>
+                      </View>
+                    </View>
+                    
+                    {minutesToNextSession !== undefined && minutesToNextSession < 120 && (
+                      <View style={styles.currentPenaltyNotice}>
+                        <Feather name="alert-triangle" size={16} color={ProTennisColors.danger} />
+                        <Text style={styles.currentPenaltyText}>
+                          Cancelling now = Full payment + -50 XP
+                        </Text>
+                      </View>
+                    )}
+                    {minutesToNextSession !== undefined && minutesToNextSession >= 120 && minutesToNextSession < 1440 && (
+                      <View style={styles.partialPenaltyNotice}>
+                        <Feather name="alert-circle" size={16} color={ProTennisColors.warning} />
+                        <Text style={styles.partialPenaltyText}>
+                          Cancelling now = 50% payment + -25 XP
+                        </Text>
+                      </View>
+                    )}
                   </View>
                   
                   <Text style={styles.modalSubtitle}>Reason for cancellation</Text>
@@ -848,9 +894,55 @@ export function SessionHeroCard({
                     </Pressable>
                   </View>
                   
-                  <View style={styles.lateCancelNotice}>
-                    <Feather name="alert-triangle" size={16} color={ProTennisColors.warning} />
-                    <Text style={styles.lateCancelText}>Late cancellations may affect your XP</Text>
+                  <View style={styles.policySection}>
+                    <Text style={styles.policySectionTitle}>CANCELLATION POLICY</Text>
+                    
+                    <View style={styles.policyRule}>
+                      <View style={[styles.policyBadge, { backgroundColor: ProTennisColors.electricGreen + "20" }]}>
+                        <Feather name="check-circle" size={14} color={ProTennisColors.electricGreen} />
+                      </View>
+                      <View style={styles.policyRuleContent}>
+                        <Text style={styles.policyRuleTitle}>24+ hours before</Text>
+                        <Text style={styles.policyRuleDesc}>Free cancellation - No charge</Text>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.policyRule}>
+                      <View style={[styles.policyBadge, { backgroundColor: ProTennisColors.warning + "20" }]}>
+                        <Feather name="alert-circle" size={14} color={ProTennisColors.warning} />
+                      </View>
+                      <View style={styles.policyRuleContent}>
+                        <Text style={styles.policyRuleTitle}>2-24 hours before</Text>
+                        <Text style={styles.policyRuleDesc}>50% session fee charged, -25 XP</Text>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.policyRule}>
+                      <View style={[styles.policyBadge, { backgroundColor: ProTennisColors.danger + "20" }]}>
+                        <Feather name="x-circle" size={14} color={ProTennisColors.danger} />
+                      </View>
+                      <View style={styles.policyRuleContent}>
+                        <Text style={styles.policyRuleTitle}>Less than 2 hours</Text>
+                        <Text style={styles.policyRuleDesc}>100% session fee charged, -50 XP</Text>
+                      </View>
+                    </View>
+                    
+                    {minutesToNextSession !== undefined && minutesToNextSession < 120 && (
+                      <View style={styles.currentPenaltyNotice}>
+                        <Feather name="alert-triangle" size={16} color={ProTennisColors.danger} />
+                        <Text style={styles.currentPenaltyText}>
+                          Cancelling now = Full payment + -50 XP
+                        </Text>
+                      </View>
+                    )}
+                    {minutesToNextSession !== undefined && minutesToNextSession >= 120 && minutesToNextSession < 1440 && (
+                      <View style={styles.partialPenaltyNotice}>
+                        <Feather name="alert-circle" size={16} color={ProTennisColors.warning} />
+                        <Text style={styles.partialPenaltyText}>
+                          Cancelling now = 50% payment + -25 XP
+                        </Text>
+                      </View>
+                    )}
                   </View>
                   
                   <Text style={styles.modalSubtitle}>Reason for cancellation</Text>
@@ -1569,6 +1661,81 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
     padding: Spacing.md,
     marginBottom: Spacing.lg,
+  },
+  policySection: {
+    backgroundColor: `${ProTennisColors.midnightBlue}80`,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: ProTennisColors.cardBorder,
+  },
+  policySectionTitle: {
+    ...Typography.small,
+    fontWeight: "700",
+    color: ProTennisColors.textMuted,
+    letterSpacing: 1,
+    marginBottom: Spacing.md,
+  },
+  policyRule: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  policyBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  policyRuleContent: {
+    flex: 1,
+  },
+  policyRuleTitle: {
+    ...Typography.small,
+    fontWeight: "600",
+    color: ProTennisColors.text,
+  },
+  policyRuleDesc: {
+    ...Typography.small,
+    color: ProTennisColors.textMuted,
+    fontSize: 11,
+  },
+  currentPenaltyNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: `${ProTennisColors.danger}20`,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.sm,
+    marginTop: Spacing.md,
+    borderWidth: 1,
+    borderColor: ProTennisColors.danger,
+  },
+  currentPenaltyText: {
+    ...Typography.small,
+    fontWeight: "600",
+    color: ProTennisColors.danger,
+    flex: 1,
+  },
+  partialPenaltyNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: `${ProTennisColors.warning}20`,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.sm,
+    marginTop: Spacing.md,
+    borderWidth: 1,
+    borderColor: ProTennisColors.warning,
+  },
+  partialPenaltyText: {
+    ...Typography.small,
+    fontWeight: "600",
+    color: ProTennisColors.warning,
+    flex: 1,
   },
   lateCancelText: {
     ...Typography.small,
