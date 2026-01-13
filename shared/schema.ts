@@ -644,6 +644,231 @@ export const insertCourtBookingSchema = createInsertSchema(courtBookings).omit({
 export type InsertCourtBooking = z.infer<typeof insertCourtBookingSchema>;
 export type CourtBooking = typeof courtBookings.$inferSelect;
 
+// ==================== SOCIAL BOOKING (Phase 2) ====================
+
+// Booking Invites - Group booking with friends
+export const bookingInvites = pgTable("booking_invites", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  bookingId: varchar("booking_id").references(() => courtBookings.id).notNull(),
+  hostPlayerId: varchar("host_player_id").references(() => players.id).notNull(),
+  
+  // Split cost settings
+  splitCost: boolean("split_cost").default(true),
+  costPerPerson: numeric("cost_per_person"),
+  currency: text("currency").default("AED"),
+  
+  // Group settings
+  maxGuests: integer("max_guests").default(3), // typical doubles = 4 players
+  message: text("message"), // invite message from host
+  
+  // Tracking
+  totalInvited: integer("total_invited").default(0),
+  totalAccepted: integer("total_accepted").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  bookingIdx: index("booking_invites_booking_idx").on(table.bookingId),
+  hostIdx: index("booking_invites_host_idx").on(table.hostPlayerId),
+}));
+
+export const insertBookingInviteSchema = createInsertSchema(bookingInvites).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertBookingInvite = z.infer<typeof insertBookingInviteSchema>;
+export type BookingInvite = typeof bookingInvites.$inferSelect;
+
+// Booking Invite Guests - Individual invitees
+export const bookingInviteGuests = pgTable("booking_invite_guests", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  inviteId: varchar("invite_id").references(() => bookingInvites.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  
+  // Status
+  status: text("status").default("pending"), // pending | accepted | declined | cancelled
+  respondedAt: timestamp("responded_at"),
+  
+  // Cost
+  shareAmount: numeric("share_amount"),
+  paymentStatus: text("payment_status").default("pending"), // pending | paid | refunded
+  
+  // XP
+  xpAwarded: integer("xp_awarded").default(0),
+  
+  // Notifications
+  notificationSentAt: timestamp("notification_sent_at"),
+  reminderSentAt: timestamp("reminder_sent_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  inviteIdx: index("booking_invite_guests_invite_idx").on(table.inviteId),
+  playerIdx: index("booking_invite_guests_player_idx").on(table.playerId),
+  statusIdx: index("booking_invite_guests_status_idx").on(table.status),
+  uniqueInvitePlayer: unique("booking_invite_guests_unique").on(table.inviteId, table.playerId),
+}));
+
+export const insertBookingInviteGuestSchema = createInsertSchema(bookingInviteGuests).omit({ id: true, createdAt: true });
+export type InsertBookingInviteGuest = z.infer<typeof insertBookingInviteGuestSchema>;
+export type BookingInviteGuest = typeof bookingInviteGuests.$inferSelect;
+
+// ==================== OPEN MATCHES (Phase 3) ====================
+
+// Open Matches - Players can post matches for others to join
+export const openMatches = pgTable("open_matches", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  bookingId: varchar("booking_id").references(() => courtBookings.id).notNull(),
+  hostPlayerId: varchar("host_player_id").references(() => players.id).notNull(),
+  academyId: varchar("academy_id").references(() => academies.id),
+  
+  // Match details
+  matchType: text("match_type").default("singles"), // singles | doubles | practice | rally
+  title: text("title"), // "Looking for doubles partner"
+  description: text("description"),
+  
+  // Skill matching
+  requiredLevelMin: integer("required_level_min").default(1), // Player XP level
+  requiredLevelMax: integer("required_level_max").default(20),
+  requiredBallLevel: text("required_ball_level"), // red | orange | green | yellow
+  skillFlexibility: text("skill_flexibility").default("flexible"), // strict | flexible | any
+  
+  // Capacity
+  maxPlayers: integer("max_players").default(2), // 2 for singles, 4 for doubles
+  currentPlayers: integer("current_players").default(1), // host counts as 1
+  
+  // Status
+  status: text("status").default("open"), // draft | open | full | cancelled | completed
+  
+  // Visibility
+  visibility: text("visibility").default("academy"), // public | academy | friends_only
+  
+  // Cost (if any)
+  costPerPlayer: numeric("cost_per_player"),
+  currency: text("currency").default("AED"),
+  
+  // XP bonus for joining open matches
+  xpBonus: integer("xp_bonus").default(25),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  bookingIdx: index("open_matches_booking_idx").on(table.bookingId),
+  hostIdx: index("open_matches_host_idx").on(table.hostPlayerId),
+  statusIdx: index("open_matches_status_idx").on(table.status),
+  academyStatusIdx: index("open_matches_academy_status_idx").on(table.academyId, table.status),
+}));
+
+export const insertOpenMatchSchema = createInsertSchema(openMatches).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertOpenMatch = z.infer<typeof insertOpenMatchSchema>;
+export type OpenMatch = typeof openMatches.$inferSelect;
+
+// Open Match Slots - Players who joined the match
+export const openMatchSlots = pgTable("open_match_slots", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  matchId: varchar("match_id").references(() => openMatches.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  
+  // Role
+  role: text("role").default("player"), // host | player
+  
+  // Status
+  status: text("status").default("confirmed"), // pending | confirmed | cancelled | no_show
+  
+  // Timing
+  joinedAt: timestamp("joined_at").defaultNow(),
+  cancelledAt: timestamp("cancelled_at"),
+  
+  // XP
+  xpAwarded: integer("xp_awarded").default(0),
+  
+  // Notifications
+  notificationSentAt: timestamp("notification_sent_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  matchIdx: index("open_match_slots_match_idx").on(table.matchId),
+  playerIdx: index("open_match_slots_player_idx").on(table.playerId),
+  uniqueMatchPlayer: unique("open_match_slots_unique").on(table.matchId, table.playerId),
+}));
+
+export const insertOpenMatchSlotSchema = createInsertSchema(openMatchSlots).omit({ id: true, createdAt: true });
+export type InsertOpenMatchSlot = z.infer<typeof insertOpenMatchSlotSchema>;
+export type OpenMatchSlot = typeof openMatchSlots.$inferSelect;
+
+// ==================== SMART AVAILABILITY (Phase 4) ====================
+
+// Player Booking Preferences
+export const playerBookingPreferences = pgTable("player_booking_preferences", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull().unique(),
+  
+  // Preferred times
+  preferredDays: jsonb("preferred_days").$type<string[]>(), // ["monday", "wednesday", "friday"]
+  preferredTimeWindows: jsonb("preferred_time_windows").$type<{
+    start: string;
+    end: string;
+    priority: number;
+  }[]>(), // [{ start: "18:00", end: "20:00", priority: 1 }]
+  
+  // Court preferences
+  preferredSurfaces: jsonb("preferred_surfaces").$type<string[]>(), // ["hard", "clay"]
+  preferredCourts: jsonb("preferred_courts").$type<string[]>(), // court IDs
+  
+  // Social preferences
+  autoAcceptFriendInvites: boolean("auto_accept_friend_invites").default(false),
+  openToOpenMatches: boolean("open_to_open_matches").default(true),
+  preferredMatchType: text("preferred_match_type").default("any"), // singles | doubles | any
+  
+  // Notification preferences
+  notifyOnOpenMatches: boolean("notify_on_open_matches").default(true),
+  notifyOnFriendBookings: boolean("notify_on_friend_bookings").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  playerIdx: index("player_booking_preferences_player_idx").on(table.playerId),
+}));
+
+export const insertPlayerBookingPreferencesSchema = createInsertSchema(playerBookingPreferences).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertPlayerBookingPreferences = z.infer<typeof insertPlayerBookingPreferencesSchema>;
+export type PlayerBookingPreferences = typeof playerBookingPreferences.$inferSelect;
+
+// Court Availability Snapshots - For heatmap visualization
+export const courtAvailabilitySnapshots = pgTable("court_availability_snapshots", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  courtId: varchar("court_id").references(() => courts.id).notNull(),
+  date: date("date").notNull(),
+  hour: integer("hour").notNull(), // 0-23
+  
+  // Demand metrics
+  bookingCount: integer("booking_count").default(0),
+  totalSlots: integer("total_slots").default(1),
+  demandScore: numeric("demand_score", { precision: 3, scale: 2 }).default("0.00"), // 0-1 ratio
+  
+  // Historical averages
+  avgBookingsThisSlot: numeric("avg_bookings_this_slot", { precision: 4, scale: 2 }),
+  isPopularTime: boolean("is_popular_time").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  courtDateIdx: index("court_availability_snapshots_court_date_idx").on(table.courtId, table.date),
+  uniqueCourtDateHour: unique("court_availability_snapshots_unique").on(table.courtId, table.date, table.hour),
+}));
+
+export const insertCourtAvailabilitySnapshotSchema = createInsertSchema(courtAvailabilitySnapshots).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCourtAvailabilitySnapshot = z.infer<typeof insertCourtAvailabilitySnapshotSchema>;
+export type CourtAvailabilitySnapshot = typeof courtAvailabilitySnapshots.$inferSelect;
+
 // Players
 export const players = pgTable("players", {
   id: varchar("id")

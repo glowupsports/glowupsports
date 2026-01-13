@@ -32,6 +32,13 @@ import {
   titles as titlesTable,
   playerTitles as playerTitlesTable,
   sessionPlans,
+  // Social Booking & Open Matches (Phase 2-4)
+  bookingInvites,
+  bookingInviteGuests,
+  openMatches,
+  openMatchSlots,
+  playerBookingPreferences,
+  courtAvailabilitySnapshots,
 } from "@shared/schema";
 import { setupWebSocket, broadcastNewMessage, broadcastNewSession, broadcastFeedbackReceived, broadcastSessionUpdate } from "./websocket";
 import { 
@@ -21036,6 +21043,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Mark time slot as booked
       await storage.updateCourtAvailabilityStatus(courtId, date, startTime, endTime, "booked");
 
+      // Handle friend invites if provided
+      const { inviteFriendIds } = req.body;
+      if (inviteFriendIds && Array.isArray(inviteFriendIds) && inviteFriendIds.length > 0 && playerId) {
+        try {
+          const friendCount = inviteFriendIds.length;
+          const splitCost = price > 0;
+          const costPerPerson = splitCost ? (price / (friendCount + 1)).toFixed(2) : null;
+          
+          const inviteResult = await db.insert(bookingInvites).values({
+            bookingId: booking.id,
+            hostPlayerId: playerId,
+            splitCost,
+            costPerPerson,
+            currency: court.currency || "AED",
+            maxGuests: 3,
+            totalInvited: friendCount,
+            totalAccepted: 0,
+          }).returning();
+          
+          const invite = inviteResult[0];
+          
+          for (const friendId of inviteFriendIds) {
+            await db.insert(bookingInviteGuests).values({
+              inviteId: invite.id,
+              playerId: friendId,
+              status: "pending",
+              shareAmount: costPerPerson,
+            });
+            
+            const friend = await storage.getPlayer(friendId);
+            if (friend) {
+              await storage.createNotification({
+                type: "booking_invite",
+                title: "Court Booking Invite",
+                message: `You've been invited to play on ${date} at ${startTime}`,
+                userId: null,
+                playerId: friendId,
+                academyId: court.academyId,
+                data: { bookingId: booking.id, inviteId: invite.id },
+              });
+            }
+          }
+        } catch (inviteError) {
+          console.error("Failed to create booking invites:", inviteError);
+        }
+      }
+
+      // Handle create open match if requested
+      const { createOpenMatch } = req.body;
+      if (createOpenMatch && playerId) {
+        try {
+          const [match] = await db.insert(openMatches).values({
+            bookingId: booking.id,
+            hostPlayerId: playerId,
+            academyId: court.academyId,
+            matchType: "singles",
+            title: `Open Match at ${court.name || "Court"}`,
+            description: `Join me for a game on ${date} at ${startTime}`,
+            requiredLevelMin: 1,
+            requiredLevelMax: 20,
+            requiredBallLevel: null,
+            maxPlayers: 2,
+            currentPlayers: 1,
+            status: "open",
+            visibility: "academy",
+            costPerPlayer: price > 0 ? (price / 2).toFixed(2) : null,
+            currency: court.currency || "AED",
+            xpBonus: 25,
+          }).returning();
+
+          // Add host as first slot
+          await db.insert(openMatchSlots).values({
+            matchId: match.id,
+            playerId,
+            role: "host",
+            status: "confirmed",
+          });
+        } catch (openMatchError) {
+          console.error("Failed to create open match:", openMatchError);
+        }
+      }
+
       res.status(201).json(booking);
     } catch (error) {
       console.error("Create court booking error:", error);
@@ -21307,6 +21396,435 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Review court booking error:", error);
       res.status(500).json({ error: "Failed to review booking" });
+    }
+  });
+
+  // ==================== BOOKING INVITES (Phase 2) ====================
+
+  // Get my booking invites (received)
+  app.get("/api/player/booking-invites", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      if (!playerId) {
+        return res.status(401).json({ error: "Player profile required" });
+      }
+
+      const invites = await db
+        .select()
+        .from(bookingInviteGuests)
+        .innerJoin(bookingInvites, eq(bookingInviteGuests.inviteId, bookingInvites.id))
+        .where(eq(bookingInviteGuests.playerId, playerId));
+
+      res.json(invites);
+    } catch (error) {
+      console.error("Get booking invites error:", error);
+      res.status(500).json({ error: "Failed to get invites" });
+    }
+  });
+
+  // Respond to booking invite
+  app.post("/api/player/booking-invites/:inviteId/respond", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const { inviteId } = req.params;
+      const { action } = req.body;
+
+      if (!playerId) {
+        return res.status(401).json({ error: "Player profile required" });
+      }
+
+      if (!["accept", "decline"].includes(action)) {
+        return res.status(400).json({ error: "Action must be 'accept' or 'decline'" });
+      }
+
+      const [guest] = await db
+        .select()
+        .from(bookingInviteGuests)
+        .where(and(
+          eq(bookingInviteGuests.inviteId, inviteId),
+          eq(bookingInviteGuests.playerId, playerId)
+        ));
+
+      if (!guest) {
+        return res.status(404).json({ error: "Invite not found" });
+      }
+
+      await db
+        .update(bookingInviteGuests)
+        .set({
+          status: action === "accept" ? "accepted" : "declined",
+          respondedAt: new Date(),
+        })
+        .where(eq(bookingInviteGuests.id, guest.id));
+
+      // Update invite counts
+      if (action === "accept") {
+        await db
+          .update(bookingInvites)
+          .set({ totalAccepted: sql`total_accepted + 1` })
+          .where(eq(bookingInvites.id, inviteId));
+      }
+
+      res.json({ success: true, message: `Invite ${action}ed` });
+    } catch (error) {
+      console.error("Respond to booking invite error:", error);
+      res.status(500).json({ error: "Failed to respond to invite" });
+    }
+  });
+
+  // ==================== OPEN MATCHES (Phase 3) ====================
+
+  // Get open matches
+  app.get("/api/open-matches", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const academyId = req.user?.academyId;
+      const { matchType, ballLevel, date } = req.query;
+
+      let query = db
+        .select()
+        .from(openMatches)
+        .where(eq(openMatches.status, "open"));
+
+      const matches = await query;
+
+      // Filter by academy if needed (visibility = academy)
+      const filteredMatches = matches.filter(m => 
+        m.visibility === "public" || 
+        (m.visibility === "academy" && m.academyId === academyId)
+      );
+
+      res.json(filteredMatches);
+    } catch (error) {
+      console.error("Get open matches error:", error);
+      res.status(500).json({ error: "Failed to get open matches" });
+    }
+  });
+
+  // Create open match
+  app.post("/api/open-matches", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const academyId = req.user?.academyId;
+
+      if (!playerId) {
+        return res.status(401).json({ error: "Player profile required" });
+      }
+
+      const {
+        bookingId,
+        matchType,
+        title,
+        description,
+        requiredLevelMin,
+        requiredLevelMax,
+        requiredBallLevel,
+        maxPlayers,
+        visibility,
+        costPerPlayer,
+      } = req.body;
+
+      if (!bookingId) {
+        return res.status(400).json({ error: "Booking ID is required" });
+      }
+
+      const [match] = await db.insert(openMatches).values({
+        bookingId,
+        hostPlayerId: playerId,
+        academyId,
+        matchType: matchType || "singles",
+        title,
+        description,
+        requiredLevelMin: requiredLevelMin || 1,
+        requiredLevelMax: requiredLevelMax || 20,
+        requiredBallLevel,
+        maxPlayers: maxPlayers || (matchType === "doubles" ? 4 : 2),
+        currentPlayers: 1,
+        status: "open",
+        visibility: visibility || "academy",
+        costPerPlayer,
+        currency: "AED",
+        xpBonus: 25,
+      }).returning();
+
+      // Add host as first slot
+      await db.insert(openMatchSlots).values({
+        matchId: match.id,
+        playerId,
+        role: "host",
+        status: "confirmed",
+      });
+
+      res.status(201).json(match);
+    } catch (error) {
+      console.error("Create open match error:", error);
+      res.status(500).json({ error: "Failed to create open match" });
+    }
+  });
+
+  // Join open match
+  app.post("/api/open-matches/:matchId/join", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const { matchId } = req.params;
+
+      if (!playerId) {
+        return res.status(401).json({ error: "Player profile required" });
+      }
+
+      const [match] = await db
+        .select()
+        .from(openMatches)
+        .where(eq(openMatches.id, matchId));
+
+      if (!match) {
+        return res.status(404).json({ error: "Match not found" });
+      }
+
+      if (match.status !== "open") {
+        return res.status(400).json({ error: "Match is not open for joining" });
+      }
+
+      if (match.currentPlayers >= match.maxPlayers) {
+        return res.status(400).json({ error: "Match is already full" });
+      }
+
+      // Check if already joined
+      const [existing] = await db
+        .select()
+        .from(openMatchSlots)
+        .where(and(
+          eq(openMatchSlots.matchId, matchId),
+          eq(openMatchSlots.playerId, playerId)
+        ));
+
+      if (existing) {
+        return res.status(400).json({ error: "Already joined this match" });
+      }
+
+      // Add player slot
+      await db.insert(openMatchSlots).values({
+        matchId,
+        playerId,
+        role: "player",
+        status: "confirmed",
+      });
+
+      // Update player count
+      const newCount = match.currentPlayers + 1;
+      const newStatus = newCount >= match.maxPlayers ? "full" : "open";
+
+      await db
+        .update(openMatches)
+        .set({ 
+          currentPlayers: newCount,
+          status: newStatus,
+        })
+        .where(eq(openMatches.id, matchId));
+
+      // Notify host
+      await storage.createNotification({
+        type: "open_match_join",
+        title: "Player Joined",
+        message: `Someone joined your open match!`,
+        userId: null,
+        playerId: match.hostPlayerId,
+        academyId: match.academyId,
+        data: { matchId },
+      });
+
+      res.json({ success: true, message: "Joined match successfully" });
+    } catch (error) {
+      console.error("Join open match error:", error);
+      res.status(500).json({ error: "Failed to join match" });
+    }
+  });
+
+  // Leave open match
+  app.post("/api/open-matches/:matchId/leave", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const { matchId } = req.params;
+
+      if (!playerId) {
+        return res.status(401).json({ error: "Player profile required" });
+      }
+
+      const [slot] = await db
+        .select()
+        .from(openMatchSlots)
+        .where(and(
+          eq(openMatchSlots.matchId, matchId),
+          eq(openMatchSlots.playerId, playerId)
+        ));
+
+      if (!slot) {
+        return res.status(404).json({ error: "Not in this match" });
+      }
+
+      if (slot.role === "host") {
+        return res.status(400).json({ error: "Host cannot leave. Cancel the match instead." });
+      }
+
+      await db
+        .update(openMatchSlots)
+        .set({ status: "cancelled", cancelledAt: new Date() })
+        .where(eq(openMatchSlots.id, slot.id));
+
+      // Update match count
+      await db
+        .update(openMatches)
+        .set({ 
+          currentPlayers: sql`current_players - 1`,
+          status: "open",
+        })
+        .where(eq(openMatches.id, matchId));
+
+      res.json({ success: true, message: "Left match" });
+    } catch (error) {
+      console.error("Leave open match error:", error);
+      res.status(500).json({ error: "Failed to leave match" });
+    }
+  });
+
+  // ==================== PLAYER BOOKING PREFERENCES (Phase 4) ====================
+
+  // Get booking preferences
+  app.get("/api/player/booking-preferences", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      if (!playerId) {
+        return res.status(401).json({ error: "Player profile required" });
+      }
+
+      const [prefs] = await db
+        .select()
+        .from(playerBookingPreferences)
+        .where(eq(playerBookingPreferences.playerId, playerId));
+
+      res.json(prefs || null);
+    } catch (error) {
+      console.error("Get booking preferences error:", error);
+      res.status(500).json({ error: "Failed to get preferences" });
+    }
+  });
+
+  // Update booking preferences
+  app.put("/api/player/booking-preferences", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      if (!playerId) {
+        return res.status(401).json({ error: "Player profile required" });
+      }
+
+      const {
+        preferredDays,
+        preferredTimeWindows,
+        preferredSurfaces,
+        preferredCourts,
+        autoAcceptFriendInvites,
+        openToOpenMatches,
+        preferredMatchType,
+        notifyOnOpenMatches,
+        notifyOnFriendBookings,
+      } = req.body;
+
+      const [existing] = await db
+        .select()
+        .from(playerBookingPreferences)
+        .where(eq(playerBookingPreferences.playerId, playerId));
+
+      let result;
+      if (existing) {
+        [result] = await db
+          .update(playerBookingPreferences)
+          .set({
+            preferredDays,
+            preferredTimeWindows,
+            preferredSurfaces,
+            preferredCourts,
+            autoAcceptFriendInvites,
+            openToOpenMatches,
+            preferredMatchType,
+            notifyOnOpenMatches,
+            notifyOnFriendBookings,
+            updatedAt: new Date(),
+          })
+          .where(eq(playerBookingPreferences.playerId, playerId))
+          .returning();
+      } else {
+        [result] = await db
+          .insert(playerBookingPreferences)
+          .values({
+            playerId,
+            preferredDays,
+            preferredTimeWindows,
+            preferredSurfaces,
+            preferredCourts,
+            autoAcceptFriendInvites,
+            openToOpenMatches,
+            preferredMatchType,
+            notifyOnOpenMatches,
+            notifyOnFriendBookings,
+          })
+          .returning();
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Update booking preferences error:", error);
+      res.status(500).json({ error: "Failed to update preferences" });
+    }
+  });
+
+  // Get smart suggestions based on booking history
+  app.get("/api/player/booking-suggestions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const userId = req.user?.userId;
+      if (!playerId || !userId) {
+        return res.status(401).json({ error: "Player profile required" });
+      }
+
+      // Get user's past bookings to analyze patterns
+      const pastBookings = await storage.getUserCourtBookings(userId, {
+        status: "completed",
+      });
+
+      // Analyze patterns
+      const dayFrequency: Record<string, number> = {};
+      const timeFrequency: Record<string, number> = {};
+      const courtFrequency: Record<string, number> = {};
+
+      for (const booking of pastBookings.slice(-20)) {
+        const dayOfWeek = new Date(booking.date).toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
+        dayFrequency[dayOfWeek] = (dayFrequency[dayOfWeek] || 0) + 1;
+        
+        const hour = parseInt(booking.startTime.split(":")[0]);
+        const timeSlot = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+        timeFrequency[timeSlot] = (timeFrequency[timeSlot] || 0) + 1;
+
+        courtFrequency[booking.courtId] = (courtFrequency[booking.courtId] || 0) + 1;
+      }
+
+      // Get top preferences
+      const sortedDays = Object.entries(dayFrequency).sort((a, b) => b[1] - a[1]);
+      const sortedTimes = Object.entries(timeFrequency).sort((a, b) => b[1] - a[1]);
+      const sortedCourts = Object.entries(courtFrequency).sort((a, b) => b[1] - a[1]);
+
+      res.json({
+        preferredDays: sortedDays.slice(0, 3).map(([day]) => day),
+        preferredTimes: sortedTimes.slice(0, 2).map(([time]) => time),
+        favoriteCourtIds: sortedCourts.slice(0, 2).map(([courtId]) => courtId),
+        totalBookings: pastBookings.length,
+        suggestions: [
+          sortedDays[0] ? `You usually play on ${sortedDays[0][0]}s` : null,
+          sortedTimes[0] ? `Your favorite time is ${sortedTimes[0][0]}` : null,
+        ].filter(Boolean),
+      });
+    } catch (error) {
+      console.error("Get booking suggestions error:", error);
+      res.status(500).json({ error: "Failed to get suggestions" });
     }
   });
 

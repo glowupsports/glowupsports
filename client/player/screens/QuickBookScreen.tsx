@@ -6,22 +6,33 @@ import {
   ScrollView,
   Pressable,
   Alert,
+  Modal,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import Animated, { FadeIn, FadeInDown, SlideInUp } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown, SlideInUp, ZoomIn } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, FontSizes } from "@/constants/theme";
+import { Colors, Spacing, FontSizes, BorderRadius, Typography } from "@/constants/theme";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { LockedScreen } from "../components/LockedScreen";
 import { DateRailSelector } from "../components/DateRailSelector";
 import { TimeSlotGrid, CourtRow, TimeSlot } from "../components/TimeSlotGrid";
 import { BookingConfirmationCard } from "../components/BookingConfirmationCard";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import FriendSelector from "../components/FriendSelector";
+import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
+
+interface SelectedFriend {
+  id: string;
+  name: string;
+  photoUrl: string | null;
+  level: number;
+  ballLevel: string | null;
+}
 
 type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
 
@@ -62,6 +73,10 @@ export default function QuickBookScreen() {
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
   const [bookingStep, setBookingStep] = useState<1 | 2 | 3>(1);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showFriendSelector, setShowFriendSelector] = useState(false);
+  const [selectedFriends, setSelectedFriends] = useState<SelectedFriend[]>([]);
+  const [bookWithFriends, setBookWithFriends] = useState(false);
+  const [createOpenMatch, setCreateOpenMatch] = useState(false);
 
   const dateStr = formatDateForAPI(selectedDate);
 
@@ -77,13 +92,15 @@ export default function QuickBookScreen() {
   });
 
   const bookMutation = useMutation({
-    mutationFn: async (data: { courtId: string; date: string; time: string }) => {
+    mutationFn: async (data: { courtId: string; date: string; time: string; inviteFriends?: string[]; openMatch?: boolean }) => {
       const response = await apiRequest(`${getApiUrl()}/api/courts/${data.courtId}/book`, {
         method: "POST",
         body: JSON.stringify({
           date: data.date,
           startTime: data.time,
           endTime: calculateEndTime(data.time),
+          inviteFriendIds: data.inviteFriends,
+          createOpenMatch: data.openMatch,
         }),
       });
       return response;
@@ -149,11 +166,37 @@ export default function QuickBookScreen() {
   const handleConfirmBooking = () => {
     if (!selectedSlot?.courtId) return;
 
+    const friendIds = bookWithFriends && selectedFriends.length > 0 
+      ? selectedFriends.map(f => f.id) 
+      : undefined;
+
     bookMutation.mutate({
       courtId: selectedSlot.courtId,
       date: dateStr,
       time: selectedSlot.time,
+      inviteFriends: friendIds,
+      openMatch: createOpenMatch && !bookWithFriends,
     });
+  };
+
+  const totalPrice = selectedSlot?.price ? parseFloat(selectedSlot.price) : 0;
+  const splitPrice = bookWithFriends && selectedFriends.length > 0 
+    ? totalPrice / (selectedFriends.length + 1) 
+    : totalPrice;
+  const currency = selectedSlot?.currency || "AED";
+
+  const handleToggleBookWithFriends = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setBookWithFriends(!bookWithFriends);
+    if (!bookWithFriends) {
+      setShowFriendSelector(true);
+      setCreateOpenMatch(false);
+    }
+  };
+
+  const handleToggleCreateOpenMatch = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setCreateOpenMatch(!createOpenMatch);
   };
 
   const handleCancelBooking = () => {
@@ -259,13 +302,54 @@ export default function QuickBookScreen() {
             <BookingConfirmationCard
               selectedDate={selectedDate}
               selectedSlot={selectedSlot}
-              xpReward={50}
+              xpReward={createOpenMatch ? 75 : 50}
               onConfirm={handleConfirmBooking}
               onCancel={handleCancelBooking}
               isLoading={bookMutation.isPending}
+              bookWithFriends={bookWithFriends}
+              selectedFriends={selectedFriends}
+              splitPrice={splitPrice}
+              onToggleBookWithFriends={handleToggleBookWithFriends}
+              onEditFriends={() => setShowFriendSelector(true)}
+              createOpenMatch={createOpenMatch}
+              onToggleCreateOpenMatch={handleToggleCreateOpenMatch}
             />
           )}
         </ScrollView>
+
+        <Modal
+          visible={showFriendSelector}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowFriendSelector(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Pressable onPress={() => setShowFriendSelector(false)} style={styles.modalCloseButton}>
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+              <Text style={styles.modalTitle}>Select Friends</Text>
+              <Pressable 
+                onPress={() => {
+                  setShowFriendSelector(false);
+                  if (selectedFriends.length === 0) {
+                    setBookWithFriends(false);
+                  }
+                }} 
+                style={styles.modalDoneButton}
+              >
+                <Text style={styles.modalDoneText}>Done</Text>
+              </Pressable>
+            </View>
+            <View style={styles.modalContent}>
+              <FriendSelector
+                selectedFriends={selectedFriends}
+                onSelectionChange={setSelectedFriends}
+                maxSelection={3}
+              />
+            </View>
+          </View>
+        </Modal>
       </View>
     </LockedScreen>
   );
@@ -398,6 +482,41 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
     color: Colors.dark.textSecondary,
   },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  modalCloseButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalTitle: {
+    fontSize: FontSizes.lg,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  modalDoneButton: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  modalDoneText: {
+    fontSize: FontSizes.md,
+    fontWeight: "600",
+    color: Colors.dark.primary,
+  },
+  modalContent: {
+    flex: 1,
+    padding: Spacing.lg,
+  },
 });
-
-export default QuickBookScreen;

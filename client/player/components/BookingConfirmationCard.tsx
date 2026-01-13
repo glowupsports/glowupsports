@@ -21,6 +21,14 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, FontSizes } from "@/constants/theme";
 import { TimeSlot } from "./TimeSlotGrid";
 
+interface SelectedFriend {
+  id: string;
+  name: string;
+  photoUrl: string | null;
+  level: number;
+  ballLevel: string | null;
+}
+
 interface BookingConfirmationCardProps {
   selectedDate: Date;
   selectedSlot: TimeSlot;
@@ -28,6 +36,13 @@ interface BookingConfirmationCardProps {
   onConfirm: () => void;
   onCancel: () => void;
   isLoading?: boolean;
+  bookWithFriends?: boolean;
+  selectedFriends?: SelectedFriend[];
+  splitPrice?: number;
+  onToggleBookWithFriends?: () => void;
+  onEditFriends?: () => void;
+  createOpenMatch?: boolean;
+  onToggleCreateOpenMatch?: () => void;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -45,6 +60,13 @@ export function BookingConfirmationCard({
   onConfirm,
   onCancel,
   isLoading = false,
+  bookWithFriends = false,
+  selectedFriends = [],
+  splitPrice,
+  onToggleBookWithFriends,
+  onEditFriends,
+  createOpenMatch = false,
+  onToggleCreateOpenMatch,
 }: BookingConfirmationCardProps) {
   const buttonScale = useSharedValue(1);
   const xpPulse = useSharedValue(1);
@@ -120,15 +142,111 @@ export function BookingConfirmationCard({
               <View style={styles.detailIcon}>
                 <Ionicons name="card" size={20} color={Colors.dark.primary} />
               </View>
-              <View>
+              <View style={styles.priceContainer}>
                 <Text style={styles.detailLabel}>Price</Text>
-                <Text style={styles.detailValue}>
-                  {selectedSlot.currency || "€"}{selectedSlot.price}
-                </Text>
+                <View style={styles.priceRow}>
+                  <Text style={[styles.detailValue, bookWithFriends && selectedFriends.length > 0 && styles.strikethrough]}>
+                    {selectedSlot.currency || "AED"} {selectedSlot.price}
+                  </Text>
+                  {bookWithFriends && selectedFriends.length > 0 && splitPrice !== undefined && (
+                    <Text style={styles.splitPriceValue}>
+                      {selectedSlot.currency || "AED"} {splitPrice.toFixed(2)}/each
+                    </Text>
+                  )}
+                </View>
               </View>
             </View>
           )}
         </View>
+
+        {onToggleBookWithFriends && (
+          <Pressable 
+            onPress={onToggleBookWithFriends}
+            style={[styles.friendsToggle, bookWithFriends && styles.friendsToggleActive]}
+          >
+            <View style={styles.friendsToggleLeft}>
+              <Ionicons 
+                name={bookWithFriends ? "people" : "people-outline"} 
+                size={22} 
+                color={bookWithFriends ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+              />
+              <Text style={[styles.friendsToggleText, bookWithFriends && styles.friendsToggleTextActive]}>
+                Book with Friends
+              </Text>
+            </View>
+            <View style={[styles.toggleSwitch, bookWithFriends && styles.toggleSwitchActive]}>
+              <View style={[styles.toggleThumb, bookWithFriends && styles.toggleThumbActive]} />
+            </View>
+          </Pressable>
+        )}
+
+        {bookWithFriends && selectedFriends.length > 0 && (
+          <View style={styles.friendsPreview}>
+            <View style={styles.friendsAvatars}>
+              {selectedFriends.slice(0, 3).map((friend, index) => (
+                <View key={friend.id} style={[styles.friendAvatarWrapper, { marginLeft: index > 0 ? -8 : 0 }]}>
+                  <View style={styles.friendAvatarPlaceholder}>
+                    <Ionicons name="person" size={14} color={Colors.dark.text} />
+                  </View>
+                </View>
+              ))}
+              {selectedFriends.length > 3 && (
+                <View style={[styles.friendAvatarWrapper, { marginLeft: -8 }]}>
+                  <View style={styles.friendAvatarMore}>
+                    <Text style={styles.friendAvatarMoreText}>+{selectedFriends.length - 3}</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+            <Text style={styles.friendsNames}>
+              {selectedFriends.map(f => f.name.split(" ")[0]).join(", ")}
+            </Text>
+            {onEditFriends && (
+              <Pressable onPress={onEditFriends} style={styles.editFriendsButton}>
+                <Ionicons name="pencil" size={14} color={Colors.dark.xpCyan} />
+              </Pressable>
+            )}
+          </View>
+        )}
+
+        {onToggleCreateOpenMatch && !bookWithFriends && (
+          <Pressable 
+            onPress={onToggleCreateOpenMatch}
+            style={[styles.friendsToggle, createOpenMatch && styles.openMatchToggleActive]}
+          >
+            <View style={styles.friendsToggleLeft}>
+              <Ionicons 
+                name={createOpenMatch ? "tennisball" : "tennisball-outline"} 
+                size={22} 
+                color={createOpenMatch ? Colors.dark.gold : Colors.dark.textMuted} 
+              />
+              <View>
+                <Text style={[styles.friendsToggleText, createOpenMatch && styles.openMatchToggleTextActive]}>
+                  Create Open Match
+                </Text>
+                <Text style={styles.openMatchSubtext}>
+                  Let others join your court booking
+                </Text>
+              </View>
+            </View>
+            <View style={[styles.toggleSwitch, createOpenMatch && styles.openMatchToggleSwitchActive]}>
+              <View style={[styles.toggleThumb, createOpenMatch && styles.openMatchToggleThumbActive]} />
+            </View>
+          </Pressable>
+        )}
+
+        {createOpenMatch && (
+          <View style={styles.openMatchInfo}>
+            <View style={styles.openMatchInfoRow}>
+              <Ionicons name="flash" size={16} color={Colors.dark.gold} />
+              <Text style={styles.openMatchInfoText}>+25 XP bonus for hosting</Text>
+            </View>
+            <View style={styles.openMatchInfoRow}>
+              <Ionicons name="people" size={16} color={Colors.dark.primary} />
+              <Text style={styles.openMatchInfoText}>Others can join and split costs</Text>
+            </View>
+          </View>
+        )}
 
         <Animated.View entering={ZoomIn.delay(200).duration(300)} style={styles.xpContainer}>
           <Animated.View style={xpAnimatedStyle}>
@@ -281,6 +399,162 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
     fontWeight: "700",
     color: Colors.dark.text,
+  },
+  priceContainer: {
+    flex: 1,
+  },
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  strikethrough: {
+    textDecorationLine: "line-through",
+    color: Colors.dark.textMuted,
+  },
+  splitPriceValue: {
+    fontSize: FontSizes.md,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  friendsToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: 12,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  friendsToggleActive: {
+    backgroundColor: Colors.dark.xpCyan + "15",
+    borderColor: Colors.dark.xpCyan + "40",
+  },
+  friendsToggleLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  friendsToggleText: {
+    fontSize: FontSizes.md,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  friendsToggleTextActive: {
+    color: Colors.dark.text,
+  },
+  toggleSwitch: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    justifyContent: "center",
+    paddingHorizontal: 2,
+  },
+  toggleSwitchActive: {
+    backgroundColor: Colors.dark.xpCyan,
+  },
+  toggleThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.dark.textMuted,
+  },
+  toggleThumbActive: {
+    backgroundColor: Colors.dark.text,
+    alignSelf: "flex-end",
+  },
+  friendsPreview: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: 12,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  friendsAvatars: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  friendAvatarWrapper: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: Colors.dark.backgroundSecondary,
+    overflow: "hidden",
+  },
+  friendAvatarPlaceholder: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: Colors.dark.xpCyan + "30",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 14,
+  },
+  friendAvatarMore: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 14,
+  },
+  friendAvatarMoreText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  friendsNames: {
+    flex: 1,
+    fontSize: FontSizes.sm,
+    color: Colors.dark.textSecondary,
+  },
+  editFriendsButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  openMatchToggleActive: {
+    backgroundColor: Colors.dark.gold + "15",
+    borderColor: Colors.dark.gold + "40",
+  },
+  openMatchToggleTextActive: {
+    color: Colors.dark.text,
+  },
+  openMatchSubtext: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  openMatchToggleSwitchActive: {
+    backgroundColor: Colors.dark.gold,
+  },
+  openMatchToggleThumbActive: {
+    backgroundColor: Colors.dark.text,
+    alignSelf: "flex-end",
+  },
+  openMatchInfo: {
+    backgroundColor: Colors.dark.gold + "10",
+    borderRadius: 12,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: Spacing.xs,
+  },
+  openMatchInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  openMatchInfoText: {
+    fontSize: FontSizes.sm,
+    color: Colors.dark.textSecondary,
   },
 });
 

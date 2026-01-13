@@ -504,23 +504,43 @@ export default function PlayScreen() {
         </Pressable>
       </View>
 
-      <Pressable 
-        style={styles.findMatchButton}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          navigation.navigate("PlayerFinder" as never);
-        }}
-      >
-        <LinearGradient
-          colors={[Colors.dark.primary, Colors.dark.primaryGlow]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.findMatchGradient}
+      <View style={styles.quickActions}>
+        <Pressable 
+          style={styles.findMatchButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            navigation.navigate("PlayerFinder" as never);
+          }}
         >
-          <Ionicons name="flame" size={22} color={Colors.dark.backgroundRoot} />
-          <Text style={styles.findMatchText}>Find a Match</Text>
-        </LinearGradient>
-      </Pressable>
+          <LinearGradient
+            colors={[Colors.dark.primary, Colors.dark.primaryGlow]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.findMatchGradient}
+          >
+            <Ionicons name="flame" size={22} color={Colors.dark.backgroundRoot} />
+            <Text style={styles.findMatchText}>Find a Match</Text>
+          </LinearGradient>
+        </Pressable>
+
+        <Pressable 
+          style={styles.openMatchesButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            navigation.navigate("OpenMatches" as never);
+          }}
+        >
+          <LinearGradient
+            colors={[Colors.dark.xpCyan, "#00A3D9"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.findMatchGradient}
+          >
+            <Ionicons name="tennisball" size={20} color={Colors.dark.backgroundRoot} />
+            <Text style={styles.findMatchText}>Open Matches</Text>
+          </LinearGradient>
+        </Pressable>
+      </View>
 
       <View style={styles.tabs}>
         {TAB_OPTIONS.map((tab) => (
@@ -676,13 +696,25 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
   },
-  findMatchButton: {
-    marginHorizontal: Spacing.lg,
+  quickActions: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.lg,
     marginBottom: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  findMatchButton: {
+    flex: 1,
     borderRadius: BorderRadius.full,
     overflow: "hidden",
     borderWidth: 2,
     borderColor: Colors.dark.primaryGlow + "60",
+  },
+  openMatchesButton: {
+    flex: 1,
+    borderRadius: BorderRadius.full,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: Colors.dark.xpCyan + "60",
   },
   findMatchGradient: {
     flexDirection: "row",
