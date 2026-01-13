@@ -15,6 +15,8 @@ interface NearbyPlayer {
   level: string;
   status: "available" | "playing" | "offline";
   playedTogether: number;
+  profilePhotoUrl?: string;
+  playerLevel?: number;
 }
 
 interface OpenSession {

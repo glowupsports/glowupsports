@@ -1,76 +1,47 @@
 import React from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform } from "react-native";
-import { BlurView } from "expo-blur";
-import { LinearGradient } from "expo-linear-gradient";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import Animated, { FadeInRight } from "react-native-reanimated";
+import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
+import { Feather } from "@expo/vector-icons";
+import Animated, { FadeInRight, FadeIn } from "react-native-reanimated";
 import { ProTennisColors, Spacing, BorderRadius } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
-
-interface DiscoveryCard {
-  id: string;
-  type: "players" | "challenge" | "sessions" | "events";
-  title: string;
-  subtitle: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  color: string;
-  route: string;
-  preview?: string;
-}
+import { GlowAvatar } from "./GlowAvatar";
+import { NeonEdgeCard } from "./GlassCard";
+import { getStaticAssetsUrl } from "@/lib/query-client";
 
 export function SocialDiscoveryStrip() {
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
 
   const availablePlayers = state.nearbyPlayers.filter(p => p.status === "available");
-  const topPlayer = availablePlayers[0];
+  const topPlayers = availablePlayers.slice(0, 4);
 
-  const discoveryCards: DiscoveryCard[] = [
-    {
-      id: "players",
-      type: "players",
-      title: "Players Near You",
-      subtitle: `${availablePlayers.length} available`,
-      icon: "people-outline",
-      color: ProTennisColors.neonCyan,
-      route: "PlayerFinder",
-      preview: topPlayer ? `${topPlayer.name} (${topPlayer.level})` : undefined,
-    },
-    {
-      id: "challenge",
-      type: "challenge",
-      title: "Challenge",
-      subtitle: "1v1 match",
-      icon: "flash-outline",
-      color: "#FF6B6B",
-      route: "OpenMatches",
-    },
-    {
-      id: "sessions",
-      type: "sessions",
-      title: "Open Sessions",
-      subtitle: `${state.openSessions.length} today`,
-      icon: "calendar-outline",
-      color: ProTennisColors.electricGreen,
-      route: "LessonBooking",
-      preview: state.openSessions[0] ? `${state.openSessions[0].time} - ${state.openSessions[0].spotsLeft} spots` : undefined,
-    },
-    {
-      id: "events",
-      type: "events",
-      title: "Events",
-      subtitle: "Upcoming",
-      icon: "trophy-outline",
-      color: "#FFD93D",
-      route: "Events",
-    },
-  ];
-
-  const handlePress = (card: DiscoveryCard) => {
+  const handlePlayersPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate(card.route);
+    navigation.navigate("PlayerFinder");
+  };
+
+  const handleChallengePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("OpenMatches");
+  };
+
+  const handleSessionsPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("LessonBooking");
+  };
+
+  const handleEventsPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("Events");
+  };
+
+  const getAvatarSource = (player: typeof state.nearbyPlayers[0]) => {
+    if (player.profilePhotoUrl) {
+      return `${getStaticAssetsUrl()}${player.profilePhotoUrl}`;
+    }
+    return null;
   };
 
   return (
@@ -78,7 +49,7 @@ export function SocialDiscoveryStrip() {
       <View style={styles.header}>
         <Text style={styles.title}>PLAY & MEET</Text>
         <View style={styles.badge}>
-          <Ionicons name="pulse" size={12} color={ProTennisColors.electricGreen} />
+          <View style={styles.liveDot} />
           <Text style={styles.badgeText}>LIVE</Text>
         </View>
       </View>
@@ -88,41 +59,125 @@ export function SocialDiscoveryStrip() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {discoveryCards.map((card, index) => (
-          <Animated.View
-            key={card.id}
-            entering={FadeInRight.delay(index * 80).duration(400)}
-          >
-            <Pressable style={styles.card} onPress={() => handlePress(card)}>
-              {Platform.OS === "ios" ? (
-                <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill}>
-                  <LinearGradient
-                    colors={[ProTennisColors.surfaceCard + "90", ProTennisColors.surfaceDark + "95"]}
-                    style={StyleSheet.absoluteFill}
-                  />
-                </BlurView>
-              ) : (
-                <View style={[StyleSheet.absoluteFill, { backgroundColor: ProTennisColors.surfaceCard }]} />
-              )}
-
-              <View style={styles.cardContent}>
-                <View style={[styles.iconContainer, { borderColor: card.color + "50" }]}>
-                  <Ionicons name={card.icon} size={20} color={card.color} />
-                </View>
-                <Text style={styles.cardTitle}>{card.title}</Text>
-                <Text style={styles.cardSubtitle}>{card.subtitle}</Text>
-                {card.preview ? (
-                  <View style={styles.previewContainer}>
-                    <View style={styles.previewDot} />
-                    <Text style={styles.previewText} numberOfLines={1}>{card.preview}</Text>
+        <Animated.View entering={FadeInRight.delay(0).duration(400)}>
+          <Pressable onPress={handlePlayersPress}>
+            <NeonEdgeCard color={ProTennisColors.neonCyan} glowIntensity="medium" style={styles.playersCard}>
+              <View style={styles.playersContent}>
+                <View style={styles.playersHeader}>
+                  <Text style={styles.playersTitle}>Players Near You</Text>
+                  <View style={styles.countBadge}>
+                    <Text style={styles.countText}>{availablePlayers.length}</Text>
                   </View>
-                ) : null}
-              </View>
+                </View>
 
-              <View style={[styles.accentLine, { backgroundColor: card.color }]} />
-            </Pressable>
-          </Animated.View>
-        ))}
+                {topPlayers.length > 0 ? (
+                  <View style={styles.avatarsRow}>
+                    {topPlayers.map((player, index) => (
+                      <Animated.View
+                        key={player.id}
+                        entering={FadeIn.delay(100 + index * 50)}
+                        style={{ marginLeft: index > 0 ? -12 : 0, zIndex: 10 - index }}
+                      >
+                        <GlowAvatar
+                          source={getAvatarSource(player)}
+                          name={player.name}
+                          size="sm"
+                          ballLevel={player.level}
+                          showGlow={index === 0}
+                          glowIntensity="low"
+                          status={player.status}
+                        />
+                      </Animated.View>
+                    ))}
+                    {availablePlayers.length > 4 && (
+                      <View style={styles.moreCount}>
+                        <Text style={styles.moreCountText}>+{availablePlayers.length - 4}</Text>
+                      </View>
+                    )}
+                  </View>
+                ) : (
+                  <Text style={styles.noPlayersText}>Check back soon</Text>
+                )}
+
+                {topPlayers[0] && (
+                  <View style={styles.topPlayerInfo}>
+                    <Text style={styles.topPlayerName}>{topPlayers[0].name}</Text>
+                    <View style={styles.levelPill}>
+                      <Text style={styles.levelPillText}>{topPlayers[0].level}</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </NeonEdgeCard>
+          </Pressable>
+        </Animated.View>
+
+        <Animated.View entering={FadeInRight.delay(80).duration(400)}>
+          <Pressable onPress={handleChallengePress}>
+            <NeonEdgeCard color="#FF6B6B" glowIntensity="medium" style={styles.actionCard}>
+              <View style={styles.actionContent}>
+                <View style={[styles.actionIcon, { borderColor: "#FF6B6B40" }]}>
+                  <Feather name="zap" size={22} color="#FF6B6B" />
+                </View>
+                <Text style={styles.actionTitle}>Challenge</Text>
+                <Text style={styles.actionSubtitle}>1v1 Match</Text>
+                <View style={styles.actionArrow}>
+                  <Feather name="arrow-right" size={14} color="#FF6B6B" />
+                </View>
+              </View>
+            </NeonEdgeCard>
+          </Pressable>
+        </Animated.View>
+
+        <Animated.View entering={FadeInRight.delay(160).duration(400)}>
+          <Pressable onPress={handleSessionsPress}>
+            <NeonEdgeCard color={ProTennisColors.electricGreen} glowIntensity="medium" style={styles.sessionCard}>
+              <View style={styles.sessionContent}>
+                <View style={styles.sessionHeader}>
+                  <Text style={styles.sessionTitle}>Open Sessions</Text>
+                  <View style={[styles.countBadge, { backgroundColor: `${ProTennisColors.electricGreen}30` }]}>
+                    <Text style={[styles.countText, { color: ProTennisColors.electricGreen }]}>
+                      {state.openSessions.length}
+                    </Text>
+                  </View>
+                </View>
+
+                {state.openSessions[0] ? (
+                  <View style={styles.nextSession}>
+                    <Text style={styles.sessionTime}>{state.openSessions[0].time}</Text>
+                    <Text style={styles.sessionSpots}>
+                      {state.openSessions[0].spotsLeft} spots left
+                    </Text>
+                    {state.openSessions[0].coachName && (
+                      <Text style={styles.sessionCoach}>
+                        with {state.openSessions[0].coachName}
+                      </Text>
+                    )}
+                  </View>
+                ) : (
+                  <Text style={styles.noSessionsText}>No sessions today</Text>
+                )}
+              </View>
+            </NeonEdgeCard>
+          </Pressable>
+        </Animated.View>
+
+        <Animated.View entering={FadeInRight.delay(240).duration(400)}>
+          <Pressable onPress={handleEventsPress}>
+            <NeonEdgeCard color="#FFD93D" glowIntensity="low" style={styles.actionCard}>
+              <View style={styles.actionContent}>
+                <View style={[styles.actionIcon, { borderColor: "#FFD93D40" }]}>
+                  <Feather name="award" size={22} color="#FFD93D" />
+                </View>
+                <Text style={styles.actionTitle}>Events</Text>
+                <Text style={styles.actionSubtitle}>Tournaments</Text>
+                <View style={styles.actionArrow}>
+                  <Feather name="arrow-right" size={14} color="#FFD93D" />
+                </View>
+              </View>
+            </NeonEdgeCard>
+          </Pressable>
+        </Animated.View>
       </ScrollView>
     </View>
   );
@@ -153,6 +208,12 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: BorderRadius.sm,
   },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: ProTennisColors.electricGreen,
+  },
   badgeText: {
     fontSize: 9,
     fontWeight: "700",
@@ -162,61 +223,159 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: Spacing.lg,
     gap: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
-  card: {
-    width: 140,
-    borderRadius: BorderRadius.md,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: ProTennisColors.surfaceElevated,
+  playersCard: {
+    width: 180,
+    minHeight: 140,
   },
-  cardContent: {
+  playersContent: {
     padding: Spacing.md,
-    gap: Spacing.xs,
-    minHeight: 120,
+    gap: Spacing.sm,
   },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    justifyContent: "center",
+  playersHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: ProTennisColors.midnightBlue + "60",
-    marginBottom: Spacing.xs,
   },
-  cardTitle: {
-    fontSize: 12,
-    fontWeight: "700",
+  playersTitle: {
+    fontSize: 13,
+    fontWeight: "600",
     color: ProTennisColors.white,
   },
-  cardSubtitle: {
-    fontSize: 10,
-    color: ProTennisColors.textMuted,
+  countBadge: {
+    backgroundColor: `${ProTennisColors.neonCyan}30`,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
   },
-  previewContainer: {
+  countText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: ProTennisColors.neonCyan,
+  },
+  avatarsRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    marginTop: 4,
+    marginVertical: Spacing.sm,
   },
-  previewDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: ProTennisColors.electricGreen,
+  moreCount: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: ProTennisColors.surfaceElevated,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: -8,
+    borderWidth: 2,
+    borderColor: ProTennisColors.surfaceDark,
   },
-  previewText: {
-    fontSize: 9,
-    color: ProTennisColors.electricGreen,
-    flex: 1,
+  moreCountText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: ProTennisColors.textMuted,
   },
-  accentLine: {
+  noPlayersText: {
+    fontSize: 12,
+    color: ProTennisColors.textMuted,
+    marginVertical: Spacing.md,
+  },
+  topPlayerInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  topPlayerName: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: ProTennisColors.textSecondary,
+  },
+  levelPill: {
+    backgroundColor: `${ProTennisColors.neonCyan}20`,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 1,
+    borderRadius: BorderRadius.xs,
+  },
+  levelPillText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: ProTennisColors.neonCyan,
+    textTransform: "capitalize",
+  },
+  actionCard: {
+    width: 120,
+    minHeight: 140,
+  },
+  actionContent: {
+    padding: Spacing.md,
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  actionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
+  },
+  actionTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: ProTennisColors.white,
+    textAlign: "center",
+  },
+  actionSubtitle: {
+    fontSize: 11,
+    color: ProTennisColors.textMuted,
+    textAlign: "center",
+  },
+  actionArrow: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 2,
-    opacity: 0.5,
+    bottom: Spacing.md,
+    right: Spacing.md,
+  },
+  sessionCard: {
+    width: 160,
+    minHeight: 140,
+  },
+  sessionContent: {
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  sessionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  sessionTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: ProTennisColors.white,
+  },
+  nextSession: {
+    marginTop: Spacing.sm,
+  },
+  sessionTime: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: ProTennisColors.electricGreen,
+    fontVariant: ["tabular-nums"],
+  },
+  sessionSpots: {
+    fontSize: 12,
+    color: ProTennisColors.textSecondary,
+    marginTop: 2,
+  },
+  sessionCoach: {
+    fontSize: 11,
+    color: ProTennisColors.textMuted,
+    marginTop: 2,
+  },
+  noSessionsText: {
+    fontSize: 12,
+    color: ProTennisColors.textMuted,
+    marginTop: Spacing.md,
   },
 });

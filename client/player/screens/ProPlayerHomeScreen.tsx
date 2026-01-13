@@ -15,6 +15,8 @@ import { BookingHub } from "@/player/components/BookingHub";
 import { MiniFeed } from "@/player/components/MiniFeed";
 import { ProgressInsights } from "@/player/components/ProgressInsights";
 import { TrackingBanner } from "@/player/components/TrackingBanner";
+import { SessionHeroCard } from "@/player/components/SessionHeroCard";
+import { NewsTicker } from "@/player/components/NewsTicker";
 import { QuickServeFAB } from "@/player/components/QuickServeFAB";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import Svg, { Line, Rect } from "react-native-svg";
@@ -141,10 +143,13 @@ function PlayerHomeContent() {
         {/* TRACKING BANNER - Coach is watching */}
         <TrackingBanner />
 
+        {/* SESSION HERO - Dynamic session control card */}
+        <SessionHeroCard />
+
         {/* ZONE 1 - TODAY AT A GLANCE */}
         <TodayAtAGlance />
 
-        {/* ZONE 2 - PLAY & MEET (Social Discovery) */}
+        {/* ZONE 2 - PLAY & MEET (Social Discovery with player avatars) */}
         <SocialDiscoveryStrip />
 
         {/* ZONE 3 - BOOK & PLAN */}
@@ -155,6 +160,11 @@ function PlayerHomeContent() {
 
         {/* ZONE 5 - YOUR PROGRESS */}
         <ProgressInsights />
+
+        {/* TENNIS WORLD NEWS - Live news ticker */}
+        <View style={styles.newsSection}>
+          <NewsTicker />
+        </View>
       </ScrollView>
       
       <QuickServeFAB bottomOffset={48} />
@@ -199,5 +209,9 @@ const styles = StyleSheet.create({
     top: Spacing.md,
     right: Spacing.md,
     zIndex: 10,
+  },
+  newsSection: {
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.xl,
   },
 });
