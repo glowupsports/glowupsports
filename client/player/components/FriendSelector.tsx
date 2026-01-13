@@ -12,7 +12,7 @@ import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeIn, FadeInRight, ZoomIn } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, FontSizes, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 
@@ -240,15 +240,15 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   headerTitle: {
-    fontSize: Typography.fontSizes.md,
-    fontWeight: Typography.fontWeights.semibold,
+    fontSize: FontSizes.md,
+    fontWeight: "600",
     color: Colors.dark.text,
     flex: 1,
   },
   headerCount: {
-    fontSize: Typography.fontSizes.sm,
+    fontSize: FontSizes.sm,
     color: Colors.dark.xpCyan,
-    fontWeight: Typography.fontWeights.medium,
+    fontWeight: "500",
   },
   selectedContainer: {
     marginBottom: Spacing.md,
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   selectedChipName: {
-    fontSize: Typography.fontSizes.sm,
+    fontSize: FontSizes.sm,
     color: Colors.dark.text,
     maxWidth: 80,
   },
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: Typography.fontSizes.md,
+    fontSize: FontSizes.md,
     color: Colors.dark.text,
     padding: 0,
   },
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xl,
   },
   loadingText: {
-    fontSize: Typography.fontSizes.sm,
+    fontSize: FontSizes.sm,
     color: Colors.dark.textMuted,
   },
   empty: {
@@ -324,12 +324,12 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   emptyText: {
-    fontSize: Typography.fontSizes.md,
+    fontSize: FontSizes.md,
     color: Colors.dark.textMuted,
-    fontWeight: Typography.fontWeights.medium,
+    fontWeight: "500",
   },
   emptyHint: {
-    fontSize: Typography.fontSizes.sm,
+    fontSize: FontSizes.sm,
     color: Colors.dark.textMuted,
     textAlign: "center",
     paddingHorizontal: Spacing.xl,
@@ -380,8 +380,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   friendName: {
-    fontSize: Typography.fontSizes.md,
-    fontWeight: Typography.fontWeights.medium,
+    fontSize: FontSizes.md,
+    fontWeight: "500",
     color: Colors.dark.text,
   },
   friendMeta: {
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   levelText: {
-    fontSize: Typography.fontSizes.xs,
+    fontSize: FontSizes.xs,
     color: Colors.dark.textSecondary,
   },
   ballBadge: {
