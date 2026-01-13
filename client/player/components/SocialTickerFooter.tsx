@@ -10,9 +10,9 @@ import Animated, { FadeIn, SlideInDown } from "react-native-reanimated";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-type TickerItemType = "chat" | "goal" | "streak" | "news" | "achievement" | "notification";
+export type TickerItemType = "chat" | "goal" | "streak" | "news" | "achievement" | "notification";
 
-interface TickerItem {
+export interface TickerItem {
   id: string;
   type: TickerItemType;
   icon: keyof typeof Ionicons.glyphMap;
@@ -52,13 +52,6 @@ function getColorForType(type: TickerItemType): string {
   }
 }
 
-const SAMPLE_ITEMS: TickerItem[] = [
-  { id: "1", type: "goal", icon: "flag", color: ProTennisColors.electricGreen, text: "DAILY GOAL: Hit 50 Forehands (32/50)" },
-  { id: "2", type: "streak", icon: "flame", color: ProTennisColors.warning, text: "STREAK: 5 Days Active" },
-  { id: "3", type: "achievement", icon: "trophy", color: ProTennisColors.electricGreen, text: "Max just reached Level 8!" },
-  { id: "4", type: "news", icon: "megaphone", color: ProTennisColors.neonCyan, text: "ACADEMY: Tournament starting Sunday!" },
-  { id: "5", type: "chat", icon: "chatbubble", color: ProTennisColors.white, text: "Coach: Great work on your backhand today!" },
-];
 
 function TickerContent({ items, scrollAnim }: { items: TickerItem[]; scrollAnim: RNAnimated.Value }) {
   const totalWidth = items.reduce((acc) => acc + 280, 0);
@@ -84,8 +77,12 @@ function TickerContent({ items, scrollAnim }: { items: TickerItem[]; scrollAnim:
   );
 }
 
+const EMPTY_STATE_ITEMS: TickerItem[] = [
+  { id: "empty", type: "notification", icon: "flash", color: ProTennisColors.neonCyan, text: "Welcome! Your activity feed will appear here as you play" },
+];
+
 export function SocialTickerFooter({ 
-  items = SAMPLE_ITEMS, 
+  items = [], 
   onItemPress, 
   onExpand,
   isExpanded = false 
@@ -94,13 +91,15 @@ export function SocialTickerFooter({
   const scrollAnim = useRef(new RNAnimated.Value(0)).current;
   const [isPaused, setIsPaused] = useState(false);
   
+  const displayItems = items.length > 0 ? items : EMPTY_STATE_ITEMS;
+  
   useEffect(() => {
-    if (isPaused || items.length === 0) return;
+    if (isPaused || displayItems.length === 0) return;
     
     const animation = RNAnimated.loop(
       RNAnimated.timing(scrollAnim, {
         toValue: 1,
-        duration: items.length * 8000,
+        duration: displayItems.length * 8000,
         useNativeDriver: true,
       })
     );
@@ -108,7 +107,7 @@ export function SocialTickerFooter({
     animation.start();
     
     return () => animation.stop();
-  }, [items.length, isPaused]);
+  }, [displayItems.length, isPaused]);
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -136,7 +135,7 @@ export function SocialTickerFooter({
       
       <Pressable style={styles.tickerContainer} onPress={handlePress}>
         <View style={styles.tickerMask}>
-          <TickerContent items={items} scrollAnim={scrollAnim} />
+          <TickerContent items={displayItems} scrollAnim={scrollAnim} />
         </View>
         
         <View style={styles.expandButton}>

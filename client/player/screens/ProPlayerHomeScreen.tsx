@@ -1,15 +1,14 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProTennisColors, Spacing } from "@/constants/theme";
-import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "@/coach/context/AuthContext";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
 import { CenterCourtHero } from "@/player/components/CenterCourtHero";
 import { PerformanceCenterGrid } from "@/player/components/PerformanceCenterGrid";
-import { SocialTickerFooter } from "@/player/components/SocialTickerFooter";
+import { SocialTickerFooter, TickerItem } from "@/player/components/SocialTickerFooter";
 import { QuickServeFAB } from "@/player/components/QuickServeFAB";
 import Svg, { Line, Rect } from "react-native-svg";
 
@@ -46,6 +45,43 @@ interface DashboardData {
   };
 }
 
+interface RecognitionData {
+  achievements: Array<{
+    id: string;
+    name: string;
+    description: string;
+    icon: string;
+    color: string;
+    earned: boolean;
+    earnedAt: string | null;
+  }>;
+  domainBadges: Array<{
+    id: string;
+    name: string;
+    description: string;
+    icon: string;
+    color: string;
+    earned: boolean;
+    earnedAt: string | null;
+    progress: number;
+    domainId: string;
+  }>;
+  validations: Array<{
+    id: string;
+    type: string;
+    domain: string;
+    status: string;
+    validatedAt: Date;
+  }>;
+  summary: {
+    totalAchievements: number;
+    earnedAchievements: number;
+    totalDomainBadges: number;
+    earnedDomainBadges: number;
+    totalValidations: number;
+  };
+}
+
 function CourtLinesBackground() {
   return (
     <Svg style={StyleSheet.absoluteFill} preserveAspectRatio="none">
@@ -69,13 +105,81 @@ export default function ProPlayerHomeScreen() {
     enabled: !!user?.playerId,
   });
 
+  const { data: recognitionData } = useQuery<RecognitionData>({
+    queryKey: ["/api/player/me/recognition"],
+    enabled: !!user?.playerId,
+  });
+
   useFocusEffect(
     useCallback(() => {
       if (user?.playerId) {
         queryClient.invalidateQueries({ queryKey: ["/api/player/dashboard"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/player/me/recognition"] });
       }
     }, [user?.playerId, queryClient])
   );
+
+  const tickerItems = useMemo((): TickerItem[] => {
+    const items: TickerItem[] = [];
+    
+    if (!recognitionData) return items;
+    
+    const earnedAchievements = recognitionData.achievements.filter(a => a.earned);
+    const earnedBadges = recognitionData.domainBadges.filter(b => b.earned);
+    
+    if (recognitionData.summary.earnedAchievements > 0) {
+      items.push({
+        id: "achievements-count",
+        type: "achievement",
+        icon: "trophy",
+        color: ProTennisColors.electricGreen,
+        text: `ACHIEVEMENTS: ${recognitionData.summary.earnedAchievements}/${recognitionData.summary.totalAchievements} Unlocked`,
+      });
+    }
+    
+    earnedAchievements.slice(0, 2).forEach(achievement => {
+      items.push({
+        id: `achievement-${achievement.id}`,
+        type: "achievement",
+        icon: "ribbon",
+        color: achievement.color || ProTennisColors.electricGreen,
+        text: `EARNED: ${achievement.name}`,
+      });
+    });
+    
+    earnedBadges.slice(0, 2).forEach(badge => {
+      items.push({
+        id: `badge-${badge.id}`,
+        type: "goal",
+        icon: "star",
+        color: badge.color || ProTennisColors.neonCyan,
+        text: `BADGE: ${badge.name}`,
+      });
+    });
+    
+    if (recognitionData.validations.length > 0) {
+      const latestValidation = recognitionData.validations[0];
+      items.push({
+        id: `validation-${latestValidation.id}`,
+        type: "notification",
+        icon: "checkmark-circle",
+        color: ProTennisColors.neonCyan,
+        text: `COACH VALIDATED: ${latestValidation.domain}`,
+      });
+    }
+    
+    if (recognitionData.summary.earnedDomainBadges > 0) {
+      items.push({
+        id: "domain-progress",
+        type: "streak",
+        icon: "flame",
+        color: ProTennisColors.warning,
+        text: `SKILL MASTERY: ${recognitionData.summary.earnedDomainBadges} Domains Started`,
+      });
+    }
+    
+    return items;
+  }, [recognitionData]);
 
   if (isLoading || !dashboardData) {
     return (
@@ -162,7 +266,7 @@ export default function ProPlayerHomeScreen() {
         </View>
       </ScrollView>
 
-      <SocialTickerFooter />
+      <SocialTickerFooter items={tickerItems} />
       
       <QuickServeFAB bottomOffset={60} />
     </View>
