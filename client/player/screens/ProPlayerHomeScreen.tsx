@@ -6,11 +6,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProTennisColors, Spacing } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePlayerDrawer } from "@/player/navigation/PlayerNavigator";
+import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
-import { CenterCourtHero } from "@/player/components/CenterCourtHero";
+import { CenterCourtArena } from "@/player/components/CenterCourtArena";
+import { AnalysisDesk } from "@/player/components/AnalysisDesk";
+import { StorylineStrip } from "@/player/components/StorylineStrip";
+import { LiveTicker } from "@/player/components/LiveTicker";
 import { PerformanceCenterGrid } from "@/player/components/PerformanceCenterGrid";
-import { SocialTickerFooter, TickerItem } from "@/player/components/SocialTickerFooter";
 import { QuickServeFAB } from "@/player/components/QuickServeFAB";
+import { OnAirIndicator } from "@/player/components/OnAirIndicator";
 import Svg, { Line, Rect } from "react-native-svg";
 
 interface DashboardData {
@@ -83,19 +87,20 @@ interface RecognitionData {
   };
 }
 
-function CourtLinesBackground() {
+function BroadcastBackground() {
   return (
-    <Svg style={StyleSheet.absoluteFill} preserveAspectRatio="none">
-      <Rect x="0" y="0" width="100%" height="100%" fill={ProTennisColors.midnightBlue} />
-      <Line x1="0" y1="50%" x2="100%" y2="50%" stroke={ProTennisColors.white} strokeWidth="1" opacity="0.05" />
-      <Line x1="50%" y1="0" x2="50%" y2="100%" stroke={ProTennisColors.white} strokeWidth="1" opacity="0.05" />
-      <Rect x="10%" y="20%" width="80%" height="60%" stroke={ProTennisColors.white} strokeWidth="1" fill="none" opacity="0.03" />
-      <Line x1="10%" y1="50%" x2="90%" y2="50%" stroke={ProTennisColors.white} strokeWidth="1" opacity="0.04" />
-    </Svg>
+    <View style={styles.backgroundContainer}>
+      <Svg style={StyleSheet.absoluteFill} preserveAspectRatio="none">
+        <Rect x="0" y="0" width="100%" height="100%" fill={ProTennisColors.midnightBlue} />
+        <Line x1="0" y1="33%" x2="100%" y2="33%" stroke={ProTennisColors.electricGreen} strokeWidth="0.5" opacity="0.03" />
+        <Line x1="0" y1="66%" x2="100%" y2="66%" stroke={ProTennisColors.electricGreen} strokeWidth="0.5" opacity="0.03" />
+        <Rect x="5%" y="10%" width="90%" height="80%" stroke={ProTennisColors.electricGreen} strokeWidth="0.5" fill="none" opacity="0.02" />
+      </Svg>
+    </View>
   );
 }
 
-export default function ProPlayerHomeScreen() {
+function BroadcastHomeContent() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
@@ -121,72 +126,18 @@ export default function ProPlayerHomeScreen() {
     }, [user?.playerId, queryClient])
   );
 
-  const tickerItems = useMemo((): TickerItem[] => {
-    const items: TickerItem[] = [];
-    
-    if (!recognitionData) return items;
-    
-    const earnedAchievements = recognitionData.achievements.filter(a => a.earned);
-    const earnedBadges = recognitionData.domainBadges.filter(b => b.earned);
-    
-    if (recognitionData.summary.earnedAchievements > 0) {
-      items.push({
-        id: "achievements-count",
-        type: "achievement",
-        icon: "trophy",
-        color: ProTennisColors.electricGreen,
-        text: `ACHIEVEMENTS: ${recognitionData.summary.earnedAchievements}/${recognitionData.summary.totalAchievements} Unlocked`,
-      });
-    }
-    
-    earnedAchievements.slice(0, 2).forEach(achievement => {
-      items.push({
-        id: `achievement-${achievement.id}`,
-        type: "achievement",
-        icon: "ribbon",
-        color: achievement.color || ProTennisColors.electricGreen,
-        text: `EARNED: ${achievement.name}`,
-      });
-    });
-    
-    earnedBadges.slice(0, 2).forEach(badge => {
-      items.push({
-        id: `badge-${badge.id}`,
-        type: "goal",
-        icon: "star",
-        color: badge.color || ProTennisColors.neonCyan,
-        text: `BADGE: ${badge.name}`,
-      });
-    });
-    
-    if (recognitionData.validations.length > 0) {
-      const latestValidation = recognitionData.validations[0];
-      items.push({
-        id: `validation-${latestValidation.id}`,
-        type: "notification",
-        icon: "checkmark-circle",
-        color: ProTennisColors.neonCyan,
-        text: `COACH VALIDATED: ${latestValidation.domain}`,
-      });
-    }
-    
-    if (recognitionData.summary.earnedDomainBadges > 0) {
-      items.push({
-        id: "domain-progress",
-        type: "streak",
-        icon: "flame",
-        color: ProTennisColors.warning,
-        text: `SKILL MASTERY: ${recognitionData.summary.earnedDomainBadges} Domains Started`,
-      });
-    }
-    
-    return items;
+  const stats = useMemo(() => {
+    if (!recognitionData) return undefined;
+    return {
+      earnedAchievements: recognitionData.summary.earnedAchievements,
+      totalAchievements: recognitionData.summary.totalAchievements,
+    };
   }, [recognitionData]);
 
   if (isLoading || !dashboardData) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <CourtLinesBackground />
+        <BroadcastBackground />
         <ActivityIndicator size="large" color={ProTennisColors.electricGreen} />
       </View>
     );
@@ -196,7 +147,7 @@ export default function ProPlayerHomeScreen() {
 
   const handleCheckIn = () => {
     if (nextSession) {
-      navigation.navigate("PlayerSchedule");
+      navigation.navigate("PlayerTabs", { screen: "Schedule" });
     }
   };
 
@@ -205,7 +156,7 @@ export default function ProPlayerHomeScreen() {
   };
 
   const handleFindMatch = () => {
-    navigation.navigate("OpenMatchFeed");
+    navigation.navigate("OpenMatches");
   };
 
   const handleAvatarPress = () => {
@@ -227,13 +178,13 @@ export default function ProPlayerHomeScreen() {
 
   return (
     <View style={styles.container}>
-      <CourtLinesBackground />
+      <BroadcastBackground />
       
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: insets.top, paddingBottom: 120 },
+          { paddingTop: insets.top, paddingBottom: 80 },
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -245,17 +196,27 @@ export default function ProPlayerHomeScreen() {
           />
         }
       >
-        <ProPlayerCard
-          player={player}
-          credits={credits}
-          onAvatarPress={handleAvatarPress}
-          onWalletPress={handleWalletPress}
-          onSquadPress={handleSquadPress}
-          showSquadSwitch={true}
-        />
+        {/* BROADCAST HEADER - Player ID Card with ON AIR */}
+        <View style={styles.headerSection}>
+          <ProPlayerCard
+            player={player}
+            credits={credits}
+            onAvatarPress={handleAvatarPress}
+            onWalletPress={handleWalletPress}
+            onSquadPress={handleSquadPress}
+            showSquadSwitch={true}
+          />
+          <View style={styles.onAirBadge}>
+            <OnAirIndicator size="small" />
+          </View>
+        </View>
 
-        <View style={styles.heroSection}>
-          <CenterCourtHero
+        {/* STORYLINE STRIP - What's at stake */}
+        <StorylineStrip />
+
+        {/* CENTER COURT ARENA - Main broadcast segment */}
+        <View style={styles.arenaSection}>
+          <CenterCourtArena
             nextSession={sessionWithCoach}
             onCheckIn={handleCheckIn}
             onBookSession={handleBookSession}
@@ -263,15 +224,30 @@ export default function ProPlayerHomeScreen() {
           />
         </View>
 
+        {/* ANALYSIS DESK - Stats overlay */}
+        <AnalysisDesk stats={{ sessionsThisWeek: player.streak }} />
+
+        {/* PERFORMANCE SNAPSHOTS - Quick tiles */}
         <View style={styles.performanceSection}>
           <PerformanceCenterGrid playerLevel={player.level} />
         </View>
       </ScrollView>
 
-      <SocialTickerFooter items={tickerItems} />
+      {/* LIVE TICKER - ESPN-style bottom ticker */}
+      <View style={styles.tickerContainer}>
+        <LiveTicker stats={stats} />
+      </View>
       
-      <QuickServeFAB bottomOffset={60} />
+      <QuickServeFAB bottomOffset={48} />
     </View>
+  );
+}
+
+export default function ProPlayerHomeScreen() {
+  return (
+    <PlayerStateProvider>
+      <BroadcastHomeContent />
+    </PlayerStateProvider>
   );
 }
 
@@ -284,16 +260,34 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  backgroundContainer: {
+    ...StyleSheet.absoluteFillObject,
+  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    gap: Spacing.xl,
+    gap: Spacing.sm,
   },
-  heroSection: {
-    marginTop: Spacing.md,
+  headerSection: {
+    position: "relative",
+  },
+  onAirBadge: {
+    position: "absolute",
+    top: Spacing.md,
+    right: Spacing.md,
+    zIndex: 10,
+  },
+  arenaSection: {
+    marginTop: Spacing.sm,
   },
   performanceSection: {
-    marginTop: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  tickerContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
 });
