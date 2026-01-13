@@ -15,6 +15,7 @@ import { LiveTicker } from "@/player/components/LiveTicker";
 import { PerformanceCenterGrid } from "@/player/components/PerformanceCenterGrid";
 import { QuickServeFAB } from "@/player/components/QuickServeFAB";
 import { OnAirIndicator } from "@/player/components/OnAirIndicator";
+import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import Svg, { Line, Rect } from "react-native-svg";
 
 interface DashboardData {
@@ -239,6 +240,9 @@ function BroadcastHomeContent() {
       </View>
       
       <QuickServeFAB bottomOffset={48} />
+      
+      {/* MODE SWITCHER - Dashboard switching button (top left) */}
+      <CollapsibleModeSwitcher />
     </View>
   );
 }
