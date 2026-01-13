@@ -143,10 +143,13 @@ function PlayerHomeContent() {
           </View>
         </View>
 
+        {/* TENNIS NEWS - Right under header for visibility */}
+        <NewsTicker />
+
         {/* TRACKING BANNER - Coach is watching */}
         <TrackingBanner />
 
-        {/* SESSION HERO - Dynamic session control card */}
+        {/* ZONE 2 - LIVE/NEXT TENNIS MOMENT (MEGA) */}
         <SessionHeroCard />
 
         {/* ZONE 1 - TODAY AT A GLANCE (Quick status) */}
@@ -174,11 +177,6 @@ function PlayerHomeContent() {
 
         {/* YOUR PROGRESS - Human-readable insights */}
         <ProgressInsights />
-
-        {/* TENNIS WORLD - News and updates */}
-        <View style={styles.newsSection}>
-          <NewsTicker />
-        </View>
       </ScrollView>
       
       <QuickServeFAB bottomOffset={48} />
@@ -223,10 +221,6 @@ const styles = StyleSheet.create({
     top: Spacing.md,
     right: Spacing.md,
     zIndex: 10,
-  },
-  newsSection: {
-    marginTop: Spacing.lg,
-    marginBottom: Spacing.xl,
   },
   discoverySection: {
     gap: Spacing.xl,
