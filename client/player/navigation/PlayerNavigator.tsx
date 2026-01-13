@@ -74,6 +74,7 @@ import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { PlayerDrawerProvider, usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 import { PlayerLevelProvider } from "@/player/context/PlayerLevelContext";
 import { FamilyProvider } from "@/player/context/FamilyContext";
+import { PlayerProvider as PlayerDataProvider } from "@/player/context/PlayerContext";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
@@ -733,15 +734,17 @@ export default function PlayerNavigator() {
   const playerId = user?.playerId || dashboard?.player?.id || null;
 
   return (
-    <CartProvider>
-      <FamilyProvider playerId={playerId}>
-        <PlayerLevelProvider playerId={playerId}>
-          <View style={styles.container}>
-            <PlayerStackNavigator />
-          </View>
-        </PlayerLevelProvider>
-      </FamilyProvider>
-    </CartProvider>
+    <PlayerDataProvider>
+      <CartProvider>
+        <FamilyProvider playerId={playerId}>
+          <PlayerLevelProvider playerId={playerId}>
+            <View style={styles.container}>
+              <PlayerStackNavigator />
+            </View>
+          </PlayerLevelProvider>
+        </FamilyProvider>
+      </CartProvider>
+    </PlayerDataProvider>
   );
 }
 
