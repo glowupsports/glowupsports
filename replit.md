@@ -33,6 +33,13 @@ The application employs a dark-themed gaming aesthetic with neon green and cyan 
   - **Phase 2 - Social Booking**: "Book with Friends" toggle in confirmation card allows inviting up to 3 friends with automatic cost splitting. FriendSelector modal with search and avatar display. Push notifications sent to invited friends. Database tables: `booking_invites`, `booking_invite_guests`.
   - **Phase 3 - Open Matches**: "Create Open Match" toggle to publish court bookings for others to join. OpenMatchFeedScreen with filter pills (All/Singles/Doubles), join/leave functionality, and XP bonuses (+25 XP for hosting). Database tables: `open_matches`, `open_match_slots`. API routes for get/create/join/leave operations.
   - **Phase 4 - Smart Availability**: Player booking preferences (preferred days, times, surfaces, courts). Smart suggestions based on booking history patterns. Database tables: `player_booking_preferences`, `court_availability_snapshots`. API routes for preferences CRUD and booking suggestions.
+- **Family Lobby System**: Netflix-style multi-account management for parents with multiple children:
+  - **Profile Cards**: Visual child profile cards with avatar, name, level, and outstanding balance badges
+  - **Quick-Switch**: Header dropdown allowing instant account switching without logging out
+  - **Pay All Button**: One-click bulk payment for all family members' outstanding balances
+  - **API Endpoints**: `/api/family/status` returns family members with balances, `/api/billing/pay-bulk` processes bulk payments
+  - **Database**: Players table includes `parent_email` column to link family members
+  - **Navigation**: FamilyLobbyScreen registered in PlayerNavigator with FamilyContext provider
 - **Player Level System (XP Engine)**: A comprehensive gamification system for player engagement:
   - **20-Level Progression**: Non-linear XP curve from Rookie (L1-3) to Elite (L19-20) with increasing XP requirements per level
   - **XP Bar Resets Per Level**: Like video games, the XP bar resets to 0 upon leveling up - not cumulative progress

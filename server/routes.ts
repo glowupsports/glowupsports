@@ -10,7 +10,7 @@ import { playerHolidays } from "@shared/schema";
 import { eq, sql, desc, and, ne, gt, gte, asc, inArray, isNull, isNotNull, or, count } from "drizzle-orm";
 import { 
   invoices, payments, sessionPlayers, sessionWaitlist, creditTransactions, players, 
-  locationTravelTimes, sessions, sessionFeedback,
+  locationTravelTimes, sessions, sessionFeedback, seriesPlayers, coachingSeries,
   // Social features
   posts as postsTable,
   postReactions as postReactionsTable,
