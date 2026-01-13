@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   ScrollView,
   Platform,
   Image as RNImage,
+  LayoutAnimation,
+  UIManager,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -26,13 +28,17 @@ import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from "react-native-svg";
-import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
-import { usePlayer } from "@/context/PlayerContext";
 import { getStaticAssetsUrl } from "@/lib/query-client";
+import { usePlayerLevel } from "@/player/hooks/usePlayerLevel";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const DRAWER_WIDTH = SCREEN_WIDTH * 0.85;
+const DRAWER_WIDTH = SCREEN_WIDTH * 0.88;
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 interface PlayerIdentityDrawerProps {
   visible: boolean;
@@ -48,55 +54,272 @@ interface PlayerData {
   glowScore: number;
   ballLevel: string | null;
   streak: number;
+  profilePhotoUrl?: string | null;
+  isMinor?: boolean;
 }
 
-function getPlayerTitle(level: number): string {
-  if (level >= 30) return "Legend";
-  if (level >= 25) return "Champion";
-  if (level >= 20) return "Elite Competitor";
-  if (level >= 15) return "Rising Star";
-  if (level >= 10) return "Rising Force";
-  if (level >= 7) return "Contender";
-  if (level >= 5) return "Challenger";
-  if (level >= 3) return "Rising Player";
-  if (level >= 2) return "New Challenger";
-  return "Just Started";
+interface DrawerSection {
+  id: string;
+  title: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  items: DrawerItem[];
+  showOnlyForMinor?: boolean;
 }
 
-function getXpForLevel(level: number): { current: number; required: number } {
-  const xpPerLevel = 100;
-  const currentLevelXp = (level - 1) * xpPerLevel;
-  const nextLevelXp = level * xpPerLevel;
-  return { current: currentLevelXp, required: nextLevelXp };
+interface DrawerItem {
+  id: string;
+  title: string;
+  subtitle?: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  screen: string;
+  params?: any;
+  unlockLevel?: number;
+  badge?: number;
+  comingSoon?: boolean;
 }
 
-function getLevelProgress(xp: number, level: number): number {
-  const xpInCurrentLevel = xp % 100;
-  return xpInCurrentLevel / 100;
+const DRAWER_SECTIONS: DrawerSection[] = [
+  {
+    id: "home",
+    title: "HOME",
+    icon: "home",
+    items: [
+      { id: "dashboard", title: "Dashboard", subtitle: "Your tennis hub", icon: "grid", screen: "PlayerTabs", params: { screen: "Home" } },
+    ],
+  },
+  {
+    id: "training",
+    title: "TRAINING",
+    icon: "fitness",
+    items: [
+      { id: "sessions", title: "My Sessions", subtitle: "Upcoming training", icon: "calendar", screen: "PlayerTabs", params: { screen: "Schedule" } },
+      { id: "plan", title: "My Plan & Progress", subtitle: "Academy program & XP", icon: "document-text", screen: "PlayerTabs", params: { screen: "Progress" } },
+      { id: "swinglab", title: "Swing Lab", subtitle: "Video analysis", icon: "videocam", screen: "SkillEvidence" },
+      { id: "feedback", title: "Feedback Center", subtitle: "Skill assessments", icon: "stats-chart", screen: "PlayerTabs", params: { screen: "Progress" } },
+      { id: "coachfeedback", title: "Coach Feedback", subtitle: "Session reviews", icon: "chatbubbles", screen: "PlayerMessages" },
+    ],
+  },
+  {
+    id: "matches",
+    title: "MATCHES & COMPETITION",
+    icon: "trophy",
+    items: [
+      { id: "matchprep", title: "Match Prep", subtitle: "Opponent scouting", icon: "flag", screen: "Match", unlockLevel: 7 },
+      { id: "matchlog", title: "Match Log", subtitle: "Results & history", icon: "list", screen: "Match", unlockLevel: 7 },
+      { id: "tournaments", title: "Tournaments", subtitle: "Brackets & stages", icon: "podium", screen: "Match", comingSoon: true },
+      { id: "glowrank", title: "Glow Rank", subtitle: "Performance score", icon: "trending-up", screen: "GlowLeaderboard" },
+      { id: "leaderboard", title: "Leaderboard", subtitle: "Global rankings", icon: "medal", screen: "GlowLeaderboard", unlockLevel: 5 },
+    ],
+  },
+  {
+    id: "xp",
+    title: "XP & QUESTS",
+    icon: "rocket",
+    items: [
+      { id: "dailyquests", title: "Daily Quests", subtitle: "Today's challenges", icon: "flash", screen: "Quests" },
+      { id: "weeklyquests", title: "Weekly Quests", subtitle: "This week's goals", icon: "flame", screen: "Quests" },
+      { id: "rewards", title: "Claim Rewards", subtitle: "Your earned prizes", icon: "gift", screen: "Quests" },
+      { id: "unlockedfeatures", title: "Unlocked Features", subtitle: "What's available", icon: "lock-open", screen: "Collection" },
+      { id: "levelhistory", title: "Level History", subtitle: "Your progress story", icon: "time", screen: "LevelUpHistory" },
+    ],
+  },
+  {
+    id: "career",
+    title: "MY CAREER",
+    icon: "ribbon",
+    items: [
+      { id: "skillradar", title: "Skill Radar", subtitle: "6 Pillars view", icon: "analytics", screen: "PlayerTabs", params: { screen: "Progress" } },
+      { id: "progresstracker", title: "Progress Tracker", subtitle: "Domain trends", icon: "trending-up", screen: "XPHistory" },
+      { id: "badges", title: "Badges & Titles", subtitle: "Rarity rewards", icon: "shield-checkmark", screen: "Collection" },
+      { id: "locked", title: "Locked Features", subtitle: "What unlocks next", icon: "lock-closed", screen: "Collection" },
+      { id: "collection", title: "Collection", subtitle: "Archives of growth", icon: "albums", screen: "Collection", comingSoon: true },
+    ],
+  },
+  {
+    id: "social",
+    title: "SOCIAL",
+    icon: "people",
+    items: [
+      { id: "playerfinder", title: "Player Finder", subtitle: "Browse local players", icon: "search", screen: "PlayerFinder", unlockLevel: 6 },
+      { id: "friends", title: "Friends", subtitle: "Your connections", icon: "people-circle", screen: "FriendsList" },
+      { id: "feed", title: "Community Feed", subtitle: "Posts & reactions", icon: "newspaper", screen: "PlayerTabs", params: { screen: "Community" }, unlockLevel: 4 },
+      { id: "groups", title: "Groups", subtitle: "Interest groups", icon: "layers", screen: "Groups", unlockLevel: 7 },
+      { id: "messages", title: "Messages", subtitle: "1-on-1 chat", icon: "chatbubble", screen: "PlayerMessages" },
+    ],
+  },
+  {
+    id: "bookings",
+    title: "BOOKINGS",
+    icon: "calendar",
+    items: [
+      { id: "lessonbooking", title: "Lesson Booking", subtitle: "Book with coach", icon: "person-add", screen: "LessonBooking" },
+      { id: "courtbooking", title: "Court Booking", subtitle: "Reserve courts", icon: "tennisball", screen: "CourtBooking", unlockLevel: 10 },
+      { id: "mybookings", title: "My Bookings", subtitle: "Manage reservations", icon: "bookmark", screen: "MyCourtBookings" },
+      { id: "vacation", title: "Vacation Mode", subtitle: "Set availability", icon: "airplane", screen: "Settings" },
+    ],
+  },
+  {
+    id: "shop",
+    title: "SHOP & MARKETPLACE",
+    icon: "storefront",
+    items: [
+      { id: "academyshop", title: "Academy Shop", subtitle: "Official products", icon: "bag-handle", screen: "Shop", unlockLevel: 9 },
+      { id: "marketplace", title: "Marketplace", subtitle: "Buy & sell gear", icon: "pricetag", screen: "Marketplace", unlockLevel: 12 },
+      { id: "cart", title: "Cart & Wallet", subtitle: "Glow Credits", icon: "wallet", screen: "Cart" },
+    ],
+  },
+  {
+    id: "family",
+    title: "FAMILY PORTAL",
+    icon: "people",
+    showOnlyForMinor: true,
+    items: [
+      { id: "parentdash", title: "Parent Dashboard", subtitle: "Family overview", icon: "home", screen: "ParentDashboard" },
+      { id: "lessons", title: "Lessons Overview", subtitle: "Child's sessions", icon: "school", screen: "ParentLessons" },
+      { id: "invoices", title: "Invoices", subtitle: "Payment history", icon: "receipt", screen: "ParentInvoices" },
+      { id: "creditstore", title: "Credit Store", subtitle: "Buy credits", icon: "card", screen: "ParentCreditStore" },
+      { id: "familysettings", title: "Family Settings", subtitle: "PIN & access", icon: "settings", screen: "ParentSettings" },
+    ],
+  },
+  {
+    id: "settings",
+    title: "SETTINGS & SUPPORT",
+    icon: "settings",
+    items: [
+      { id: "profile", title: "My Profile", subtitle: "Edit your info", icon: "person", screen: "PlayerTabs", params: { screen: "Profile" } },
+      { id: "preferences", title: "Preferences", subtitle: "Goals & playstyle", icon: "options", screen: "Settings" },
+      { id: "notifications", title: "Notifications", subtitle: "Alert settings", icon: "notifications", screen: "PlayerNotifications" },
+      { id: "support", title: "Support", subtitle: "Get help", icon: "help-circle", screen: "PlayerHelp" },
+    ],
+  },
+];
+
+function AccordionSection({ 
+  section, 
+  isExpanded, 
+  onToggle, 
+  playerLevel,
+  onNavigate,
+  unreadCount,
+}: { 
+  section: DrawerSection; 
+  isExpanded: boolean; 
+  onToggle: () => void;
+  playerLevel: number;
+  onNavigate: (screen: string, params?: any) => void;
+  unreadCount: number;
+}) {
+  const activeColor = isExpanded ? ProTennisColors.electricGreen : ProTennisColors.white;
+  
+  return (
+    <View style={[styles.sectionContainer, isExpanded && styles.sectionExpanded]}>
+      <Pressable style={styles.sectionHeader} onPress={onToggle}>
+        <View style={styles.sectionHeaderLeft}>
+          <View style={[styles.sectionIconWrap, isExpanded && styles.sectionIconActive]}>
+            <Ionicons name={section.icon} size={18} color={activeColor} />
+          </View>
+          <Text style={[styles.sectionTitle, { color: activeColor }]}>{section.title}</Text>
+        </View>
+        <Ionicons 
+          name={isExpanded ? "chevron-up" : "chevron-down"} 
+          size={18} 
+          color={isExpanded ? ProTennisColors.electricGreen : ProTennisColors.textMuted} 
+        />
+      </Pressable>
+      
+      {isExpanded && (
+        <View style={styles.sectionItems}>
+          {section.items.map((item) => {
+            const isLocked = item.unlockLevel && playerLevel < item.unlockLevel;
+            const badgeCount = item.id === "messages" ? unreadCount : item.badge;
+            
+            return (
+              <Pressable
+                key={item.id}
+                style={({ pressed }) => [
+                  styles.menuItem,
+                  pressed && !isLocked && styles.menuItemPressed,
+                  isLocked && styles.menuItemLocked,
+                ]}
+                onPress={() => {
+                  if (isLocked || item.comingSoon) {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                    return;
+                  }
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onNavigate(item.screen, item.params);
+                }}
+              >
+                <View style={[styles.itemIconWrap, isLocked && styles.itemIconLocked]}>
+                  <Ionicons 
+                    name={isLocked ? "lock-closed" : item.icon} 
+                    size={18} 
+                    color={isLocked ? ProTennisColors.textMuted : ProTennisColors.neonCyan} 
+                  />
+                </View>
+                <View style={styles.itemContent}>
+                  <Text style={[styles.itemTitle, isLocked && styles.itemTitleLocked]}>
+                    {item.title}
+                  </Text>
+                  <Text style={styles.itemSubtitle}>
+                    {isLocked ? `Unlock at Level ${item.unlockLevel}` : item.comingSoon ? "Coming Soon" : item.subtitle}
+                  </Text>
+                </View>
+                {badgeCount && badgeCount > 0 && !isLocked ? (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{badgeCount > 9 ? "9+" : badgeCount}</Text>
+                  </View>
+                ) : (
+                  <Ionicons 
+                    name="chevron-forward" 
+                    size={16} 
+                    color={isLocked ? ProTennisColors.textMuted + "50" : ProTennisColors.textMuted} 
+                  />
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
 }
 
-export default function PlayerIdentityDrawer({ visible, onClose, onNavigateToProfile }: PlayerIdentityDrawerProps) {
+export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentityDrawerProps) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { logout } = useAuth();
-  const { player: playerContext } = usePlayer();
+  const [expandedSection, setExpandedSection] = useState<string | null>("home");
   
   const translateX = useSharedValue(-DRAWER_WIDTH);
   const backdropOpacity = useSharedValue(0);
   const glowPulse = useSharedValue(1);
 
-  const { data: profileData } = useQuery<{ player: PlayerData & { profilePhotoUrl?: string | null } }>({
+  const { data: profileData } = useQuery<{ player: PlayerData }>({
     queryKey: ["/api/player/me/profile"],
   });
-  
-  const rawPhotoUrl = profileData?.player?.profilePhotoUrl || playerContext.profilePhotoUrl;
-  const profilePhotoUrl = rawPhotoUrl 
-    ? (rawPhotoUrl.startsWith('http') ? rawPhotoUrl : `${getStaticAssetsUrl()}${rawPhotoUrl}`)
-    : null;
 
   const { data: unreadData } = useQuery<{ unreadCount: number }>({
     queryKey: ["/api/player/me/unread-count"],
   });
+
+  const player = profileData?.player;
+  const playerId = player?.id || "";
+  const { data: levelStatus } = usePlayerLevel(playerId);
+  
+  const playerLevel = levelStatus?.level ?? player?.level ?? 1;
+  const playerTitle = levelStatus?.title || getPlayerTitle(playerLevel);
+  const xpInLevel = levelStatus?.xpInCurrentLevel ?? 0;
+  const xpNeeded = levelStatus?.xpNeededForNextLevel ?? 100;
+  const levelProgress = xpNeeded > 0 ? Math.min(xpInLevel / xpNeeded, 1) : 0;
+  
+  const rawPhotoUrl = player?.profilePhotoUrl;
+  const profilePhotoUrl = rawPhotoUrl 
+    ? (rawPhotoUrl.startsWith("http") ? rawPhotoUrl : `${getStaticAssetsUrl()}${rawPhotoUrl}`)
+    : null;
+
+  const unreadCount = unreadData?.unreadCount || 0;
+  const isMinor = player?.isMinor ?? false;
 
   useEffect(() => {
     if (visible) {
@@ -137,27 +360,34 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigateToPro
   const navigateAndClose = (screen: string, params?: any) => {
     handleClose();
     setTimeout(() => {
-      const parentNav = navigation.getParent();
-      if (parentNav) {
-        parentNav.navigate(screen, params);
-      } else {
+      if (params?.screen) {
         navigation.navigate(screen, params);
+      } else {
+        const parentNav = navigation.getParent();
+        if (parentNav) {
+          parentNav.navigate(screen, params);
+        } else {
+          navigation.navigate(screen, params);
+        }
       }
     }, 150);
   };
 
-  const player = profileData?.player;
-  const unreadCount = unreadData?.unreadCount || 0;
-  const level = player?.level || 1;
-  const xp = player?.xp || 0;
-  const levelProgress = getLevelProgress(xp, level);
-  const glowScore = player?.glowScore || 0;
-  const streak = player?.streak || 0;
-  
-  const xpPerLevel = 100;
-  const xpInCurrentLevel = xp % xpPerLevel;
-  const xpNeededForNextLevel = xpPerLevel;
-  const xpDisplay = `${xpInCurrentLevel} / ${xpNeededForNextLevel} XP`;
+  const toggleSection = (sectionId: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setExpandedSection(expandedSection === sectionId ? null : sectionId);
+  };
+
+  const handleLogout = () => {
+    handleClose();
+    logout();
+  };
+
+  const filteredSections = DRAWER_SECTIONS.filter(section => {
+    if (section.showOnlyForMinor && !isMinor) return false;
+    return true;
+  });
 
   if (!visible) return null;
 
@@ -169,7 +399,7 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigateToPro
 
       <Animated.View style={[styles.drawer, drawerStyle, { paddingTop: insets.top }]}>
         <LinearGradient
-          colors={["#0A0F0A", "#0D120D", "#080A08"]}
+          colors={[ProTennisColors.midnightBlue, ProTennisColors.surfaceDark, ProTennisColors.midnightBlue]}
           style={styles.drawerGradient}
         >
           <ScrollView 
@@ -177,288 +407,138 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigateToPro
             contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
             showsVerticalScrollIndicator={false}
           >
-            {/* ═══════════════════════════════════════════════════════════ */}
-            {/* LAAG 1: PLAYER IDENTITY HEADER */}
-            {/* ═══════════════════════════════════════════════════════════ */}
+            {/* PLAYER IDENTITY HEADER */}
             <View style={styles.identityHeader}>
-              <View style={styles.identityRow}>
-                <Pressable 
-                  style={styles.avatarWrapper}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    navigateAndClose("PublicProfile");
-                  }}
-                >
-                  <Animated.View style={[styles.glowRingOuter, glowRingStyle]}>
-                    <Svg width={100} height={100} viewBox="0 0 100 100">
-                      <Defs>
-                        <SvgGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                          <Stop offset="0%" stopColor={Colors.dark.primary} stopOpacity="1" />
-                          <Stop offset="50%" stopColor={Colors.dark.xpCyan} stopOpacity="0.8" />
-                          <Stop offset="100%" stopColor={Colors.dark.primary} stopOpacity="1" />
-                        </SvgGradient>
-                      </Defs>
-                      <Circle
-                        cx="50"
-                        cy="50"
-                        r="46"
-                        stroke="rgba(255,255,255,0.06)"
-                        strokeWidth="5"
-                        fill="none"
-                      />
-                      <Circle
-                        cx="50"
-                        cy="50"
-                        r="46"
-                        stroke="url(#ringGrad)"
-                        strokeWidth="5"
-                        fill="none"
-                        strokeLinecap="round"
-                        strokeDasharray={`${levelProgress * 289} 289`}
-                        transform="rotate(-90 50 50)"
-                      />
-                    </Svg>
-                    
-                    <View style={styles.avatarInner}>
-                      {profilePhotoUrl ? (
-                        Platform.OS === 'web' ? (
-                          <RNImage
-                            key={profilePhotoUrl}
-                            source={{ uri: profilePhotoUrl }}
-                            style={styles.avatarPhoto}
-                            resizeMode="cover"
-                          />
-                        ) : (
-                          <Image
-                            key={profilePhotoUrl}
-                            source={{ uri: profilePhotoUrl }}
-                            style={styles.avatarPhoto}
-                            contentFit="cover"
-                            cachePolicy="none"
-                          />
-                        )
-                      ) : (
-                        <LinearGradient
-                          colors={["#1A2A1A", "#0D150D"]}
-                          style={styles.avatarGradient}
-                        >
-                          <Text style={styles.avatarInitial}>
-                            {player?.name?.charAt(0)?.toUpperCase() || "P"}
-                          </Text>
-                        </LinearGradient>
-                      )}
-                    </View>
-                  </Animated.View>
-
-                  <View style={styles.levelBadge}>
-                    <LinearGradient
-                      colors={[Colors.dark.primary, "#1A8E2A"]}
-                      style={styles.levelBadgeGradient}
-                    >
-                      <Text style={styles.levelNumber}>{level}</Text>
-                    </LinearGradient>
-                  </View>
+              <Pressable 
+                style={styles.avatarSection}
+                onPress={() => navigateAndClose("PlayerProfile")}
+              >
+                <Animated.View style={[styles.glowRingOuter, glowRingStyle]}>
+                  <Svg width={90} height={90} viewBox="0 0 90 90">
+                    <Defs>
+                      <SvgGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <Stop offset="0%" stopColor={ProTennisColors.electricGreen} stopOpacity="1" />
+                        <Stop offset="50%" stopColor={ProTennisColors.neonCyan} stopOpacity="0.8" />
+                        <Stop offset="100%" stopColor={ProTennisColors.electricGreen} stopOpacity="1" />
+                      </SvgGradient>
+                    </Defs>
+                    <Circle
+                      cx="45"
+                      cy="45"
+                      r="42"
+                      stroke="rgba(255,255,255,0.08)"
+                      strokeWidth="4"
+                      fill="none"
+                    />
+                    <Circle
+                      cx="45"
+                      cy="45"
+                      r="42"
+                      stroke="url(#ringGrad)"
+                      strokeWidth="4"
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeDasharray={`${levelProgress * 264} 264`}
+                      transform="rotate(-90 45 45)"
+                    />
+                  </Svg>
                   
-                  <View style={styles.editBadge}>
-                    <Ionicons name="camera" size={12} color="#fff" />
-                  </View>
-                </Pressable>
-
-                <View style={styles.identityInfo}>
-                  <Text style={styles.playerName}>{player?.name || "Player"}</Text>
-                  <Text style={styles.titleText}>{getPlayerTitle(level)}</Text>
-                  
-                  <View style={styles.levelXpRow}>
-                    <Text style={styles.lvLabel}>LV {level}</Text>
-                    <View style={styles.xpBarContainer}>
-                      <View style={styles.xpBarBg}>
-                        <LinearGradient
-                          colors={[Colors.dark.xpCyan, Colors.dark.primary]}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                          style={[styles.xpBarFill, { width: `${levelProgress * 100}%` }]}
+                  <View style={styles.avatarInner}>
+                    {profilePhotoUrl ? (
+                      Platform.OS === "web" ? (
+                        <RNImage
+                          source={{ uri: profilePhotoUrl }}
+                          style={styles.avatarPhoto}
+                          resizeMode="cover"
                         />
-                      </View>
+                      ) : (
+                        <Image
+                          source={{ uri: profilePhotoUrl }}
+                          style={styles.avatarPhoto}
+                          contentFit="cover"
+                        />
+                      )
+                    ) : (
+                      <LinearGradient
+                        colors={[ProTennisColors.surfaceElevated, ProTennisColors.surfaceDark]}
+                        style={styles.avatarGradient}
+                      >
+                        <Text style={styles.avatarInitial}>
+                          {player?.name?.charAt(0)?.toUpperCase() || "P"}
+                        </Text>
+                      </LinearGradient>
+                    )}
+                  </View>
+                </Animated.View>
+
+                <View style={styles.levelBadge}>
+                  <LinearGradient
+                    colors={ProTennisColors.gradientElectric as [string, string]}
+                    style={styles.levelBadgeGradient}
+                  >
+                    <Text style={styles.levelNumber}>{playerLevel}</Text>
+                  </LinearGradient>
+                </View>
+              </Pressable>
+
+              <View style={styles.identityInfo}>
+                <Text style={styles.playerName}>{(player?.name || "Player").toUpperCase()}</Text>
+                <View style={styles.titleRow}>
+                  <View style={styles.titleBadge}>
+                    <Text style={styles.titleText}>{playerTitle}</Text>
+                  </View>
+                </View>
+                
+                <View style={styles.xpSection}>
+                  <Text style={styles.xpLabel}>FORM</Text>
+                  <View style={styles.xpBarContainer}>
+                    <View style={styles.xpBarBg}>
+                      <View style={[styles.xpBarFill, { width: `${levelProgress * 100}%` }]} />
                     </View>
+                    <Text style={styles.xpText}>{xpInLevel}/{xpNeeded} XP</Text>
                   </View>
-                  
-                  <View style={styles.chipRow}>
-                    {glowScore > 0 ? (
-                      <View style={styles.glowChip}>
-                        <Ionicons name="flash" size={12} color={Colors.dark.xpCyan} />
-                        <Text style={styles.glowChipText}>{glowScore}</Text>
-                      </View>
-                    ) : null}
-                    {streak > 0 ? (
-                      <View style={styles.streakChip}>
-                        <Ionicons name="flame" size={12} color={Colors.dark.orange} />
-                        <Text style={styles.streakChipText}>{streak}d</Text>
-                      </View>
-                    ) : null}
-                  </View>
+                </View>
+                
+                <View style={styles.statsRow}>
+                  {player?.glowScore && player.glowScore > 0 ? (
+                    <View style={styles.statChip}>
+                      <Ionicons name="flash" size={12} color={ProTennisColors.neonCyan} />
+                      <Text style={styles.statChipText}>{player.glowScore}</Text>
+                    </View>
+                  ) : null}
+                  {player?.streak && player.streak > 0 ? (
+                    <View style={styles.streakChip}>
+                      <Ionicons name="flame" size={12} color={ProTennisColors.warning} />
+                      <Text style={styles.streakChipText}>{player.streak}d</Text>
+                    </View>
+                  ) : null}
                 </View>
               </View>
             </View>
 
-            {/* ═══════════════════════════════════════════════════════════ */}
-            {/* LAAG 2: PRIMARY HERO ACTIONS */}
-            {/* ═══════════════════════════════════════════════════════════ */}
-            <View style={styles.heroActions}>
-              <Pressable
-                style={({ pressed }) => [styles.heroButtonPrimary, pressed && styles.heroButtonPressed]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  navigateAndClose("CourtBooking");
-                }}
-              >
-                <LinearGradient
-                  colors={["#22C55E", "#16A34A"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.heroButtonPrimaryGradient}
-                >
-                  <Ionicons name="tennisball" size={24} color="#fff" />
-                  <Text style={styles.heroButtonPrimaryText}>Find Match</Text>
-                  <View style={styles.heroArrow}>
-                    <Ionicons name="chevron-forward" size={22} color="#fff" />
-                  </View>
-                </LinearGradient>
-              </Pressable>
-
-              <Pressable
-                style={({ pressed }) => [styles.heroButtonSecondary, pressed && styles.heroButtonPressed]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  navigateAndClose("PlayerFinder");
-                }}
-              >
-                <View style={styles.heroButtonSecondaryInner}>
-                  <Ionicons name="git-compare-outline" size={20} color={Colors.dark.orange} />
-                  <Text style={styles.heroButtonSecondaryText}>Challenge Player</Text>
-                  <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
-                </View>
-              </Pressable>
+            {/* ACCORDION SECTIONS */}
+            <View style={styles.sectionsContainer}>
+              {filteredSections.map((section) => (
+                <AccordionSection
+                  key={section.id}
+                  section={section}
+                  isExpanded={expandedSection === section.id}
+                  onToggle={() => toggleSection(section.id)}
+                  playerLevel={playerLevel}
+                  onNavigate={navigateAndClose}
+                  unreadCount={unreadCount}
+                />
+              ))}
             </View>
 
-            {/* ═══════════════════════════════════════════════════════════ */}
-            {/* LAAG 3: PLAYER WORLD - SECTIES */}
-            {/* ═══════════════════════════════════════════════════════════ */}
-            
-            {/* MY MATCHES Section */}
-            <View style={styles.worldSection}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>MY MATCHES</Text>
-                <Ionicons name="chevron-forward" size={14} color={Colors.dark.textMuted} />
-              </View>
-              
-              <WorldMenuItem 
-                icon="trophy"
-                iconColor={Colors.dark.gold}
-                title="My Matches"
-                subtitle="Your games & challenges"
-                onPress={() => navigateAndClose("MyCourtBookings")}
-              />
-              <WorldMenuItem 
-                icon="calendar"
-                iconColor={Colors.dark.primary}
-                title="My Schedule"
-                subtitle="Training & games timeline"
-                onPress={() => { handleClose(); navigation.navigate("PlayerTabs", { screen: "Schedule" }); }}
-              />
-            </View>
-
-            {/* SOCIAL WORLD Section */}
-            <View style={styles.worldSection}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>SOCIAL WORLD</Text>
-                <Ionicons name="chevron-forward" size={14} color={Colors.dark.textMuted} />
-              </View>
-              
-              <WorldMenuItem 
-                icon="location"
-                iconColor={Colors.dark.xpCyan}
-                title="Nearby Players"
-                subtitle="12 players within 5km"
-                onPress={() => navigateAndClose("PlayerFinder")}
-              />
-              <WorldMenuItem 
-                icon="grid"
-                iconColor={Colors.dark.primary}
-                title="Public Courts"
-                subtitle="Find courts near you"
-                onPress={() => navigateAndClose("CourtBooking")}
-              />
-              <WorldMenuItem 
-                icon="flame"
-                iconColor={Colors.dark.orange}
-                title="Glow Rank"
-                subtitle="Based on activity & matches"
-                onPress={() => navigateAndClose("GlowLeaderboard")}
-              />
-            </View>
-
-            {/* MY PROGRESS Section */}
-            <View style={styles.worldSection}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>MY PROGRESS</Text>
-                <Ionicons name="chevron-forward" size={14} color={Colors.dark.textMuted} />
-              </View>
-              
-              <WorldMenuItem 
-                icon="person-circle"
-                iconColor={Colors.dark.xpCyan}
-                title="My Game Profile"
-                subtitle="View your public tennis identity"
-                onPress={() => navigateAndClose("PublicProfile")}
-              />
-              <WorldMenuItem 
-                icon="bar-chart"
-                iconColor={Colors.dark.primary}
-                title="Progress Overview"
-                subtitle="Technique, Mental, Physical"
-                onPress={() => { handleClose(); navigation.navigate("PlayerTabs", { screen: "Progress" }); }}
-              />
-              <WorldMenuItem 
-                icon="map"
-                iconColor={Colors.dark.primary}
-                title="My Journey"
-                subtitle="Your tennis story"
-                onPress={() => navigateAndClose("Journey")}
-              />
-              <WorldMenuItem 
-                icon="chatbubbles"
-                iconColor={Colors.dark.primary}
-                title="Messages"
-                subtitle="Chat with coaches & players"
-                badge={unreadCount}
-                onPress={() => navigateAndClose("PlayerMessages")}
-              />
-            </View>
-
-            {/* SYSTEM Section */}
-            <View style={styles.systemSection}>
+            {/* LOGOUT BUTTON */}
+            <View style={styles.logoutSection}>
               <Pressable 
-                style={styles.systemItem}
-                onPress={() => navigateAndClose("Settings")}
+                style={({ pressed }) => [styles.logoutButton, pressed && styles.logoutPressed]}
+                onPress={handleLogout}
               >
-                <Ionicons name="settings-outline" size={18} color={Colors.dark.textMuted} />
-                <Text style={styles.systemLabel}>Settings</Text>
-              </Pressable>
-              <View style={styles.systemDivider} />
-              <Pressable 
-                style={styles.systemItem}
-                onPress={() => navigateAndClose("PlayerHelp")}
-              >
-                <Ionicons name="help-circle-outline" size={18} color={Colors.dark.textMuted} />
-                <Text style={styles.systemLabel}>Help</Text>
-              </Pressable>
-              <View style={styles.systemDivider} />
-              <Pressable 
-                style={styles.systemItem}
-                onPress={() => { handleClose(); logout(); }}
-              >
-                <Ionicons name="log-out-outline" size={18} color={Colors.dark.error} />
-                <Text style={[styles.systemLabel, { color: Colors.dark.error }]}>Logout</Text>
+                <Ionicons name="log-out-outline" size={20} color={ProTennisColors.error} />
+                <Text style={styles.logoutText}>Logout</Text>
               </Pressable>
             </View>
           </ScrollView>
@@ -468,45 +548,22 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigateToPro
   );
 }
 
-interface WorldMenuItemProps {
-  icon: string;
-  iconColor: string;
-  title: string;
-  subtitle: string;
-  badge?: number;
-  onPress: () => void;
-}
-
-function WorldMenuItem({ icon, iconColor, title, subtitle, badge, onPress }: WorldMenuItemProps) {
-  return (
-    <Pressable
-      style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
-      onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onPress();
-      }}
-    >
-      <View style={[styles.menuIconWrapper, { backgroundColor: iconColor + "15" }]}>
-        <Ionicons name={icon as any} size={20} color={iconColor} />
-        {badge && badge > 0 ? (
-          <View style={styles.menuBadge}>
-            <Text style={styles.menuBadgeText}>{badge > 9 ? "9+" : badge}</Text>
-          </View>
-        ) : null}
-      </View>
-      <View style={styles.menuContent}>
-        <Text style={styles.menuTitle}>{title}</Text>
-        <Text style={styles.menuSubtitle}>{subtitle}</Text>
-      </View>
-      <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
-    </Pressable>
-  );
+function getPlayerTitle(level: number): string {
+  if (level >= 20) return "LEGEND";
+  if (level >= 17) return "CHAMPION";
+  if (level >= 15) return "ELITE";
+  if (level >= 12) return "PRO PLAYER";
+  if (level >= 10) return "RISING STAR";
+  if (level >= 7) return "COURT WARRIOR";
+  if (level >= 5) return "ACADEMY ACE";
+  if (level >= 3) return "TENNIS TALENT";
+  return "ROOKIE";
 }
 
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    backgroundColor: "rgba(0, 0, 0, 0.85)",
   },
   drawer: {
     position: "absolute",
@@ -514,9 +571,9 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: DRAWER_WIDTH,
-    backgroundColor: "#0A0F0A",
+    backgroundColor: ProTennisColors.midnightBlue,
     borderRightWidth: 1,
-    borderRightColor: "rgba(46, 204, 64, 0.12)",
+    borderRightColor: ProTennisColors.electricGreen + "20",
   },
   drawerGradient: {
     flex: 1,
@@ -525,38 +582,34 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  /* ══════════════════════════════════════════════════════════════════ */
-  /* LAAG 1: IDENTITY HEADER */
-  /* ══════════════════════════════════════════════════════════════════ */
+  /* IDENTITY HEADER */
   identityHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.xl,
     paddingBottom: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.05)",
+    borderBottomColor: ProTennisColors.electricGreen + "15",
+    gap: Spacing.md,
   },
-  identityRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-  avatarWrapper: {
+  avatarSection: {
     position: "relative",
-    marginRight: Spacing.md,
   },
   glowRingOuter: {
-    width: 100,
-    height: 100,
+    width: 90,
+    height: 90,
     justifyContent: "center",
     alignItems: "center",
   },
   avatarInner: {
     position: "absolute",
-    width: 82,
-    height: 82,
-    borderRadius: 41,
+    width: 74,
+    height: 74,
+    borderRadius: 37,
     overflow: "hidden",
-    left: 9,
-    top: 9,
+    left: 8,
+    top: 8,
   },
   avatarGradient: {
     flex: 1,
@@ -566,24 +619,24 @@ const styles = StyleSheet.create({
   avatarPhoto: {
     width: "100%",
     height: "100%",
-    borderRadius: 41,
+    borderRadius: 37,
   },
   avatarInitial: {
-    fontSize: 34,
+    fontSize: 28,
     fontWeight: "800",
-    color: Colors.dark.text,
+    color: ProTennisColors.electricGreen,
     letterSpacing: -1,
   },
   levelBadge: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    bottom: -2,
+    left: -2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     overflow: "hidden",
     borderWidth: 2,
-    borderColor: "#0A0F0A",
+    borderColor: ProTennisColors.midnightBlue,
   },
   levelBadgeGradient: {
     flex: 1,
@@ -591,260 +644,231 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   levelNumber: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "800",
-    color: "#fff",
-  },
-  editBadge: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: Colors.dark.xpCyan,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#0A0F0A",
+    color: ProTennisColors.midnightBlue,
   },
   identityInfo: {
     flex: 1,
     paddingTop: 4,
   },
   playerName: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: Colors.dark.text,
-    marginBottom: 2,
+    fontSize: 18,
+    fontWeight: "800",
+    color: ProTennisColors.white,
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  titleRow: {
+    flexDirection: "row",
+    marginBottom: Spacing.sm,
+  },
+  titleBadge: {
+    backgroundColor: ProTennisColors.electricGreen + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+    borderWidth: 1,
+    borderColor: ProTennisColors.electricGreen + "40",
   },
   titleText: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: Colors.dark.orange,
-    letterSpacing: 0.3,
-    marginBottom: 6,
-  },
-  levelXpRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 8,
-  },
-  lvLabel: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "700",
-    color: Colors.dark.text,
+    color: ProTennisColors.electricGreen,
+    letterSpacing: 0.5,
+  },
+  xpSection: {
+    marginBottom: Spacing.xs,
+  },
+  xpLabel: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: ProTennisColors.electricGreen,
+    marginBottom: 3,
   },
   xpBarContainer: {
-    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
   },
   xpBarBg: {
+    flex: 1,
     height: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: ProTennisColors.surfaceElevated,
     borderRadius: 3,
     overflow: "hidden",
   },
   xpBarFill: {
     height: "100%",
+    backgroundColor: ProTennisColors.electricGreen,
     borderRadius: 3,
   },
-  chipRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+  xpText: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: ProTennisColors.textMuted,
   },
-  glowChip: {
+  statsRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  statChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(0, 212, 255, 0.12)",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+    backgroundColor: ProTennisColors.neonCyan + "15",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
     gap: 4,
   },
-  glowChipText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: Colors.dark.xpCyan,
+  statChipText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: ProTennisColors.neonCyan,
   },
   streakChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 170, 0, 0.12)",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+    backgroundColor: ProTennisColors.warning + "15",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
     gap: 4,
   },
   streakChipText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: Colors.dark.orange,
-  },
-
-  /* ══════════════════════════════════════════════════════════════════ */
-  /* LAAG 2: HERO ACTIONS */
-  /* ══════════════════════════════════════════════════════════════════ */
-  rainbowBar: {
-    height: 8,
-    borderRadius: 4,
-    marginBottom: 12,
-  },
-  heroActions: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.lg,
-    gap: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.05)",
-  },
-  heroButtonPrimary: {
-    height: 58,
-    borderRadius: BorderRadius.lg,
-    overflow: "hidden",
-  },
-  heroButtonSecondary: {
-    height: 48,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: "rgba(255, 170, 0, 0.2)",
-    backgroundColor: "rgba(255, 170, 0, 0.05)",
-  },
-  heroButtonPressed: {
-    opacity: 0.85,
-    transform: [{ scale: 0.98 }],
-  },
-  heroButtonPrimaryGradient: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: Spacing.lg,
-    gap: 14,
-  },
-  heroButtonPrimaryText: {
-    flex: 1,
-    fontSize: 17,
+    fontSize: 10,
     fontWeight: "700",
-    color: "#fff",
-  },
-  heroArrow: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  heroButtonSecondaryInner: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: Spacing.md,
-    gap: 12,
-  },
-  heroButtonSecondaryText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: "600",
-    color: Colors.dark.text,
+    color: ProTennisColors.warning,
   },
 
-  /* ══════════════════════════════════════════════════════════════════ */
-  /* LAAG 3: WORLD SECTIONS */
-  /* ══════════════════════════════════════════════════════════════════ */
-  worldSection: {
+  /* SECTIONS */
+  sectionsContainer: {
+    paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.04)",
+  },
+  sectionContainer: {
+    marginBottom: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+    backgroundColor: ProTennisColors.surfaceDark,
+    borderWidth: 1,
+    borderColor: ProTennisColors.surfaceElevated,
+  },
+  sectionExpanded: {
+    borderColor: ProTennisColors.electricGreen + "30",
   },
   sectionHeader: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: Spacing.lg,
-    marginBottom: Spacing.sm,
+    alignItems: "center",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+  },
+  sectionHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  sectionIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: ProTennisColors.surfaceElevated,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  sectionIconActive: {
+    backgroundColor: ProTennisColors.electricGreen + "20",
   },
   sectionTitle: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: "700",
-    color: Colors.dark.textMuted,
-    letterSpacing: 1.2,
+    letterSpacing: 0.5,
+  },
+  sectionItems: {
+    paddingBottom: Spacing.sm,
+    backgroundColor: "rgba(0,0,0,0.2)",
   },
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: Spacing.lg,
-    gap: 12,
+    paddingVertical: Spacing.sm + 2,
+    paddingHorizontal: Spacing.md,
+    marginHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.sm,
   },
   menuItemPressed: {
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    backgroundColor: ProTennisColors.surfaceElevated,
   },
-  menuIconWrapper: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+  menuItemLocked: {
+    opacity: 0.5,
+  },
+  itemIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: ProTennisColors.neonCyan + "15",
     justifyContent: "center",
     alignItems: "center",
-    position: "relative",
+    marginRight: Spacing.sm,
   },
-  menuBadge: {
-    position: "absolute",
-    top: -4,
-    right: -4,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: Colors.dark.primary,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 4,
+  itemIconLocked: {
+    backgroundColor: ProTennisColors.textMuted + "15",
   },
-  menuBadgeText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#fff",
-  },
-  menuContent: {
+  itemContent: {
     flex: 1,
   },
-  menuTitle: {
-    fontSize: 15,
+  itemTitle: {
+    fontSize: 14,
     fontWeight: "600",
-    color: Colors.dark.text,
-    marginBottom: 2,
+    color: ProTennisColors.white,
   },
-  menuSubtitle: {
-    fontSize: 12,
-    color: Colors.dark.textMuted,
+  itemTitleLocked: {
+    color: ProTennisColors.textMuted,
+  },
+  itemSubtitle: {
+    fontSize: 11,
+    color: ProTennisColors.textMuted,
+    marginTop: 1,
+  },
+  badge: {
+    backgroundColor: ProTennisColors.electricGreen,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 20,
+    alignItems: "center",
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: ProTennisColors.midnightBlue,
   },
 
-  /* ══════════════════════════════════════════════════════════════════ */
-  /* SYSTEM SECTION */
-  /* ══════════════════════════════════════════════════════════════════ */
-  systemSection: {
+  /* LOGOUT */
+  logoutSection: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.xl,
+  },
+  logoutButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.lg,
-    marginTop: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: ProTennisColors.error + "15",
+    borderWidth: 1,
+    borderColor: ProTennisColors.error + "30",
+    gap: Spacing.sm,
   },
-  systemItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    gap: 6,
+  logoutPressed: {
+    backgroundColor: ProTennisColors.error + "25",
   },
-  systemLabel: {
-    fontSize: 13,
-    color: Colors.dark.textMuted,
-  },
-  systemDivider: {
-    width: 1,
-    height: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  logoutText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: ProTennisColors.error,
   },
 });

@@ -5,6 +5,7 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProTennisColors, Spacing } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
+import { usePlayerDrawer } from "@/player/navigation/PlayerNavigator";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
 import { CenterCourtHero } from "@/player/components/CenterCourtHero";
 import { PerformanceCenterGrid } from "@/player/components/PerformanceCenterGrid";
@@ -99,6 +100,7 @@ export default function ProPlayerHomeScreen() {
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { openDrawer } = usePlayerDrawer();
 
   const { data: dashboardData, isLoading, refetch, isRefetching } = useQuery<DashboardData>({
     queryKey: ["/api/player/me/dashboard"],
@@ -207,7 +209,7 @@ export default function ProPlayerHomeScreen() {
   };
 
   const handleAvatarPress = () => {
-    navigation.navigate("PlayerProfile");
+    openDrawer();
   };
 
   const handleWalletPress = () => {
