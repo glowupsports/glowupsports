@@ -9,6 +9,47 @@ type LevelStage = "red" | "orange" | "green" | "yellow" | "adult";
 type LastAction = "training" | "match" | "idle" | "levelup" | "streak";
 type BroadcastMode = "off_air" | "pre_game" | "on_air" | "post_game" | "rest_day";
 
+interface NearbyPlayer {
+  id: string;
+  name: string;
+  level: string;
+  status: "available" | "playing" | "offline";
+  playedTogether: number;
+}
+
+interface OpenSession {
+  id: string;
+  type: "group" | "private" | "open_match";
+  time: string;
+  spotsLeft: number;
+  coachName?: string;
+}
+
+interface CommunityEvent {
+  id: string;
+  type: "new_member" | "new_group" | "tournament" | "challenge";
+  title: string;
+  time: string;
+}
+
+interface SkillTrend {
+  skill: string;
+  trend: "up" | "down" | "stable";
+  label: string;
+}
+
+interface AvailabilityStats {
+  groupSessions: number;
+  privateLessons: number;
+  courtsAvailable: number;
+}
+
+interface LastSessionStats {
+  xpGained: number;
+  focusArea: string;
+  performance: "excellent" | "good" | "needs_work";
+}
+
 interface PlayerState {
   timeOfDay: TimeOfDay;
   sessionStatus: SessionStatus;
@@ -23,6 +64,17 @@ interface PlayerState {
   minutesToNextSession: number | null;
   currentStoryline: string | null;
   tensionLevel: number;
+  nearbyPlayers: NearbyPlayer[];
+  openSessions: OpenSession[];
+  communityEvents: CommunityEvent[];
+  skillTrends: SkillTrend[];
+  availability: AvailabilityStats;
+  lastSessionStats: LastSessionStats | null;
+  coachName: string | null;
+  courtStatus: string;
+  formStatus: "rising" | "stable" | "declining";
+  nextEventTime: string | null;
+  sessionsToPromotion: number;
 }
 
 interface PlayerStateContextType {
@@ -45,6 +97,17 @@ const defaultState: PlayerState = {
   minutesToNextSession: null,
   currentStoryline: null,
   tensionLevel: 0,
+  nearbyPlayers: [],
+  openSessions: [],
+  communityEvents: [],
+  skillTrends: [],
+  availability: { groupSessions: 0, privateLessons: 0, courtsAvailable: 0 },
+  lastSessionStats: null,
+  coachName: null,
+  courtStatus: "REST DAY",
+  formStatus: "stable",
+  nextEventTime: null,
+  sessionsToPromotion: 3,
 };
 
 const PlayerStateContext = createContext<PlayerStateContextType>({
@@ -178,6 +241,14 @@ interface LevelStatus {
   xpNeededForNextLevel: number;
 }
 
+interface SocialData {
+  nearbyPlayers: NearbyPlayer[];
+  openSessions: OpenSession[];
+  communityEvents: CommunityEvent[];
+  skillTrends: SkillTrend[];
+  availability: AvailabilityStats;
+}
+
 export function PlayerStateProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>(getTimeOfDay());
@@ -194,6 +265,12 @@ export function PlayerStateProvider({ children }: { children: ReactNode }) {
     queryKey: [`/api/player-level/player/${playerId}/status`],
     enabled: !!playerId,
     refetchInterval: 60000,
+  });
+
+  const { data: socialData } = useQuery<SocialData>({
+    queryKey: ["/api/player/me/social"],
+    enabled: !!user?.playerId,
+    refetchInterval: 30000,
   });
 
   useEffect(() => {
@@ -219,6 +296,41 @@ export function PlayerStateProvider({ children }: { children: ReactNode }) {
     const tensionLevel = getTensionLevel(xpProgress, player.streak, sessionStatus);
     const currentStoryline = getCurrentStoryline(xpProgress, player.streak, levelStage, sessionStatus);
 
+    const getCourtStatus = (): string => {
+      if (sessionStatus === "live") return "ON COURT";
+      if (sessionStatus === "soon") return "WARMING UP";
+      if (sessionStatus === "upcoming") return "SESSION TODAY";
+      if (timeOfDay === "night") return "RECOVERY MODE";
+      return "TRAINING DAY";
+    };
+
+    const getFormStatus = (): "rising" | "stable" | "declining" => {
+      if (player.streak >= 3) return "rising";
+      if (player.streak === 0) return "declining";
+      return "stable";
+    };
+
+    const sessionsToPromotion = Math.max(1, Math.ceil((1 - xpProgress) * 5));
+
+    const fallbackNearbyPlayers: NearbyPlayer[] = [
+      { id: "1", name: "Alex", level: "Green 2", status: "available", playedTogether: 3 },
+      { id: "2", name: "Sara", level: "Yellow", status: "available", playedTogether: 5 },
+    ];
+
+    const fallbackOpenSessions: OpenSession[] = [
+      { id: "1", type: "group", time: "18:00", spotsLeft: 2, coachName: "Coach K" },
+    ];
+
+    const fallbackCommunityEvents: CommunityEvent[] = [
+      { id: "1", type: "new_group", title: "Welcome to the community!", time: "Today" },
+    ];
+
+    const fallbackSkillTrends: SkillTrend[] = [
+      { skill: "Forehand", trend: xpProgress > 0.5 ? "up" : "stable", label: "consistency improving" },
+      { skill: "Backhand", trend: "stable", label: "developing" },
+      { skill: "Footwork", trend: "up", label: "getting faster" },
+    ];
+
     return {
       timeOfDay,
       sessionStatus,
@@ -233,8 +345,27 @@ export function PlayerStateProvider({ children }: { children: ReactNode }) {
       minutesToNextSession: minutesUntil,
       currentStoryline,
       tensionLevel,
+      nearbyPlayers: socialData?.nearbyPlayers.length ? socialData.nearbyPlayers : fallbackNearbyPlayers,
+      openSessions: socialData?.openSessions.length ? socialData.openSessions : fallbackOpenSessions,
+      communityEvents: socialData?.communityEvents.length ? socialData.communityEvents : fallbackCommunityEvents,
+      skillTrends: socialData?.skillTrends.length ? socialData.skillTrends : fallbackSkillTrends,
+      availability: socialData?.availability ?? {
+        groupSessions: 3,
+        privateLessons: 1,
+        courtsAvailable: 4,
+      },
+      lastSessionStats: player.streak > 0 ? {
+        xpGained: 82,
+        focusArea: "Consistency",
+        performance: "good",
+      } : null,
+      coachName: "Coach Lawrence",
+      courtStatus: getCourtStatus(),
+      formStatus: getFormStatus(),
+      nextEventTime: minutesUntil ? `${Math.floor(minutesUntil / 60)}:${(minutesUntil % 60).toString().padStart(2, "0")}` : null,
+      sessionsToPromotion,
     };
-  }, [dashboardData, levelStatus, timeOfDay]);
+  }, [dashboardData, levelStatus, socialData, timeOfDay]);
 
   const refreshState = useCallback(() => {
     refetchDashboard();

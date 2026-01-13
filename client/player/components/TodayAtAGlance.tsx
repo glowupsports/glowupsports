@@ -1,0 +1,186 @@
+import React from "react";
+import { View, Text, StyleSheet, Pressable, Platform } from "react-native";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { ProTennisColors, Spacing, BorderRadius } from "@/constants/theme";
+import { usePlayerState } from "@/player/context/PlayerStateContext";
+import { useNavigation } from "@react-navigation/native";
+import * as Haptics from "expo-haptics";
+
+interface GlanceItem {
+  id: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+  color: string;
+  route?: string;
+}
+
+export function TodayAtAGlance() {
+  const { state } = usePlayerState();
+  const navigation = useNavigation<any>();
+
+  const formIcon = state.formStatus === "rising" ? "trending-up" : state.formStatus === "declining" ? "trending-down" : "remove";
+  const formColor = state.formStatus === "rising" ? ProTennisColors.electricGreen : state.formStatus === "declining" ? "#FF6B6B" : ProTennisColors.textMuted;
+
+  const glanceItems: GlanceItem[] = [
+    {
+      id: "training",
+      icon: "tennisball-outline",
+      label: "Training available",
+      value: `${state.availability.groupSessions} sessions`,
+      color: ProTennisColors.electricGreen,
+      route: "LessonBooking",
+    },
+    {
+      id: "players",
+      icon: "people-outline",
+      label: "Players nearby",
+      value: `${state.nearbyPlayers.filter(p => p.status === "available").length}`,
+      color: ProTennisColors.neonCyan,
+      route: "PlayerFinder",
+    },
+    {
+      id: "form",
+      icon: formIcon,
+      label: "Your form",
+      value: state.formStatus,
+      color: formColor,
+      route: "PlayerProgress",
+    },
+    {
+      id: "event",
+      icon: "calendar-outline",
+      label: "Next event",
+      value: state.nextEventTime ? `Today ${state.nextEventTime}` : "None today",
+      color: ProTennisColors.electricGreen,
+      route: "Schedule",
+    },
+  ];
+
+  const handlePress = (item: GlanceItem) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (item.route) {
+      navigation.navigate(item.route);
+    }
+  };
+
+  return (
+    <Animated.View entering={FadeInDown.duration(400)} style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>TODAY AT A GLANCE</Text>
+        <View style={styles.liveIndicator}>
+          <View style={styles.liveDot} />
+          <Text style={styles.liveText}>{state.courtStatus}</Text>
+        </View>
+      </View>
+
+      <View style={styles.card}>
+        {Platform.OS === "ios" ? (
+          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill}>
+            <LinearGradient
+              colors={[ProTennisColors.surfaceCard + "90", ProTennisColors.surfaceDark + "95"]}
+              style={StyleSheet.absoluteFill}
+            />
+          </BlurView>
+        ) : (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: ProTennisColors.surfaceCard }]} />
+        )}
+
+        <View style={styles.itemsGrid}>
+          {glanceItems.map((item) => (
+            <Pressable
+              key={item.id}
+              style={styles.glanceItem}
+              onPress={() => handlePress(item)}
+            >
+              <View style={[styles.iconContainer, { borderColor: item.color + "40" }]}>
+                <Ionicons name={item.icon} size={18} color={item.color} />
+              </View>
+              <View style={styles.itemContent}>
+                <Text style={styles.itemLabel}>{item.label}</Text>
+                <Text style={[styles.itemValue, { color: item.color }]}>{item.value}</Text>
+              </View>
+              {item.route ? (
+                <Ionicons name="chevron-forward" size={14} color={ProTennisColors.textMuted} />
+              ) : null}
+            </Pressable>
+          ))}
+        </View>
+      </View>
+    </Animated.View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  title: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: ProTennisColors.textMuted,
+    letterSpacing: 2,
+  },
+  liveIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: ProTennisColors.electricGreen,
+  },
+  liveText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: ProTennisColors.electricGreen,
+    letterSpacing: 1,
+  },
+  card: {
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: ProTennisColors.surfaceElevated,
+  },
+  itemsGrid: {
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  glanceItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    gap: Spacing.md,
+  },
+  iconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: ProTennisColors.midnightBlue + "60",
+  },
+  itemContent: {
+    flex: 1,
+  },
+  itemLabel: {
+    fontSize: 11,
+    color: ProTennisColors.textMuted,
+  },
+  itemValue: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+});

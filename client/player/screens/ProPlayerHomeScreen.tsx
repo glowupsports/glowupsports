@@ -1,20 +1,21 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback } from "react";
 import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProTennisColors, Spacing } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePlayerDrawer } from "@/player/navigation/PlayerNavigator";
 import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
-import { CenterCourtArena } from "@/player/components/CenterCourtArena";
-import { AnalysisDesk } from "@/player/components/AnalysisDesk";
-import { StorylineStrip } from "@/player/components/StorylineStrip";
-import { LiveTicker } from "@/player/components/LiveTicker";
-import { PerformanceCenterGrid } from "@/player/components/PerformanceCenterGrid";
-import { QuickServeFAB } from "@/player/components/QuickServeFAB";
 import { OnAirIndicator } from "@/player/components/OnAirIndicator";
+import { TodayAtAGlance } from "@/player/components/TodayAtAGlance";
+import { SocialDiscoveryStrip } from "@/player/components/SocialDiscoveryStrip";
+import { BookingHub } from "@/player/components/BookingHub";
+import { MiniFeed } from "@/player/components/MiniFeed";
+import { ProgressInsights } from "@/player/components/ProgressInsights";
+import { TrackingBanner } from "@/player/components/TrackingBanner";
+import { QuickServeFAB } from "@/player/components/QuickServeFAB";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import Svg, { Line, Rect } from "react-native-svg";
 
@@ -51,59 +52,21 @@ interface DashboardData {
   };
 }
 
-interface RecognitionData {
-  achievements: Array<{
-    id: string;
-    name: string;
-    description: string;
-    icon: string;
-    color: string;
-    earned: boolean;
-    earnedAt: string | null;
-  }>;
-  domainBadges: Array<{
-    id: string;
-    name: string;
-    description: string;
-    icon: string;
-    color: string;
-    earned: boolean;
-    earnedAt: string | null;
-    progress: number;
-    domainId: string;
-  }>;
-  validations: Array<{
-    id: string;
-    type: string;
-    domain: string;
-    status: string;
-    validatedAt: Date;
-  }>;
-  summary: {
-    totalAchievements: number;
-    earnedAchievements: number;
-    totalDomainBadges: number;
-    earnedDomainBadges: number;
-    totalValidations: number;
-  };
-}
-
 function BroadcastBackground() {
   return (
     <View style={styles.backgroundContainer}>
       <Svg style={StyleSheet.absoluteFill} preserveAspectRatio="none">
         <Rect x="0" y="0" width="100%" height="100%" fill={ProTennisColors.midnightBlue} />
-        <Line x1="0" y1="33%" x2="100%" y2="33%" stroke={ProTennisColors.electricGreen} strokeWidth="0.5" opacity="0.03" />
-        <Line x1="0" y1="66%" x2="100%" y2="66%" stroke={ProTennisColors.electricGreen} strokeWidth="0.5" opacity="0.03" />
-        <Rect x="5%" y="10%" width="90%" height="80%" stroke={ProTennisColors.electricGreen} strokeWidth="0.5" fill="none" opacity="0.02" />
+        <Line x1="0" y1="25%" x2="100%" y2="25%" stroke={ProTennisColors.electricGreen} strokeWidth="0.5" opacity="0.02" />
+        <Line x1="0" y1="50%" x2="100%" y2="50%" stroke={ProTennisColors.electricGreen} strokeWidth="0.5" opacity="0.02" />
+        <Line x1="0" y1="75%" x2="100%" y2="75%" stroke={ProTennisColors.electricGreen} strokeWidth="0.5" opacity="0.02" />
       </Svg>
     </View>
   );
 }
 
-function BroadcastHomeContent() {
+function PlayerHomeContent() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { openDrawer } = usePlayerDrawer();
@@ -113,27 +76,13 @@ function BroadcastHomeContent() {
     enabled: !!user?.playerId,
   });
 
-  const { data: recognitionData } = useQuery<RecognitionData>({
-    queryKey: ["/api/player/me/recognition"],
-    enabled: !!user?.playerId,
-  });
-
   useFocusEffect(
     useCallback(() => {
       if (user?.playerId) {
         queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/player/me/recognition"] });
       }
     }, [user?.playerId, queryClient])
   );
-
-  const stats = useMemo(() => {
-    if (!recognitionData) return undefined;
-    return {
-      earnedAchievements: recognitionData.summary.earnedAchievements,
-      totalAchievements: recognitionData.summary.totalAchievements,
-    };
-  }, [recognitionData]);
 
   if (isLoading || !dashboardData) {
     return (
@@ -144,38 +93,15 @@ function BroadcastHomeContent() {
     );
   }
 
-  const { player, coach, nextSession, credits } = dashboardData;
-
-  const handleCheckIn = () => {
-    if (nextSession) {
-      navigation.navigate("PlayerTabs", { screen: "Schedule" });
-    }
-  };
-
-  const handleBookSession = () => {
-    navigation.navigate("LessonBooking");
-  };
-
-  const handleFindMatch = () => {
-    navigation.navigate("OpenMatches");
-  };
+  const { player, credits } = dashboardData;
 
   const handleAvatarPress = () => {
     openDrawer();
   };
 
-  const handleWalletPress = () => {
-    navigation.navigate("ParentPayments");
-  };
+  const handleWalletPress = () => {};
 
-  const handleSquadPress = () => {
-    navigation.navigate("FamilyLobby");
-  };
-
-  const sessionWithCoach = nextSession ? {
-    ...nextSession,
-    coachName: coach?.name,
-  } : null;
+  const handleSquadPress = () => {};
 
   return (
     <View style={styles.container}>
@@ -185,7 +111,7 @@ function BroadcastHomeContent() {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: insets.top, paddingBottom: 80 },
+          { paddingTop: insets.top, paddingBottom: 100 },
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -197,7 +123,7 @@ function BroadcastHomeContent() {
           />
         }
       >
-        {/* BROADCAST HEADER - Player ID Card with ON AIR */}
+        {/* PLAYER HEADER - Identity card with ON AIR indicator */}
         <View style={styles.headerSection}>
           <ProPlayerCard
             player={player}
@@ -212,32 +138,24 @@ function BroadcastHomeContent() {
           </View>
         </View>
 
-        {/* STORYLINE STRIP - What's at stake */}
-        <StorylineStrip />
+        {/* TRACKING BANNER - Coach is watching */}
+        <TrackingBanner />
 
-        {/* CENTER COURT ARENA - Main broadcast segment */}
-        <View style={styles.arenaSection}>
-          <CenterCourtArena
-            nextSession={sessionWithCoach}
-            onCheckIn={handleCheckIn}
-            onBookSession={handleBookSession}
-            onFindMatch={handleFindMatch}
-          />
-        </View>
+        {/* ZONE 1 - TODAY AT A GLANCE */}
+        <TodayAtAGlance />
 
-        {/* ANALYSIS DESK - Stats overlay */}
-        <AnalysisDesk stats={{ sessionsThisWeek: player.streak }} />
+        {/* ZONE 2 - PLAY & MEET (Social Discovery) */}
+        <SocialDiscoveryStrip />
 
-        {/* PERFORMANCE SNAPSHOTS - Quick tiles */}
-        <View style={styles.performanceSection}>
-          <PerformanceCenterGrid playerLevel={player.level} />
-        </View>
+        {/* ZONE 3 - BOOK & PLAN */}
+        <BookingHub />
+
+        {/* ZONE 4 - COMMUNITY MINI-FEED */}
+        <MiniFeed />
+
+        {/* ZONE 5 - YOUR PROGRESS */}
+        <ProgressInsights />
       </ScrollView>
-
-      {/* LIVE TICKER - ESPN-style bottom ticker */}
-      <View style={styles.tickerContainer}>
-        <LiveTicker stats={stats} />
-      </View>
       
       <QuickServeFAB bottomOffset={48} />
       
@@ -250,7 +168,7 @@ function BroadcastHomeContent() {
 export default function ProPlayerHomeScreen() {
   return (
     <PlayerStateProvider>
-      <BroadcastHomeContent />
+      <PlayerHomeContent />
     </PlayerStateProvider>
   );
 }
@@ -271,7 +189,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    gap: Spacing.sm,
+    gap: Spacing.lg,
   },
   headerSection: {
     position: "relative",
@@ -281,17 +199,5 @@ const styles = StyleSheet.create({
     top: Spacing.md,
     right: Spacing.md,
     zIndex: 10,
-  },
-  arenaSection: {
-    marginTop: Spacing.sm,
-  },
-  performanceSection: {
-    marginTop: Spacing.md,
-  },
-  tickerContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
   },
 });

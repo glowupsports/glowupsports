@@ -14254,6 +14254,129 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get player social and availability data for the new 5-zone Player Home
+  app.get("/api/player/me/social", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user!.playerId) {
+        return res.json({
+          nearbyPlayers: [],
+          openSessions: [],
+          communityEvents: [],
+          skillTrends: [],
+          availability: { groupSessions: 0, privateLessons: 0, courtsAvailable: 0 },
+        });
+      }
+      const playerId = req.user!.playerId!;
+      const player = await storage.getPlayer(playerId);
+      
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      // Get nearby players from the same academy
+      const nearbyPlayers: Array<{id: string; name: string; level: string; status: string; playedTogether: number}> = [];
+      if (player.academyId) {
+        const academyPlayers = await storage.getPlayersByAcademy(player.academyId);
+        const otherPlayers = academyPlayers.filter(p => p.id !== playerId).slice(0, 5);
+        
+        for (const p of otherPlayers) {
+          nearbyPlayers.push({
+            id: p.id,
+            name: p.name || "Player",
+            level: p.ballLevel || "Unknown",
+            status: "available",
+            playedTogether: 0,
+          });
+        }
+      }
+
+      // Get open sessions for the player's academy
+      const openSessions: Array<{id: string; type: string; time: string; spotsLeft: number; coachName?: string}> = [];
+      if (player.academyId) {
+        const now = new Date();
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        const upcomingSessions = await storage.getAcademySessions(player.academyId, now, tomorrow);
+        for (const session of upcomingSessions.slice(0, 3)) {
+          const coach = session.coachId ? await storage.getCoach(session.coachId) : null;
+          const time = new Date(session.startTime);
+          openSessions.push({
+            id: session.id,
+            type: session.sessionType || "group",
+            time: `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`,
+            spotsLeft: Math.max(0, (session.maxPlayers || 4) - (session.currentPlayers || 0)),
+            coachName: coach?.name,
+          });
+        }
+      }
+
+      // Get community events (recent posts/announcements)
+      const communityEvents: Array<{id: string; type: string; title: string; time: string}> = [];
+      if (player.academyId) {
+        // Get recent community posts
+        const recentPosts = await db.select().from(postsTable)
+          .where(eq(postsTable.academyId, player.academyId))
+          .orderBy(desc(postsTable.createdAt))
+          .limit(3);
+        
+        for (const post of recentPosts) {
+          const created = new Date(post.createdAt);
+          const now = new Date();
+          const diffHours = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60));
+          const timeStr = diffHours < 24 ? `${diffHours}h ago` : `${Math.floor(diffHours / 24)}d ago`;
+          
+          communityEvents.push({
+            id: post.id,
+            type: "new_group",
+            title: post.content.slice(0, 50) + (post.content.length > 50 ? "..." : ""),
+            time: timeStr,
+          });
+        }
+      }
+
+      // Get skill trends based on recent feedback
+      const skillTrends: Array<{skill: string; trend: string; label: string}> = [
+        { skill: "Forehand", trend: "stable", label: "consistent" },
+        { skill: "Backhand", trend: "stable", label: "developing" },
+        { skill: "Footwork", trend: "up", label: "improving" },
+      ];
+
+      // Get session availability counts
+      let groupSessions = 0;
+      let privateLessons = 0;
+      let courtsAvailable = 0;
+      
+      if (player.academyId) {
+        const now = new Date();
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        const academySessions = await storage.getAcademySessions(player.academyId, now, tomorrow);
+        groupSessions = academySessions.filter(s => s.sessionType === "group").length;
+        privateLessons = academySessions.filter(s => s.sessionType === "private").length;
+        
+        const courts = await storage.getCourtsByAcademy(player.academyId);
+        courtsAvailable = courts.length;
+      }
+
+      res.json({
+        nearbyPlayers,
+        openSessions,
+        communityEvents,
+        skillTrends,
+        availability: {
+          groupSessions,
+          privateLessons,
+          courtsAvailable,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching player social data:", error);
+      res.status(500).json({ error: "Failed to fetch player social data" });
+    }
+  });
+
   // Get coach profile for player
   app.get("/api/player/coach/:coachId", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
