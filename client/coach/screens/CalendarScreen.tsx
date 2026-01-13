@@ -602,6 +602,9 @@ export default function CalendarScreen() {
   const [selectedCourtFilter, setSelectedCourtFilter] = useState<string | null>(null); // null = all courts
   const [isExporting, setIsExporting] = useState(false);
 
+  const allCourts = calendarData?.courts || [];
+  const allLocations = calendarData?.locations || [];
+
   const exportCalendarToICS = useCallback(async () => {
     if (!calendarData?.ownSessions || calendarData.ownSessions.length === 0) {
       Alert.alert("No Sessions", "There are no sessions to export.");
@@ -691,8 +694,6 @@ export default function CalendarScreen() {
   });
   
   const hourHeight = timeGrid === 30 ? HOUR_HEIGHT_30 : HOUR_HEIGHT_60;
-  const allCourts = calendarData?.courts || [];
-  const allLocations = calendarData?.locations || [];
   
   // Apply filters: location filter first, then court filter
   const locationFilteredCourts = selectedLocationFilter 
