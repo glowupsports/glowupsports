@@ -87,9 +87,20 @@ const Tab = createBottomTabNavigator<CoachTabParamList>();
 const Stack = createNativeStackNavigator<CoachStackParamList>();
 
 function CoachTabs() {
+  const [currentTab, setCurrentTab] = useState("Dashboard");
+  
   return (
     <View style={styles.tabsWrapper}>
       <Tab.Navigator
+        screenListeners={{
+          state: (e) => {
+            const state = e.data.state;
+            if (state) {
+              const routeName = state.routes[state.index]?.name;
+              if (routeName) setCurrentTab(routeName);
+            }
+          },
+        }}
         screenOptions={{
           headerShown: false,
           tabBarStyle: styles.tabBar,
@@ -168,7 +179,7 @@ function CoachTabs() {
           }}
         />
       </Tab.Navigator>
-      <CoachQuickActionsFAB />
+      {currentTab !== "Calendar" && <CoachQuickActionsFAB />}
     </View>
   );
 }
