@@ -33,6 +33,7 @@ interface MarketplaceListing {
   title: string;
   description?: string;
   price: string;
+  currency?: string;
   condition: string;
   category: string;
   brand?: string;
@@ -94,7 +95,7 @@ export default function MarketplaceScreen() {
     return true;
   });
 
-  const formatPrice = (price: string) => `AED ${parseFloat(price).toFixed(0)}`;
+  const formatPrice = (price: string, currency: string = "AED") => `${currency} ${parseFloat(price).toFixed(0)}`;
 
   const getConditionInfo = (condition: string) => {
     return CONDITIONS.find(c => c.key === condition) || CONDITIONS[4];
@@ -240,7 +241,7 @@ export default function MarketplaceScreen() {
                         {listing.brand && (
                           <Text style={styles.listingBrand}>{listing.brand}</Text>
                         )}
-                        <Text style={styles.listingPrice}>{formatPrice(listing.price)}</Text>
+                        <Text style={styles.listingPrice}>{formatPrice(listing.price, listing.currency)}</Text>
                         
                         <View style={styles.sellerRow}>
                           {listing.seller?.profilePhotoUrl ? (

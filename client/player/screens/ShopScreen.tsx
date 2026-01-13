@@ -44,6 +44,7 @@ interface ShopProduct {
   imageUrl?: string;
   isFeatured: boolean;
   sellerType?: string;
+  currency?: string;
 }
 
 interface ShopService {
@@ -53,6 +54,7 @@ interface ShopService {
   price: string;
   iconName: string;
   durationMinutes?: number;
+  currency?: string;
 }
 
 interface ShopData {
@@ -97,8 +99,8 @@ export default function ShopScreen() {
     setRefreshing(false);
   };
 
-  const formatPrice = (price: string) => {
-    return `AED ${parseFloat(price).toFixed(0)}`;
+  const formatPrice = (price: string, currency: string = "AED") => {
+    return `${currency} ${parseFloat(price).toFixed(0)}`;
   };
 
   const handleSearch = useCallback(async (query: string) => {
@@ -293,7 +295,7 @@ export default function ShopScreen() {
                                 </View>
                                 <Text style={styles.serviceName}>{service.name}</Text>
                                 <View style={styles.servicePriceRow}>
-                                  <Text style={styles.servicePrice}>{formatPrice(service.price)}</Text>
+                                  <Text style={styles.servicePrice}>{formatPrice(service.price, service.currency)}</Text>
                                 </View>
                               </LinearGradient>
                             </Pressable>
@@ -322,7 +324,7 @@ export default function ShopScreen() {
                                   </View>
                                   <View style={styles.productInfo}>
                                     <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
-                                    <Text style={styles.productPrice}>{formatPrice(product.price)}</Text>
+                                    <Text style={styles.productPrice}>{formatPrice(product.price, product.currency)}</Text>
                                   </View>
                                 </LinearGradient>
                               </Pressable>
@@ -423,7 +425,7 @@ export default function ShopScreen() {
                           </Text>
                         )}
                         <View style={styles.servicePriceRow}>
-                          <Text style={styles.servicePrice}>{formatPrice(service.price)}</Text>
+                          <Text style={styles.servicePrice}>{formatPrice(service.price, service.currency)}</Text>
                           {service.durationMinutes && (
                             <Text style={styles.serviceDuration}>{service.durationMinutes} min</Text>
                           )}
@@ -477,10 +479,10 @@ export default function ShopScreen() {
                             <View style={styles.productInfo}>
                               <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
                               <View style={styles.productPriceRow}>
-                                <Text style={styles.productPrice}>{formatPrice(product.price)}</Text>
+                                <Text style={styles.productPrice}>{formatPrice(product.price, product.currency)}</Text>
                                 {product.compareAtPrice && (
                                   <Text style={styles.productComparePrice}>
-                                    {formatPrice(product.compareAtPrice)}
+                                    {formatPrice(product.compareAtPrice, product.currency)}
                                   </Text>
                                 )}
                               </View>
