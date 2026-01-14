@@ -202,7 +202,7 @@ function FeaturedCard({ article }: { article: NewsArticle }) {
           </View>
         ) : (
           <LinearGradient
-            colors={[ProTennisColors.darkSurface, ProTennisColors.darkBackground]}
+            colors={[ProTennisColors.surfaceDark, ProTennisColors.midnightBlue]}
             style={styles.featuredPlaceholder}
           />
         )}
@@ -317,7 +317,7 @@ export default function NewsScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[ProTennisColors.darkBackground, "#0A0A0A"]}
+        colors={[ProTennisColors.midnightBlue, "#0A0A0A"]}
         style={StyleSheet.absoluteFill}
       />
 
@@ -348,7 +348,7 @@ export default function NewsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: ProTennisColors.darkBackground,
+    backgroundColor: ProTennisColors.midnightBlue,
   },
   listContent: {
     paddingHorizontal: Spacing.md,
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
   featuredCard: {
     borderRadius: BorderRadius.xl,
     overflow: "hidden",
-    backgroundColor: ProTennisColors.darkSurface,
+    backgroundColor: ProTennisColors.surfaceDark,
     height: 280,
   },
   featuredImageContainer: {
@@ -464,11 +464,11 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: BorderRadius.lg,
-    backgroundColor: ProTennisColors.darkSurface,
+    backgroundColor: ProTennisColors.surfaceCard,
     overflow: "hidden",
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: ProTennisColors.neonCyan + "20",
   },
   thumbnailContainer: {
     height: 180,

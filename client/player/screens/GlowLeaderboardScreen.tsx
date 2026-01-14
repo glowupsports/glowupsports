@@ -158,8 +158,8 @@ export default function GlowLeaderboardScreen() {
     queryFn: () => apiFetch(`/api/player/leaderboard?scope=${scope}`),
   });
 
-  const topThree = data?.rankings.slice(0, 3) || [];
-  const restOfRankings = data?.rankings.slice(3) || [];
+  const topThree = data?.rankings?.slice(0, 3) ?? [];
+  const restOfRankings = data?.rankings?.slice(3) ?? [];
 
   return (
     <LockedScreen featureKey="glow_leaderboard">

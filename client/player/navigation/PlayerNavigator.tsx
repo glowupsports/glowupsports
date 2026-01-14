@@ -434,7 +434,11 @@ function PlayerStackNavigator() {
         component={LessonBookingScreen}
         options={{
           presentation: "fullScreenModal",
-          headerShown: false,
+          headerShown: true,
+          headerTitle: "Book Lesson",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -461,6 +465,11 @@ function PlayerStackNavigator() {
         component={GlowLeaderboardScreen}
         options={{
           presentation: "card",
+          headerShown: true,
+          headerTitle: "Leaderboard",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -475,6 +484,11 @@ function PlayerStackNavigator() {
         component={NewsScreen}
         options={{
           presentation: "card",
+          headerShown: true,
+          headerTitle: "Tennis News",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -489,7 +503,11 @@ function PlayerStackNavigator() {
         component={GroupDetailScreen}
         options={{
           presentation: "card",
-          headerShown: false,
+          headerShown: true,
+          headerTitle: "Group Details",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -549,7 +567,11 @@ function PlayerStackNavigator() {
         component={ShopScreen}
         options={{
           presentation: "card",
-          headerShown: false,
+          headerShown: true,
+          headerTitle: "Academy Shop",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -557,7 +579,11 @@ function PlayerStackNavigator() {
         component={ProductDetailScreen}
         options={{
           presentation: "card",
-          headerShown: false,
+          headerShown: true,
+          headerTitle: "Product",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -565,7 +591,11 @@ function PlayerStackNavigator() {
         component={ServiceDetailScreen}
         options={{
           presentation: "card",
-          headerShown: false,
+          headerShown: true,
+          headerTitle: "Service",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -573,7 +603,11 @@ function PlayerStackNavigator() {
         component={CartScreen}
         options={{
           presentation: "card",
-          headerShown: false,
+          headerShown: true,
+          headerTitle: "Cart",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -581,7 +615,11 @@ function PlayerStackNavigator() {
         component={ShopCategoryScreen}
         options={{
           presentation: "card",
-          headerShown: false,
+          headerShown: true,
+          headerTitle: "Category",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -589,7 +627,11 @@ function PlayerStackNavigator() {
         component={MarketplaceScreen}
         options={{
           presentation: "card",
-          headerShown: false,
+          headerShown: true,
+          headerTitle: "Marketplace",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -597,7 +639,11 @@ function PlayerStackNavigator() {
         component={MarketplaceListingDetailScreen}
         options={{
           presentation: "card",
-          headerShown: false,
+          headerShown: true,
+          headerTitle: "Listing",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -605,7 +651,11 @@ function PlayerStackNavigator() {
         component={MyListingsScreen}
         options={{
           presentation: "card",
-          headerShown: false,
+          headerShown: true,
+          headerTitle: "My Listings",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -625,7 +675,11 @@ function PlayerStackNavigator() {
         component={MatchDetailScreen}
         options={{
           presentation: "card",
-          headerShown: false,
+          headerShown: true,
+          headerTitle: "Match Details",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -633,7 +687,11 @@ function PlayerStackNavigator() {
         component={SkillEvidenceScreen}
         options={{
           presentation: "card",
-          headerShown: false,
+          headerShown: true,
+          headerTitle: "Skill Evidence",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -641,7 +699,11 @@ function PlayerStackNavigator() {
         component={TrialGatesScreen}
         options={{
           presentation: "card",
-          headerShown: false,
+          headerShown: true,
+          headerTitle: "Trial Gates",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -649,7 +711,11 @@ function PlayerStackNavigator() {
         component={CollectionScreen}
         options={{
           presentation: "card",
-          headerShown: false,
+          headerShown: true,
+          headerTitle: "Collection",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -657,7 +723,11 @@ function PlayerStackNavigator() {
         component={XPHistoryScreen}
         options={{
           presentation: "card",
-          headerShown: false,
+          headerShown: true,
+          headerTitle: "XP History",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -665,7 +735,11 @@ function PlayerStackNavigator() {
         component={LevelUpHistoryScreen}
         options={{
           presentation: "card",
-          headerShown: false,
+          headerShown: true,
+          headerTitle: "Level History",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -673,7 +747,11 @@ function PlayerStackNavigator() {
         component={OpenMatchFeedScreen}
         options={{
           presentation: "card",
-          headerShown: false,
+          headerShown: true,
+          headerTitle: "Open Matches",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -681,7 +759,11 @@ function PlayerStackNavigator() {
         component={BookingPreferencesScreen}
         options={{
           presentation: "card",
-          headerShown: false,
+          headerShown: true,
+          headerTitle: "Booking Preferences",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -689,7 +771,11 @@ function PlayerStackNavigator() {
         component={BookingInvitesScreen}
         options={{
           presentation: "card",
-          headerShown: false,
+          headerShown: true,
+          headerTitle: "Booking Invites",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -697,7 +783,11 @@ function PlayerStackNavigator() {
         component={FamilyLobbyScreen}
         options={{
           presentation: "card",
-          headerShown: false,
+          headerShown: true,
+          headerTitle: "Family",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
     </Stack.Navigator>
