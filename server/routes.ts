@@ -14449,8 +14449,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const feeds = [
         { url: "https://www.atptour.com/en/media/rss-feed/xml-feed", source: "ATP Tour" },
+        { url: "https://www.wtatennis.com/rss", source: "WTA Tour" },
         { url: "https://www.tennis.com/rss/news", source: "Tennis.com" },
         { url: "https://feeds.bbci.co.uk/sport/tennis/rss.xml", source: "BBC Sport" },
+        { url: "https://www.espn.com/espn/rss/tennis/news", source: "ESPN Tennis" },
+        { url: "https://www.skysports.com/rss/11829", source: "Sky Sports" },
+        { url: "https://www.tennisworldusa.org/feed/", source: "Tennis World USA" },
+        { url: "https://www.eurosport.com/tennis/rss.xml", source: "Eurosport" },
       ];
       
       const articles: Array<{
@@ -14483,9 +14488,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Sort by date (newest first) and limit to 15 articles
+      // Sort by date (newest first) and limit to 25 articles
       articles.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-      const limitedArticles = articles.slice(0, 15);
+      const limitedArticles = articles.slice(0, 25);
       
       // If no RSS feeds worked, return fallback headlines
       if (limitedArticles.length === 0) {
