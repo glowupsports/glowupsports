@@ -187,36 +187,47 @@ export function PlayersNearYouRow() {
   );
 }
 
-export function OpenSessionsRow() {
+// Helper to format date nicely
+function formatSessionDate(dateStr?: string): string {
+  if (!dateStr) return "Today";
+  const date = new Date(dateStr);
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${date.getDate()} ${months[date.getMonth()]} (${days[date.getDay()]})`;
+}
+
+// Group Lessons Row - Liga-style bigger cards for coaching sessions
+export function GroupLessonsRow() {
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
 
-  const openSessions = state.openSessions ?? [];
+  // Filter for group sessions only (coaching)
+  const groupLessons = (state.openSessions ?? []).filter(s => s.type === "group");
 
-  const handleSessionPress = (sessionId: string) => {
+  const handleLessonPress = (sessionId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("OpenMatches", { selectedSession: sessionId });
+    navigation.navigate("LessonBooking", { selectedSession: sessionId });
   };
 
   const handleSeeAll = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("OpenMatches");
+    navigation.navigate("LessonBooking");
   };
 
-  if (openSessions.length === 0) {
+  if (groupLessons.length === 0) {
     return (
       <View style={styles.section}>
         <SectionHeader
-          title="Open Sessions"
-          actionLabel="Browse All"
+          title="Group Lessons"
+          actionLabel="View All"
           onAction={handleSeeAll}
           accentColor={ProTennisColors.electricGreen}
         />
         <View style={styles.emptyRow}>
-          <Feather name="calendar" size={24} color={ProTennisColors.textMuted} />
-          <Text style={styles.emptyText}>No open sessions right now</Text>
+          <Feather name="users" size={24} color={ProTennisColors.textMuted} />
+          <Text style={styles.emptyText}>No group lessons available</Text>
           <Pressable style={styles.emptyButton} onPress={handleSeeAll}>
-            <Text style={styles.emptyButtonText}>Browse Schedule</Text>
+            <Text style={styles.emptyButtonText}>Browse Lessons</Text>
           </Pressable>
         </View>
       </View>
@@ -226,9 +237,9 @@ export function OpenSessionsRow() {
   return (
     <View style={styles.section}>
       <SectionHeader
-        title="Open Sessions"
-        count={openSessions.length}
-        actionLabel="See All"
+        title="Group Lessons"
+        count={groupLessons.length}
+        actionLabel="View All"
         onAction={handleSeeAll}
         accentColor={ProTennisColors.electricGreen}
       />
@@ -238,78 +249,212 @@ export function OpenSessionsRow() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.rowScrollContent}
       >
-        {openSessions.slice(0, 6).map((session, index) => (
-          <Animated.View 
-            key={session.id}
-            entering={FadeInRight.delay(index * 60).duration(300)}
-          >
-            <Pressable onPress={() => handleSessionPress(session.id)}>
-              <NeonEdgeCard 
-                color={ProTennisColors.electricGreen} 
-                glowIntensity="medium" 
-                style={styles.sessionCard}
-              >
-                <View style={styles.sessionCardContent}>
-                  <View style={styles.sessionHeader}>
-                    <View style={styles.sessionTypeIcon}>
-                      <Feather 
-                        name={session.type === "group" ? "users" : session.type === "open_match" ? "target" : "user"} 
-                        size={18} 
-                        color={ProTennisColors.electricGreen} 
-                      />
-                    </View>
-                    {session.ballLevel && (
-                      <View style={[styles.levelChip, { backgroundColor: getBallLevelColor(session.ballLevel) }]}>
-                        <Text style={styles.levelChipText}>{session.ballLevel}</Text>
-                      </View>
-                    )}
-                  </View>
-
-                  <Text style={styles.sessionTime}>{session.time}</Text>
-                  <Text style={styles.sessionType}>
-                    {session.type === "group" ? "Group Session" : 
-                     session.type === "open_match" ? "Open Match" : "Private Lesson"}
-                  </Text>
-
-                  {session.coachName && (
-                    <Text style={styles.sessionCoach}>with {session.coachName}</Text>
-                  )}
-
-                  {/* Participant count and avatars */}
-                  <View style={styles.participantRow}>
-                    {session.participants && session.participants.length > 0 ? (
-                      <View style={styles.avatarStack}>
-                        {session.participants.slice(0, 3).map((p, i) => (
-                          <View key={p.id} style={[styles.miniAvatar, { marginLeft: i > 0 ? -8 : 0, zIndex: 3 - i }]}>
-                            <GlowAvatar
-                              source={p.profilePhotoUrl ? `${getStaticAssetsUrl()}${p.profilePhotoUrl}` : null}
-                              name={p.name}
-                              size="xs"
-                              showGlow={false}
-                            />
-                          </View>
-                        ))}
-                      </View>
-                    ) : null}
-                    <Text style={styles.spotsCountText}>
-                      {(session.maxPlayers || 4) - session.spotsLeft} going • {session.maxPlayers || 4} limit
+        {groupLessons.slice(0, 6).map((session, index) => {
+          const levelColor = session.ballLevel ? getBallLevelColor(session.ballLevel) : ProTennisColors.electricGreen;
+          const currentPlayers = (session.maxPlayers || 6) - session.spotsLeft;
+          
+          return (
+            <Animated.View 
+              key={session.id}
+              entering={FadeInRight.delay(index * 80).duration(350)}
+            >
+              <Pressable onPress={() => handleLessonPress(session.id)}>
+                <View style={styles.ligaCard}>
+                  {/* Top section with ball level accent */}
+                  <View style={[styles.ligaCardHeader, { borderLeftColor: levelColor }]}>
+                    <Text style={[styles.ligaTitle, { color: levelColor }]} numberOfLines={2}>
+                      {session.coachName ? `${session.coachName}'s Session` : "Group Session"}
+                    </Text>
+                    <Text style={styles.ligaSubtitle}>
+                      {session.ballLevel || "All Levels"} • Tennis
                     </Text>
                   </View>
 
+                  {/* Date and Time */}
+                  <View style={styles.ligaDateTimeRow}>
+                    <Text style={[styles.ligaDateTime, { color: levelColor }]}>
+                      {formatSessionDate((session as any).date)}
+                    </Text>
+                    <Text style={[styles.ligaDateTime, { color: levelColor }]}>
+                      {session.time || "TBD"}
+                    </Text>
+                  </View>
+
+                  {/* Participant count with avatars */}
+                  <View style={styles.ligaParticipantsRow}>
+                    <Feather name="users" size={14} color={levelColor} />
+                    <Text style={styles.ligaParticipantText}>
+                      {currentPlayers} going • {session.maxPlayers || 6} limit
+                    </Text>
+                  </View>
+
+                  {/* Avatar stack */}
+                  {session.participants && session.participants.length > 0 && (
+                    <View style={styles.ligaAvatarRow}>
+                      {session.participants.slice(0, 4).map((p, i) => (
+                        <View key={p.id} style={[styles.ligaAvatar, { marginLeft: i > 0 ? -10 : 0, zIndex: 5 - i }]}>
+                          <GlowAvatar
+                            source={p.profilePhotoUrl ? `${getStaticAssetsUrl()}${p.profilePhotoUrl}` : null}
+                            name={p.name}
+                            size="sm"
+                            showGlow={false}
+                          />
+                        </View>
+                      ))}
+                      {session.participants.length > 4 && (
+                        <View style={[styles.ligaAvatarMore, { marginLeft: -10 }]}>
+                          <Text style={styles.ligaAvatarMoreText}>+{session.participants.length - 4}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  {/* Sign Up Button */}
                   <Pressable 
-                    style={styles.joinButton}
-                    onPress={() => handleSessionPress(session.id)}
+                    style={[styles.ligaSignUpButton, { borderColor: levelColor }]}
+                    onPress={() => handleLessonPress(session.id)}
                   >
-                    <Text style={styles.joinButtonText}>Join</Text>
-                    <Feather name="arrow-right" size={14} color={ProTennisColors.midnightBlue} />
+                    <Feather name="edit-2" size={14} color={levelColor} />
+                    <Text style={[styles.ligaSignUpText, { color: levelColor }]}>Sign up</Text>
                   </Pressable>
                 </View>
-              </NeonEdgeCard>
-            </Pressable>
-          </Animated.View>
-        ))}
+              </Pressable>
+            </Animated.View>
+          );
+        })}
       </ScrollView>
     </View>
+  );
+}
+
+// Open Matches Row - for finding players to play with (not coaching)
+export function OpenMatchesRow() {
+  const { state } = usePlayerState();
+  const navigation = useNavigation<any>();
+
+  // Filter for open matches only (player vs player)
+  const openMatches = (state.openSessions ?? []).filter(s => s.type === "open_match");
+
+  const handleMatchPress = (matchId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("OpenMatches", { selectedMatch: matchId });
+  };
+
+  const handleSeeAll = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("OpenMatches");
+  };
+
+  if (openMatches.length === 0) {
+    return (
+      <View style={styles.section}>
+        <SectionHeader
+          title="Open Matches"
+          actionLabel="Find Players"
+          onAction={handleSeeAll}
+          accentColor={ProTennisColors.neonCyan}
+        />
+        <View style={styles.emptyRow}>
+          <Feather name="target" size={24} color={ProTennisColors.textMuted} />
+          <Text style={styles.emptyText}>No open matches right now</Text>
+          <Pressable style={styles.emptyButton} onPress={handleSeeAll}>
+            <Text style={styles.emptyButtonText}>Create a Match</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.section}>
+      <SectionHeader
+        title="Open Matches"
+        count={openMatches.length}
+        actionLabel="See All"
+        onAction={handleSeeAll}
+        accentColor={ProTennisColors.neonCyan}
+      />
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.rowScrollContent}
+      >
+        {openMatches.slice(0, 6).map((match, index) => {
+          const currentPlayers = (match.maxPlayers || 4) - match.spotsLeft;
+          
+          return (
+            <Animated.View 
+              key={match.id}
+              entering={FadeInRight.delay(index * 60).duration(300)}
+            >
+              <Pressable onPress={() => handleMatchPress(match.id)}>
+                <NeonEdgeCard 
+                  color={ProTennisColors.neonCyan} 
+                  glowIntensity="medium" 
+                  style={styles.matchCard}
+                >
+                  <View style={styles.matchCardContent}>
+                    <View style={styles.matchHeader}>
+                      <View style={styles.matchTypeIcon}>
+                        <Feather name="target" size={20} color={ProTennisColors.neonCyan} />
+                      </View>
+                      <View style={styles.matchTypeBadge}>
+                        <Text style={styles.matchTypeText}>
+                          {(match.maxPlayers || 4) === 2 ? "Singles" : "Doubles"}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Text style={styles.matchTime}>{match.time}</Text>
+                    <Text style={styles.matchLabel}>Looking for players</Text>
+
+                    {/* Players joined */}
+                    <View style={styles.matchPlayersRow}>
+                      {match.participants && match.participants.length > 0 ? (
+                        <View style={styles.avatarStack}>
+                          {match.participants.slice(0, 3).map((p, i) => (
+                            <View key={p.id} style={[styles.miniAvatar, { marginLeft: i > 0 ? -8 : 0, zIndex: 3 - i }]}>
+                              <GlowAvatar
+                                source={p.profilePhotoUrl ? `${getStaticAssetsUrl()}${p.profilePhotoUrl}` : null}
+                                name={p.name}
+                                size="xs"
+                                showGlow={false}
+                              />
+                            </View>
+                          ))}
+                        </View>
+                      ) : null}
+                      <Text style={styles.matchSpotsText}>
+                        {currentPlayers}/{match.maxPlayers || 4} players
+                      </Text>
+                    </View>
+
+                    <Pressable 
+                      style={styles.matchJoinButton}
+                      onPress={() => handleMatchPress(match.id)}
+                    >
+                      <Text style={styles.matchJoinText}>Join Match</Text>
+                      <Feather name="arrow-right" size={14} color={ProTennisColors.midnightBlue} />
+                    </Pressable>
+                  </View>
+                </NeonEdgeCard>
+              </Pressable>
+            </Animated.View>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
+// Keep OpenSessionsRow as alias for backward compatibility - now combines both
+export function OpenSessionsRow() {
+  return (
+    <>
+      <GroupLessonsRow />
+      <OpenMatchesRow />
+    </>
   );
 }
 
@@ -769,6 +914,166 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: ProTennisColors.electricGreen,
+  },
+  // Liga-style Group Lesson Cards
+  ligaCard: {
+    width: 200,
+    minHeight: 220,
+    backgroundColor: ProTennisColors.surfaceCard,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: ProTennisColors.border,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  ligaCardHeader: {
+    borderLeftWidth: 4,
+    paddingLeft: Spacing.sm,
+    gap: 4,
+  },
+  ligaTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    lineHeight: 20,
+  },
+  ligaSubtitle: {
+    fontSize: 12,
+    color: ProTennisColors.textMuted,
+  },
+  ligaDateTimeRow: {
+    gap: 2,
+    marginTop: Spacing.xs,
+  },
+  ligaDateTime: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  ligaParticipantsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: Spacing.xs,
+  },
+  ligaParticipantText: {
+    fontSize: 12,
+    color: ProTennisColors.textSecondary,
+    fontWeight: "500",
+  },
+  ligaAvatarRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: Spacing.xs,
+  },
+  ligaAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: ProTennisColors.surfaceCard,
+    overflow: "hidden",
+  },
+  ligaAvatarMore: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: ProTennisColors.surfaceElevated,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: ProTennisColors.surfaceCard,
+  },
+  ligaAvatarMoreText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: ProTennisColors.textMuted,
+  },
+  ligaSignUpButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderWidth: 1.5,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    marginTop: "auto",
+  },
+  ligaSignUpText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  // Open Match Cards (cyan theme)
+  matchCard: {
+    width: 160,
+    minHeight: 180,
+  },
+  matchCardContent: {
+    padding: Spacing.md,
+    gap: Spacing.xs,
+    flex: 1,
+  },
+  matchHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  matchTypeIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0, 229, 255, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  matchTypeBadge: {
+    backgroundColor: "rgba(0, 229, 255, 0.2)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+  },
+  matchTypeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: ProTennisColors.neonCyan,
+  },
+  matchTime: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: ProTennisColors.white,
+    fontVariant: ["tabular-nums"],
+    marginTop: Spacing.sm,
+  },
+  matchLabel: {
+    fontSize: 12,
+    color: ProTennisColors.textSecondary,
+    fontWeight: "500",
+  },
+  matchPlayersRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: Spacing.xs,
+  },
+  matchSpotsText: {
+    fontSize: 11,
+    color: ProTennisColors.textMuted,
+    fontWeight: "500",
+  },
+  matchJoinButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    backgroundColor: ProTennisColors.neonCyan,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginTop: "auto",
+  },
+  matchJoinText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: ProTennisColors.midnightBlue,
   },
   trainingCard: {
     width: 150,
