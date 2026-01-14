@@ -102,7 +102,7 @@ function LatestPostCard({ post, onPress }: { post: Post; onPress: () => void }) 
 
         {hasMedia && firstMediaUrl && (
           <View style={styles.latestPostMediaPreview}>
-            <Image source={{ uri: firstMediaUrl }} style={styles.mediaThumb} contentFit="cover" />
+            <Image source={{ uri: firstMediaUrl }} style={styles.mediaThumb} contentFit="contain" />
             {post.mediaUrls.length > 1 && (
               <View style={styles.mediaCountBadge}>
                 <Text style={styles.mediaCountText}>+{post.mediaUrls.length - 1}</Text>
@@ -426,11 +426,11 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   latestPostMediaPreview: {
-    aspectRatio: 16 / 9,
-    maxHeight: 100,
+    height: 120,
     borderRadius: BorderRadius.sm,
     overflow: "hidden",
     position: "relative",
+    backgroundColor: "rgba(0,0,0,0.3)",
   },
   mediaThumb: {
     width: "100%",

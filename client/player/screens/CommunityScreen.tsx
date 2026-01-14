@@ -4,7 +4,6 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  Image,
   RefreshControl,
   ActivityIndicator,
   TextInput,
@@ -15,6 +14,7 @@ import {
   Platform,
   Share,
 } from "react-native";
+import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -98,7 +98,7 @@ function VideoPostMedia({ uri }: { uri: string }) {
       <VideoView
         player={player}
         style={styles.momentImage}
-        contentFit="cover"
+        contentFit="contain"
         nativeControls
       />
       <View style={styles.videoIndicator}>
@@ -197,7 +197,7 @@ function MomentCard({
               <Image 
                 source={{ uri: mediaUrl }} 
                 style={styles.momentImage}
-                resizeMode="cover"
+                contentFit="contain"
               />
             )}
             {/* Context badge overlay on photo */}
@@ -578,7 +578,7 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
       mediaTypes: ImagePicker.MediaTypeOptions.All,
       allowsEditing: true,
       aspect: [16, 9],
-      quality: 0.8,
+      quality: 0.5,
       videoMaxDuration: 30,
     });
 
@@ -600,7 +600,7 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [16, 9],
-      quality: 0.8,
+      quality: 0.5,
     });
 
     if (!result.canceled && result.assets[0]) {
@@ -618,7 +618,7 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Videos,
       videoMaxDuration: 30,
-      quality: 0.8,
+      quality: 0.5,
     });
 
     if (!result.canceled && result.assets[0]) {
@@ -1531,8 +1531,8 @@ const styles = StyleSheet.create({
   },
   momentImage: {
     width: "100%",
-    aspectRatio: 4 / 5,
-    backgroundColor: Colors.dark.backgroundRoot,
+    height: 200,
+    backgroundColor: "rgba(0,0,0,0.3)",
   },
   videoContainer: {
     position: "relative",

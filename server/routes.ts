@@ -23293,47 +23293,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id: postId } = req.params;
       
-      const comments = await db.select({
-        id: postCommentsTable.id,
-        postId: postCommentsTable.postId,
-        authorId: postCommentsTable.authorId,
-        text: postCommentsTable.text,
-        isQuickComment: postCommentsTable.isQuickComment,
-        quickCommentType: postCommentsTable.quickCommentType,
-        parentId: postCommentsTable.parentId,
-        isHidden: postCommentsTable.isHidden,
-        createdAt: postCommentsTable.createdAt,
-        authorUserId: users.id,
-        authorUsername: users.username,
-        playerName: players.name,
-        playerPhotoUrl: players.photoUrl,
-      })
-      .from(postCommentsTable)
-      .leftJoin(users, eq(postCommentsTable.authorId, users.id))
-      .leftJoin(players, eq(users.playerId, players.id))
-      .where(and(
-        eq(postCommentsTable.postId, postId),
-        eq(postCommentsTable.isHidden, false)
-      ))
-      .orderBy(asc(postCommentsTable.createdAt));
+      // First get comments
+      const rawComments = await db.select()
+        .from(postCommentsTable)
+        .where(and(
+          eq(postCommentsTable.postId, postId),
+          eq(postCommentsTable.isHidden, false)
+        ))
+        .orderBy(asc(postCommentsTable.createdAt));
       
-      res.json(comments.map(c => ({
-        id: c.id,
-        postId: c.postId,
-        authorId: c.authorId,
-        text: c.text,
-        isQuickComment: c.isQuickComment,
-        quickCommentType: c.quickCommentType,
-        parentId: c.parentId,
-        isHidden: c.isHidden,
-        createdAt: c.createdAt,
-        author: {
-          id: c.authorUserId,
-          username: c.authorUsername,
-          name: c.playerName || c.authorUsername,
-          photoUrl: c.playerPhotoUrl,
-        },
-      })));
+      // Then enrich with author info
+      const comments = await Promise.all(rawComments.map(async (comment) => {
+        let authorData = { id: comment.authorId, username: "Player", name: "Player", photoUrl: null as string | null };
+        
+        try {
+          const [user] = await db.select().from(users).where(eq(users.id, comment.authorId)).limit(1);
+          if (user) {
+            authorData.username = user.username;
+            authorData.name = user.username;
+            if (user.playerId) {
+              const [player] = await db.select().from(players).where(eq(players.id, user.playerId)).limit(1);
+              if (player) {
+                authorData.name = player.name;
+                authorData.photoUrl = player.photoUrl;
+              }
+            }
+          }
+        } catch (e) {
+          // Keep defaults
+        }
+        
+        return {
+          id: comment.id,
+          postId: comment.postId,
+          authorId: comment.authorId,
+          text: comment.text,
+          isQuickComment: comment.isQuickComment,
+          quickCommentType: comment.quickCommentType,
+          parentId: comment.parentId,
+          isHidden: comment.isHidden,
+          createdAt: comment.createdAt,
+          author: authorData,
+        };
+      }));
+      
+      res.json(comments);
     } catch (error) {
       console.error("Error fetching comments:", error);
       res.status(500).json({ error: "Failed to fetch comments" });
