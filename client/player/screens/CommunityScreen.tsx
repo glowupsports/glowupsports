@@ -457,7 +457,7 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
     
     setIsSubmitting(true);
     try {
-      await apiRequest("POST", `/api/social/posts/${postId}/comments`, { content: commentText.trim() });
+      await apiRequest("POST", `/api/social/posts/${postId}/comments`, { text: commentText.trim() });
       setCommentText("");
       refetch();
       // Also invalidate the main feed to update comment counts

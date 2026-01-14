@@ -225,12 +225,12 @@ export function MiniFeed() {
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("CommunityFeed");
+    navigation.navigate("Community");
   };
 
   const handleSeeAll = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("CommunityFeed");
+    navigation.navigate("Community");
   };
 
   const events = state.communityEvents.slice(0, 2);
