@@ -21,6 +21,16 @@ import { GlowAvatar } from "./GlowAvatar";
 import { NeonEdgeCard } from "./GlassCard";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 
+// Helper to get color for ball level
+function getBallLevelColor(level: string): string {
+  const levelLower = level.toLowerCase();
+  if (levelLower.includes("red")) return "#FF4444";
+  if (levelLower.includes("orange")) return "#FF9800";
+  if (levelLower.includes("green")) return "#4CAF50";
+  if (levelLower.includes("yellow")) return "#FFEB3B";
+  return ProTennisColors.electricGreen;
+}
+
 interface SectionHeaderProps {
   title: string;
   count?: number;
@@ -248,9 +258,9 @@ export function OpenSessionsRow() {
                         color={ProTennisColors.electricGreen} 
                       />
                     </View>
-                    {(session.type === "group" || session.type === "open_match") && session.spotsLeft > 0 && (
-                      <View style={styles.spotsChip}>
-                        <Text style={styles.spotsText}>{session.spotsLeft} spots</Text>
+                    {session.ballLevel && (
+                      <View style={[styles.levelChip, { backgroundColor: getBallLevelColor(session.ballLevel) }]}>
+                        <Text style={styles.levelChipText}>{session.ballLevel}</Text>
                       </View>
                     )}
                   </View>
@@ -264,6 +274,27 @@ export function OpenSessionsRow() {
                   {session.coachName && (
                     <Text style={styles.sessionCoach}>with {session.coachName}</Text>
                   )}
+
+                  {/* Participant count and avatars */}
+                  <View style={styles.participantRow}>
+                    {session.participants && session.participants.length > 0 ? (
+                      <View style={styles.avatarStack}>
+                        {session.participants.slice(0, 3).map((p, i) => (
+                          <View key={p.id} style={[styles.miniAvatar, { marginLeft: i > 0 ? -8 : 0, zIndex: 3 - i }]}>
+                            <GlowAvatar
+                              source={p.profilePhotoUrl ? `${getStaticAssetsUrl()}${p.profilePhotoUrl}` : null}
+                              name={p.name}
+                              size="xs"
+                              showGlow={false}
+                            />
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
+                    <Text style={styles.spotsCountText}>
+                      {(session.maxPlayers || 4) - session.spotsLeft} going • {session.maxPlayers || 4} limit
+                    </Text>
+                  </View>
 
                   <Pressable 
                     style={styles.joinButton}
@@ -660,6 +691,41 @@ const styles = StyleSheet.create({
   sessionCoach: {
     fontSize: 11,
     color: ProTennisColors.textMuted,
+  },
+  levelChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  levelChipText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#000",
+    letterSpacing: 0.5,
+  },
+  participantRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  avatarStack: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  miniAvatar: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: ProTennisColors.midnightBlue,
+    overflow: "hidden",
+  },
+  spotsCountText: {
+    fontSize: 10,
+    color: ProTennisColors.textMuted,
+    fontWeight: "500",
   },
   joinButton: {
     flexDirection: "row",

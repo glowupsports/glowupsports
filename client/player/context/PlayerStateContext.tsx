@@ -20,12 +20,22 @@ interface NearbyPlayer {
   playerLevel?: number;
 }
 
+interface SessionParticipant {
+  id: string;
+  name: string;
+  profilePhotoUrl?: string;
+  level: number;
+}
+
 interface OpenSession {
   id: string;
   type: "group" | "private" | "open_match";
   time: string;
   spotsLeft: number;
+  maxPlayers?: number;
   coachName?: string;
+  ballLevel?: string;
+  participants?: SessionParticipant[];
 }
 
 interface CommunityEvent {
@@ -363,7 +373,7 @@ export function PlayerStateProvider({ children }: { children: ReactNode }) {
     ];
 
     const fallbackOpenSessions: OpenSession[] = [
-      { id: "1", type: "group", time: "18:00", spotsLeft: 2, coachName: "Coach K" },
+      { id: "1", type: "group", time: "18:00", spotsLeft: 2, maxPlayers: 6, coachName: "Coach K", ballLevel: levelStage.toUpperCase(), participants: [] },
     ];
 
     const fallbackCommunityEvents: CommunityEvent[] = [

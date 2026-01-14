@@ -32,7 +32,7 @@ interface NewsTickerProps {
 export function NewsTicker({
   style,
   autoScroll = true,
-  scrollSpeed = 50,
+  scrollSpeed = 35, // Slower scroll for better readability
 }: NewsTickerProps) {
   const translateX = useSharedValue(0);
   const glowPulse = useSharedValue(0);
