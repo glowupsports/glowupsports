@@ -163,22 +163,8 @@ export default function GlowLeaderboardScreen() {
 
   return (
     <LockedScreen featureKey="glow_leaderboard">
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <Pressable
-            style={styles.backButton}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.goBack();
-            }}
-          >
-            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
-          </Pressable>
-          <Text style={styles.headerTitle}>Glow Rank</Text>
-          <View style={{ width: 40 }} />
-        </View>
-
-      <View style={styles.scopeToggle}>
+      <View style={styles.container}>
+        <View style={styles.scopeToggle}>
         <Pressable
           style={[styles.scopeButton, scope === "academy" && styles.scopeButtonActive]}
           onPress={() => setScope("academy")}
@@ -263,25 +249,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.06)",
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  headerTitle: {
-    ...Typography.h3,
-    color: Colors.dark.text,
   },
   scopeToggle: {
     flexDirection: "row",

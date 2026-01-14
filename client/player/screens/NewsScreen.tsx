@@ -282,7 +282,7 @@ export default function NewsScreen() {
       <Animated.View entering={FadeInUp.delay(100)} style={styles.headerTitleRow}>
         <View style={styles.headerIconContainer}>
           <LinearGradient
-            colors={[ProTennisColors.neonGreen, ProTennisColors.xpCyan]}
+            colors={[ProTennisColors.neonGreen, ProTennisColors.neonCyan]}
             style={styles.headerIconGradient}
           >
             <Ionicons name="newspaper" size={24} color="#000" />
@@ -308,7 +308,7 @@ export default function NewsScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.container}>
         <LoadingState />
       </View>
     );
@@ -329,7 +329,7 @@ export default function NewsScreen() {
         ListEmptyComponent={articles.length === 0 ? <EmptyState /> : null}
         contentContainerStyle={[
           styles.listContent,
-          { paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom + 100 },
+          { paddingTop: Spacing.md, paddingBottom: insets.bottom + 100 },
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
