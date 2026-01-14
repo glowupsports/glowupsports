@@ -361,15 +361,23 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
   const navigateAndClose = (screen: string, params?: any) => {
     handleClose();
     setTimeout(() => {
-      if (params?.screen) {
-        navigation.navigate(screen, params);
+      // Get navigator hierarchy: current screen -> tabs -> root stack
+      // Both tab switches (PlayerTabs + params) and stack screens (News, etc.)
+      // are routes on the ROOT stack, so we always need rootStackNav
+      const tabNav = navigation.getParent();
+      const rootStackNav = tabNav?.getParent();
+      
+      // All drawer navigation targets the root stack
+      // - Tab switches: rootStackNav.navigate("PlayerTabs", { screen: "Home" })
+      // - Stack screens: rootStackNav.navigate("News")
+      if (rootStackNav) {
+        rootStackNav.navigate(screen, params);
+      } else if (tabNav) {
+        // Fallback: try tab navigator
+        tabNav.navigate(screen, params);
       } else {
-        const parentNav = navigation.getParent();
-        if (parentNav) {
-          parentNav.navigate(screen, params);
-        } else {
-          navigation.navigate(screen, params);
-        }
+        // Last fallback: current navigator
+        navigation.navigate(screen, params);
       }
     }, 150);
   };
