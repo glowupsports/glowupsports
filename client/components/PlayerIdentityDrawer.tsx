@@ -370,32 +370,12 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
           parent = parent.getParent();
         }
         
-        // For PlayerTabs with nested screen params, we need to use reset to ensure
-        // proper navigation to the nested tab
+        // For PlayerTabs with nested screen params, use navigate with nested screen
         if (screen === "PlayerTabs" && params?.screen) {
-          // Navigate to PlayerTabs first, then to the nested tab
-          rootNav.dispatch(
-            CommonActions.reset({
-              index: 0,
-              routes: [
-                {
-                  name: "PlayerTabs",
-                  state: {
-                    routes: [{ name: params.screen }],
-                    index: 0,
-                  },
-                },
-              ],
-            })
-          );
+          rootNav.navigate("PlayerTabs", { screen: params.screen });
         } else {
           // For direct stack screens, use regular navigate
-          rootNav.dispatch(
-            CommonActions.navigate({
-              name: screen,
-              params: params,
-            })
-          );
+          rootNav.navigate(screen, params);
         }
       } catch (error) {
         console.log("[Drawer] Navigation error:", error);
