@@ -57,7 +57,7 @@ interface DashboardData {
   coach: {
     id: string;
     name: string;
-    avatar?: string | null;
+    photoUrl?: string | null;
     yearsExperience?: number;
     philosophyTags?: string[];
     publicQuote?: string | null;
@@ -592,8 +592,8 @@ function NoSessionCard() {
   );
 }
 
-function MentorCard({ coach, onPress }: { coach: { id: string; name: string; avatar?: string | null; yearsExperience?: number }; onPress: () => void }) {
-  const coachPhotoUri = coach.avatar ? `${getStaticAssetsUrl()}${coach.avatar}` : null;
+function MentorCard({ coach, onPress }: { coach: { id: string; name: string; photoUrl?: string | null; yearsExperience?: number }; onPress: () => void }) {
+  const coachPhotoUri = coach.photoUrl ? `${getStaticAssetsUrl()}${coach.photoUrl}` : null;
   
   return (
     <Pressable style={mentorStyles.card} onPress={onPress}>

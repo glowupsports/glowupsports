@@ -14274,7 +14274,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         coach: coach ? {
           id: coach.id,
           name: coach.name,
-          avatar: coach.profilePhotoUrl || null,
+          photoUrl: coach.photoUrl || null,
           yearsExperience: coach.yearsExperience,
           philosophyTags: coach.philosophyTags || [],
           publicQuote: coach.bioStatus === "approved" ? coach.publicQuote : null,

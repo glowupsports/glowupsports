@@ -267,7 +267,7 @@ interface DashboardData {
   coach: {
     id: string;
     name: string;
-    avatar: string | null;
+    photoUrl: string | null;
   } | null;
   nextSession: {
     id: string;
@@ -412,7 +412,7 @@ export function PlayerStateProvider({ children }: { children: ReactNode }) {
       sessionsToPromotion,
       sessionCourtName: nextSession?.courtName || null,
       sessionType: nextSession?.type || null,
-      coachPhotoUrl: dashboardData.coach?.avatar ? `${getStaticAssetsUrl()}${dashboardData.coach.avatar}` : null,
+      coachPhotoUrl: dashboardData.coach?.photoUrl ? `${getStaticAssetsUrl()}${dashboardData.coach.photoUrl}` : null,
       sessionId: nextSession?.id || null,
     };
   }, [dashboardData, levelStatus, socialData, timeOfDay]);
