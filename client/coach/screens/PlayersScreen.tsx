@@ -33,6 +33,7 @@ import Animated, {
 import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
 import { apiRequest, getStaticAssetsUrl, getApiUrl } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import PackagesCard from "@/coach/components/PackagesCard";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -539,7 +540,7 @@ export default function PlayersScreen() {
 
       <Modal visible={showAddModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { maxHeight: '85%' }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Add Player</Text>
               <Pressable onPress={() => setShowAddModal(false)}>
@@ -547,6 +548,10 @@ export default function PlayersScreen() {
               </Pressable>
             </View>
 
+            <KeyboardAwareScrollViewCompat 
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: Spacing.md }}
+            >
             <View style={styles.formGroup}>
               <Text style={styles.formLabel}>Name *</Text>
               <TextInput
@@ -729,6 +734,7 @@ export default function PlayersScreen() {
                 )}
               </Pressable>
             </View>
+            </KeyboardAwareScrollViewCompat>
           </View>
         </View>
       </Modal>
