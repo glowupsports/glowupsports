@@ -140,6 +140,7 @@ const DRAWER_SECTIONS: DrawerSection[] = [
     title: "SOCIAL",
     icon: "people",
     items: [
+      { id: "news", title: "Tennis News", subtitle: "Latest headlines", icon: "globe", screen: "News" },
       { id: "playerfinder", title: "Player Finder", subtitle: "Browse local players", icon: "search", screen: "PlayerFinder", unlockLevel: 6 },
       { id: "friends", title: "Friends", subtitle: "Your connections", icon: "people-circle", screen: "FriendsList" },
       { id: "feed", title: "Community Feed", subtitle: "Posts & reactions", icon: "newspaper", screen: "PlayerTabs", params: { screen: "Community" }, unlockLevel: 4 },

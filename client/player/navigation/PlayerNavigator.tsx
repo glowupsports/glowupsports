@@ -65,6 +65,7 @@ import OpenMatchFeedScreen from "@/player/screens/OpenMatchFeedScreen";
 import BookingPreferencesScreen from "@/player/screens/BookingPreferencesScreen";
 import BookingInvitesScreen from "@/player/screens/BookingInvitesScreen";
 import FamilyLobbyScreen from "@/player/screens/FamilyLobbyScreen";
+import NewsScreen from "@/player/screens/NewsScreen";
 import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
 import { CartProvider } from "@/player/contexts/CartContext";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
@@ -142,6 +143,7 @@ export type PlayerStackParamList = {
   BookingPreferences: undefined;
   BookingInvites: undefined;
   FamilyLobby: undefined;
+  News: undefined;
 };
 
 const Tab = createBottomTabNavigator<PlayerTabParamList>();
@@ -450,6 +452,13 @@ function PlayerStackNavigator() {
       <Stack.Screen 
         name="FriendsList" 
         component={FriendsListScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="News" 
+        component={NewsScreen}
         options={{
           presentation: "card",
         }}
