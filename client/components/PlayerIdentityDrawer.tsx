@@ -361,28 +361,52 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
   const navigateAndClose = (screen: string, params?: any) => {
     handleClose();
     setTimeout(() => {
-      // Navigation from drawer (inside PlayerTabs) to various screens
-      // The drawer is rendered inside PlayerTabsWithDrawer
-      // We need to reach the Stack navigator to navigate anywhere
-      
-      // Find the root stack navigator by traversing up the hierarchy
-      let rootNav = navigation;
-      let parent = navigation.getParent();
-      while (parent) {
-        rootNav = parent;
-        parent = parent.getParent();
+      try {
+        // Find the root stack navigator by traversing up the hierarchy
+        let rootNav = navigation;
+        let parent = navigation.getParent();
+        while (parent) {
+          rootNav = parent;
+          parent = parent.getParent();
+        }
+        
+        // For PlayerTabs with nested screen params, we need to use reset to ensure
+        // proper navigation to the nested tab
+        if (screen === "PlayerTabs" && params?.screen) {
+          // Navigate to PlayerTabs first, then to the nested tab
+          rootNav.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [
+                {
+                  name: "PlayerTabs",
+                  state: {
+                    routes: [{ name: params.screen }],
+                    index: 0,
+                  },
+                },
+              ],
+            })
+          );
+        } else {
+          // For direct stack screens, use regular navigate
+          rootNav.dispatch(
+            CommonActions.navigate({
+              name: screen,
+              params: params,
+            })
+          );
+        }
+      } catch (error) {
+        console.log("[Drawer] Navigation error:", error);
+        // Fallback: try direct navigation
+        try {
+          navigation.navigate(screen as never, params as never);
+        } catch (fallbackError) {
+          console.log("[Drawer] Fallback navigation also failed:", fallbackError);
+        }
       }
-      
-      // Dispatch to root navigator - it can handle both:
-      // - PlayerTabs with nested screen params (for tabs)
-      // - Direct stack screens like News, Match, etc.
-      rootNav.dispatch(
-        CommonActions.navigate({
-          name: screen,
-          params: params,
-        })
-      );
-    }, 150);
+    }, 200);
   };
 
   const toggleSection = (sectionId: string) => {
