@@ -931,6 +931,7 @@ export const players = pgTable("players", {
   bio: text("bio"), // Short player bio
   lastActiveAt: timestamp("last_active_at"),
   preferredTime: text("preferred_time"), // Preferred session time (morning/afternoon/evening)
+  status: text("status").default("active"), // active | inactive | suspended
   
   createdAt: timestamp("created_at").defaultNow(),
 });
