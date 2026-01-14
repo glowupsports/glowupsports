@@ -12,7 +12,7 @@ import {
   UIManager,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, CommonActions } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import Animated, {
   useSharedValue,
@@ -361,24 +361,27 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
   const navigateAndClose = (screen: string, params?: any) => {
     handleClose();
     setTimeout(() => {
-      // Get navigator hierarchy: current screen -> tabs -> root stack
-      // Both tab switches (PlayerTabs + params) and stack screens (News, etc.)
-      // are routes on the ROOT stack, so we always need rootStackNav
-      const tabNav = navigation.getParent();
-      const rootStackNav = tabNav?.getParent();
+      // Navigation from drawer (inside PlayerTabs) to various screens
+      // The drawer is rendered inside PlayerTabsWithDrawer
+      // We need to reach the Stack navigator to navigate anywhere
       
-      // All drawer navigation targets the root stack
-      // - Tab switches: rootStackNav.navigate("PlayerTabs", { screen: "Home" })
-      // - Stack screens: rootStackNav.navigate("News")
-      if (rootStackNav) {
-        rootStackNav.navigate(screen, params);
-      } else if (tabNav) {
-        // Fallback: try tab navigator
-        tabNav.navigate(screen, params);
-      } else {
-        // Last fallback: current navigator
-        navigation.navigate(screen, params);
+      // Find the root stack navigator by traversing up the hierarchy
+      let rootNav = navigation;
+      let parent = navigation.getParent();
+      while (parent) {
+        rootNav = parent;
+        parent = parent.getParent();
       }
+      
+      // Dispatch to root navigator - it can handle both:
+      // - PlayerTabs with nested screen params (for tabs)
+      // - Direct stack screens like News, Match, etc.
+      rootNav.dispatch(
+        CommonActions.navigate({
+          name: screen,
+          params: params,
+        })
+      );
     }, 150);
   };
 

@@ -198,6 +198,7 @@ export function NewsTicker({
         >
           {renderTickerContent()}
           {renderTickerContent()}
+          {renderTickerContent()}
         </Animated.View>
       </View>
 

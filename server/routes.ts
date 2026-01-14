@@ -14467,13 +14467,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         thumbnail?: string;
       }> = [];
       
+      // 12 hours ago cutoff for filtering old articles
+      const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+      
       // Try to fetch from each feed, gracefully handle failures
       for (const feed of feeds) {
         try {
           const parsedFeed = await parser.parseURL(feed.url);
-          const feedItems = (parsedFeed.items || []).slice(0, 5);
+          const feedItems = (parsedFeed.items || []).slice(0, 15); // Get more items per feed
           
           for (const item of feedItems) {
+            const publishedDate = item.pubDate ? new Date(item.pubDate) : new Date();
+            
+            // Filter out articles older than 12 hours
+            if (publishedDate < twelveHoursAgo) {
+              continue;
+            }
+            
             articles.push({
               id: item.guid || item.link || `${feed.source}-${Date.now()}`,
               title: (item.title || "").slice(0, 120),
@@ -14488,9 +14498,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Sort by date (newest first) and limit to 25 articles
+      // Sort by date (newest first) and limit to 50 articles for continuous scrolling
       articles.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-      const limitedArticles = articles.slice(0, 25);
+      const limitedArticles = articles.slice(0, 50);
       
       // If no RSS feeds worked, return fallback headlines
       if (limitedArticles.length === 0) {
@@ -14502,7 +14512,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ articles: fallbackArticles, cached: false, fallback: true });
       }
       
-      // Cache the results
+      // Cache the results (50 articles for continuous scrolling)
       newsCache = { articles: limitedArticles, fetchedAt: now };
       
       res.json({ articles: limitedArticles, cached: false });
