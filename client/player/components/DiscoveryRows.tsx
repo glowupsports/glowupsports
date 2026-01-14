@@ -141,7 +141,7 @@ export function PlayersNearYouRow() {
                     showGlow={true}
                     glowIntensity="medium"
                     status={player.status as any}
-                    pulsing={player.status === "available"}
+                    pulsing={false}
                   />
                   <Text style={styles.playerName} numberOfLines={1}>{player.name.split(" ")[0]}</Text>
                   <View style={[styles.levelBadge, { backgroundColor: `${levelColor}30` }]}>
@@ -248,9 +248,11 @@ export function OpenSessionsRow() {
                         color={ProTennisColors.electricGreen} 
                       />
                     </View>
-                    <View style={styles.spotsChip}>
-                      <Text style={styles.spotsText}>{session.spotsLeft} spots</Text>
-                    </View>
+                    {(session.type === "group" || session.type === "open_match") && session.spotsLeft > 0 && (
+                      <View style={styles.spotsChip}>
+                        <Text style={styles.spotsText}>{session.spotsLeft} spots</Text>
+                      </View>
+                    )}
                   </View>
 
                   <Text style={styles.sessionTime}>{session.time}</Text>

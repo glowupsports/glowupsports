@@ -513,23 +513,44 @@ export function SessionHeroCard({
           </View>
 
           <View style={styles.openDayActions}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.gamingPrimaryButton,
-                pressed && styles.buttonPressed,
-              ]}
-              onPress={handleBookSession}
-            >
-              <LinearGradient
-                colors={[ProTennisColors.electricGreen, `${ProTennisColors.electricGreen}CC`]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.gamingButtonGradient}
+            <View style={styles.bookingButtonsRow}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.gamingPrimaryButtonHalf,
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={handleBookSession}
               >
-                <Feather name="calendar" size={20} color={ProTennisColors.midnightBlue} />
-                <Text style={styles.gamingPrimaryButtonText}>BOOK SESSION</Text>
-              </LinearGradient>
-            </Pressable>
+                <LinearGradient
+                  colors={[ProTennisColors.electricGreen, `${ProTennisColors.electricGreen}CC`]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.gamingButtonGradientFill}
+                >
+                  <Feather name="calendar" size={18} color={ProTennisColors.midnightBlue} />
+                  <Text style={styles.gamingPrimaryButtonText}>BOOK LESSON</Text>
+                </LinearGradient>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.gamingPrimaryButtonHalf,
+                  { shadowColor: ProTennisColors.neonCyan },
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={() => navigation.navigate("CourtBooking")}
+              >
+                <LinearGradient
+                  colors={[ProTennisColors.neonCyan, `${ProTennisColors.neonCyan}CC`]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.gamingButtonGradientFill}
+                >
+                  <Feather name="grid" size={18} color={ProTennisColors.midnightBlue} />
+                  <Text style={styles.gamingPrimaryButtonText}>BOOK COURT</Text>
+                </LinearGradient>
+              </Pressable>
+            </View>
 
             <View style={styles.openDaySecondaryRow}>
               <Pressable
@@ -1415,6 +1436,29 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 12,
     elevation: 8,
+  },
+  bookingButtonsRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  gamingPrimaryButtonHalf: {
+    flex: 1,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+    shadowColor: ProTennisColors.electricGreen,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  gamingButtonGradientFill: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm,
   },
   gamingButtonGradient: {
     flexDirection: "row",
