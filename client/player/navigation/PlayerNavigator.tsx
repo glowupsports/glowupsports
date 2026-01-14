@@ -613,7 +613,11 @@ function PlayerStackNavigator() {
         component={MatchScreen}
         options={{
           presentation: "card",
-          headerShown: false,
+          headerShown: true,
+          headerTitle: "Matches",
+          headerStyle: { backgroundColor: '#0a0f1a' },
+          headerTintColor: '#00ff88',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 

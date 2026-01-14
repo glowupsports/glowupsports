@@ -421,16 +421,6 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigate }: P
             contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
             showsVerticalScrollIndicator={false}
           >
-            {/* DEBUG RAINBOW INDICATOR */}
-            <View style={{ flexDirection: 'row', height: 8, marginBottom: 8 }}>
-              <View style={{ flex: 1, backgroundColor: '#FF0000' }} />
-              <View style={{ flex: 1, backgroundColor: '#FF7F00' }} />
-              <View style={{ flex: 1, backgroundColor: '#FFFF00' }} />
-              <View style={{ flex: 1, backgroundColor: '#00FF00' }} />
-              <View style={{ flex: 1, backgroundColor: '#0000FF' }} />
-              <View style={{ flex: 1, backgroundColor: '#4B0082' }} />
-              <View style={{ flex: 1, backgroundColor: '#9400D3' }} />
-            </View>
             {/* PLAYER IDENTITY HEADER */}
             <View style={styles.identityHeader}>
               <Pressable 

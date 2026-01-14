@@ -15,7 +15,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, ProTennisColors } from "@/constants/theme";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { apiRequest } from "@/lib/query-client";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
@@ -882,7 +882,7 @@ function MatchResultModal({ visible, onClose, playerId, plan, onSuccess }: Match
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: ProTennisColors.midnightBlue,
   },
   header: {
     flexDirection: "row",
@@ -893,11 +893,11 @@ const styles = StyleSheet.create({
   },
   title: {
     ...Typography.title,
-    color: Colors.text,
+    color: ProTennisColors.white,
   },
   addButton: {
     padding: Spacing.sm,
-    backgroundColor: Colors.primary,
+    backgroundColor: ProTennisColors.electricGreen,
     borderRadius: BorderRadius.full,
   },
   tabs: {
@@ -911,17 +911,20 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     alignItems: "center",
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.card,
+    backgroundColor: ProTennisColors.surfaceCard,
+    borderWidth: 1,
+    borderColor: ProTennisColors.borderSubtle,
   },
   activeTab: {
-    backgroundColor: Colors.primary,
+    backgroundColor: ProTennisColors.electricGreen,
+    borderColor: ProTennisColors.electricGreen,
   },
   tabText: {
     ...Typography.body,
-    color: Colors.textSecondary,
+    color: ProTennisColors.textMuted,
   },
   activeTabText: {
-    color: Colors.dark.background,
+    color: ProTennisColors.midnightBlue,
     fontWeight: "600",
   },
   content: {
@@ -936,7 +939,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "30",
+    borderColor: ProTennisColors.neonCyan + "40",
+    backgroundColor: ProTennisColors.surfaceCard,
   },
   matchCardGradient: {
     padding: Spacing.lg,
@@ -949,20 +953,20 @@ const styles = StyleSheet.create({
   },
   matchDate: {
     ...Typography.subtitle,
-    color: Colors.text,
+    color: ProTennisColors.white,
   },
   statusBadge: {
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.surfaceLight,
+    backgroundColor: ProTennisColors.surfaceElevated,
   },
   activeBadge: {
-    backgroundColor: Colors.primary + "30",
+    backgroundColor: ProTennisColors.electricGreen + "30",
   },
   statusText: {
     ...Typography.caption,
-    color: Colors.textSecondary,
+    color: ProTennisColors.textMuted,
   },
   opponentSection: {
     marginBottom: Spacing.md,
@@ -1115,12 +1119,12 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     ...Typography.subtitle,
-    color: Colors.text,
+    color: ProTennisColors.white,
     marginTop: Spacing.md,
   },
   emptySubtitle: {
     ...Typography.body,
-    color: Colors.textSecondary,
+    color: ProTennisColors.textMuted,
     marginTop: Spacing.xs,
     textAlign: "center",
   },
@@ -1130,14 +1134,16 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.8)",
+    backgroundColor: "rgba(0,0,0,0.9)",
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: Colors.card,
+    backgroundColor: ProTennisColors.surfaceDark,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     maxHeight: "90%",
+    borderWidth: 1,
+    borderColor: ProTennisColors.borderSubtle,
   },
   modalHeader: {
     flexDirection: "row",
@@ -1145,15 +1151,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.surfaceLight,
+    borderBottomColor: ProTennisColors.borderSubtle,
   },
   modalTitle: {
     ...Typography.subtitle,
-    color: Colors.text,
+    color: ProTennisColors.white,
   },
   stepIndicator: {
     ...Typography.caption,
-    color: Colors.textSecondary,
+    color: ProTennisColors.neonCyan,
   },
   modalBody: {
     padding: Spacing.lg,
@@ -1162,43 +1168,48 @@ const styles = StyleSheet.create({
   stepContent: {},
   stepTitle: {
     ...Typography.title,
-    color: Colors.text,
+    color: ProTennisColors.white,
     marginBottom: Spacing.xs,
   },
   stepSubtitle: {
     ...Typography.body,
-    color: Colors.textSecondary,
+    color: ProTennisColors.textMuted,
     marginBottom: Spacing.lg,
   },
   inputLabel: {
     ...Typography.caption,
-    color: Colors.textSecondary,
+    color: ProTennisColors.textMuted,
     marginTop: Spacing.md,
     marginBottom: Spacing.xs,
   },
   textInput: {
-    backgroundColor: Colors.surfaceLight,
+    backgroundColor: ProTennisColors.surfaceCard,
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
-    color: Colors.text,
+    color: ProTennisColors.white,
+    borderWidth: 1,
+    borderColor: ProTennisColors.borderSubtle,
     ...Typography.body,
   },
   opponentChip: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.surfaceLight,
+    backgroundColor: ProTennisColors.surfaceCard,
     borderRadius: BorderRadius.md,
     marginRight: Spacing.sm,
+    borderWidth: 1,
+    borderColor: ProTennisColors.borderSubtle,
   },
   selectedChip: {
-    backgroundColor: Colors.primary,
+    backgroundColor: ProTennisColors.electricGreen,
+    borderColor: ProTennisColors.electricGreen,
   },
   opponentChipText: {
     ...Typography.body,
-    color: Colors.text,
+    color: ProTennisColors.white,
   },
   selectedChipText: {
-    color: Colors.dark.background,
+    color: ProTennisColors.midnightBlue,
   },
   noOpponents: {
     ...Typography.caption,
@@ -1286,11 +1297,11 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     alignItems: "center",
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.primary,
+    backgroundColor: ProTennisColors.electricGreen,
   },
   nextButtonText: {
     ...Typography.body,
-    color: Colors.dark.background,
+    color: ProTennisColors.midnightBlue,
     fontWeight: "600",
   },
   disabledButton: {
