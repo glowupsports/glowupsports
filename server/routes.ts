@@ -14497,6 +14497,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const parser = new Parser({
         timeout: 5000,
         headers: { "User-Agent": "GlowUpSports/1.0" },
+        customFields: {
+          item: [
+            ["media:content", "mediaContent", { keepArray: false }],
+            ["media:thumbnail", "mediaThumbnail", { keepArray: false }],
+            ["enclosure", "enclosure"],
+            ["content:encoded", "contentEncoded"],
+          ],
+        },
       });
       
       // Reliable RSS feeds only - removed broken ones (WTA 404, Tennis.com 404, Tennis World USA 403, Eurosport parsing issues)
@@ -14540,13 +14548,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
               title = title.slice(0, 77) + "...";
             }
             
+            // Extract thumbnail from various RSS formats
+            let thumbnail: string | undefined;
+            
+            // Try enclosure (standard RSS)
+            if (item.enclosure?.url && item.enclosure.type?.startsWith("image/")) {
+              thumbnail = item.enclosure.url;
+            }
+            // Try media:content (common in media RSS)
+            if (!thumbnail && item.mediaContent) {
+              const mc = item.mediaContent;
+              thumbnail = mc.$ ? mc.$.url : (typeof mc === "string" ? mc : mc.url);
+            }
+            // Try media:thumbnail
+            if (!thumbnail && item.mediaThumbnail) {
+              const mt = item.mediaThumbnail;
+              thumbnail = mt.$ ? mt.$.url : (typeof mt === "string" ? mt : mt.url);
+            }
+            // Try to extract from content:encoded (HTML content)
+            if (!thumbnail && item.contentEncoded) {
+              const imgMatch = item.contentEncoded.match(/<img[^>]+src=["']([^"']+)["']/i);
+              if (imgMatch && imgMatch[1]) {
+                thumbnail = imgMatch[1];
+              }
+            }
+            // Try to extract from content (some feeds put HTML here)
+            if (!thumbnail && item.content) {
+              const imgMatch = item.content.match(/<img[^>]+src=["']([^"']+)["']/i);
+              if (imgMatch && imgMatch[1]) {
+                thumbnail = imgMatch[1];
+              }
+            }
+            
             articles.push({
               id: item.guid || item.link || `${feed.source}-${Date.now()}-${Math.random()}`,
               title,
               link: item.link || "",
               source: feed.source,
               publishedAt: item.pubDate || new Date().toISOString(),
-              thumbnail: item.enclosure?.url || item["media:content"]?.$.url || undefined,
+              thumbnail,
             });
           }
         } catch (feedError) {

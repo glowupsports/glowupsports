@@ -111,30 +111,43 @@ function NewsCard({ article, index }: { article: NewsArticle; index: number }) {
         onPressOut={handlePressOut}
         style={styles.card}
       >
-        {hasThumbnail && (
-          <View style={styles.thumbnailContainer}>
-            {Platform.OS === "web" ? (
-              <RNImage
-                source={{ uri: article.thumbnail }}
-                style={styles.thumbnail}
-                resizeMode="cover"
+        <View style={styles.thumbnailContainer}>
+          {hasThumbnail ? (
+            <>
+              {Platform.OS === "web" ? (
+                <RNImage
+                  source={{ uri: article.thumbnail }}
+                  style={styles.thumbnail}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Image
+                  source={{ uri: article.thumbnail }}
+                  style={styles.thumbnail}
+                  contentFit="cover"
+                  transition={300}
+                />
+              )}
+              <LinearGradient
+                colors={["transparent", "rgba(0,0,0,0.8)"]}
+                style={styles.thumbnailGradient}
               />
-            ) : (
-              <Image
-                source={{ uri: article.thumbnail }}
-                style={styles.thumbnail}
-                contentFit="cover"
-                transition={300}
-              />
-            )}
+            </>
+          ) : (
             <LinearGradient
-              colors={["transparent", "rgba(0,0,0,0.8)"]}
-              style={styles.thumbnailGradient}
-            />
-          </View>
-        )}
+              colors={[`${sourceConfig.bg}40`, ProTennisColors.surfaceDark, ProTennisColors.midnightBlue]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.placeholderGradient}
+            >
+              <View style={styles.placeholderIconContainer}>
+                <Ionicons name="tennisball" size={40} color={`${sourceConfig.bg}60`} />
+              </View>
+            </LinearGradient>
+          )}
+        </View>
 
-        <View style={[styles.cardContent, !hasThumbnail && styles.cardContentNoImage]}>
+        <View style={styles.cardContent}>
           <View style={styles.sourceRow}>
             <View style={[styles.sourceBadge, { backgroundColor: sourceConfig.bg }]}>
               <Ionicons
@@ -485,11 +498,22 @@ const styles = StyleSheet.create({
     right: 0,
     height: 80,
   },
+  placeholderGradient: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  placeholderIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   cardContent: {
     padding: Spacing.md,
-  },
-  cardContentNoImage: {
-    paddingTop: Spacing.lg,
   },
   sourceRow: {
     flexDirection: "row",
