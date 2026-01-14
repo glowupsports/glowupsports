@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -18,6 +18,7 @@ import { TrackingBanner } from "@/player/components/TrackingBanner";
 import { SessionHeroCard } from "@/player/components/SessionHeroCard";
 import { NewsTicker } from "@/player/components/NewsTicker";
 import { QuickServeFAB } from "@/player/components/QuickServeFAB";
+import PlayerBookingWizard from "@/player/components/PlayerBookingWizard";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import Svg, { Line, Rect } from "react-native-svg";
 
@@ -75,6 +76,7 @@ function PlayerHomeContent() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { openDrawer } = usePlayerDrawer();
+  const [showBookingWizard, setShowBookingWizard] = useState(false);
 
   const { data: dashboardData, isLoading, refetch, isRefetching } = useQuery<DashboardData>({
     queryKey: ["/api/player/me/dashboard"],
@@ -107,6 +109,16 @@ function PlayerHomeContent() {
   const handleWalletPress = () => {};
 
   const handleSquadPress = () => {};
+
+  const handleBookLesson = () => {
+    setShowBookingWizard(true);
+  };
+
+  const handleBookingSuccess = () => {
+    setShowBookingWizard(false);
+    queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+  };
 
   return (
     <View style={styles.container}>
@@ -150,7 +162,7 @@ function PlayerHomeContent() {
         <TrackingBanner />
 
         {/* ZONE 2 - LIVE/NEXT TENNIS MOMENT (MEGA) */}
-        <SessionHeroCard />
+        <SessionHeroCard onBookSession={handleBookLesson} />
 
         {/* ZONE 1 - TODAY AT A GLANCE (Quick status) */}
         <TodayAtAGlance />
@@ -183,6 +195,15 @@ function PlayerHomeContent() {
       
       {/* MODE SWITCHER - Dashboard switching button (top left) */}
       <CollapsibleModeSwitcher />
+      
+      {/* BOOKING WIZARD MODAL */}
+      <PlayerBookingWizard
+        visible={showBookingWizard}
+        onClose={() => setShowBookingWizard(false)}
+        onBookingSuccess={handleBookingSuccess}
+        playerId={player?.id}
+        playerBallLevel={player?.ballLevel}
+      />
     </View>
   );
 }
