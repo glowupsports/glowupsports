@@ -359,34 +359,36 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
   };
 
   const navigateAndClose = (screen: string, params?: any) => {
-    handleClose();
-    setTimeout(() => {
-      try {
-        // Find the root stack navigator by traversing up the hierarchy
-        let rootNav = navigation;
-        let parent = navigation.getParent();
-        while (parent) {
-          rootNav = parent;
-          parent = parent.getParent();
-        }
-        
-        // For PlayerTabs with nested screen params, use navigate with nested screen
-        if (screen === "PlayerTabs" && params?.screen) {
-          rootNav.navigate("PlayerTabs", { screen: params.screen });
-        } else {
-          // For direct stack screens, use regular navigate
-          rootNav.navigate(screen, params);
-        }
-      } catch (error) {
-        console.log("[Drawer] Navigation error:", error);
-        // Fallback: try direct navigation
-        try {
-          navigation.navigate(screen as never, params as never);
-        } catch (fallbackError) {
-          console.log("[Drawer] Fallback navigation also failed:", fallbackError);
-        }
+    // NAVIGATE FIRST, then close drawer (so component stays mounted during navigation)
+    try {
+      // Find the root stack navigator by traversing up the hierarchy
+      let rootNav = navigation;
+      let parent = navigation.getParent();
+      while (parent) {
+        rootNav = parent;
+        parent = parent.getParent();
       }
-    }, 200);
+      
+      // For PlayerTabs with nested screen params, use navigate with nested screen
+      if (screen === "PlayerTabs" && params?.screen) {
+        rootNav.navigate("PlayerTabs", { screen: params.screen });
+      } else {
+        // For direct stack screens, use regular navigate
+        rootNav.navigate(screen, params);
+      }
+    } catch (error) {
+      console.log("[Drawer] Navigation error:", error);
+      // Fallback: try direct navigation
+      try {
+        navigation.navigate(screen as never, params as never);
+      } catch (fallbackError) {
+        console.log("[Drawer] Fallback navigation also failed:", fallbackError);
+      }
+    }
+    // Close drawer AFTER navigation is dispatched
+    setTimeout(() => {
+      handleClose();
+    }, 100);
   };
 
   const toggleSection = (sectionId: string) => {
@@ -423,6 +425,16 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
             contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
             showsVerticalScrollIndicator={false}
           >
+            {/* DEBUG RAINBOW INDICATOR */}
+            <View style={{ flexDirection: 'row', height: 8, marginBottom: 8 }}>
+              <View style={{ flex: 1, backgroundColor: '#FF0000' }} />
+              <View style={{ flex: 1, backgroundColor: '#FF7F00' }} />
+              <View style={{ flex: 1, backgroundColor: '#FFFF00' }} />
+              <View style={{ flex: 1, backgroundColor: '#00FF00' }} />
+              <View style={{ flex: 1, backgroundColor: '#0000FF' }} />
+              <View style={{ flex: 1, backgroundColor: '#4B0082' }} />
+              <View style={{ flex: 1, backgroundColor: '#9400D3' }} />
+            </View>
             {/* PLAYER IDENTITY HEADER */}
             <View style={styles.identityHeader}>
               <Pressable 
