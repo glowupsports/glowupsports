@@ -1,6 +1,7 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { View, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { StackActions } from "@react-navigation/native";
 import { Colors } from "@/constants/theme";
 import PlayerBookingWizard from "@/player/components/PlayerBookingWizard";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -13,11 +14,16 @@ export default function LessonBookingScreen() {
     navigation.goBack();
   };
 
+  const handleBookingSuccess = () => {
+    navigation.dispatch(StackActions.replace("PlayerTraining"));
+  };
+
   return (
     <View style={styles.container}>
       <PlayerBookingWizard
         visible={true}
         onClose={handleClose}
+        onBookingSuccess={handleBookingSuccess}
         playerId={user?.playerId || undefined}
       />
     </View>

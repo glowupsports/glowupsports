@@ -86,6 +86,7 @@ interface JoinableSession {
 interface PlayerBookingWizardProps {
   visible: boolean;
   onClose: () => void;
+  onBookingSuccess?: () => void;
   playerId?: string;
   playerBallLevel?: string | null;
 }
@@ -148,6 +149,7 @@ const DURATIONS = [30, 45, 60, 90, 120];
 export default function PlayerBookingWizard({
   visible,
   onClose,
+  onBookingSuccess,
   playerId,
   playerBallLevel,
 }: PlayerBookingWizardProps) {
@@ -328,8 +330,12 @@ export default function PlayerBookingWizard({
       queryClient.invalidateQueries({ queryKey: ["/api/player/booking-requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
       setTimeout(() => {
-        onClose();
         resetForm();
+        if (onBookingSuccess) {
+          onBookingSuccess();
+        } else {
+          onClose();
+        }
       }, 2500);
     },
     onError: (error: Error) => {
