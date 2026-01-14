@@ -192,14 +192,15 @@ const socialPostStorage = multer.diskStorage({
 const socialPostUpload = multer({
   storage: socialPostStorage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB max
+    fileSize: 50 * 1024 * 1024, // 50MB max (for videos)
   },
   fileFilter: (_req, file, cb) => {
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
-    if (allowedTypes.includes(file.mimetype)) {
+    const allowedImageTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "image/gif"];
+    const allowedVideoTypes = ["video/mp4", "video/quicktime", "video/mov", "video/mpeg", "video/x-m4v", "video/3gpp", "video/webm"];
+    if (allowedImageTypes.includes(file.mimetype) || allowedVideoTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error("Invalid file type. Only JPEG, PNG, WebP, and HEIC images are allowed."));
+      cb(new Error("Invalid file type. Only images (JPEG, PNG, WebP, HEIC, GIF) and videos (MP4, MOV, WebM) are allowed."));
     }
   },
 });
@@ -23293,15 +23294,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id: postId } = req.params;
       
       const comments = await db.select({
-        comment: postCommentsTable,
-        author: {
-          id: users.id,
-          username: users.username,
-        },
-        player: {
-          name: players.name,
-          photoUrl: players.photoUrl,
-        },
+        id: postCommentsTable.id,
+        postId: postCommentsTable.postId,
+        authorId: postCommentsTable.authorId,
+        text: postCommentsTable.text,
+        isQuickComment: postCommentsTable.isQuickComment,
+        quickCommentType: postCommentsTable.quickCommentType,
+        parentId: postCommentsTable.parentId,
+        isHidden: postCommentsTable.isHidden,
+        createdAt: postCommentsTable.createdAt,
+        authorUserId: users.id,
+        authorUsername: users.username,
+        playerName: players.name,
+        playerPhotoUrl: players.photoUrl,
       })
       .from(postCommentsTable)
       .leftJoin(users, eq(postCommentsTable.authorId, users.id))
@@ -23313,12 +23318,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       .orderBy(asc(postCommentsTable.createdAt));
       
       res.json(comments.map(c => ({
-        ...c.comment,
+        id: c.id,
+        postId: c.postId,
+        authorId: c.authorId,
+        text: c.text,
+        isQuickComment: c.isQuickComment,
+        quickCommentType: c.quickCommentType,
+        parentId: c.parentId,
+        isHidden: c.isHidden,
+        createdAt: c.createdAt,
         author: {
-          id: c.author?.id,
-          username: c.author?.username,
-          name: c.player?.name || c.author?.username,
-          photoUrl: c.player?.photoUrl,
+          id: c.authorUserId,
+          username: c.authorUsername,
+          name: c.playerName || c.authorUsername,
+          photoUrl: c.playerPhotoUrl,
         },
       })));
     } catch (error) {

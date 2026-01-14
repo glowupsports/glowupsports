@@ -426,7 +426,8 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   latestPostMediaPreview: {
-    height: 80,
+    aspectRatio: 16 / 9,
+    maxHeight: 100,
     borderRadius: BorderRadius.sm,
     overflow: "hidden",
     position: "relative",

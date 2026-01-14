@@ -23,6 +23,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInDown, FadeOut, SlideInUp } from "react-native-reanimated";
+import { useVideoPlayer, VideoView } from "expo-video";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -78,7 +79,34 @@ const CONTEXT_OPTIONS: ContextOption[] = [
   { type: "free_play", label: "Free Play", icon: "basketball", color: "#00D9FF" },
 ];
 
-const CHEER_EMOJIS = ["🔥", "⚡", "🎾", "💪", "🏆", "✨"];
+const CHEER_REACTIONS = [
+  { emoji: "🔥", type: "fire" },
+  { emoji: "⚡", type: "star" },
+  { emoji: "🎾", type: "tennis" },
+  { emoji: "💪", type: "muscle" },
+  { emoji: "🏆", type: "clap" },
+];
+
+function VideoPostMedia({ uri }: { uri: string }) {
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = false;
+    p.muted = false;
+  });
+  
+  return (
+    <View style={styles.videoContainer}>
+      <VideoView
+        player={player}
+        style={styles.momentImage}
+        contentFit="cover"
+        nativeControls
+      />
+      <View style={styles.videoIndicator}>
+        <Ionicons name="videocam" size={16} color="#fff" />
+      </View>
+    </View>
+  );
+}
 
 const CONTEXT_BADGE_STYLES: Record<string, { bg: string; text: string; icon: string }> = {
   training: { bg: "#9AE66E20", text: "#9AE66E", icon: "tennisball" },
@@ -154,6 +182,8 @@ function MomentCard({
   
   const contextStyle = CONTEXT_BADGE_STYLES[post.contextType] || CONTEXT_BADGE_STYLES.training;
   const hasMedia = post.mediaUrls && post.mediaUrls.length > 0;
+  const isVideo = hasMedia && post.mediaTypes && post.mediaTypes[0] === "video";
+  const mediaUrl = hasMedia ? (post.mediaUrls[0].startsWith("http") ? post.mediaUrls[0] : `${getApiUrl()}${post.mediaUrls[0]}`) : "";
   
   return (
     <Animated.View entering={FadeInDown.delay(100).springify()}>
@@ -161,11 +191,15 @@ function MomentCard({
         {/* Photo-first layout - 65% of card when media present */}
         {hasMedia ? (
           <View style={styles.mediaSection}>
-            <Image 
-              source={{ uri: post.mediaUrls[0].startsWith("http") ? post.mediaUrls[0] : `${getApiUrl()}${post.mediaUrls[0]}` }} 
-              style={styles.momentImage}
-              resizeMode="cover"
-            />
+            {isVideo ? (
+              <VideoPostMedia uri={mediaUrl} />
+            ) : (
+              <Image 
+                source={{ uri: mediaUrl }} 
+                style={styles.momentImage}
+                resizeMode="cover"
+              />
+            )}
             {/* Context badge overlay on photo */}
             <View style={[styles.contextBadgeOverlay, { backgroundColor: contextStyle.bg }]}>
               <Ionicons name={contextStyle.icon as any} size={12} color={contextStyle.text} />
@@ -298,17 +332,17 @@ function MomentCard({
           {/* Emoji picker */}
           {showCheerPicker ? (
             <Animated.View entering={FadeIn.duration(150)} style={styles.cheerPicker}>
-              {CHEER_EMOJIS.map((emoji, index) => (
+              {CHEER_REACTIONS.map((reaction, index) => (
                 <Pressable 
                   key={index}
                   style={styles.cheerOption}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    onReact(post.id, emoji);
+                    onReact(post.id, reaction.type);
                     setShowCheerPicker(false);
                   }}
                 >
-                  <ThemedText style={styles.cheerOptionEmoji}>{emoji}</ThemedText>
+                  <ThemedText style={styles.cheerOptionEmoji}>{reaction.emoji}</ThemedText>
                 </Pressable>
               ))}
             </Animated.View>
@@ -517,8 +551,13 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
 interface CreateMomentModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (data: { contextType: string; caption: string; mediaUrls: string[] }) => void;
+  onSubmit: (data: { contextType: string; caption: string; mediaUrls: string[]; mediaTypes: string[] }) => void;
   isSubmitting: boolean;
+}
+
+interface SelectedMedia {
+  uri: string;
+  type: "image" | "video";
 }
 
 function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateMomentModalProps) {
@@ -526,24 +565,27 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
   const [step, setStep] = useState<"context" | "content">("context");
   const [selectedContext, setSelectedContext] = useState<ContextType | null>(null);
   const [caption, setCaption] = useState("");
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<SelectedMedia | null>(null);
 
-  const handlePickImage = async () => {
+  const handlePickMedia = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Permission needed", "Please allow access to your photos to share moments.");
+      Alert.alert("Permission needed", "Please allow access to your photos and videos to share moments.");
       return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
       allowsEditing: true,
-      aspect: [4, 3],
+      aspect: [16, 9],
       quality: 0.8,
+      videoMaxDuration: 30,
     });
 
     if (!result.canceled && result.assets[0]) {
-      setSelectedImage(result.assets[0].uri);
+      const asset = result.assets[0];
+      const isVideo = asset.type === "video" || asset.uri.includes(".mp4") || asset.uri.includes(".mov");
+      setSelectedMedia({ uri: asset.uri, type: isVideo ? "video" : "image" });
     }
   };
 
@@ -555,13 +597,32 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
     }
 
     const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [4, 3],
+      aspect: [16, 9],
       quality: 0.8,
     });
 
     if (!result.canceled && result.assets[0]) {
-      setSelectedImage(result.assets[0].uri);
+      setSelectedMedia({ uri: result.assets[0].uri, type: "image" });
+    }
+  };
+
+  const handleRecordVideo = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Please allow access to your camera to record videos.");
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      videoMaxDuration: 30,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setSelectedMedia({ uri: result.assets[0].uri, type: "video" });
     }
   };
 
@@ -572,14 +633,16 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
     
     setIsUploading(true);
     let uploadedMediaUrls: string[] = [];
+    let uploadedMediaTypes: string[] = [];
     
-    if (selectedImage) {
+    if (selectedMedia) {
       try {
         const formData = new FormData();
-        const uri = selectedImage;
-        const ext = uri.includes(".") ? uri.split(".").pop()?.split("?")[0] || "jpg" : "jpg";
-        const filename = `photo-${Date.now()}.${ext}`;
-        const type = `image/${ext === "jpg" ? "jpeg" : ext}`;
+        const uri = selectedMedia.uri;
+        const isVideo = selectedMedia.type === "video";
+        const ext = uri.includes(".") ? uri.split(".").pop()?.split("?")[0] || (isVideo ? "mp4" : "jpg") : (isVideo ? "mp4" : "jpg");
+        const filename = `${isVideo ? "video" : "photo"}-${Date.now()}.${ext}`;
+        const mimeType = isVideo ? `video/${ext === "mov" ? "quicktime" : ext}` : `image/${ext === "jpg" ? "jpeg" : ext}`;
         
         if (Platform.OS === "web") {
           const response = await fetch(uri);
@@ -589,7 +652,7 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
           formData.append("images", {
             uri,
             name: filename,
-            type,
+            type: mimeType,
           } as any);
         }
         
@@ -601,17 +664,18 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
         if (uploadResponse.ok) {
           const result = await uploadResponse.json();
           uploadedMediaUrls = result.images || [];
-          console.log("[Social] Uploaded images:", uploadedMediaUrls);
+          uploadedMediaTypes = uploadedMediaUrls.map(() => selectedMedia.type);
+          console.log("[Social] Uploaded media:", uploadedMediaUrls, "types:", uploadedMediaTypes);
         } else {
           const errorText = await uploadResponse.text();
           console.error("[Social] Upload failed:", errorText);
-          Alert.alert("Error", "Failed to upload image. Please try again.");
+          Alert.alert("Error", "Failed to upload media. Please try again.");
           setIsUploading(false);
           return;
         }
       } catch (error) {
         console.error("[Social] Upload error:", error);
-        Alert.alert("Error", "Failed to upload image. Please try again.");
+        Alert.alert("Error", "Failed to upload media. Please try again.");
         setIsUploading(false);
         return;
       }
@@ -622,6 +686,7 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
       contextType: selectedContext,
       caption: caption.trim(),
       mediaUrls: uploadedMediaUrls,
+      mediaTypes: uploadedMediaTypes,
     });
     setIsUploading(false);
   };
@@ -630,7 +695,7 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
     setStep("context");
     setSelectedContext(null);
     setCaption("");
-    setSelectedImage(null);
+    setSelectedMedia(null);
     onClose();
   };
 
@@ -734,12 +799,19 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
             
             <ThemedText style={styles.charCount}>{caption.length}/280</ThemedText>
 
-            {selectedImage ? (
+            {selectedMedia ? (
               <View style={styles.imagePreviewContainer}>
-                <Image source={{ uri: selectedImage }} style={styles.imagePreview} />
+                {selectedMedia.type === "video" ? (
+                  <View style={[styles.imagePreview, styles.videoPreview]}>
+                    <Ionicons name="videocam" size={48} color={Colors.dark.primary} />
+                    <ThemedText style={styles.videoLabel}>Video Selected</ThemedText>
+                  </View>
+                ) : (
+                  <Image source={{ uri: selectedMedia.uri }} style={styles.imagePreview} />
+                )}
                 <Pressable 
                   style={styles.removeImageButton}
-                  onPress={() => setSelectedImage(null)}
+                  onPress={() => setSelectedMedia(null)}
                 >
                   <Ionicons name="close-circle" size={28} color="#fff" />
                 </Pressable>
@@ -747,13 +819,17 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
             ) : null}
 
             <View style={styles.mediaButtons}>
-              <Pressable style={styles.mediaButton} onPress={handlePickImage}>
-                <Ionicons name="image" size={24} color={Colors.dark.primary} />
+              <Pressable style={styles.mediaButton} onPress={handlePickMedia}>
+                <Ionicons name="images" size={24} color={Colors.dark.primary} />
                 <ThemedText style={styles.mediaButtonText}>Gallery</ThemedText>
               </Pressable>
               <Pressable style={styles.mediaButton} onPress={handleTakePhoto}>
                 <Ionicons name="camera" size={24} color={Colors.dark.primary} />
-                <ThemedText style={styles.mediaButtonText}>Camera</ThemedText>
+                <ThemedText style={styles.mediaButtonText}>Photo</ThemedText>
+              </Pressable>
+              <Pressable style={styles.mediaButton} onPress={handleRecordVideo}>
+                <Ionicons name="videocam" size={24} color={Colors.dark.primary} />
+                <ThemedText style={styles.mediaButtonText}>Video</ThemedText>
               </Pressable>
             </View>
           </Animated.View>
@@ -795,12 +871,12 @@ export default function CommunityScreen() {
   });
 
   const createPostMutation = useMutation({
-    mutationFn: async (data: { contextType: string; caption: string; mediaUrls: string[] }) => {
+    mutationFn: async (data: { contextType: string; caption: string; mediaUrls: string[]; mediaTypes: string[] }) => {
       return apiRequest("POST", "/api/social/posts", {
         contextType: data.contextType,
         caption: data.caption,
         mediaUrls: data.mediaUrls,
-        mediaTypes: data.mediaUrls.map(() => "image"),
+        mediaTypes: data.mediaTypes.length > 0 ? data.mediaTypes : data.mediaUrls.map(() => "image"),
         visibility: "academy",
       });
     },
@@ -1209,7 +1285,8 @@ const styles = StyleSheet.create({
   },
   mediaImage: {
     width: "100%",
-    aspectRatio: 4 / 3,
+    aspectRatio: 16 / 9,
+    maxHeight: 200,
     backgroundColor: Colors.dark.backgroundSecondary,
   },
   moreMedia: {
@@ -1401,8 +1478,20 @@ const styles = StyleSheet.create({
   },
   imagePreview: {
     width: "100%",
-    aspectRatio: 4 / 3,
+    aspectRatio: 16 / 9,
     backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  videoPreview: {
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: Colors.dark.primary,
+    borderStyle: "dashed",
+  },
+  videoLabel: {
+    marginTop: Spacing.sm,
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
   },
   removeImageButton: {
     position: "absolute",
@@ -1444,6 +1533,17 @@ const styles = StyleSheet.create({
     width: "100%",
     aspectRatio: 4 / 5,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  videoContainer: {
+    position: "relative",
+  },
+  videoIndicator: {
+    position: "absolute",
+    top: Spacing.sm,
+    right: Spacing.sm,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    padding: 6,
+    borderRadius: 12,
   },
   contextBadgeOverlay: {
     position: "absolute",
