@@ -257,6 +257,19 @@ function PlayerTabsWithDrawer() {
       navigation.navigate("PlayerTabs", { screen: "Profile" });
     }, 100);
   };
+
+  const handleDrawerNavigate = (screen: string, params?: any) => {
+    // Navigate first using the Stack navigator context
+    if (screen === "PlayerTabs" && params?.screen) {
+      navigation.navigate("PlayerTabs", { screen: params.screen });
+    } else {
+      navigation.navigate(screen, params);
+    }
+    // Then close drawer
+    setTimeout(() => {
+      setDrawerVisible(false);
+    }, 100);
+  };
   
   return (
     <View style={{ flex: 1 }}>
@@ -265,6 +278,7 @@ function PlayerTabsWithDrawer() {
         visible={drawerVisible} 
         onClose={() => setDrawerVisible(false)}
         onNavigateToProfile={navigateToProfile}
+        onNavigate={handleDrawerNavigate}
       />
     </View>
   );

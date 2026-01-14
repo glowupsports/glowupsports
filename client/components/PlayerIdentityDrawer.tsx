@@ -44,6 +44,7 @@ interface PlayerIdentityDrawerProps {
   visible: boolean;
   onClose: () => void;
   onNavigateToProfile?: () => void;
+  onNavigate?: (screen: string, params?: any) => void;
 }
 
 interface PlayerData {
@@ -286,7 +287,7 @@ function AccordionSection({
   );
 }
 
-export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentityDrawerProps) {
+export default function PlayerIdentityDrawer({ visible, onClose, onNavigate }: PlayerIdentityDrawerProps) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { logout } = useAuth();
@@ -359,36 +360,31 @@ export default function PlayerIdentityDrawer({ visible, onClose }: PlayerIdentit
   };
 
   const navigateAndClose = (screen: string, params?: any) => {
-    // NAVIGATE FIRST, then close drawer (so component stays mounted during navigation)
-    try {
-      // Find the root stack navigator by traversing up the hierarchy
-      let rootNav = navigation;
-      let parent = navigation.getParent();
-      while (parent) {
-        rootNav = parent;
-        parent = parent.getParent();
-      }
-      
-      // For PlayerTabs with nested screen params, use navigate with nested screen
-      if (screen === "PlayerTabs" && params?.screen) {
-        rootNav.navigate("PlayerTabs", { screen: params.screen });
-      } else {
-        // For direct stack screens, use regular navigate
-        rootNav.navigate(screen, params);
-      }
-    } catch (error) {
-      console.log("[Drawer] Navigation error:", error);
-      // Fallback: try direct navigation
+    // Use the onNavigate prop passed from parent (has correct Stack navigator context)
+    if (onNavigate) {
+      onNavigate(screen, params);
+    } else {
+      // Fallback to local navigation if prop not provided
       try {
-        navigation.navigate(screen as never, params as never);
-      } catch (fallbackError) {
-        console.log("[Drawer] Fallback navigation also failed:", fallbackError);
+        let rootNav = navigation;
+        let parent = navigation.getParent();
+        while (parent) {
+          rootNav = parent;
+          parent = parent.getParent();
+        }
+        
+        if (screen === "PlayerTabs" && params?.screen) {
+          rootNav.navigate("PlayerTabs", { screen: params.screen });
+        } else {
+          rootNav.navigate(screen, params);
+        }
+      } catch (error) {
+        console.log("[Drawer] Navigation error:", error);
       }
+      setTimeout(() => {
+        handleClose();
+      }, 100);
     }
-    // Close drawer AFTER navigation is dispatched
-    setTimeout(() => {
-      handleClose();
-    }, 100);
   };
 
   const toggleSection = (sectionId: string) => {
