@@ -13,10 +13,30 @@ import Animated, {
   cancelAnimation 
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
+import { Image } from "expo-image";
+import { useQuery } from "@tanstack/react-query";
 import { ProTennisColors, Spacing, BorderRadius } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { useNavigation } from "@react-navigation/native";
+import { apiFetch, getStaticAssetsUrl } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
+
+interface Post {
+  id: string;
+  caption: string | null;
+  mediaUrls: string[];
+  createdAt: string;
+  author: {
+    id: string;
+    username: string;
+  } | null;
+  player: {
+    name: string;
+    photoUrl: string | null;
+  } | null;
+  cheerCount: number;
+  commentCount: number;
+}
 
 const eventTypeConfig: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
   new_member: { icon: "person-add-outline", color: ProTennisColors.neonCyan },
@@ -24,6 +44,91 @@ const eventTypeConfig: Record<string, { icon: keyof typeof Ionicons.glyphMap; co
   tournament: { icon: "trophy-outline", color: "#FFD93D" },
   challenge: { icon: "flash-outline", color: "#FF6B6B" },
 };
+
+function formatTimeAgo(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function LatestPostCard({ post, onPress }: { post: Post; onPress: () => void }) {
+  const authorName = post.player?.name || post.author?.username || "Player";
+  const avatarUrl = post.player?.photoUrl 
+    ? `${getStaticAssetsUrl()}${post.player.photoUrl}` 
+    : null;
+  const hasMedia = post.mediaUrls && post.mediaUrls.length > 0;
+  const firstMediaUrl = hasMedia ? `${getStaticAssetsUrl()}${post.mediaUrls[0]}` : null;
+
+  return (
+    <Pressable onPress={onPress} style={styles.latestPostCard}>
+      <LinearGradient
+        colors={[`${ProTennisColors.neonCyan}15`, "rgba(21, 27, 41, 0.95)"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.latestPostGradient}
+      >
+        <View style={styles.latestPostHeader}>
+          <View style={styles.latestPostAvatar}>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.avatarImage} contentFit="cover" />
+            ) : (
+              <Ionicons name="person" size={14} color={ProTennisColors.neonCyan} />
+            )}
+          </View>
+          <View style={styles.latestPostMeta}>
+            <Text style={styles.latestPostAuthor} numberOfLines={1}>{authorName}</Text>
+            <Text style={styles.latestPostTime}>{formatTimeAgo(post.createdAt)}</Text>
+          </View>
+          <View style={styles.latestPostBadge}>
+            <Ionicons name="chatbubble-ellipses" size={12} color={ProTennisColors.electricGreen} />
+            <Text style={styles.latestPostBadgeText}>NEW</Text>
+          </View>
+        </View>
+
+        {post.caption && (
+          <Text style={styles.latestPostCaption} numberOfLines={2}>
+            {post.caption}
+          </Text>
+        )}
+
+        {hasMedia && firstMediaUrl && (
+          <View style={styles.latestPostMediaPreview}>
+            <Image source={{ uri: firstMediaUrl }} style={styles.mediaThumb} contentFit="cover" />
+            {post.mediaUrls.length > 1 && (
+              <View style={styles.mediaCountBadge}>
+                <Text style={styles.mediaCountText}>+{post.mediaUrls.length - 1}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        <View style={styles.latestPostStats}>
+          <View style={styles.statItem}>
+            <Ionicons name="heart" size={12} color={ProTennisColors.textMuted} />
+            <Text style={styles.statText}>{post.cheerCount}</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Ionicons name="chatbubble" size={12} color={ProTennisColors.textMuted} />
+            <Text style={styles.statText}>{post.commentCount}</Text>
+          </View>
+          <View style={styles.tapToView}>
+            <Text style={styles.tapToViewText}>Tap to view</Text>
+            <Ionicons name="chevron-forward" size={12} color={ProTennisColors.neonCyan} />
+          </View>
+        </View>
+      </LinearGradient>
+    </Pressable>
+  );
+}
 
 function AnimatedEventCard({ 
   event, 
@@ -105,6 +210,19 @@ export function MiniFeed() {
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
 
+  const { data: feedData } = useQuery<Post[]>({
+    queryKey: ["/api/social/feed", "dashboard-preview"],
+    queryFn: async () => {
+      const response = await apiFetch("/api/social/feed?filter=for_you");
+      if (!response.ok) return [];
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    },
+    staleTime: 60000,
+  });
+
+  const latestPost = feedData?.[0] ?? null;
+
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     navigation.navigate("CommunityFeed");
@@ -115,9 +233,9 @@ export function MiniFeed() {
     navigation.navigate("CommunityFeed");
   };
 
-  const events = state.communityEvents.slice(0, 3);
+  const events = state.communityEvents.slice(0, 2);
 
-  if (events.length === 0) return null;
+  if (!latestPost && events.length === 0) return null;
 
   return (
     <Animated.View entering={FadeInUp.delay(150).duration(400)} style={styles.container}>
@@ -132,20 +250,26 @@ export function MiniFeed() {
         </Pressable>
       </View>
 
-      <View style={styles.eventsContainer}>
-        {events.map((event, index) => {
-          const config = eventTypeConfig[event.type] || eventTypeConfig.new_member;
-          return (
-            <AnimatedEventCard
-              key={event.id}
-              event={event}
-              config={config}
-              onPress={handlePress}
-              delay={index * 80}
-            />
-          );
-        })}
-      </View>
+      {latestPost && (
+        <LatestPostCard post={latestPost} onPress={handlePress} />
+      )}
+
+      {events.length > 0 && (
+        <View style={styles.eventsContainer}>
+          {events.map((event, index) => {
+            const config = eventTypeConfig[event.type] || eventTypeConfig.new_member;
+            return (
+              <AnimatedEventCard
+                key={event.id}
+                event={event}
+                config={config}
+                onPress={handlePress}
+                delay={index * 80}
+              />
+            );
+          })}
+        </View>
+      )}
     </Animated.View>
   );
 }
@@ -239,5 +363,117 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+  },
+  latestPostCard: {
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: `${ProTennisColors.neonCyan}30`,
+  },
+  latestPostGradient: {
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  latestPostHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  latestPostAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: `${ProTennisColors.neonCyan}20`,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+  },
+  latestPostMeta: {
+    flex: 1,
+    gap: 1,
+  },
+  latestPostAuthor: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: ProTennisColors.white,
+  },
+  latestPostTime: {
+    fontSize: 11,
+    color: ProTennisColors.textMuted,
+  },
+  latestPostBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: `${ProTennisColors.electricGreen}15`,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  latestPostBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: ProTennisColors.electricGreen,
+    letterSpacing: 0.5,
+  },
+  latestPostCaption: {
+    fontSize: 13,
+    color: ProTennisColors.textSecondary,
+    lineHeight: 18,
+  },
+  latestPostMediaPreview: {
+    height: 80,
+    borderRadius: BorderRadius.sm,
+    overflow: "hidden",
+    position: "relative",
+  },
+  mediaThumb: {
+    width: "100%",
+    height: "100%",
+  },
+  mediaCountBadge: {
+    position: "absolute",
+    bottom: 6,
+    right: 6,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  mediaCountText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: ProTennisColors.white,
+  },
+  latestPostStats: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginTop: Spacing.xs,
+  },
+  statItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  statText: {
+    fontSize: 11,
+    color: ProTennisColors.textMuted,
+  },
+  tapToView: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 2,
+  },
+  tapToViewText: {
+    fontSize: 11,
+    color: ProTennisColors.neonCyan,
+    fontWeight: "500",
   },
 });
