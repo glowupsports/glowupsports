@@ -12,6 +12,12 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 
+interface PlayerPreview {
+  id: string;
+  name: string;
+  ballLevel?: string | null;
+}
+
 interface CoachingSeries {
   id: string;
   title: string;
@@ -29,6 +35,9 @@ interface CoachingSeries {
   playerCount: number;
   sessionsCompleted: number;
   pendingFeedback: number;
+  playerPreview?: PlayerPreview[];
+  primaryBallLevel?: string | null;
+  nextSessionDate?: string | null;
 }
 
 interface Props {
@@ -108,6 +117,38 @@ export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
       default: return "play";
     }
   };
+  
+  const getBallLevelColor = (level?: string | null) => {
+    switch (level?.toUpperCase()) {
+      case "BLUE": return "#3B82F6";
+      case "RED": return "#EF4444";
+      case "ORANGE": return "#F97316";
+      case "GREEN": return "#22C55E";
+      case "YELLOW": return "#EAB308";
+      case "GLOW": return Colors.dark.gold;
+      default: return Colors.dark.textMuted;
+    }
+  };
+  
+  const ballLevelColor = getBallLevelColor(series.primaryBallLevel);
+  const playerPreview = series.playerPreview || [];
+  
+  const formatNextSession = () => {
+    if (!series.nextSessionDate) return null;
+    const nextDate = new Date(series.nextSessionDate);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const isToday = nextDate.toDateString() === today.toDateString();
+    const isTomorrow = nextDate.toDateString() === tomorrow.toDateString();
+    
+    if (isToday) return "Today";
+    if (isTomorrow) return "Tomorrow";
+    return nextDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  };
+  
+  const nextSessionLabel = formatNextSession();
 
   return (
     <Pressable onPress={handlePress} style={styles.cardContainer}>
@@ -127,6 +168,14 @@ export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
               </View>
               <Text style={styles.seriesTitle} numberOfLines={1}>{displayTitle}</Text>
             </View>
+            {series.primaryBallLevel ? (
+              <View style={[styles.ballLevelBadge, { backgroundColor: ballLevelColor + '20', borderColor: ballLevelColor }]}>
+                <View style={[styles.ballLevelDot, { backgroundColor: ballLevelColor }]} />
+                <Text style={[styles.ballLevelText, { color: ballLevelColor }]}>
+                  {series.primaryBallLevel}
+                </Text>
+              </View>
+            ) : null}
             {onEditPress ? (
               <Pressable onPress={handleEditPress} style={styles.editButton}>
                 <Ionicons name="pencil" size={16} color={Colors.dark.disabled} />
@@ -139,16 +188,12 @@ export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
             <Text style={styles.scheduleText}>
               {dayName} {localStartTime} - {series.duration}min
             </Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <View style={styles.infoItem}>
-              <Ionicons name="calendar-outline" size={14} color={Colors.dark.textMuted} />
-              <Text style={styles.infoText}>
-                {new Date(series.seriesStartDate).toLocaleDateString("en-US", { month: "short" })}
-                {series.seriesEndDate ? ` → ${new Date(series.seriesEndDate).toLocaleDateString("en-US", { month: "short" })}` : " (ongoing)"}
-              </Text>
-            </View>
+            {nextSessionLabel ? (
+              <View style={styles.nextSessionBadge}>
+                <Ionicons name="calendar" size={10} color={Colors.dark.gold} />
+                <Text style={styles.nextSessionText}>{nextSessionLabel}</Text>
+              </View>
+            ) : null}
           </View>
 
           {series.locationName ? (
@@ -166,15 +211,38 @@ export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
             </View>
           ) : null}
 
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Ionicons name="people-outline" size={16} color={Colors.dark.primary} />
-              <Text style={styles.statValue}>{series.playerCount}</Text>
-              <Text style={styles.statLabel}>players</Text>
+          <View style={styles.playersRow}>
+            <View style={styles.avatarStack}>
+              {playerPreview.slice(0, 3).map((player, idx) => (
+                <View 
+                  key={player.id} 
+                  style={[
+                    styles.avatarCircle,
+                    { marginLeft: idx > 0 ? -10 : 0, zIndex: 3 - idx }
+                  ]}
+                >
+                  <Text style={styles.avatarText}>
+                    {player.name?.charAt(0)?.toUpperCase() || "?"}
+                  </Text>
+                </View>
+              ))}
+              {series.playerCount > 3 ? (
+                <View style={[styles.avatarCircle, styles.avatarMore, { marginLeft: -10 }]}>
+                  <Text style={styles.avatarMoreText}>+{series.playerCount - 3}</Text>
+                </View>
+              ) : null}
             </View>
-            
-            <View style={styles.statDivider} />
-            
+            <Text style={styles.playerNames} numberOfLines={1}>
+              {playerPreview.length === 0 
+                ? "No players yet" 
+                : playerPreview.length <= 2 
+                  ? playerPreview.map(p => p.name?.split(' ')[0]).join(', ')
+                  : `${playerPreview.slice(0, 2).map(p => p.name?.split(' ')[0]).join(', ')} +${series.playerCount - 2}`
+              }
+            </Text>
+          </View>
+
+          <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Ionicons name="checkmark-circle-outline" size={16} color={Colors.dark.successNeon} />
               <Text style={styles.statValue}>{series.sessionsCompleted}</Text>
@@ -187,7 +255,7 @@ export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
                 <View style={styles.statItem}>
                   <Ionicons name="alert-circle-outline" size={16} color={Colors.dark.accentWarning} />
                   <Text style={[styles.statValue, { color: Colors.dark.accentWarning }]}>{series.pendingFeedback}</Text>
-                  <Text style={styles.statLabel}>pending</Text>
+                  <Text style={styles.statLabel}>need feedback</Text>
                 </View>
               </>
             ) : null}
@@ -329,5 +397,79 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     width: 35,
     textAlign: "right",
+  },
+  ballLevelBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    marginLeft: Spacing.sm,
+  },
+  ballLevelDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  ballLevelText: {
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  nextSessionBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: Colors.dark.gold + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginLeft: "auto",
+  },
+  nextSessionText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.gold,
+  },
+  playersRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  avatarStack: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  avatarCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.dark.primary + "30",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: Colors.dark.backgroundSecondary,
+  },
+  avatarText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  avatarMore: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+  },
+  avatarMoreText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  playerNames: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    flex: 1,
   },
 });

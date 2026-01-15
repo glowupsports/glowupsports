@@ -7116,7 +7116,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         series = await storage.getCoachingSeries(coachId, academyId || undefined);
       }
       
-      // Enrich each series with player count and sessions completed
+      // Enrich each series with player count, players preview, and sessions completed
       const enrichedSeries = await Promise.all(series.map(async (s) => {
         const players = await storage.getSeriesPlayers(s.id);
         const activePlayers = players.filter(p => p.status === "active");
@@ -7141,11 +7141,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
           pendingFeedback = sessionsForSeries.length - (feedbackCount[0]?.count || 0);
         }
         
+        // Get next scheduled session date
+        const now = new Date();
+        const nextSessionResult = await db
+          .select({ startTime: sessions.startTime })
+          .from(sessions)
+          .where(and(
+            eq(sessions.seriesId, s.id),
+            eq(sessions.status, "scheduled"),
+            gte(sessions.startTime, now)
+          ))
+          .orderBy(asc(sessions.startTime))
+          .limit(1);
+        const nextSessionDate = nextSessionResult[0]?.startTime || null;
+        
+        // Get player preview data (first 4 players with names and ball levels)
+        const playerPreview = activePlayers.slice(0, 4).map(p => ({
+          id: p.playerId,
+          name: p.player?.name || "Unknown",
+          ballLevel: p.player?.ballLevel || null,
+        }));
+        
+        // Get primary ball level (most common among players)
+        const ballLevelCounts: Record<string, number> = {};
+        activePlayers.forEach(p => {
+          const level = p.player?.ballLevel;
+          if (level) {
+            ballLevelCounts[level] = (ballLevelCounts[level] || 0) + 1;
+          }
+        });
+        const primaryBallLevel = Object.entries(ballLevelCounts)
+          .sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+        
         return {
           ...s,
           playerCount: activePlayers.length,
           sessionsCompleted: sessionsForSeries.length,
           pendingFeedback: Math.max(0, pendingFeedback),
+          playerPreview,
+          primaryBallLevel,
+          nextSessionDate,
         };
       }));
       
