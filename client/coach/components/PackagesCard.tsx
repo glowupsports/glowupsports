@@ -186,6 +186,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/packages`] });
       queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/credit-balance`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
       setShowAddModal(false);
       setTotalCredits("10");
       setExpiryMonths("12");
@@ -239,6 +240,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
       
       queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/packages`] });
       queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/credit-balance`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -678,6 +680,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
                       if (result.success) {
                         queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/packages`] });
                         queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/credit-balance`] });
+                        queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
                         if (Platform.OS !== "web") {
                           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                         }
