@@ -78,6 +78,201 @@ const OVERRIDE_REASONS = [
   { value: "age_mismatch", label: "Age doesn't match ability" },
 ];
 
+// Deep Baseline Skill Definitions
+// minLevel: minimum ball stage where this skill appears (BLUE=0, RED=1, ORANGE=2, GREEN=3, YELLOW=4, GLOW=5)
+const STAGE_ORDER = ["BLUE", "RED", "ORANGE", "GREEN", "YELLOW", "GLOW"];
+const getStageIndex = (stage: string) => STAGE_ORDER.indexOf(stage.toUpperCase());
+
+interface SkillDef {
+  id: string;
+  name: string;
+  minLevel: number; // 0=BLUE, 1=RED, 2=ORANGE, 3=GREEN, 4=YELLOW, 5=GLOW
+}
+
+interface SkillCategory {
+  id: string;
+  name: string;
+  skills: SkillDef[];
+}
+
+interface PillarSection {
+  id: string;
+  name: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  categories: SkillCategory[];
+}
+
+const DEEP_BASELINE_STRUCTURE: PillarSection[] = [
+  {
+    id: "technique",
+    name: "Technique",
+    icon: "tennisball",
+    color: "#10B981",
+    categories: [
+      {
+        id: "forehand",
+        name: "Forehand",
+        skills: [
+          { id: "fh_contact", name: "Contact consistency", minLevel: 0 },
+          { id: "fh_direction", name: "Direction control", minLevel: 1 },
+          { id: "fh_height", name: "Height / net clearance", minLevel: 1 },
+          { id: "fh_spin", name: "Spin ability", minLevel: 2 },
+          { id: "fh_recovery", name: "Recovery after shot", minLevel: 2 },
+        ],
+      },
+      {
+        id: "backhand",
+        name: "Backhand",
+        skills: [
+          { id: "bh_type", name: "Type (1HBH / 2HBH)", minLevel: 1 },
+          { id: "bh_timing", name: "Contact timing", minLevel: 1 },
+          { id: "bh_direction", name: "Direction control", minLevel: 2 },
+          { id: "bh_rally", name: "Rally tolerance", minLevel: 2 },
+        ],
+      },
+      {
+        id: "serve",
+        name: "Serve",
+        skills: [
+          { id: "sv_toss", name: "Toss consistency", minLevel: 1 },
+          { id: "sv_contact", name: "Contact point", minLevel: 1 },
+          { id: "sv_first", name: "1st serve in %", minLevel: 2 },
+          { id: "sv_second", name: "2nd serve safety", minLevel: 3 },
+          { id: "sv_targets", name: "Basic targets (wide/body/T)", minLevel: 3 },
+        ],
+      },
+      {
+        id: "return",
+        name: "Return",
+        skills: [
+          { id: "rt_ready", name: "Ready position", minLevel: 2 },
+          { id: "rt_block", name: "Block return", minLevel: 2 },
+          { id: "rt_rally", name: "Can start rally", minLevel: 3 },
+        ],
+      },
+      {
+        id: "volley",
+        name: "Volley",
+        skills: [
+          { id: "vl_split", name: "Split step timing", minLevel: 2 },
+          { id: "vl_punch", name: "Punch vs catch", minLevel: 2 },
+          { id: "vl_position", name: "Net positioning", minLevel: 3 },
+        ],
+      },
+      {
+        id: "overhead",
+        name: "Overhead",
+        skills: [
+          { id: "oh_footwork", name: "Footwork to ball", minLevel: 3 },
+          { id: "oh_contact", name: "Contact above head", minLevel: 3 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "movement",
+    name: "Movement",
+    icon: "footsteps",
+    color: "#EF4444",
+    categories: [
+      {
+        id: "movement_main",
+        name: "Footwork & Agility",
+        skills: [
+          { id: "mv_split", name: "Split step habit", minLevel: 1 },
+          { id: "mv_first", name: "First step speed", minLevel: 1 },
+          { id: "mv_shuffle", name: "Side shuffle vs crossing", minLevel: 2 },
+          { id: "mv_recovery", name: "Recovery to center", minLevel: 2 },
+          { id: "mv_balance", name: "Balance (stability)", minLevel: 1 },
+          { id: "mv_endurance", name: "Endurance fit for level", minLevel: 2 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "tactical",
+    name: "Tactical",
+    icon: "bulb",
+    color: "#F59E0B",
+    categories: [
+      {
+        id: "tactical_main",
+        name: "Game IQ",
+        skills: [
+          { id: "tc_rally", name: "Understands rally vs point", minLevel: 1 },
+          { id: "tc_cross", name: "Knows: cross vs line", minLevel: 2 },
+          { id: "tc_depth", name: "Uses depth (basic)", minLevel: 2 },
+          { id: "tc_short", name: "Recognizes short ball", minLevel: 3 },
+          { id: "tc_build", name: "Can build points", minLevel: 4 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "mental",
+    name: "Mental",
+    icon: "fitness",
+    color: "#8B5CF6",
+    categories: [
+      {
+        id: "mental_main",
+        name: "Mental Game",
+        skills: [
+          { id: "mn_focus", name: "Focus duration (age-based)", minLevel: 0 },
+          { id: "mn_mistakes", name: "Response to mistakes", minLevel: 1 },
+          { id: "mn_coach", name: "Coachability (listening)", minLevel: 0 },
+          { id: "mn_confidence", name: "Confidence / risk tolerance", minLevel: 2 },
+          { id: "mn_reset", name: "Reset routine", minLevel: 4 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "social",
+    name: "Social",
+    icon: "people",
+    color: "#EC4899",
+    categories: [
+      {
+        id: "social_main",
+        name: "Social Skills",
+        skills: [
+          { id: "sc_turn", name: "Wait turn", minLevel: 0 },
+          { id: "sc_respect", name: "Respect", minLevel: 0 },
+          { id: "sc_group", name: "Works in group", minLevel: 0 },
+          { id: "sc_comm", name: "Communication", minLevel: 1 },
+          { id: "sc_parent", name: "Parent interaction", minLevel: 0 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "match",
+    name: "Match",
+    icon: "trophy",
+    color: "#3B82F6",
+    categories: [
+      {
+        id: "match_main",
+        name: "Match Play",
+        skills: [
+          { id: "mt_score", name: "Can score? (level-based)", minLevel: 1 },
+          { id: "mt_start", name: "Can start points correctly", minLevel: 1 },
+          { id: "mt_pressure", name: "Can rally under pressure", minLevel: 2 },
+          { id: "mt_apply", name: "Applies skills in points", minLevel: 3 },
+        ],
+      },
+    ],
+  },
+];
+
+interface DeepSkillScore {
+  rating: number | null; // 0-3, null = not observed
+  notObserved: boolean;
+  notes: string;
+}
+
 export default function QuickBaselineDrawer({
   visible,
   player,
@@ -86,7 +281,7 @@ export default function QuickBaselineDrawer({
 }: QuickBaselineDrawerProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const [step, setStep] = useState<"intake" | "pillars" | "confirm">("intake");
+  const [step, setStep] = useState<"intake" | "pillars" | "deep" | "confirm">("intake");
   
   const [tennisExperience, setTennisExperience] = useState<TennisExperience>("0-6m");
   const [playsCompetition, setPlaysCompetition] = useState<PlaysCompetition>("never");
@@ -106,6 +301,12 @@ export default function QuickBaselineDrawer({
   const [confirmedLevel, setConfirmedLevel] = useState<string | null>(null);
   const [overrideReason, setOverrideReason] = useState<string | null>(null);
   const [overrideNote, setOverrideNote] = useState("");
+  
+  // Deep Baseline state
+  const [deepSkillScores, setDeepSkillScores] = useState<Record<string, DeepSkillScore>>({});
+  const [expandedPillars, setExpandedPillars] = useState<Record<string, boolean>>({
+    technique: true, // Start with technique expanded
+  });
   
   const suggestMutation = useMutation({
     mutationFn: async () => {
@@ -172,8 +373,33 @@ export default function QuickBaselineDrawer({
       setConfirmedLevel(null);
       setOverrideReason(null);
       setOverrideNote("");
+      setDeepSkillScores({});
+      setExpandedPillars({ technique: true });
     }
   }, [visible, player?.id]);
+  
+  // Initialize smart defaults when suggestion is received
+  useEffect(() => {
+    if (suggestion?.suggestedStage) {
+      const stageIndex = getStageIndex(suggestion.suggestedStage);
+      const defaults: Record<string, DeepSkillScore> = {};
+      
+      DEEP_BASELINE_STRUCTURE.forEach(pillar => {
+        pillar.categories.forEach(category => {
+          category.skills.forEach(skill => {
+            if (skill.minLevel <= stageIndex) {
+              // Smart default: if skill is expected for this level, default to "Developing" (1)
+              // If skill is below their level, default to "Meets" (2)
+              const defaultRating = skill.minLevel < stageIndex ? 2 : 1;
+              defaults[skill.id] = { rating: defaultRating, notObserved: false, notes: "" };
+            }
+          });
+        });
+      });
+      
+      setDeepSkillScores(defaults);
+    }
+  }, [suggestion?.suggestedStage]);
   
   const handleNext = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -181,6 +407,8 @@ export default function QuickBaselineDrawer({
       suggestMutation.mutate();
       setStep("pillars");
     } else if (step === "pillars") {
+      setStep("deep");
+    } else if (step === "deep") {
       setStep("confirm");
     }
   };
@@ -189,9 +417,42 @@ export default function QuickBaselineDrawer({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (step === "pillars") {
       setStep("intake");
-    } else if (step === "confirm") {
+    } else if (step === "deep") {
       setStep("pillars");
+    } else if (step === "confirm") {
+      setStep("deep");
     }
+  };
+  
+  const togglePillarExpanded = (pillarId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setExpandedPillars(prev => ({ ...prev, [pillarId]: !prev[pillarId] }));
+  };
+  
+  const setSkillRating = (skillId: string, rating: number | null) => {
+    Haptics.selectionAsync();
+    setDeepSkillScores(prev => ({
+      ...prev,
+      [skillId]: { ...prev[skillId], rating, notObserved: rating === null },
+    }));
+  };
+  
+  const setSkillNote = (skillId: string, notes: string) => {
+    setDeepSkillScores(prev => ({
+      ...prev,
+      [skillId]: { ...prev[skillId], notes },
+    }));
+  };
+  
+  const toggleNotObserved = (skillId: string) => {
+    Haptics.selectionAsync();
+    setDeepSkillScores(prev => {
+      const current = prev[skillId] || { rating: null, notObserved: false, notes: "" };
+      return {
+        ...prev,
+        [skillId]: { ...current, notObserved: !current.notObserved, rating: !current.notObserved ? null : current.rating },
+      };
+    });
   };
   
   const handleSave = () => {
@@ -396,6 +657,178 @@ export default function QuickBaselineDrawer({
     </ScrollView>
   );
   
+  const renderDeepBaselineStep = () => {
+    const stageIndex = suggestion ? getStageIndex(suggestion.suggestedStage) : 1;
+    
+    // Count skills assessed vs total
+    const getAssessmentProgress = () => {
+      let total = 0;
+      let assessed = 0;
+      DEEP_BASELINE_STRUCTURE.forEach(pillar => {
+        pillar.categories.forEach(category => {
+          category.skills.forEach(skill => {
+            if (skill.minLevel <= stageIndex) {
+              total++;
+              const score = deepSkillScores[skill.id];
+              if (score?.rating !== undefined || score?.notObserved) {
+                assessed++;
+              }
+            }
+          });
+        });
+      });
+      return { total, assessed };
+    };
+    
+    const progress = getAssessmentProgress();
+    
+    return (
+      <ScrollView style={styles.stepContent} showsVerticalScrollIndicator={false}>
+        <Text style={styles.stepTitle}>Deep Skill Assessment</Text>
+        <Text style={styles.stepSubtitle}>
+          Rate each skill - skills are pre-filled based on suggested level
+        </Text>
+        
+        <View style={styles.deepProgressRow}>
+          <View style={styles.deepProgressBar}>
+            <View style={[styles.deepProgressFill, { width: `${(progress.assessed / progress.total) * 100}%` }]} />
+          </View>
+          <Text style={styles.deepProgressText}>{progress.assessed}/{progress.total} skills</Text>
+        </View>
+        
+        {DEEP_BASELINE_STRUCTURE.map((pillar) => {
+          const isExpanded = expandedPillars[pillar.id] || false;
+          const visibleCategories = pillar.categories.filter(cat => 
+            cat.skills.some(skill => skill.minLevel <= stageIndex)
+          );
+          
+          if (visibleCategories.length === 0) return null;
+          
+          // Count pillar progress
+          let pillarTotal = 0;
+          let pillarAssessed = 0;
+          visibleCategories.forEach(cat => {
+            cat.skills.forEach(skill => {
+              if (skill.minLevel <= stageIndex) {
+                pillarTotal++;
+                const score = deepSkillScores[skill.id];
+                if (score?.rating !== undefined || score?.notObserved) {
+                  pillarAssessed++;
+                }
+              }
+            });
+          });
+          
+          return (
+            <View key={pillar.id} style={styles.deepPillarSection}>
+              <Pressable 
+                style={styles.deepPillarHeader}
+                onPress={() => togglePillarExpanded(pillar.id)}
+              >
+                <View style={[styles.deepPillarIcon, { backgroundColor: pillar.color + "20" }]}>
+                  <Ionicons name={pillar.icon} size={20} color={pillar.color} />
+                </View>
+                <View style={styles.deepPillarInfo}>
+                  <Text style={styles.deepPillarName}>{pillar.name}</Text>
+                  <Text style={styles.deepPillarCount}>{pillarAssessed}/{pillarTotal} assessed</Text>
+                </View>
+                <Ionicons 
+                  name={isExpanded ? "chevron-up" : "chevron-down"} 
+                  size={20} 
+                  color={Colors.dark.textMuted} 
+                />
+              </Pressable>
+              
+              {isExpanded && (
+                <View style={styles.deepPillarContent}>
+                  {visibleCategories.map((category) => (
+                    <View key={category.id} style={styles.deepCategory}>
+                      <Text style={styles.deepCategoryName}>{category.name}</Text>
+                      
+                      {category.skills
+                        .filter(skill => skill.minLevel <= stageIndex)
+                        .map((skill) => {
+                          const score = deepSkillScores[skill.id] || { rating: null, notObserved: false, notes: "" };
+                          
+                          return (
+                            <View key={skill.id} style={styles.deepSkillRow}>
+                              <View style={styles.deepSkillInfo}>
+                                <Text style={[
+                                  styles.deepSkillName,
+                                  score.notObserved && styles.deepSkillNameMuted,
+                                ]}>
+                                  {skill.name}
+                                </Text>
+                              </View>
+                              
+                              <View style={styles.deepSkillActions}>
+                                {/* Rating buttons */}
+                                {!score.notObserved && (
+                                  <View style={styles.deepRatingRow}>
+                                    {([0, 1, 2, 3] as const).map((rating) => (
+                                      <Pressable
+                                        key={rating}
+                                        style={[
+                                          styles.deepRatingBtn,
+                                          score.rating === rating && {
+                                            backgroundColor: PILLAR_RATING_LABELS[rating].color + "30",
+                                            borderColor: PILLAR_RATING_LABELS[rating].color,
+                                          },
+                                        ]}
+                                        onPress={() => setSkillRating(skill.id, rating)}
+                                      >
+                                        <Text style={[
+                                          styles.deepRatingText,
+                                          score.rating === rating && { color: PILLAR_RATING_LABELS[rating].color },
+                                        ]}>
+                                          {rating}
+                                        </Text>
+                                      </Pressable>
+                                    ))}
+                                  </View>
+                                )}
+                                
+                                {/* Not Observed toggle */}
+                                <Pressable
+                                  style={[
+                                    styles.notObservedBtn,
+                                    score.notObserved && styles.notObservedBtnActive,
+                                  ]}
+                                  onPress={() => toggleNotObserved(skill.id)}
+                                >
+                                  <Ionicons 
+                                    name={score.notObserved ? "eye-off" : "eye-off-outline"} 
+                                    size={14} 
+                                    color={score.notObserved ? Colors.dark.textMuted : Colors.dark.textMuted + "80"} 
+                                  />
+                                </Pressable>
+                              </View>
+                            </View>
+                          );
+                        })}
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          );
+        })}
+        
+        <View style={styles.deepLegend}>
+          <Text style={styles.deepLegendTitle}>Rating Legend</Text>
+          <View style={styles.deepLegendRow}>
+            {([0, 1, 2, 3] as const).map((rating) => (
+              <View key={rating} style={styles.deepLegendItem}>
+                <View style={[styles.deepLegendDot, { backgroundColor: PILLAR_RATING_LABELS[rating].color }]} />
+                <Text style={styles.deepLegendText}>{PILLAR_RATING_LABELS[rating].label}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      </ScrollView>
+    );
+  };
+  
   const renderConfirmStep = () => {
     const isOverride = confirmedLevel && suggestion && confirmedLevel !== suggestion.suggestedLevelId;
     
@@ -548,7 +981,7 @@ export default function QuickBaselineDrawer({
           </View>
           <View style={styles.stepIndicator}>
             <Text style={styles.stepText}>
-              {step === "intake" ? "1" : step === "pillars" ? "2" : "3"} / 3
+              {step === "intake" ? "1" : step === "pillars" ? "2" : step === "deep" ? "3" : "4"} / 4
             </Text>
           </View>
         </View>
@@ -556,12 +989,13 @@ export default function QuickBaselineDrawer({
         <View style={styles.progressBar}>
           <View style={[
             styles.progressFill,
-            { width: step === "intake" ? "33%" : step === "pillars" ? "66%" : "100%" },
+            { width: step === "intake" ? "25%" : step === "pillars" ? "50%" : step === "deep" ? "75%" : "100%" },
           ]} />
         </View>
         
         {step === "intake" && renderIntakeStep()}
         {step === "pillars" && renderPillarsStep()}
+        {step === "deep" && renderDeepBaselineStep()}
         {step === "confirm" && renderConfirmStep()}
         
         <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]}>
@@ -933,6 +1367,169 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.sm,
     minHeight: 60,
     textAlignVertical: "top",
+  },
+  // Deep Baseline Styles
+  deepProgressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+  },
+  deepProgressBar: {
+    flex: 1,
+    height: 6,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  deepProgressFill: {
+    height: "100%",
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 3,
+  },
+  deepProgressText: {
+    fontSize: FontSizes.sm,
+    fontWeight: 600,
+    color: Colors.dark.primary,
+  },
+  deepPillarSection: {
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  deepPillarHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  deepPillarIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deepPillarInfo: {
+    flex: 1,
+  },
+  deepPillarName: {
+    fontSize: FontSizes.md,
+    fontWeight: 600,
+    color: Colors.dark.text,
+  },
+  deepPillarCount: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  deepPillarContent: {
+    padding: Spacing.md,
+    paddingTop: 0,
+    gap: Spacing.md,
+  },
+  deepCategory: {
+    gap: Spacing.sm,
+  },
+  deepCategoryName: {
+    fontSize: FontSizes.sm,
+    fontWeight: 600,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.xs,
+  },
+  deepSkillRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.sm,
+    gap: Spacing.sm,
+  },
+  deepSkillInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  deepSkillName: {
+    fontSize: FontSizes.sm,
+    color: Colors.dark.text,
+  },
+  deepSkillNameMuted: {
+    color: Colors.dark.textMuted,
+    textDecorationLine: "line-through",
+  },
+  deepSkillActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  deepRatingRow: {
+    flexDirection: "row",
+    gap: 4,
+  },
+  deepRatingBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  deepRatingText: {
+    fontSize: FontSizes.xs,
+    fontWeight: 600,
+    color: Colors.dark.textMuted,
+  },
+  notObservedBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  notObservedBtnActive: {
+    backgroundColor: Colors.dark.textMuted + "20",
+    borderColor: Colors.dark.textMuted,
+  },
+  deepLegend: {
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.xl,
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+  },
+  deepLegendTitle: {
+    fontSize: FontSizes.sm,
+    fontWeight: 600,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+  },
+  deepLegendRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.md,
+  },
+  deepLegendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  deepLegendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  deepLegendText: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.text,
   },
   footer: {
     flexDirection: "row",
