@@ -1605,7 +1605,7 @@ export const storage = {
       current.remaining += pkg.remainingCredits || 0;
       current.total += pkg.totalCredits || 0;
       // Add to type breakdown
-      const pkgType = pkg.type as string;
+      const pkgType = pkg.creditType as string;
       if (pkgType === 'private') {
         current.byType.private += pkg.remainingCredits || 0;
       } else if (pkgType === 'group') {
