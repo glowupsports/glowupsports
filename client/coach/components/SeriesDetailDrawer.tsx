@@ -239,8 +239,8 @@ export default function SeriesDetailDrawer({
   const [selectedCreditPackage, setSelectedCreditPackage] = useState<{ creditType: string; credits: number; price: string } | null>(null);
   const [newPackagePricePerCredit, setNewPackagePricePerCredit] = useState("");
   
-  // Transfer session state
-  const [showTransferModal, setShowTransferModal] = useState(false);
+  // Transfer session state - now inline within attendance modal
+  const [attendanceModalView, setAttendanceModalView] = useState<"attendance" | "transfer">("attendance");
   const [transferringSession, setTransferringSession] = useState(false);
   const [selectedTargetCoachId, setSelectedTargetCoachId] = useState<string | null>(null);
 
@@ -333,7 +333,7 @@ export default function SeriesDetailDrawer({
     group: { label: "Group Credits", color: Colors.dark.sessionGroup, icon: "people-circle" },
   };
 
-  // Query coaches for transfer modal
+  // Query coaches for transfer view (inside attendance modal)
   interface Coach {
     id: string;
     name: string;
@@ -341,7 +341,7 @@ export default function SeriesDetailDrawer({
   }
   const { data: coaches = [] } = useQuery<Coach[]>({
     queryKey: ["/api/coaches"],
-    enabled: showTransferModal,
+    enabled: attendanceModalView === "transfer" && showAttendanceModal,
   });
 
   // Transfer session mutation
@@ -357,7 +357,7 @@ export default function SeriesDetailDrawer({
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
-      setShowTransferModal(false);
+      setAttendanceModalView("attendance");
       setShowAttendanceModal(false);
       setSelectedTargetCoachId(null);
       setTransferringSession(false);
@@ -2159,8 +2159,8 @@ export default function SeriesDetailDrawer({
                 <Pressable
                   style={[styles.transferButton, (savingAttendance || cancellingSession) && styles.saveButtonDisabled]}
                   onPress={() => {
-                    setShowAttendanceModal(false);
-                    setTimeout(() => setShowTransferModal(true), 100);
+                    setAttendanceModalView("transfer");
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   }}
                   disabled={savingAttendance || cancellingSession}
                 >

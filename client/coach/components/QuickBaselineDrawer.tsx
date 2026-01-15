@@ -406,9 +406,9 @@ export default function QuickBaselineDrawer({
             <View style={styles.suggestionLevel}>
               <Text style={[
                 styles.suggestionLevelText,
-                { color: getPlayerLevelColor(suggestion.suggestedStage.toLowerCase()) },
+                { color: getPlayerLevelColor((suggestion.suggestedStage || "red").toLowerCase()) },
               ]}>
-                {suggestion.suggestedStage} {suggestion.suggestedRank}
+                {suggestion.suggestedStage || "RED"} {suggestion.suggestedRank || 3}
               </Text>
               <View style={styles.confidenceBadge}>
                 <Text style={styles.confidenceText}>
