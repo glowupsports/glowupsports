@@ -6521,58 +6521,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(eq(sessions.seriesId, id))
         .orderBy(asc(sessions.startTime));
       
-      // AUTO-ATTENDANCE: Mark past sessions as completed with all players present
-      // Only apply to sessions from Jan 15, 2026 onwards (feature activation date)
-      const now = new Date();
-      const autoAttendanceStartDate = new Date("2026-01-15T12:00:00Z"); // Only apply to sessions after this date
-      const pastScheduledSessions = seriesSessions.filter(
-        s => s.status === "scheduled" && 
-             new Date(s.startTime) < now &&
-             new Date(s.startTime) >= autoAttendanceStartDate
-      );
-      
-      // Get active player IDs for auto-attendance
-      const activePlayerIds = seriesPlayersList
-        .filter(sp => sp.status === "active")
-        .map(sp => sp.playerId);
-      
-      // Auto-complete past sessions
-      for (const session of pastScheduledSessions) {
-        try {
-          // Check if attendance already exists for this session
-          const existingAttendance = await db
-            .select()
-            .from(sessionPlayers)
-            .where(eq(sessionPlayers.sessionId, session.id))
-            .limit(1);
-          
-          // Only auto-complete if no attendance has been recorded
-          if (existingAttendance.length === 0 && activePlayerIds.length > 0) {
-            // Create attendance records for all active players as "present"
-            for (const playerId of activePlayerIds) {
-              await db.insert(sessionPlayers).values({
-                id: crypto.randomUUID(),
-                sessionId: session.id,
-                playerId,
-                attended: true,
-                attendanceStatus: "present",
-              }).onConflictDoNothing();
-            }
-            
-            // Mark session as completed
-            await db
-              .update(sessions)
-              .set({ status: "completed" })
-              .where(eq(sessions.id, session.id));
-            
-            // Update the session object in memory too
-            session.status = "completed";
-          }
-        } catch (autoError) {
-          console.error("Auto-attendance error for session", session.id, autoError);
-        }
-      }
-      
       // Get location name if applicable
       let locationName = null;
       if (series.locationId) {
