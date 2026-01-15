@@ -1575,8 +1575,12 @@ export const storage = {
     
     if (playerList.length === 0) return [];
     
-    // Fetch active packages for all players in one query - scoped by academy for multi-tenant safety
     const playerIds = playerList.map(p => p.id);
+    
+    // Use the batch credit balance function which includes debt calculations
+    const balances = await this.getPlayersCreditBalances(playerIds);
+    
+    // Also get total credits from packages for display
     const packageConditions = [
       inArray(packages.playerId, playerIds),
       eq(packages.status, "active")
@@ -1588,52 +1592,41 @@ export const storage = {
       .from(packages)
       .where(and(...packageConditions));
     
-    // Aggregate credits per player with type breakdown
-    const creditsByPlayer = new Map<string, { 
-      remaining: number; 
-      total: number; 
-      byType: { private: number; group: number; semiPrivate: number };
-    }>();
+    // Calculate total credits purchased per player
+    const totalsByPlayer = new Map<string, number>();
     for (const pkg of activePackages) {
-      const playerId = pkg.playerId;
-      if (!playerId) continue;
-      const current = creditsByPlayer.get(playerId) || { 
-        remaining: 0, 
-        total: 0, 
-        byType: { private: 0, group: 0, semiPrivate: 0 }
-      };
-      current.remaining += pkg.remainingCredits || 0;
-      current.total += pkg.totalCredits || 0;
-      // Add to type breakdown
-      const pkgType = pkg.creditType as string;
-      if (pkgType === 'private') {
-        current.byType.private += pkg.remainingCredits || 0;
-      } else if (pkgType === 'group') {
-        current.byType.group += pkg.remainingCredits || 0;
-      } else if (pkgType === 'semi_private') {
-        current.byType.semiPrivate += pkg.remainingCredits || 0;
-      }
-      creditsByPlayer.set(playerId, current);
+      if (!pkg.playerId) continue;
+      totalsByPlayer.set(pkg.playerId, (totalsByPlayer.get(pkg.playerId) || 0) + (pkg.totalCredits || 0));
     }
     
     return playerList.map(player => {
-      const credits = creditsByPlayer.get(player.id);
-      const byType = credits?.byType || { private: 0, group: 0, semiPrivate: 0 };
-      // Determine primary credit type (the one with most credits)
+      const balance = balances[player.id] || { group: 0, semi_private: 0, private: 0, totalDebt: 0, hasDebt: false };
+      const byType = { 
+        private: balance.private, 
+        group: balance.group, 
+        semiPrivate: balance.semi_private 
+      };
+      const totalRemaining = balance.private + balance.group + balance.semi_private;
+      
+      // Determine primary credit type (the one with most credits, including negative)
       let primaryType: string | null = null;
-      if (byType.private > 0 || byType.group > 0 || byType.semiPrivate > 0) {
-        if (byType.private >= byType.group && byType.private >= byType.semiPrivate) {
+      const absPrivate = Math.abs(byType.private);
+      const absGroup = Math.abs(byType.group);
+      const absSemi = Math.abs(byType.semiPrivate);
+      if (absPrivate > 0 || absGroup > 0 || absSemi > 0) {
+        if (absPrivate >= absGroup && absPrivate >= absSemi) {
           primaryType = 'private';
-        } else if (byType.group >= byType.private && byType.group >= byType.semiPrivate) {
+        } else if (absGroup >= absPrivate && absGroup >= absSemi) {
           primaryType = 'group';
         } else {
           primaryType = 'semi_private';
         }
       }
+      
       return {
         ...player,
-        remainingCredits: credits?.remaining || 0,
-        totalCredits: credits?.total || 0,
+        remainingCredits: totalRemaining,
+        totalCredits: totalsByPlayer.get(player.id) || 0,
         creditsByType: byType,
         primaryCreditType: primaryType,
       };
