@@ -1393,39 +1393,146 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
     );
   }
 
+  // Week navigation state
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [expandedOneOffDays, setExpandedOneOffDays] = useState<Set<number>>(new Set());
+  
+  // Calculate the week's date range based on offset
+  const getWeekRange = (offset: number) => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - today.getDay() + (offset * 7)); // Sunday of the target week
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 7);
+    return { start: weekStart, end: weekEnd };
+  };
+  
+  const weekRange = getWeekRange(weekOffset);
+  
+  const formatWeekLabel = () => {
+    const { start, end } = weekRange;
+    const endForDisplay = new Date(end);
+    endForDisplay.setDate(endForDisplay.getDate() - 1); // Show Saturday, not Sunday of next week
+    const startMonth = start.toLocaleDateString('en-US', { month: 'short' });
+    const endMonth = endForDisplay.toLocaleDateString('en-US', { month: 'short' });
+    if (startMonth === endMonth) {
+      return `${startMonth} ${start.getDate()} - ${endForDisplay.getDate()}`;
+    }
+    return `${startMonth} ${start.getDate()} - ${endMonth} ${endForDisplay.getDate()}`;
+  };
+  
+  const isThisWeek = weekOffset === 0;
+  
+  // Filter sessions for the selected week
+  const weekSessions = useMemo(() => {
+    if (!calendarData?.ownSessions) return [];
+    const { start, end } = weekRange;
+    
+    return calendarData.ownSessions
+      .filter((session: any) => {
+        const sessionDate = new Date(session.startTime);
+        const isStandalone = !session.seriesId;
+        return (
+          isStandalone &&
+          sessionDate >= start &&
+          sessionDate < end &&
+          session.status !== "cancelled"
+        );
+      })
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  }, [calendarData?.ownSessions, weekRange.start.getTime()]);
+  
+  // Apply status filter
+  const filteredWeekSessions = useMemo(() => {
+    if (statusFilter === "all") return weekSessions;
+    return weekSessions.filter((session) => {
+      const hasFeedback = hasSessionFeedback(session);
+      switch (statusFilter) {
+        case "complete": return hasFeedback;
+        case "open": return !hasFeedback;
+        case "pending": return !hasFeedback;
+        default: return true;
+      }
+    });
+  }, [weekSessions, statusFilter]);
+  
+  // Group by day of week (0 = Sunday, 6 = Saturday)
+  const groupedByDay = useMemo(() => {
+    const groups: Record<number, any[]> = {};
+    for (const session of filteredWeekSessions) {
+      const dayOfWeek = new Date(session.startTime).getDay();
+      if (!groups[dayOfWeek]) groups[dayOfWeek] = [];
+      groups[dayOfWeek].push(session);
+    }
+    return groups;
+  }, [filteredWeekSessions]);
+  
+  const sortedDays = Object.keys(groupedByDay).map(Number).sort((a, b) => a - b);
+  
+  const toggleOneOffDay = (day: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setExpandedOneOffDays(prev => {
+      const next = new Set(prev);
+      if (next.has(day)) next.delete(day);
+      else next.add(day);
+      return next;
+    });
+  };
+  
+  const weekStatusCounts = useMemo(() => {
+    const complete = weekSessions.filter(s => hasSessionFeedback(s)).length;
+    const open = weekSessions.filter(s => !hasSessionFeedback(s)).length;
+    return { complete, open, all: weekSessions.length };
+  }, [weekSessions]);
+  
+  const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
   return (
     <ScrollView
       style={styles.content}
       contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
       showsVerticalScrollIndicator={false}
     >
-      {/* Calm Period Filter Pills */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        style={styles.calmPeriodScroll}
-        contentContainerStyle={styles.calmPeriodContent}
-      >
-        {FEEDBACK_PERIODS.map((period) => {
-          const isActive = feedbackPeriod === period.id;
-          return (
-            <Pressable
-              key={period.id}
-              style={[styles.calmPeriodPill, isActive && styles.calmPeriodPillActive]}
+      {/* Week Navigation Header */}
+      <View style={styles.weekNavHeader}>
+        <Pressable 
+          style={styles.weekNavArrow} 
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setWeekOffset(prev => prev - 1);
+          }}
+        >
+          <Ionicons name="chevron-back" size={22} color={Colors.dark.primary} />
+        </Pressable>
+        
+        <View style={styles.weekNavCenter}>
+          <Text style={styles.weekNavLabel}>{isThisWeek ? "This Week" : formatWeekLabel()}</Text>
+          {!isThisWeek ? (
+            <Pressable 
+              style={styles.todayButton}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setFeedbackPeriod(period.id);
+                setWeekOffset(0);
               }}
             >
-              <Text style={[styles.calmPeriodText, isActive && styles.calmPeriodTextActive]}>
-                {period.label}
-              </Text>
+              <Text style={styles.todayButtonText}>Today</Text>
             </Pressable>
-          );
-        })}
-      </ScrollView>
+          ) : null}
+        </View>
+        
+        <Pressable 
+          style={styles.weekNavArrow} 
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setWeekOffset(prev => prev + 1);
+          }}
+        >
+          <Ionicons name="chevron-forward" size={22} color={Colors.dark.primary} />
+        </Pressable>
+      </View>
 
-      {/* Calm Status Filter Row */}
+      {/* Status Filter Pills */}
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false}
@@ -1433,10 +1540,9 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
         contentContainerStyle={styles.calmStatusContent}
       >
         {([
-          { id: "all" as const, label: "All", count: statusCounts.all, icon: null, color: Colors.dark.primary },
-          { id: "open" as const, label: "Needs Feedback", count: statusCounts.open, icon: "alert-circle" as const, color: Colors.dark.gold },
-          { id: "complete" as const, label: "Completed", count: statusCounts.complete, icon: "checkmark-circle" as const, color: Colors.dark.primary },
-          { id: "pending" as const, label: "Upcoming", count: statusCounts.pending, icon: "time" as const, color: Colors.dark.xpCyan },
+          { id: "all" as const, label: "All", count: weekStatusCounts.all, icon: null, color: Colors.dark.primary },
+          { id: "open" as const, label: "Needs Feedback", count: weekStatusCounts.open, icon: "alert-circle" as const, color: Colors.dark.gold },
+          { id: "complete" as const, label: "Completed", count: weekStatusCounts.complete, icon: "checkmark-circle" as const, color: Colors.dark.primary },
         ]).map((status) => {
           const isActive = statusFilter === status.id;
           return (
@@ -1466,166 +1572,129 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
         })}
       </ScrollView>
 
-      {/* Epic XP Mission Banner - only show if pending feedback exists */}
-      {pendingFeedbackStats.count > 0 ? (
-        <LinearGradient
-          colors={[Colors.dark.gold + "15", Colors.dark.primary + "08"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.xpMissionBanner}
-        >
-          <View style={styles.xpMissionGlowEdge} />
-          <View style={styles.xpMissionContent}>
-            <View style={styles.xpMissionLeft}>
-              <View style={styles.xpMissionIconContainer}>
-                <Ionicons name="flash" size={22} color={Colors.dark.gold} />
-              </View>
-              <View style={styles.xpMissionTextContainer}>
-                <Text style={styles.xpMissionLabel}>FEEDBACK MISSIONS AVAILABLE</Text>
-                <Text style={styles.xpMissionStats}>
-                  {pendingFeedbackStats.count} Session{pendingFeedbackStats.count > 1 ? "s" : ""} · +{pendingFeedbackStats.totalXp} XP
-                </Text>
-              </View>
+      {/* Day Accordion Rows - like Classes tab */}
+      <View style={styles.dayAccordionContainer}>
+        {sortedDays.length === 0 ? (
+          <View style={styles.calmEmptyCard}>
+            <View style={styles.calmEmptyIcon}>
+              <Ionicons name="checkmark-done" size={26} color={Colors.dark.tabIconDefault} />
             </View>
-            <Pressable style={styles.xpMissionButton}>
-              <LinearGradient
-                colors={[Colors.dark.gold, Colors.dark.primary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.xpMissionButtonGradient}
-              >
-                <Text style={styles.xpMissionButtonText}>Complete All</Text>
-              </LinearGradient>
-            </Pressable>
+            <Text style={styles.calmEmptyText}>
+              {weekSessions.length === 0 
+                ? "No standalone lessons this week"
+                : "No matching lessons"
+              }
+            </Text>
+            <Text style={styles.calmEmptySubtext}>
+              {weekSessions.length === 0 
+                ? "One-off lessons not part of a class appear here"
+                : "Try selecting a different filter"
+              }
+            </Text>
           </View>
-        </LinearGradient>
-      ) : null}
-
-      {/* Section Title with tactical styling */}
-      <View style={styles.sectionTitleRow}>
-        <View style={styles.sectionTitleAccent} />
-        <Text style={styles.sectionTitle}>{getPeriodLabel(feedbackPeriod).toUpperCase()} LESSONS</Text>
-      </View>
-      
-      {statusFilteredSessions.length === 0 ? (
-        <View style={styles.calmEmptyCard}>
-          <View style={styles.calmEmptyIcon}>
-            <Ionicons name="checkmark-done" size={26} color={Colors.dark.tabIconDefault} />
-          </View>
-          <Text style={styles.calmEmptyText}>
-            {filteredSessions.length === 0 
-              ? `No standalone lessons ${feedbackPeriod === "today" ? "today" : "in this period"}`
-              : `No ${statusFilter === "complete" ? "completed" : statusFilter} standalone lessons`
-            }
-          </Text>
-          <Text style={styles.calmEmptySubtext}>
-            {filteredSessions.length === 0 
-              ? "One-off lessons not part of a class appear here"
-              : "Try selecting a different filter"
-            }
-          </Text>
-        </View>
-      ) : (
-        statusFilteredSessions.map((session) => {
-          const needsFeedback = session.status !== "completed";
-          const sessionXp = getSessionXp(session.sessionType);
-          const sessionDate = new Date(session.startTime);
-          const showDate = feedbackPeriod !== "today" && feedbackPeriod !== "yesterday";
-          
-          // Session type colors from theme
-          const getTypeColor = (type: string) => {
-            switch (type) {
-              case "private": return Colors.dark.sessionPrivate;
-              case "semi_private": return Colors.dark.sessionSemiPrivate;
-              case "group": return Colors.dark.sessionGroup;
-              case "physical": return Colors.dark.sessionPhysical;
-              case "activity": return Colors.dark.sessionActivity;
-              default: return Colors.dark.sessionPrivate;
-            }
-          };
-          
-          const typeColor = getTypeColor(session.sessionType);
-          
-          return (
-            <Pressable
-              key={session.id}
-              onPress={() => needsFeedback && setSelectedSession(session)}
-              style={[
-                styles.sessionCardV2,
-                { borderLeftColor: typeColor },
-                needsFeedback && styles.sessionCardV2NeedsFeedback,
-              ]}
-            >
-              {/* Left: Time Badge with type color accent */}
-              <View style={[styles.sessionTimeBadgeV2, { backgroundColor: typeColor + "15" }]}>
-                <Text style={[styles.sessionTimeTextV2, { color: typeColor }]}>{formatTime(session.startTime)}</Text>
-                <Text style={styles.sessionDurationV2}>{session.duration}m</Text>
-              </View>
-              
-              {/* Center: Session Info */}
-              <View style={styles.sessionInfoV2}>
-                <View style={styles.sessionTypeRow}>
-                  <View style={[styles.sessionTypeDot, { backgroundColor: typeColor }]} />
-                  <Text style={styles.sessionTypeV2}>
-                    {session.sessionType === "private"
-                      ? "Private"
-                      : session.sessionType === "semi_private"
-                      ? "Semi-Private"
-                      : session.sessionType === "group"
-                      ? "Group"
-                      : session.sessionType === "physical"
-                      ? "Physical"
-                      : session.sessionType === "activity"
-                      ? "Activity"
-                      : session.sessionType}
-                  </Text>
-                </View>
-                
-                {/* Session Type Indicator */}
-                <View style={styles.playerAvatarsRow}>
-                  <View style={[styles.sessionTypeIndicator, { backgroundColor: typeColor + "20" }]}>
+        ) : (
+          sortedDays.map((dayOfWeek) => {
+            const daySessions = groupedByDay[dayOfWeek] || [];
+            const isExpanded = expandedOneOffDays.has(dayOfWeek);
+            const needsFeedbackCount = daySessions.filter(s => s.status !== "completed").length;
+            
+            return (
+              <View key={dayOfWeek} style={styles.dayAccordion}>
+                <Pressable 
+                  style={styles.dayAccordionHeader}
+                  onPress={() => toggleOneOffDay(dayOfWeek)}
+                >
+                  <View style={styles.dayAccordionLeft}>
                     <Ionicons 
-                      name={session.sessionType === "private" ? "person" : session.sessionType === "group" ? "people" : "tennisball"} 
-                      size={12} 
-                      color={typeColor} 
+                      name={isExpanded ? "chevron-down" : "chevron-forward"} 
+                      size={20} 
+                      color={Colors.dark.gold} 
                     />
+                    <Text style={styles.dayAccordionTitle}>{DAY_NAMES[dayOfWeek]}</Text>
                   </View>
-                  <Text style={styles.playerCountText}>{session.duration} min session</Text>
-                </View>
+                  <View style={styles.dayAccordionRight}>
+                    {needsFeedbackCount > 0 ? (
+                      <View style={styles.dayFeedbackBadge}>
+                        <Ionicons name="alert-circle" size={12} color={Colors.dark.gold} />
+                        <Text style={styles.dayFeedbackBadgeText}>{needsFeedbackCount}</Text>
+                      </View>
+                    ) : null}
+                    <Text style={styles.dayAccordionCount}>{daySessions.length}</Text>
+                    <Text style={styles.dayAccordionLabel}>
+                      {daySessions.length === 1 ? "lesson" : "lessons"}
+                    </Text>
+                  </View>
+                </Pressable>
                 
-                {showDate ? (
-                  <Text style={styles.sessionDateV2}>
-                    {sessionDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-                  </Text>
+                {isExpanded ? (
+                  <View style={styles.dayAccordionContent}>
+                    {daySessions.map((session) => {
+                      const needsFeedback = session.status !== "completed";
+                      const sessionXp = getSessionXp(session.sessionType);
+                      
+                      const getTypeColor = (type: string) => {
+                        switch (type) {
+                          case "private": return Colors.dark.sessionPrivate;
+                          case "semi_private": return Colors.dark.sessionSemiPrivate;
+                          case "group": return Colors.dark.sessionGroup;
+                          case "physical": return Colors.dark.sessionPhysical;
+                          case "activity": return Colors.dark.sessionActivity;
+                          default: return Colors.dark.sessionPrivate;
+                        }
+                      };
+                      
+                      const typeColor = getTypeColor(session.sessionType);
+                      
+                      return (
+                        <Pressable
+                          key={session.id}
+                          onPress={() => needsFeedback && setSelectedSession(session)}
+                          style={[
+                            styles.daySessionCard,
+                            { borderLeftColor: typeColor },
+                            needsFeedback && styles.daySessionCardNeedsFeedback,
+                          ]}
+                        >
+                          <View style={styles.daySessionLeft}>
+                            <Text style={[styles.daySessionTime, { color: typeColor }]}>
+                              {formatTime(session.startTime)}
+                            </Text>
+                            <Text style={styles.daySessionType}>
+                              {session.sessionType === "private" ? "Private" 
+                                : session.sessionType === "semi_private" ? "Semi-Private"
+                                : session.sessionType === "group" ? "Group"
+                                : session.sessionType === "physical" ? "Physical"
+                                : session.sessionType === "activity" ? "Activity"
+                                : session.sessionType}
+                            </Text>
+                            <Text style={styles.daySessionDuration}>{session.duration} min</Text>
+                          </View>
+                          <View style={styles.daySessionRight}>
+                            {needsFeedback ? (
+                              <>
+                                <View style={styles.feedbackNeededBadge}>
+                                  <Ionicons name="alert-circle" size={12} color={Colors.dark.gold} />
+                                  <Text style={styles.feedbackNeededText}>Feedback</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={18} color={Colors.dark.gold} />
+                              </>
+                            ) : (
+                              <View style={styles.completedBadge}>
+                                <Ionicons name="checkmark-circle" size={12} color={Colors.dark.primary} />
+                                <Text style={styles.completedText}>Done</Text>
+                              </View>
+                            )}
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                 ) : null}
-                
-                {/* Status Badge */}
-                {needsFeedback ? (
-                  <View style={styles.sessionBadgeRowV2}>
-                    <View style={styles.feedbackNeededBadge}>
-                      <Ionicons name="alert-circle" size={12} color={Colors.dark.gold} />
-                      <Text style={styles.feedbackNeededText}>Needs Feedback</Text>
-                    </View>
-                    <Text style={styles.xpBadgeText}>+{sessionXp} XP</Text>
-                  </View>
-                ) : (
-                  <View style={styles.sessionBadgeRowV2}>
-                    <View style={styles.completedBadge}>
-                      <Ionicons name="checkmark-circle" size={12} color={Colors.dark.primary} />
-                      <Text style={styles.completedText}>Complete</Text>
-                    </View>
-                  </View>
-                )}
               </View>
-              
-              {/* Right: Arrow */}
-              {needsFeedback ? (
-                <Ionicons name="chevron-forward" size={22} color={Colors.dark.gold} />
-              ) : null}
-            </Pressable>
-          );
-        })
-      )}
+            );
+          })
+        )}
+      </View>
     </ScrollView>
   );
 }
@@ -3507,6 +3576,143 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: Colors.dark.gold,
+  },
+  weekNavHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+  },
+  weekNavArrow: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weekNavCenter: {
+    flex: 1,
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  weekNavLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.dark.text,
+  },
+  todayButton: {
+    backgroundColor: Colors.dark.primary + '20',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  todayButtonText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.dark.primary,
+  },
+  dayAccordionContainer: {
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+  },
+  dayAccordion: {
+    marginBottom: Spacing.md,
+  },
+  dayAccordionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.dark.backgroundSecondary,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + '30',
+  },
+  dayAccordionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  dayAccordionRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  dayAccordionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.dark.text,
+  },
+  dayAccordionCount: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.dark.gold,
+  },
+  dayAccordionLabel: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+  },
+  dayFeedbackBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.dark.gold + '20',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginRight: Spacing.sm,
+  },
+  dayFeedbackBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.dark.gold,
+  },
+  dayAccordionContent: {
+    paddingTop: Spacing.sm,
+    paddingLeft: Spacing.md,
+  },
+  daySessionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.dark.primary,
+  },
+  daySessionCardNeedsFeedback: {
+    borderColor: Colors.dark.gold + '40',
+    borderWidth: 1,
+    borderLeftWidth: 3,
+  },
+  daySessionLeft: {
+    flex: 1,
+  },
+  daySessionTime: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.dark.primary,
+  },
+  daySessionType: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.dark.text,
+    marginTop: 2,
+  },
+  daySessionDuration: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  daySessionRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
   gameTabBar: {
     paddingHorizontal: Spacing.md,
