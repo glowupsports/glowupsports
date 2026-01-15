@@ -6439,25 +6439,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
 
-      // Get all session_players records with LEFT JOIN to sessions (handles orphaned/missing sessions)
-      const attendanceRecords = await db
+      // Step 1: Get all session_players records for this player
+      const playerRecords = await db
         .select({
           sessionId: sessionPlayers.sessionId,
           attendanceStatus: sessionPlayers.attendanceStatus,
           lateMinutes: sessionPlayers.lateMinutes,
           createdAt: sessionPlayers.createdAt,
-          sessionStartTime: sessions.startTime,
-          sessionEndTime: sessions.endTime,
-          sessionType: sessions.sessionType,
-          sessionStatus: sessions.status,
-          courtId: sessions.courtId,
         })
         .from(sessionPlayers)
-        .leftJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
         .where(eq(sessionPlayers.playerId, playerId));
 
+      // Step 2: Get session details separately to avoid Drizzle LEFT JOIN issues
+      const sessionIds = playerRecords.map(r => r.sessionId).filter(Boolean);
+      let sessionMap: Record<string, { startTime: Date; endTime: Date; sessionType: string; status: string }> = {};
+      
+      if (sessionIds.length > 0) {
+        const sessionDetails = await db
+          .select({
+            id: sessions.id,
+            startTime: sessions.startTime,
+            endTime: sessions.endTime,
+            sessionType: sessions.sessionType,
+            status: sessions.status,
+          })
+          .from(sessions)
+          .where(inArray(sessions.id, sessionIds));
+        
+        sessionMap = sessionDetails.reduce((acc, s) => {
+          acc[s.id] = { startTime: s.startTime, endTime: s.endTime, sessionType: s.sessionType, status: s.status };
+          return acc;
+        }, {} as Record<string, { startTime: Date; endTime: Date; sessionType: string; status: string }>);
+      }
+
+      // Step 3: Combine and sort
+      const combinedRecords = playerRecords.map(record => {
+        const sessionInfo = record.sessionId ? sessionMap[record.sessionId] : null;
+        return {
+          sessionId: record.sessionId,
+          attendanceStatus: record.attendanceStatus,
+          lateMinutes: record.lateMinutes,
+          createdAt: record.createdAt,
+          sessionStartTime: sessionInfo?.startTime || null,
+          sessionEndTime: sessionInfo?.endTime || null,
+          sessionType: sessionInfo?.sessionType || null,
+          sessionStatus: sessionInfo?.status || null,
+        };
+      });
+
       // Sort by session start time (if available) or createdAt timestamp
-      const sortedRecords = attendanceRecords.sort((a, b) => {
+      const sortedRecords = combinedRecords.sort((a, b) => {
         const dateA = a.sessionStartTime ? new Date(a.sessionStartTime) : (a.createdAt ? new Date(a.createdAt) : new Date(0));
         const dateB = b.sessionStartTime ? new Date(b.sessionStartTime) : (b.createdAt ? new Date(b.createdAt) : new Date(0));
         return dateB.getTime() - dateA.getTime();

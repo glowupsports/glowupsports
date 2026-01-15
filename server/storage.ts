@@ -1986,8 +1986,13 @@ export const storage = {
     }
     
     // Use transaction to cascade delete all dependent records
-    // Dependency chain: packages → invoices → payments → refunds
+    // Dependency chain: packages → invoices → payments → refunds, also series_players.linked_package_id
     await db.transaction(async (tx) => {
+      // Clear any series_players references to this package first
+      await tx.update(seriesPlayers)
+        .set({ linkedPackageId: null })
+        .where(eq(seriesPlayers.linkedPackageId, id));
+      
       // Get invoice IDs associated with this package
       const packageInvoices = await tx.select({ id: invoices.id }).from(invoices).where(eq(invoices.packageId, id));
       const invoiceIds = packageInvoices.map(inv => inv.id);
