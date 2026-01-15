@@ -377,7 +377,7 @@ function CoachQuickActionsFAB() {
       label: "New Session",
       icon: "add-circle-outline",
       color: Colors.dark.primary,
-      onPress: () => navigation.navigate("CoachTabs", { screen: "Calendar" }),
+      onPress: () => navigation.navigate("CoachTabs", { screen: "Calendar", params: { openWizard: true } }),
     },
     {
       id: "quick-feedback",

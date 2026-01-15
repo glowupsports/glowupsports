@@ -52,6 +52,7 @@ type CalendarRouteParams = {
   Calendar: {
     openSessionId?: string;
     action?: "attendance" | "detail" | "extend" | "end";
+    openWizard?: boolean;
   };
 };
 
@@ -744,6 +745,13 @@ export default function CalendarScreen() {
       }
     }
   }, [route.params?.openSessionId, route.params?.action, calendarData?.ownSessions]);
+  
+  // Handle opening wizard from Quick Actions FAB
+  useEffect(() => {
+    if (route.params?.openWizard) {
+      setShowCreateDrawer(true);
+    }
+  }, [route.params?.openWizard]);
   
   const updateSessionMutation = useMutation({
     mutationFn: async ({ sessionId, startTime, endTime, courtId, originalData }: { 

@@ -149,8 +149,8 @@ const SLIDE_TITLES = [
   "Choose Session Type",
   "Schedule Pattern",
   "When & Where",
+  "Select Players",
   "Session Setup",
-  "Players",
   "Confirm",
 ];
 const ADMIN_SLIDE_TITLES = [
@@ -158,8 +158,8 @@ const ADMIN_SLIDE_TITLES = [
   "Choose Session Type",
   "Schedule Pattern",
   "When & Where",
+  "Select Players",
   "Session Setup",
-  "Players",
   "Confirm",
 ];
 
@@ -654,8 +654,8 @@ export default function CreateSessionWizard({
         case 1: return !!sessionType;
         case 2: return true; // Recurring is optional
         case 3: return !!selectedCourtId && !!startTime;
-        case 4: return true; // Setup has defaults
-        case 5: return true; // Players optional
+        case 4: return true; // Players optional
+        case 5: return true; // Setup has defaults (auto-level from players)
         case 6: return true; // Confirm
         default: return false;
       }
@@ -664,8 +664,8 @@ export default function CreateSessionWizard({
         case 0: return !!sessionType;
         case 1: return true; // Recurring is optional
         case 2: return !!selectedCourtId && !!startTime;
-        case 3: return true; // Setup has defaults
-        case 4: return true; // Players optional
+        case 3: return true; // Players optional
+        case 4: return true; // Setup has defaults (auto-level from players)
         case 5: return true; // Confirm
         default: return false;
       }
@@ -828,9 +828,9 @@ export default function CreateSessionWizard({
         case 3:
           return renderWhenWhereSlide();
         case 4:
-          return renderSessionSetupSlide();
-        case 5:
           return renderPlayersSlide();
+        case 5:
+          return renderSessionSetupSlide();
         case 6:
           return renderConfirmSlide();
         default:
@@ -845,9 +845,9 @@ export default function CreateSessionWizard({
         case 2:
           return renderWhenWhereSlide();
         case 3:
-          return renderSessionSetupSlide();
-        case 4:
           return renderPlayersSlide();
+        case 4:
+          return renderSessionSetupSlide();
         case 5:
           return renderConfirmSlide();
         default:
