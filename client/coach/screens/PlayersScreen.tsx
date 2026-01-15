@@ -64,6 +64,8 @@ interface Player {
   profilePhotoUrl?: string | null;
   remainingCredits?: number;
   totalCredits?: number;
+  creditsByType?: { private: number; group: number; semiPrivate: number };
+  primaryCreditType?: string | null;
 }
 
 interface PlayerNote {
@@ -251,50 +253,39 @@ function GamingPlayerCard({
                   {(player.ballLevel ?? "green").toUpperCase()}
                 </Text>
               </View>
-              <View style={[
-                styles.creditsBadge,
-                { 
-                  backgroundColor: player.remainingCredits === undefined 
-                    ? Colors.dark.tabIconDefault + "20" 
-                    : player.remainingCredits === 0 
-                      ? Colors.dark.error + "20" 
-                      : player.remainingCredits <= 3 
-                        ? Colors.dark.gold + "20" 
-                        : Colors.dark.primary + "20"
-                }
-              ]}>
-                <Ionicons 
-                  name="ticket-outline" 
-                  size={12} 
-                  color={
-                    player.remainingCredits === undefined 
-                      ? Colors.dark.tabIconDefault 
-                      : player.remainingCredits === 0 
-                        ? Colors.dark.error 
-                        : player.remainingCredits <= 3 
-                          ? Colors.dark.gold 
-                          : Colors.dark.primary
-                  } 
-                />
-                <Text style={[
-                  styles.creditsText,
-                  { 
-                    color: player.remainingCredits === undefined 
-                      ? Colors.dark.tabIconDefault 
-                      : player.remainingCredits === 0 
-                        ? Colors.dark.error 
-                        : player.remainingCredits <= 3 
-                          ? Colors.dark.gold 
-                          : Colors.dark.primary
-                  }
-                ]}>
-                  {player.remainingCredits === undefined 
-                    ? "No pkg" 
-                    : player.remainingCredits === 0 
-                      ? "0 credits" 
-                      : `${player.remainingCredits} credits`}
-                </Text>
-              </View>
+              {(() => {
+                const credits = player.remainingCredits;
+                const byType = player.creditsByType;
+                const hasCredits = credits !== undefined && credits > 0;
+                const creditColor = credits === undefined 
+                  ? Colors.dark.tabIconDefault 
+                  : credits === 0 
+                    ? Colors.dark.error 
+                    : credits <= 3 
+                      ? Colors.dark.gold 
+                      : Colors.dark.primary;
+                
+                const formatCreditText = () => {
+                  if (credits === undefined) return "No pkg";
+                  if (credits === 0) return "0 credits";
+                  if (!byType) return `${credits}`;
+                  
+                  const parts: string[] = [];
+                  if (byType.private > 0) parts.push(`${byType.private} Prv`);
+                  if (byType.group > 0) parts.push(`${byType.group} Grp`);
+                  if (byType.semiPrivate > 0) parts.push(`${byType.semiPrivate} Semi`);
+                  return parts.length > 0 ? parts.join(" | ") : `${credits}`;
+                };
+                
+                return (
+                  <View style={[styles.creditsBadge, { backgroundColor: creditColor + "20" }]}>
+                    <Ionicons name="ticket-outline" size={12} color={creditColor} />
+                    <Text style={[styles.creditsText, { color: creditColor }]}>
+                      {formatCreditText()}
+                    </Text>
+                  </View>
+                );
+              })()}
             </View>
           </View>
 
