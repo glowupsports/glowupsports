@@ -5819,6 +5819,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get player full attendance history with session details
+  app.get("/api/coach/players/:playerId/attendance-history", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { playerId } = req.params;
+      const academyId = req.user!.academyId;
+
+      const { valid } = await validatePlayerOwnership(playerId, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      // Get all session_players records with session details
+      const attendanceRecords = await db
+        .select({
+          sessionId: sessionPlayers.sessionId,
+          attendanceStatus: sessionPlayers.attendanceStatus,
+          lateMinutes: sessionPlayers.lateMinutes,
+          sessionDate: sessions.date,
+          sessionStartTime: sessions.startTime,
+          sessionEndTime: sessions.endTime,
+          sessionType: sessions.sessionType,
+          sessionStatus: sessions.status,
+          courtId: sessions.courtId,
+        })
+        .from(sessionPlayers)
+        .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+        .where(eq(sessionPlayers.playerId, playerId))
+        .orderBy(desc(sessions.date), desc(sessions.startTime));
+
+      // Format for frontend
+      const history = attendanceRecords.map(record => ({
+        sessionId: record.sessionId,
+        date: record.sessionDate,
+        startTime: record.sessionStartTime,
+        endTime: record.sessionEndTime,
+        sessionType: record.sessionType,
+        status: record.attendanceStatus,
+        lateMinutes: record.lateMinutes,
+        sessionStatus: record.sessionStatus,
+      }));
+
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching player attendance history:", error);
+      res.status(500).json({ error: "Failed to fetch attendance history" });
+    }
+  });
+
   // ==================== RECURRING SESSIONS API ====================
 
   // Get all recurring series for a coach

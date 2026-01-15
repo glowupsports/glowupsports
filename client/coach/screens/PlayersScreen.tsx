@@ -803,6 +803,17 @@ export default function PlayersScreen() {
   );
 }
 
+interface AttendanceHistoryRecord {
+  sessionId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  sessionType: string;
+  status: string | null;
+  lateMinutes: number | null;
+  sessionStatus: string | null;
+}
+
 function PlayerDetailView({
   player,
   onBack,
@@ -820,6 +831,7 @@ function PlayerDetailView({
   const [newNoteContent, setNewNoteContent] = useState("");
   const [newNoteCategory, setNewNoteCategory] = useState("general");
   const [isExportingReport, setIsExportingReport] = useState(false);
+  const [showAllHistory, setShowAllHistory] = useState(false);
 
   const handleExportProgressReport = async () => {
     try {
@@ -884,6 +896,17 @@ function PlayerDetailView({
   const { data: attendanceSummary } = useQuery<AttendanceSummary>({
     queryKey: [`/api/coach/players/${player.id}/attendance-summary`],
   });
+
+  // Fetch full attendance history
+  const { data: attendanceHistory = [] } = useQuery<AttendanceHistoryRecord[]>({
+    queryKey: [`/api/coach/players/${player.id}/attendance-history`],
+  });
+
+  // Format attendance date for display
+  const formatAttendanceDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" });
+  };
 
   // Calculate level readiness (returns null for max level or invalid level)
   const levelReadiness = getLevelReadiness(player.ballLevel, xpData?.totalXp || 0);
@@ -956,6 +979,8 @@ function PlayerDetailView({
   const regularNotes = notes.filter(n => !n.isPinned);
   const nextLessonNotes = notes.filter(n => n.category === "next-lesson");
 
+  const displayedHistory = showAllHistory ? attendanceHistory : attendanceHistory.slice(0, 5);
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <LinearGradient
@@ -963,59 +988,111 @@ function PlayerDetailView({
         style={StyleSheet.absoluteFill}
       />
 
-      <View style={styles.detailHeader}>
-        <Pressable style={styles.backButton} onPress={onBack}>
-          <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
-        </Pressable>
-        <Text style={styles.detailTitle}>Player Profile</Text>
-        <Pressable 
-          style={styles.exportButton} 
-          onPress={handleExportProgressReport}
-          disabled={isExportingReport}
-        >
-          {isExportingReport ? (
-            <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
-          ) : (
-            <Ionicons name="document-text-outline" size={22} color={Colors.dark.xpCyan} />
-          )}
-        </Pressable>
-      </View>
+      {/* Premium Header */}
+      <LinearGradient
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        style={styles.premiumDetailHeader}
+      >
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.premiumHeaderTopLine}
+        />
+        <View style={styles.premiumHeaderNav}>
+          <Pressable style={styles.premiumBackButton} onPress={onBack}>
+            <Ionicons name="arrow-back" size={22} color={Colors.dark.text} />
+          </Pressable>
+          <Pressable 
+            style={styles.premiumExportButton} 
+            onPress={handleExportProgressReport}
+            disabled={isExportingReport}
+          >
+            {isExportingReport ? (
+              <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+            ) : (
+              <Ionicons name="document-text-outline" size={22} color={Colors.dark.xpCyan} />
+            )}
+          </Pressable>
+        </View>
+
+        {/* Premium Profile Card */}
+        <View style={styles.premiumProfileCard}>
+          <View style={styles.premiumAvatarContainer}>
+            <LinearGradient
+              colors={[getPlayerLevelColor(player.ballLevel ?? "green"), Colors.dark.xpCyan]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.premiumAvatarGlow}
+            />
+            {player.profilePhotoUrl ? (
+              Platform.OS === 'web' ? (
+                <RNImage
+                  source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                  style={styles.premiumAvatarPhoto}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Image
+                  source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                  style={styles.premiumAvatarPhoto}
+                  contentFit="cover"
+                />
+              )
+            ) : (
+              <View style={[styles.premiumAvatar, { backgroundColor: getPlayerLevelColor(player.ballLevel ?? "green") + "30" }]}>
+                <Text style={[styles.premiumInitial, { color: getPlayerLevelColor(player.ballLevel ?? "green") }]}>{player.name.charAt(0).toUpperCase()}</Text>
+              </View>
+            )}
+          </View>
+          
+          <View style={styles.premiumProfileInfo}>
+            <Text style={styles.premiumProfileName}>{player.name}</Text>
+            {player.ballLevel ? (
+              <View style={styles.premiumLevelBadge}>
+                <View style={[styles.premiumLevelDot, { backgroundColor: getPlayerLevelColor(player.ballLevel) }]} />
+                <Text style={styles.premiumLevelText}>
+                  {player.ballLevel.charAt(0).toUpperCase() + player.ballLevel.slice(1)} Ball
+                </Text>
+              </View>
+            ) : null}
+            {xpData ? (
+              <View style={styles.premiumXpBadge}>
+                <Ionicons name="flash" size={14} color={Colors.dark.xpCyan} />
+                <Text style={styles.premiumXpText}>{xpData.totalXp} XP</Text>
+              </View>
+            ) : null}
+          </View>
+
+          {/* Quick Stats Row */}
+          <View style={styles.premiumQuickStats}>
+            <View style={styles.premiumQuickStat}>
+              <Text style={styles.premiumQuickStatValue}>{attendanceSummary?.totalLessons ?? 0}</Text>
+              <Text style={styles.premiumQuickStatLabel}>Sessions</Text>
+            </View>
+            <View style={styles.premiumQuickStatDivider} />
+            <View style={styles.premiumQuickStat}>
+              <Text style={[styles.premiumQuickStatValue, { color: Colors.dark.primary }]}>
+                {attendanceSummary?.attendancePercentage ?? 0}%
+              </Text>
+              <Text style={styles.premiumQuickStatLabel}>Attendance</Text>
+            </View>
+            <View style={styles.premiumQuickStatDivider} />
+            <View style={styles.premiumQuickStat}>
+              <Text style={[styles.premiumQuickStatValue, { color: attendanceSummary?.lateCount ? Colors.dark.gold : Colors.dark.primary }]}>
+                {attendanceSummary?.lateCount ?? 0}
+              </Text>
+              <Text style={styles.premiumQuickStatLabel}>Late</Text>
+            </View>
+          </View>
+        </View>
+      </LinearGradient>
 
       <ScrollView
         style={styles.detailContent}
-        contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
+        contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl, paddingTop: Spacing.md }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.profileHeader}>
-          {player.profilePhotoUrl ? (
-            Platform.OS === 'web' ? (
-              <RNImage
-                source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
-                style={styles.largeAvatarPhoto}
-                resizeMode="cover"
-              />
-            ) : (
-              <Image
-                source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
-                style={styles.largeAvatarPhoto}
-                contentFit="cover"
-              />
-            )
-          ) : (
-            <View style={[styles.largeAvatar, { backgroundColor: getPlayerLevelColor(player.ballLevel ?? "green") + "30" }]}>
-              <Text style={[styles.largeInitial, { color: getPlayerLevelColor(player.ballLevel ?? "green") }]}>{player.name.charAt(0).toUpperCase()}</Text>
-            </View>
-          )}
-          <Text style={styles.profileName}>{player.name}</Text>
-          {player.ballLevel ? (
-            <View style={styles.profileLevel}>
-              <View style={[styles.levelDot, { backgroundColor: getPlayerLevelColor(player.ballLevel) }]} />
-              <Text style={styles.profileLevelText}>
-                {player.ballLevel.charAt(0).toUpperCase() + player.ballLevel.slice(1)} Ball
-              </Text>
-            </View>
-          ) : null}
-        </View>
 
         {player.ballLevel && levelReadiness ? (
           <View style={styles.levelReadinessCard}>
@@ -1231,28 +1308,92 @@ function PlayerDetailView({
           </View>
         ) : null}
 
+        {/* Attendance History Section */}
         <View style={styles.infoSection}>
-          <Text style={styles.sectionLabel}>Attendance Pattern</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>
-                {attendanceSummary?.totalLessons ?? "-"}
-              </Text>
-              <Text style={styles.statLabel}>Total lessons</Text>
+          <View style={styles.attendanceHistoryHeader}>
+            <View style={styles.attendanceHistoryTitleRow}>
+              <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
+              <Text style={styles.sectionLabel}>Attendance History</Text>
             </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>
-                {attendanceSummary ? `${attendanceSummary.attendancePercentage}%` : "-"}
-              </Text>
-              <Text style={styles.statLabel}>Attendance %</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>
-                {attendanceSummary?.lateCount ?? "-"}
-              </Text>
-              <Text style={styles.statLabel}>Late</Text>
-            </View>
+            <Text style={styles.attendanceHistoryCount}>
+              {attendanceHistory.length} sessions
+            </Text>
           </View>
+
+          {attendanceHistory.length === 0 ? (
+            <View style={styles.emptyAttendanceCard}>
+              <Ionicons name="calendar-outline" size={40} color={Colors.dark.disabled} />
+              <Text style={styles.emptyAttendanceText}>No sessions yet</Text>
+              <Text style={styles.emptyAttendanceSubtext}>Sessions will appear here once attended</Text>
+            </View>
+          ) : (
+            <View style={styles.attendanceHistoryList}>
+              {displayedHistory.map((record, index) => (
+                <View key={record.sessionId} style={styles.attendanceHistoryRow}>
+                  <View style={styles.attendanceHistoryDate}>
+                    <Text style={styles.attendanceHistoryDateText}>
+                      {formatAttendanceDate(record.date)}
+                    </Text>
+                    <Text style={styles.attendanceHistoryTime}>
+                      {record.startTime} - {record.endTime}
+                    </Text>
+                  </View>
+                  <View style={styles.attendanceHistoryDetails}>
+                    <View style={styles.attendanceHistoryType}>
+                      <Text style={styles.attendanceHistoryTypeText}>
+                        {record.sessionType === "private" ? "Private" : 
+                         record.sessionType === "group" ? "Group" : 
+                         record.sessionType === "semi-private" ? "Semi" : record.sessionType}
+                      </Text>
+                    </View>
+                    <View style={[
+                      styles.attendanceStatusBadge,
+                      record.status === "present" ? styles.attendanceStatusPresent :
+                      record.status === "absent" ? styles.attendanceStatusAbsent :
+                      styles.attendanceStatusPending
+                    ]}>
+                      <Ionicons 
+                        name={record.status === "present" ? "checkmark-circle" : 
+                              record.status === "absent" ? "close-circle" : "time"} 
+                        size={14} 
+                        color={record.status === "present" ? Colors.dark.primary : 
+                               record.status === "absent" ? Colors.dark.error : Colors.dark.gold}
+                      />
+                      <Text style={[
+                        styles.attendanceStatusText,
+                        record.status === "present" ? styles.attendanceStatusTextPresent :
+                        record.status === "absent" ? styles.attendanceStatusTextAbsent :
+                        styles.attendanceStatusTextPending
+                      ]}>
+                        {record.status === "present" ? "Present" : 
+                         record.status === "absent" ? "Absent" : "Pending"}
+                        {record.lateMinutes && record.lateMinutes > 0 ? ` (+${record.lateMinutes}m late)` : ""}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+
+              {attendanceHistory.length > 5 ? (
+                <Pressable
+                  style={styles.showMoreHistoryButton}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setShowAllHistory(!showAllHistory);
+                  }}
+                >
+                  <Text style={styles.showMoreHistoryText}>
+                    {showAllHistory ? "Show Less" : `Show All (${attendanceHistory.length} sessions)`}
+                  </Text>
+                  <Ionicons 
+                    name={showAllHistory ? "chevron-up" : "chevron-down"} 
+                    size={16} 
+                    color={Colors.dark.xpCyan} 
+                  />
+                </Pressable>
+              ) : null}
+            </View>
+          )}
         </View>
 
         <View style={styles.infoSection}>
@@ -3336,5 +3477,276 @@ const styles = StyleSheet.create({
     fontSize: Typography.body.fontSize,
     color: Colors.dark.text,
     fontWeight: "500",
+  },
+
+  // === PREMIUM PLAYER PROFILE STYLES ===
+  premiumDetailHeader: {
+    paddingBottom: Spacing.lg,
+  },
+  premiumHeaderTopLine: {
+    height: 3,
+    width: "100%",
+  },
+  premiumHeaderNav: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+  },
+  premiumBackButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  premiumExportButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  premiumProfileCard: {
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+    padding: Spacing.lg,
+    backgroundColor: "rgba(20, 20, 20, 0.95)",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+  },
+  premiumAvatarContainer: {
+    alignItems: "center",
+    marginBottom: Spacing.md,
+    position: "relative",
+  },
+  premiumAvatarGlow: {
+    position: "absolute",
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    opacity: 0.3,
+  },
+  premiumAvatarPhoto: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 3,
+    borderColor: Colors.dark.xpCyan,
+  },
+  premiumAvatar: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 3,
+    borderColor: Colors.dark.xpCyan + "50",
+  },
+  premiumInitial: {
+    fontSize: 36,
+    fontWeight: "700",
+  },
+  premiumProfileInfo: {
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  premiumProfileName: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    letterSpacing: 0.5,
+  },
+  premiumLevelBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+  },
+  premiumLevelDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  premiumLevelText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  premiumXpBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "40",
+  },
+  premiumXpText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.xpCyan,
+  },
+  premiumQuickStats: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: Spacing.lg,
+    paddingTop: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.1)",
+  },
+  premiumQuickStat: {
+    flex: 1,
+    alignItems: "center",
+  },
+  premiumQuickStatValue: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  premiumQuickStatLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: Colors.dark.tabIconDefault,
+    marginTop: 2,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  premiumQuickStatDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+  },
+
+  // === ATTENDANCE HISTORY STYLES ===
+  attendanceHistoryHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  attendanceHistoryTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  attendanceHistoryCount: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+  },
+  emptyAttendanceCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  emptyAttendanceText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.tabIconDefault,
+    fontWeight: "500",
+  },
+  emptyAttendanceSubtext: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.disabled,
+  },
+  attendanceHistoryList: {
+    gap: Spacing.sm,
+  },
+  attendanceHistoryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.dark.xpCyan,
+  },
+  attendanceHistoryDate: {
+    flex: 1,
+  },
+  attendanceHistoryDateText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  attendanceHistoryTime: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+    marginTop: 2,
+  },
+  attendanceHistoryDetails: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  attendanceHistoryType: {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.xs,
+  },
+  attendanceHistoryTypeText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.tabIconDefault,
+  },
+  attendanceStatusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.xs,
+  },
+  attendanceStatusPresent: {
+    backgroundColor: Colors.dark.primary + "20",
+  },
+  attendanceStatusAbsent: {
+    backgroundColor: Colors.dark.error + "20",
+  },
+  attendanceStatusPending: {
+    backgroundColor: Colors.dark.gold + "20",
+  },
+  attendanceStatusText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  attendanceStatusTextPresent: {
+    color: Colors.dark.primary,
+  },
+  attendanceStatusTextAbsent: {
+    color: Colors.dark.error,
+  },
+  attendanceStatusTextPending: {
+    color: Colors.dark.gold,
+  },
+  showMoreHistoryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+  },
+  showMoreHistoryText: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan,
   },
 });
