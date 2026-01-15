@@ -2017,20 +2017,106 @@ function ProgressTab({ insets, tabBarHeight }: { insets: { bottom: number }; tab
     );
   }
 
-  // Player List View
-  if (players.length === 0) {
+  // Session-based Feedback View - show sessions that need feedback
+  const allSessions = calendarData?.ownSessions || [];
+  
+  // Group sessions by date and feedback status
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const weekAgo = new Date(today);
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  
+  const needsFeedbackSessions = allSessions.filter((s: any) => {
+    const sessionEnd = new Date(s.endTime);
+    return sessionEnd < new Date() && s.status !== "completed" && s.status !== "cancelled";
+  });
+  
+  const todaySessions = needsFeedbackSessions.filter((s: any) => {
+    const sessionDate = new Date(s.startTime);
+    sessionDate.setHours(0, 0, 0, 0);
+    return sessionDate.getTime() === today.getTime();
+  });
+  
+  const yesterdaySessions = needsFeedbackSessions.filter((s: any) => {
+    const sessionDate = new Date(s.startTime);
+    sessionDate.setHours(0, 0, 0, 0);
+    return sessionDate.getTime() === yesterday.getTime();
+  });
+  
+  const earlierSessions = needsFeedbackSessions.filter((s: any) => {
+    const sessionDate = new Date(s.startTime);
+    sessionDate.setHours(0, 0, 0, 0);
+    return sessionDate.getTime() < yesterday.getTime();
+  }).slice(0, 20); // Limit to last 20
+
+  const formatSessionTime = (startTime: string, endTime: string) => {
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    return `${start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })} - ${end.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+  };
+
+  const formatSessionDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  };
+
+  const getSessionTypeLabel = (type: string) => {
+    switch(type) {
+      case 'private': return 'Private';
+      case 'semi_private': return 'Semi-Private';
+      case 'group': return 'Group';
+      case 'camp': return 'Camp';
+      default: return type;
+    }
+  };
+
+  const renderSessionCard = (session: any, showDate = false) => (
+    <Pressable
+      key={session.id}
+      style={styles.feedbackSessionCard}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        // TODO: Open feedback form for this session
+      }}
+    >
+      <View style={styles.feedbackSessionLeft}>
+        <View style={styles.feedbackSessionIcon}>
+          <Ionicons name="chatbubble-outline" size={18} color={Colors.dark.gold} />
+        </View>
+        <View>
+          <Text style={styles.feedbackSessionType}>{getSessionTypeLabel(session.sessionType)}</Text>
+          <Text style={styles.feedbackSessionTime}>
+            {showDate ? formatSessionDate(session.startTime) + ' · ' : ''}{formatSessionTime(session.startTime, session.endTime)}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.feedbackSessionRight}>
+        <View style={styles.pendingBadge}>
+          <Text style={styles.pendingBadgeText}>Needs Feedback</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={Colors.dark.gold} />
+      </View>
+    </Pressable>
+  );
+
+  if (needsFeedbackSessions.length === 0) {
     return (
       <ScrollView
         style={styles.content}
         contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.sectionTitle}>Player Progress</Text>
+        <View style={styles.feedbackHeader}>
+          <Text style={styles.feedbackSectionTitle}>Session Feedback</Text>
+          <Text style={styles.feedbackSectionSubtitle}>All caught up!</Text>
+        </View>
         <View style={styles.emptyCard}>
-          <Ionicons name="trending-up-outline" size={48} color={Colors.dark.xpCyan} />
-          <Text style={styles.emptyText}>No players found</Text>
+          <Ionicons name="checkmark-circle" size={48} color={Colors.dark.primary} />
+          <Text style={styles.emptyText}>No pending feedback</Text>
           <Text style={styles.emptySubtext}>
-            Add players to track their progress
+            All sessions have been reviewed
           </Text>
         </View>
       </ScrollView>
@@ -2043,49 +2129,33 @@ function ProgressTab({ insets, tabBarHeight }: { insets: { bottom: number }; tab
       contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.sectionTitle}>Player Progress</Text>
-      <Text style={styles.sectionSubtitle}>{players.length} players - Tap to view details</Text>
+      <View style={styles.feedbackHeader}>
+        <Text style={styles.feedbackSectionTitle}>Session Feedback</Text>
+        <View style={styles.feedbackCountBadge}>
+          <Text style={styles.feedbackCountText}>{needsFeedbackSessions.length} pending</Text>
+        </View>
+      </View>
 
-      {players.map((player) => (
-        <Pressable
-          key={player.id}
-          style={styles.progressCard}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setSelectedPlayer(player);
-          }}
-        >
-          <View style={styles.progressCardHeader}>
-            <View style={styles.playerAvatarSmall}>
-              <Text style={styles.playerInitialSmall}>{player.name.charAt(0).toUpperCase()}</Text>
-            </View>
-            <View style={styles.progressPlayerInfo}>
-              <Text style={styles.progressPlayerName}>{player.name}</Text>
-              <View style={styles.progressMeta}>
-                {player.ballLevel ? (
-                  <View style={styles.levelBadge}>
-                    <View style={[styles.levelDotSmall, { backgroundColor: getLevelColor(player.ballLevel) }]} />
-                    <Text style={styles.levelBadgeText}>{player.ballLevel}</Text>
-                  </View>
-                ) : null}
-                {player.totalXp > 0 ? (
-                  <View style={styles.xpBadge}>
-                    <Ionicons name="star" size={12} color={Colors.dark.gold} />
-                    <Text style={styles.xpBadgeText}>{player.totalXp} XP</Text>
-                  </View>
-                ) : null}
-                {player.totalNotes > 0 ? (
-                  <View style={styles.notesBadge}>
-                    <Ionicons name="document-text-outline" size={12} color={Colors.dark.tabIconDefault} />
-                    <Text style={styles.notesBadgeText}>{player.totalNotes}</Text>
-                  </View>
-                ) : null}
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.dark.tabIconDefault} />
-          </View>
-        </Pressable>
-      ))}
+      {todaySessions.length > 0 ? (
+        <View style={styles.feedbackGroup}>
+          <Text style={styles.feedbackGroupTitle}>Today</Text>
+          {todaySessions.map((s: any) => renderSessionCard(s))}
+        </View>
+      ) : null}
+
+      {yesterdaySessions.length > 0 ? (
+        <View style={styles.feedbackGroup}>
+          <Text style={styles.feedbackGroupTitle}>Yesterday</Text>
+          {yesterdaySessions.map((s: any) => renderSessionCard(s))}
+        </View>
+      ) : null}
+
+      {earlierSessions.length > 0 ? (
+        <View style={styles.feedbackGroup}>
+          <Text style={styles.feedbackGroupTitle}>Earlier</Text>
+          {earlierSessions.map((s: any) => renderSessionCard(s, true))}
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -3346,6 +3416,97 @@ const styles = StyleSheet.create({
   pillTabTextActive: {
     color: Colors.dark.backgroundRoot,
     fontWeight: '700',
+  },
+  feedbackHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
+  },
+  feedbackSectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.dark.text,
+  },
+  feedbackSectionSubtitle: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+  },
+  feedbackCountBadge: {
+    backgroundColor: Colors.dark.gold + '20',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  feedbackCountText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.dark.gold,
+  },
+  feedbackGroup: {
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  feedbackGroupTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  feedbackSessionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + '30',
+  },
+  feedbackSessionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    flex: 1,
+  },
+  feedbackSessionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.gold + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  feedbackSessionType: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.dark.text,
+  },
+  feedbackSessionTime: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  feedbackSessionRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  pendingBadge: {
+    backgroundColor: Colors.dark.gold + '20',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  pendingBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.dark.gold,
   },
   gameTabBar: {
     paddingHorizontal: Spacing.md,
