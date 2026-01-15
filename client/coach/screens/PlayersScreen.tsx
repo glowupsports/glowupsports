@@ -62,6 +62,8 @@ interface Player {
   focusGoals?: string[] | null;
   selfConfidenceFlags?: string[] | null;
   profilePhotoUrl?: string | null;
+  remainingCredits?: number;
+  totalCredits?: number;
 }
 
 interface PlayerNote {
@@ -130,14 +132,12 @@ function GamingPlayerCard({
   player, 
   onPress, 
   getStatusBadge,
-  formatDate,
   needsBaseline,
   onStartBaseline,
 }: { 
   player: Player; 
   onPress: () => void;
   getStatusBadge: (status: string | null) => { color: string; icon: "airplane" | "bandage" | "sparkles"; label: string } | null;
-  formatDate: (date: string | null) => string;
   needsBaseline?: boolean;
   onStartBaseline?: () => void;
 }) {
@@ -251,9 +251,50 @@ function GamingPlayerCard({
                   {(player.ballLevel ?? "green").toUpperCase()}
                 </Text>
               </View>
-              <Text style={styles.gamingMetaText}>
-                {formatDate(player.lastLessonDate)}
-              </Text>
+              <View style={[
+                styles.creditsBadge,
+                { 
+                  backgroundColor: player.remainingCredits === undefined 
+                    ? Colors.dark.tabIconDefault + "20" 
+                    : player.remainingCredits === 0 
+                      ? Colors.dark.error + "20" 
+                      : player.remainingCredits <= 3 
+                        ? Colors.dark.gold + "20" 
+                        : Colors.dark.primary + "20"
+                }
+              ]}>
+                <Ionicons 
+                  name="ticket-outline" 
+                  size={12} 
+                  color={
+                    player.remainingCredits === undefined 
+                      ? Colors.dark.tabIconDefault 
+                      : player.remainingCredits === 0 
+                        ? Colors.dark.error 
+                        : player.remainingCredits <= 3 
+                          ? Colors.dark.gold 
+                          : Colors.dark.primary
+                  } 
+                />
+                <Text style={[
+                  styles.creditsText,
+                  { 
+                    color: player.remainingCredits === undefined 
+                      ? Colors.dark.tabIconDefault 
+                      : player.remainingCredits === 0 
+                        ? Colors.dark.error 
+                        : player.remainingCredits <= 3 
+                          ? Colors.dark.gold 
+                          : Colors.dark.primary
+                  }
+                ]}>
+                  {player.remainingCredits === undefined 
+                    ? "No pkg" 
+                    : player.remainingCredits === 0 
+                      ? "0 credits" 
+                      : `${player.remainingCredits} credits`}
+                </Text>
+              </View>
             </View>
           </View>
 
@@ -287,7 +328,7 @@ export default function PlayersScreen() {
   const [showBaselineDrawer, setShowBaselineDrawer] = useState(false);
 
   const { data: players = [], isLoading } = useQuery<Player[]>({
-    queryKey: ["/api/players"],
+    queryKey: ["/api/players?withCredits=true"],
   });
 
   const { data: playersWithoutBaseline = [] } = useQuery<Player[]>({
@@ -538,7 +579,6 @@ export default function PlayersScreen() {
               player={player} 
               onPress={() => handleSelectPlayer(player)}
               getStatusBadge={getStatusBadge}
-              formatDate={formatDate}
               needsBaseline={playerIdsWithoutBaseline.has(player.id)}
               onStartBaseline={() => {
                 setBaselinePlayer(player);
@@ -953,6 +993,17 @@ function PlayerDetailView({
   const formatAttendanceDate = (dateStr: string) => {
     const d = new Date(dateStr);
     return d.toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" });
+  };
+
+  // Format time for attendance history (ISO string to HH:MM)
+  const formatAttendanceTime = (timeStr: string | null) => {
+    if (!timeStr) return "";
+    try {
+      const d = new Date(timeStr);
+      return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+    } catch {
+      return "";
+    }
   };
 
   // Calculate level readiness (returns null for max level or invalid level)
@@ -1382,7 +1433,7 @@ function PlayerDetailView({
                       {formatAttendanceDate(record.date)}
                     </Text>
                     <Text style={styles.attendanceHistoryTime}>
-                      {record.startTime} - {record.endTime}
+                      {formatAttendanceTime(record.startTime)} - {formatAttendanceTime(record.endTime)}
                     </Text>
                   </View>
                   <View style={styles.attendanceHistoryDetails}>
@@ -1906,6 +1957,18 @@ const styles = StyleSheet.create({
   gamingMetaText: {
     fontSize: 11,
     color: Colors.dark.tabIconDefault + "80",
+  },
+  creditsBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  creditsText: {
+    fontSize: 10,
+    fontWeight: "600",
   },
   gamingChevron: {
     padding: Spacing.xs,
@@ -3616,8 +3679,8 @@ const styles = StyleSheet.create({
   },
   premiumProfileCard: {
     marginHorizontal: Spacing.lg,
-    marginTop: Spacing.md,
-    padding: Spacing.lg,
+    marginTop: Spacing.sm,
+    padding: Spacing.md,
     backgroundColor: "rgba(20, 20, 20, 0.95)",
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
@@ -3625,42 +3688,42 @@ const styles = StyleSheet.create({
   },
   premiumAvatarContainer: {
     alignItems: "center",
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
     position: "relative",
   },
   premiumAvatarGlow: {
     position: "absolute",
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     opacity: 0.3,
   },
   premiumAvatarPhoto: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    borderWidth: 3,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
     borderColor: Colors.dark.xpCyan,
   },
   premiumAvatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: Colors.dark.xpCyan + "50",
   },
   premiumInitial: {
-    fontSize: 36,
+    fontSize: 26,
     fontWeight: "700",
   },
   premiumProfileInfo: {
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   premiumProfileName: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "700",
     color: Colors.dark.text,
     letterSpacing: 0.5,
