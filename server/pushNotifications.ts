@@ -371,13 +371,13 @@ async function processAutoAttendance(): Promise<void> {
 
       if (unmarkedPlayers.length === 0) continue;
 
-      console.log(`[AutoAttendance] Session ${session.id}: Marking ${unmarkedPlayers.length} players as absent (no coach marked)`);
+      console.log(`[AutoAttendance] Session ${session.id}: Marking ${unmarkedPlayers.length} players as attended (auto-mark after session end)`);
 
       for (const player of unmarkedPlayers) {
         await db.update(sessionPlayers)
           .set({ 
-            attendanceStatus: "absent",
-            absenceReason: "no-show"
+            attendanceStatus: "present",
+            lateMinutes: 0
           })
           .where(eq(sessionPlayers.id, player.id));
       }

@@ -5899,12 +5899,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { force } = req.query;
       const academyId = req.user!.academyId;
       
+      console.log(`[PackageDelete] Attempting to delete package ${id} for academy ${academyId}, force=${force}`);
+      
       const { valid } = await validatePackageOwnership(id, academyId, storage);
       if (!valid) {
+        console.log(`[PackageDelete] Package ${id} not found or not owned by academy ${academyId}`);
         return res.status(404).json({ error: "Package not found" });
       }
       
       const result = await storage.deletePackage(id, academyId ?? undefined, force === "true");
+      console.log(`[PackageDelete] Delete result:`, result);
       
       if (!result.success) {
         return res.status(400).json({ 
@@ -5915,7 +5919,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting package:", error);
+      console.error("[PackageDelete] Error deleting package:", error);
       res.status(500).json({ error: "Failed to delete package" });
     }
   });
@@ -6442,7 +6446,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           attendanceStatus: sessionPlayers.attendanceStatus,
           lateMinutes: sessionPlayers.lateMinutes,
           createdAt: sessionPlayers.createdAt,
-          sessionDate: sessions.date,
           sessionStartTime: sessions.startTime,
           sessionEndTime: sessions.endTime,
           sessionType: sessions.sessionType,
@@ -6453,17 +6456,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .leftJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
         .where(eq(sessionPlayers.playerId, playerId));
 
-      // Sort by session date (if available) or createdAt timestamp
+      // Sort by session start time (if available) or createdAt timestamp
       const sortedRecords = attendanceRecords.sort((a, b) => {
-        const dateA = a.sessionDate ? new Date(a.sessionDate) : (a.createdAt ? new Date(a.createdAt) : new Date(0));
-        const dateB = b.sessionDate ? new Date(b.sessionDate) : (b.createdAt ? new Date(b.createdAt) : new Date(0));
+        const dateA = a.sessionStartTime ? new Date(a.sessionStartTime) : (a.createdAt ? new Date(a.createdAt) : new Date(0));
+        const dateB = b.sessionStartTime ? new Date(b.sessionStartTime) : (b.createdAt ? new Date(b.createdAt) : new Date(0));
         return dateB.getTime() - dateA.getTime();
       });
 
       // Format for frontend - include records even if session details are missing
       const history = sortedRecords.map(record => ({
         sessionId: record.sessionId,
-        date: record.sessionDate || (record.createdAt ? new Date(record.createdAt).toISOString().split('T')[0] : null),
+        date: record.sessionStartTime ? new Date(record.sessionStartTime).toISOString().split('T')[0] : (record.createdAt ? new Date(record.createdAt).toISOString().split('T')[0] : null),
         startTime: record.sessionStartTime || null,
         endTime: record.sessionEndTime || null,
         sessionType: record.sessionType || "group",
