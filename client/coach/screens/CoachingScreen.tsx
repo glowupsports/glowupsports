@@ -1732,6 +1732,7 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
                     {daySessions.map((session) => {
                       const needsFeedback = session.status !== "completed";
                       const sessionXp = getSessionXp(session.sessionType);
+                      const players = session.players || [];
                       
                       const getTypeColor = (type: string) => {
                         switch (type) {
@@ -1744,47 +1745,114 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
                         }
                       };
                       
+                      const getBallLevelColor = (level?: string) => {
+                        switch (level?.toUpperCase()) {
+                          case "BLUE": return "#3B82F6";
+                          case "RED": return "#EF4444";
+                          case "ORANGE": return "#F97316";
+                          case "GREEN": return "#22C55E";
+                          case "YELLOW": return "#EAB308";
+                          case "GLOW": return Colors.dark.gold;
+                          default: return Colors.dark.textMuted;
+                        }
+                      };
+                      
                       const typeColor = getTypeColor(session.sessionType);
+                      const primaryBallLevel = players[0]?.ballLevel;
+                      const ballLevelColor = getBallLevelColor(primaryBallLevel);
                       
                       return (
                         <Pressable
                           key={session.id}
                           onPress={() => needsFeedback && setSelectedSession(session)}
                           style={[
-                            styles.daySessionCard,
-                            { borderLeftColor: typeColor },
-                            needsFeedback && styles.daySessionCardNeedsFeedback,
+                            styles.richSessionCard,
+                            needsFeedback && styles.richSessionCardNeedsFeedback,
                           ]}
                         >
-                          <View style={styles.daySessionLeft}>
-                            <Text style={[styles.daySessionTime, { color: typeColor }]}>
-                              {formatTime(session.startTime)}
-                            </Text>
-                            <Text style={styles.daySessionType}>
-                              {session.sessionType === "private" ? "Private" 
-                                : session.sessionType === "semi_private" ? "Semi-Private"
-                                : session.sessionType === "group" ? "Group"
-                                : session.sessionType === "physical" ? "Physical"
-                                : session.sessionType === "activity" ? "Activity"
-                                : session.sessionType}
-                            </Text>
-                            <Text style={styles.daySessionDuration}>{session.duration} min</Text>
-                          </View>
-                          <View style={styles.daySessionRight}>
-                            {needsFeedback ? (
-                              <>
-                                <View style={styles.feedbackNeededBadge}>
-                                  <Ionicons name="alert-circle" size={12} color={Colors.dark.gold} />
-                                  <Text style={styles.feedbackNeededText}>Feedback</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={18} color={Colors.dark.gold} />
-                              </>
-                            ) : (
-                              <View style={styles.completedBadge}>
-                                <Ionicons name="checkmark-circle" size={12} color={Colors.dark.primary} />
-                                <Text style={styles.completedText}>Done</Text>
+                          <View style={[styles.richSessionHeader, { borderBottomColor: typeColor + '40' }]}>
+                            <View style={styles.richSessionTimeRow}>
+                              <View style={[styles.richSessionTimeBadge, { backgroundColor: typeColor + '20' }]}>
+                                <Ionicons name="time-outline" size={12} color={typeColor} />
+                                <Text style={[styles.richSessionTimeText, { color: typeColor }]}>
+                                  {formatTime(session.startTime)}
+                                </Text>
                               </View>
-                            )}
+                              <View style={styles.richSessionTypeBadge}>
+                                <Text style={styles.richSessionTypeText}>
+                                  {session.sessionType === "private" ? "Private" 
+                                    : session.sessionType === "semi_private" ? "Semi"
+                                    : session.sessionType === "group" ? "Group"
+                                    : session.sessionType === "physical" ? "Physical"
+                                    : session.sessionType === "activity" ? "Activity"
+                                    : session.sessionType}
+                                </Text>
+                              </View>
+                              <Text style={styles.richSessionDuration}>{session.duration}m</Text>
+                            </View>
+                            {primaryBallLevel ? (
+                              <View style={[styles.ballLevelBadge, { backgroundColor: ballLevelColor + '20', borderColor: ballLevelColor }]}>
+                                <View style={[styles.ballLevelDot, { backgroundColor: ballLevelColor }]} />
+                                <Text style={[styles.ballLevelText, { color: ballLevelColor }]}>
+                                  {primaryBallLevel}
+                                </Text>
+                              </View>
+                            ) : null}
+                          </View>
+                          
+                          <View style={styles.richSessionBody}>
+                            <View style={styles.richSessionPlayersRow}>
+                              <View style={styles.playerAvatarStack}>
+                                {players.slice(0, 3).map((player: any, idx: number) => (
+                                  <View 
+                                    key={player.id || idx} 
+                                    style={[
+                                      styles.playerAvatarCircle,
+                                      { marginLeft: idx > 0 ? -8 : 0, zIndex: 3 - idx }
+                                    ]}
+                                  >
+                                    <Text style={styles.playerAvatarText}>
+                                      {player.name?.charAt(0)?.toUpperCase() || "?"}
+                                    </Text>
+                                  </View>
+                                ))}
+                                {players.length > 3 ? (
+                                  <View style={[styles.playerAvatarCircle, styles.playerAvatarMore, { marginLeft: -8 }]}>
+                                    <Text style={styles.playerAvatarMoreText}>+{players.length - 3}</Text>
+                                  </View>
+                                ) : null}
+                              </View>
+                              <View style={styles.playerNamesContainer}>
+                                <Text style={styles.playerNamesText} numberOfLines={1}>
+                                  {players.length === 0 
+                                    ? "No players" 
+                                    : players.length <= 2 
+                                      ? players.map((p: any) => p.name?.split(' ')[0]).join(', ')
+                                      : `${players.slice(0, 2).map((p: any) => p.name?.split(' ')[0]).join(', ')} +${players.length - 2}`
+                                  }
+                                </Text>
+                              </View>
+                            </View>
+                            
+                            <View style={styles.richSessionFooter}>
+                              {needsFeedback ? (
+                                <View style={styles.xpRewardBadge}>
+                                  <Ionicons name="flash" size={12} color={Colors.dark.gold} />
+                                  <Text style={styles.xpRewardText}>+{sessionXp} XP</Text>
+                                </View>
+                              ) : (
+                                <View style={styles.richCompletedBadge}>
+                                  <Ionicons name="checkmark-circle" size={14} color={Colors.dark.primary} />
+                                  <Text style={styles.richCompletedText}>Completed</Text>
+                                </View>
+                              )}
+                              {needsFeedback ? (
+                                <View style={styles.feedbackActionRow}>
+                                  <Text style={styles.feedbackActionText}>Add Feedback</Text>
+                                  <Ionicons name="chevron-forward" size={16} color={Colors.dark.gold} />
+                                </View>
+                              ) : null}
+                            </View>
                           </View>
                         </Pressable>
                       );
@@ -3841,6 +3909,164 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
+  },
+  richSessionCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    overflow: 'hidden',
+  },
+  richSessionCardNeedsFeedback: {
+    borderColor: Colors.dark.gold + '50',
+    backgroundColor: Colors.dark.gold + '08',
+  },
+  richSessionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  richSessionTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  richSessionTimeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  richSessionTimeText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  richSessionTypeBadge: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  richSessionTypeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.dark.textMuted,
+  },
+  richSessionDuration: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+  },
+  ballLevelBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  ballLevelDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  ballLevelText: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  richSessionBody: {
+    padding: Spacing.md,
+  },
+  richSessionPlayersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  playerAvatarStack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  playerAvatarCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.dark.primary + '30',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Colors.dark.backgroundSecondary,
+  },
+  playerAvatarText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.dark.primary,
+  },
+  playerAvatarMore: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+  },
+  playerAvatarMoreText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.dark.textMuted,
+  },
+  playerNamesContainer: {
+    flex: 1,
+  },
+  playerNamesText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.dark.text,
+  },
+  richSessionFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border + '50',
+  },
+  xpRewardBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.dark.gold + '20',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  xpRewardText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.dark.gold,
+  },
+  richCompletedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  richCompletedText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: Colors.dark.primary,
+  },
+  feedbackActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  feedbackActionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.dark.gold,
   },
   gameTabBar: {
     paddingHorizontal: Spacing.md,
