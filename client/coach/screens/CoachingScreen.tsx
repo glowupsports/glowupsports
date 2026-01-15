@@ -170,73 +170,94 @@ export default function CoachingScreen() {
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Mission Control Header - EPIC tier */}
-      <View style={styles.hudHeader}>
-        <NeoLoadoutPanel 
-          variant="header" 
-          accentColor={Colors.dark.primary}
-          tone="epic"
-          enableGlow={true}
-          enableSweep={true}
-          style={styles.headerPanel}
-        >
-          <View style={styles.hudHeaderContent}>
-            {/* Left: Coach Avatar */}
-            <View style={styles.hudSigilContainer}>
-              <NeoGlowBadge size={42} accentColor={Colors.dark.primary}>
-                <Animated.View style={iconPulseStyle}>
-                  <Ionicons name="person" size={20} color={Colors.dark.backgroundRoot} />
-                </Animated.View>
-              </NeoGlowBadge>
-            </View>
-
-            {/* Center: HQ Title with Academy Name */}
-            <View style={styles.hudTitleContainer}>
-              <Animated.View style={[styles.hudTitleGlow, headerGlowStyle]} />
-              <Text style={styles.hudTitle}>COACHING HQ</Text>
-              <Text style={styles.hudSubtitle}>Mission Control</Text>
-            </View>
-
-            {/* Right: Animated LIVE indicator */}
-            <View style={styles.hudStatusContainer}>
-              <Animated.View style={[styles.hudStatusDot, { opacity: headerPulse }]} />
-              <Text style={styles.hudStatusText}>LIVE</Text>
+      {/* Gaming-Style Header */}
+      <View style={styles.gameHeader}>
+        <LinearGradient
+          colors={[`${Colors.dark.primary}15`, `${Colors.dark.primary}05`, 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.gameHeaderGradient}
+        />
+        <View style={styles.gameHeaderContent}>
+          {/* Left: Level Badge */}
+          <View style={styles.levelBadgeContainer}>
+            <LinearGradient
+              colors={[Colors.dark.primary, `${Colors.dark.primary}CC`]}
+              style={styles.levelBadge}
+            >
+              <Text style={styles.levelNumber}>7</Text>
+            </LinearGradient>
+            <View style={styles.levelLabelContainer}>
+              <Text style={styles.levelLabel}>COACH</Text>
             </View>
           </View>
-        </NeoLoadoutPanel>
+
+          {/* Center: Title + XP Bar */}
+          <View style={styles.gameHeaderCenter}>
+            <Text style={styles.gameHeaderTitle}>COACHING HQ</Text>
+            <View style={styles.xpBarContainer}>
+              <View style={styles.xpBarBackground}>
+                <Animated.View style={[styles.xpBarFill, { width: '65%' }]} />
+              </View>
+              <Text style={styles.xpText}>5,070 XP</Text>
+            </View>
+          </View>
+
+          {/* Right: Stats */}
+          <View style={styles.gameHeaderStats}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>36</Text>
+              <Text style={styles.statLabel}>Classes</Text>
+            </View>
+          </View>
+        </View>
+        <View style={styles.headerDivider} />
       </View>
 
-      {/* Mission Tab Bar */}
-      <View style={styles.calmTabBar}>
+      {/* Gaming Tab Bar */}
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.gameTabBar}
+      >
         {([
-          { id: "series", label: "Classes", icon: "layers-outline" },
-          { id: "today", label: "Standalone", icon: "flag-outline" },
-          { id: "progress", label: "Stats", icon: "stats-chart-outline" },
-          { id: "plans", label: "Plans", icon: "bulb-outline" },
-          { id: "levels", label: "Glow Levels", icon: "ribbon-outline" },
+          { id: "series", label: "Classes", icon: "layers" },
+          { id: "today", label: "One-Off", icon: "flash" },
+          { id: "feedback", label: "Feedback", icon: "chatbubble-ellipses" },
+          { id: "plans", label: "Plans", icon: "map" },
+          { id: "levels", label: "Glow Levels", icon: "trophy" },
         ] as const).map((tab) => {
-          const isActive = activeTab === tab.id;
+          const isActive = activeTab === tab.id || (tab.id === "feedback" && activeTab === "progress");
           return (
             <Pressable
               key={tab.id}
-              style={[styles.calmTab, isActive && styles.calmTabActive]}
+              style={[styles.gameTab, isActive && styles.gameTabActive]}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setActiveTab(tab.id);
+                setActiveTab(tab.id === "feedback" ? "progress" : tab.id);
               }}
             >
+              {isActive && (
+                <LinearGradient
+                  colors={[`${Colors.dark.primary}30`, `${Colors.dark.primary}10`]}
+                  style={StyleSheet.absoluteFill}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                />
+              )}
               <Ionicons
                 name={tab.icon as keyof typeof Ionicons.glyphMap}
                 size={18}
-                color={isActive ? Colors.dark.primary : Colors.dark.tabIconDefault}
+                color={isActive ? Colors.dark.primary : Colors.dark.textMuted}
               />
-              <Text style={[styles.calmTabText, isActive && styles.calmTabTextActive]}>
+              <Text style={[styles.gameTabText, isActive && styles.gameTabTextActive]}>
                 {tab.label}
               </Text>
+              {isActive && <View style={styles.gameTabIndicator} />}
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
 
       {activeTab === "series" ? (
         <SeriesTab insets={insets} tabBarHeight={tabBarHeight} />
@@ -3144,6 +3165,144 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.primary,
     letterSpacing: 1,
+  },
+  gameHeader: {
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xs,
+    position: 'relative',
+  },
+  gameHeaderGradient: {
+    ...StyleSheet.absoluteFillObject,
+    borderBottomLeftRadius: BorderRadius.lg,
+    borderBottomRightRadius: BorderRadius.lg,
+  },
+  gameHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  levelBadgeContainer: {
+    alignItems: 'center',
+  },
+  levelBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  levelNumber: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: Colors.dark.backgroundRoot,
+  },
+  levelLabelContainer: {
+    marginTop: 2,
+  },
+  levelLabel: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: Colors.dark.primary,
+    letterSpacing: 1,
+  },
+  gameHeaderCenter: {
+    flex: 1,
+  },
+  gameHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: Colors.dark.text,
+    letterSpacing: 2,
+    marginBottom: 4,
+  },
+  xpBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  xpBarBackground: {
+    flex: 1,
+    height: 6,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  xpBarFill: {
+    height: '100%',
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 3,
+  },
+  xpText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.dark.xpCyan,
+  },
+  gameHeaderStats: {
+    alignItems: 'flex-end',
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: Colors.dark.text,
+  },
+  statLabel: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: Colors.dark.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  headerDivider: {
+    height: 1,
+    backgroundColor: Colors.dark.primary + '20',
+    marginTop: Spacing.md,
+    marginHorizontal: -Spacing.md,
+  },
+  gameTabBar: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  gameTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  gameTabActive: {
+    borderColor: Colors.dark.primary + '50',
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  gameTabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.dark.textMuted,
+  },
+  gameTabTextActive: {
+    color: Colors.dark.primary,
+    fontWeight: '700',
+  },
+  gameTabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: Spacing.sm,
+    right: Spacing.sm,
+    height: 2,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 1,
   },
   neoTabBar: {
     flexDirection: "row",
