@@ -6522,9 +6522,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .orderBy(asc(sessions.startTime));
       
       // AUTO-ATTENDANCE: Mark past sessions as completed with all players present
+      // Only apply to sessions from Jan 15, 2026 onwards (feature activation date)
       const now = new Date();
+      const autoAttendanceStartDate = new Date("2026-01-15T12:00:00Z"); // Only apply to sessions after this date
       const pastScheduledSessions = seriesSessions.filter(
-        s => s.status === "scheduled" && new Date(s.startTime) < now
+        s => s.status === "scheduled" && 
+             new Date(s.startTime) < now &&
+             new Date(s.startTime) >= autoAttendanceStartDate
       );
       
       // Get active player IDs for auto-attendance
