@@ -291,11 +291,14 @@ const styles = StyleSheet.create({
   actionsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "center",
+    justifyContent: "space-evenly",
+    alignItems: "flex-start",
     gap: Spacing.md,
   },
   actionItem: {
-    width: (SCREEN_WIDTH - Spacing.lg * 4 - Spacing.md * 2) / 3,
+    width: 90,
+    minWidth: 80,
+    maxWidth: 100,
     alignItems: "center",
     paddingVertical: Spacing.sm,
   },
