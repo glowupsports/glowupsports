@@ -81,7 +81,10 @@ const OVERRIDE_REASONS = [
 // Deep Baseline Skill Definitions
 // minLevel: minimum ball stage where this skill appears (BLUE=0, RED=1, ORANGE=2, GREEN=3, YELLOW=4, GLOW=5)
 const STAGE_ORDER = ["BLUE", "RED", "ORANGE", "GREEN", "YELLOW", "GLOW"];
-const getStageIndex = (stage: string) => STAGE_ORDER.indexOf(stage.toUpperCase());
+const getStageIndex = (stage: string | undefined | null) => {
+  if (!stage) return 1; // Default to RED level if no stage
+  return STAGE_ORDER.indexOf(stage.toUpperCase());
+};
 
 interface SkillDef {
   id: string;
