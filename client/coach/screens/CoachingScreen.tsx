@@ -182,94 +182,65 @@ export default function CoachingScreen() {
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Gaming-Style Header */}
-      <View style={styles.gameHeader}>
-        <LinearGradient
-          colors={[`${Colors.dark.primary}15`, `${Colors.dark.primary}05`, 'transparent']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.gameHeaderGradient}
-        />
-        <View style={styles.gameHeaderContent}>
-          {/* Left: Level Badge */}
-          <View style={styles.levelBadgeContainer}>
-            <LinearGradient
-              colors={[Colors.dark.primary, `${Colors.dark.primary}CC`]}
-              style={styles.levelBadge}
-            >
-              <Text style={styles.levelNumber}>{xpData?.level ?? coach?.level ?? 1}</Text>
-            </LinearGradient>
-            <View style={styles.levelLabelContainer}>
-              <Text style={styles.levelLabel}>LEVEL</Text>
-            </View>
+      {/* Compact Header */}
+      <View style={styles.compactHeader}>
+        <View style={styles.compactHeaderLeft}>
+          <View style={styles.compactLevelBadge}>
+            <Text style={styles.compactLevelText}>{xpData?.level ?? coach?.level ?? 1}</Text>
           </View>
-
-          {/* Center: Title + XP Bar */}
-          <View style={styles.gameHeaderCenter}>
-            <Text style={styles.gameHeaderTitle}>COACHING HQ</Text>
-            <View style={styles.xpBarContainer}>
-              <View style={styles.xpBarBackground}>
-                <View style={[styles.xpBarFill, { width: `${xpData?.xpProgress ?? 65}%` }]} />
+          <View>
+            <Text style={styles.compactTitle}>COACHING HQ</Text>
+            <View style={styles.compactXpRow}>
+              <View style={styles.compactXpBar}>
+                <View style={[styles.compactXpFill, { width: `${xpData?.xpProgress ?? 65}%` }]} />
               </View>
-              <Text style={styles.xpText}>{(xpData?.totalXp ?? coach?.totalXp ?? 0).toLocaleString()} XP</Text>
-            </View>
-          </View>
-
-          {/* Right: Stats */}
-          <View style={styles.gameHeaderStats}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{statsData?.sessionsCount ?? 0}</Text>
-              <Text style={styles.statLabel}>Sessions</Text>
+              <Text style={styles.compactXpText}>{(xpData?.totalXp ?? coach?.totalXp ?? 0).toLocaleString()} XP</Text>
             </View>
           </View>
         </View>
-        <View style={styles.headerDivider} />
+        <View style={styles.compactHeaderRight}>
+          <Text style={styles.compactStatValue}>{statsData?.sessionsCount ?? 0}</Text>
+          <Text style={styles.compactStatLabel}>SESSIONS</Text>
+        </View>
       </View>
 
-      {/* Gaming Tab Bar */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.gameTabBar}
-      >
-        {([
-          { id: "series", label: "Classes", icon: "layers" },
-          { id: "today", label: "One-Off", icon: "flash" },
-          { id: "feedback", label: "Feedback", icon: "chatbubble-ellipses" },
-          { id: "plans", label: "Plans", icon: "map" },
-          { id: "levels", label: "Glow Levels", icon: "trophy" },
-        ] as const).map((tab) => {
-          const isActive = activeTab === tab.id || (tab.id === "feedback" && activeTab === "progress");
-          return (
-            <Pressable
-              key={tab.id}
-              style={[styles.gameTab, isActive && styles.gameTabActive]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setActiveTab(tab.id === "feedback" ? "progress" : tab.id);
-              }}
-            >
-              {isActive && (
-                <LinearGradient
-                  colors={[`${Colors.dark.primary}30`, `${Colors.dark.primary}10`]}
-                  style={StyleSheet.absoluteFill}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
+      {/* Compact Pill Tabs */}
+      <View style={styles.pillTabContainer}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.pillTabScroll}
+        >
+          {([
+            { id: "series", label: "Classes", icon: "layers" },
+            { id: "today", label: "One-Off", icon: "flash" },
+            { id: "progress", label: "Feedback", icon: "chatbubble" },
+            { id: "plans", label: "Plans", icon: "bulb" },
+            { id: "levels", label: "Glow Levels", icon: "trophy" },
+          ] as const).map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <Pressable
+                key={tab.id}
+                style={[styles.pillTab, isActive && styles.pillTabActive]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setActiveTab(tab.id);
+                }}
+              >
+                <Ionicons
+                  name={tab.icon as keyof typeof Ionicons.glyphMap}
+                  size={14}
+                  color={isActive ? Colors.dark.backgroundRoot : Colors.dark.textMuted}
                 />
-              )}
-              <Ionicons
-                name={tab.icon as keyof typeof Ionicons.glyphMap}
-                size={18}
-                color={isActive ? Colors.dark.primary : Colors.dark.textMuted}
-              />
-              <Text style={[styles.gameTabText, isActive && styles.gameTabTextActive]}>
-                {tab.label}
-              </Text>
-              {isActive && <View style={styles.gameTabIndicator} />}
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+                <Text style={[styles.pillTabText, isActive && styles.pillTabTextActive]}>
+                  {tab.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
 
       {activeTab === "series" ? (
         <SeriesTab insets={insets} tabBarHeight={tabBarHeight} />
@@ -3275,6 +3246,106 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.primary + '20',
     marginTop: Spacing.md,
     marginHorizontal: -Spacing.md,
+  },
+  compactHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.primary + '20',
+  },
+  compactHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  compactLevelBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: Colors.dark.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compactLevelText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: Colors.dark.backgroundRoot,
+  },
+  compactTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.dark.text,
+    letterSpacing: 1,
+  },
+  compactXpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginTop: 2,
+  },
+  compactXpBar: {
+    width: 80,
+    height: 4,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  compactXpFill: {
+    height: '100%',
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 2,
+  },
+  compactXpText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.dark.xpCyan,
+  },
+  compactHeaderRight: {
+    alignItems: 'flex-end',
+  },
+  compactStatValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: Colors.dark.text,
+  },
+  compactStatLabel: {
+    fontSize: 8,
+    fontWeight: '600',
+    color: Colors.dark.textMuted,
+    letterSpacing: 0.5,
+  },
+  pillTabContainer: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundSecondary,
+  },
+  pillTabScroll: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  pillTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  pillTabActive: {
+    backgroundColor: Colors.dark.primary,
+  },
+  pillTabText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.dark.textMuted,
+  },
+  pillTabTextActive: {
+    color: Colors.dark.backgroundRoot,
+    fontWeight: '700',
   },
   gameTabBar: {
     paddingHorizontal: Spacing.md,
