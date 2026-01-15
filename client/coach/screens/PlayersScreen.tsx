@@ -305,6 +305,8 @@ export default function PlayersScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [filterLevel, setFilterLevel] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<"name" | "credits" | "negative" | "lastLesson">("name");
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [createdPlayerInvite, setCreatedPlayerInvite] = useState<{ name: string; inviteCode: string } | null>(null);
@@ -374,8 +376,33 @@ export default function PlayersScreen() {
     if (filterLevel) {
       result = result.filter((p) => getEffectiveBallLevel(p.ballLevel) === filterLevel);
     }
-    return result.sort((a, b) => a.name.localeCompare(b.name));
-  }, [players, searchQuery, filterLevel]);
+    
+    // Apply sorting
+    return [...result].sort((a, b) => {
+      const aCredits = a.remainingCredits ?? 0;
+      const bCredits = b.remainingCredits ?? 0;
+      
+      switch (sortBy) {
+        case "credits":
+          // Low to high - urgent players first
+          return aCredits - bCredits;
+        case "negative":
+          // Negative credits first, then by amount ascending
+          if (aCredits < 0 && bCredits >= 0) return -1;
+          if (bCredits < 0 && aCredits >= 0) return 1;
+          if (aCredits < 0 && bCredits < 0) return aCredits - bCredits;
+          return aCredits - bCredits;
+        case "lastLesson":
+          // Most recent first
+          const aDate = a.lastLessonDate ? new Date(a.lastLessonDate).getTime() : 0;
+          const bDate = b.lastLessonDate ? new Date(b.lastLessonDate).getTime() : 0;
+          return bDate - aDate;
+        case "name":
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
+  }, [players, searchQuery, filterLevel, sortBy]);
 
   const ballLevels = ["red", "orange", "green", "yellow", "glow"];
 
@@ -469,6 +496,54 @@ export default function PlayersScreen() {
             <Pressable onPress={() => setSearchQuery("")}>
               <Ionicons name="close-circle" size={18} color={Colors.dark.xpCyan} />
             </Pressable>
+          ) : null}
+        </View>
+        
+        {/* Sort Dropdown */}
+        <View style={styles.sortContainer}>
+          <Pressable 
+            style={styles.sortButton}
+            onPress={() => setShowSortDropdown(!showSortDropdown)}
+          >
+            <Ionicons 
+              name={sortBy === "name" ? "text" : sortBy === "credits" || sortBy === "negative" ? "ticket-outline" : "time-outline"} 
+              size={16} 
+              color={Colors.dark.xpCyan} 
+            />
+            <Ionicons name="chevron-down" size={14} color={Colors.dark.tabIconDefault} />
+          </Pressable>
+          
+          {showSortDropdown ? (
+            <View style={styles.sortDropdown}>
+              <Pressable 
+                style={[styles.sortOption, sortBy === "name" && styles.sortOptionActive]}
+                onPress={() => { setSortBy("name"); setShowSortDropdown(false); }}
+              >
+                <Ionicons name="text" size={14} color={sortBy === "name" ? Colors.dark.xpCyan : Colors.dark.tabIconDefault} />
+                <Text style={[styles.sortOptionText, sortBy === "name" && styles.sortOptionTextActive]}>Name A-Z</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.sortOption, sortBy === "credits" && styles.sortOptionActive]}
+                onPress={() => { setSortBy("credits"); setShowSortDropdown(false); }}
+              >
+                <Ionicons name="ticket-outline" size={14} color={sortBy === "credits" ? Colors.dark.warning : Colors.dark.tabIconDefault} />
+                <Text style={[styles.sortOptionText, sortBy === "credits" && styles.sortOptionTextActive]}>Credits Low→High</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.sortOption, sortBy === "negative" && styles.sortOptionActive]}
+                onPress={() => { setSortBy("negative"); setShowSortDropdown(false); }}
+              >
+                <Ionicons name="alert-circle" size={14} color={sortBy === "negative" ? Colors.dark.error : Colors.dark.tabIconDefault} />
+                <Text style={[styles.sortOptionText, sortBy === "negative" && styles.sortOptionTextActive]}>Debt First</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.sortOption, sortBy === "lastLesson" && styles.sortOptionActive]}
+                onPress={() => { setSortBy("lastLesson"); setShowSortDropdown(false); }}
+              >
+                <Ionicons name="time-outline" size={14} color={sortBy === "lastLesson" ? Colors.dark.primary : Colors.dark.tabIconDefault} />
+                <Text style={[styles.sortOptionText, sortBy === "lastLesson" && styles.sortOptionTextActive]}>Recent Lesson</Text>
+              </Pressable>
+            </View>
           ) : null}
         </View>
       </View>
@@ -1698,10 +1773,14 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   gamingSearchContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
     paddingHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
+    gap: Spacing.sm,
   },
   gamingSearchBar: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -1726,6 +1805,59 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.dark.text,
     letterSpacing: 0.5,
+  },
+  sortContainer: {
+    position: "relative",
+    zIndex: 100,
+  },
+  sortButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    height: 48,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+  },
+  sortDropdown: {
+    position: "absolute",
+    top: 52,
+    right: 0,
+    backgroundColor: Colors.dark.backgroundElevated,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "40",
+    minWidth: 160,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: { elevation: 8 },
+      default: {},
+    }),
+  },
+  sortOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  sortOptionActive: {
+    backgroundColor: Colors.dark.xpCyan + "20",
+  },
+  sortOptionText: {
+    fontSize: 13,
+    color: Colors.dark.tabIconDefault,
+  },
+  sortOptionTextActive: {
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
   },
   gamingFilterScroll: {
     marginBottom: Spacing.md,
