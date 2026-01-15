@@ -7210,7 +7210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Add players to the session
         if (playerIds && Array.isArray(playerIds)) {
           for (const playerId of playerIds) {
-            await storage.addSessionPlayer({
+            await storage.addPlayerToSession({
               sessionId: session.id,
               playerId,
               status: "confirmed",
