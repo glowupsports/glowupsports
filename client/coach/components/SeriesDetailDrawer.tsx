@@ -1993,35 +1993,68 @@ export default function SeriesDetailDrawer({
         </View>
       </Modal>
 
-      {/* Attendance Modal */}
+      {/* Attendance Modal (also contains Transfer view) */}
       <Modal
         visible={showAttendanceModal}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowAttendanceModal(false)}
+        onRequestClose={() => {
+          setShowAttendanceModal(false);
+          setAttendanceModalView("attendance");
+          setSelectedTargetCoachId(null);
+        }}
       >
         <View style={styles.overlay}>
-          <Pressable style={styles.backdrop} onPress={() => setShowAttendanceModal(false)} />
+          <Pressable style={styles.backdrop} onPress={() => {
+            setShowAttendanceModal(false);
+            setAttendanceModalView("attendance");
+            setSelectedTargetCoachId(null);
+          }} />
           <View style={[styles.drawer, { paddingTop: Spacing.xl, paddingHorizontal: Spacing.lg }]}>
+            {/* Dynamic Header based on view */}
             <View style={styles.attendanceModalHeader}>
-              <View>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
-                  <Text style={styles.attendanceModalTitle}>Mark Attendance</Text>
-                  {loadingAttendance ? (
-                    <ActivityIndicator size="small" color={Colors.dark.accentNeon} />
+              <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+                {attendanceModalView === "transfer" && (
+                  <Pressable 
+                    onPress={() => {
+                      setAttendanceModalView("attendance");
+                      setSelectedTargetCoachId(null);
+                    }}
+                    style={{ marginRight: Spacing.xs }}
+                  >
+                    <Ionicons name="arrow-back" size={24} color={Colors.dark.accentCyan} />
+                  </Pressable>
+                )}
+                <View>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+                    {attendanceModalView === "transfer" && (
+                      <Ionicons name="swap-horizontal" size={20} color={Colors.dark.accentCyan} />
+                    )}
+                    <Text style={styles.attendanceModalTitle}>
+                      {attendanceModalView === "transfer" ? "Transfer Session" : "Mark Attendance"}
+                    </Text>
+                    {loadingAttendance && attendanceModalView === "attendance" ? (
+                      <ActivityIndicator size="small" color={Colors.dark.accentNeon} />
+                    ) : null}
+                  </View>
+                  {selectedSession ? (
+                    <Text style={styles.attendanceModalDate}>
+                      {formatDate(selectedSession.startTime)} - Week {selectedSession.weekNumber || "?"}
+                    </Text>
                   ) : null}
                 </View>
-                {selectedSession ? (
-                  <Text style={styles.attendanceModalDate}>
-                    {formatDate(selectedSession.startTime)} - Week {selectedSession.weekNumber || "?"}
-                  </Text>
-                ) : null}
               </View>
-              <Pressable onPress={() => setShowAttendanceModal(false)}>
+              <Pressable onPress={() => {
+                setShowAttendanceModal(false);
+                setAttendanceModalView("attendance");
+                setSelectedTargetCoachId(null);
+              }}>
                 <Ionicons name="close" size={24} color={Colors.dark.text} />
               </Pressable>
             </View>
 
+            {/* Attendance View */}
+            {attendanceModalView === "attendance" ? (
             <ScrollView style={{ flex: 1 }}>
               {(() => {
                 const sessionDate = selectedSession ? new Date(selectedSession.startTime) : new Date();
@@ -2169,156 +2202,116 @@ export default function SeriesDetailDrawer({
                 </Pressable>
               </View>
             </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Transfer Session Modal */}
-      <Modal
-        visible={showTransferModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowTransferModal(false)}
-      >
-        <View style={styles.overlay}>
-          <Pressable style={styles.backdrop} onPress={() => setShowTransferModal(false)} />
-          <View 
-            style={[styles.transferModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}
-            onStartShouldSetResponder={() => true}
-          >
-            <LinearGradient
-              colors={[Colors.dark.accentCyan + "20", "transparent"]}
-              style={styles.transferModalGlow}
-            />
-            
-            <View style={styles.transferModalHeader}>
-              <View style={styles.transferModalTitleRow}>
-                <View style={styles.transferIconContainer}>
-                  <Ionicons name="swap-horizontal" size={22} color={Colors.dark.accentCyan} />
-                </View>
-                <View>
-                  <Text style={styles.transferModalTitle}>Transfer Session</Text>
-                  {selectedSession ? (
-                    <Text style={styles.transferModalSubtitle}>
-                      {new Date(selectedSession.startTime).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} - Week {selectedSession.weekNumber || "?"}
-                    </Text>
-                  ) : null}
-                </View>
+            ) : (
+            /* Transfer View */
+            <View style={{ flex: 1 }}>
+              <View style={styles.transferInfoCard}>
+                <Ionicons name="information-circle" size={18} color={Colors.dark.accentCyan} />
+                <Text style={styles.transferInfoText}>
+                  The session will be removed from your calendar and added to the selected coach's calendar.
+                </Text>
               </View>
-              <Pressable 
-                onPress={() => {
-                  setShowTransferModal(false);
-                  setSelectedTargetCoachId(null);
-                }} 
-                style={styles.transferCloseButton}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+
+              <Text style={styles.transferSectionLabel}>Select Coach</Text>
+              
+              <ScrollView 
+                style={styles.transferCoachList}
+                showsVerticalScrollIndicator={false}
               >
-                <Ionicons name="close" size={22} color="#FFFFFF" />
-              </Pressable>
-            </View>
-
-            <View style={styles.transferInfoCard}>
-              <Ionicons name="information-circle" size={18} color={Colors.dark.accentCyan} />
-              <Text style={styles.transferInfoText}>
-                The session will be removed from your calendar and added to the selected coach's calendar.
-              </Text>
-            </View>
-
-            <Text style={styles.transferSectionLabel}>Select Coach</Text>
-            
-            <ScrollView 
-              style={styles.transferCoachList}
-              showsVerticalScrollIndicator={false}
-            >
-              {coaches.filter(c => c.id !== currentCoach?.id).length === 0 ? (
-                <View style={styles.noCoachesContainer}>
-                  <Ionicons name="people-outline" size={40} color={Colors.dark.textMuted} />
-                  <Text style={styles.noCoachesText}>No other coaches available</Text>
-                </View>
-              ) : (
-                coaches.filter(c => c.id !== currentCoach?.id).map((coach) => (
-                  <Pressable
-                    key={coach.id}
-                    style={[
-                      styles.transferCoachCard,
-                      selectedTargetCoachId === coach.id && styles.transferCoachCardActive,
-                    ]}
-                    onPress={() => setSelectedTargetCoachId(coach.id)}
-                  >
-                    <LinearGradient
-                      colors={selectedTargetCoachId === coach.id 
-                        ? [Colors.dark.accentCyan + "25", Colors.dark.accentCyan + "10"]
-                        : ["transparent", "transparent"]
-                      }
-                      style={StyleSheet.absoluteFillObject}
-                    />
-                    <View style={[
-                      styles.transferCoachAvatar,
-                      selectedTargetCoachId === coach.id && styles.transferCoachAvatarActive,
-                    ]}>
-                      <Text style={[
-                        styles.transferCoachAvatarText,
-                        selectedTargetCoachId === coach.id && styles.transferCoachAvatarTextActive,
+                {coaches.filter(c => c.id !== currentCoach?.id).length === 0 ? (
+                  <View style={styles.noCoachesContainer}>
+                    <Ionicons name="people-outline" size={40} color={Colors.dark.textMuted} />
+                    <Text style={styles.noCoachesText}>No other coaches available</Text>
+                  </View>
+                ) : (
+                  coaches.filter(c => c.id !== currentCoach?.id).map((coach) => (
+                    <Pressable
+                      key={coach.id}
+                      style={[
+                        styles.transferCoachCard,
+                        selectedTargetCoachId === coach.id && styles.transferCoachCardActive,
+                      ]}
+                      onPress={() => {
+                        setSelectedTargetCoachId(coach.id);
+                        Haptics.selectionAsync();
+                      }}
+                    >
+                      <LinearGradient
+                        colors={selectedTargetCoachId === coach.id 
+                          ? [Colors.dark.accentCyan + "25", Colors.dark.accentCyan + "10"]
+                          : ["transparent", "transparent"]
+                        }
+                        style={StyleSheet.absoluteFillObject}
+                      />
+                      <View style={[
+                        styles.transferCoachAvatar,
+                        selectedTargetCoachId === coach.id && styles.transferCoachAvatarActive,
                       ]}>
-                        {coach.name.charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                    <View style={styles.transferCoachInfo}>
-                      <Text style={styles.transferCoachName}>{coach.name}</Text>
-                      <Text style={styles.transferCoachRole}>Coach</Text>
-                    </View>
-                    {selectedTargetCoachId === coach.id ? (
-                      <View style={styles.transferCheckmark}>
-                        <Ionicons name="checkmark" size={16} color="#000" />
+                        <Text style={[
+                          styles.transferCoachAvatarText,
+                          selectedTargetCoachId === coach.id && styles.transferCoachAvatarTextActive,
+                        ]}>
+                          {coach.name.charAt(0).toUpperCase()}
+                        </Text>
                       </View>
-                    ) : (
-                      <View style={styles.transferRadio} />
-                    )}
-                  </Pressable>
-                ))
-              )}
-            </ScrollView>
+                      <View style={styles.transferCoachInfo}>
+                        <Text style={styles.transferCoachName}>{coach.name}</Text>
+                        <Text style={styles.transferCoachRole}>Coach</Text>
+                      </View>
+                      {selectedTargetCoachId === coach.id ? (
+                        <View style={styles.transferCheckmark}>
+                          <Ionicons name="checkmark" size={16} color="#000" />
+                        </View>
+                      ) : (
+                        <View style={styles.transferRadio} />
+                      )}
+                    </Pressable>
+                  ))
+                )}
+              </ScrollView>
 
-            <View style={styles.transferActions}>
-              <Pressable
-                style={[
-                  styles.transferConfirmButton,
-                  (!selectedTargetCoachId || transferringSession) && styles.transferConfirmButtonDisabled,
-                ]}
-                onPress={() => {
-                  if (selectedSession && selectedTargetCoachId) {
-                    setTransferringSession(true);
-                    transferSessionMutation.mutate({
-                      sessionId: selectedSession.id,
-                      targetCoachId: selectedTargetCoachId,
-                    });
-                  }
-                }}
-                disabled={!selectedTargetCoachId || transferringSession}
-              >
-                <LinearGradient
-                  colors={!selectedTargetCoachId || transferringSession
-                    ? [Colors.dark.textMuted + "50", Colors.dark.textMuted + "30"]
-                    : [Colors.dark.accentCyan, Colors.dark.accent]
-                  }
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.transferConfirmGradient}
+              <View style={styles.transferActions}>
+                <Pressable
+                  style={[
+                    styles.transferConfirmButton,
+                    (!selectedTargetCoachId || transferringSession) && styles.transferConfirmButtonDisabled,
+                  ]}
+                  onPress={() => {
+                    if (selectedSession && selectedTargetCoachId) {
+                      setTransferringSession(true);
+                      transferSessionMutation.mutate({
+                        sessionId: selectedSession.id,
+                        targetCoachId: selectedTargetCoachId,
+                      });
+                    }
+                  }}
+                  disabled={!selectedTargetCoachId || transferringSession}
                 >
-                  <Ionicons 
-                    name={transferringSession ? "hourglass" : "swap-horizontal"} 
-                    size={20} 
-                    color={!selectedTargetCoachId || transferringSession ? Colors.dark.textMuted : "#000"} 
-                  />
-                  <Text style={[
-                    styles.transferConfirmText,
-                    (!selectedTargetCoachId || transferringSession) && styles.transferConfirmTextDisabled,
-                  ]}>
-                    {transferringSession ? "Transferring..." : "Confirm Transfer"}
-                  </Text>
-                </LinearGradient>
-              </Pressable>
+                  <LinearGradient
+                    colors={!selectedTargetCoachId || transferringSession
+                      ? [Colors.dark.textMuted + "50", Colors.dark.textMuted + "30"]
+                      : [Colors.dark.accentCyan, Colors.dark.accent]
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.transferConfirmGradient}
+                  >
+                    <Ionicons 
+                      name={transferringSession ? "hourglass" : "swap-horizontal"} 
+                      size={20} 
+                      color={!selectedTargetCoachId || transferringSession ? Colors.dark.textMuted : "#000"} 
+                    />
+                    <Text style={[
+                      styles.transferConfirmText,
+                      (!selectedTargetCoachId || transferringSession) && styles.transferConfirmTextDisabled,
+                    ]}>
+                      {transferringSession ? "Transferring..." : "Confirm Transfer"}
+                    </Text>
+                  </LinearGradient>
+                </Pressable>
+              </View>
             </View>
+            )}
           </View>
         </View>
       </Modal>
