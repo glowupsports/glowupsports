@@ -3463,13 +3463,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
               
               // Use presentCount for credit type determination, but charge all non-vacation players
               const presentCount = presentPlayers.length;
+              const totalPlayersInSession = req.body.attendance.length;
               
               creditConsumptionResult = await storage.consumeCreditsForClassSessionWithAttendance(
                 session.seriesId,
                 id,
                 new Date(session.startTime),
                 chargeablePlayers.map((p: { playerId: string }) => p.playerId),
-                presentCount
+                presentCount,
+                totalPlayersInSession
               );
               console.log(`[Credits] Session ${id}: consumed ${creditConsumptionResult.consumed}, skipped ${creditConsumptionResult.skipped}, actualCreditType: ${creditConsumptionResult.actualCreditType}`);
             } catch (creditError) {

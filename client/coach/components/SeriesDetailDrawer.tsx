@@ -1955,11 +1955,17 @@ export default function SeriesDetailDrawer({
                 const sessionType = series?.sessionType || "group";
                 
                 let creditTypeHint = "";
+                let isPrivateCharge = false;
                 if (sessionType === "semi_private" || sessionType === "semi") {
-                  if (presentCount === 1 && activePlayers.length >= 2) {
-                    creditTypeHint = "Only 1 player present - will be charged as private lesson";
+                  if (activePlayers.length === 1) {
+                    creditTypeHint = "Only 1 player in group - charged as private lesson";
+                    isPrivateCharge = true;
+                  } else if (presentCount === 1) {
+                    creditTypeHint = "Only 1 player present - charged as private lesson";
+                    isPrivateCharge = true;
                   } else if (presentCount >= 2) {
                     creditTypeHint = "Semi-private credits will be charged";
+                    isPrivateCharge = false;
                   }
                 }
 
@@ -2032,15 +2038,18 @@ export default function SeriesDetailDrawer({
                     })}
                     
                     {creditTypeHint ? (
-                      <View style={styles.creditHintBox}>
+                      <View style={[
+                        styles.creditHintBox,
+                        isPrivateCharge ? styles.creditHintBoxPrivate : styles.creditHintBoxSemi
+                      ]}>
                         <Ionicons 
-                          name={presentCount === 1 ? "swap-horizontal" : "card-outline"} 
+                          name={isPrivateCharge ? "person" : "people"} 
                           size={16} 
-                          color={presentCount === 1 ? Colors.dark.gold : Colors.dark.accentCyan} 
+                          color={isPrivateCharge ? Colors.dark.sessionPrivate : Colors.dark.sessionSemiPrivate} 
                         />
                         <Text style={[
                           styles.creditHint, 
-                          presentCount === 1 && styles.creditHintPrivate
+                          isPrivateCharge ? styles.creditHintPrivate : styles.creditHintSemi
                         ]}>
                           {creditTypeHint}
                         </Text>
@@ -3493,15 +3502,24 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundTertiary,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: Colors.dark.accentCyan + "30",
+  },
+  creditHintBoxPrivate: {
+    borderColor: Colors.dark.sessionPrivate + "40",
+    backgroundColor: Colors.dark.sessionPrivate + "10",
+  },
+  creditHintBoxSemi: {
+    borderColor: Colors.dark.sessionSemiPrivate + "40",
+    backgroundColor: Colors.dark.sessionSemiPrivate + "10",
   },
   creditHint: {
     fontSize: Typography.caption.fontSize,
-    color: Colors.dark.accentCyan,
     textAlign: "center",
   },
   creditHintPrivate: {
-    color: Colors.dark.gold,
+    color: Colors.dark.sessionPrivate,
+  },
+  creditHintSemi: {
+    color: Colors.dark.sessionSemiPrivate,
   },
   deleteSeriesSection: {
     marginTop: Spacing.xl,

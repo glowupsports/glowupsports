@@ -5695,13 +5695,14 @@ export const storage = {
   },
 
   // Consume credits for class session with dynamic credit type based on actual attendance
-  // For semi-private sessions: if only 1 player present, charge private credits instead
+  // For semi-private sessions: if only 1 player present OR 1 total in group, charge private credits
   async consumeCreditsForClassSessionWithAttendance(
     seriesId: string, 
     sessionId: string, 
     sessionDate: Date, 
     presentPlayerIds: string[],
-    presentCount: number
+    presentCount: number,
+    totalPlayersInSession: number = 0
   ): Promise<{ 
     consumed: number; 
     skipped: number; 
@@ -5725,10 +5726,15 @@ export const storage = {
     
     let requiredCreditType = normalizeType(series?.sessionType);
     
-    // Dynamic credit type: semi-private with only 1 player becomes private
-    if ((requiredCreditType === "semi_private") && presentCount === 1) {
-      requiredCreditType = "private";
-      console.log(`[Credits] Session ${sessionId}: Semi-private with 1 player, charging as private`);
+    // Dynamic credit type: semi-private with only 1 player (present OR total in group) becomes private
+    if (requiredCreditType === "semi_private") {
+      if (totalPlayersInSession === 1) {
+        requiredCreditType = "private";
+        console.log(`[Credits] Session ${sessionId}: Semi-private with only 1 player in group, charging as private`);
+      } else if (presentCount === 1) {
+        requiredCreditType = "private";
+        console.log(`[Credits] Session ${sessionId}: Semi-private with 1 present out of ${totalPlayersInSession}, charging as private`);
+      }
     }
     
     results.actualCreditType = requiredCreditType;
