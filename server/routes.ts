@@ -3582,6 +3582,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Restore a cancelled session
+  app.patch("/api/coach/sessions/:id/restore", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+
+      const { valid, session } = await validateSessionOwnership(id, academyId, storage);
+      if (!valid || !session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      if (session.status !== "cancelled" && session.status !== "skipped") {
+        return res.status(400).json({ error: "Session is not cancelled" });
+      }
+
+      // Restore session to scheduled status
+      await storage.updateSession(id, { status: "scheduled" });
+
+      res.json({ 
+        success: true, 
+        message: "Session restored successfully",
+        sessionId: id,
+      });
+    } catch (error) {
+      console.error("Error restoring session:", error);
+      res.status(500).json({ error: "Failed to restore session" });
+    }
+  });
+
   // Save feedback and award XP
   app.post("/api/coach/sessions/:id/feedback", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {

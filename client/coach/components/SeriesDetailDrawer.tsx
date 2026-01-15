@@ -190,6 +190,8 @@ export default function SeriesDetailDrawer({
   const [showAttendanceBackfill, setShowAttendanceBackfill] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState<Record<string, boolean>>({});
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [restoringSession, setRestoringSession] = useState(false);
   const [selectedSession, setSelectedSession] = useState<SessionInstance | null>(null);
   const [sessionAttendance, setSessionAttendance] = useState<Record<string, "present" | "absent" | "vacation">>({});
   const [loadingAttendance, setLoadingAttendance] = useState(false);
@@ -668,6 +670,12 @@ export default function SeriesDetailDrawer({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedSession(session);
     
+    // If cancelled, show restore modal instead
+    if (session.status === "cancelled" || session.status === "skipped") {
+      setShowRestoreModal(true);
+      return;
+    }
+    
     const sessionDate = new Date(session.startTime);
     
     // Filter players who were active at the session date
@@ -763,6 +771,23 @@ export default function SeriesDetailDrawer({
       console.error("Error cancelling session:", error);
     } finally {
       setCancellingSession(false);
+    }
+  };
+
+  const handleRestoreSession = async () => {
+    if (!selectedSession) return;
+    setRestoringSession(true);
+    try {
+      await apiRequest("PATCH", `/api/coach/sessions/${selectedSession.id}/restore`);
+      
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      setShowRestoreModal(false);
+      setSelectedSession(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error("Error restoring session:", error);
+    } finally {
+      setRestoringSession(false);
     }
   };
 
@@ -1182,7 +1207,8 @@ export default function SeriesDetailDrawer({
             const isPast = new Date(session.startTime) < new Date();
             const isToday = new Date(session.startTime).toDateString() === new Date().toDateString();
             const needsAttendance = isPast && !isCompleted && !isCancelled && !isSkipped;
-            const canEditAttendance = isPast && !isCancelled && !isSkipped;
+            const canEditAttendance = isPast && !isSkipped;
+            const canClick = canEditAttendance || isCancelled || isSkipped;
 
             const timelineContent = (
               <>
@@ -1201,7 +1227,7 @@ export default function SeriesDetailDrawer({
                     <View style={styles.timelineLine} />
                   ) : null}
                 </View>
-                <View style={[styles.timelineContent, canEditAttendance && styles.timelineContentClickable]}>
+                <View style={[styles.timelineContent, canClick && styles.timelineContentClickable]}>
                   <View style={styles.timelineHeader}>
                     <Text
                       style={[
@@ -1229,8 +1255,18 @@ export default function SeriesDetailDrawer({
                           ? "Needs Attendance"
                           : "Scheduled"}
                       </Text>
-                      {canEditAttendance ? (
-                        <Ionicons name="chevron-forward" size={16} color={isCompleted ? Colors.dark.successNeon : Colors.dark.accentWarning} />
+                      {canClick ? (
+                        <Ionicons 
+                          name="chevron-forward" 
+                          size={16} 
+                          color={
+                            isCancelled || isSkipped 
+                              ? Colors.dark.error 
+                              : isCompleted 
+                                ? Colors.dark.successNeon 
+                                : Colors.dark.accentWarning
+                          } 
+                        />
                       ) : null}
                     </View>
                   </View>
@@ -1241,7 +1277,7 @@ export default function SeriesDetailDrawer({
               </>
             );
 
-            return canEditAttendance ? (
+            return canClick ? (
               <Pressable
                 key={session.id}
                 style={styles.timelineItem}
@@ -2081,6 +2117,72 @@ export default function SeriesDetailDrawer({
                 </Pressable>
               </View>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Restore Session Modal */}
+      <Modal
+        visible={showRestoreModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRestoreModal(false)}
+      >
+        <View style={styles.overlay}>
+          <Pressable style={styles.backdrop} onPress={() => setShowRestoreModal(false)} />
+          <View 
+            style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}
+            onStartShouldSetResponder={() => true}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Restore Session</Text>
+              <Pressable onPress={() => setShowRestoreModal(false)} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+            
+            {selectedSession ? (
+              <View style={styles.restoreSessionContent}>
+                <View style={styles.restoreSessionIcon}>
+                  <LinearGradient
+                    colors={[Colors.dark.accentCyan + "30", Colors.dark.accentCyan + "10"]}
+                    style={styles.restoreIconGradient}
+                  >
+                    <Ionicons name="refresh" size={32} color={Colors.dark.accentCyan} />
+                  </LinearGradient>
+                </View>
+                
+                <Text style={styles.restoreSessionDate}>
+                  {formatDate(selectedSession.startTime)}
+                </Text>
+                <Text style={styles.restoreSessionWeek}>
+                  Week {selectedSession.weekNumber || "?"}
+                </Text>
+                
+                <Text style={styles.restoreSessionDescription}>
+                  This session was cancelled. Would you like to restore it so you can mark attendance?
+                </Text>
+                
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.restoreButton,
+                    pressed && styles.restoreButtonPressed,
+                    restoringSession && styles.saveButtonDisabled,
+                  ]}
+                  onPress={handleRestoreSession}
+                  disabled={restoringSession}
+                >
+                  {restoringSession ? (
+                    <ActivityIndicator size="small" color={Colors.dark.background} />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark-circle" size={20} color={Colors.dark.background} />
+                      <Text style={styles.restoreButtonText}>Restore Session</Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
+            ) : null}
           </View>
         </View>
       </Modal>
@@ -3490,6 +3592,61 @@ const styles = StyleSheet.create({
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
     color: Colors.dark.error,
+  },
+  restoreSessionContent: {
+    alignItems: "center",
+    paddingVertical: Spacing.lg,
+  },
+  restoreSessionIcon: {
+    marginBottom: Spacing.lg,
+  },
+  restoreIconGradient: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: Colors.dark.accentCyan + "40",
+  },
+  restoreSessionDate: {
+    fontSize: Typography.xl.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: Spacing.xs,
+  },
+  restoreSessionWeek: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.lg,
+  },
+  restoreSessionDescription: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    lineHeight: 22,
+    marginBottom: Spacing.xl,
+    paddingHorizontal: Spacing.md,
+  },
+  restoreButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.accentCyan,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    minWidth: 200,
+  },
+  restoreButtonPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.98 }],
+  },
+  restoreButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.background,
   },
   creditHintBox: {
     flexDirection: "row",
