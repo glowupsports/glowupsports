@@ -2174,60 +2174,113 @@ export default function SeriesDetailDrawer({
       <Modal
         visible={showTransferModal}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setShowTransferModal(false)}
       >
         <View style={styles.overlay}>
           <Pressable style={styles.backdrop} onPress={() => setShowTransferModal(false)} />
-          <View style={[styles.drawer, { paddingTop: Spacing.xl, paddingHorizontal: Spacing.lg }]}>
-            <View style={styles.attendanceModalHeader}>
-              <View>
-                <Text style={styles.attendanceModalTitle}>Transfer Session</Text>
-                {selectedSession ? (
-                  <Text style={styles.attendanceModalDate}>
-                    {new Date(selectedSession.startTime).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} - Week {selectedSession.weekNumber || "?"}
-                  </Text>
-                ) : null}
+          <View 
+            style={[styles.transferModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}
+            onStartShouldSetResponder={() => true}
+          >
+            <LinearGradient
+              colors={[Colors.dark.accentCyan + "20", "transparent"]}
+              style={styles.transferModalGlow}
+            />
+            
+            <View style={styles.transferModalHeader}>
+              <View style={styles.transferModalTitleRow}>
+                <View style={styles.transferIconContainer}>
+                  <Ionicons name="swap-horizontal" size={22} color={Colors.dark.accentCyan} />
+                </View>
+                <View>
+                  <Text style={styles.transferModalTitle}>Transfer Session</Text>
+                  {selectedSession ? (
+                    <Text style={styles.transferModalSubtitle}>
+                      {new Date(selectedSession.startTime).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} - Week {selectedSession.weekNumber || "?"}
+                    </Text>
+                  ) : null}
+                </View>
               </View>
-              <Pressable onPress={() => setShowTransferModal(false)}>
-                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              <Pressable 
+                onPress={() => {
+                  setShowTransferModal(false);
+                  setSelectedTargetCoachId(null);
+                }} 
+                style={styles.transferCloseButton}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={22} color="#FFFFFF" />
               </Pressable>
             </View>
 
-            <Text style={styles.transferDescription}>
-              Select a coach to transfer this session to. The session will be removed from your calendar and added to theirs.
-            </Text>
+            <View style={styles.transferInfoCard}>
+              <Ionicons name="information-circle" size={18} color={Colors.dark.accentCyan} />
+              <Text style={styles.transferInfoText}>
+                The session will be removed from your calendar and added to the selected coach's calendar.
+              </Text>
+            </View>
 
-            <ScrollView style={{ flex: 1, marginTop: Spacing.md }}>
-              {coaches.filter(c => c.id !== currentCoach?.id).map((coach) => (
-                <Pressable
-                  key={coach.id}
-                  style={[
-                    styles.coachSelectRow,
-                    selectedTargetCoachId === coach.id && styles.coachSelectRowActive,
-                  ]}
-                  onPress={() => setSelectedTargetCoachId(coach.id)}
-                >
-                  <View style={styles.coachAvatar}>
-                    <Text style={styles.coachAvatarText}>
-                      {coach.name.charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                  <Text style={styles.coachName}>{coach.name}</Text>
-                  {selectedTargetCoachId === coach.id ? (
-                    <Ionicons name="checkmark-circle" size={24} color={Colors.dark.accentCyan} />
-                  ) : (
-                    <View style={styles.coachRadio} />
-                  )}
-                </Pressable>
-              ))}
+            <Text style={styles.transferSectionLabel}>Select Coach</Text>
+            
+            <ScrollView 
+              style={styles.transferCoachList}
+              showsVerticalScrollIndicator={false}
+            >
+              {coaches.filter(c => c.id !== currentCoach?.id).length === 0 ? (
+                <View style={styles.noCoachesContainer}>
+                  <Ionicons name="people-outline" size={40} color={Colors.dark.textMuted} />
+                  <Text style={styles.noCoachesText}>No other coaches available</Text>
+                </View>
+              ) : (
+                coaches.filter(c => c.id !== currentCoach?.id).map((coach) => (
+                  <Pressable
+                    key={coach.id}
+                    style={[
+                      styles.transferCoachCard,
+                      selectedTargetCoachId === coach.id && styles.transferCoachCardActive,
+                    ]}
+                    onPress={() => setSelectedTargetCoachId(coach.id)}
+                  >
+                    <LinearGradient
+                      colors={selectedTargetCoachId === coach.id 
+                        ? [Colors.dark.accentCyan + "25", Colors.dark.accentCyan + "10"]
+                        : ["transparent", "transparent"]
+                      }
+                      style={StyleSheet.absoluteFillObject}
+                    />
+                    <View style={[
+                      styles.transferCoachAvatar,
+                      selectedTargetCoachId === coach.id && styles.transferCoachAvatarActive,
+                    ]}>
+                      <Text style={[
+                        styles.transferCoachAvatarText,
+                        selectedTargetCoachId === coach.id && styles.transferCoachAvatarTextActive,
+                      ]}>
+                        {coach.name.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={styles.transferCoachInfo}>
+                      <Text style={styles.transferCoachName}>{coach.name}</Text>
+                      <Text style={styles.transferCoachRole}>Coach</Text>
+                    </View>
+                    {selectedTargetCoachId === coach.id ? (
+                      <View style={styles.transferCheckmark}>
+                        <Ionicons name="checkmark" size={16} color="#000" />
+                      </View>
+                    ) : (
+                      <View style={styles.transferRadio} />
+                    )}
+                  </Pressable>
+                ))
+              )}
             </ScrollView>
 
-            <View style={styles.attendanceActions}>
+            <View style={styles.transferActions}>
               <Pressable
                 style={[
-                  styles.saveButton,
-                  (!selectedTargetCoachId || transferringSession) && styles.saveButtonDisabled,
+                  styles.transferConfirmButton,
+                  (!selectedTargetCoachId || transferringSession) && styles.transferConfirmButtonDisabled,
                 ]}
                 onPress={() => {
                   if (selectedSession && selectedTargetCoachId) {
@@ -2240,19 +2293,27 @@ export default function SeriesDetailDrawer({
                 }}
                 disabled={!selectedTargetCoachId || transferringSession}
               >
-                <Text style={styles.saveButtonText}>
-                  {transferringSession ? "Transferring..." : "Transfer Session"}
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={styles.cancelSessionButton}
-                onPress={() => {
-                  setShowTransferModal(false);
-                  setSelectedTargetCoachId(null);
-                }}
-              >
-                <Text style={styles.cancelSessionButtonText}>Cancel</Text>
+                <LinearGradient
+                  colors={!selectedTargetCoachId || transferringSession
+                    ? [Colors.dark.textMuted + "50", Colors.dark.textMuted + "30"]
+                    : [Colors.dark.accentCyan, Colors.dark.accent]
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.transferConfirmGradient}
+                >
+                  <Ionicons 
+                    name={transferringSession ? "hourglass" : "swap-horizontal"} 
+                    size={20} 
+                    color={!selectedTargetCoachId || transferringSession ? Colors.dark.textMuted : "#000"} 
+                  />
+                  <Text style={[
+                    styles.transferConfirmText,
+                    (!selectedTargetCoachId || transferringSession) && styles.transferConfirmTextDisabled,
+                  ]}>
+                    {transferringSession ? "Transferring..." : "Confirm Transfer"}
+                  </Text>
+                </LinearGradient>
               </Pressable>
             </View>
           </View>
@@ -3768,52 +3829,190 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.accentCyan,
   },
-  transferDescription: {
+  transferModalContent: {
+    backgroundColor: Colors.dark.cardBackground,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    maxHeight: "75%",
+    overflow: "hidden",
+  },
+  transferModalGlow: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 120,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+  },
+  transferModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: Spacing.lg,
+    zIndex: 1,
+  },
+  transferModalTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  transferIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: Colors.dark.accentCyan + "20",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.accentCyan + "40",
+  },
+  transferModalTitle: {
+    fontSize: Typography.title.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    letterSpacing: 0.3,
+  },
+  transferModalSubtitle: {
     fontSize: Typography.small.fontSize,
     color: Colors.dark.textMuted,
-    marginTop: Spacing.md,
-    lineHeight: 20,
+    marginTop: 2,
   },
-  coachSelectRow: {
+  transferCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.textMuted + "30",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  transferInfoCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: Colors.dark.accentCyan + "10",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.accentCyan + "25",
+  },
+  transferInfoText: {
+    flex: 1,
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.textMuted,
+    lineHeight: 18,
+  },
+  transferSectionLabel: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: Spacing.sm,
+  },
+  transferCoachList: {
+    flex: 1,
+    marginBottom: Spacing.lg,
+  },
+  noCoachesContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.xl * 2,
+    gap: Spacing.md,
+  },
+  noCoachesText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.textMuted,
+  },
+  transferCoachCard: {
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.md,
-    backgroundColor: Colors.dark.cardBackground,
-    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.background,
+    borderRadius: BorderRadius.lg,
     marginBottom: Spacing.sm,
-    borderWidth: 1,
-    borderColor: "transparent",
+    borderWidth: 1.5,
+    borderColor: Colors.dark.textMuted + "30",
+    overflow: "hidden",
   },
-  coachSelectRowActive: {
+  transferCoachCardActive: {
     borderColor: Colors.dark.accentCyan,
-    backgroundColor: Colors.dark.accentCyan + "15",
   },
-  coachAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.dark.accentCyan + "30",
+  transferCoachAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: Colors.dark.textMuted + "25",
     alignItems: "center",
     justifyContent: "center",
     marginRight: Spacing.md,
   },
-  coachAvatarText: {
-    fontSize: Typography.body.fontSize,
+  transferCoachAvatarActive: {
+    backgroundColor: Colors.dark.accentCyan + "30",
+  },
+  transferCoachAvatarText: {
+    fontSize: 18,
     fontWeight: "700",
+    color: Colors.dark.textMuted,
+  },
+  transferCoachAvatarTextActive: {
     color: Colors.dark.accentCyan,
   },
-  coachName: {
+  transferCoachInfo: {
     flex: 1,
+  },
+  transferCoachName: {
     fontSize: Typography.body.fontSize,
-    fontWeight: "500",
+    fontWeight: "600",
     color: Colors.dark.text,
   },
-  coachRadio: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  transferCoachRole: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  transferCheckmark: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.dark.accentCyan,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  transferRadio: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     borderWidth: 2,
-    borderColor: Colors.dark.textMuted,
+    borderColor: Colors.dark.textMuted + "50",
+  },
+  transferActions: {
+    gap: Spacing.sm,
+  },
+  transferConfirmButton: {
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  transferConfirmButtonDisabled: {
+    opacity: 0.6,
+  },
+  transferConfirmGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  transferConfirmText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "700",
+    color: "#000",
+  },
+  transferConfirmTextDisabled: {
+    color: Colors.dark.textMuted,
   },
   restoreModalContent: {
     backgroundColor: Colors.dark.cardBackground,
