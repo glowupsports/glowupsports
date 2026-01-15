@@ -709,29 +709,21 @@ export default function CreateSessionWizard({
     }
   }, [currentSlide, sessionType, selectedCourtId, startTime, adminMode, selectedCoachId]);
 
-  // Create session mutation
+  // Create session mutation - endpoint is passed in data to avoid closure issues
   const createSessionMutation = useMutation({
-    mutationFn: async (sessionData: any) => {
-      // Use ref to get latest createSeriesMode value (avoids stale closure)
-      const isSeriesMode = createSeriesModeRef.current;
-      let endpoint: string;
-      if (isSeriesMode) {
-        endpoint = adminMode ? "/api/admin/series" : "/api/coach/series";
-      } else {
-        endpoint = adminMode ? "/api/admin/sessions" : "/api/coach/sessions";
-      }
-      console.log("[CreateSession] Calling API:", endpoint, "isSeriesMode:", isSeriesMode, sessionData);
-      const response = await apiRequest("POST", endpoint, sessionData);
+    mutationFn: async (mutationData: { endpoint: string; isSeriesMode: boolean; payload: any }) => {
+      const { endpoint, payload } = mutationData;
+      console.log("[CreateSession] Calling API:", endpoint, payload);
+      const response = await apiRequest("POST", endpoint, payload);
       console.log("[CreateSession] API response received");
       return response;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (!adminMode) {
         refetchCalendar();
       }
-      // Use ref to get latest createSeriesMode value
-      const isSeriesMode = createSeriesModeRef.current;
+      const isSeriesMode = variables.isSeriesMode;
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const key = query.queryKey[0];
@@ -757,8 +749,8 @@ export default function CreateSessionWizard({
       onClose();
       resetForm();
     },
-    onError: (error: Error) => {
-      const isSeriesMode = createSeriesModeRef.current;
+    onError: (error: Error, variables) => {
+      const isSeriesMode = variables.isSeriesMode;
       Alert.alert("Error", error.message || (isSeriesMode ? "Failed to create class" : "Failed to create session"));
     },
   });
@@ -802,7 +794,7 @@ export default function CreateSessionWizard({
       const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayOfWeek];
       const title = `${sessionTypeLabel} Session - ${dayName} ${startTime}`;
       
-      const seriesData = {
+      const seriesPayload = {
         coachId: effectiveCoach?.id,
         title,
         dayOfWeek,
@@ -821,13 +813,14 @@ export default function CreateSessionWizard({
         isRecurring: true,
       };
 
-      console.log("[CreateSession] Creating series with data:", JSON.stringify(seriesData, null, 2));
+      const endpoint = adminMode ? "/api/admin/series" : "/api/coach/series";
+      console.log("[CreateSession] Creating series with endpoint:", endpoint, "data:", JSON.stringify(seriesPayload, null, 2));
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-      createSessionMutation.mutate(seriesData);
+      createSessionMutation.mutate({ endpoint, isSeriesMode: true, payload: seriesPayload });
       return;
     }
 
-    const sessionData = {
+    const sessionPayload = {
       coachId: effectiveCoach?.id,
       courtId: selectedCourtId,
       startTime: sessionStart.toISOString(),
@@ -847,8 +840,10 @@ export default function CreateSessionWizard({
       enableWaitlist,
     };
 
+    const endpoint = adminMode ? "/api/admin/sessions" : "/api/coach/sessions";
+    console.log("[CreateSession] Creating session with endpoint:", endpoint);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    createSessionMutation.mutate(sessionData);
+    createSessionMutation.mutate({ endpoint, isSeriesMode: false, payload: sessionPayload });
   }, [
     isOffline, selectedCourtId, startTime, selectedDate, duration,
     sessionType, ballLevel, skillLevel, notes, travelTime,
