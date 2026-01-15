@@ -32,6 +32,7 @@ import { ObservationTrendChart } from "@/components/ObservationTrendChart";
 import { NeoLoadoutPanel, NeoGlowBadge } from "@/components/NeoLoadoutPanel";
 import { CoachingSeriesSection } from "@/coach/components/CoachingSeriesSection";
 import SeriesDetailDrawer from "@/coach/components/SeriesDetailDrawer";
+import StandaloneSessionDetailDrawer from "@/coach/components/StandaloneSessionDetailDrawer";
 import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
 
 interface ProgressSummary {
@@ -407,6 +408,8 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
     }
   };
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const [detailSession, setDetailSession] = useState<any>(null);
+  const [showDetailDrawer, setShowDetailDrawer] = useState(false);
   const [intensity, setIntensity] = useState<Intensity>("normal");
   const [mood, setMood] = useState<"good" | "neutral" | "low">("neutral");
   const [focusTags, setFocusTags] = useState<string[]>([]);
@@ -1427,6 +1430,7 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
   const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
   return (
+    <>
     <ScrollView
       style={styles.content}
       contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
@@ -1650,7 +1654,11 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
                       return (
                         <Pressable
                           key={session.id}
-                          onPress={() => setSelectedSession(session)}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                            setDetailSession(session);
+                            setShowDetailDrawer(true);
+                          }}
                           style={[
                             styles.richSessionCard,
                             needsFeedback && styles.richSessionCardNeedsFeedback,
@@ -1757,6 +1765,21 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
         )}
       </View>
     </ScrollView>
+    
+    <StandaloneSessionDetailDrawer
+      visible={showDetailDrawer}
+      session={detailSession}
+      onClose={() => {
+        setShowDetailDrawer(false);
+        setDetailSession(null);
+      }}
+      onOpenFeedback={(session) => {
+        setShowDetailDrawer(false);
+        setDetailSession(null);
+        setSelectedSession(session);
+      }}
+    />
+  </>
   );
 }
 
