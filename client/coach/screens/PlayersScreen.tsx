@@ -1045,6 +1045,24 @@ function PlayerDetailView({
     queryKey: [`/api/players/${player.id}/xp`],
   });
 
+  // Fetch pillar progress for Glow Leveling OS
+  interface PillarProgressData {
+    pillars: Array<{
+      name: string;
+      score: number;
+      trend: string;
+      skillsTotal: number;
+      skillsMeetsOrAbove: number;
+      lastUpdated: string | null;
+    }>;
+    overallReadiness: number;
+    trialGateReady: boolean;
+    recentFeedbackCount: number;
+  }
+  const { data: pillarProgress } = useQuery<PillarProgressData>({
+    queryKey: [`/api/players/${player.id}/pillar-progress`],
+  });
+
   // Fetch attendance summary
   interface AttendanceSummary {
     totalLessons: number;
@@ -1264,14 +1282,19 @@ function PlayerDetailView({
         showsVerticalScrollIndicator={false}
       >
 
-        {player.ballLevel && levelReadiness ? (
+        {pillarProgress ? (
           <View style={styles.levelReadinessCard}>
             <View style={styles.levelReadinessHeader}>
-              <View style={styles.levelReadinessIcon}>
-                <Ionicons name="trending-up" size={18} color={Colors.dark.primary} />
+              <View style={[styles.levelReadinessIcon, { backgroundColor: Colors.dark.xpCyan + "25", borderColor: Colors.dark.xpCyan + "40" }]}>
+                <Ionicons name="stats-chart" size={18} color={Colors.dark.xpCyan} />
               </View>
-              <Text style={styles.levelReadinessTitle}>Level Readiness</Text>
-              {xpData ? (
+              <Text style={styles.levelReadinessTitle}>Pillar Progress</Text>
+              {pillarProgress.trialGateReady ? (
+                <View style={[styles.xpBadge, { backgroundColor: Colors.dark.primary + "30" }]}>
+                  <Ionicons name="trophy" size={12} color={Colors.dark.primary} />
+                  <Text style={[styles.xpBadgeText, { color: Colors.dark.primary }]}>Trial Ready</Text>
+                </View>
+              ) : xpData ? (
                 <View style={styles.xpBadge}>
                   <Ionicons name="flash" size={12} color={Colors.dark.xpCyan} />
                   <Text style={styles.xpBadgeText}>{xpData.totalXp} XP</Text>
@@ -1279,41 +1302,60 @@ function PlayerDetailView({
               ) : null}
             </View>
             
-            <View style={styles.progressContainer}>
-              <View style={styles.levelLabels}>
-                <View style={styles.currentLevelLabel}>
-                  <View style={[styles.levelDotSmall, { backgroundColor: getPlayerLevelColor(player.ballLevel) }]} />
-                  <Text style={styles.levelLabelText}>
-                    {player.ballLevel.charAt(0).toUpperCase() + player.ballLevel.slice(1)}
-                  </Text>
-                </View>
-                <Ionicons name="arrow-forward" size={14} color={Colors.dark.tabIconDefault} />
-                <View style={styles.nextLevelLabel}>
-                  <View style={[styles.levelDotSmall, { backgroundColor: getPlayerLevelColor(levelReadiness.nextLevel) }]} />
-                  <Text style={styles.levelLabelText}>
-                    {levelReadiness.nextLevel.charAt(0).toUpperCase() + levelReadiness.nextLevel.slice(1)}
-                  </Text>
-                </View>
-              </View>
-              
-              <View style={styles.progressBarContainer}>
-                <View style={styles.progressBarBackground}>
-                  <LinearGradient
-                    colors={[getPlayerLevelColor(player.ballLevel), getPlayerLevelColor(levelReadiness.nextLevel)]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={[styles.progressBarFill, { width: `${levelReadiness.progress}%` }]}
-                  />
-                </View>
-                <Text style={styles.progressPercent}>{Math.round(levelReadiness.progress)}%</Text>
-              </View>
-              
-              <Text style={styles.xpRemainingText}>
-                {levelReadiness.xpRemaining > 0 
-                  ? `${levelReadiness.xpRemaining} XP to ${levelReadiness.nextLevel.charAt(0).toUpperCase() + levelReadiness.nextLevel.slice(1)} Ball`
-                  : "Ready for level up!"}
-              </Text>
+            <View style={styles.pillarGrid}>
+              {pillarProgress.pillars.map((pillar) => {
+                const pillarColors: Record<string, string> = {
+                  TECHNIQUE: Colors.dark.sessionPrivate,
+                  TACTICAL: Colors.dark.xpCyan,
+                  PHYSICAL: Colors.dark.gold,
+                  MENTAL: Colors.dark.sessionSemiPrivate,
+                  SOCIAL: Colors.dark.primary,
+                  MATCH: Colors.dark.error,
+                };
+                const pillarIcons: Record<string, string> = {
+                  TECHNIQUE: "tennisball",
+                  TACTICAL: "bulb",
+                  PHYSICAL: "fitness",
+                  MENTAL: "brain",
+                  SOCIAL: "people",
+                  MATCH: "trophy",
+                };
+                const color = pillarColors[pillar.name] || Colors.dark.primary;
+                const icon = pillarIcons[pillar.name] || "ellipse";
+                const progressPercent = Math.round((pillar.score / 2) * 100);
+                const trendIcon = pillar.trend === "improving" ? "trending-up" : 
+                                  pillar.trend === "declining" ? "trending-down" : "remove";
+                const trendColor = pillar.trend === "improving" ? Colors.dark.primary : 
+                                   pillar.trend === "declining" ? Colors.dark.error : Colors.dark.tabIconDefault;
+                
+                return (
+                  <View key={pillar.name} style={styles.pillarItem}>
+                    <View style={[styles.pillarIconContainer, { backgroundColor: color + "20" }]}>
+                      <Ionicons name={icon as any} size={14} color={color} />
+                    </View>
+                    <View style={styles.pillarInfo}>
+                      <View style={styles.pillarNameRow}>
+                        <Text style={styles.pillarName}>{pillar.name.charAt(0) + pillar.name.slice(1).toLowerCase()}</Text>
+                        <Ionicons name={trendIcon as any} size={12} color={trendColor} />
+                      </View>
+                      <View style={styles.pillarProgressBar}>
+                        <View style={[styles.pillarProgressFill, { width: `${progressPercent}%`, backgroundColor: color }]} />
+                      </View>
+                    </View>
+                    <Text style={[styles.pillarPercent, { color }]}>{progressPercent}%</Text>
+                  </View>
+                );
+              })}
             </View>
+            
+            {pillarProgress.recentFeedbackCount > 0 ? (
+              <View style={styles.feedbackSummaryRow}>
+                <Ionicons name="chatbubble-outline" size={12} color={Colors.dark.tabIconDefault} />
+                <Text style={styles.feedbackSummaryText}>
+                  {pillarProgress.recentFeedbackCount} feedback{pillarProgress.recentFeedbackCount !== 1 ? "s" : ""} last 30 days
+                </Text>
+              </View>
+            ) : null}
           </View>
         ) : null}
 
@@ -3605,6 +3647,64 @@ const styles = StyleSheet.create({
     color: Colors.dark.tabIconDefault,
     textAlign: "center",
     marginTop: Spacing.xs,
+  },
+  pillarGrid: {
+    gap: Spacing.sm,
+  },
+  pillarItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  pillarIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: BorderRadius.full,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pillarInfo: {
+    flex: 1,
+  },
+  pillarNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 2,
+  },
+  pillarName: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  pillarProgressBar: {
+    height: 4,
+    backgroundColor: Colors.dark.tabIconDefault + "30",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  pillarProgressFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  pillarPercent: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "700",
+    minWidth: 36,
+    textAlign: "right",
+  },
+  feedbackSummaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.tabIconDefault + "20",
+  },
+  feedbackSummaryText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.tabIconDefault,
   },
   onboardingCard: {
     marginHorizontal: Spacing.lg,

@@ -5743,6 +5743,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get player pillar progress summary for Glow Leveling OS
+  app.get("/api/players/:playerId/pillar-progress", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { playerId } = req.params;
+      
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const pillarProgress = await storage.getPlayerPillarProgressSummary(playerId);
+      res.json(pillarProgress);
+    } catch (error) {
+      console.error("Error fetching pillar progress:", error);
+      res.status(500).json({ error: "Failed to fetch pillar progress" });
+    }
+  });
+
   app.post("/api/packages", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { 

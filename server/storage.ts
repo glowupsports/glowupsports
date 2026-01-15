@@ -6119,6 +6119,90 @@ export const storage = {
     return { settledCount: unsettledDebts.length, totalDeducted: actualDeducted };
   },
 
+  // Get player pillar progress summary for Glow Leveling OS display
+  async getPlayerPillarProgressSummary(playerId: string): Promise<{
+    pillars: Array<{
+      name: string;
+      score: number; // 0-2 scale
+      trend: string; // improving, stable, declining
+      skillsTotal: number;
+      skillsMeetsOrAbove: number;
+      lastUpdated: string | null;
+    }>;
+    overallReadiness: number; // 0-100%
+    trialGateReady: boolean;
+    recentFeedbackCount: number;
+  }> {
+    const PILLAR_NAMES = ["TECHNIQUE", "TACTICAL", "PHYSICAL", "MENTAL", "SOCIAL", "MATCH"];
+    
+    // Get pillar progress from player_pillar_progress table
+    const progress = await db.select().from(playerPillarProgress)
+      .where(eq(playerPillarProgress.playerId, playerId));
+    
+    // Get player baseline skill scores if available
+    const baseline = await db.select().from(playerBaselines)
+      .where(eq(playerBaselines.playerId, playerId))
+      .limit(1);
+    
+    let skillScores: Array<{ skillId: string; rating: number | null; pillar: string }> = [];
+    if (baseline.length > 0) {
+      const scores = await db.select().from(playerBaselineSkillScores)
+        .where(eq(playerBaselineSkillScores.baselineId, baseline[0].id));
+      
+      // Map skill IDs to pillars (we'll need to look up the skill definitions)
+      const allSkills = await db.select().from(glowSkills);
+      const skillPillarMap = new Map<string, string>();
+      for (const skill of allSkills) {
+        skillPillarMap.set(skill.id, skill.pillar);
+      }
+      
+      skillScores = scores.map(s => ({
+        skillId: s.skillId,
+        rating: s.rating,
+        pillar: skillPillarMap.get(s.skillId) || "TECHNIQUE",
+      }));
+    }
+    
+    // Get recent feedback count (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const recentFeedback = await db.select({ count: sql<number>`count(*)` }).from(playerFeedback)
+      .where(and(
+        eq(playerFeedback.playerId, playerId),
+        gte(playerFeedback.feedbackDate, thirtyDaysAgo)
+      ));
+    
+    const pillars = PILLAR_NAMES.map(pillarName => {
+      const pillarData = progress.find(p => p.pillar === pillarName);
+      const pillarSkills = skillScores.filter(s => s.pillar === pillarName);
+      const skillsTotal = pillarSkills.length;
+      const skillsMeetsOrAbove = pillarSkills.filter(s => s.rating !== null && s.rating >= 1).length;
+      
+      return {
+        name: pillarName,
+        score: pillarData ? Number(pillarData.currentScore) : 0,
+        trend: pillarData?.trend || "stable",
+        skillsTotal,
+        skillsMeetsOrAbove,
+        lastUpdated: pillarData?.lastUpdatedAt?.toISOString() || null,
+      };
+    });
+    
+    // Calculate overall readiness (average of pillar scores, max is 2)
+    const avgScore = pillars.reduce((sum, p) => sum + p.score, 0) / pillars.length;
+    const overallReadiness = Math.min(100, Math.round((avgScore / 2) * 100));
+    
+    // Trial gate ready if all pillars have score >= 1.5 (75% of max)
+    const trialGateReady = pillars.every(p => p.score >= 1.5);
+    
+    return {
+      pillars,
+      overallReadiness,
+      trialGateReady,
+      recentFeedbackCount: Number(recentFeedback[0]?.count || 0),
+    };
+  },
+
   // Get credit balances for multiple players (batch query for efficiency)
   async getPlayersCreditBalances(playerIds: string[]): Promise<Record<string, {
     group: number;
