@@ -14,7 +14,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, FontSizes, getPlayerLevelColor } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 
 interface Player {
@@ -630,12 +630,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   headerTitle: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.bold as any,
+    fontSize: FontSizes.lg,
+    fontWeight: 700,
     color: Colors.dark.text,
   },
   headerSubtitle: {
-    fontSize: Typography.sizes.sm,
+    fontSize: FontSizes.sm,
     color: Colors.dark.textMuted,
     marginTop: 2,
   },
@@ -648,8 +648,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   stepText: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.semibold as any,
+    fontSize: FontSizes.sm,
+    fontWeight: 600,
     color: Colors.dark.primary,
   },
   progressBar: {
@@ -670,13 +670,13 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
   },
   stepTitle: {
-    fontSize: Typography.sizes.xl,
-    fontWeight: Typography.weights.bold as any,
+    fontSize: FontSizes.xl,
+    fontWeight: 700,
     color: Colors.dark.text,
     marginBottom: Spacing.xs,
   },
   stepSubtitle: {
-    fontSize: Typography.sizes.sm,
+    fontSize: FontSizes.sm,
     color: Colors.dark.textMuted,
     marginBottom: Spacing.xl,
   },
@@ -684,8 +684,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   questionLabel: {
-    fontSize: Typography.sizes.md,
-    fontWeight: Typography.weights.semibold as any,
+    fontSize: FontSizes.md,
+    fontWeight: 600,
     color: Colors.dark.text,
     marginBottom: Spacing.sm,
   },
@@ -714,13 +714,13 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.primary,
   },
   optionText: {
-    fontSize: Typography.sizes.sm,
+    fontSize: FontSizes.sm,
     color: Colors.dark.textMuted,
     textAlign: "center",
   },
   optionTextActive: {
     color: Colors.dark.primary,
-    fontWeight: Typography.weights.semibold as any,
+    fontWeight: 600,
   },
   pillarRow: {
     flexDirection: "row",
@@ -743,8 +743,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   pillarName: {
-    fontSize: Typography.sizes.md,
-    fontWeight: Typography.weights.medium as any,
+    fontSize: FontSizes.md,
+    fontWeight: 500,
     color: Colors.dark.text,
   },
   ratingButtons: {
@@ -762,8 +762,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   ratingButtonText: {
-    fontSize: Typography.sizes.md,
-    fontWeight: Typography.weights.bold as any,
+    fontSize: FontSizes.md,
+    fontWeight: 700,
     color: Colors.dark.textMuted,
   },
   legendContainer: {
@@ -786,7 +786,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   legendText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: FontSizes.xs,
     color: Colors.dark.textMuted,
   },
   suggestionCard: {
@@ -804,9 +804,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   suggestionLabel: {
-    fontSize: Typography.sizes.sm,
+    fontSize: FontSizes.sm,
     color: Colors.dark.xpCyan,
-    fontWeight: Typography.weights.medium as any,
+    fontWeight: 500,
   },
   suggestionLevel: {
     flexDirection: "row",
@@ -814,8 +814,8 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   suggestionLevelText: {
-    fontSize: Typography.sizes.xxl,
-    fontWeight: Typography.weights.bold as any,
+    fontSize: FontSizes["2xl"],
+    fontWeight: 700,
   },
   confidenceBadge: {
     paddingHorizontal: Spacing.sm,
@@ -824,18 +824,18 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   confidenceText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: FontSizes.xs,
     color: Colors.dark.xpCyan,
-    fontWeight: Typography.weights.medium as any,
+    fontWeight: 500,
   },
   ageNote: {
-    fontSize: Typography.sizes.xs,
+    fontSize: FontSizes.xs,
     color: Colors.dark.textMuted,
     marginTop: Spacing.sm,
   },
   selectLabel: {
-    fontSize: Typography.sizes.md,
-    fontWeight: Typography.weights.semibold as any,
+    fontSize: FontSizes.md,
+    fontWeight: 600,
     color: Colors.dark.text,
     marginBottom: Spacing.md,
   },
@@ -854,8 +854,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   stageBadgeText: {
-    fontSize: Typography.sizes.xs,
-    fontWeight: Typography.weights.bold as any,
+    fontSize: FontSizes.xs,
+    fontWeight: 700,
   },
   levelButton: {
     position: "relative",
@@ -871,8 +871,8 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
   },
   levelButtonText: {
-    fontSize: Typography.sizes.md,
-    fontWeight: Typography.weights.semibold as any,
+    fontSize: FontSizes.md,
+    fontWeight: 600,
     color: Colors.dark.textMuted,
   },
   suggestedIcon: {
@@ -888,8 +888,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.orange + "40",
   },
   overrideLabel: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.semibold as any,
+    fontSize: FontSizes.sm,
+    fontWeight: 600,
     color: Colors.dark.orange,
     marginBottom: Spacing.md,
   },
@@ -912,19 +912,19 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.orange,
   },
   overrideOptionText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: FontSizes.xs,
     color: Colors.dark.textMuted,
   },
   overrideOptionTextActive: {
     color: Colors.dark.orange,
-    fontWeight: Typography.weights.medium as any,
+    fontWeight: 500,
   },
   overrideNoteInput: {
     backgroundColor: Colors.dark.backgroundTertiary,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     color: Colors.dark.text,
-    fontSize: Typography.sizes.sm,
+    fontSize: FontSizes.sm,
     minHeight: 60,
     textAlignVertical: "top",
   },
@@ -946,7 +946,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   backButtonText: {
-    fontSize: Typography.sizes.md,
+    fontSize: FontSizes.md,
     color: Colors.dark.text,
   },
   nextButton: {
@@ -960,8 +960,8 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   nextButtonText: {
-    fontSize: Typography.sizes.md,
-    fontWeight: Typography.weights.semibold as any,
+    fontSize: FontSizes.md,
+    fontWeight: 600,
     color: Colors.dark.backgroundRoot,
   },
   saveButton: {
@@ -975,8 +975,8 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   saveButtonText: {
-    fontSize: Typography.sizes.md,
-    fontWeight: Typography.weights.semibold as any,
+    fontSize: FontSizes.md,
+    fontWeight: 600,
     color: Colors.dark.backgroundRoot,
   },
   buttonDisabled: {
