@@ -499,54 +499,60 @@ export default function PlayersScreen() {
           ) : null}
         </View>
         
-        {/* Sort Dropdown */}
-        <View style={styles.sortContainer}>
-          <Pressable 
-            style={styles.sortButton}
-            onPress={() => setShowSortDropdown(!showSortDropdown)}
-          >
-            <Ionicons 
-              name={sortBy === "name" ? "text" : sortBy === "credits" || sortBy === "negative" ? "ticket-outline" : "time-outline"} 
-              size={16} 
-              color={Colors.dark.xpCyan} 
-            />
-            <Ionicons name="chevron-down" size={14} color={Colors.dark.tabIconDefault} />
-          </Pressable>
-          
-          {showSortDropdown ? (
-            <View style={styles.sortDropdown}>
-              <Pressable 
-                style={[styles.sortOption, sortBy === "name" && styles.sortOptionActive]}
-                onPress={() => { setSortBy("name"); setShowSortDropdown(false); }}
-              >
-                <Ionicons name="text" size={14} color={sortBy === "name" ? Colors.dark.xpCyan : Colors.dark.tabIconDefault} />
-                <Text style={[styles.sortOptionText, sortBy === "name" && styles.sortOptionTextActive]}>Name A-Z</Text>
-              </Pressable>
-              <Pressable 
-                style={[styles.sortOption, sortBy === "credits" && styles.sortOptionActive]}
-                onPress={() => { setSortBy("credits"); setShowSortDropdown(false); }}
-              >
-                <Ionicons name="ticket-outline" size={14} color={sortBy === "credits" ? Colors.dark.warning : Colors.dark.tabIconDefault} />
-                <Text style={[styles.sortOptionText, sortBy === "credits" && styles.sortOptionTextActive]}>Credits Low→High</Text>
-              </Pressable>
-              <Pressable 
-                style={[styles.sortOption, sortBy === "negative" && styles.sortOptionActive]}
-                onPress={() => { setSortBy("negative"); setShowSortDropdown(false); }}
-              >
-                <Ionicons name="alert-circle" size={14} color={sortBy === "negative" ? Colors.dark.error : Colors.dark.tabIconDefault} />
-                <Text style={[styles.sortOptionText, sortBy === "negative" && styles.sortOptionTextActive]}>Debt First</Text>
-              </Pressable>
-              <Pressable 
-                style={[styles.sortOption, sortBy === "lastLesson" && styles.sortOptionActive]}
-                onPress={() => { setSortBy("lastLesson"); setShowSortDropdown(false); }}
-              >
-                <Ionicons name="time-outline" size={14} color={sortBy === "lastLesson" ? Colors.dark.primary : Colors.dark.tabIconDefault} />
-                <Text style={[styles.sortOptionText, sortBy === "lastLesson" && styles.sortOptionTextActive]}>Recent Lesson</Text>
-              </Pressable>
-            </View>
-          ) : null}
-        </View>
+        {/* Sort Button */}
+        <Pressable 
+          style={styles.sortButton}
+          onPress={() => setShowSortDropdown(true)}
+        >
+          <Ionicons 
+            name={sortBy === "name" ? "text" : sortBy === "credits" || sortBy === "negative" ? "ticket-outline" : "time-outline"} 
+            size={16} 
+            color={Colors.dark.xpCyan} 
+          />
+          <Ionicons name="chevron-down" size={14} color={Colors.dark.tabIconDefault} />
+        </Pressable>
       </View>
+
+      {/* Sort Modal */}
+      <Modal visible={showSortDropdown} animationType="fade" transparent>
+        <Pressable style={styles.sortModalOverlay} onPress={() => setShowSortDropdown(false)}>
+          <View style={styles.sortModalContent}>
+            <Text style={styles.sortModalTitle}>Sort Players</Text>
+            <Pressable 
+              style={[styles.sortOption, sortBy === "name" && styles.sortOptionActive]}
+              onPress={() => { setSortBy("name"); setShowSortDropdown(false); }}
+            >
+              <Ionicons name="text" size={18} color={sortBy === "name" ? Colors.dark.xpCyan : Colors.dark.tabIconDefault} />
+              <Text style={[styles.sortOptionText, sortBy === "name" && styles.sortOptionTextActive]}>Name A-Z</Text>
+              {sortBy === "name" ? <Ionicons name="checkmark" size={18} color={Colors.dark.xpCyan} style={{ marginLeft: "auto" }} /> : null}
+            </Pressable>
+            <Pressable 
+              style={[styles.sortOption, sortBy === "credits" && styles.sortOptionActive]}
+              onPress={() => { setSortBy("credits"); setShowSortDropdown(false); }}
+            >
+              <Ionicons name="ticket-outline" size={18} color={sortBy === "credits" ? Colors.dark.warning : Colors.dark.tabIconDefault} />
+              <Text style={[styles.sortOptionText, sortBy === "credits" && styles.sortOptionTextActive]}>Credits Low → High</Text>
+              {sortBy === "credits" ? <Ionicons name="checkmark" size={18} color={Colors.dark.warning} style={{ marginLeft: "auto" }} /> : null}
+            </Pressable>
+            <Pressable 
+              style={[styles.sortOption, sortBy === "negative" && styles.sortOptionActive]}
+              onPress={() => { setSortBy("negative"); setShowSortDropdown(false); }}
+            >
+              <Ionicons name="alert-circle" size={18} color={sortBy === "negative" ? Colors.dark.error : Colors.dark.tabIconDefault} />
+              <Text style={[styles.sortOptionText, sortBy === "negative" && styles.sortOptionTextActive]}>Debt First</Text>
+              {sortBy === "negative" ? <Ionicons name="checkmark" size={18} color={Colors.dark.error} style={{ marginLeft: "auto" }} /> : null}
+            </Pressable>
+            <Pressable 
+              style={[styles.sortOption, sortBy === "lastLesson" && styles.sortOptionActive]}
+              onPress={() => { setSortBy("lastLesson"); setShowSortDropdown(false); }}
+            >
+              <Ionicons name="time-outline" size={18} color={sortBy === "lastLesson" ? Colors.dark.primary : Colors.dark.tabIconDefault} />
+              <Text style={[styles.sortOptionText, sortBy === "lastLesson" && styles.sortOptionTextActive]}>Recent Lesson</Text>
+              {sortBy === "lastLesson" ? <Ionicons name="checkmark" size={18} color={Colors.dark.primary} style={{ marginLeft: "auto" }} /> : null}
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
 
       {/* === GAMING FILTER PILLS === */}
       <ScrollView 
@@ -1806,10 +1812,6 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     letterSpacing: 0.5,
   },
-  sortContainer: {
-    position: "relative",
-    zIndex: 100,
-  },
   sortButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -1821,42 +1823,47 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.dark.xpCyan + "30",
   },
-  sortDropdown: {
-    position: "absolute",
-    top: 52,
-    right: 0,
+  sortModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  sortModalContent: {
     backgroundColor: Colors.dark.backgroundElevated,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: Colors.dark.xpCyan + "40",
-    minWidth: 160,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: { elevation: 8 },
-      default: {},
-    }),
+    width: "100%",
+    maxWidth: 320,
+    overflow: "hidden",
+  },
+  sortModalTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textAlign: "center",
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
   },
   sortOption: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    gap: Spacing.md,
   },
   sortOptionActive: {
-    backgroundColor: Colors.dark.xpCyan + "20",
+    backgroundColor: Colors.dark.xpCyan + "15",
   },
   sortOptionText: {
-    fontSize: 13,
+    fontSize: 15,
     color: Colors.dark.tabIconDefault,
   },
   sortOptionTextActive: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.text,
     fontWeight: "600",
   },
   gamingFilterScroll: {
