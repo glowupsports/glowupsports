@@ -210,6 +210,12 @@ export default function CreateSessionWizard({
   const { coach: currentCoach, refetchCalendar } = useCoach();
   const { isOffline } = useNetwork();
   
+  // Use ref to ensure mutation always has latest createSeriesMode value
+  const createSeriesModeRef = useRef(createSeriesMode);
+  useEffect(() => {
+    createSeriesModeRef.current = createSeriesMode;
+  }, [createSeriesMode]);
+  
   const totalSlides = adminMode ? ADMIN_TOTAL_SLIDES : TOTAL_SLIDES;
   const slideTitles = adminMode ? ADMIN_SLIDE_TITLES : SLIDE_TITLES;
   
@@ -706,13 +712,15 @@ export default function CreateSessionWizard({
   // Create session mutation
   const createSessionMutation = useMutation({
     mutationFn: async (sessionData: any) => {
+      // Use ref to get latest createSeriesMode value (avoids stale closure)
+      const isSeriesMode = createSeriesModeRef.current;
       let endpoint: string;
-      if (createSeriesMode) {
+      if (isSeriesMode) {
         endpoint = adminMode ? "/api/admin/series" : "/api/coach/series";
       } else {
         endpoint = adminMode ? "/api/admin/sessions" : "/api/coach/sessions";
       }
-      console.log("[CreateSession] Calling API:", endpoint, sessionData);
+      console.log("[CreateSession] Calling API:", endpoint, "isSeriesMode:", isSeriesMode, sessionData);
       const response = await apiRequest("POST", endpoint, sessionData);
       console.log("[CreateSession] API response received");
       return response;
@@ -722,11 +730,13 @@ export default function CreateSessionWizard({
       if (!adminMode) {
         refetchCalendar();
       }
+      // Use ref to get latest createSeriesMode value
+      const isSeriesMode = createSeriesModeRef.current;
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const key = query.queryKey[0];
           if (typeof key !== 'string') return false;
-          if (createSeriesMode) {
+          if (isSeriesMode) {
             const baseKey = key.split('?')[0];
             return baseKey === '/api/coach/series' || 
                    baseKey.startsWith('/api/coach/series/') ||
@@ -748,13 +758,14 @@ export default function CreateSessionWizard({
       resetForm();
     },
     onError: (error: Error) => {
-      Alert.alert("Error", error.message || (createSeriesMode ? "Failed to create class" : "Failed to create session"));
+      const isSeriesMode = createSeriesModeRef.current;
+      Alert.alert("Error", error.message || (isSeriesMode ? "Failed to create class" : "Failed to create session"));
     },
   });
 
   // Handle create session
   const handleCreate = useCallback(() => {
-    console.log("[CreateSession] handleCreate called", { isOffline, adminMode, effectiveCoach: effectiveCoach?.id, selectedCourtId, startTime, createSeriesMode });
+    console.log("[CreateSession] handleCreate called", { isOffline, adminMode, effectiveCoach: effectiveCoach?.id, selectedCourtId, startTime, createSeriesMode, createSeriesModeRef: createSeriesModeRef.current });
     
     if (isOffline) {
       console.log("[CreateSession] Blocked: offline");
