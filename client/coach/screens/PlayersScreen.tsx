@@ -35,6 +35,7 @@ import { apiRequest, getStaticAssetsUrl, getApiUrl } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import PackagesCard from "@/coach/components/PackagesCard";
+import QuickBaselineDrawer from "@/coach/components/QuickBaselineDrawer";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -130,11 +131,15 @@ function GamingPlayerCard({
   onPress, 
   getStatusBadge,
   formatDate,
+  needsBaseline,
+  onStartBaseline,
 }: { 
   player: Player; 
   onPress: () => void;
   getStatusBadge: (status: string | null) => { color: string; icon: "airplane" | "bandage" | "sparkles"; label: string } | null;
   formatDate: (date: string | null) => string;
+  needsBaseline?: boolean;
+  onStartBaseline?: () => void;
 }) {
   const levelColor = getPlayerLevelColor(player.ballLevel ?? "green");
   const statusBadge = getStatusBadge(player.status);
@@ -205,6 +210,19 @@ function GamingPlayerCard({
               <Text style={styles.gamingCardName} numberOfLines={1}>
                 {player.name}
               </Text>
+              {needsBaseline && (
+                <Pressable 
+                  style={styles.baselineNeededBadge}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onStartBaseline?.();
+                  }}
+                >
+                  <Ionicons name="flag" size={10} color={Colors.dark.orange} />
+                  <Text style={styles.baselineNeededText}>Baseline</Text>
+                </Pressable>
+              )}
               {statusBadge ? (
                 <View style={[styles.gamingStatusBadge, { backgroundColor: statusBadge.color + "25", borderColor: statusBadge.color }]}>
                   <Ionicons name={statusBadge.icon} size={10} color={statusBadge.color} />
@@ -265,10 +283,20 @@ export default function PlayersScreen() {
   const [newPlayerSkillLevel, setNewPlayerSkillLevel] = useState<number>(1);
   const [newPlayerParentName, setNewPlayerParentName] = useState("");
   const [newPlayerParentPhone, setNewPlayerParentPhone] = useState("");
+  const [baselinePlayer, setBaselinePlayer] = useState<Player | null>(null);
+  const [showBaselineDrawer, setShowBaselineDrawer] = useState(false);
 
   const { data: players = [], isLoading } = useQuery<Player[]>({
     queryKey: ["/api/players"],
   });
+
+  const { data: playersWithoutBaseline = [] } = useQuery<Player[]>({
+    queryKey: ["/api/academy/players-without-baseline"],
+  });
+  
+  const playerIdsWithoutBaseline = useMemo(() => {
+    return new Set(playersWithoutBaseline.map(p => p.id));
+  }, [playersWithoutBaseline]);
 
   const createPlayerMutation = useMutation({
     mutationFn: async (data: { name: string; email?: string; phone?: string; ballLevel?: string; skillLevel?: number; coachId?: string; parentName?: string; parentPhone?: string }) => {
@@ -511,6 +539,11 @@ export default function PlayersScreen() {
               onPress={() => handleSelectPlayer(player)}
               getStatusBadge={getStatusBadge}
               formatDate={formatDate}
+              needsBaseline={playerIdsWithoutBaseline.has(player.id)}
+              onStartBaseline={() => {
+                setBaselinePlayer(player);
+                setShowBaselineDrawer(true);
+              }}
             />
           ))}
           <View style={{ height: insets.bottom + Spacing.xl + 80 }} />
@@ -799,6 +832,20 @@ export default function PlayersScreen() {
           </View>
         </View>
       </Modal>
+
+      <QuickBaselineDrawer
+        visible={showBaselineDrawer}
+        player={baselinePlayer}
+        onClose={() => {
+          setShowBaselineDrawer(false);
+          setBaselinePlayer(null);
+        }}
+        onComplete={() => {
+          setShowBaselineDrawer(false);
+          setBaselinePlayer(null);
+          queryClient.invalidateQueries({ queryKey: ["/api/academy/players-without-baseline"] });
+        }}
+      />
     </View>
   );
 }
@@ -1792,6 +1839,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
+  },
+  baselineNeededBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    backgroundColor: Colors.dark.orange + "20",
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.orange + "40",
+  },
+  baselineNeededText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.medium as any,
+    color: Colors.dark.orange,
   },
   gamingXpContainer: {
     flexDirection: "row",
