@@ -339,6 +339,7 @@ export default function AdminClassesScreen() {
   const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(null);
   const [showDetailDrawer, setShowDetailDrawer] = useState(false);
   const [showCreateWizard, setShowCreateWizard] = useState(false);
+  const [wizardCoachId, setWizardCoachId] = useState<string | null>(null);
 
   const { data: seriesList = [], isLoading } = useQuery<CoachingSeries[]>({
     queryKey: ["/api/admin/series"],
@@ -398,6 +399,7 @@ export default function AdminClassesScreen() {
 
   const handleCloseWizard = () => {
     setShowCreateWizard(false);
+    setWizardCoachId(null);
   };
 
   const stats = useMemo(() => {
@@ -538,7 +540,10 @@ export default function AdminClassesScreen() {
           visible={showCreateWizard}
           onClose={handleCloseWizard}
           adminMode={true}
-          selectedCoachId={selectedCoachId || undefined}
+          coaches={coaches}
+          selectedCoachId={wizardCoachId || undefined}
+          onCoachIdChange={setWizardCoachId}
+          createSeriesMode={true}
         />
       ) : null}
     </View>
