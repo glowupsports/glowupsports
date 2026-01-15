@@ -12,7 +12,7 @@ import {
   invoices, payments, sessionPlayers, sessionWaitlist, creditTransactions, players, 
   locationTravelTimes, sessions, sessionFeedback, seriesPlayers, coachingSeries,
   sessionSkillObservations, sessionSkillFeedback, playerSessionCancellations,
-  playerPillarProgress, coachXpTransactions, xpTransactions, packages,
+  playerPillarProgress, coachXpTransactions, xpTransactions, packages, playerBaselineSkillScores,
   // Social features
   posts as postsTable,
   postReactions as postReactionsTable,
@@ -5385,6 +5385,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         matchRating,
         overrideReason,
         overrideNote,
+        deepSkillScores, // Deep baseline skill-by-skill scores
       } = req.body;
       
       const wasOverridden = confirmedLevelId && suggestedLevelId && confirmedLevelId !== suggestedLevelId;
@@ -5420,6 +5421,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         
+        // Save deep skill scores if provided
+        if (deepSkillScores && typeof deepSkillScores === "object") {
+          // Delete existing scores for this baseline
+          await db.delete(playerBaselineSkillScores).where(eq(playerBaselineSkillScores.baselineId, existingBaseline.id));
+          
+          // Insert new scores
+          const scoreEntries = Object.entries(deepSkillScores) as [string, { rating: number | null; notObserved: boolean; notes?: string }][];
+          for (const [skillId, scoreData] of scoreEntries) {
+            if (scoreData.rating !== null || scoreData.notObserved) {
+              // Extract pillar and category from skill ID
+              const pillarMap: Record<string, string> = {
+                fh: "TECHNIQUE", bh: "TECHNIQUE", sv: "TECHNIQUE", rt: "TECHNIQUE", vl: "TECHNIQUE", oh: "TECHNIQUE",
+                mv: "MOVEMENT", tc: "TACTICAL", mn: "MENTAL", sc: "SOCIAL", mt: "MATCH",
+              };
+              const prefix = skillId.split("_")[0];
+              const pillar = pillarMap[prefix] || "TECHNIQUE";
+              
+              await db.insert(playerBaselineSkillScores).values({
+                baselineId: existingBaseline.id,
+                playerId: id,
+                pillar,
+                skillCategory: skillId,
+                rating: scoreData.rating,
+                notObserved: scoreData.notObserved,
+                notes: scoreData.notes || null,
+                coachId: coachId || null,
+              });
+            }
+          }
+        }
+        
         res.json(updated);
       } else {
         // Create new baseline
@@ -5452,6 +5484,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ballLevel: stage.toLowerCase(),
             skillLevel: parseInt(rank, 10),
           });
+        }
+        
+        // Save deep skill scores if provided
+        if (deepSkillScores && typeof deepSkillScores === "object") {
+          const scoreEntries = Object.entries(deepSkillScores) as [string, { rating: number | null; notObserved: boolean; notes?: string }][];
+          for (const [skillId, scoreData] of scoreEntries) {
+            if (scoreData.rating !== null || scoreData.notObserved) {
+              const pillarMap: Record<string, string> = {
+                fh: "TECHNIQUE", bh: "TECHNIQUE", sv: "TECHNIQUE", rt: "TECHNIQUE", vl: "TECHNIQUE", oh: "TECHNIQUE",
+                mv: "MOVEMENT", tc: "TACTICAL", mn: "MENTAL", sc: "SOCIAL", mt: "MATCH",
+              };
+              const prefix = skillId.split("_")[0];
+              const pillar = pillarMap[prefix] || "TECHNIQUE";
+              
+              await db.insert(playerBaselineSkillScores).values({
+                baselineId: baseline.id,
+                playerId: id,
+                pillar,
+                skillCategory: skillId,
+                rating: scoreData.rating,
+                notObserved: scoreData.notObserved,
+                notes: scoreData.notes || null,
+                coachId: coachId || null,
+              });
+            }
+          }
         }
         
         res.status(201).json(baseline);

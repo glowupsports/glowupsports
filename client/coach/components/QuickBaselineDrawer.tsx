@@ -346,6 +346,7 @@ export default function QuickBaselineDrawer({
         matchRating: pillarRatings.match,
         overrideReason: confirmedLevel !== suggestion.suggestedLevelId ? overrideReason : null,
         overrideNote: confirmedLevel !== suggestion.suggestedLevelId ? overrideNote : null,
+        deepSkillScores, // Send deep baseline skill scores
       });
     },
     onSuccess: () => {
