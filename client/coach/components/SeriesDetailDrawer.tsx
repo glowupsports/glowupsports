@@ -2158,7 +2158,10 @@ export default function SeriesDetailDrawer({
 
                 <Pressable
                   style={[styles.transferButton, (savingAttendance || cancellingSession) && styles.saveButtonDisabled]}
-                  onPress={() => setShowTransferModal(true)}
+                  onPress={() => {
+                    setShowAttendanceModal(false);
+                    setTimeout(() => setShowTransferModal(true), 100);
+                  }}
                   disabled={savingAttendance || cancellingSession}
                 >
                   <Ionicons name="swap-horizontal" size={18} color={Colors.dark.accentCyan} />
