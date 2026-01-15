@@ -88,6 +88,7 @@ interface CoachContextType {
   setInsightsMode: (mode: boolean) => void;
   calendarData: CalendarData | null;
   isLoading: boolean;
+  isFetching: boolean;
   refetchCalendar: () => void;
 }
 
@@ -195,9 +196,11 @@ export function CoachProvider({ children }: { children: ReactNode }) {
     ? `/api/coach/calendar?coachId=${coach.id}&date=${dateStr}&view=${viewMode}` 
     : null;
 
-  const { data: calendarData, isLoading, refetch: refetchCalendar } = useQuery<CalendarData>({
+  const { data: calendarData, isLoading, isFetching, refetch: refetchCalendar } = useQuery<CalendarData>({
     queryKey: [calendarQueryPath],
     enabled: !!coach?.id && !!calendarQueryPath,
+    placeholderData: (previousData) => previousData, // Keep previous data visible while fetching new
+    staleTime: 1000 * 60 * 2, // Consider data fresh for 2 minutes
   });
 
   return (
@@ -218,6 +221,7 @@ export function CoachProvider({ children }: { children: ReactNode }) {
         setInsightsMode,
         calendarData: calendarData || null,
         isLoading,
+        isFetching,
         refetchCalendar,
       }}
     >

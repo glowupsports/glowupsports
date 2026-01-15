@@ -576,6 +576,7 @@ export default function CalendarScreen() {
     setFocusMode,
     calendarData,
     isLoading,
+    isFetching,
     academy,
   } = useCoach();
 
@@ -2467,10 +2468,17 @@ export default function CalendarScreen() {
         </LinearGradient>
       </Pressable>
 
-      {/* Loading Overlay */}
-      {isLoading && (
+      {/* Loading Overlay - Only show on initial load when there's no data */}
+      {isLoading && !calendarData && (
         <View style={styles.loadingOverlay}>
           <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      )}
+      
+      {/* Subtle refresh indicator when fetching with existing data */}
+      {isFetching && calendarData && (
+        <View style={styles.refreshIndicator}>
+          <ActivityIndicator size="small" color={Colors.dark.accentCyan} />
         </View>
       )}
 
@@ -3265,6 +3273,16 @@ const styles = StyleSheet.create({
   loadingText: {
     ...Typography.body,
     color: Colors.dark.text,
+  },
+  refreshIndicator: {
+    position: "absolute",
+    top: 120,
+    right: Spacing.lg,
+    backgroundColor: Colors.dark.cardBackground + "E0",
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.round,
+    borderWidth: 1,
+    borderColor: Colors.dark.accentCyan + "40",
   },
   coachList: {
     width: "100%",
