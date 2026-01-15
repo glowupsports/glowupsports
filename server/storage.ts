@@ -6017,11 +6017,12 @@ export const storage = {
       }
     }
     
-    // Get debt transactions (session_join_debt where package_id is NULL)
+    // Get debt transactions (session_join_debt where package_id is NULL = unsettled)
     const debtTransactions = await db.select().from(creditTransactions)
       .where(and(
         eq(creditTransactions.playerId, playerId),
-        eq(creditTransactions.reason, "session_join_debt")
+        eq(creditTransactions.reason, "session_join_debt"),
+        isNull(creditTransactions.packageId) // Only unsettled debts
       ));
     
     const debts = { group: 0, semi_private: 0, private: 0 };
@@ -6042,6 +6043,80 @@ export const storage = {
       totalDebt,
       hasDebt: totalDebt > 0,
     };
+  },
+
+  // Settle player debts when a new package is purchased
+  // Deducts debt amount from package remaining credits and marks debt transactions as settled
+  async settlePlayerDebts(playerId: string, creditType: string, packageId: string): Promise<{
+    settledCount: number;
+    totalDeducted: number;
+  }> {
+    // Find unsettled debt transactions for this player and credit type
+    const unsettledDebts = await db.select().from(creditTransactions)
+      .where(and(
+        eq(creditTransactions.playerId, playerId),
+        eq(creditTransactions.creditType, creditType),
+        eq(creditTransactions.reason, "session_join_debt"),
+        isNull(creditTransactions.packageId) // Only unsettled debts (no package assigned)
+      ));
+    
+    if (unsettledDebts.length === 0) {
+      return { settledCount: 0, totalDeducted: 0 };
+    }
+    
+    // Calculate total debt to settle
+    const totalDebt = unsettledDebts.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+    
+    // Get the package to update remaining credits
+    const pkg = await db.select().from(packages).where(eq(packages.id, packageId)).limit(1);
+    if (pkg.length === 0) {
+      console.error(`[SettleDebts] Package ${packageId} not found`);
+      return { settledCount: 0, totalDeducted: 0 };
+    }
+    
+    const currentRemaining = pkg[0].remainingCredits;
+    const newRemaining = Math.max(0, currentRemaining - totalDebt);
+    const actualDeducted = currentRemaining - newRemaining;
+    
+    // Update package remaining credits
+    await db.update(packages)
+      .set({ remainingCredits: newRemaining })
+      .where(eq(packages.id, packageId));
+    
+    // Mark debt transactions as settled by linking to the package
+    for (const debt of unsettledDebts) {
+      await db.update(creditTransactions)
+        .set({ 
+          packageId: packageId,
+          metadata: { 
+            ...((debt.metadata as object) || {}), 
+            settledAt: new Date().toISOString(),
+            settledByPackage: packageId,
+          }
+        })
+        .where(eq(creditTransactions.id, debt.id));
+    }
+    
+    // Create a settlement transaction record
+    await db.insert(creditTransactions).values({
+      id: crypto.randomUUID(),
+      playerId,
+      packageId,
+      creditType,
+      type: "debit",
+      amount: -actualDeducted,
+      reason: "debt_settlement",
+      metadata: {
+        settledDebts: unsettledDebts.length,
+        originalDebt: totalDebt,
+        actualDeducted,
+      },
+      createdAt: new Date(),
+    });
+    
+    console.log(`[SettleDebts] Settled ${unsettledDebts.length} debts for player ${playerId}: deducted ${actualDeducted} from package ${packageId} (${currentRemaining} -> ${newRemaining})`);
+    
+    return { settledCount: unsettledDebts.length, totalDeducted: actualDeducted };
   },
 
   // Get credit balances for multiple players (batch query for efficiency)
@@ -6075,11 +6150,12 @@ export const storage = {
       }
     }
     
-    // Get debt transactions for these players
+    // Get debt transactions for these players (only unsettled ones)
     const debtTransactions = await db.select().from(creditTransactions)
       .where(and(
         inArray(creditTransactions.playerId, playerIds),
-        eq(creditTransactions.reason, "session_join_debt")
+        eq(creditTransactions.reason, "session_join_debt"),
+        isNull(creditTransactions.packageId) // Only unsettled debts
       ));
     
     for (const tx of debtTransactions) {

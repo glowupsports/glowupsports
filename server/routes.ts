@@ -5854,6 +5854,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       });
       
+      // Settle any outstanding debts for this player and credit type
+      const debtSettlement = await storage.settlePlayerDebts(playerId, creditType, pkg.id);
+      if (debtSettlement.settledCount > 0) {
+        console.log(`[Package] Settled ${debtSettlement.settledCount} debt(s) for player ${playerId}, deducted ${debtSettlement.totalDeducted} credits from package ${pkg.id}`);
+      }
+      
       // Audit log
       if (coachId) {
         await storage.createAuditLog({
