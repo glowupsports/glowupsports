@@ -3869,7 +3869,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.accentCyan + "40",
   },
   transferModalTitle: {
-    fontSize: Typography.title.fontSize,
+    fontSize: Typography.h2.fontSize,
     fontWeight: "700",
     color: Colors.dark.text,
     letterSpacing: 0.3,

@@ -2454,7 +2454,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: Colors.dark.border + "50",
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   playerSummaryHeader: {
     flexDirection: "row",
