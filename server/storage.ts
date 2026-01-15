@@ -270,6 +270,11 @@ import {
   creditTransactions,
   type CreditTransaction,
   type InsertCreditTransaction,
+  // Player Baselines
+  playerBaselines,
+  ballLevels,
+  type PlayerBaseline,
+  type InsertPlayerBaseline,
 } from "@shared/schema";
 
 export const storage = {
@@ -1801,6 +1806,73 @@ export const storage = {
       console.error("Error in deletePlayer transaction:", error);
       throw error;
     }
+  },
+
+  // ==================== PLAYER BASELINES ====================
+  async getPlayerBaseline(playerId: string): Promise<PlayerBaseline | undefined> {
+    const result = await db.select().from(playerBaselines).where(eq(playerBaselines.playerId, playerId));
+    return result[0];
+  },
+
+  async createPlayerBaseline(data: InsertPlayerBaseline): Promise<PlayerBaseline> {
+    const result = await db.insert(playerBaselines).values(data).returning();
+    return result[0];
+  },
+
+  async updatePlayerBaseline(id: string, data: Partial<InsertPlayerBaseline>): Promise<PlayerBaseline | undefined> {
+    const result = await db.update(playerBaselines).set({
+      ...data,
+      updatedAt: new Date(),
+    }).where(eq(playerBaselines.id, id)).returning();
+    return result[0];
+  },
+
+  async lockPlayerBaseline(id: string, coachId: string): Promise<PlayerBaseline | undefined> {
+    const result = await db.update(playerBaselines).set({
+      status: "locked",
+      lockedAt: new Date(),
+      lockedByCoachId: coachId,
+      updatedAt: new Date(),
+    }).where(eq(playerBaselines.id, id)).returning();
+    return result[0];
+  },
+
+  async unlockPlayerBaseline(id: string): Promise<PlayerBaseline | undefined> {
+    const result = await db.update(playerBaselines).set({
+      status: "confirmed",
+      lockedAt: null,
+      lockedByCoachId: null,
+      updatedAt: new Date(),
+    }).where(eq(playerBaselines.id, id)).returning();
+    return result[0];
+  },
+
+  async getPlayersWithoutBaseline(academyId: string): Promise<Player[]> {
+    const playersWithBaseline = db.select({ playerId: playerBaselines.playerId }).from(playerBaselines);
+    const result = await db.select().from(players).where(
+      and(
+        eq(players.academyId, academyId),
+        sql`${players.id} NOT IN (${playersWithBaseline})`
+      )
+    );
+    return result;
+  },
+
+  async getAcademyBaselineStats(academyId: string): Promise<{ total: number; withBaseline: number; locked: number }> {
+    const totalPlayers = await db.select({ count: count() }).from(players).where(eq(players.academyId, academyId));
+    const withBaseline = await db.select({ count: count() }).from(playerBaselines).where(eq(playerBaselines.academyId, academyId));
+    const locked = await db.select({ count: count() }).from(playerBaselines).where(
+      and(eq(playerBaselines.academyId, academyId), eq(playerBaselines.status, "locked"))
+    );
+    return {
+      total: totalPlayers[0]?.count || 0,
+      withBaseline: withBaseline[0]?.count || 0,
+      locked: locked[0]?.count || 0,
+    };
+  },
+
+  async getAllBallLevels() {
+    return db.select().from(ballLevels).orderBy(asc(ballLevels.rank));
   },
 
   // ==================== PACKAGES ====================

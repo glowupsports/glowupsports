@@ -5064,6 +5064,333 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===================== PLAYER BASELINES (Start Baseline Feature) =====================
+  
+  // Get player baseline
+  app.get("/api/players/:id/baseline", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      
+      const { valid, player } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid || !player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const baseline = await storage.getPlayerBaseline(id);
+      res.json({ baseline: baseline || null, player });
+    } catch (error) {
+      console.error("Error fetching player baseline:", error);
+      res.status(500).json({ error: "Failed to fetch baseline" });
+    }
+  });
+
+  // Calculate suggested level based on age and intake questions
+  app.post("/api/players/:id/baseline/suggest-level", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      const { tennisExperience, playsCompetition, canRallyFive, serveAbility } = req.body;
+      
+      const { valid, player } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid || !player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Calculate age from DOB or use age field
+      let age = player.age;
+      if (!age && player.dateOfBirth) {
+        const dob = new Date(player.dateOfBirth);
+        const today = new Date();
+        age = today.getFullYear() - dob.getFullYear();
+        const m = today.getMonth() - dob.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+          age--;
+        }
+      }
+      age = age || 10; // Default to 10 if no age data
+      
+      // Auto-level suggestion based on age (recommended track)
+      let suggestedStage: string;
+      if (age < 4) {
+        suggestedStage = "RED";
+      } else if (age < 8) {
+        suggestedStage = "RED";
+      } else if (age < 10) {
+        suggestedStage = "ORANGE";
+      } else if (age < 12) {
+        suggestedStage = "GREEN";
+      } else {
+        suggestedStage = "YELLOW";
+      }
+      
+      // Adjust based on intake questions
+      let suggestedRank = 3; // Start at entry level (rank 3)
+      let confidenceScore = 50;
+      
+      // Tennis experience adjustment
+      if (tennisExperience === "18m+") {
+        suggestedRank = Math.max(1, suggestedRank - 1); // Move up within stage
+        confidenceScore += 15;
+      } else if (tennisExperience === "6-18m") {
+        suggestedRank = Math.max(2, suggestedRank);
+        confidenceScore += 10;
+      }
+      
+      // Competition experience adjustment
+      if (playsCompetition === "often") {
+        suggestedRank = Math.max(1, suggestedRank - 1);
+        confidenceScore += 15;
+      } else if (playsCompetition === "sometimes") {
+        confidenceScore += 10;
+      }
+      
+      // Rally ability
+      if (canRallyFive === true) {
+        confidenceScore += 10;
+        // If can rally but in RED, might be ready for ORANGE
+        if (suggestedStage === "RED" && tennisExperience !== "0-6m") {
+          suggestedStage = "ORANGE";
+          suggestedRank = 3;
+        }
+      }
+      
+      // Serve ability
+      if (serveAbility === "consistent") {
+        confidenceScore += 10;
+        suggestedRank = Math.max(1, suggestedRank - 1);
+      } else if (serveAbility === "basic") {
+        confidenceScore += 5;
+      }
+      
+      confidenceScore = Math.min(100, confidenceScore);
+      
+      // Construct level ID (e.g., "RED_3", "ORANGE_2")
+      const suggestedLevelId = `${suggestedStage}_${suggestedRank}`;
+      
+      res.json({
+        suggestedLevelId,
+        suggestedStage,
+        suggestedRank,
+        confidenceScore,
+        age,
+        inputsUsed: { tennisExperience, playsCompetition, canRallyFive, serveAbility },
+      });
+    } catch (error) {
+      console.error("Error calculating suggested level:", error);
+      res.status(500).json({ error: "Failed to calculate suggested level" });
+    }
+  });
+
+  // Create or update player baseline
+  app.post("/api/players/:id/baseline", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      const coachId = req.user!.coachId;
+      
+      const { valid, player } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid || !player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Check if baseline already exists and is locked
+      const existingBaseline = await storage.getPlayerBaseline(id);
+      if (existingBaseline?.status === "locked") {
+        return res.status(403).json({ error: "Baseline is locked. Request unlock from admin to modify." });
+      }
+      
+      const {
+        suggestedLevelId,
+        confirmedLevelId,
+        confidenceScore,
+        tennisExperience,
+        playsCompetition,
+        canRallyFive,
+        serveAbility,
+        techniqueRating,
+        tacticalRating,
+        physicalRating,
+        mentalRating,
+        socialRating,
+        matchRating,
+        overrideReason,
+        overrideNote,
+      } = req.body;
+      
+      const wasOverridden = confirmedLevelId && suggestedLevelId && confirmedLevelId !== suggestedLevelId;
+      
+      if (existingBaseline) {
+        // Update existing baseline
+        const updated = await storage.updatePlayerBaseline(existingBaseline.id, {
+          suggestedLevelId,
+          confirmedLevelId,
+          confidenceScore,
+          tennisExperience,
+          playsCompetition,
+          canRallyFive,
+          serveAbility,
+          techniqueRating,
+          tacticalRating,
+          physicalRating,
+          mentalRating,
+          socialRating,
+          matchRating,
+          wasOverridden,
+          overrideReason: wasOverridden ? overrideReason : null,
+          overrideNote: wasOverridden ? overrideNote : null,
+          status: "confirmed",
+        });
+        
+        // Also update the player's ball level
+        if (confirmedLevelId) {
+          const [stage, rank] = confirmedLevelId.split("_");
+          await storage.updatePlayer(id, {
+            ballLevel: stage.toLowerCase(),
+            skillLevel: parseInt(rank, 10),
+          });
+        }
+        
+        res.json(updated);
+      } else {
+        // Create new baseline
+        const baseline = await storage.createPlayerBaseline({
+          playerId: id,
+          academyId: academyId!,
+          suggestedLevelId,
+          confirmedLevelId,
+          confidenceScore,
+          tennisExperience,
+          playsCompetition,
+          canRallyFive,
+          serveAbility,
+          techniqueRating,
+          tacticalRating,
+          physicalRating,
+          mentalRating,
+          socialRating,
+          matchRating,
+          wasOverridden,
+          overrideReason: wasOverridden ? overrideReason : null,
+          overrideNote: wasOverridden ? overrideNote : null,
+          status: "confirmed",
+        });
+        
+        // Also update the player's ball level
+        if (confirmedLevelId) {
+          const [stage, rank] = confirmedLevelId.split("_");
+          await storage.updatePlayer(id, {
+            ballLevel: stage.toLowerCase(),
+            skillLevel: parseInt(rank, 10),
+          });
+        }
+        
+        res.status(201).json(baseline);
+      }
+    } catch (error) {
+      console.error("Error saving player baseline:", error);
+      res.status(500).json({ error: "Failed to save baseline" });
+    }
+  });
+
+  // Lock player baseline
+  app.post("/api/players/:id/baseline/lock", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      const coachId = req.user!.coachId;
+      
+      const { valid } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const baseline = await storage.getPlayerBaseline(id);
+      if (!baseline) {
+        return res.status(404).json({ error: "No baseline found for this player" });
+      }
+      
+      if (baseline.status === "locked") {
+        return res.status(400).json({ error: "Baseline is already locked" });
+      }
+      
+      const locked = await storage.lockPlayerBaseline(baseline.id, coachId!);
+      res.json(locked);
+    } catch (error) {
+      console.error("Error locking baseline:", error);
+      res.status(500).json({ error: "Failed to lock baseline" });
+    }
+  });
+
+  // Unlock player baseline (admin/owner only)
+  app.post("/api/players/:id/baseline/unlock", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      const role = req.user!.role;
+      
+      // Only platform owner or academy admins can unlock
+      if (role !== "platform_owner" && role !== "academy_owner") {
+        return res.status(403).json({ error: "Only academy owners can unlock baselines" });
+      }
+      
+      const { valid } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const baseline = await storage.getPlayerBaseline(id);
+      if (!baseline) {
+        return res.status(404).json({ error: "No baseline found for this player" });
+      }
+      
+      if (baseline.status !== "locked") {
+        return res.status(400).json({ error: "Baseline is not locked" });
+      }
+      
+      const unlocked = await storage.unlockPlayerBaseline(baseline.id);
+      res.json(unlocked);
+    } catch (error) {
+      console.error("Error unlocking baseline:", error);
+      res.status(500).json({ error: "Failed to unlock baseline" });
+    }
+  });
+
+  // Get academy baseline stats
+  app.get("/api/academy/baseline-stats", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const stats = await storage.getAcademyBaselineStats(academyId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching baseline stats:", error);
+      res.status(500).json({ error: "Failed to fetch baseline stats" });
+    }
+  });
+
+  // Get players without baseline
+  app.get("/api/academy/players-without-baseline", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const players = await storage.getPlayersWithoutBaseline(academyId);
+      res.json(players);
+    } catch (error) {
+      console.error("Error fetching players without baseline:", error);
+      res.status(500).json({ error: "Failed to fetch players" });
+    }
+  });
+
+  // Get all ball levels
+  app.get("/api/ball-levels", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const levels = await storage.getAllBallLevels();
+      res.json(levels);
+    } catch (error) {
+      console.error("Error fetching ball levels:", error);
+      res.status(500).json({ error: "Failed to fetch ball levels" });
+    }
+  });
+
   // ===================== PACKAGES / CREDITS =====================
   app.get("/api/players/:playerId/packages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {

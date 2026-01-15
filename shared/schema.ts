@@ -4300,6 +4300,55 @@ export const insertPlayerBallLevelSchema = createInsertSchema(playerBallLevels).
 export type InsertPlayerBallLevel = z.infer<typeof insertPlayerBallLevelSchema>;
 export type PlayerBallLevel = typeof playerBallLevels.$inferSelect;
 
+// Player Baseline - One-time intake assessment (Start Baseline feature)
+export const playerBaselines = pgTable("player_baselines", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  academyId: varchar("academy_id").references(() => academies.id),
+  
+  // Auto-suggested vs confirmed level
+  suggestedLevelId: varchar("suggested_level_id").references(() => ballLevels.id), // System's suggestion
+  confirmedLevelId: varchar("confirmed_level_id").references(() => ballLevels.id), // Coach's final decision
+  confidenceScore: integer("confidence_score").default(50), // 0-100 confidence in the level
+  
+  // Intake questions responses
+  tennisExperience: text("tennis_experience"), // 0-6m, 6-18m, 18m+
+  playsCompetition: text("plays_competition"), // no, sometimes, often
+  canRallyFive: boolean("can_rally_five"), // Can rally 5 balls over the net
+  serveAbility: text("serve_ability"), // no, basic, consistent
+  
+  // Quick baseline - Per pillar ratings (0=not_yet, 1=developing, 2=meets, 3=above)
+  techniqueRating: integer("technique_rating"),
+  tacticalRating: integer("tactical_rating"),
+  physicalRating: integer("physical_rating"),
+  mentalRating: integer("mental_rating"),
+  socialRating: integer("social_rating"),
+  matchRating: integer("match_rating"),
+  
+  // Lock status
+  status: text("status").notNull().default("pending"), // pending, confirmed, locked
+  lockedAt: timestamp("locked_at"),
+  lockedByCoachId: varchar("locked_by_coach_id").references(() => coaches.id),
+  
+  // Override tracking
+  wasOverridden: boolean("was_overridden").default(false),
+  overrideReason: text("override_reason"), // player_clearly_advanced, late_starter_athletic, other_academy, competition_experience, age_mismatch
+  overrideNote: text("override_note"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("player_baselines_player_idx").on(table.playerId),
+  index("player_baselines_academy_idx").on(table.academyId),
+  index("player_baselines_status_idx").on(table.status),
+]);
+
+export const insertPlayerBaselineSchema = createInsertSchema(playerBaselines).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertPlayerBaseline = z.infer<typeof insertPlayerBaselineSchema>;
+export type PlayerBaseline = typeof playerBaselines.$inferSelect;
+
 // Player Skill Scores - Time-series tracking of skill progress
 export const playerSkillScores = pgTable("player_skill_scores", {
   id: varchar("id")
