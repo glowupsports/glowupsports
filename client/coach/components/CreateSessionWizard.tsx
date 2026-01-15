@@ -202,6 +202,47 @@ export default function CreateSessionWizard({
       setIsRecurring(true);
     }
   }, [createSeriesMode, visible]);
+
+  // Auto-select ball level based on selected players (unless manually overridden)
+  useEffect(() => {
+    if (ballLevelOverride || selectedPlayers.length === 0) return;
+    
+    // Get ball levels from selected players
+    const playerBallLevels = selectedPlayers
+      .map(p => p.ballLevel?.toLowerCase())
+      .filter((bl): bl is string => !!bl);
+    
+    if (playerBallLevels.length === 0) return;
+    
+    // Ball level priority order (for averaging)
+    const BALL_LEVEL_ORDER: Record<string, number> = {
+      red: 1,
+      orange: 2,
+      green: 3,
+      yellow: 4,
+      glow: 5,
+    };
+    
+    // Calculate average level
+    const levelSum = playerBallLevels.reduce((sum, bl) => {
+      return sum + (BALL_LEVEL_ORDER[bl] || 0);
+    }, 0);
+    const avgLevel = Math.round(levelSum / playerBallLevels.length);
+    
+    // Convert back to ball level
+    const levelToValue: Record<number, BallLevel> = {
+      1: "red",
+      2: "orange", 
+      3: "green",
+      4: "yellow",
+      5: "glow",
+    };
+    
+    const autoLevel = levelToValue[avgLevel] || null;
+    if (autoLevel && autoLevel !== ballLevel) {
+      setBallLevel(autoLevel);
+    }
+  }, [selectedPlayers, ballLevelOverride]);
   
   // Slide 2: When & Where
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -214,6 +255,7 @@ export default function CreateSessionWizard({
   const [ballLevel, setBallLevel] = useState<BallLevel | null>(null);
   const [skillLevel, setSkillLevel] = useState<SkillLevel | null>(null);
   const [isOpenGroup, setIsOpenGroup] = useState(true);
+  const [ballLevelOverride, setBallLevelOverride] = useState(false); // Manual override toggle
   
   // Slide 4: Players
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
@@ -527,6 +569,7 @@ export default function CreateSessionWizard({
     setMaxPlayers(4);
     setBallLevel(null);
     setSkillLevel(null);
+    setBallLevelOverride(false);
     setIsOpenGroup(true);
     setSelectedPlayers([]);
     setPlayerSearch("");
@@ -1201,13 +1244,42 @@ export default function CreateSessionWizard({
         {/* Ball Level */}
         {showLevels && (
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Ball Level</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionLabel}>Ball Level</Text>
+              {selectedPlayers.length > 0 && !ballLevelOverride && ballLevel && (
+                <View style={styles.autoSelectedBadge}>
+                  <Ionicons name="sparkles" size={12} color={Colors.dark.accentCyan} />
+                  <Text style={styles.autoSelectedText}>Auto</Text>
+                </View>
+              )}
+            </View>
+            
+            {/* Auto-selected info */}
+            {selectedPlayers.length > 0 && !ballLevelOverride && ballLevel && (
+              <View style={styles.autoLevelInfo}>
+                <Text style={styles.autoLevelText}>
+                  Based on {selectedPlayers.length === 1 ? "player" : `${selectedPlayers.length} players avg`}
+                </Text>
+                <Pressable 
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setBallLevelOverride(true);
+                  }}
+                  style={styles.overrideButton}
+                >
+                  <Ionicons name="pencil" size={14} color={Colors.dark.accentCyan} />
+                  <Text style={styles.overrideButtonText}>Change</Text>
+                </Pressable>
+              </View>
+            )}
+            
             <View style={styles.optionRow}>
               {BALL_LEVELS.map((level) => (
                 <Pressable
                   key={level.value}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setBallLevelOverride(true); // Enable override when manually selecting
                     setBallLevel(ballLevel === level.value ? null : level.value);
                   }}
                   style={[
@@ -1221,29 +1293,6 @@ export default function CreateSessionWizard({
                     styles.ballLevelText,
                     ballLevel === level.value && { color: Colors.dark.backgroundRoot },
                   ]}>
-                    {level.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Skill Level */}
-        {showLevels && (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Skill Level</Text>
-            <View style={styles.optionRow}>
-              {SKILL_LEVELS.map((level) => (
-                <Pressable
-                  key={level.value}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSkillLevel(skillLevel === level.value ? null : level.value);
-                  }}
-                  style={[styles.optionChip, skillLevel === level.value && styles.optionChipActive]}
-                >
-                  <Text style={[styles.optionChipText, skillLevel === level.value && styles.optionChipTextActive]}>
                     {level.label}
                   </Text>
                 </Pressable>
@@ -1991,6 +2040,50 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: Spacing.sm,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.sm,
+  },
+  autoSelectedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.accentCyan + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  autoSelectedText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.accentCyan,
+    textTransform: "uppercase",
+  },
+  autoLevelInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+  },
+  autoLevelText: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+  },
+  overrideButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+  },
+  overrideButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.accentCyan,
   },
   dateScroll: {
     marginHorizontal: -Spacing.lg,
