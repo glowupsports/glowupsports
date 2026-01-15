@@ -6445,7 +6445,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sessionId: sessionPlayers.sessionId,
           attendanceStatus: sessionPlayers.attendanceStatus,
           lateMinutes: sessionPlayers.lateMinutes,
-          createdAt: sessionPlayers.createdAt,
         })
         .from(sessionPlayers)
         .where(eq(sessionPlayers.playerId, playerId));
@@ -6479,7 +6478,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sessionId: record.sessionId,
           attendanceStatus: record.attendanceStatus,
           lateMinutes: record.lateMinutes,
-          createdAt: record.createdAt,
           sessionStartTime: sessionInfo?.startTime || null,
           sessionEndTime: sessionInfo?.endTime || null,
           sessionType: sessionInfo?.sessionType || null,
@@ -6487,17 +6485,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       });
 
-      // Sort by session start time (if available) or createdAt timestamp
+      // Sort by session start time (newest first)
       const sortedRecords = combinedRecords.sort((a, b) => {
-        const dateA = a.sessionStartTime ? new Date(a.sessionStartTime) : (a.createdAt ? new Date(a.createdAt) : new Date(0));
-        const dateB = b.sessionStartTime ? new Date(b.sessionStartTime) : (b.createdAt ? new Date(b.createdAt) : new Date(0));
+        const dateA = a.sessionStartTime ? new Date(a.sessionStartTime) : new Date(0);
+        const dateB = b.sessionStartTime ? new Date(b.sessionStartTime) : new Date(0);
         return dateB.getTime() - dateA.getTime();
       });
 
       // Format for frontend - include records even if session details are missing
       const history = sortedRecords.map(record => ({
         sessionId: record.sessionId,
-        date: record.sessionStartTime ? new Date(record.sessionStartTime).toISOString().split('T')[0] : (record.createdAt ? new Date(record.createdAt).toISOString().split('T')[0] : null),
+        date: record.sessionStartTime ? new Date(record.sessionStartTime).toISOString().split('T')[0] : null,
         startTime: record.sessionStartTime || null,
         endTime: record.sessionEndTime || null,
         sessionType: record.sessionType || "group",
