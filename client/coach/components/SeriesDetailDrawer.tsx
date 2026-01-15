@@ -238,6 +238,11 @@ export default function SeriesDetailDrawer({
   const [expandedCreditType, setExpandedCreditType] = useState<string | null>(null);
   const [selectedCreditPackage, setSelectedCreditPackage] = useState<{ creditType: string; credits: number; price: string } | null>(null);
   const [newPackagePricePerCredit, setNewPackagePricePerCredit] = useState("");
+  
+  // Transfer session state
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferringSession, setTransferringSession] = useState(false);
+  const [selectedTargetCoachId, setSelectedTargetCoachId] = useState<string | null>(null);
 
   const { data: series, isLoading } = useQuery<SeriesDetail>({
     queryKey: [`/api/coach/series/${seriesId}`],
@@ -327,6 +332,41 @@ export default function SeriesDetailDrawer({
     semi: { label: "Semi-Private Credits", color: Colors.dark.sessionSemiPrivate, icon: "people" },
     group: { label: "Group Credits", color: Colors.dark.sessionGroup, icon: "people-circle" },
   };
+
+  // Query coaches for transfer modal
+  interface Coach {
+    id: string;
+    name: string;
+    profilePhotoUrl?: string | null;
+  }
+  const { data: coaches = [] } = useQuery<Coach[]>({
+    queryKey: ["/api/coaches"],
+    enabled: showTransferModal,
+  });
+
+  // Transfer session mutation
+  const transferSessionMutation = useMutation({
+    mutationFn: async ({ sessionId, targetCoachId }: { sessionId: string; targetCoachId: string }) => {
+      const response = await apiRequest("POST", `/api/coach/sessions/${sessionId}/transfer`, {
+        targetCoachId,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
+      setShowTransferModal(false);
+      setShowAttendanceModal(false);
+      setSelectedTargetCoachId(null);
+      setTransferringSession(false);
+    },
+    onError: (error: Error) => {
+      setTransferringSession(false);
+      alert(error.message || "Failed to transfer session");
+    },
+  });
 
   // Filter players not already in the series
   const existingPlayerIds = new Set(series?.players?.map(p => p.id) || []);
@@ -2115,8 +2155,106 @@ export default function SeriesDetailDrawer({
                     {cancellingSession ? "Cancelling..." : "Cancel Session (Holiday/No Class)"}
                   </Text>
                 </Pressable>
+
+                <Pressable
+                  style={[styles.transferButton, (savingAttendance || cancellingSession) && styles.saveButtonDisabled]}
+                  onPress={() => setShowTransferModal(true)}
+                  disabled={savingAttendance || cancellingSession}
+                >
+                  <Ionicons name="swap-horizontal" size={18} color={Colors.dark.accentCyan} />
+                  <Text style={styles.transferButtonText}>Transfer to Another Coach</Text>
+                </Pressable>
               </View>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Transfer Session Modal */}
+      <Modal
+        visible={showTransferModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowTransferModal(false)}
+      >
+        <View style={styles.overlay}>
+          <Pressable style={styles.backdrop} onPress={() => setShowTransferModal(false)} />
+          <View style={[styles.drawer, { paddingTop: Spacing.xl, paddingHorizontal: Spacing.lg }]}>
+            <View style={styles.attendanceModalHeader}>
+              <View>
+                <Text style={styles.attendanceModalTitle}>Transfer Session</Text>
+                {selectedSession ? (
+                  <Text style={styles.attendanceModalDate}>
+                    {new Date(selectedSession.startTime).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} - Week {selectedSession.weekNumber || "?"}
+                  </Text>
+                ) : null}
+              </View>
+              <Pressable onPress={() => setShowTransferModal(false)}>
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+
+            <Text style={styles.transferDescription}>
+              Select a coach to transfer this session to. The session will be removed from your calendar and added to theirs.
+            </Text>
+
+            <ScrollView style={{ flex: 1, marginTop: Spacing.md }}>
+              {coaches.filter(c => c.id !== series?.id).map((coach) => (
+                <Pressable
+                  key={coach.id}
+                  style={[
+                    styles.coachSelectRow,
+                    selectedTargetCoachId === coach.id && styles.coachSelectRowActive,
+                  ]}
+                  onPress={() => setSelectedTargetCoachId(coach.id)}
+                >
+                  <View style={styles.coachAvatar}>
+                    <Text style={styles.coachAvatarText}>
+                      {coach.name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <Text style={styles.coachName}>{coach.name}</Text>
+                  {selectedTargetCoachId === coach.id ? (
+                    <Ionicons name="checkmark-circle" size={24} color={Colors.dark.accentCyan} />
+                  ) : (
+                    <View style={styles.coachRadio} />
+                  )}
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            <View style={styles.attendanceActions}>
+              <Pressable
+                style={[
+                  styles.saveButton,
+                  (!selectedTargetCoachId || transferringSession) && styles.saveButtonDisabled,
+                ]}
+                onPress={() => {
+                  if (selectedSession && selectedTargetCoachId) {
+                    setTransferringSession(true);
+                    transferSessionMutation.mutate({
+                      sessionId: selectedSession.id,
+                      targetCoachId: selectedTargetCoachId,
+                    });
+                  }
+                }}
+                disabled={!selectedTargetCoachId || transferringSession}
+              >
+                <Text style={styles.saveButtonText}>
+                  {transferringSession ? "Transferring..." : "Transfer Session"}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.cancelSessionButton}
+                onPress={() => {
+                  setShowTransferModal(false);
+                  setSelectedTargetCoachId(null);
+                }}
+              >
+                <Text style={styles.cancelSessionButtonText}>Cancel</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>
@@ -3613,6 +3751,69 @@ const styles = StyleSheet.create({
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
     color: Colors.dark.error,
+  },
+  transferButton: {
+    backgroundColor: Colors.dark.accentCyan + "15",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.accentCyan,
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: Spacing.sm,
+  },
+  transferButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.accentCyan,
+  },
+  transferDescription: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
+    lineHeight: 20,
+  },
+  coachSelectRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.cardBackground,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  coachSelectRowActive: {
+    borderColor: Colors.dark.accentCyan,
+    backgroundColor: Colors.dark.accentCyan + "15",
+  },
+  coachAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.accentCyan + "30",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.md,
+  },
+  coachAvatarText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.accentCyan,
+  },
+  coachName: {
+    flex: 1,
+    fontSize: Typography.body.fontSize,
+    fontWeight: "500",
+    color: Colors.dark.text,
+  },
+  coachRadio: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: Colors.dark.textMuted,
   },
   restoreModalContent: {
     backgroundColor: Colors.dark.cardBackground,
