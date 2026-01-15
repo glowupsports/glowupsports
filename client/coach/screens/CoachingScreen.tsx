@@ -132,6 +132,18 @@ export default function CoachingScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const [activeTab, setActiveTab] = useState<TabType>("series");
+  const { coach } = useCoach();
+
+  // Fetch coach XP and stats
+  const { data: xpData } = useQuery<{ level: number; totalXp: number; currentLevelXp: number; nextLevelXp: number; xpProgress: number }>({
+    queryKey: [`/api/coach/${coach?.id}/xp`],
+    enabled: !!coach?.id,
+  });
+
+  const { data: statsData } = useQuery<{ sessionsCount: number; playersCount: number }>({
+    queryKey: [`/api/coach/${coach?.id}/stats`],
+    enabled: !!coach?.id,
+  });
 
   const headerPulse = useSharedValue(0.4);
   const iconGlow = useSharedValue(1);
@@ -185,10 +197,10 @@ export default function CoachingScreen() {
               colors={[Colors.dark.primary, `${Colors.dark.primary}CC`]}
               style={styles.levelBadge}
             >
-              <Text style={styles.levelNumber}>7</Text>
+              <Text style={styles.levelNumber}>{xpData?.level ?? coach?.level ?? 1}</Text>
             </LinearGradient>
             <View style={styles.levelLabelContainer}>
-              <Text style={styles.levelLabel}>COACH</Text>
+              <Text style={styles.levelLabel}>LEVEL</Text>
             </View>
           </View>
 
@@ -197,17 +209,17 @@ export default function CoachingScreen() {
             <Text style={styles.gameHeaderTitle}>COACHING HQ</Text>
             <View style={styles.xpBarContainer}>
               <View style={styles.xpBarBackground}>
-                <Animated.View style={[styles.xpBarFill, { width: '65%' }]} />
+                <View style={[styles.xpBarFill, { width: `${xpData?.xpProgress ?? 65}%` }]} />
               </View>
-              <Text style={styles.xpText}>5,070 XP</Text>
+              <Text style={styles.xpText}>{(xpData?.totalXp ?? coach?.totalXp ?? 0).toLocaleString()} XP</Text>
             </View>
           </View>
 
           {/* Right: Stats */}
           <View style={styles.gameHeaderStats}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>36</Text>
-              <Text style={styles.statLabel}>Classes</Text>
+              <Text style={styles.statValue}>{statsData?.sessionsCount ?? 0}</Text>
+              <Text style={styles.statLabel}>Sessions</Text>
             </View>
           </View>
         </View>
