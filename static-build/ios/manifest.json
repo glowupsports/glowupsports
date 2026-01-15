@@ -1,11 +1,11 @@
 {
-  "id": "27e85c58-af60-4ca9-800e-81807fe379bc",
-  "createdAt": "2026-01-03T09:04:42.082Z",
-  "runtimeVersion": "1.1.0",
+  "id": "a9192f88-e95d-4400-b3a9-f630984d308a",
+  "createdAt": "2026-01-15T11:21:47.897Z",
+  "runtimeVersion": "1.2.0",
   "launchAsset": {
-    "key": "bundle-1767431082082-33932",
+    "key": "bundle-1768476107897-55041",
     "contentType": "application/javascript",
-    "url": "https://81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g.spock.replit.dev/1767431082082-33932/_expo/static/js/ios/bundle.js"
+    "url": "https://81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g.spock.replit.dev/1768476107897-55041/_expo/static/js/ios/bundle.js"
   },
   "assets": [],
   "metadata": {},
@@ -16,12 +16,13 @@
     "expoClient": {
       "name": "Glow Up Sports",
       "slug": "glow-up-sports-qimo0pvm-ks03bklnmcri",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "runtimeVersion": {
         "policy": "appVersion"
       },
       "updates": {
-        "enabled": false
+        "enabled": false,
+        "fallbackToCacheTimeout": 0
       },
       "orientation": "portrait",
       "icon": "./assets/images/icon.png",
@@ -86,11 +87,11 @@
         "pluginHistory": {
           "expo-splash-screen": {
             "name": "expo-splash-screen",
-            "version": "31.0.11"
+            "version": "31.0.13"
           },
           "expo-web-browser": {
             "name": "expo-web-browser",
-            "version": "15.0.9"
+            "version": "15.0.10"
           }
         }
       },
@@ -117,6 +118,6 @@
       },
       "mainModuleName": "client/index"
     },
-    "scopeKey": "@anonymous/glow-up-sports-qimo0pvm-ks03bklnmcri-fefc97a7-4755-4805-85cf-7301053a31fd"
+    "scopeKey": "@anonymous/glow-up-sports-qimo0pvm-ks03bklnmcri-5183459d-c3b1-4263-a1eb-5315c8647c77"
   }
 }
