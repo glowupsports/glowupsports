@@ -291,14 +291,6 @@ interface DomainImpact {
   tactical: "up" | "stable" | "down";
 }
 
-type FeedbackPeriod = "today" | "yesterday" | "this_week" | "last_week" | "last_month";
-
-const FEEDBACK_PERIODS: { id: FeedbackPeriod; label: string }[] = [
-  { id: "today", label: "Today" },
-  { id: "this_week", label: "This Week" },
-  { id: "last_month", label: "Archive" },
-];
-
 // XP rewards for providing feedback (to motivate coaches)
 // Values based on session complexity and player count
 const FEEDBACK_XP_REWARDS: Record<string, number> = {
@@ -425,8 +417,6 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
   const [showSkillSelector, setShowSkillSelector] = useState<string | null>(null); // playerId for skill selector
   // Per-player skill group expansion state: { playerId: Set<groupKey> }
   const [playerExpandedSkillGroups, setPlayerExpandedSkillGroups] = useState<Record<string, Set<string>>>({});
-  // Time period filter
-  const [feedbackPeriod, setFeedbackPeriod] = useState<FeedbackPeriod>("today");
   // Status filter
   const [statusFilter, setStatusFilter] = useState<"all" | "complete" | "open" | "pending">("all");
 
@@ -667,120 +657,12 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
     }
   };
 
-  // Helper to get date range for each period
-  // For standalone tab: Returns full day/week ranges (including future)
-  const getDateRangeForPeriod = (period: FeedbackPeriod): { start: Date; end: Date } => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    switch (period) {
-      case "today":
-        // Full day - from start of today to start of tomorrow (includes future sessions today)
-        return { start: today, end: tomorrow };
-      case "yesterday": {
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-        return { start: yesterday, end: today };
-      }
-      case "this_week": {
-        const weekStart = new Date(today);
-        weekStart.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekEnd.getDate() + 7); // Full week including future
-        return { start: weekStart, end: weekEnd };
-      }
-      case "last_week": {
-        const thisWeekStart = new Date(today);
-        thisWeekStart.setDate(today.getDate() - today.getDay());
-        const lastWeekStart = new Date(thisWeekStart);
-        lastWeekStart.setDate(lastWeekStart.getDate() - 7);
-        return { start: lastWeekStart, end: thisWeekStart };
-      }
-      case "last_month": {
-        const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-        const lastMonthStart = new Date(thisMonthStart);
-        lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
-        return { start: lastMonthStart, end: thisMonthStart };
-      }
-      default:
-        return { start: today, end: tomorrow };
-    }
-  };
-
-  const filteredSessions = useMemo(() => {
-    if (!periodCalendarData?.ownSessions) return [];
-    const { start, end } = getDateRangeForPeriod(feedbackPeriod);
-    
-    return periodCalendarData.ownSessions
-      .filter((session: any) => {
-        const sessionDate = new Date(session.startTime);
-        // Only show standalone sessions (not part of a class/series)
-        const isStandalone = !session.seriesId;
-        return (
-          isStandalone &&
-          sessionDate >= start &&
-          sessionDate < end &&
-          session.status !== "cancelled"
-        );
-      })
-      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()); // Chronological order
-  }, [periodCalendarData?.ownSessions, feedbackPeriod]);
-
   // Helper to check if a session has feedback submitted (status is "completed")
   const hasSessionFeedback = (session: any) => session.status === "completed";
-
-  // Apply status filter
-  // "Done" = sessions with feedback submitted (status = "completed")
-  // "Open" = past sessions awaiting feedback (status = "scheduled" but end time passed)
-  const statusFilteredSessions = useMemo(() => {
-    if (statusFilter === "all") return filteredSessions;
-    return filteredSessions.filter((session) => {
-      const hasFeedback = hasSessionFeedback(session);
-      switch (statusFilter) {
-        case "complete":
-          return hasFeedback;
-        case "open":
-          return !hasFeedback;
-        case "pending":
-          return !hasFeedback;
-        default:
-          return true;
-      }
-    });
-  }, [filteredSessions, statusFilter]);
-
-  // Get counts for each status
-  const statusCounts = useMemo(() => {
-    const complete = filteredSessions.filter(s => hasSessionFeedback(s)).length;
-    const open = filteredSessions.filter(s => !hasSessionFeedback(s)).length;
-    return { complete, open, pending: open, all: filteredSessions.length };
-  }, [filteredSessions]);
-
-  // Calculate pending feedback count and total XP
-  const pendingFeedbackStats = useMemo(() => {
-    const pendingSessions = filteredSessions.filter(s => !hasSessionFeedback(s));
-    const totalXp = pendingSessions.reduce((sum, session) => {
-      return sum + (FEEDBACK_XP_REWARDS[session.sessionType] || FEEDBACK_XP_REWARDS.default);
-    }, 0);
-    return { count: pendingSessions.length, totalXp };
-  }, [filteredSessions]);
 
   // Get XP for a session type
   const getSessionXp = (sessionType: string): number => {
     return FEEDBACK_XP_REWARDS[sessionType] || FEEDBACK_XP_REWARDS.default;
-  };
-
-  const getPeriodLabel = (period: FeedbackPeriod): string => {
-    switch (period) {
-      case "today": return "Today's";
-      case "yesterday": return "Yesterday's";
-      case "this_week": return "This Week's";
-      case "last_week": return "Last Week's";
-      case "last_month": return "Last Month's";
-      default: return "";
-    }
   };
 
   const availableTags = ["Movement", "Forehand", "Backhand", "Serve", "Volley", "Mental", "Footwork"];
