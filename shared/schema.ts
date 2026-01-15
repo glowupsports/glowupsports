@@ -4349,6 +4349,42 @@ export const insertPlayerBaselineSchema = createInsertSchema(playerBaselines).om
 export type InsertPlayerBaseline = z.infer<typeof insertPlayerBaselineSchema>;
 export type PlayerBaseline = typeof playerBaselines.$inferSelect;
 
+// Player Baseline Skill Scores - Deep baseline assessment skill-by-skill
+// Stores detailed skill rubrics during one-time intake assessment
+export const playerBaselineSkillScores = pgTable("player_baseline_skill_scores", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  baselineId: varchar("baseline_id").references(() => playerBaselines.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  
+  // Skill identification
+  pillar: text("pillar").notNull(), // TECHNIQUE, MOVEMENT, TACTICAL, MENTAL, SOCIAL, MATCH
+  skillCategory: text("skill_category").notNull(), // e.g., forehand, backhand, serve, return, volley, overhead, footwork, rally_construction, etc.
+  
+  // Rating (0-3 rubric)
+  rating: integer("rating"), // 0=not_yet, 1=developing, 2=meets, 3=above, NULL=not observed
+  notObserved: boolean("not_observed").default(false), // Skip this skill for now
+  
+  // Evidence & notes
+  notes: text("notes"),
+  evidenceUrl: text("evidence_url"), // Link to video evidence
+  
+  // Context
+  coachId: varchar("coach_id").references(() => coaches.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("player_baseline_skills_baseline_idx").on(table.baselineId),
+  index("player_baseline_skills_player_idx").on(table.playerId),
+  index("player_baseline_skills_pillar_idx").on(table.pillar),
+]);
+
+export const insertPlayerBaselineSkillScoreSchema = createInsertSchema(playerBaselineSkillScores).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertPlayerBaselineSkillScore = z.infer<typeof insertPlayerBaselineSkillScoreSchema>;
+export type PlayerBaselineSkillScore = typeof playerBaselineSkillScores.$inferSelect;
+
 // Player Skill Scores - Time-series tracking of skill progress
 export const playerSkillScores = pgTable("player_skill_scores", {
   id: varchar("id")
