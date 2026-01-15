@@ -1568,7 +1568,7 @@ export const storage = {
     return db.select().from(players);
   },
   
-  async getAllPlayersWithCredits(academyId?: string): Promise<(Player & { remainingCredits: number; totalCredits: number })[]> {
+  async getAllPlayersWithCredits(academyId?: string): Promise<(Player & { remainingCredits: number; totalCredits: number; creditsByType: { private: number; group: number; semiPrivate: number }; primaryCreditType: string | null })[]> {
     const playerList = academyId 
       ? await db.select().from(players).where(eq(players.academyId, academyId))
       : await db.select().from(players);
@@ -1588,22 +1588,56 @@ export const storage = {
       .from(packages)
       .where(and(...packageConditions));
     
-    // Aggregate credits per player
-    const creditsByPlayer = new Map<string, { remaining: number; total: number }>();
+    // Aggregate credits per player with type breakdown
+    const creditsByPlayer = new Map<string, { 
+      remaining: number; 
+      total: number; 
+      byType: { private: number; group: number; semiPrivate: number };
+    }>();
     for (const pkg of activePackages) {
       const playerId = pkg.playerId;
       if (!playerId) continue;
-      const current = creditsByPlayer.get(playerId) || { remaining: 0, total: 0 };
+      const current = creditsByPlayer.get(playerId) || { 
+        remaining: 0, 
+        total: 0, 
+        byType: { private: 0, group: 0, semiPrivate: 0 }
+      };
       current.remaining += pkg.remainingCredits || 0;
       current.total += pkg.totalCredits || 0;
+      // Add to type breakdown
+      const pkgType = pkg.type as string;
+      if (pkgType === 'private') {
+        current.byType.private += pkg.remainingCredits || 0;
+      } else if (pkgType === 'group') {
+        current.byType.group += pkg.remainingCredits || 0;
+      } else if (pkgType === 'semi_private') {
+        current.byType.semiPrivate += pkg.remainingCredits || 0;
+      }
       creditsByPlayer.set(playerId, current);
     }
     
-    return playerList.map(player => ({
-      ...player,
-      remainingCredits: creditsByPlayer.get(player.id)?.remaining || 0,
-      totalCredits: creditsByPlayer.get(player.id)?.total || 0,
-    }));
+    return playerList.map(player => {
+      const credits = creditsByPlayer.get(player.id);
+      const byType = credits?.byType || { private: 0, group: 0, semiPrivate: 0 };
+      // Determine primary credit type (the one with most credits)
+      let primaryType: string | null = null;
+      if (byType.private > 0 || byType.group > 0 || byType.semiPrivate > 0) {
+        if (byType.private >= byType.group && byType.private >= byType.semiPrivate) {
+          primaryType = 'private';
+        } else if (byType.group >= byType.private && byType.group >= byType.semiPrivate) {
+          primaryType = 'group';
+        } else {
+          primaryType = 'semi_private';
+        }
+      }
+      return {
+        ...player,
+        remainingCredits: credits?.remaining || 0,
+        totalCredits: credits?.total || 0,
+        creditsByType: byType,
+        primaryCreditType: primaryType,
+      };
+    });
   },
 
   async getPlayersByAcademy(academyId: string): Promise<Player[]> {
