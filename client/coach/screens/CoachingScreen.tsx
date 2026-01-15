@@ -1642,10 +1642,15 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
                       const primaryBallLevel = players[0]?.ballLevel;
                       const ballLevelColor = getBallLevelColor(primaryBallLevel);
                       
+                      const sessionDate = session.sessionDate ? new Date(session.sessionDate) : null;
+                      const formattedDate = sessionDate 
+                        ? sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                        : null;
+                      
                       return (
                         <Pressable
                           key={session.id}
-                          onPress={() => needsFeedback && setSelectedSession(session)}
+                          onPress={() => setSelectedSession(session)}
                           style={[
                             styles.richSessionCard,
                             needsFeedback && styles.richSessionCardNeedsFeedback,
@@ -1670,6 +1675,12 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
                                 </Text>
                               </View>
                               <Text style={styles.richSessionDuration}>{session.duration}m</Text>
+                              {formattedDate ? (
+                                <View style={styles.sessionDateBadge}>
+                                  <Ionicons name="calendar-outline" size={10} color={Colors.dark.xpCyan} />
+                                  <Text style={styles.sessionDateText}>{formattedDate}</Text>
+                                </View>
+                              ) : null}
                             </View>
                             {primaryBallLevel ? (
                               <View style={[styles.ballLevelBadge, { backgroundColor: ballLevelColor + '20', borderColor: ballLevelColor }]}>
@@ -1727,12 +1738,12 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
                                   <Text style={styles.richCompletedText}>Completed</Text>
                                 </View>
                               )}
-                              {needsFeedback ? (
-                                <View style={styles.feedbackActionRow}>
-                                  <Text style={styles.feedbackActionText}>Add Feedback</Text>
-                                  <Ionicons name="chevron-forward" size={16} color={Colors.dark.gold} />
-                                </View>
-                              ) : null}
+                              <View style={styles.feedbackActionRow}>
+                                <Text style={[styles.feedbackActionText, !needsFeedback && { color: Colors.dark.xpCyan }]}>
+                                  {needsFeedback ? "Add Feedback" : "View Details"}
+                                </Text>
+                                <Ionicons name="chevron-forward" size={16} color={needsFeedback ? Colors.dark.gold : Colors.dark.xpCyan} />
+                              </View>
                             </View>
                           </View>
                         </Pressable>
@@ -3843,6 +3854,21 @@ const styles = StyleSheet.create({
   richSessionDuration: {
     fontSize: 11,
     color: Colors.dark.textMuted,
+  },
+  sessionDateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: Colors.dark.xpCyan + '15',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 'auto',
+  },
+  sessionDateText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.dark.xpCyan,
   },
   ballLevelBadge: {
     flexDirection: 'row',
