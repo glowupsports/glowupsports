@@ -202,6 +202,25 @@ export default function CreateSessionWizard({
       setIsRecurring(true);
     }
   }, [createSeriesMode, visible]);
+  
+  // Slide 2: When & Where
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedCourtId, setSelectedCourtId] = useState<string | null>(null);
+  const [duration, setDuration] = useState(60);
+  const [startTime, setStartTime] = useState<string | null>(null);
+  
+  // Slide 3: Session Setup
+  const [maxPlayers, setMaxPlayers] = useState(4);
+  const [ballLevel, setBallLevel] = useState<BallLevel | null>(null);
+  const [skillLevel, setSkillLevel] = useState<SkillLevel | null>(null);
+  const [isOpenGroup, setIsOpenGroup] = useState(true);
+  const [ballLevelOverride, setBallLevelOverride] = useState(false); // Manual override toggle
+  
+  // Slide 4: Players
+  const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
+  const [playerSearch, setPlayerSearch] = useState("");
+  const [visibleToPlayers, setVisibleToPlayers] = useState(true);
+  const [enableWaitlist, setEnableWaitlist] = useState(false);
 
   // Auto-select ball level based on selected players (unless manually overridden)
   useEffect(() => {
@@ -243,25 +262,6 @@ export default function CreateSessionWizard({
       setBallLevel(autoLevel);
     }
   }, [selectedPlayers, ballLevelOverride]);
-  
-  // Slide 2: When & Where
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedCourtId, setSelectedCourtId] = useState<string | null>(null);
-  const [duration, setDuration] = useState(60);
-  const [startTime, setStartTime] = useState<string | null>(null);
-  
-  // Slide 3: Session Setup
-  const [maxPlayers, setMaxPlayers] = useState(4);
-  const [ballLevel, setBallLevel] = useState<BallLevel | null>(null);
-  const [skillLevel, setSkillLevel] = useState<SkillLevel | null>(null);
-  const [isOpenGroup, setIsOpenGroup] = useState(true);
-  const [ballLevelOverride, setBallLevelOverride] = useState(false); // Manual override toggle
-  
-  // Slide 4: Players
-  const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
-  const [playerSearch, setPlayerSearch] = useState("");
-  const [visibleToPlayers, setVisibleToPlayers] = useState(true);
-  const [enableWaitlist, setEnableWaitlist] = useState(false);
   
   // Slide 5: Extras
   const [travelTime, setTravelTime] = useState(0);
