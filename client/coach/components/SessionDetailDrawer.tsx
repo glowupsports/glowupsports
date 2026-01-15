@@ -366,7 +366,10 @@ export default function SessionDetailDrawer({
     onSuccess: (data) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
-      setCancelResult(data);
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
+      setShowCancelConfirm(false);
+      onClose();
+      Alert.alert("Sessie Verwijderd", "De sessie is volledig verwijderd uit je kalender.");
     },
     onError: (error: Error) => {
       Alert.alert("Error", error.message || "Failed to cancel session");
