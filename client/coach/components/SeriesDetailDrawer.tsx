@@ -1008,41 +1008,70 @@ export default function SeriesDetailDrawer({
                         </Pressable>
                         {isMenuOpen ? (
                           <View style={styles.playerActionMenu}>
-                            <Pressable 
-                              onPress={() => handleEditJoinDate(player)}
-                              style={styles.playerActionItem}
+                            <LinearGradient
+                              colors={["rgba(30, 41, 59, 0.98)", "rgba(15, 23, 42, 0.98)"]}
+                              style={styles.playerActionMenuGradient}
                             >
-                              <Ionicons name="calendar-outline" size={18} color={Colors.dark.accentCyan} />
-                              <Text style={[styles.playerActionText, { color: Colors.dark.accentCyan }]}>Edit Join Date</Text>
-                            </Pressable>
-                            <Pressable 
-                              onPress={() => handlePausePlayer(player.id)}
-                              style={styles.playerActionItem}
-                              disabled={isPausing}
-                            >
-                              {isPausing ? (
-                                <ActivityIndicator size="small" color={Colors.dark.gold} />
-                              ) : (
-                                <>
-                                  <Ionicons name="pause-circle-outline" size={18} color={Colors.dark.gold} />
-                                  <Text style={[styles.playerActionText, { color: Colors.dark.gold }]}>Pause</Text>
-                                </>
-                              )}
-                            </Pressable>
-                            <Pressable 
-                              onPress={() => handleRemovePlayer(player.id)}
-                              style={styles.playerActionItem}
-                              disabled={isRemoving}
-                            >
-                              {isRemoving ? (
-                                <ActivityIndicator size="small" color={Colors.dark.error} />
-                              ) : (
-                                <>
-                                  <Ionicons name="person-remove-outline" size={18} color={Colors.dark.error} />
-                                  <Text style={[styles.playerActionText, { color: Colors.dark.error }]}>Remove</Text>
-                                </>
-                              )}
-                            </Pressable>
+                              <View style={styles.playerActionMenuHeader}>
+                                <Ionicons name="settings-outline" size={12} color={Colors.dark.textMuted} />
+                                <Text style={styles.playerActionMenuTitle}>Player Actions</Text>
+                              </View>
+                              <View style={styles.playerActionDivider} />
+                              <Pressable 
+                                onPress={() => handleEditJoinDate(player)}
+                                style={({ pressed }) => [
+                                  styles.playerActionItem,
+                                  pressed && styles.playerActionItemPressed,
+                                ]}
+                              >
+                                <View style={[styles.playerActionIconWrapper, { backgroundColor: Colors.dark.accentCyan + "20" }]}>
+                                  <Ionicons name="calendar" size={16} color={Colors.dark.accentCyan} />
+                                </View>
+                                <Text style={[styles.playerActionText, { color: Colors.dark.text }]}>Edit Join Date</Text>
+                                <Ionicons name="chevron-forward" size={14} color={Colors.dark.textMuted} />
+                              </Pressable>
+                              <Pressable 
+                                onPress={() => handlePausePlayer(player.id)}
+                                style={({ pressed }) => [
+                                  styles.playerActionItem,
+                                  pressed && styles.playerActionItemPressed,
+                                ]}
+                                disabled={isPausing}
+                              >
+                                {isPausing ? (
+                                  <ActivityIndicator size="small" color={Colors.dark.gold} />
+                                ) : (
+                                  <>
+                                    <View style={[styles.playerActionIconWrapper, { backgroundColor: Colors.dark.gold + "20" }]}>
+                                      <Ionicons name="pause" size={16} color={Colors.dark.gold} />
+                                    </View>
+                                    <Text style={[styles.playerActionText, { color: Colors.dark.text }]}>Pause Player</Text>
+                                    <Ionicons name="chevron-forward" size={14} color={Colors.dark.textMuted} />
+                                  </>
+                                )}
+                              </Pressable>
+                              <View style={styles.playerActionDivider} />
+                              <Pressable 
+                                onPress={() => handleRemovePlayer(player.id)}
+                                style={({ pressed }) => [
+                                  styles.playerActionItem,
+                                  styles.playerActionItemDanger,
+                                  pressed && styles.playerActionItemPressed,
+                                ]}
+                                disabled={isRemoving}
+                              >
+                                {isRemoving ? (
+                                  <ActivityIndicator size="small" color={Colors.dark.error} />
+                                ) : (
+                                  <>
+                                    <View style={[styles.playerActionIconWrapper, { backgroundColor: Colors.dark.error + "20" }]}>
+                                      <Ionicons name="person-remove" size={16} color={Colors.dark.error} />
+                                    </View>
+                                    <Text style={[styles.playerActionText, { color: Colors.dark.error }]}>Remove Player</Text>
+                                  </>
+                                )}
+                              </Pressable>
+                            </LinearGradient>
                           </View>
                         ) : null}
                       </View>
@@ -2275,7 +2304,11 @@ export default function SeriesDetailDrawer({
       >
         <View style={styles.overlay}>
           <Pressable style={styles.backdrop} onPress={() => setShowEditJoinDateModal(false)} />
-          <View style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+          <View 
+            style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg, zIndex: 2 }]}
+            onStartShouldSetResponder={() => true}
+            onResponderRelease={(e) => e.stopPropagation?.()}
+          >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit Join Date</Text>
               <Pressable onPress={() => setShowEditJoinDateModal(false)} style={styles.closeButton}>
@@ -2569,18 +2602,47 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 0,
     bottom: 40,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: Colors.dark.backgroundTertiary,
-    padding: Spacing.xs,
-    minWidth: 140,
+    minWidth: 180,
     zIndex: 100,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    shadowColor: Colors.dark.accentNeon,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  playerActionMenuGradient: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    padding: Spacing.sm,
+  },
+  playerActionMenuHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+  },
+  playerActionMenuTitle: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  playerActionDivider: {
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    marginVertical: Spacing.xs,
+  },
+  playerActionIconWrapper: {
+    width: 28,
+    height: 28,
+    borderRadius: BorderRadius.sm,
+    alignItems: "center",
+    justifyContent: "center",
   },
   playerActionItem: {
     flexDirection: "row",
@@ -2588,8 +2650,23 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  playerActionItemPressed: {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+  },
+  playerActionItemDanger: {
+    marginTop: Spacing.xs,
+  },
+  playerActionItemOld: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
   },
   playerActionText: {
+    flex: 1,
     fontSize: Typography.small.fontSize,
     fontWeight: "500",
   },
