@@ -249,11 +249,10 @@ export default function SeriesDetailDrawer({
     enabled: !!seriesId && visible,
   });
 
-  // Build display title with local time (startTime is stored as UTC, convert to local)
+  // Build display title - startTime is stored as LOCAL academy time (HH:MM), use directly
   const displayTitle = useMemo(() => {
     if (!series) return "";
-    const timezone = academy?.timezone || "Asia/Dubai";
-    const localStartTime = convertUTCTimeToLocal(series.startTime, timezone);
+    const localStartTime = series.startTime;
     
     const sessionTypeLabels: Record<string, string> = {
       private: "Private Lesson",

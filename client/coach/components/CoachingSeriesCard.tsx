@@ -65,11 +65,8 @@ export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
   const dayName = DAY_NAMES[series.dayOfWeek];
   const totalWeeks = series.weekCount || "Open";
   
-  // startTime is stored as UTC (HH:MM), convert to local academy time for display
-  const localStartTime = useMemo(() => {
-    const timezone = academy?.timezone || "Asia/Dubai";
-    return convertUTCTimeToLocal(series.startTime, timezone);
-  }, [series.startTime, academy?.timezone]);
+  // startTime is stored as LOCAL academy time (HH:MM), use directly
+  const localStartTime = series.startTime;
   
   // Build display title with correct local time (title in DB may have hardcoded UTC time)
   const displayTitle = useMemo(() => {
