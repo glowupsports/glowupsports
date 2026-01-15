@@ -2032,7 +2032,19 @@ export default function SeriesDetailDrawer({
                     })}
                     
                     {creditTypeHint ? (
-                      <Text style={styles.creditHint}>{creditTypeHint}</Text>
+                      <View style={styles.creditHintBox}>
+                        <Ionicons 
+                          name={presentCount === 1 ? "swap-horizontal" : "card-outline"} 
+                          size={16} 
+                          color={presentCount === 1 ? Colors.dark.gold : Colors.dark.accentCyan} 
+                        />
+                        <Text style={[
+                          styles.creditHint, 
+                          presentCount === 1 && styles.creditHintPrivate
+                        ]}>
+                          {creditTypeHint}
+                        </Text>
+                      </View>
                     ) : null}
                   </>
                 );
@@ -3470,11 +3482,26 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.error,
   },
+  creditHintBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.accentCyan + "30",
+  },
   creditHint: {
     fontSize: Typography.caption.fontSize,
-    color: Colors.dark.textMuted,
+    color: Colors.dark.accentCyan,
     textAlign: "center",
-    marginTop: Spacing.md,
+  },
+  creditHintPrivate: {
+    color: Colors.dark.gold,
   },
   deleteSeriesSection: {
     marginTop: Spacing.xl,
