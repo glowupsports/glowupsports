@@ -7118,8 +7118,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Enrich each series with player count, players preview, and sessions completed
       const enrichedSeries = await Promise.all(series.map(async (s) => {
-        const players = await storage.getSeriesPlayers(s.id);
-        const activePlayers = players.filter(p => p.status === "active");
+        // Use getSeriesPlayersWithDetails to get player names and ball levels
+        const activePlayers = await storage.getSeriesPlayersWithDetails(s.id);
         
         // Count completed sessions for this series
         const sessionsForSeries = await db
@@ -7158,14 +7158,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Get player preview data (first 4 players with names and ball levels)
         const playerPreview = activePlayers.slice(0, 4).map(p => ({
           id: p.playerId,
-          name: p.player?.name || "Unknown",
-          ballLevel: p.player?.ballLevel || null,
+          name: p.playerName || "Unknown",
+          ballLevel: p.playerBallLevel || null,
         }));
         
         // Get primary ball level (most common among players)
         const ballLevelCounts: Record<string, number> = {};
         activePlayers.forEach(p => {
-          const level = p.player?.ballLevel;
+          const level = p.playerBallLevel;
           if (level) {
             ballLevelCounts[level] = (ballLevelCounts[level] || 0) + 1;
           }

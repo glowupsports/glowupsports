@@ -419,6 +419,9 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
   const [playerExpandedSkillGroups, setPlayerExpandedSkillGroups] = useState<Record<string, Set<string>>>({});
   // Status filter
   const [statusFilter, setStatusFilter] = useState<"all" | "complete" | "open" | "pending">("all");
+  
+  // Track expanded state for day accordions (moved to top to fix hook order)
+  const [expandedDays, setExpandedDays] = useState<Set<string | number>>(new Set());
 
   const { data: sessionPlayers = [] } = useQuery<SessionPlayer[]>({
     queryKey: [`/api/coach/sessions/${selectedSession?.id}/players`],
@@ -685,6 +688,65 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
   const { data: domains = [] } = useQuery<SkillDomain[]>({
     queryKey: ["/api/progress/domains"],
   });
+  
+  // Filter STANDALONE sessions from the period calendar data (moved to top to fix hook order)
+  const periodSessions = useMemo(() => {
+    if (!periodCalendarData?.ownSessions) return [];
+    
+    return periodCalendarData.ownSessions
+      .filter((session: any) => {
+        const isStandalone = !session.seriesId;
+        return isStandalone && session.status !== "cancelled";
+      })
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  }, [periodCalendarData?.ownSessions]);
+  
+  // Apply status filter (moved to top to fix hook order)
+  const filteredPeriodSessions = useMemo(() => {
+    const hasSessionFeedbackCheck = (session: any) => session.status === "completed";
+    if (statusFilter === "all") return periodSessions;
+    return periodSessions.filter((session) => {
+      const hasFeedback = hasSessionFeedbackCheck(session);
+      switch (statusFilter) {
+        case "complete": return hasFeedback;
+        case "open": return !hasFeedback;
+        case "pending": return !hasFeedback;
+        default: return true;
+      }
+    });
+  }, [periodSessions, statusFilter]);
+  
+  // Group by day of week (for week view) or by date (for month view) - moved to top
+  const groupedByDay = useMemo(() => {
+    const groups: Record<number | string, any[]> = {};
+    for (const session of filteredPeriodSessions) {
+      const sessionDate = new Date(session.startTime);
+      const groupKey = viewPeriod === "week" 
+        ? sessionDate.getDay() 
+        : sessionDate.toISOString().split('T')[0];
+      if (!groups[groupKey]) groups[groupKey] = [];
+      groups[groupKey].push(session);
+    }
+    return groups;
+  }, [filteredPeriodSessions, viewPeriod]);
+  
+  // Sort keys - for week view these are numbers (0-6), for month view these are date strings
+  const sortedDays = useMemo(() => {
+    const keys = Object.keys(groupedByDay);
+    if (viewPeriod === "week") {
+      return keys.map(Number).sort((a, b) => a - b);
+    } else {
+      return keys.sort((a, b) => a.localeCompare(b));
+    }
+  }, [groupedByDay, viewPeriod]);
+  
+  // Period status counts (moved to top to fix hook order)
+  const periodStatusCounts = useMemo(() => {
+    const hasSessionFeedbackCheck = (session: any) => session.status === "completed";
+    const complete = periodSessions.filter(s => hasSessionFeedbackCheck(s)).length;
+    const open = periodSessions.filter(s => !hasSessionFeedbackCheck(s)).length;
+    return { complete, open, all: periodSessions.length };
+  }, [periodSessions]);
 
   const saveFeedbackMutation = useMutation({
     mutationFn: async (data: { sessionId: string; feedback: any }) => {
@@ -1352,63 +1414,6 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
   
   const isCurrentPeriod = periodOffset === 0;
   
-  // Filter STANDALONE sessions from the period calendar data
-  const periodSessions = useMemo(() => {
-    if (!periodCalendarData?.ownSessions) return [];
-    
-    return periodCalendarData.ownSessions
-      .filter((session: any) => {
-        // Only show standalone sessions (not part of a class/series)
-        const isStandalone = !session.seriesId;
-        return isStandalone && session.status !== "cancelled";
-      })
-      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-  }, [periodCalendarData?.ownSessions]);
-  
-  // Apply status filter
-  const filteredPeriodSessions = useMemo(() => {
-    if (statusFilter === "all") return periodSessions;
-    return periodSessions.filter((session) => {
-      const hasFeedback = hasSessionFeedback(session);
-      switch (statusFilter) {
-        case "complete": return hasFeedback;
-        case "open": return !hasFeedback;
-        case "pending": return !hasFeedback;
-        default: return true;
-      }
-    });
-  }, [periodSessions, statusFilter]);
-  
-  // Group by day of week (for week view) or by date (for month view)
-  const groupedByDay = useMemo(() => {
-    const groups: Record<number | string, any[]> = {};
-    for (const session of filteredPeriodSessions) {
-      const sessionDate = new Date(session.startTime);
-      // For week view: group by day of week (0-6)
-      // For month view: group by full date string for proper sorting
-      const groupKey = viewPeriod === "week" 
-        ? sessionDate.getDay() 
-        : sessionDate.toISOString().split('T')[0]; // YYYY-MM-DD
-      if (!groups[groupKey]) groups[groupKey] = [];
-      groups[groupKey].push(session);
-    }
-    return groups;
-  }, [filteredPeriodSessions, viewPeriod]);
-  
-  // Sort keys - for week view these are numbers (0-6), for month view these are date strings
-  const sortedDays = useMemo(() => {
-    const keys = Object.keys(groupedByDay);
-    if (viewPeriod === "week") {
-      return keys.map(Number).sort((a, b) => a - b);
-    } else {
-      // Sort date strings chronologically
-      return keys.sort((a, b) => a.localeCompare(b));
-    }
-  }, [groupedByDay, viewPeriod]);
-  
-  // Track expanded state with string keys to support both formats
-  const [expandedDays, setExpandedDays] = useState<Set<string | number>>(new Set());
-  
   const toggleDay = (day: string | number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setExpandedDays(prev => {
@@ -1418,12 +1423,6 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
       return next;
     });
   };
-  
-  const periodStatusCounts = useMemo(() => {
-    const complete = periodSessions.filter(s => hasSessionFeedback(s)).length;
-    const open = periodSessions.filter(s => !hasSessionFeedback(s)).length;
-    return { complete, open, all: periodSessions.length };
-  }, [periodSessions]);
   
   const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
