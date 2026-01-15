@@ -178,7 +178,7 @@ export default function SeriesDetailDrawer({
 }: SeriesDetailDrawerProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { academy } = useCoach();
+  const { academy, coach: currentCoach } = useCoach();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -2199,7 +2199,7 @@ export default function SeriesDetailDrawer({
             </Text>
 
             <ScrollView style={{ flex: 1, marginTop: Spacing.md }}>
-              {coaches.filter(c => c.id !== series?.id).map((coach) => (
+              {coaches.filter(c => c.id !== currentCoach?.id).map((coach) => (
                 <Pressable
                   key={coach.id}
                   style={[

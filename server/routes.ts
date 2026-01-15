@@ -3251,12 +3251,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         coachId: targetCoachId,
       });
 
-      // Update the time block to the new coach
-      await db
-        .update(coachTimeBlocks)
-        .set({ coachId: targetCoachId })
-        .where(eq(coachTimeBlocks.sessionId, id));
-
       // Create audit log
       await storage.createAuditLog({
         entityType: "session",
