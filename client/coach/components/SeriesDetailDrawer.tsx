@@ -220,6 +220,13 @@ export default function SeriesDetailDrawer({
   const [removeDate, setRemoveDate] = useState<Date>(new Date());
   const [showRemoveDatePicker, setShowRemoveDatePicker] = useState(false);
   
+  // Edit join date modal state
+  const [showEditJoinDateModal, setShowEditJoinDateModal] = useState(false);
+  const [editJoinDatePlayerId, setEditJoinDatePlayerId] = useState<string | null>(null);
+  const [editJoinDate, setEditJoinDate] = useState<Date>(new Date());
+  const [showEditJoinDatePicker, setShowEditJoinDatePicker] = useState(false);
+  const [savingJoinDate, setSavingJoinDate] = useState(false);
+  
   // Create package inline form state
   const [showCreatePackageForm, setShowCreatePackageForm] = useState(false);
   const [newPackageName, setNewPackageName] = useState("");
@@ -538,6 +545,40 @@ export default function SeriesDetailDrawer({
 
   const handleReactivatePlayer = (playerId: string) => {
     unpausePlayerMutation.mutate(playerId);
+  };
+
+  const handleEditJoinDate = (player: Player) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setEditJoinDatePlayerId(player.id);
+    setEditJoinDate(player.joinedAt ? new Date(player.joinedAt) : new Date());
+    setPlayerActionMenuId(null);
+    setShowEditJoinDateModal(true);
+  };
+
+  const handleSaveJoinDate = async () => {
+    if (!editJoinDatePlayerId || !seriesId) return;
+    setSavingJoinDate(true);
+    try {
+      const formatLocalDate = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+      
+      await apiRequest("PATCH", `/api/coach/series/${seriesId}/players/${editJoinDatePlayerId}/join-date`, {
+        joinDate: formatLocalDate(editJoinDate),
+      });
+      
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      setShowEditJoinDateModal(false);
+      setEditJoinDatePlayerId(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error("Error updating join date:", error);
+    } finally {
+      setSavingJoinDate(false);
+    }
   };
 
   // Get past sessions for attendance backfill
@@ -967,6 +1008,13 @@ export default function SeriesDetailDrawer({
                         </Pressable>
                         {isMenuOpen ? (
                           <View style={styles.playerActionMenu}>
+                            <Pressable 
+                              onPress={() => handleEditJoinDate(player)}
+                              style={styles.playerActionItem}
+                            >
+                              <Ionicons name="calendar-outline" size={18} color={Colors.dark.accentCyan} />
+                              <Text style={[styles.playerActionText, { color: Colors.dark.accentCyan }]}>Edit Join Date</Text>
+                            </Pressable>
                             <Pressable 
                               onPress={() => handlePausePlayer(player.id)}
                               style={styles.playerActionItem}
@@ -2211,6 +2259,83 @@ export default function SeriesDetailDrawer({
                   <ActivityIndicator size="small" color={Colors.dark.text} />
                 ) : (
                   <Text style={styles.confirmButtonText}>Remove Player</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Join Date Modal */}
+      <Modal
+        visible={showEditJoinDateModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEditJoinDateModal(false)}
+      >
+        <View style={styles.overlay}>
+          <Pressable style={styles.backdrop} onPress={() => setShowEditJoinDateModal(false)} />
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Join Date</Text>
+              <Pressable onPress={() => setShowEditJoinDateModal(false)} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+            
+            <Text style={styles.modalSubtitle}>
+              Change when this player joined the class. This affects which sessions they appear in for attendance.
+            </Text>
+
+            <View style={styles.dateField}>
+              <Text style={styles.fieldLabel}>Join Date</Text>
+              {Platform.OS === "web" ? (
+                <WebCalendarPicker
+                  value={editJoinDate}
+                  onChange={setEditJoinDate}
+                />
+              ) : (
+                <>
+                  <Pressable 
+                    style={styles.dateButton} 
+                    onPress={() => setShowEditJoinDatePicker(true)}
+                  >
+                    <Ionicons name="calendar-outline" size={18} color={Colors.dark.accentCyan} />
+                    <Text style={styles.dateButtonText}>
+                      {editJoinDate.toLocaleDateString()}
+                    </Text>
+                  </Pressable>
+                  {showEditJoinDatePicker ? (
+                    <DateTimePicker
+                      value={editJoinDate}
+                      mode="date"
+                      display="default"
+                      onChange={(e, date) => {
+                        setShowEditJoinDatePicker(false);
+                        if (date) setEditJoinDate(date);
+                      }}
+                    />
+                  ) : null}
+                </>
+              )}
+            </View>
+
+            <View style={styles.modalActions}>
+              <Pressable 
+                style={styles.cancelButton} 
+                onPress={() => setShowEditJoinDateModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable 
+                style={styles.confirmButton}
+                onPress={handleSaveJoinDate}
+                disabled={savingJoinDate}
+              >
+                {savingJoinDate ? (
+                  <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                ) : (
+                  <Text style={styles.confirmButtonText}>Save</Text>
                 )}
               </Pressable>
             </View>

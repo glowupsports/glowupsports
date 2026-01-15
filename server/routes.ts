@@ -7301,6 +7301,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update a player's join date
+  app.patch("/api/coach/series/:id/players/:playerId/join-date", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id, playerId } = req.params;
+      const { joinDate } = req.body;
+      const coachId = req.user!.coachId;
+      
+      if (!joinDate) {
+        return res.status(400).json({ error: "joinDate is required" });
+      }
+      
+      const existing = await storage.getCoachingSeriesById(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+      
+      if (existing.coachId !== coachId) {
+        return res.status(403).json({ error: "Not authorized to manage this class" });
+      }
+      
+      // Update the player's join date directly in the database
+      const updated = await db.update(seriesPlayers)
+        .set({ joinedAt: new Date(joinDate) })
+        .where(and(
+          eq(seriesPlayers.seriesId, id),
+          eq(seriesPlayers.playerId, playerId)
+        ))
+        .returning();
+      
+      if (!updated.length) {
+        return res.status(404).json({ error: "Player not found in this class" });
+      }
+      
+      res.json(updated[0]);
+    } catch (error) {
+      console.error("Error updating player join date:", error);
+      res.status(500).json({ error: "Failed to update join date" });
+    }
+  });
+
   // Link a package to a player's class membership (for credit consumption)
   app.post("/api/coach/series/:id/players/:playerId/link-package", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
