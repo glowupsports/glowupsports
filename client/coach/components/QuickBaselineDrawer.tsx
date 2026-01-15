@@ -43,6 +43,7 @@ interface LevelSuggestion {
   suggestedRank: number;
   confidenceScore: number;
   age: number;
+  isAdult: boolean;
 }
 
 const PILLAR_RATING_LABELS: Record<PillarRating, { label: string; color: string }> = {
@@ -61,8 +62,13 @@ const PILLARS = [
   { id: "match", name: "Match", icon: "trophy" as keyof typeof Ionicons.glyphMap, color: "#3B82F6" },
 ];
 
-const BALL_STAGES = ["RED", "ORANGE", "GREEN", "YELLOW"];
-const LEVEL_RANKS = [3, 2, 1];
+const CHILD_BALL_STAGES = ["BLUE", "RED", "ORANGE", "GREEN", "YELLOW"];
+const ADULT_BALL_STAGES = ["GLOW"];
+const CHILD_LEVEL_RANKS = [3, 2, 1];
+const ADULT_LEVEL_RANKS = [9, 8, 7, 6, 5, 4, 3, 2, 1];
+
+const getStagesForPlayer = (isAdult: boolean) => isAdult ? ADULT_BALL_STAGES : CHILD_BALL_STAGES;
+const getRanksForStage = (stage: string) => stage === "GLOW" ? ADULT_LEVEL_RANKS : CHILD_LEVEL_RANKS;
 
 const OVERRIDE_REASONS = [
   { value: "player_clearly_advanced", label: "Player clearly advanced" },
@@ -424,7 +430,7 @@ export default function QuickBaselineDrawer({
         
         <Text style={styles.selectLabel}>Select Starting Level</Text>
         <View style={styles.levelGrid}>
-          {BALL_STAGES.map((stage) => (
+          {getStagesForPlayer(suggestion?.isAdult || false).map((stage) => (
             <View key={stage} style={styles.stageColumn}>
               <View style={[
                 styles.stageBadge,
@@ -437,7 +443,7 @@ export default function QuickBaselineDrawer({
                   {stage}
                 </Text>
               </View>
-              {LEVEL_RANKS.map((rank) => {
+              {getRanksForStage(stage).map((rank) => {
                 const levelId = `${stage}_${rank}`;
                 const isSelected = confirmedLevel === levelId;
                 const isSuggested = suggestion?.suggestedLevelId === levelId;

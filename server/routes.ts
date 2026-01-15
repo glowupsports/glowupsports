@@ -5251,11 +5251,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       age = age || 10; // Default to 10 if no age data
+      const isAdult = age >= 18;
       
       // Auto-level suggestion based on age (recommended track)
+      // Blue: 2-4, Red: 4-8, Orange: 8-10, Green: 10-12, Yellow: 12-18, Glow: 18+
       let suggestedStage: string;
-      if (age < 4) {
-        suggestedStage = "RED";
+      if (isAdult) {
+        suggestedStage = "GLOW";
+      } else if (age < 4) {
+        suggestedStage = "BLUE";
       } else if (age < 8) {
         suggestedStage = "RED";
       } else if (age < 10) {
@@ -5267,21 +5271,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Adjust based on intake questions
-      let suggestedRank = 3; // Start at entry level (rank 3)
+      // GLOW has ranks 9→1, others have 3→1
+      let suggestedRank = isAdult ? 9 : 3; // Start at entry level
       let confidenceScore = 50;
       
       // Tennis experience adjustment
       if (tennisExperience === "18m+") {
-        suggestedRank = Math.max(1, suggestedRank - 1); // Move up within stage
+        if (isAdult) {
+          suggestedRank = Math.max(5, suggestedRank - 2); // Adults move faster with experience
+        } else {
+          suggestedRank = Math.max(1, suggestedRank - 1);
+        }
         confidenceScore += 15;
       } else if (tennisExperience === "6-18m") {
-        suggestedRank = Math.max(2, suggestedRank);
+        if (isAdult) {
+          suggestedRank = Math.max(7, suggestedRank - 1);
+        } else {
+          suggestedRank = Math.max(2, suggestedRank);
+        }
         confidenceScore += 10;
       }
       
       // Competition experience adjustment
       if (playsCompetition === "often") {
-        suggestedRank = Math.max(1, suggestedRank - 1);
+        if (isAdult) {
+          suggestedRank = Math.max(3, suggestedRank - 2);
+        } else {
+          suggestedRank = Math.max(1, suggestedRank - 1);
+        }
         confidenceScore += 15;
       } else if (playsCompetition === "sometimes") {
         confidenceScore += 10;
@@ -5290,8 +5307,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Rally ability
       if (canRallyFive === true) {
         confidenceScore += 10;
+        // If can rally but in BLUE, ready for RED
+        if (suggestedStage === "BLUE" && tennisExperience !== "0-6m") {
+          suggestedStage = "RED";
+          suggestedRank = 3;
+        }
         // If can rally but in RED, might be ready for ORANGE
-        if (suggestedStage === "RED" && tennisExperience !== "0-6m") {
+        else if (suggestedStage === "RED" && tennisExperience !== "0-6m") {
           suggestedStage = "ORANGE";
           suggestedRank = 3;
         }
@@ -5300,14 +5322,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Serve ability
       if (serveAbility === "consistent") {
         confidenceScore += 10;
-        suggestedRank = Math.max(1, suggestedRank - 1);
+        if (isAdult) {
+          suggestedRank = Math.max(1, suggestedRank - 2);
+        } else {
+          suggestedRank = Math.max(1, suggestedRank - 1);
+        }
       } else if (serveAbility === "basic") {
         confidenceScore += 5;
       }
       
       confidenceScore = Math.min(100, confidenceScore);
       
-      // Construct level ID (e.g., "RED_3", "ORANGE_2")
+      // Construct level ID (e.g., "RED_3", "GLOW_9")
       const suggestedLevelId = `${suggestedStage}_${suggestedRank}`;
       
       res.json({
@@ -5316,6 +5342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         suggestedRank,
         confidenceScore,
         age,
+        isAdult,
         inputsUsed: { tennisExperience, playsCompetition, canRallyFive, serveAbility },
       });
     } catch (error) {

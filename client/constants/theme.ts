@@ -62,6 +62,7 @@ export const Colors = {
     disabled: "#666666",
     headerBorder: "rgba(46, 204, 64, 0.3)",
     // Player ball level colors
+    ballBlue: "#4FC3F7",
     ballRed: "#FF4444",
     ballOrange: "#FF851B",
     ballGreen: "#2ECC40",
@@ -104,6 +105,7 @@ export const Colors = {
     disabled: "#A0A4A8",
     headerBorder: "rgba(46, 204, 64, 0.3)",
     // Player ball level colors
+    ballBlue: "#4FC3F7",
     ballRed: "#FF4444",
     ballOrange: "#FF851B",
     ballGreen: "#2ECC40",
@@ -134,6 +136,8 @@ export const Colors = {
 // Get avatar color based on player ball level
 export function getPlayerLevelColor(ballLevel?: string | null): string {
   switch (ballLevel?.toLowerCase()) {
+    case "blue":
+      return Colors.dark.ballBlue;
     case "red":
       return Colors.dark.ballRed;
     case "orange":
