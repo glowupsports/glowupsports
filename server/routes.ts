@@ -2817,6 +2817,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const recurringGroupId = sessionsToCreate > 1 ? crypto.randomUUID() : null;
       const createdSessions = [];
       const skippedWeeks: number[] = [];
+      
+      // Create coaching_series for recurring sessions (so they appear in Classes view)
+      let seriesId: string | null = null;
+      if (sessionsToCreate > 1 && academyId && coachId) {
+        const dayOfWeek = start.getUTCDay(); // 0=Sunday, 1=Monday, etc.
+        const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const sessionTypeLabels: Record<string, string> = {
+          private: "Private Lesson",
+          semi_private: "Semi-Private",
+          group: "Group Session",
+        };
+        const seriesTitle = `${sessionTypeLabels[sessionType] || sessionType} - ${dayNames[dayOfWeek]} ${startTimeStr}`;
+        const seriesStartDate = dateStr;
+        
+        // Calculate end date based on weekCount
+        const seriesEndDate = new Date(start.getTime() + (sessionsToCreate - 1) * 7 * 24 * 60 * 60 * 1000);
+        const seriesEndDateStr = seriesEndDate.toISOString().split('T')[0];
+        
+        const series = await storage.createCoachingSeries({
+          academyId,
+          coachId,
+          courtId: courtId || null,
+          locationId: locationId || null,
+          title: seriesTitle,
+          dayOfWeek,
+          startTime: startTimeStr,
+          duration,
+          sessionType,
+          ballLevel: ballLevel || null,
+          skillLevel: skillLevel || null,
+          maxPlayers: sessionType === "private" ? 1 : sessionType === "semi_private" ? 2 : 4,
+          weekCount: sessionsToCreate,
+          seriesStartDate,
+          seriesEndDate: seriesEndDateStr,
+          status: "active",
+        });
+        seriesId = series.id;
+        
+        // Add players to series if provided
+        if (playerIds && Array.isArray(playerIds)) {
+          for (const playerId of playerIds) {
+            await storage.addPlayerToSeries({
+              seriesId: series.id,
+              playerId,
+              status: "active",
+            });
+          }
+        }
+      }
 
       for (let week = 0; week < sessionsToCreate; week++) {
         const weekStart = new Date(start.getTime() + week * 7 * 24 * 60 * 60 * 1000);
@@ -2872,6 +2921,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           travelTime: travelTime || 0,
           paymentStatus: "unpaid",
           status: "scheduled",
+          seriesId: seriesId || undefined,
+          weekNumber: seriesId ? week + 1 : undefined,
           ...pricingSnapshot,
         });
 
