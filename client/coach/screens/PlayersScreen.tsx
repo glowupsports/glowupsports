@@ -30,7 +30,7 @@ import Animated, {
   withTiming,
   interpolate,
 } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, FontSizes, getPlayerLevelColor } from "@/constants/theme";
 import { apiRequest, getStaticAssetsUrl, getApiUrl } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -1852,8 +1852,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.orange + "40",
   },
   baselineNeededText: {
-    fontSize: Typography.sizes.xs,
-    fontWeight: Typography.weights.medium as any,
+    fontSize: FontSizes.xs,
+    fontWeight: "500",
     color: Colors.dark.orange,
   },
   gamingXpContainer: {

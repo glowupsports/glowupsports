@@ -3173,9 +3173,26 @@ export const storage = {
   },
 
   async deleteCoachingSeries(id: string): Promise<void> {
-    // First delete all series players
+    // Get all session IDs for this series first
+    const seriesSessions = await db
+      .select({ id: sessions.id })
+      .from(sessions)
+      .where(eq(sessions.seriesId, id));
+    
+    const sessionIds = seriesSessions.map(s => s.id);
+    
+    // Delete session_players for all sessions in this series
+    if (sessionIds.length > 0) {
+      await db.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
+    }
+    
+    // Delete all sessions for this series
+    await db.delete(sessions).where(eq(sessions.seriesId, id));
+    
+    // Delete all series players
     await db.delete(seriesPlayers).where(eq(seriesPlayers.seriesId, id));
-    // Then delete the series
+    
+    // Finally delete the series itself
     await db.delete(coachingSeries).where(eq(coachingSeries.id, id));
   },
 
