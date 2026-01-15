@@ -5830,12 +5830,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
 
-      // Get all session_players records with session details
+      // Get all session_players records with LEFT JOIN to sessions (handles orphaned/missing sessions)
       const attendanceRecords = await db
         .select({
           sessionId: sessionPlayers.sessionId,
           attendanceStatus: sessionPlayers.attendanceStatus,
           lateMinutes: sessionPlayers.lateMinutes,
+          createdAt: sessionPlayers.createdAt,
           sessionDate: sessions.date,
           sessionStartTime: sessions.startTime,
           sessionEndTime: sessions.endTime,
@@ -5844,20 +5845,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           courtId: sessions.courtId,
         })
         .from(sessionPlayers)
-        .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
-        .where(eq(sessionPlayers.playerId, playerId))
-        .orderBy(desc(sessions.date), desc(sessions.startTime));
+        .leftJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+        .where(eq(sessionPlayers.playerId, playerId));
 
-      // Format for frontend
-      const history = attendanceRecords.map(record => ({
+      // Sort by session date (if available) or createdAt timestamp
+      const sortedRecords = attendanceRecords.sort((a, b) => {
+        const dateA = a.sessionDate ? new Date(a.sessionDate) : (a.createdAt ? new Date(a.createdAt) : new Date(0));
+        const dateB = b.sessionDate ? new Date(b.sessionDate) : (b.createdAt ? new Date(b.createdAt) : new Date(0));
+        return dateB.getTime() - dateA.getTime();
+      });
+
+      // Format for frontend - include records even if session details are missing
+      const history = sortedRecords.map(record => ({
         sessionId: record.sessionId,
-        date: record.sessionDate,
-        startTime: record.sessionStartTime,
-        endTime: record.sessionEndTime,
-        sessionType: record.sessionType,
+        date: record.sessionDate || (record.createdAt ? new Date(record.createdAt).toISOString().split('T')[0] : null),
+        startTime: record.sessionStartTime || null,
+        endTime: record.sessionEndTime || null,
+        sessionType: record.sessionType || "group",
         status: record.attendanceStatus,
         lateMinutes: record.lateMinutes,
-        sessionStatus: record.sessionStatus,
+        sessionStatus: record.sessionStatus || "completed",
       }));
 
       res.json(history);
