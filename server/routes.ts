@@ -3201,6 +3201,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Transfer session to another coach
+  app.post("/api/coach/sessions/:id/transfer", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const currentCoachId = req.user!.coachId;
+      const academyId = req.user!.academyId!;
+      const { targetCoachId, reason } = req.body;
+
+      if (!targetCoachId) {
+        return res.status(400).json({ error: "Target coach ID is required" });
+      }
+
+      if (targetCoachId === currentCoachId) {
+        return res.status(400).json({ error: "Cannot transfer to yourself" });
+      }
+
+      // Get the session
+      const session = await storage.getSession(id, academyId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      // Verify current coach owns this session
+      if (session.coachId !== currentCoachId) {
+        return res.status(403).json({ error: "Not authorized to transfer this session" });
+      }
+
+      // Verify target coach exists and is in the same academy
+      const targetCoach = await storage.getCoach(targetCoachId);
+      if (!targetCoach) {
+        return res.status(404).json({ error: "Target coach not found" });
+      }
+
+      // Check if target coach has a conflict at this time
+      const conflict = await storage.checkCoachConflict(
+        targetCoachId,
+        session.startTime,
+        session.endTime,
+        id,
+        academyId
+      );
+      if (conflict) {
+        return res.status(409).json({ error: "Target coach has a scheduling conflict at this time" });
+      }
+
+      // Transfer the session by updating coachId
+      const updated = await storage.updateSession(id, {
+        coachId: targetCoachId,
+      });
+
+      // Update the time block to the new coach
+      await db
+        .update(coachTimeBlocks)
+        .set({ coachId: targetCoachId })
+        .where(eq(coachTimeBlocks.sessionId, id));
+
+      // Create audit log
+      await storage.createAuditLog({
+        entityType: "session",
+        entityId: id,
+        action: "transfer",
+        performedBy: currentCoachId!,
+        details: { 
+          fromCoachId: currentCoachId, 
+          toCoachId: targetCoachId,
+          reason: reason || "Session transferred to another coach"
+        },
+      });
+
+      // Broadcast update to both coaches
+      if (academyId) {
+        broadcastSessionUpdate(academyId, {
+          sessionId: id,
+          type: "transferred",
+          fromCoachId: currentCoachId,
+          toCoachId: targetCoachId,
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        message: `Session transferred to ${targetCoach.name}`,
+        session: updated 
+      });
+    } catch (error) {
+      console.error("Error transferring session:", error);
+      res.status(500).json({ error: "Failed to transfer session" });
+    }
+  });
+
   // Extend session
   app.post("/api/coach/sessions/:id/extend", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
