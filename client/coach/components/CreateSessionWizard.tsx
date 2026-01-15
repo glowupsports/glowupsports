@@ -49,7 +49,38 @@ interface Player {
   level?: string | number | null;
   skillLevel?: number | null;
   profilePhotoUrl?: string | null;
+  totalXp?: number | null;
+  glowBattlePower?: number | null;
+  streak?: number | null;
 }
+
+// Pillar configuration for display
+const PILLARS = [
+  { key: "technique", label: "Tech", color: Colors.dark.primary, icon: "tennisball" as const },
+  { key: "tactical", label: "Tact", color: Colors.dark.xpCyan, icon: "bulb" as const },
+  { key: "physical", label: "Phys", color: Colors.dark.gold, icon: "fitness" as const },
+  { key: "mental", label: "Ment", color: "#9B59B6", icon: "flash" as const },
+  { key: "social", label: "Soc", color: "#FF6B9D", icon: "people" as const },
+  { key: "match", label: "Match", color: Colors.dark.orange, icon: "trophy" as const },
+];
+
+// Format ball level display
+const formatBallLevel = (ballLevel?: string | null, skillLevel?: number | null): string => {
+  if (!ballLevel) return "Not Set";
+  const levelName = ballLevel.charAt(0).toUpperCase() + ballLevel.slice(1);
+  if (skillLevel && skillLevel >= 1 && skillLevel <= 3) {
+    return `${levelName} ${skillLevel}`;
+  }
+  return levelName;
+};
+
+// Get XP progress percentage within current level
+const getXpProgress = (totalXp: number, level: number): number => {
+  // Simple XP thresholds per level (would need to match backend config)
+  const xpPerLevel = 100 + (level - 1) * 50;
+  const currentLevelXp = totalXp % xpPerLevel;
+  return Math.min((currentLevelXp / xpPerLevel) * 100, 100);
+};
 
 interface Coach {
   id: string;
@@ -1205,6 +1236,102 @@ export default function CreateSessionWizard({
     );
   };
 
+  // Render player summary card for Session Setup slide
+  const renderPlayerSummaryCard = (player: Player) => {
+    const xpLevel = typeof player.level === "number" ? player.level : parseInt(String(player.level)) || 1;
+    const totalXp = player.totalXp || 0;
+    const xpProgress = getXpProgress(totalXp, xpLevel);
+    const glowPower = player.glowBattlePower || 0;
+    const ballLevelColor = BALL_LEVELS.find(b => b.value === player.ballLevel)?.color || Colors.dark.disabled;
+
+    return (
+      <View key={player.id} style={styles.playerSummaryCard}>
+        <LinearGradient
+          colors={[ballLevelColor + "15", Colors.dark.backgroundSecondary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.playerSummaryGradient}
+        >
+          {/* Header Row: Avatar, Name, Ball Level Badge */}
+          <View style={styles.playerSummaryHeader}>
+            <View style={styles.playerSummaryAvatar}>
+              {player.profilePhotoUrl ? (
+                <Image 
+                  source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }} 
+                  style={styles.playerSummaryAvatarImage} 
+                />
+              ) : (
+                <View style={[styles.playerSummaryAvatarPlaceholder, { backgroundColor: ballLevelColor + "30" }]}>
+                  <Text style={[styles.playerSummaryAvatarText, { color: ballLevelColor }]}>
+                    {player.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.playerSummaryNameRow}>
+              <Text style={styles.playerSummaryName} numberOfLines={1}>{player.name}</Text>
+              <View style={[styles.ballLevelBadge, { backgroundColor: ballLevelColor }]}>
+                <Text style={styles.ballLevelBadgeText}>
+                  {formatBallLevel(player.ballLevel, player.skillLevel)}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* XP Level Row */}
+          <View style={styles.xpLevelRow}>
+            <View style={styles.xpLevelLeft}>
+              <Ionicons name="star" size={14} color={Colors.dark.gold} />
+              <Text style={styles.xpLevelText}>Level {xpLevel}</Text>
+            </View>
+            <View style={styles.xpProgressContainer}>
+              <View style={styles.xpProgressBar}>
+                <View style={[styles.xpProgressFill, { width: `${xpProgress}%` }]} />
+              </View>
+              <Text style={styles.xpText}>{totalXp} XP</Text>
+            </View>
+          </View>
+
+          {/* 6 Pillars Mini-Bar */}
+          <View style={styles.pillarsRow}>
+            <Text style={styles.pillarsLabel}>Glow Power</Text>
+            <View style={styles.pillarsContainer}>
+              {PILLARS.map((pillar, index) => {
+                // Distribute glow power across 6 pillars (0-100 each, max 600 total)
+                const pillarScore = Math.min(100, Math.floor(glowPower / 6));
+                return (
+                  <View key={pillar.key} style={styles.pillarItem}>
+                    <View style={[styles.pillarBar, { backgroundColor: pillar.color + "30" }]}>
+                      <View 
+                        style={[
+                          styles.pillarBarFill, 
+                          { 
+                            backgroundColor: pillar.color,
+                            height: `${pillarScore}%` 
+                          }
+                        ]} 
+                      />
+                    </View>
+                    <Text style={styles.pillarLabel}>{pillar.label}</Text>
+                  </View>
+                );
+              })}
+            </View>
+            <Text style={styles.glowPowerText}>{glowPower}</Text>
+          </View>
+
+          {/* Streak Badge if present */}
+          {player.streak && player.streak > 0 ? (
+            <View style={styles.streakBadge}>
+              <Ionicons name="flame" size={12} color={Colors.dark.orange} />
+              <Text style={styles.streakText}>{player.streak} day streak</Text>
+            </View>
+          ) : null}
+        </LinearGradient>
+      </View>
+    );
+  };
+
   // SLIDE 3: Session Setup
   const renderSessionSetupSlide = () => {
     const showMaxPlayers = sessionType !== "private";
@@ -1214,6 +1341,26 @@ export default function CreateSessionWizard({
     return (
       <View style={styles.slideContent}>
         <Text style={styles.slideSubtitle}>Configure your {SESSION_TYPE_CARDS.find(t => t.value === sessionType)?.label} session</Text>
+
+        {/* Selected Players Summary Cards */}
+        {selectedPlayers.length > 0 && (
+          <View style={styles.playerSummarySection}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionLabel}>Selected Players</Text>
+              <View style={styles.playerCountBadge}>
+                <Text style={styles.playerCountText}>{selectedPlayers.length}</Text>
+              </View>
+            </View>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.playerSummaryScroll}
+              contentContainerStyle={styles.playerSummaryScrollContent}
+            >
+              {selectedPlayers.map(renderPlayerSummaryCard)}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Max Players */}
         {showMaxPlayers && (
@@ -2287,7 +2434,191 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
 
-  // Session Setup
+  // Session Setup - Player Summary Cards
+  playerSummarySection: {
+    marginBottom: Spacing.lg,
+  },
+  playerSummaryScroll: {
+    marginTop: Spacing.sm,
+  },
+  playerSummaryScrollContent: {
+    paddingRight: Spacing.md,
+    gap: Spacing.md,
+  },
+  playerSummaryCard: {
+    width: 200,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  playerSummaryGradient: {
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.border + "50",
+  },
+  playerSummaryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  playerSummaryAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    overflow: "hidden",
+  },
+  playerSummaryAvatarImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  playerSummaryAvatarPlaceholder: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playerSummaryAvatarText: {
+    ...Typography.h4,
+    fontWeight: "700",
+  },
+  playerSummaryNameRow: {
+    flex: 1,
+    gap: 4,
+  },
+  playerSummaryName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  ballLevelBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  ballLevelBadgeText: {
+    ...Typography.caption,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
+    fontSize: 10,
+  },
+  xpLevelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border + "30",
+  },
+  xpLevelLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  xpLevelText: {
+    ...Typography.caption,
+    color: Colors.dark.gold,
+    fontWeight: "600",
+  },
+  xpProgressContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  xpProgressBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  xpProgressFill: {
+    height: "100%",
+    backgroundColor: Colors.dark.gold,
+    borderRadius: 2,
+  },
+  xpText: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+    fontSize: 10,
+  },
+  pillarsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  pillarsLabel: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+    fontSize: 9,
+  },
+  pillarsContainer: {
+    flexDirection: "row",
+    flex: 1,
+    gap: 3,
+  },
+  pillarItem: {
+    flex: 1,
+    alignItems: "center",
+    gap: 2,
+  },
+  pillarBar: {
+    width: "100%",
+    height: 24,
+    borderRadius: 3,
+    justifyContent: "flex-end",
+    overflow: "hidden",
+  },
+  pillarBarFill: {
+    width: "100%",
+    borderRadius: 3,
+  },
+  pillarLabel: {
+    ...Typography.caption,
+    fontSize: 7,
+    color: Colors.dark.tabIconDefault,
+  },
+  glowPowerText: {
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+    fontWeight: "700",
+    fontSize: 11,
+  },
+  streakBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+    alignSelf: "flex-start",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    backgroundColor: Colors.dark.orange + "20",
+    borderRadius: BorderRadius.sm,
+  },
+  streakText: {
+    ...Typography.caption,
+    color: Colors.dark.orange,
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  playerCountBadge: {
+    backgroundColor: Colors.dark.primary + "30",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  playerCountText: {
+    ...Typography.caption,
+    color: Colors.dark.primary,
+    fontWeight: "700",
+  },
+
+  // Session Setup - Options
   optionRow: {
     flexDirection: "row",
     flexWrap: "wrap",
