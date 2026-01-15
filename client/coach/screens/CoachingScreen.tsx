@@ -710,10 +710,10 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
   };
 
   const filteredSessions = useMemo(() => {
-    if (!calendarData?.ownSessions) return [];
+    if (!periodCalendarData?.ownSessions) return [];
     const { start, end } = getDateRangeForPeriod(feedbackPeriod);
     
-    return calendarData.ownSessions
+    return periodCalendarData.ownSessions
       .filter((session: any) => {
         const sessionDate = new Date(session.startTime);
         // Only show standalone sessions (not part of a class/series)
@@ -726,7 +726,7 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
         );
       })
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()); // Chronological order
-  }, [calendarData?.ownSessions, feedbackPeriod]);
+  }, [periodCalendarData?.ownSessions, feedbackPeriod]);
 
   // Helper to check if a session has feedback submitted (status is "completed")
   const hasSessionFeedback = (session: any) => session.status === "completed";
