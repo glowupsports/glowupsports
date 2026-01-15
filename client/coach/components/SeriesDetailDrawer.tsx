@@ -192,7 +192,6 @@ export default function SeriesDetailDrawer({
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [selectedSession, setSelectedSession] = useState<SessionInstance | null>(null);
   const [sessionAttendance, setSessionAttendance] = useState<Record<string, "present" | "absent" | "vacation">>({});
-  const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [cancellingSession, setCancellingSession] = useState(false);
   const [editingMaxPlayers, setEditingMaxPlayers] = useState(false);
@@ -625,44 +624,49 @@ export default function SeriesDetailDrawer({
 
   const handleSessionPress = async (session: SessionInstance) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
-    // Open modal IMMEDIATELY with loading state
     setSelectedSession(session);
-    setLoadingAttendance(true);
-    setShowAttendanceModal(true);
     
+    const initialAttendance: Record<string, "present" | "absent" | "vacation"> = {};
     const sessionDate = new Date(session.startTime);
+    
+    // Filter players who were active at the session date (including former players who were active then)
     const activePlayers = (series?.players || []).filter(p => isPlayerActiveForSession(p, sessionDate));
     
-    // Set initial attendance to "present" for all players immediately
-    const initialAttendance: Record<string, "present" | "absent" | "vacation"> = {};
-    activePlayers.forEach(p => {
-      initialAttendance[p.id] = "present";
-    });
-    setSessionAttendance(initialAttendance);
-    
-    // Then fetch saved attendance in background to override defaults
+    // First, fetch existing attendance records from the API (source of truth)
+    // Add timestamp to prevent 304 caching and get fresh data
+    let savedStatuses: Record<string, "present" | "absent" | "vacation"> = {};
     try {
       const response = await apiRequest("GET", `/api/coach/sessions/${session.id}/players?t=${Date.now()}`);
       const sessionPlayers = await response.json() as Array<{ playerId: string; attendanceStatus: string }>;
       
+      console.log("[AttendanceLoad] Raw API response:", JSON.stringify(sessionPlayers));
+      
+      // Build a map of saved statuses from the API
       if (Array.isArray(sessionPlayers)) {
-        const updatedAttendance = { ...initialAttendance };
         sessionPlayers.forEach(sp => {
           if (sp.playerId && sp.attendanceStatus) {
             const status = sp.attendanceStatus;
             if (status === "present" || status === "absent" || status === "vacation") {
-              updatedAttendance[sp.playerId] = status;
+              savedStatuses[sp.playerId] = status;
+              console.log("[AttendanceLoad] Mapped", sp.playerId, "->", status);
             }
           }
         });
-        setSessionAttendance(updatedAttendance);
       }
+      console.log("[AttendanceLoad] Saved statuses map:", savedStatuses);
     } catch (error) {
       console.error("Error loading attendance:", error);
-    } finally {
-      setLoadingAttendance(false);
     }
+    
+    // Now build initialAttendance: use saved status if exists, otherwise default to present
+    activePlayers.forEach(p => {
+      const lookupStatus = savedStatuses[p.id];
+      console.log("[AttendanceLoad] Player", p.name, "lookup:", lookupStatus, "-> final:", lookupStatus || "present");
+      initialAttendance[p.id] = lookupStatus || "present";
+    });
+    
+    setSessionAttendance(initialAttendance);
+    setShowAttendanceModal(true);
   };
 
   const handleSetAttendance = (playerId: string, status: "present" | "absent" | "vacation") => {
@@ -1862,13 +1866,9 @@ export default function SeriesDetailDrawer({
             </View>
 
             <ScrollView style={{ flex: 1 }}>
-              {loadingAttendance ? (
-                <View style={{ paddingVertical: Spacing.xl, alignItems: "center" }}>
-                  <ActivityIndicator size="small" color={Colors.dark.successNeon} />
-                  <Text style={{ color: Colors.dark.textSecondary, marginTop: Spacing.sm }}>Loading...</Text>
-                </View>
-              ) : (() => {
+              {(() => {
                 const sessionDate = selectedSession ? new Date(selectedSession.startTime) : new Date();
+                // Filter players who were active at the session date (including former players who were active then)
                 const activePlayers = (series?.players || []).filter(p => isPlayerActiveForSession(p, sessionDate));
                 const presentCount = Object.values(sessionAttendance).filter(s => s === "present").length;
                 const sessionType = series?.sessionType || "group";
