@@ -17,7 +17,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
-import { Card } from "@/components/Card";
 
 type CreditType = "group" | "private" | "semi_private";
 
@@ -244,16 +243,30 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
   };
 
   return (
-    <Card style={styles.card}>
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Ionicons name="ticket-outline" size={20} color={Colors.dark.gold} />
-          <Text style={styles.title}>Packages</Text>
-        </View>
-        <Pressable onPress={() => setShowAddModal(true)} style={styles.addButton}>
-          <Ionicons name="add" size={20} color={Colors.dark.primary} />
-        </Pressable>
-      </View>
+    <View style={styles.cardWrapper}>
+      <LinearGradient
+        colors={[Colors.dark.gold + "40", Colors.dark.primary + "20", "transparent"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.cardBorder}
+      >
+        <View style={styles.card}>
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <View style={styles.headerIconContainer}>
+                <Ionicons name="ticket" size={20} color={Colors.dark.gold} />
+              </View>
+              <Text style={styles.title}>Packages</Text>
+            </View>
+            <Pressable onPress={() => setShowAddModal(true)} style={styles.addButton}>
+              <LinearGradient
+                colors={[Colors.dark.primary + "30", Colors.dark.xpCyan + "20"]}
+                style={styles.addButtonGradient}
+              >
+                <Ionicons name="add" size={20} color={Colors.dark.primary} />
+              </LinearGradient>
+            </Pressable>
+          </View>
 
       <View style={styles.summaryRow}>
         <View style={styles.summaryItem}>
@@ -599,13 +612,36 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
           </View>
         </View>
       </Modal>
-    </Card>
+        </View>
+      </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  cardWrapper: {
     marginBottom: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.gold,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+      },
+      default: {},
+    }),
+  },
+  cardBorder: {
+    borderRadius: BorderRadius.lg,
+    padding: 1,
+  },
+  card: {
+    backgroundColor: "rgba(20,20,20,0.95)",
+    borderRadius: BorderRadius.lg,
     padding: Spacing.md,
   },
   header: {
@@ -619,30 +655,47 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
   },
+  headerIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.gold + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   title: {
     ...Typography.h4,
     color: Colors.dark.text,
+    fontWeight: "700",
   },
   addButton: {
-    padding: Spacing.xs,
-    backgroundColor: Colors.dark.primary + "20",
-    borderRadius: BorderRadius.sm,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  addButtonGradient: {
+    padding: Spacing.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: BorderRadius.md,
   },
   summaryRow: {
     flexDirection: "row",
-    gap: Spacing.lg,
-    marginBottom: Spacing.md,
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
   },
   summaryItem: {
     flex: 1,
     alignItems: "center",
     padding: Spacing.md,
-    backgroundColor: Colors.dark.backgroundTertiary,
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "30",
   },
   summaryValue: {
     ...Typography.h2,
     color: Colors.dark.gold,
+    fontWeight: "700",
   },
   debtValue: {
     color: Colors.dark.error,
@@ -676,18 +729,30 @@ const styles = StyleSheet.create({
   },
   packageItem: {
     padding: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(30,30,30,0.9)",
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: Colors.dark.border,
+    borderColor: Colors.dark.border + "50",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+      default: {},
+    }),
   },
   packageItemDepleted: {
-    opacity: 0.6,
-    borderColor: Colors.dark.disabled,
+    opacity: 0.65,
+    borderColor: Colors.dark.disabled + "30",
   },
   packageItemExpired: {
-    opacity: 0.6,
-    borderColor: Colors.dark.error + "40",
+    opacity: 0.65,
+    borderColor: Colors.dark.error + "30",
   },
   packageHeader: {
     flexDirection: "row",
@@ -729,14 +794,14 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   progressBarBackground: {
-    height: 6,
-    backgroundColor: Colors.dark.backgroundTertiary,
-    borderRadius: 3,
+    height: 8,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: 4,
     overflow: "hidden",
   },
   progressBarFill: {
     height: "100%",
-    borderRadius: 3,
+    borderRadius: 4,
   },
   packageFooter: {
     flexDirection: "row",
