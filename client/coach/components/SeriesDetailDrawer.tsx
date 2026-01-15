@@ -2131,55 +2131,76 @@ export default function SeriesDetailDrawer({
         <View style={styles.overlay}>
           <Pressable style={styles.backdrop} onPress={() => setShowRestoreModal(false)} />
           <View 
-            style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}
+            style={[styles.restoreModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}
             onStartShouldSetResponder={() => true}
           >
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Restore Session</Text>
-              <Pressable onPress={() => setShowRestoreModal(false)} style={styles.closeButton}>
-                <Ionicons name="close" size={24} color={Colors.dark.text} />
+            <LinearGradient
+              colors={[Colors.dark.accentCyan + "15", "transparent"]}
+              style={styles.restoreModalGlow}
+            />
+            
+            <View style={styles.restoreModalHeader}>
+              <View style={styles.restoreModalTitleRow}>
+                <Ionicons name="refresh-circle" size={28} color={Colors.dark.accentCyan} />
+                <Text style={styles.restoreModalTitle}>Restore Session</Text>
+              </View>
+              <Pressable 
+                onPress={() => setShowRestoreModal(false)} 
+                style={styles.restoreCloseButton}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={24} color="#FFFFFF" />
               </Pressable>
             </View>
             
             {selectedSession ? (
               <View style={styles.restoreSessionContent}>
-                <View style={styles.restoreSessionIcon}>
+                <View style={styles.restoreSessionCard}>
                   <LinearGradient
-                    colors={[Colors.dark.accentCyan + "30", Colors.dark.accentCyan + "10"]}
-                    style={styles.restoreIconGradient}
+                    colors={[Colors.dark.accentCyan + "25", Colors.dark.accentCyan + "08"]}
+                    style={styles.restoreSessionCardGradient}
                   >
-                    <Ionicons name="refresh" size={32} color={Colors.dark.accentCyan} />
+                    <View style={styles.restoreSessionIconContainer}>
+                      <Ionicons name="calendar" size={36} color={Colors.dark.accentCyan} />
+                    </View>
+                    
+                    <Text style={styles.restoreSessionDate}>
+                      {formatDate(selectedSession.startTime)}
+                    </Text>
+                    <Text style={styles.restoreSessionWeek}>
+                      Week {selectedSession.weekNumber || "?"}
+                    </Text>
                   </LinearGradient>
                 </View>
                 
-                <Text style={styles.restoreSessionDate}>
-                  {formatDate(selectedSession.startTime)}
-                </Text>
-                <Text style={styles.restoreSessionWeek}>
-                  Week {selectedSession.weekNumber || "?"}
-                </Text>
-                
                 <Text style={styles.restoreSessionDescription}>
-                  This session was cancelled. Would you like to restore it so you can mark attendance?
+                  Restore this cancelled session to mark attendance
                 </Text>
                 
                 <Pressable
                   style={({ pressed }) => [
                     styles.restoreButton,
                     pressed && styles.restoreButtonPressed,
-                    restoringSession && styles.saveButtonDisabled,
+                    restoringSession && styles.restoreButtonDisabled,
                   ]}
                   onPress={handleRestoreSession}
                   disabled={restoringSession}
                 >
-                  {restoringSession ? (
-                    <ActivityIndicator size="small" color={Colors.dark.background} />
-                  ) : (
-                    <>
-                      <Ionicons name="checkmark-circle" size={20} color={Colors.dark.background} />
-                      <Text style={styles.restoreButtonText}>Restore Session</Text>
-                    </>
-                  )}
+                  <LinearGradient
+                    colors={[Colors.dark.successNeon, Colors.dark.accentGreen]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.restoreButtonGradient}
+                  >
+                    {restoringSession ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />
+                        <Text style={styles.restoreButtonText}>Restore Session</Text>
+                      </>
+                    )}
+                  </LinearGradient>
                 </Pressable>
               </View>
             ) : null}
@@ -3593,60 +3614,120 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.error,
   },
-  restoreSessionContent: {
-    alignItems: "center",
-    paddingVertical: Spacing.lg,
+  restoreModalContent: {
+    backgroundColor: Colors.dark.cardBackground,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.dark.accentCyan + "30",
+    borderBottomWidth: 0,
   },
-  restoreSessionIcon: {
+  restoreModalGlow: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 100,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+  },
+  restoreModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: Spacing.lg,
   },
-  restoreIconGradient: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  restoreModalTitleRow: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: Colors.dark.accentCyan + "40",
+    gap: Spacing.sm,
   },
-  restoreSessionDate: {
+  restoreModalTitle: {
     fontSize: Typography.h2.fontSize,
     fontWeight: "700",
-    color: Colors.dark.text,
+    color: "#FFFFFF",
+  },
+  restoreCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.surface + "80",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  restoreSessionContent: {
+    alignItems: "center",
+    paddingVertical: Spacing.md,
+  },
+  restoreSessionCard: {
+    width: "100%",
+    marginBottom: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.dark.accentCyan + "40",
+  },
+  restoreSessionCardGradient: {
+    padding: Spacing.xl,
+    alignItems: "center",
+  },
+  restoreSessionIconContainer: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: Colors.dark.accentCyan + "20",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.md,
+    borderWidth: 2,
+    borderColor: Colors.dark.accentCyan + "50",
+  },
+  restoreSessionDate: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#FFFFFF",
     marginBottom: Spacing.xs,
   },
   restoreSessionWeek: {
     fontSize: Typography.body.fontSize,
-    color: Colors.dark.textMuted,
-    marginBottom: Spacing.lg,
+    fontWeight: "600",
+    color: Colors.dark.accentCyan,
   },
   restoreSessionDescription: {
     fontSize: Typography.body.fontSize,
-    color: Colors.dark.textSecondary,
+    fontWeight: "500",
+    color: "#FFFFFF",
     textAlign: "center",
     lineHeight: 22,
     marginBottom: Spacing.xl,
     paddingHorizontal: Spacing.md,
   },
   restoreButton: {
+    width: "100%",
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  restoreButtonGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.dark.accentCyan,
-    borderRadius: BorderRadius.md,
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.md + 2,
     paddingHorizontal: Spacing.xl,
-    minWidth: 200,
   },
   restoreButtonPressed: {
-    opacity: 0.8,
+    opacity: 0.85,
     transform: [{ scale: 0.98 }],
+  },
+  restoreButtonDisabled: {
+    opacity: 0.5,
   },
   restoreButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "700",
-    color: Colors.dark.background,
+    color: "#FFFFFF",
   },
   creditHintBox: {
     flexDirection: "row",
