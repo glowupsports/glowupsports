@@ -712,7 +712,10 @@ export default function CreateSessionWizard({
       } else {
         endpoint = adminMode ? "/api/admin/sessions" : "/api/coach/sessions";
       }
-      return apiRequest("POST", endpoint, sessionData);
+      console.log("[CreateSession] Calling API:", endpoint, sessionData);
+      const response = await apiRequest("POST", endpoint, sessionData);
+      console.log("[CreateSession] API response received");
+      return response;
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -751,17 +754,22 @@ export default function CreateSessionWizard({
 
   // Handle create session
   const handleCreate = useCallback(() => {
+    console.log("[CreateSession] handleCreate called", { isOffline, adminMode, effectiveCoach: effectiveCoach?.id, selectedCourtId, startTime, createSeriesMode });
+    
     if (isOffline) {
+      console.log("[CreateSession] Blocked: offline");
       showOfflineAlert();
       return;
     }
 
     if (adminMode && !effectiveCoach?.id) {
+      console.log("[CreateSession] Blocked: no coach selected in admin mode");
       Alert.alert("Error", "Please select a coach");
       return;
     }
 
     if (!selectedCourtId || !startTime) {
+      console.log("[CreateSession] Blocked: missing court or time", { selectedCourtId, startTime });
       Alert.alert("Error", "Please select a court and time");
       return;
     }
@@ -802,6 +810,7 @@ export default function CreateSessionWizard({
         isRecurring: true,
       };
 
+      console.log("[CreateSession] Creating series with data:", JSON.stringify(seriesData, null, 2));
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       createSessionMutation.mutate(seriesData);
       return;
