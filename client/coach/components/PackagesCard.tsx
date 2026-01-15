@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,12 +9,14 @@ import {
   Alert,
   Platform,
   ScrollView,
+  LayoutAnimation,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import Animated, { FadeInDown, FadeIn, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 
@@ -51,6 +53,21 @@ const CREDIT_TYPE_LABELS: Record<CreditType, string> = {
   semi_private: "Semi-Private",
 };
 
+const CREDIT_TYPE_ICONS: Record<CreditType, string> = {
+  group: "people",
+  private: "person",
+  semi_private: "people-outline",
+};
+
+const BUNDLE_OPTIONS = [1, 5, 10, 20] as const;
+
+const BUNDLE_DISCOUNTS: Record<number, number> = {
+  1: 0,
+  5: 5,
+  10: 10,
+  20: 15,
+};
+
 export default function PackagesCard({ playerId, playerName }: PackagesCardProps) {
   const queryClient = useQueryClient();
   const [showAddModal, setShowAddModal] = useState(false);
@@ -64,6 +81,23 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
   const [packageToDelete, setPackageToDelete] = useState<Package | null>(null);
   const [showForceDeleteModal, setShowForceDeleteModal] = useState(false);
   const [forceDeleteInfo, setForceDeleteInfo] = useState<{ packageId: string; creditsUsed: number } | null>(null);
+  
+  // Credit Store accordion state
+  const [expandedType, setExpandedType] = useState<CreditType | null>(null);
+  const [selectedBundle, setSelectedBundle] = useState<{ type: CreditType; amount: number } | null>(null);
+  
+  const toggleCreditType = useCallback((type: CreditType) => {
+    if (Platform.OS !== "web") {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
+    if (expandedType === type) {
+      setExpandedType(null);
+      setSelectedBundle(null);
+    } else {
+      setExpandedType(type);
+      setSelectedBundle(null);
+    }
+  }, [expandedType]);
 
   const { data: packages = [], isLoading } = useQuery<Package[]>({
     queryKey: [`/api/players/${playerId}/packages`],
@@ -98,6 +132,30 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
     if (isNaN(credits) || credits <= 0) return 0;
     return pricePerCredit * credits;
   }, [totalCredits, pricePerCredit]);
+  
+  // Calculate bundle pricing with discounts
+  const getBundlePrice = useCallback((type: CreditType, amount: number) => {
+    const basePrice = pricing.find((p) => p.sessionType === type);
+    if (!basePrice) return { total: 0, perCredit: 0, discount: 0, originalTotal: 0 };
+    const pricePerSession = Number(basePrice.pricePerSession);
+    const originalTotal = pricePerSession * amount;
+    const discount = BUNDLE_DISCOUNTS[amount] || 0;
+    const discountedTotal = originalTotal * (1 - discount / 100);
+    const discountedPerCredit = discountedTotal / amount;
+    return { 
+      total: discountedTotal, 
+      perCredit: discountedPerCredit, 
+      discount, 
+      originalTotal,
+      currency: basePrice.currency || "AED"
+    };
+  }, [pricing]);
+  
+  const getTypeColor = (type: CreditType) => {
+    return type === "private" ? Colors.dark.sessionPrivate 
+      : type === "semi_private" ? Colors.dark.sessionSemiPrivate 
+      : Colors.dark.sessionGroup;
+  };
 
   const activePackages = packages.filter(
     (p) => p.remainingCredits > 0 && (!p.expiryDate || new Date(p.expiryDate) >= new Date())
@@ -205,6 +263,29 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
       purchasedAt: isPaid ? purchaseDate.toISOString() : undefined,
       expiryMonths: isNaN(months) || months <= 0 ? 12 : months,
     });
+  };
+  
+  const handleSelectBundle = (type: CreditType, amount: number) => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setSelectedBundle({ type, amount });
+  };
+  
+  const handleAddBundle = () => {
+    if (!selectedBundle) return;
+    
+    createMutation.mutate({
+      playerId,
+      totalCredits: selectedBundle.amount,
+      creditType: selectedBundle.type,
+      purchasedAt: undefined, // Create as pending invoice
+      expiryMonths: 12,
+    });
+    
+    // Reset state after adding
+    setSelectedBundle(null);
+    setExpandedType(null);
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
@@ -389,139 +470,156 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
       <Modal visible={showAddModal} animationType="fade" transparent>
         <View style={styles.modalOverlay}>
           <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalScrollContent}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Add Package for {playerName}</Text>
-
-              <Text style={styles.inputLabel}>Credit Type</Text>
-              <View style={styles.creditTypeSelector}>
-                {(["group", "private", "semi_private"] as CreditType[]).map((type) => (
-                  <Pressable
-                    key={type}
-                    style={[
-                      styles.creditTypeOption,
-                      creditType === type && styles.creditTypeOptionActive,
-                    ]}
-                    onPress={() => setCreditType(type)}
-                  >
-                    <Text
-                      style={[
-                        styles.creditTypeOptionText,
-                        creditType === type && styles.creditTypeOptionTextActive,
-                      ]}
-                    >
-                      {CREDIT_TYPE_LABELS[type]}
-                    </Text>
-                    {pricePerCredit > 0 && creditType === type ? (
-                      <Text style={styles.creditTypePrice}>
-                        {currency} {pricing.find((p) => p.sessionType === type)?.pricePerSession}/credit
-                      </Text>
-                    ) : null}
-                  </Pressable>
-                ))}
+            <View style={styles.creditStoreContent}>
+              <View style={styles.creditStoreHeader}>
+                <View style={styles.creditStoreIconContainer}>
+                  <Ionicons name="storefront" size={24} color={Colors.dark.gold} />
+                </View>
+                <View>
+                  <Text style={styles.creditStoreTitle}>Credit Store</Text>
+                  <Text style={styles.creditStoreSubtitle}>Add credits for {playerName}</Text>
+                </View>
+                <Pressable 
+                  onPress={() => {
+                    setShowAddModal(false);
+                    setExpandedType(null);
+                    setSelectedBundle(null);
+                  }} 
+                  style={styles.closeButton}
+                >
+                  <Ionicons name="close" size={24} color={Colors.dark.tabIconDefault} />
+                </Pressable>
               </View>
 
-              <Text style={styles.inputLabel}>Number of Credits</Text>
-              <TextInput
-                style={styles.input}
-                value={totalCredits}
-                onChangeText={setTotalCredits}
-                keyboardType="number-pad"
-                placeholder="10"
-                placeholderTextColor={Colors.dark.tabIconDefault}
-              />
-
-              <Text style={styles.inputLabel}>Validity (months)</Text>
-              <TextInput
-                style={styles.input}
-                value={expiryMonths}
-                onChangeText={setExpiryMonths}
-                keyboardType="number-pad"
-                placeholder="12"
-                placeholderTextColor={Colors.dark.tabIconDefault}
-              />
-
-              <Pressable 
-                style={styles.paidToggleRow}
-                onPress={() => setIsPaid(!isPaid)}
-              >
-                <View style={[styles.checkbox, isPaid && styles.checkboxChecked]}>
-                  {isPaid ? <Ionicons name="checkmark" size={14} color={Colors.dark.backgroundRoot} /> : null}
-                </View>
-                <Text style={styles.paidToggleText}>Payment already received</Text>
-              </Pressable>
-              
-              {isPaid ? (
-                <>
-                  <Text style={styles.inputLabel}>Payment Date</Text>
-                  {Platform.OS === "web" ? (
-                    <TextInput
-                      style={styles.input}
-                      value={purchaseDate.toISOString().split("T")[0]}
-                      onChangeText={(text) => {
-                        const date = new Date(text);
-                        if (!isNaN(date.getTime()) && date <= new Date()) {
-                          setPurchaseDate(date);
-                        }
-                      }}
-                      placeholder="YYYY-MM-DD"
-                      placeholderTextColor={Colors.dark.tabIconDefault}
-                    />
-                  ) : (
-                    <>
+              <View style={styles.accordionContainer}>
+                {(["group", "semi_private", "private"] as CreditType[]).map((type) => {
+                  const isExpanded = expandedType === type;
+                  const typeColor = getTypeColor(type);
+                  const basePrice = pricing.find((p) => p.sessionType === type);
+                  const pricePerSession = basePrice ? Number(basePrice.pricePerSession) : 0;
+                  const currencySymbol = basePrice?.currency || "AED";
+                  
+                  return (
+                    <View key={type} style={styles.accordionItem}>
                       <Pressable 
-                        style={styles.datePickerButton}
-                        onPress={() => setShowDatePicker(true)}
+                        style={[
+                          styles.accordionHeader, 
+                          isExpanded && styles.accordionHeaderExpanded,
+                          { borderLeftColor: typeColor }
+                        ]} 
+                        onPress={() => toggleCreditType(type)}
                       >
-                        <Ionicons name="calendar-outline" size={18} color={Colors.dark.primary} />
-                        <Text style={styles.datePickerText}>{formatDate(purchaseDate)}</Text>
-                      </Pressable>
-                      {showDatePicker ? (
-                        <DateTimePicker
-                          value={purchaseDate}
-                          mode="date"
-                          display={Platform.OS === "ios" ? "spinner" : "default"}
-                          onChange={handleDateChange}
-                          maximumDate={new Date()}
-                          themeVariant="dark"
+                        <View style={styles.accordionHeaderLeft}>
+                          <View style={[styles.accordionIcon, { backgroundColor: typeColor + "20" }]}>
+                            <Ionicons 
+                              name={CREDIT_TYPE_ICONS[type] as any} 
+                              size={20} 
+                              color={typeColor} 
+                            />
+                          </View>
+                          <View>
+                            <Text style={styles.accordionTitle}>{CREDIT_TYPE_LABELS[type]}</Text>
+                            <Text style={styles.accordionPrice}>
+                              {pricePerSession > 0 ? `${currencySymbol} ${pricePerSession}/credit` : "Not configured"}
+                            </Text>
+                          </View>
+                        </View>
+                        <Ionicons 
+                          name={isExpanded ? "chevron-up" : "chevron-down"} 
+                          size={20} 
+                          color={Colors.dark.tabIconDefault} 
                         />
+                      </Pressable>
+                      
+                      {isExpanded ? (
+                        <Animated.View 
+                          entering={FadeInDown.duration(200)} 
+                          style={styles.bundleGrid}
+                        >
+                          {BUNDLE_OPTIONS.map((amount) => {
+                            const bundlePrice = getBundlePrice(type, amount);
+                            const isSelected = selectedBundle?.type === type && selectedBundle?.amount === amount;
+                            
+                            return (
+                              <Pressable 
+                                key={amount} 
+                                style={[
+                                  styles.bundleCard,
+                                  isSelected && styles.bundleCardSelected,
+                                  isSelected && { borderColor: typeColor }
+                                ]}
+                                onPress={() => handleSelectBundle(type, amount)}
+                              >
+                                <View style={styles.bundleAmount}>
+                                  <Text style={[styles.bundleNumber, isSelected && { color: typeColor }]}>
+                                    {amount}
+                                  </Text>
+                                  <Text style={styles.bundleLabel}>credits</Text>
+                                </View>
+                                
+                                {bundlePrice.discount > 0 ? (
+                                  <View style={[styles.discountBadge, { backgroundColor: typeColor }]}>
+                                    <Text style={styles.discountText}>-{bundlePrice.discount}%</Text>
+                                  </View>
+                                ) : null}
+                                
+                                <View style={styles.bundlePricing}>
+                                  {bundlePrice.discount > 0 ? (
+                                    <Text style={styles.originalPrice}>
+                                      {bundlePrice.currency} {bundlePrice.originalTotal.toFixed(0)}
+                                    </Text>
+                                  ) : null}
+                                  <Text style={[styles.bundleTotal, isSelected && { color: typeColor }]}>
+                                    {bundlePrice.currency} {bundlePrice.total.toFixed(0)}
+                                  </Text>
+                                  <Text style={styles.perCreditPrice}>
+                                    {bundlePrice.currency} {bundlePrice.perCredit.toFixed(0)}/ea
+                                  </Text>
+                                </View>
+                                
+                                {isSelected ? (
+                                  <View style={[styles.selectedIndicator, { backgroundColor: typeColor }]}>
+                                    <Ionicons name="checkmark" size={14} color={Colors.dark.backgroundRoot} />
+                                  </View>
+                                ) : null}
+                              </Pressable>
+                            );
+                          })}
+                        </Animated.View>
                       ) : null}
-                    </>
-                  )}
-                </>
-              ) : (
-                <Text style={styles.pendingInvoiceNote}>
-                  A pending invoice will be created for the player to pay
-                </Text>
-              )}
+                    </View>
+                  );
+                })}
+              </View>
 
-              {calculatedTotal > 0 ? (
-                <View style={styles.totalSection}>
-                  <Text style={styles.totalLabel}>Invoice Total</Text>
-                  <Text style={styles.totalValue}>
-                    {currency} {calculatedTotal.toFixed(2)}
-                  </Text>
-                </View>
+              {selectedBundle ? (
+                <Animated.View entering={FadeIn.duration(200)} style={styles.selectedSummary}>
+                  <View style={styles.summaryDetails}>
+                    <Text style={styles.summaryLabel}>Selected:</Text>
+                    <Text style={styles.summaryText}>
+                      {selectedBundle.amount}x {CREDIT_TYPE_LABELS[selectedBundle.type]} Credits
+                    </Text>
+                    <Text style={[styles.summaryTotal, { color: getTypeColor(selectedBundle.type) }]}>
+                      {getBundlePrice(selectedBundle.type, selectedBundle.amount).currency}{" "}
+                      {getBundlePrice(selectedBundle.type, selectedBundle.amount).total.toFixed(2)}
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={handleAddBundle}
+                    disabled={createMutation.isPending}
+                    style={[styles.addBundleButton, { backgroundColor: getTypeColor(selectedBundle.type) }]}
+                  >
+                    <Text style={styles.addBundleButtonText}>
+                      {createMutation.isPending ? "Adding..." : "Add Credits"}
+                    </Text>
+                    <Ionicons name="arrow-forward" size={18} color={Colors.dark.backgroundRoot} />
+                  </Pressable>
+                </Animated.View>
               ) : null}
 
-              <View style={styles.modalButtons}>
-                <Pressable onPress={() => setShowAddModal(false)} style={styles.cancelButton}>
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </Pressable>
-                <Pressable
-                  onPress={handleAddPackage}
-                  disabled={createMutation.isPending}
-                  style={styles.confirmButton}
-                >
-                  <LinearGradient
-                    colors={[Colors.dark.primary, Colors.dark.primary]}
-                    style={styles.confirmGradient}
-                  >
-                    <Text style={styles.confirmButtonText}>
-                      {createMutation.isPending ? "Adding..." : "Add Package"}
-                    </Text>
-                  </LinearGradient>
-                </Pressable>
-              </View>
+              <Text style={styles.creditStoreNote}>
+                Credits expire after 12 months. A pending invoice will be created.
+              </Text>
             </View>
           </ScrollView>
         </View>
@@ -1070,5 +1168,210 @@ const styles = StyleSheet.create({
     ...Typography.h2,
     color: Colors.dark.gold,
     marginTop: Spacing.xs,
+  },
+  
+  // Credit Store Styles
+  creditStoreContent: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.xl,
+    overflow: "hidden",
+  },
+  creditStoreHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.headerBorder,
+  },
+  creditStoreIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.dark.gold + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  creditStoreTitle: {
+    ...Typography.h4,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  creditStoreSubtitle: {
+    ...Typography.small,
+    color: Colors.dark.tabIconDefault,
+    marginTop: 2,
+  },
+  closeButton: {
+    marginLeft: "auto",
+    padding: Spacing.sm,
+  },
+  accordionContainer: {
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  accordionItem: {
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderWidth: 1,
+    borderColor: Colors.dark.headerBorder,
+  },
+  accordionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: Spacing.md,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.dark.primary,
+  },
+  accordionHeaderExpanded: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.headerBorder,
+  },
+  accordionHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  accordionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  accordionTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  accordionPrice: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+    marginTop: 2,
+  },
+  bundleGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  bundleCard: {
+    width: "48%",
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
+    borderColor: "transparent",
+    alignItems: "center",
+    position: "relative",
+  },
+  bundleCardSelected: {
+    backgroundColor: Colors.dark.primary + "10",
+  },
+  bundleAmount: {
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  bundleNumber: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+    fontWeight: "700",
+    fontSize: 28,
+  },
+  bundleLabel: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+  },
+  discountBadge: {
+    position: "absolute",
+    top: Spacing.sm,
+    right: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  discountText: {
+    ...Typography.caption,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
+    fontSize: 10,
+  },
+  bundlePricing: {
+    alignItems: "center",
+  },
+  originalPrice: {
+    ...Typography.small,
+    color: Colors.dark.tabIconDefault,
+    textDecorationLine: "line-through",
+  },
+  bundleTotal: {
+    ...Typography.body,
+    color: Colors.dark.gold,
+    fontWeight: "700",
+  },
+  perCreditPrice: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+    marginTop: 2,
+  },
+  selectedIndicator: {
+    position: "absolute",
+    top: -1,
+    left: -1,
+    width: 24,
+    height: 24,
+    borderBottomRightRadius: BorderRadius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  selectedSummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: Spacing.md,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  summaryDetails: {
+    flex: 1,
+  },
+  summaryText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  summaryTotal: {
+    ...Typography.body,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  addBundleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  addBundleButtonText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
+  },
+  creditStoreNote: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+    textAlign: "center",
+    padding: Spacing.md,
+    paddingTop: Spacing.sm,
   },
 });
