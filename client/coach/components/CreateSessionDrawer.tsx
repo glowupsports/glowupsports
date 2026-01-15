@@ -324,6 +324,7 @@ export default function CreateSessionDrawer({
           return typeof key === 'string' && key.startsWith('/api/coach/calendar');
         }
       });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
       onClose();
       resetForm();
       
