@@ -3286,7 +3286,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 120,
     right: Spacing.lg,
-    backgroundColor: Colors.dark.cardBackground + "E0",
+    backgroundColor: Colors.dark.backgroundSecondary + "E0",
     padding: Spacing.sm,
     borderRadius: BorderRadius.round,
     borderWidth: 1,

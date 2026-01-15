@@ -3833,12 +3833,15 @@ const styles = StyleSheet.create({
     color: Colors.dark.accentCyan,
   },
   transferModalContent: {
-    backgroundColor: Colors.dark.cardBackground,
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
     maxHeight: "75%",
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.dark.accentCyan + "30",
+    borderBottomWidth: 0,
   },
   transferModalGlow: {
     position: "absolute",
@@ -4018,7 +4021,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   restoreModalContent: {
-    backgroundColor: Colors.dark.cardBackground,
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
