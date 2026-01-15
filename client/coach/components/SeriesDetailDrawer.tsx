@@ -3610,7 +3610,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.accentCyan + "40",
   },
   restoreSessionDate: {
-    fontSize: Typography.xl.fontSize,
+    fontSize: Typography.h2.fontSize,
     fontWeight: "700",
     color: Colors.dark.text,
     marginBottom: Spacing.xs,
