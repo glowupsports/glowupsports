@@ -63,9 +63,9 @@ const BUNDLE_OPTIONS = [1, 5, 10, 20] as const;
 
 const BUNDLE_DISCOUNTS: Record<number, number> = {
   1: 0,
-  5: 5,
-  10: 10,
-  20: 15,
+  5: 0,
+  10: 0,
+  20: 0,
 };
 
 export default function PackagesCard({ playerId, playerName }: PackagesCardProps) {
@@ -557,18 +557,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
                                   <Text style={styles.bundleLabel}>credits</Text>
                                 </View>
                                 
-                                {bundlePrice.discount > 0 ? (
-                                  <View style={[styles.discountBadge, { backgroundColor: typeColor }]}>
-                                    <Text style={styles.discountText}>-{bundlePrice.discount}%</Text>
-                                  </View>
-                                ) : null}
-                                
                                 <View style={styles.bundlePricing}>
-                                  {bundlePrice.discount > 0 ? (
-                                    <Text style={styles.originalPrice}>
-                                      {bundlePrice.currency} {bundlePrice.originalTotal.toFixed(0)}
-                                    </Text>
-                                  ) : null}
                                   <Text style={[styles.bundleTotal, isSelected && { color: typeColor }]}>
                                     {bundlePrice.currency} {bundlePrice.total.toFixed(0)}
                                   </Text>

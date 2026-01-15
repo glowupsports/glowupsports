@@ -1,11 +1,11 @@
 {
-  "id": "e489723f-7060-4158-92d7-95ed55cbe010",
-  "createdAt": "2026-01-15T15:22:23.343Z",
+  "id": "a19cef03-b0f9-48a5-8d07-bda8f6af5e6e",
+  "createdAt": "2026-01-15T15:28:04.646Z",
   "runtimeVersion": "1.2.0",
   "launchAsset": {
-    "key": "bundle-1768490543343-72273",
+    "key": "bundle-1768490884646-73421",
     "contentType": "application/javascript",
-    "url": "https://81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g.spock.replit.dev/1768490543343-72273/_expo/static/js/android/bundle.js"
+    "url": "https://81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g.spock.replit.dev/1768490884646-73421/_expo/static/js/android/bundle.js"
   },
   "assets": [],
   "metadata": {},
