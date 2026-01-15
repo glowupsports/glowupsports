@@ -377,25 +377,43 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
   const { coach } = useCoach();
   const queryClient = useQueryClient();
   
-  // Week offset for navigation (0 = this week, -1 = last week, +1 = next week)
-  const [weekOffset, setWeekOffset] = useState(0);
+  // Period toggle: week or month view
+  type ViewPeriod = "week" | "month";
+  const [viewPeriod, setViewPeriod] = useState<ViewPeriod>("week");
   
-  // Calculate the week's date range based on offset
-  const getWeekDateString = (offset: number) => {
+  // Week/month offset for navigation (0 = current period, -1 = previous, +1 = next)
+  const [periodOffset, setPeriodOffset] = useState(0);
+  
+  // Calculate the date string and query view based on period type
+  const getPeriodDateString = (offset: number, period: ViewPeriod) => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekStart = new Date(today);
-    weekStart.setDate(today.getDate() - today.getDay() + (offset * 7)); // Sunday of the target week
-    return weekStart.toISOString().split('T')[0];
+    if (period === "week") {
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - today.getDay() + (offset * 7)); // Sunday of the target week
+      return weekStart.toISOString().split('T')[0];
+    } else {
+      const monthStart = new Date(today.getFullYear(), today.getMonth() + offset, 1);
+      return monthStart.toISOString().split('T')[0];
+    }
   };
   
-  const weekDateString = getWeekDateString(weekOffset);
+  const periodDateString = getPeriodDateString(periodOffset, viewPeriod);
   
-  // Fetch calendar data for the selected WEEK - this is separate from CoachContext
-  const { data: weekCalendarData, isLoading } = useQuery<{ ownSessions: any[] }>({
-    queryKey: [`/api/coach/calendar?date=${weekDateString}&view=week`],
+  // Fetch calendar data for the selected period - this is separate from CoachContext
+  const { data: periodCalendarData, isLoading } = useQuery<{ ownSessions: any[] }>({
+    queryKey: [`/api/coach/calendar?date=${periodDateString}&view=${viewPeriod}`],
     enabled: !!coach?.id,
   });
+  
+  // Reset offset when switching period type
+  const handlePeriodChange = (newPeriod: ViewPeriod) => {
+    if (newPeriod !== viewPeriod) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setViewPeriod(newPeriod);
+      setPeriodOffset(0);
+    }
+  };
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [intensity, setIntensity] = useState<Intensity>("normal");
   const [mood, setMood] = useState<"good" | "neutral" | "low">("neutral");
@@ -1413,24 +1431,33 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
     );
   }
 
-  // State for accordion expansion
-  const [expandedOneOffDays, setExpandedOneOffDays] = useState<Set<number>>(new Set());
+  // State for accordion expansion is defined as expandedDays below
   
-  // Calculate the week's date range for display
-  const getWeekRange = (offset: number) => {
+  // Calculate the period's date range for display
+  const getPeriodRange = (offset: number, period: ViewPeriod) => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekStart = new Date(today);
-    weekStart.setDate(today.getDate() - today.getDay() + (offset * 7));
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 7);
-    return { start: weekStart, end: weekEnd };
+    if (period === "week") {
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - today.getDay() + (offset * 7));
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 7);
+      return { start: weekStart, end: weekEnd };
+    } else {
+      const monthStart = new Date(today.getFullYear(), today.getMonth() + offset, 1);
+      const monthEnd = new Date(today.getFullYear(), today.getMonth() + offset + 1, 1);
+      return { start: monthStart, end: monthEnd };
+    }
   };
   
-  const weekRange = getWeekRange(weekOffset);
+  const periodRange = getPeriodRange(periodOffset, viewPeriod);
   
-  const formatWeekLabel = () => {
-    const { start, end } = weekRange;
+  const formatPeriodLabel = () => {
+    const { start, end } = periodRange;
+    if (viewPeriod === "month") {
+      return start.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+    // Week view
     const endForDisplay = new Date(end);
     endForDisplay.setDate(endForDisplay.getDate() - 1);
     const startMonth = start.toLocaleDateString('en-US', { month: 'short' });
@@ -1441,25 +1468,25 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
     return `${startMonth} ${start.getDate()} - ${endMonth} ${endForDisplay.getDate()}`;
   };
   
-  const isThisWeek = weekOffset === 0;
+  const isCurrentPeriod = periodOffset === 0;
   
-  // Filter STANDALONE sessions from the week calendar data
-  const weekSessions = useMemo(() => {
-    if (!weekCalendarData?.ownSessions) return [];
+  // Filter STANDALONE sessions from the period calendar data
+  const periodSessions = useMemo(() => {
+    if (!periodCalendarData?.ownSessions) return [];
     
-    return weekCalendarData.ownSessions
+    return periodCalendarData.ownSessions
       .filter((session: any) => {
         // Only show standalone sessions (not part of a class/series)
         const isStandalone = !session.seriesId;
         return isStandalone && session.status !== "cancelled";
       })
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-  }, [weekCalendarData?.ownSessions]);
+  }, [periodCalendarData?.ownSessions]);
   
   // Apply status filter
-  const filteredWeekSessions = useMemo(() => {
-    if (statusFilter === "all") return weekSessions;
-    return weekSessions.filter((session) => {
+  const filteredPeriodSessions = useMemo(() => {
+    if (statusFilter === "all") return periodSessions;
+    return periodSessions.filter((session) => {
       const hasFeedback = hasSessionFeedback(session);
       switch (statusFilter) {
         case "complete": return hasFeedback;
@@ -1468,24 +1495,41 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
         default: return true;
       }
     });
-  }, [weekSessions, statusFilter]);
+  }, [periodSessions, statusFilter]);
   
-  // Group by day of week (0 = Sunday, 6 = Saturday)
+  // Group by day of week (for week view) or by date (for month view)
   const groupedByDay = useMemo(() => {
-    const groups: Record<number, any[]> = {};
-    for (const session of filteredWeekSessions) {
-      const dayOfWeek = new Date(session.startTime).getDay();
-      if (!groups[dayOfWeek]) groups[dayOfWeek] = [];
-      groups[dayOfWeek].push(session);
+    const groups: Record<number | string, any[]> = {};
+    for (const session of filteredPeriodSessions) {
+      const sessionDate = new Date(session.startTime);
+      // For week view: group by day of week (0-6)
+      // For month view: group by full date string for proper sorting
+      const groupKey = viewPeriod === "week" 
+        ? sessionDate.getDay() 
+        : sessionDate.toISOString().split('T')[0]; // YYYY-MM-DD
+      if (!groups[groupKey]) groups[groupKey] = [];
+      groups[groupKey].push(session);
     }
     return groups;
-  }, [filteredWeekSessions]);
+  }, [filteredPeriodSessions, viewPeriod]);
   
-  const sortedDays = Object.keys(groupedByDay).map(Number).sort((a, b) => a - b);
+  // Sort keys - for week view these are numbers (0-6), for month view these are date strings
+  const sortedDays = useMemo(() => {
+    const keys = Object.keys(groupedByDay);
+    if (viewPeriod === "week") {
+      return keys.map(Number).sort((a, b) => a - b);
+    } else {
+      // Sort date strings chronologically
+      return keys.sort((a, b) => a.localeCompare(b));
+    }
+  }, [groupedByDay, viewPeriod]);
   
-  const toggleOneOffDay = (day: number) => {
+  // Track expanded state with string keys to support both formats
+  const [expandedDays, setExpandedDays] = useState<Set<string | number>>(new Set());
+  
+  const toggleDay = (day: string | number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setExpandedOneOffDays(prev => {
+    setExpandedDays(prev => {
       const next = new Set(prev);
       if (next.has(day)) next.delete(day);
       else next.add(day);
@@ -1493,11 +1537,11 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
     });
   };
   
-  const weekStatusCounts = useMemo(() => {
-    const complete = weekSessions.filter(s => hasSessionFeedback(s)).length;
-    const open = weekSessions.filter(s => !hasSessionFeedback(s)).length;
-    return { complete, open, all: weekSessions.length };
-  }, [weekSessions]);
+  const periodStatusCounts = useMemo(() => {
+    const complete = periodSessions.filter(s => hasSessionFeedback(s)).length;
+    const open = periodSessions.filter(s => !hasSessionFeedback(s)).length;
+    return { complete, open, all: periodSessions.length };
+  }, [periodSessions]);
   
   const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -1507,26 +1551,55 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
       contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
       showsVerticalScrollIndicator={false}
     >
-      {/* Week Navigation Header */}
+      {/* Period Toggle (Week/Month) */}
+      <View style={styles.periodToggleRow}>
+        {(["week", "month"] as const).map((period) => {
+          const isActive = viewPeriod === period;
+          return (
+            <Pressable
+              key={period}
+              style={[
+                styles.periodToggleButton,
+                isActive && styles.periodToggleButtonActive,
+              ]}
+              onPress={() => handlePeriodChange(period)}
+            >
+              <Text style={[
+                styles.periodToggleText,
+                isActive && styles.periodToggleTextActive,
+              ]}>
+                {period === "week" ? "Week" : "Month"}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* Period Navigation Header */}
       <View style={styles.weekNavHeader}>
         <Pressable 
           style={styles.weekNavArrow} 
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setWeekOffset(prev => prev - 1);
+            setPeriodOffset(prev => prev - 1);
           }}
         >
           <Ionicons name="chevron-back" size={22} color={Colors.dark.primary} />
         </Pressable>
         
         <View style={styles.weekNavCenter}>
-          <Text style={styles.weekNavLabel}>{isThisWeek ? "This Week" : formatWeekLabel()}</Text>
-          {!isThisWeek ? (
+          <Text style={styles.weekNavLabel}>
+            {isCurrentPeriod 
+              ? (viewPeriod === "week" ? "This Week" : "This Month") 
+              : formatPeriodLabel()
+            }
+          </Text>
+          {!isCurrentPeriod ? (
             <Pressable 
               style={styles.todayButton}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setWeekOffset(0);
+                setPeriodOffset(0);
               }}
             >
               <Text style={styles.todayButtonText}>Today</Text>
@@ -1538,7 +1611,7 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
           style={styles.weekNavArrow} 
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setWeekOffset(prev => prev + 1);
+            setPeriodOffset(prev => prev + 1);
           }}
         >
           <Ionicons name="chevron-forward" size={22} color={Colors.dark.primary} />
@@ -1553,9 +1626,9 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
         contentContainerStyle={styles.calmStatusContent}
       >
         {([
-          { id: "all" as const, label: "All", count: weekStatusCounts.all, icon: null, color: Colors.dark.primary },
-          { id: "open" as const, label: "Needs Feedback", count: weekStatusCounts.open, icon: "alert-circle" as const, color: Colors.dark.gold },
-          { id: "complete" as const, label: "Completed", count: weekStatusCounts.complete, icon: "checkmark-circle" as const, color: Colors.dark.primary },
+          { id: "all" as const, label: "All", count: periodStatusCounts.all, icon: null, color: Colors.dark.primary },
+          { id: "open" as const, label: "Needs Feedback", count: periodStatusCounts.open, icon: "alert-circle" as const, color: Colors.dark.gold },
+          { id: "complete" as const, label: "Completed", count: periodStatusCounts.complete, icon: "checkmark-circle" as const, color: Colors.dark.primary },
         ]).map((status) => {
           const isActive = statusFilter === status.id;
           return (
@@ -1585,7 +1658,7 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
         })}
       </ScrollView>
 
-      {/* Day Accordion Rows - like Classes tab */}
+      {/* Day Accordion Rows */}
       <View style={styles.dayAccordionContainer}>
         {sortedDays.length === 0 ? (
           <View style={styles.calmEmptyCard}>
@@ -1593,29 +1666,44 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
               <Ionicons name="checkmark-done" size={26} color={Colors.dark.tabIconDefault} />
             </View>
             <Text style={styles.calmEmptyText}>
-              {weekSessions.length === 0 
-                ? "No standalone lessons this week"
+              {periodSessions.length === 0 
+                ? `No standalone lessons this ${viewPeriod}`
                 : "No matching lessons"
               }
             </Text>
             <Text style={styles.calmEmptySubtext}>
-              {weekSessions.length === 0 
+              {periodSessions.length === 0 
                 ? "One-off lessons not part of a class appear here"
                 : "Try selecting a different filter"
               }
             </Text>
           </View>
         ) : (
-          sortedDays.map((dayOfWeek) => {
-            const daySessions = groupedByDay[dayOfWeek] || [];
-            const isExpanded = expandedOneOffDays.has(dayOfWeek);
+          sortedDays.map((dayKey) => {
+            const daySessions = groupedByDay[dayKey] || [];
+            const isExpanded = expandedDays.has(dayKey);
             const needsFeedbackCount = daySessions.filter(s => s.status !== "completed").length;
             
+            // Format day header based on view period
+            const getDayLabel = () => {
+              if (viewPeriod === "week") {
+                return DAY_NAMES[dayKey as number];
+              } else {
+                // For month view, show "Mon Jan 13" format
+                const date = new Date(dayKey as string);
+                return date.toLocaleDateString('en-US', { 
+                  weekday: 'short', 
+                  month: 'short', 
+                  day: 'numeric' 
+                });
+              }
+            };
+            
             return (
-              <View key={dayOfWeek} style={styles.dayAccordion}>
+              <View key={String(dayKey)} style={styles.dayAccordion}>
                 <Pressable 
                   style={styles.dayAccordionHeader}
-                  onPress={() => toggleOneOffDay(dayOfWeek)}
+                  onPress={() => toggleDay(dayKey)}
                 >
                   <View style={styles.dayAccordionLeft}>
                     <Ionicons 
@@ -1623,7 +1711,7 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
                       size={20} 
                       color={Colors.dark.gold} 
                     />
-                    <Text style={styles.dayAccordionTitle}>{DAY_NAMES[dayOfWeek]}</Text>
+                    <Text style={styles.dayAccordionTitle}>{getDayLabel()}</Text>
                   </View>
                   <View style={styles.dayAccordionRight}>
                     {needsFeedbackCount > 0 ? (
@@ -3588,6 +3676,33 @@ const styles = StyleSheet.create({
   pendingBadgeText: {
     fontSize: 10,
     fontWeight: '600',
+    color: Colors.dark.gold,
+  },
+  periodToggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  periodToggleButton: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  periodToggleButtonActive: {
+    backgroundColor: Colors.dark.gold + '20',
+    borderColor: Colors.dark.gold,
+  },
+  periodToggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.dark.textMuted,
+  },
+  periodToggleTextActive: {
     color: Colors.dark.gold,
   },
   weekNavHeader: {
