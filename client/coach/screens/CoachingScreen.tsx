@@ -374,8 +374,28 @@ const seriesStyles = StyleSheet.create({
 });
 
 function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }; tabBarHeight: number }) {
-  const { calendarData, isLoading } = useCoach();
+  const { coach } = useCoach();
   const queryClient = useQueryClient();
+  
+  // Week offset for navigation (0 = this week, -1 = last week, +1 = next week)
+  const [weekOffset, setWeekOffset] = useState(0);
+  
+  // Calculate the week's date range based on offset
+  const getWeekDateString = (offset: number) => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - today.getDay() + (offset * 7)); // Sunday of the target week
+    return weekStart.toISOString().split('T')[0];
+  };
+  
+  const weekDateString = getWeekDateString(weekOffset);
+  
+  // Fetch calendar data for the selected WEEK - this is separate from CoachContext
+  const { data: weekCalendarData, isLoading } = useQuery<{ ownSessions: any[] }>({
+    queryKey: [`/api/coach/calendar?date=${weekDateString}&view=week`],
+    enabled: !!coach?.id,
+  });
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [intensity, setIntensity] = useState<Intensity>("normal");
   const [mood, setMood] = useState<"good" | "neutral" | "low">("neutral");
@@ -772,7 +792,7 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
       await apiRequest("POST", `/api/coach/sessions/${data.sessionId}/feedback`, data.feedback);
       
       // Submit skill observations to Progress Engine V2 for each player
-      const coachId = calendarData?.ownSessions?.[0]?.coachId;
+      const coachId = coach?.id;
       if (coachId && domains.length > 0) {
         for (const pf of data.feedback.playerFeedback) {
           // Derive direction from per-skill progress
@@ -1393,16 +1413,15 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
     );
   }
 
-  // Week navigation state
-  const [weekOffset, setWeekOffset] = useState(0);
+  // State for accordion expansion
   const [expandedOneOffDays, setExpandedOneOffDays] = useState<Set<number>>(new Set());
   
-  // Calculate the week's date range based on offset
+  // Calculate the week's date range for display
   const getWeekRange = (offset: number) => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekStart = new Date(today);
-    weekStart.setDate(today.getDate() - today.getDay() + (offset * 7)); // Sunday of the target week
+    weekStart.setDate(today.getDate() - today.getDay() + (offset * 7));
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 7);
     return { start: weekStart, end: weekEnd };
@@ -1413,7 +1432,7 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
   const formatWeekLabel = () => {
     const { start, end } = weekRange;
     const endForDisplay = new Date(end);
-    endForDisplay.setDate(endForDisplay.getDate() - 1); // Show Saturday, not Sunday of next week
+    endForDisplay.setDate(endForDisplay.getDate() - 1);
     const startMonth = start.toLocaleDateString('en-US', { month: 'short' });
     const endMonth = endForDisplay.toLocaleDateString('en-US', { month: 'short' });
     if (startMonth === endMonth) {
@@ -1424,24 +1443,18 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
   
   const isThisWeek = weekOffset === 0;
   
-  // Filter sessions for the selected week
+  // Filter STANDALONE sessions from the week calendar data
   const weekSessions = useMemo(() => {
-    if (!calendarData?.ownSessions) return [];
-    const { start, end } = weekRange;
+    if (!weekCalendarData?.ownSessions) return [];
     
-    return calendarData.ownSessions
+    return weekCalendarData.ownSessions
       .filter((session: any) => {
-        const sessionDate = new Date(session.startTime);
+        // Only show standalone sessions (not part of a class/series)
         const isStandalone = !session.seriesId;
-        return (
-          isStandalone &&
-          sessionDate >= start &&
-          sessionDate < end &&
-          session.status !== "cancelled"
-        );
+        return isStandalone && session.status !== "cancelled";
       })
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-  }, [calendarData?.ownSessions, weekRange.start.getTime()]);
+  }, [weekCalendarData?.ownSessions]);
   
   // Apply status filter
   const filteredWeekSessions = useMemo(() => {
