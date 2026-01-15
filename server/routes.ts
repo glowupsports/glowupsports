@@ -11,6 +11,8 @@ import { eq, sql, desc, and, ne, gt, gte, asc, inArray, isNull, isNotNull, or, c
 import { 
   invoices, payments, sessionPlayers, sessionWaitlist, creditTransactions, players, 
   locationTravelTimes, sessions, sessionFeedback, seriesPlayers, coachingSeries,
+  sessionSkillObservations, sessionSkillFeedback, playerSessionCancellations,
+  playerPillarProgress, coachXpTransactions, xpTransactions, packages,
   // Social features
   posts as postsTable,
   postReactions as postReactionsTable,
@@ -3101,7 +3103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Cancel session
+  // Cancel session - FULL DELETE with credit refund
   app.post("/api/coach/sessions/:id/cancel", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
@@ -3118,7 +3120,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Not authorized" });
       }
 
-      const cancelled = await storage.cancelSession(id);
+      // Refund credits if any were used for this session
+      const usedCredits = await db
+        .select()
+        .from(creditTransactions)
+        .where(and(
+          eq(creditTransactions.sessionId, id),
+          eq(creditTransactions.type, "use")
+        ));
+      
+      for (const tx of usedCredits) {
+        // Create refund transaction
+        await db.insert(creditTransactions).values({
+          id: crypto.randomUUID(),
+          playerId: tx.playerId,
+          packageId: tx.packageId,
+          type: "refund",
+          amount: Math.abs(tx.amount),
+          sessionId: null,
+          description: `Refund for cancelled session`,
+          createdAt: new Date(),
+        });
+        
+        // Update package credits
+        if (tx.packageId) {
+          await db
+            .update(packages)
+            .set({ 
+              creditsRemaining: sql`credits_remaining + ${Math.abs(tx.amount)}` 
+            })
+            .where(eq(packages.id, tx.packageId));
+        }
+      }
+
+      // Nullify session references in related tables
+      await db.update(creditTransactions).set({ sessionId: null }).where(eq(creditTransactions.sessionId, id));
+      await db.update(xpTransactions).set({ sessionId: null }).where(eq(xpTransactions.sessionId, id));
+      await db.update(coachXpTransactions).set({ sessionId: null }).where(eq(coachXpTransactions.sessionId, id));
+      await db.update(playerPillarProgress).set({ lastSessionId: null }).where(eq(playerPillarProgress.lastSessionId, id));
+      
+      // Delete related records
+      await db.delete(sessionPlayers).where(eq(sessionPlayers.sessionId, id));
+      await db.delete(sessionSkillObservations).where(eq(sessionSkillObservations.sessionId, id));
+      await db.delete(sessionSkillFeedback).where(eq(sessionSkillFeedback.sessionId, id));
+      await db.delete(sessionPlans).where(eq(sessionPlans.sessionId, id));
+      await db.delete(playerSessionCancellations).where(eq(playerSessionCancellations.sessionId, id));
+      await db.delete(sessionWaitlist).where(eq(sessionWaitlist.sessionId, id));
 
       // Delete the unified time block to free up this time slot
       await storage.deleteCoachTimeBlockBySession(id);
@@ -3129,17 +3176,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .catch(err => console.error('[GoogleCalendar] Delete sync error:', err));
       }
 
+      // Finally delete the session itself
+      await db.delete(sessions).where(eq(sessions.id, id));
+
       await storage.createAuditLog({
         entityType: "session",
         entityId: id,
-        action: "cancel",
+        action: "delete",
         performedBy: coachId!,
       });
 
-      res.json(cancelled);
+      // Broadcast session deletion via WebSocket
+      if (academyId) {
+        broadcastSessionUpdate(academyId, {
+          sessionId: id,
+          type: "deleted",
+        });
+      }
+
+      res.json({ success: true, deleted: true });
     } catch (error) {
-      console.error("Error cancelling session:", error);
-      res.status(500).json({ error: "Failed to cancel session" });
+      console.error("Error deleting session:", error);
+      res.status(500).json({ error: "Failed to delete session" });
     }
   });
 
