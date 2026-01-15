@@ -192,6 +192,7 @@ export default function SeriesDetailDrawer({
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [selectedSession, setSelectedSession] = useState<SessionInstance | null>(null);
   const [sessionAttendance, setSessionAttendance] = useState<Record<string, "present" | "absent" | "vacation">>({});
+  const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [cancellingSession, setCancellingSession] = useState(false);
   const [editingMaxPlayers, setEditingMaxPlayers] = useState(false);
@@ -622,51 +623,49 @@ export default function SeriesDetailDrawer({
     setActiveTab(tabId);
   };
 
-  const handleSessionPress = async (session: SessionInstance) => {
+  const handleSessionPress = (session: SessionInstance) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedSession(session);
     
-    const initialAttendance: Record<string, "present" | "absent" | "vacation"> = {};
     const sessionDate = new Date(session.startTime);
     
-    // Filter players who were active at the session date (including former players who were active then)
+    // Filter players who were active at the session date
     const activePlayers = (series?.players || []).filter(p => isPlayerActiveForSession(p, sessionDate));
     
-    // First, fetch existing attendance records from the API (source of truth)
-    // Add timestamp to prevent 304 caching and get fresh data
-    let savedStatuses: Record<string, "present" | "absent" | "vacation"> = {};
-    try {
-      const response = await apiRequest("GET", `/api/coach/sessions/${session.id}/players?t=${Date.now()}`);
-      const sessionPlayers = await response.json() as Array<{ playerId: string; attendanceStatus: string }>;
-      
-      console.log("[AttendanceLoad] Raw API response:", JSON.stringify(sessionPlayers));
-      
-      // Build a map of saved statuses from the API
-      if (Array.isArray(sessionPlayers)) {
-        sessionPlayers.forEach(sp => {
-          if (sp.playerId && sp.attendanceStatus) {
-            const status = sp.attendanceStatus;
-            if (status === "present" || status === "absent" || status === "vacation") {
-              savedStatuses[sp.playerId] = status;
-              console.log("[AttendanceLoad] Mapped", sp.playerId, "->", status);
-            }
-          }
-        });
-      }
-      console.log("[AttendanceLoad] Saved statuses map:", savedStatuses);
-    } catch (error) {
-      console.error("Error loading attendance:", error);
-    }
-    
-    // Now build initialAttendance: use saved status if exists, otherwise default to present
+    // Immediately set all players to "present" as optimistic default
+    const initialAttendance: Record<string, "present" | "absent" | "vacation"> = {};
     activePlayers.forEach(p => {
-      const lookupStatus = savedStatuses[p.id];
-      console.log("[AttendanceLoad] Player", p.name, "lookup:", lookupStatus, "-> final:", lookupStatus || "present");
-      initialAttendance[p.id] = lookupStatus || "present";
+      initialAttendance[p.id] = "present";
     });
     
     setSessionAttendance(initialAttendance);
     setShowAttendanceModal(true);
+    
+    // Fetch existing attendance in background and update when ready
+    setLoadingAttendance(true);
+    apiRequest("GET", `/api/coach/sessions/${session.id}/players?t=${Date.now()}`)
+      .then(response => response.json())
+      .then((sessionPlayers: Array<{ playerId: string; attendanceStatus: string }>) => {
+        if (Array.isArray(sessionPlayers)) {
+          const updatedAttendance: Record<string, "present" | "absent" | "vacation"> = {};
+          activePlayers.forEach(p => {
+            const saved = sessionPlayers.find(sp => sp.playerId === p.id);
+            const status = saved?.attendanceStatus;
+            if (status === "present" || status === "absent" || status === "vacation") {
+              updatedAttendance[p.id] = status;
+            } else {
+              updatedAttendance[p.id] = "present";
+            }
+          });
+          setSessionAttendance(updatedAttendance);
+        }
+      })
+      .catch(error => {
+        console.error("Error loading attendance:", error);
+      })
+      .finally(() => {
+        setLoadingAttendance(false);
+      });
   };
 
   const handleSetAttendance = (playerId: string, status: "present" | "absent" | "vacation") => {
@@ -1853,7 +1852,12 @@ export default function SeriesDetailDrawer({
           <View style={[styles.drawer, { paddingTop: Spacing.xl, paddingHorizontal: Spacing.lg }]}>
             <View style={styles.attendanceModalHeader}>
               <View>
-                <Text style={styles.attendanceModalTitle}>Mark Attendance</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+                  <Text style={styles.attendanceModalTitle}>Mark Attendance</Text>
+                  {loadingAttendance ? (
+                    <ActivityIndicator size="small" color={Colors.dark.accentNeon} />
+                  ) : null}
+                </View>
                 {selectedSession ? (
                   <Text style={styles.attendanceModalDate}>
                     {formatDate(selectedSession.startTime)} - Week {selectedSession.weekNumber || "?"}
