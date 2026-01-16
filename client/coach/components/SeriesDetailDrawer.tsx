@@ -243,6 +243,12 @@ export default function SeriesDetailDrawer({
   const [attendanceModalView, setAttendanceModalView] = useState<"attendance" | "transfer">("attendance");
   const [transferringSession, setTransferringSession] = useState(false);
   const [selectedTargetCoachId, setSelectedTargetCoachId] = useState<string | null>(null);
+  
+  // Reschedule session state
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [rescheduleTime, setRescheduleTime] = useState<Date>(new Date());
+  const [showRescheduleTimePicker, setShowRescheduleTimePicker] = useState(false);
+  const [reschedulingSession, setReschedulingSession] = useState(false);
 
   const { data: series, isLoading } = useQuery<SeriesDetail>({
     queryKey: [`/api/coach/series/${seriesId}`],
@@ -717,8 +723,18 @@ export default function SeriesDetailDrawer({
     }
     
     const sessionDate = new Date(session.startTime);
+    const now = new Date();
+    const isPast = sessionDate.getTime() < now.getTime();
+    const isToday = sessionDate.toDateString() === now.toDateString();
     
-    // Filter players who were active at the session date
+    // For future sessions (not today), show reschedule modal
+    if (!isPast && !isToday) {
+      setRescheduleTime(sessionDate);
+      setShowRescheduleModal(true);
+      return;
+    }
+    
+    // For past/today sessions, show attendance modal
     const activePlayers = (series?.players || []).filter(p => isPlayerActiveForSession(p, sessionDate));
     
     // Immediately set all players to "present" as optimistic default
@@ -755,6 +771,36 @@ export default function SeriesDetailDrawer({
       .finally(() => {
         setLoadingAttendance(false);
       });
+  };
+  
+  const handleRescheduleSession = async () => {
+    if (!selectedSession) return;
+    setReschedulingSession(true);
+    
+    try {
+      // Build new start/end times using the selected time but keep the original date
+      const originalDate = new Date(selectedSession.startTime);
+      const newStartTime = new Date(originalDate);
+      newStartTime.setHours(rescheduleTime.getHours(), rescheduleTime.getMinutes(), 0, 0);
+      
+      const duration = series?.duration || 60;
+      const newEndTime = new Date(newStartTime.getTime() + duration * 60 * 1000);
+      
+      await apiRequest("PATCH", `/api/coach/sessions/${selectedSession.id}`, {
+        startTime: newStartTime.toISOString(),
+        endTime: newEndTime.toISOString(),
+      });
+      
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowRescheduleModal(false);
+      setSelectedSession(null);
+    } catch (error) {
+      console.error("Error rescheduling session:", error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setReschedulingSession(false);
+    }
   };
 
   const handleSetAttendance = (playerId: string, status: "present" | "absent" | "vacation") => {
@@ -1231,6 +1277,15 @@ export default function SeriesDetailDrawer({
     const sortedSessions = [...series.sessions].sort(
       (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
     );
+    
+    const formatSessionTime = (startTime: string) => {
+      try {
+        const date = new Date(startTime);
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+      } catch {
+        return "";
+      }
+    };
 
     return (
       <View style={styles.tabContent}>
@@ -1241,14 +1296,16 @@ export default function SeriesDetailDrawer({
           </View>
         ) : (
           sortedSessions.map((session, index) => {
+            const sessionDate = new Date(session.startTime);
+            const now = new Date();
             const isCompleted = session.status === "completed";
             const isCancelled = session.status === "cancelled";
             const isSkipped = session.status === "skipped";
-            const isPast = new Date(session.startTime) < new Date();
-            const isToday = new Date(session.startTime).toDateString() === new Date().toDateString();
+            const isPast = sessionDate.getTime() < now.getTime();
+            const isToday = sessionDate.toDateString() === now.toDateString();
             const needsAttendance = isPast && !isCompleted && !isCancelled && !isSkipped;
-            const canEditAttendance = isPast && !isSkipped;
-            const canClick = canEditAttendance || isCancelled || isSkipped;
+            const isFuture = !isPast && !isToday;
+            const canClick = true; // All sessions are now clickable
 
             const timelineContent = (
               <>
@@ -1259,7 +1316,7 @@ export default function SeriesDetailDrawer({
                       isCompleted && { backgroundColor: Colors.dark.successNeon },
                       (isCancelled || isSkipped) && { backgroundColor: Colors.dark.error },
                       isToday && !isCompleted && !isCancelled && { backgroundColor: accentColor },
-                      !isPast && !isToday && { backgroundColor: Colors.dark.textMuted },
+                      isFuture && { backgroundColor: Colors.dark.textMuted },
                       needsAttendance && { backgroundColor: Colors.dark.accentWarning },
                     ]}
                   />
@@ -1267,17 +1324,22 @@ export default function SeriesDetailDrawer({
                     <View style={styles.timelineLine} />
                   ) : null}
                 </View>
-                <View style={[styles.timelineContent, canClick && styles.timelineContentClickable]}>
+                <View style={[styles.timelineContent, styles.timelineContentClickable]}>
                   <View style={styles.timelineHeader}>
-                    <Text
-                      style={[
-                        styles.timelineDate,
-                        isToday && { color: accentColor, fontWeight: "700" },
-                        needsAttendance && { color: Colors.dark.accentWarning },
-                      ]}
-                    >
-                      {isToday ? "Today" : formatDate(session.startTime)}
-                    </Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+                      <Text
+                        style={[
+                          styles.timelineDate,
+                          isToday && { color: accentColor, fontWeight: "700" },
+                          needsAttendance && { color: Colors.dark.accentWarning },
+                        ]}
+                      >
+                        {isToday ? "Today" : formatDate(session.startTime)}
+                      </Text>
+                      <Text style={[styles.timelineSessionTime, isFuture && { color: Colors.dark.accentCyan }]}>
+                        {formatSessionTime(session.startTime)}
+                      </Text>
+                    </View>
                     <View style={styles.timelineStatusRow}>
                       <Text
                         style={[
@@ -1285,29 +1347,30 @@ export default function SeriesDetailDrawer({
                           isCompleted && { color: Colors.dark.successNeon },
                           (isCancelled || isSkipped) && { color: Colors.dark.error },
                           needsAttendance && { color: Colors.dark.accentWarning },
+                          isFuture && { color: Colors.dark.accentCyan },
                         ]}
                       >
                         {isCompleted
                           ? "Completed"
                           : isCancelled || isSkipped
                           ? "Cancelled"
-                          : isPast
+                          : isPast || isToday
                           ? "Needs Attendance"
-                          : "Scheduled"}
+                          : "Tap to Edit"}
                       </Text>
-                      {canClick ? (
-                        <Ionicons 
-                          name="chevron-forward" 
-                          size={16} 
-                          color={
-                            isCancelled || isSkipped 
-                              ? Colors.dark.error 
-                              : isCompleted 
-                                ? Colors.dark.successNeon 
+                      <Ionicons 
+                        name="chevron-forward" 
+                        size={16} 
+                        color={
+                          isCancelled || isSkipped 
+                            ? Colors.dark.error 
+                            : isCompleted 
+                              ? Colors.dark.successNeon 
+                              : isFuture
+                                ? Colors.dark.accentCyan
                                 : Colors.dark.accentWarning
-                          } 
-                        />
-                      ) : null}
+                        } 
+                      />
                     </View>
                   </View>
                   <Text style={styles.timelineTime}>
@@ -1317,7 +1380,7 @@ export default function SeriesDetailDrawer({
               </>
             );
 
-            return canClick ? (
+            return (
               <Pressable
                 key={session.id}
                 style={styles.timelineItem}
@@ -1325,10 +1388,6 @@ export default function SeriesDetailDrawer({
               >
                 {timelineContent}
               </Pressable>
-            ) : (
-              <View key={session.id} style={styles.timelineItem}>
-                {timelineContent}
-              </View>
             );
           })
         )}
@@ -2403,6 +2462,167 @@ export default function SeriesDetailDrawer({
         </View>
       </Modal>
 
+      {/* Reschedule Session Modal */}
+      <Modal
+        visible={showRescheduleModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRescheduleModal(false)}
+      >
+        <View style={styles.overlay}>
+          <Pressable style={styles.backdrop} onPress={() => setShowRescheduleModal(false)} />
+          <View 
+            style={[styles.restoreModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}
+            onStartShouldSetResponder={() => true}
+          >
+            <LinearGradient
+              colors={[Colors.dark.accentCyan + "15", "transparent"]}
+              style={styles.restoreModalGlow}
+            />
+            
+            <View style={styles.restoreModalHeader}>
+              <View style={styles.restoreModalTitleRow}>
+                <Ionicons name="time-outline" size={28} color={Colors.dark.accentCyan} />
+                <Text style={styles.restoreModalTitle}>Edit Session Time</Text>
+              </View>
+              <Pressable 
+                onPress={() => setShowRescheduleModal(false)} 
+                style={styles.restoreCloseButton}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={24} color="#FFFFFF" />
+              </Pressable>
+            </View>
+            
+            {selectedSession ? (
+              <View style={styles.restoreSessionContent}>
+                <View style={styles.restoreSessionCard}>
+                  <LinearGradient
+                    colors={[Colors.dark.accentCyan + "25", Colors.dark.accentCyan + "08"]}
+                    style={styles.restoreSessionCardGradient}
+                  >
+                    <View style={styles.restoreSessionIconContainer}>
+                      <Ionicons name="calendar" size={36} color={Colors.dark.accentCyan} />
+                    </View>
+                    
+                    <Text style={styles.restoreSessionDate}>
+                      {formatDate(selectedSession.startTime)}
+                    </Text>
+                    <Text style={styles.restoreSessionWeek}>
+                      Week {selectedSession.weekNumber || "?"}
+                    </Text>
+                  </LinearGradient>
+                </View>
+                
+                <Text style={[styles.sectionLabel, { marginTop: Spacing.lg, marginBottom: Spacing.sm }]}>
+                  New Start Time
+                </Text>
+                
+                {Platform.OS === "web" ? (
+                  <View style={styles.webTimePickerRow}>
+                    <TextInput
+                      style={styles.webTimeInput}
+                      value={`${String(rescheduleTime.getHours()).padStart(2, '0')}:${String(rescheduleTime.getMinutes()).padStart(2, '0')}`}
+                      onChangeText={(text) => {
+                        const [hours, minutes] = text.split(':').map(Number);
+                        if (!isNaN(hours) && !isNaN(minutes)) {
+                          const newTime = new Date(rescheduleTime);
+                          newTime.setHours(hours, minutes, 0, 0);
+                          setRescheduleTime(newTime);
+                        }
+                      }}
+                      placeholder="HH:MM"
+                      placeholderTextColor={Colors.dark.textMuted}
+                      keyboardType="numbers-and-punctuation"
+                    />
+                  </View>
+                ) : (
+                  <>
+                    <Pressable
+                      onPress={() => setShowRescheduleTimePicker(true)}
+                      style={styles.timePickerButton}
+                    >
+                      <Ionicons name="time-outline" size={20} color={Colors.dark.accentCyan} />
+                      <Text style={styles.timePickerText}>
+                        {`${String(rescheduleTime.getHours()).padStart(2, '0')}:${String(rescheduleTime.getMinutes()).padStart(2, '0')}`}
+                      </Text>
+                    </Pressable>
+                    {showRescheduleTimePicker && (
+                      <DateTimePicker
+                        value={rescheduleTime}
+                        mode="time"
+                        is24Hour={true}
+                        display="spinner"
+                        onChange={(_, date) => {
+                          setShowRescheduleTimePicker(false);
+                          if (date) setRescheduleTime(date);
+                        }}
+                      />
+                    )}
+                  </>
+                )}
+                
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.restoreButton,
+                    pressed && styles.restoreButtonPressed,
+                    reschedulingSession && styles.restoreButtonDisabled,
+                    { marginTop: Spacing.xl },
+                  ]}
+                  onPress={handleRescheduleSession}
+                  disabled={reschedulingSession}
+                >
+                  <LinearGradient
+                    colors={[Colors.dark.accentCyan, Colors.dark.accent]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.restoreButtonGradient}
+                  >
+                    {reschedulingSession ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />
+                        <Text style={styles.restoreButtonText}>Update Time</Text>
+                      </>
+                    )}
+                  </LinearGradient>
+                </Pressable>
+                
+                <Pressable
+                  style={styles.cancelSessionButton}
+                  onPress={async () => {
+                    if (!selectedSession) return;
+                    setCancellingSession(true);
+                    try {
+                      await apiRequest("POST", `/api/coach/sessions/${selectedSession.id}/cancel`);
+                      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      setShowRescheduleModal(false);
+                      setSelectedSession(null);
+                    } catch (error) {
+                      console.error("Error cancelling session:", error);
+                    } finally {
+                      setCancellingSession(false);
+                    }
+                  }}
+                  disabled={cancellingSession}
+                >
+                  {cancellingSession ? (
+                    <ActivityIndicator size="small" color={Colors.dark.error} />
+                  ) : (
+                    <>
+                      <Ionicons name="close-circle-outline" size={18} color={Colors.dark.error} />
+                      <Text style={styles.cancelSessionButtonText}>Cancel This Session</Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
+
       {/* Pause Player Modal */}
       <Modal
         visible={showPauseModal}
@@ -3081,6 +3301,11 @@ const styles = StyleSheet.create({
     fontSize: Typography.caption.fontSize,
     color: Colors.dark.textMuted,
     marginTop: Spacing.xs,
+  },
+  timelineSessionTime: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
   },
   feedbackSummary: {
     flexDirection: "row",
@@ -3803,11 +4028,47 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: Colors.dark.error,
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
   },
   cancelSessionButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
     color: Colors.dark.error,
+  },
+  webTimePickerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  webTimeInput: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    fontSize: Typography.h3.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.accentCyan,
+    textAlign: "center",
+    minWidth: 100,
+    borderWidth: 1,
+    borderColor: Colors.dark.accentCyan + "40",
+  },
+  timePickerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.accentCyan + "40",
+  },
+  timePickerText: {
+    fontSize: Typography.h3.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.accentCyan,
   },
   transferButton: {
     backgroundColor: Colors.dark.accentCyan + "15",
