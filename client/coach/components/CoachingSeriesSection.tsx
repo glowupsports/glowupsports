@@ -50,6 +50,7 @@ interface Props {
 type FilterType = "all" | "active" | "paused" | "ended";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const FLEXIBLE_DAY = -1;
 
 interface CollapsibleDaySectionProps {
   dayOfWeek: number;
@@ -57,6 +58,7 @@ interface CollapsibleDaySectionProps {
   isExpanded: boolean;
   onToggle: () => void;
   onSeriesPress: (series: CoachingSeries) => void;
+  isFlexible?: boolean;
 }
 
 function CollapsibleDaySection({ 
@@ -64,7 +66,8 @@ function CollapsibleDaySection({
   series, 
   isExpanded, 
   onToggle, 
-  onSeriesPress 
+  onSeriesPress,
+  isFlexible = false,
 }: CollapsibleDaySectionProps) {
   const rotation = useSharedValue(isExpanded ? 1 : 0);
   const height = useSharedValue(isExpanded ? 1 : 0);
@@ -90,18 +93,21 @@ function CollapsibleDaySection({
   };
 
   const sortedSeries = [...series].sort((a, b) => a.startTime.localeCompare(b.startTime));
+  const sectionTitle = isFlexible ? "Flexible Schedule" : DAY_NAMES[dayOfWeek];
+  const accentColor = isFlexible ? Colors.dark.cyan : Colors.dark.gold;
 
   return (
     <View style={collapsibleStyles.container}>
-      <Pressable onPress={handlePress} style={collapsibleStyles.header}>
+      <Pressable onPress={handlePress} style={[collapsibleStyles.header, isFlexible && { borderColor: `${Colors.dark.cyan}30` }]}>
         <View style={collapsibleStyles.headerLeft}>
           <Animated.View style={arrowStyle}>
-            <Ionicons name="chevron-down" size={20} color={Colors.dark.gold} />
+            <Ionicons name="chevron-down" size={20} color={accentColor} />
           </Animated.View>
-          <Text style={collapsibleStyles.dayTitle}>{DAY_NAMES[dayOfWeek]}</Text>
+          {isFlexible && <Ionicons name="calendar-outline" size={18} color={Colors.dark.cyan} />}
+          <Text style={[collapsibleStyles.dayTitle, isFlexible && { color: Colors.dark.cyan }]}>{sectionTitle}</Text>
         </View>
         <View style={collapsibleStyles.headerRight}>
-          <Text style={collapsibleStyles.classCount}>{series.length}</Text>
+          <Text style={[collapsibleStyles.classCount, { color: accentColor }]}>{series.length}</Text>
           <Text style={collapsibleStyles.classLabel}>
             {series.length === 1 ? "class" : "classes"}
           </Text>
@@ -213,7 +219,10 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
     return series.status === filter;
   }) || [];
 
-  const groupedByDay = filteredSeries.reduce((acc, series) => {
+  const flexibleSeries = filteredSeries.filter(s => s.dayOfWeek === FLEXIBLE_DAY);
+  const regularSeries = filteredSeries.filter(s => s.dayOfWeek !== FLEXIBLE_DAY);
+  
+  const groupedByDay = regularSeries.reduce((acc, series) => {
     const day = series.dayOfWeek;
     if (!acc[day]) acc[day] = [];
     acc[day].push(series);
@@ -342,6 +351,18 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
         </View>
       ) : (
         <View style={styles.seriesListContainer}>
+          {flexibleSeries.length > 0 && (
+            <CollapsibleDaySection
+              key="flexible"
+              dayOfWeek={FLEXIBLE_DAY}
+              series={flexibleSeries}
+              isExpanded={expandedDays.has(FLEXIBLE_DAY)}
+              onToggle={() => toggleDay(FLEXIBLE_DAY)}
+              onSeriesPress={onSeriesPress}
+              isFlexible
+            />
+          )}
+          
           {sortedDays.map((dayOfWeek) => (
             <CollapsibleDaySection
               key={dayOfWeek}
