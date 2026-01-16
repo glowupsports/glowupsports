@@ -229,14 +229,29 @@ export default function CreateSessionWizard({
   // Slide 0: Session Type
   const [sessionType, setSessionType] = useState<SessionType>("private");
   
-  // Slide 1: Recurring (auto-enable for series mode)
-  const [isRecurring, setIsRecurring] = useState(createSeriesMode);
+  // Slide 1: Schedule Pattern - "one-time" | "recurring" | "flexible"
+  type SchedulePattern = "one-time" | "recurring" | "flexible";
+  const [schedulePattern, setSchedulePattern] = useState<SchedulePattern>(createSeriesMode ? "recurring" : "one-time");
   const [weekCount, setWeekCount] = useState(10);
+  
+  // Legacy isRecurring for backwards compatibility
+  const isRecurring = schedulePattern === "recurring";
+  const isFlexible = schedulePattern === "flexible";
+  
+  // Flexible schedule: array of selected dates with optional per-date times
+  interface FlexibleDate {
+    date: string; // "YYYY-MM-DD"
+    time: string | null; // "HH:MM" or null to use default
+  }
+  const [flexibleDates, setFlexibleDates] = useState<FlexibleDate[]>([]);
+  const [flexibleDefaultTime, setFlexibleDefaultTime] = useState<string | null>(null);
+  const [showFlexibleCalendar, setShowFlexibleCalendar] = useState(false);
+  const [flexibleCalendarMonth, setFlexibleCalendarMonth] = useState(new Date());
   
   // Auto-enable recurring for series mode
   useEffect(() => {
     if (createSeriesMode && visible) {
-      setIsRecurring(true);
+      setSchedulePattern("recurring");
     }
   }, [createSeriesMode, visible]);
   
@@ -597,8 +612,12 @@ export default function CreateSessionWizard({
   const resetForm = useCallback(() => {
     setCurrentSlide(0);
     setSessionType("private");
-    setIsRecurring(false);
+    setSchedulePattern("one-time");
     setWeekCount(10);
+    setFlexibleDates([]);
+    setFlexibleDefaultTime(null);
+    setShowFlexibleCalendar(false);
+    setFlexibleCalendarMonth(new Date());
     setSelectedDate(new Date());
     setSelectedCourtId(null);
     setDuration(60);
@@ -771,6 +790,60 @@ export default function CreateSessionWizard({
       return;
     }
 
+    // Flexible mode validation
+    if (isFlexible) {
+      if (!selectedCourtId) {
+        Alert.alert("Error", "Please select a court");
+        return;
+      }
+      if (flexibleDates.length === 0) {
+        Alert.alert("Error", "Please select at least one date");
+        return;
+      }
+      if (!flexibleDefaultTime && flexibleDates.some(fd => !fd.time)) {
+        Alert.alert("Error", "Please set a time for all sessions");
+        return;
+      }
+      
+      // Build flexible sessions payload
+      const flexibleSessions = flexibleDates.map(fd => {
+        const time = fd.time || flexibleDefaultTime!;
+        const [hours, mins] = time.split(":").map(Number);
+        const [year, month, day] = fd.date.split("-").map(Number);
+        const sessionStart = new Date(year, month - 1, day, hours, mins, 0, 0);
+        const sessionEnd = new Date(sessionStart);
+        sessionEnd.setMinutes(sessionEnd.getMinutes() + duration);
+        
+        return {
+          date: fd.date,
+          time,
+          startTime: sessionStart.toISOString(),
+          endTime: sessionEnd.toISOString(),
+        };
+      });
+      
+      const flexiblePayload = {
+        coachId: effectiveCoach?.id,
+        courtId: selectedCourtId,
+        duration,
+        sessionType,
+        ballLevel,
+        skillLevel,
+        notes: notes || null,
+        playerIds: selectedPlayers.map(p => p.id),
+        maxPlayers: sessionType === "private" ? 1 : maxPlayers,
+        isOpen: isOpenGroup,
+        visibleToPlayers,
+        flexibleSessions,
+      };
+      
+      const endpoint = adminMode ? "/api/admin/sessions/bulk" : "/api/coach/sessions/bulk";
+      console.log("[CreateSession] Creating flexible sessions:", flexibleSessions.length);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      createSessionMutation.mutate({ endpoint, isSeriesMode: false, payload: flexiblePayload });
+      return;
+    }
+    
     if (!selectedCourtId || !startTime) {
       console.log("[CreateSession] Blocked: missing court or time", { selectedCourtId, startTime });
       Alert.alert("Error", "Please select a court and time");
@@ -847,8 +920,9 @@ export default function CreateSessionWizard({
   }, [
     isOffline, selectedCourtId, startTime, selectedDate, duration,
     sessionType, ballLevel, skillLevel, notes, travelTime,
-    selectedPlayers, effectiveCoach, isRecurring, weekCount, maxPlayers,
-    isOpenGroup, visibleToPlayers, enableWaitlist, createSeriesMode
+    selectedPlayers, effectiveCoach, isRecurring, isFlexible, weekCount, maxPlayers,
+    isOpenGroup, visibleToPlayers, enableWaitlist, createSeriesMode,
+    flexibleDates, flexibleDefaultTime
   ]);
 
   // Progress bar animated style
@@ -991,65 +1065,130 @@ export default function CreateSessionWizard({
     </View>
   );
 
-  // SLIDE 1: Recurring
+  // Helper: Toggle date in flexible schedule
+  const toggleFlexibleDate = (dateStr: string) => {
+    setFlexibleDates(prev => {
+      const exists = prev.find(d => d.date === dateStr);
+      if (exists) {
+        return prev.filter(d => d.date !== dateStr);
+      } else {
+        return [...prev, { date: dateStr, time: null }].sort((a, b) => a.date.localeCompare(b.date));
+      }
+    });
+  };
+  
+  // Helper: Set time for a specific flexible date
+  const setFlexibleDateTime = (dateStr: string, time: string | null) => {
+    setFlexibleDates(prev => 
+      prev.map(d => d.date === dateStr ? { ...d, time } : d)
+    );
+  };
+  
+  // Generate calendar days for flexible picker
+  const getFlexibleCalendarDays = () => {
+    const year = flexibleCalendarMonth.getFullYear();
+    const month = flexibleCalendarMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startPadding = firstDay.getDay(); // 0=Sun
+    
+    const days: (Date | null)[] = [];
+    for (let i = 0; i < startPadding; i++) days.push(null);
+    for (let d = 1; d <= lastDay.getDate(); d++) {
+      days.push(new Date(year, month, d));
+    }
+    return days;
+  };
+
+  // SLIDE 1: Schedule Pattern
   const renderRecurringSlide = () => (
     <View style={styles.slideContent}>
       <Text style={styles.slideSubtitle}>How often?</Text>
       
-      <View style={styles.recurringToggleRow}>
+      <View style={styles.schedulePatternRow}>
+        {/* One-Time */}
         <Pressable
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            setIsRecurring(false);
+            setSchedulePattern("one-time");
           }}
           style={[
-            styles.recurringOption,
-            !isRecurring && styles.recurringOptionActive,
+            styles.schedulePatternOption,
+            schedulePattern === "one-time" && styles.schedulePatternOptionActive,
           ]}
         >
           <LinearGradient
-            colors={!isRecurring ? [Colors.dark.primary + "40", Colors.dark.primary + "10"] : ["transparent", "transparent"]}
-            style={styles.recurringOptionGradient}
+            colors={schedulePattern === "one-time" ? [Colors.dark.primary + "40", Colors.dark.primary + "10"] : ["transparent", "transparent"]}
+            style={styles.schedulePatternGradient}
           >
             <Ionicons 
               name="calendar-outline" 
-              size={40} 
-              color={!isRecurring ? Colors.dark.primary : Colors.dark.textMuted} 
+              size={28} 
+              color={schedulePattern === "one-time" ? Colors.dark.primary : Colors.dark.textMuted} 
             />
-            <Text style={[styles.recurringOptionLabel, !isRecurring && styles.recurringOptionLabelActive]}>
+            <Text style={[styles.schedulePatternLabel, schedulePattern === "one-time" && { color: Colors.dark.primary }]}>
               One-Time
             </Text>
-            <Text style={styles.recurringOptionSubtitle}>Single session</Text>
+            <Text style={styles.schedulePatternSubtitle}>Single</Text>
           </LinearGradient>
         </Pressable>
         
+        {/* Weekly Recurring */}
         <Pressable
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            setIsRecurring(true);
+            setSchedulePattern("recurring");
           }}
           style={[
-            styles.recurringOption,
-            isRecurring && styles.recurringOptionActive,
+            styles.schedulePatternOption,
+            schedulePattern === "recurring" && styles.schedulePatternOptionActive,
           ]}
         >
           <LinearGradient
-            colors={isRecurring ? [Colors.dark.xpCyan + "40", Colors.dark.xpCyan + "10"] : ["transparent", "transparent"]}
-            style={styles.recurringOptionGradient}
+            colors={schedulePattern === "recurring" ? [Colors.dark.xpCyan + "40", Colors.dark.xpCyan + "10"] : ["transparent", "transparent"]}
+            style={styles.schedulePatternGradient}
           >
             <Ionicons 
               name="repeat" 
-              size={40} 
-              color={isRecurring ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+              size={28} 
+              color={schedulePattern === "recurring" ? Colors.dark.xpCyan : Colors.dark.textMuted} 
             />
-            <Text style={[styles.recurringOptionLabel, isRecurring && { color: Colors.dark.xpCyan }]}>
+            <Text style={[styles.schedulePatternLabel, schedulePattern === "recurring" && { color: Colors.dark.xpCyan }]}>
               Weekly
             </Text>
-            <Text style={styles.recurringOptionSubtitle}>Repeating series</Text>
+            <Text style={styles.schedulePatternSubtitle}>Fixed day</Text>
+          </LinearGradient>
+        </Pressable>
+        
+        {/* Flexible (Pick Dates) */}
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setSchedulePattern("flexible");
+          }}
+          style={[
+            styles.schedulePatternOption,
+            schedulePattern === "flexible" && styles.schedulePatternOptionActive,
+          ]}
+        >
+          <LinearGradient
+            colors={schedulePattern === "flexible" ? [Colors.dark.orange + "40", Colors.dark.orange + "10"] : ["transparent", "transparent"]}
+            style={styles.schedulePatternGradient}
+          >
+            <Ionicons 
+              name="calendar-number-outline" 
+              size={28} 
+              color={schedulePattern === "flexible" ? Colors.dark.orange : Colors.dark.textMuted} 
+            />
+            <Text style={[styles.schedulePatternLabel, schedulePattern === "flexible" && { color: Colors.dark.orange }]}>
+              Flexible
+            </Text>
+            <Text style={styles.schedulePatternSubtitle}>Pick dates</Text>
           </LinearGradient>
         </Pressable>
       </View>
 
+      {/* Weekly recurring options */}
       {isRecurring && (
         <Animated.View entering={FadeIn.duration(300)} style={styles.weekCountSection}>
           <Text style={styles.weekCountLabel}>Number of weeks</Text>
@@ -1080,6 +1219,113 @@ export default function CreateSessionWizard({
           </Text>
         </Animated.View>
       )}
+      
+      {/* Flexible date picker */}
+      {isFlexible && (
+        <Animated.View entering={FadeIn.duration(300)} style={styles.flexibleSection}>
+          <Text style={styles.weekCountLabel}>Select dates ({flexibleDates.length} selected)</Text>
+          
+          {/* Month navigation */}
+          <View style={styles.flexibleMonthNav}>
+            <Pressable
+              onPress={() => {
+                const prev = new Date(flexibleCalendarMonth);
+                prev.setMonth(prev.getMonth() - 1);
+                setFlexibleCalendarMonth(prev);
+              }}
+              style={styles.flexibleMonthBtn}
+            >
+              <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
+            </Pressable>
+            <Text style={styles.flexibleMonthLabel}>
+              {flexibleCalendarMonth.toLocaleDateString("en", { month: "long", year: "numeric" })}
+            </Text>
+            <Pressable
+              onPress={() => {
+                const next = new Date(flexibleCalendarMonth);
+                next.setMonth(next.getMonth() + 1);
+                setFlexibleCalendarMonth(next);
+              }}
+              style={styles.flexibleMonthBtn}
+            >
+              <Ionicons name="chevron-forward" size={24} color={Colors.dark.text} />
+            </Pressable>
+          </View>
+          
+          {/* Day headers */}
+          <View style={styles.flexibleDayHeaders}>
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
+              <Text key={d} style={styles.flexibleDayHeader}>{d}</Text>
+            ))}
+          </View>
+          
+          {/* Calendar grid */}
+          <View style={styles.flexibleCalendarGrid}>
+            {getFlexibleCalendarDays().map((day, idx) => {
+              if (!day) {
+                return <View key={`empty-${idx}`} style={styles.flexibleDayCell} />;
+              }
+              const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+              const isSelected = flexibleDates.some(d => d.date === dateStr);
+              const isToday = day.toDateString() === new Date().toDateString();
+              
+              return (
+                <Pressable
+                  key={dateStr}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    toggleFlexibleDate(dateStr);
+                  }}
+                  style={[
+                    styles.flexibleDayCell,
+                    isSelected && styles.flexibleDayCellSelected,
+                    isToday && styles.flexibleDayCellToday,
+                  ]}
+                >
+                  <Text style={[
+                    styles.flexibleDayText,
+                    isSelected && styles.flexibleDayTextSelected,
+                  ]}>
+                    {day.getDate()}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          
+          {/* Selected dates summary */}
+          {flexibleDates.length > 0 && (
+            <View style={styles.flexibleSummary}>
+              <Text style={styles.flexibleSummaryLabel}>
+                {flexibleDates.length} date{flexibleDates.length !== 1 ? 's' : ''} selected
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.flexibleChipsScroll}>
+                {flexibleDates.slice(0, 10).map(fd => {
+                  const [y, m, d] = fd.date.split('-').map(Number);
+                  const date = new Date(y, m - 1, d);
+                  return (
+                    <Pressable
+                      key={fd.date}
+                      onPress={() => toggleFlexibleDate(fd.date)}
+                      style={styles.flexibleChip}
+                    >
+                      <Text style={styles.flexibleChipText}>
+                        {date.toLocaleDateString("en", { month: "short", day: "numeric" })}
+                      </Text>
+                      <Ionicons name="close-circle" size={14} color={Colors.dark.orange} />
+                    </Pressable>
+                  );
+                })}
+                {flexibleDates.length > 10 && (
+                  <View style={styles.flexibleChip}>
+                    <Text style={styles.flexibleChipText}>+{flexibleDates.length - 10} more</Text>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+          )}
+        </Animated.View>
+      )}
     </View>
   );
 
@@ -1092,61 +1338,84 @@ export default function CreateSessionWizard({
       d.setDate(d.getDate() + i);
       days.push(d);
     }
+    
+    // All time slots for flexible mode
+    const allTimeSlots = [
+      "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
+      "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
+      "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
+      "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
+      "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
+    ];
 
     return (
       <View style={styles.slideContent}>
-        {/* Date Selection */}
-        <View style={styles.section}>
-          <View style={styles.dateLabelRow}>
-            <Text style={styles.sectionLabel}>Date</Text>
-            {/* Prominent Calendar Button */}
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                setCalendarViewDate(selectedDate);
-                setShowCalendarModal(true);
-              }}
-              style={styles.calendarBtnProminent}
-            >
-              <LinearGradient
-                colors={[Colors.dark.xpCyan, Colors.dark.primary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.calendarBtnGradient}
-              >
-                <Ionicons name="calendar" size={16} color={Colors.dark.backgroundRoot} />
-                <Text style={styles.calendarBtnText}>Pick Date</Text>
-              </LinearGradient>
-            </Pressable>
+        {/* Flexible mode: Show selected dates summary */}
+        {isFlexible && (
+          <View style={styles.section}>
+            <View style={[styles.flexibleInfoBox, { backgroundColor: Colors.dark.orange + "15" }]}>
+              <Ionicons name="calendar-number" size={20} color={Colors.dark.orange} />
+              <Text style={[styles.flexibleInfoText, { color: Colors.dark.orange }]}>
+                {flexibleDates.length} date{flexibleDates.length !== 1 ? 's' : ''} selected
+              </Text>
+            </View>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroll}>
-            {days.map((day, idx) => {
-              const isSelected = day.toDateString() === selectedDate.toDateString();
-              const isToday = idx === 0;
-              return (
-                <Pressable
-                  key={idx}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSelectedDate(day);
-                    setStartTime(null); // Reset time when date changes
-                  }}
-                  style={[styles.dateCard, isSelected && styles.dateCardActive]}
+        )}
+        
+        {/* Date Selection - Only for one-time and recurring modes */}
+        {!isFlexible && (
+          <View style={styles.section}>
+            <View style={styles.dateLabelRow}>
+              <Text style={styles.sectionLabel}>Date</Text>
+              {/* Prominent Calendar Button */}
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  setCalendarViewDate(selectedDate);
+                  setShowCalendarModal(true);
+                }}
+                style={styles.calendarBtnProminent}
+              >
+                <LinearGradient
+                  colors={[Colors.dark.xpCyan, Colors.dark.primary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.calendarBtnGradient}
                 >
-                  <Text style={[styles.dateDayName, isSelected && styles.dateDayNameActive]}>
-                    {isToday ? "Today" : day.toLocaleDateString("en", { weekday: "short" })}
-                  </Text>
-                  <Text style={[styles.dateNumber, isSelected && styles.dateNumberActive]}>
-                    {day.getDate()}
-                  </Text>
-                  <Text style={[styles.dateMonth, isSelected && styles.dateMonthActive]}>
-                    {day.toLocaleDateString("en", { month: "short" })}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
+                  <Ionicons name="calendar" size={16} color={Colors.dark.backgroundRoot} />
+                  <Text style={styles.calendarBtnText}>Pick Date</Text>
+                </LinearGradient>
+              </Pressable>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroll}>
+              {days.map((day, idx) => {
+                const isSelected = day.toDateString() === selectedDate.toDateString();
+                const isToday = idx === 0;
+                return (
+                  <Pressable
+                    key={idx}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSelectedDate(day);
+                      setStartTime(null); // Reset time when date changes
+                    }}
+                    style={[styles.dateCard, isSelected && styles.dateCardActive]}
+                  >
+                    <Text style={[styles.dateDayName, isSelected && styles.dateDayNameActive]}>
+                      {isToday ? "Today" : day.toLocaleDateString("en", { weekday: "short" })}
+                    </Text>
+                    <Text style={[styles.dateNumber, isSelected && styles.dateNumberActive]}>
+                      {day.getDate()}
+                    </Text>
+                    <Text style={[styles.dateMonth, isSelected && styles.dateMonthActive]}>
+                      {day.toLocaleDateString("en", { month: "short" })}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Court Selection */}
         <View style={styles.section}>
@@ -1200,52 +1469,83 @@ export default function CreateSessionWizard({
           </View>
         </View>
 
-        {/* Available Times - ONLY SHOW AVAILABLE SLOTS */}
-        {selectedCourtId ? (
+        {/* Time Selection - Different for flexible vs normal mode */}
+        {isFlexible ? (
+          // Flexible mode: Show all time slots for default time
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionLabel}>Available Times</Text>
-              <View style={styles.slotCountBadge}>
-                <Text style={styles.slotCountText}>{availableSlots.length} slots</Text>
-              </View>
+            <Text style={styles.sectionLabel}>Default Time (for all dates)</Text>
+            <Text style={styles.flexibleTimeHint}>
+              You can adjust individual times on the confirm screen
+            </Text>
+            <View style={styles.timeGrid}>
+              {allTimeSlots.map((time) => {
+                const isSelected = flexibleDefaultTime === time;
+                return (
+                  <Pressable
+                    key={time}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      setFlexibleDefaultTime(time);
+                    }}
+                    style={[styles.timeSlot, isSelected && styles.timeSlotActive]}
+                  >
+                    <Text style={[styles.timeSlotText, isSelected && styles.timeSlotTextActive]}>
+                      {time}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
-            
-            {availableSlots.length > 0 ? (
-              <View style={styles.timeGrid}>
-                {availableSlots.map((time) => {
-                  const isSelected = startTime === time;
-                  return (
-                    <Pressable
-                      key={time}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        setStartTime(time);
-                      }}
-                      style={[styles.timeSlot, isSelected && styles.timeSlotActive]}
-                    >
-                      <Text style={[styles.timeSlotText, isSelected && styles.timeSlotTextActive]}>
-                        {time}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            ) : (
-              <View style={styles.noSlotsBox}>
-                <Ionicons name="calendar-outline" size={32} color={Colors.dark.error} />
-                <Text style={styles.noSlotsText}>No available slots</Text>
-                <Text style={styles.noSlotsHint}>Try a different date or duration</Text>
-              </View>
-            )}
-
           </View>
         ) : (
-          <View style={styles.section}>
-            <View style={styles.selectCourtPrompt}>
-              <Ionicons name="arrow-up" size={20} color={Colors.dark.textMuted} />
-              <Text style={styles.selectCourtText}>Select a court first</Text>
-            </View>
-          </View>
+          // Normal mode: Show available times based on court availability
+          <>
+            {selectedCourtId ? (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionLabel}>Available Times</Text>
+                  <View style={styles.slotCountBadge}>
+                    <Text style={styles.slotCountText}>{availableSlots.length} slots</Text>
+                  </View>
+                </View>
+                
+                {availableSlots.length > 0 ? (
+                  <View style={styles.timeGrid}>
+                    {availableSlots.map((time) => {
+                      const isSelected = startTime === time;
+                      return (
+                        <Pressable
+                          key={time}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                            setStartTime(time);
+                          }}
+                          style={[styles.timeSlot, isSelected && styles.timeSlotActive]}
+                        >
+                          <Text style={[styles.timeSlotText, isSelected && styles.timeSlotTextActive]}>
+                            {time}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <View style={styles.noSlotsBox}>
+                    <Ionicons name="calendar-outline" size={32} color={Colors.dark.error} />
+                    <Text style={styles.noSlotsText}>No available slots</Text>
+                    <Text style={styles.noSlotsHint}>Try a different date or duration</Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <View style={styles.section}>
+                <View style={styles.selectCourtPrompt}>
+                  <Ionicons name="arrow-up" size={20} color={Colors.dark.textMuted} />
+                  <Text style={styles.selectCourtText}>Select a court first</Text>
+                </View>
+              </View>
+            )}
+          </>
         )}
       </View>
     );
@@ -1643,19 +1943,41 @@ export default function CreateSessionWizard({
               <Text style={styles.summaryText}>{selectedCourt?.name || "No court"}</Text>
             </View>
 
-            <View style={styles.summaryRow}>
-              <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
-              <Text style={styles.summaryText}>
-                {selectedDate.toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })}
-              </Text>
-            </View>
+            {/* Date/Time display depends on mode */}
+            {isFlexible ? (
+              // Flexible mode: show count of sessions
+              <>
+                <View style={styles.summaryRow}>
+                  <Ionicons name="calendar-number" size={18} color={Colors.dark.orange} />
+                  <Text style={styles.summaryText}>
+                    {flexibleDates.length} session{flexibleDates.length !== 1 ? 's' : ''} scheduled
+                  </Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Ionicons name="time" size={18} color={Colors.dark.gold} />
+                  <Text style={styles.summaryText}>
+                    {flexibleDefaultTime || "Various times"} · {duration}min each
+                  </Text>
+                </View>
+              </>
+            ) : (
+              // Normal mode: show single date/time
+              <>
+                <View style={styles.summaryRow}>
+                  <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
+                  <Text style={styles.summaryText}>
+                    {selectedDate.toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })}
+                  </Text>
+                </View>
 
-            <View style={styles.summaryRow}>
-              <Ionicons name="time" size={18} color={Colors.dark.gold} />
-              <Text style={styles.summaryText}>
-                {startTime || "No time"} · {duration}min
-              </Text>
-            </View>
+                <View style={styles.summaryRow}>
+                  <Ionicons name="time" size={18} color={Colors.dark.gold} />
+                  <Text style={styles.summaryText}>
+                    {startTime || "No time"} · {duration}min
+                  </Text>
+                </View>
+              </>
+            )}
 
             {/* Recurring Badge */}
             {isRecurring && (
@@ -1688,6 +2010,48 @@ export default function CreateSessionWizard({
             )}
           </LinearGradient>
         </Animated.View>
+
+        {/* Flexible Dates List */}
+        {isFlexible && flexibleDates.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Sessions Schedule</Text>
+            <View style={styles.flexibleDatesList}>
+              {flexibleDates.map((fd, idx) => {
+                const [y, m, d] = fd.date.split('-').map(Number);
+                const date = new Date(y, m - 1, d);
+                const dayName = date.toLocaleDateString("en", { weekday: "short" });
+                const dateStr = date.toLocaleDateString("en", { month: "short", day: "numeric" });
+                const time = fd.time || flexibleDefaultTime || "--:--";
+                
+                return (
+                  <View key={fd.date} style={styles.flexibleDateRow}>
+                    <View style={styles.flexibleDateLeft}>
+                      <Text style={styles.flexibleDateNum}>{idx + 1}</Text>
+                      <Text style={styles.flexibleDateDay}>{dayName}</Text>
+                      <Text style={styles.flexibleDateStr}>{dateStr}</Text>
+                    </View>
+                    <Pressable 
+                      style={styles.flexibleTimeBtn}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        const times = [
+                          "07:00", "08:00", "09:00", "10:00", "11:00", "12:00",
+                          "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"
+                        ];
+                        const currentIdx = times.indexOf(time);
+                        const nextIdx = (currentIdx + 1) % times.length;
+                        setFlexibleDateTime(fd.date, times[nextIdx]);
+                      }}
+                    >
+                      <Text style={styles.flexibleTimeBtnText}>{time}</Text>
+                      <Ionicons name="time-outline" size={14} color={Colors.dark.orange} />
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         {/* Travel Time */}
         <View style={styles.section}>
@@ -2205,6 +2569,180 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.textMuted,
     marginTop: Spacing.md,
+  },
+  
+  // Schedule Pattern (3-column)
+  schedulePatternRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  schedulePatternOption: {
+    flex: 1,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    overflow: "hidden",
+  },
+  schedulePatternOptionActive: {
+    borderWidth: 2,
+  },
+  schedulePatternGradient: {
+    padding: Spacing.md,
+    alignItems: "center",
+    gap: Spacing.xs,
+    minHeight: 90,
+    justifyContent: "center",
+  },
+  schedulePatternLabel: {
+    ...Typography.small,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  schedulePatternSubtitle: {
+    ...Typography.tiny,
+    color: Colors.dark.textMuted,
+  },
+  
+  // Flexible Schedule
+  flexibleSection: {
+    marginTop: Spacing.lg,
+  },
+  flexibleMonthNav: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+  },
+  flexibleMonthBtn: {
+    padding: Spacing.sm,
+  },
+  flexibleMonthLabel: {
+    ...Typography.body,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  flexibleDayHeaders: {
+    flexDirection: "row",
+    marginBottom: Spacing.xs,
+  },
+  flexibleDayHeader: {
+    flex: 1,
+    textAlign: "center",
+    ...Typography.tiny,
+    color: Colors.dark.textMuted,
+  },
+  flexibleCalendarGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  flexibleDayCell: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: BorderRadius.full,
+  },
+  flexibleDayCellSelected: {
+    backgroundColor: Colors.dark.orange + "40",
+  },
+  flexibleDayCellToday: {
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan,
+  },
+  flexibleDayText: {
+    ...Typography.small,
+    color: Colors.dark.text,
+  },
+  flexibleDayTextSelected: {
+    color: Colors.dark.orange,
+    fontWeight: "bold",
+  },
+  flexibleSummary: {
+    marginTop: Spacing.md,
+  },
+  flexibleSummaryLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.xs,
+  },
+  flexibleChipsScroll: {
+    flexGrow: 0,
+  },
+  flexibleChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    backgroundColor: Colors.dark.orange + "20",
+    borderRadius: BorderRadius.full,
+    marginRight: Spacing.xs,
+  },
+  flexibleChipText: {
+    ...Typography.tiny,
+    color: Colors.dark.orange,
+  },
+  flexibleInfoBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  flexibleInfoText: {
+    ...Typography.body,
+    fontWeight: "500",
+  },
+  flexibleTimeHint: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+  },
+  flexibleDatesList: {
+    gap: Spacing.xs,
+  },
+  flexibleDateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  flexibleDateLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  flexibleDateNum: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    width: 20,
+  },
+  flexibleDateDay: {
+    ...Typography.small,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    width: 40,
+  },
+  flexibleDateStr: {
+    ...Typography.small,
+    color: Colors.dark.text,
+  },
+  flexibleTimeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    backgroundColor: Colors.dark.orange + "20",
+    borderRadius: BorderRadius.sm,
+  },
+  flexibleTimeBtnText: {
+    ...Typography.small,
+    color: Colors.dark.orange,
+    fontWeight: "600",
   },
 
   // When & Where

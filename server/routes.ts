@@ -3051,6 +3051,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk create sessions (flexible schedule)
+  app.post("/api/coach/sessions/bulk", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      
+      const {
+        courtId,
+        duration,
+        sessionType,
+        ballLevel,
+        skillLevel,
+        notes,
+        playerIds,
+        maxPlayers,
+        isOpen,
+        visibleToPlayers,
+        flexibleSessions, // Array of { date, time, startTime, endTime }
+      } = req.body;
+      
+      if (!coachId || !courtId || !flexibleSessions || !Array.isArray(flexibleSessions) || flexibleSessions.length === 0) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      
+      const createdSessions: any[] = [];
+      const skippedDates: string[] = [];
+      
+      // Get pricing snapshot once for all sessions
+      let pricingSnapshot: { academyPrice?: string; coachPayout?: string; academyMargin?: string } = {};
+      if (academyId && coachId) {
+        try {
+          const pricing = await storage.calculateSessionPricing(academyId, coachId, sessionType, duration);
+          pricingSnapshot = {
+            academyPrice: String(pricing.academyPrice),
+            coachPayout: String(pricing.coachPayout),
+            academyMargin: String(pricing.academyMargin),
+          };
+        } catch (err: any) {
+          return res.status(422).json({ 
+            error: "Pricing error", 
+            message: err.message || "Could not calculate session pricing"
+          });
+        }
+      }
+      
+      for (const fs of flexibleSessions) {
+        const start = new Date(fs.startTime);
+        const end = new Date(fs.endTime);
+        const dateStr = fs.date;
+        const startTimeStr = fs.time;
+        const endTimeStr = end.toISOString().split('T')[1].slice(0, 5);
+        
+        // Check for conflicts
+        const coachConflict = await storage.checkCoachConflict(coachId, start, end, undefined, academyId ?? undefined);
+        const courtConflict = await storage.checkCourtConflict(courtId, start, end, undefined, academyId ?? undefined);
+        
+        if (coachConflict || courtConflict) {
+          skippedDates.push(dateStr);
+          continue;
+        }
+        
+        // Create the session
+        const session = await storage.createSession({
+          coachId,
+          courtId,
+          academyId: academyId || undefined,
+          startTime: start,
+          endTime: end,
+          duration,
+          sessionType,
+          status: "scheduled",
+          name: notes || null,
+          ballLevel: ballLevel || null,
+          skillLevel: skillLevel || null,
+          maxPlayers: sessionType === "private" ? 1 : maxPlayers || 4,
+          recurringGroupId: null,
+          ...pricingSnapshot,
+        });
+        
+        // Create unified coach time block
+        await storage.createCoachTimeBlock({
+          coachId,
+          sourceType: "session",
+          sourceAcademyId: academyId || undefined,
+          sourceSessionId: session.id,
+          date: dateStr,
+          startTime: startTimeStr,
+          endTime: endTimeStr,
+          isPrivate: true,
+        });
+        
+        // Add players if provided
+        if (playerIds && Array.isArray(playerIds)) {
+          for (const playerId of playerIds) {
+            await storage.addPlayerToSession({ sessionId: session.id, playerId, status: "confirmed" });
+          }
+        }
+        
+        createdSessions.push(session);
+      }
+      
+      if (createdSessions.length === 0) {
+        return res.status(409).json({ 
+          error: "All sessions had conflicts", 
+          skippedDates 
+        });
+      }
+      
+      // Audit log
+      await storage.createAuditLog({
+        entityType: "session",
+        entityId: createdSessions[0].id,
+        action: `bulk_create_${createdSessions.length}`,
+        performedBy: coachId,
+      });
+      
+      res.status(201).json({
+        sessions: createdSessions,
+        summary: {
+          requested: flexibleSessions.length,
+          created: createdSessions.length,
+          skippedDates,
+        },
+        message: skippedDates.length > 0 
+          ? `Created ${createdSessions.length} sessions, skipped ${skippedDates.length} due to conflicts`
+          : `Created ${createdSessions.length} sessions successfully`
+      });
+    } catch (error) {
+      console.error("Error creating bulk sessions:", error);
+      res.status(500).json({ error: "Failed to create sessions" });
+    }
+  });
+
   // Update session
   app.patch("/api/coach/sessions/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -14141,6 +14274,160 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating admin session:", error);
       res.status(500).json({ error: "Failed to create session" });
+    }
+  });
+
+  // Admin bulk create sessions (flexible schedule)
+  app.post("/api/admin/sessions/bulk", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+      
+      const {
+        coachId,
+        courtId,
+        duration,
+        sessionType,
+        ballLevel,
+        skillLevel,
+        notes,
+        playerIds,
+        maxPlayers,
+        isOpen,
+        visibleToPlayers,
+        flexibleSessions,
+      } = req.body;
+      
+      if (!coachId || !courtId || !flexibleSessions || !Array.isArray(flexibleSessions) || flexibleSessions.length === 0) {
+        return res.status(400).json({ error: "Missing required fields: coachId, courtId, and flexibleSessions are required" });
+      }
+      
+      const createdSessions: any[] = [];
+      const skippedDates: string[] = [];
+      
+      // Get pricing snapshot once for all sessions
+      let pricingSnapshot: { academyPrice?: string; coachPayout?: string; academyMargin?: string } = {};
+      try {
+        const pricing = await storage.calculateSessionPricing(academyId, coachId, sessionType, duration);
+        pricingSnapshot = {
+          academyPrice: String(pricing.academyPrice),
+          coachPayout: String(pricing.coachPayout),
+          academyMargin: String(pricing.academyMargin),
+        };
+      } catch (err: any) {
+        return res.status(422).json({ 
+          error: "Pricing error", 
+          message: err.message || "Could not calculate session pricing"
+        });
+      }
+      
+      for (const fs of flexibleSessions) {
+        const start = new Date(fs.startTime);
+        const end = new Date(fs.endTime);
+        const dateStr = fs.date;
+        const startTimeStr = fs.time;
+        const endTimeStr = end.toISOString().split('T')[1].slice(0, 5);
+        
+        // Check for conflicts
+        const coachConflict = await storage.checkCoachConflict(coachId, start, end, undefined, academyId);
+        const courtConflict = await storage.checkCourtConflict(courtId, start, end, undefined, academyId);
+        
+        if (coachConflict || courtConflict) {
+          skippedDates.push(dateStr);
+          continue;
+        }
+        
+        // Create the session
+        const session = await storage.createSession({
+          coachId,
+          courtId,
+          academyId,
+          startTime: start,
+          endTime: end,
+          duration,
+          sessionType,
+          status: "scheduled",
+          name: notes || null,
+          ballLevel: ballLevel || null,
+          skillLevel: skillLevel || null,
+          maxPlayers: sessionType === "private" ? 1 : maxPlayers || 4,
+          recurringGroupId: null,
+          visibleToPlayers,
+          isOpen,
+          ...pricingSnapshot,
+        });
+        
+        // Create unified coach time block
+        await storage.createCoachTimeBlock({
+          coachId,
+          sourceType: "session",
+          sourceAcademyId: academyId,
+          sourceSessionId: session.id,
+          date: dateStr,
+          startTime: startTimeStr,
+          endTime: endTimeStr,
+          isPrivate: true,
+        });
+        
+        // Add players with credit deduction and notifications
+        if (playerIds && Array.isArray(playerIds)) {
+          for (const playerId of playerIds) {
+            const player = await storage.getPlayer(playerId, academyId);
+            await storage.addPlayerToSession({ sessionId: session.id, playerId });
+            
+            const creditResult = await storage.deductTypedCreditsForSession(playerId, sessionType, session.id, academyId);
+            
+            if (!creditResult.success && player) {
+              const creditTypeLabel = (creditResult.creditType || sessionType).replace("_", "-");
+              await storage.createNotification({
+                playerId,
+                type: "credits_needed",
+                title: "Credits Required",
+                message: `You've been added to a ${creditTypeLabel} lesson but don't have matching credits.`,
+                metadata: JSON.stringify({
+                  sessionId: session.id,
+                  sessionType,
+                  requiredCreditType: creditResult.creditType,
+                }),
+              });
+            }
+          }
+        }
+        
+        createdSessions.push(session);
+      }
+      
+      if (createdSessions.length === 0) {
+        return res.status(409).json({ 
+          error: "All sessions had conflicts", 
+          skippedDates 
+        });
+      }
+      
+      // Audit log
+      await storage.createAuditLog({
+        entityType: "session",
+        entityId: createdSessions[0].id,
+        action: `admin_bulk_create_${createdSessions.length}`,
+        performedBy: req.user?.id || "admin",
+      });
+      
+      res.status(201).json({
+        sessions: createdSessions,
+        summary: {
+          requested: flexibleSessions.length,
+          created: createdSessions.length,
+          skippedDates,
+        },
+        message: skippedDates.length > 0 
+          ? `Created ${createdSessions.length} sessions, skipped ${skippedDates.length} due to conflicts`
+          : `Created ${createdSessions.length} sessions successfully`
+      });
+    } catch (error) {
+      console.error("Error creating admin bulk sessions:", error);
+      res.status(500).json({ error: "Failed to create sessions" });
     }
   });
 
