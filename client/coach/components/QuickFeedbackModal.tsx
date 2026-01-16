@@ -16,6 +16,8 @@ import * as Haptics from "expo-haptics";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { AnimatedCheck } from "@/components/AnimatedCheck";
+import { SuccessToast } from "@/components/SuccessToast";
 
 interface Player {
   id: string;
@@ -108,6 +110,8 @@ export default function QuickFeedbackModal({
   const [feedbacks, setFeedbacks] = useState<Map<string, PlayerFeedback>>(new Map());
   const [showSkillPicker, setShowSkillPicker] = useState(false);
   const [selectedSkillForRubric, setSelectedSkillForRubric] = useState<string | null>(null);
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+  const [successToastVisible, setSuccessToastVisible] = useState(false);
   
   const players = session?.players || [];
   const currentPlayer = players[currentPlayerIndex];
@@ -180,7 +184,13 @@ export default function QuickFeedbackModal({
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
-      onComplete();
+      setShowSuccessAnimation(true);
+      setSuccessToastVisible(true);
+      setTimeout(() => {
+        setShowSuccessAnimation(false);
+        setSuccessToastVisible(false);
+        onComplete();
+      }, 1500);
     },
     onError: (error: Error) => {
       Alert.alert("Error", error.message || "Failed to save feedback");
@@ -580,6 +590,26 @@ export default function QuickFeedbackModal({
             )}
           </Pressable>
         </View>
+
+        {showSuccessAnimation && (
+          <View style={styles.animationOverlay}>
+            <AnimatedCheck
+              size={64}
+              variant="glow"
+              autoPlay={true}
+              onComplete={() => {
+                setShowSuccessAnimation(false);
+              }}
+            />
+          </View>
+        )}
+
+        <SuccessToast
+          visible={successToastVisible}
+          message="Feedback saved successfully"
+          variant="success"
+          duration={1500}
+        />
       </View>
     </Modal>
   );
@@ -588,6 +618,13 @@ export default function QuickFeedbackModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  animationOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
   },
   header: {
     flexDirection: "row",

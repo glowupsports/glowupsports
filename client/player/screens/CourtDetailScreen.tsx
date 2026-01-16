@@ -16,6 +16,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
+import { AnimatedCheck } from "@/components/AnimatedCheck";
+import { SuccessToast } from "@/components/SuccessToast";
 
 type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
 type RouteProp = NativeStackScreenProps<PlayerStackParamList, "CourtDetail">["route"];
@@ -72,6 +74,8 @@ export default function CourtDetailScreen() {
   
   const [selectedSlot, setSelectedSlot] = useState<{ start: string; end: string } | null>(null);
   const [showBookingConfirm, setShowBookingConfirm] = useState(false);
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
 
   const detailUrl = `/api/courts/${courtId}/details?date=${date}`;
 
@@ -84,19 +88,28 @@ export default function CourtDetailScreen() {
       return apiRequest("POST", `/api/courts/${courtId}/book`, data);
     },
     onSuccess: () => {
-      Alert.alert(
-        "Booking Confirmed",
-        court?.requiresApproval 
-          ? "Your booking request has been submitted and is pending approval."
-          : "Your court has been booked successfully!",
-        [
-          { text: "View My Bookings", onPress: () => navigation.navigate("MyCourtBookings") },
-          { text: "Done", onPress: () => navigation.goBack() },
-        ]
-      );
+      setShowSuccessAnimation(true);
+      setShowSuccessToast(true);
       queryClient.invalidateQueries({ queryKey: [detailUrl] });
       queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0]?.toString().startsWith("/api/courts/search") ?? false });
       queryClient.invalidateQueries({ queryKey: ["/api/my-court-bookings"] });
+      
+      setTimeout(() => {
+        setShowSuccessAnimation(false);
+      }, 300);
+      
+      setTimeout(() => {
+        Alert.alert(
+          "Booking Confirmed",
+          court?.requiresApproval 
+            ? "Your booking request has been submitted and is pending approval."
+            : "Your court has been booked successfully!",
+          [
+            { text: "View My Bookings", onPress: () => navigation.navigate("MyCourtBookings") },
+            { text: "Done", onPress: () => navigation.goBack() },
+          ]
+        );
+      }, 800);
     },
     onError: (error: Error) => {
       Alert.alert("Booking Failed", error.message || "Failed to book the court. Please try again.");
@@ -415,6 +428,25 @@ export default function CourtDetailScreen() {
           </View>
         </View>
       )}
+
+      {showSuccessAnimation && (
+        <View style={styles.successOverlay}>
+          <AnimatedCheck 
+            size={80}
+            variant="glow"
+            autoPlay={true}
+            onComplete={() => setShowSuccessAnimation(false)}
+          />
+        </View>
+      )}
+
+      <SuccessToast
+        visible={showSuccessToast}
+        message="Court booked successfully!"
+        variant="success"
+        duration={3000}
+        onHide={() => setShowSuccessToast(false)}
+      />
     </View>
   );
 }
@@ -781,5 +813,16 @@ const styles = StyleSheet.create({
   findPlayerSubtitle: {
     fontSize: 12,
     color: Colors.dark.textSecondary,
+  },
+  successOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    zIndex: 1000,
   },
 });

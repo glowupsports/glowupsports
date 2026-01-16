@@ -23,6 +23,8 @@ import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
+import { SessionSummaryModal } from "@/components/SessionSummaryModal";
+import { AnimatedCheck } from "@/components/AnimatedCheck";
 
 type AttendanceStatus = "present" | "late" | "absent" | "holiday";
 type LateMinutes = 5 | 10 | 15 | 20 | 30 | 999;
@@ -91,6 +93,8 @@ export default function AttendanceDrawer({
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [lastUsedLateMinutes, setLastUsedLateMinutes] = useState<LateMinutes>(DEFAULT_LATE_MINUTES);
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
 
   const { data: allPlayersData } = useQuery<AvailablePlayer[]>({
     queryKey: ["/api/players"],
@@ -163,11 +167,11 @@ export default function AttendanceDrawer({
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
-      Alert.alert(
-        "Saved",
-        "Attendance has been recorded successfully.",
-        [{ text: "OK", onPress: () => { onSave(); onClose(); } }]
-      );
+      setShowSuccessAnimation(true);
+      setTimeout(() => {
+        setShowSuccessAnimation(false);
+        setShowSummaryModal(true);
+      }, 300);
     },
     onError: (error: Error) => {
       Alert.alert("Error", error.message || "Failed to save attendance");
@@ -290,6 +294,40 @@ export default function AttendanceDrawer({
       minute: "2-digit",
       hour12: false,
     });
+  };
+
+  const handleSummaryClose = () => {
+    setShowSummaryModal(false);
+    onSave();
+    onClose();
+  };
+
+  const getPresentCount = () => {
+    let count = 0;
+    attendance.forEach((record) => {
+      if (record.status === "present" || record.status === "late") {
+        count++;
+      }
+    });
+    return count;
+  };
+
+  const getSessionSummaryData = () => {
+    const presentCount = getPresentCount();
+    const xpPerPlayer = 25;
+    const xpEarned = presentCount * xpPerPlayer;
+    return {
+      duration: session?.duration || 60,
+      skillsPracticed: presentCount,
+      xpEarned,
+      currentLevel: 1,
+      currentXP: xpEarned,
+      xpToNextLevel: 100 - xpEarned,
+      nextFocus: presentCount > 0 ? {
+        skill: "Session Consistency",
+        recommendation: "Keep tracking attendance to build player profiles",
+      } : undefined,
+    };
   };
 
   if (!visible || !session) return null;
@@ -571,7 +609,21 @@ export default function AttendanceDrawer({
             <Text style={styles.offlineText}>You're offline. Saving is disabled.</Text>
           </View>
         ) : null}
+
+        {/* Success Animation Overlay */}
+        {showSuccessAnimation ? (
+          <View style={styles.successOverlay}>
+            <AnimatedCheck size={80} variant="glow" />
+          </View>
+        ) : null}
       </View>
+
+      {/* Session Summary Modal */}
+      <SessionSummaryModal
+        visible={showSummaryModal}
+        onClose={handleSummaryClose}
+        sessionData={getSessionSummaryData()}
+      />
     </Modal>
   );
 }
@@ -909,5 +961,12 @@ const styles = StyleSheet.create({
   noPlayersText: {
     fontSize: Typography.body.fontSize,
     color: Colors.dark.textMuted,
+  },
+  successOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(11, 13, 16, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 100,
   },
 });

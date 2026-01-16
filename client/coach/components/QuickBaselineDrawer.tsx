@@ -10,12 +10,15 @@ import {
   TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, FontSizes, getPlayerLevelColor, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { PostActionModal } from "@/components/PostActionModal";
+import { AnimatedCheck } from "@/components/AnimatedCheck";
 
 interface Player {
   id: string;
@@ -450,7 +453,11 @@ export default function QuickBaselineDrawer({
 }: QuickBaselineDrawerProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const navigation = useNavigation<any>();
   const [step, setStep] = useState<"intake" | "pillars" | "deep" | "confirm">("intake");
+  
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+  const [showPostActionModal, setShowPostActionModal] = useState(false);
   
   const [tennisExperience, setTennisExperience] = useState<TennisExperience>("0-6m");
   const [playsCompetition, setPlaysCompetition] = useState<PlaysCompetition>("never");
@@ -519,8 +526,12 @@ export default function QuickBaselineDrawer({
       queryClient.invalidateQueries({ queryKey: ["/api/players"] });
       queryClient.invalidateQueries({ queryKey: ["/api/academy/baseline-stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/players", player?.id, "baseline"] });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      onComplete();
+      
+      setShowSuccessAnimation(true);
+      setTimeout(() => {
+        setShowSuccessAnimation(false);
+        setShowPostActionModal(true);
+      }, 300);
     },
   });
   
@@ -545,6 +556,8 @@ export default function QuickBaselineDrawer({
       setOverrideNote("");
       setDeepSkillScores({});
       setExpandedPillars({ technique: true });
+      setShowSuccessAnimation(false);
+      setShowPostActionModal(false);
     }
   }, [visible, player?.id]);
   
@@ -1211,7 +1224,60 @@ export default function QuickBaselineDrawer({
             </Pressable>
           )}
         </View>
+        
+        {showSuccessAnimation && (
+          <View style={styles.successOverlay}>
+            <AnimatedCheck size={80} variant="glow" />
+          </View>
+        )}
       </View>
+      
+      <PostActionModal
+        visible={showPostActionModal}
+        onClose={() => {
+          setShowPostActionModal(false);
+          onComplete();
+        }}
+        icon="checkmark-circle"
+        title="Baseline Saved"
+        subtitle={player?.name}
+        message="Starting level has been set successfully."
+        actions={[
+          {
+            id: "view-profile",
+            label: "View Player Profile",
+            icon: "person",
+            variant: "primary",
+            onPress: () => {
+              setShowPostActionModal(false);
+              onClose();
+              if (player?.id) {
+                navigation.navigate("PlayerProfile", { playerId: player.id });
+              }
+            },
+          },
+          {
+            id: "another-baseline",
+            label: "Start Another Baseline",
+            icon: "add-circle",
+            variant: "secondary",
+            onPress: () => {
+              setShowPostActionModal(false);
+              onComplete();
+            },
+          },
+          {
+            id: "back-dashboard",
+            label: "Back to Dashboard",
+            icon: "home",
+            variant: "ghost",
+            onPress: () => {
+              setShowPostActionModal(false);
+              onClose();
+            },
+          },
+        ]}
+      />
     </Modal>
   );
 }
@@ -1754,5 +1820,12 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  successOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.dark.backgroundRoot + "F0",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 100,
   },
 });

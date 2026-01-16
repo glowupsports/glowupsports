@@ -35,6 +35,8 @@ import Animated, {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Typography, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest, apiFetch, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
+import { AnimatedCheck } from "@/components/AnimatedCheck";
+import { SuccessToast } from "@/components/SuccessToast";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -771,14 +773,13 @@ export default function PlayerBookingWizard({
       <Animated.View entering={FadeIn} style={styles.slideContent}>
         {showSuccess ? (
           <View style={styles.successContainer}>
-            <Animated.View style={[styles.successIcon, xpStyle]}>
-              <LinearGradient
-                colors={[Colors.dark.primary, Colors.dark.xpCyan]}
-                style={styles.successIconGradient}
-              >
-                <Ionicons name="checkmark" size={48} color="#FFF" />
-              </LinearGradient>
-            </Animated.View>
+            <View style={styles.successCheckmark}>
+              <AnimatedCheck 
+                size={72}
+                variant="glow"
+                autoPlay={true}
+              />
+            </View>
             <Text style={styles.successTitle}>
               {isJoining ? "You're In!" : "Request Sent!"}
             </Text>
@@ -1549,15 +1550,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.lg,
   },
-  successIcon: {
+  successCheckmark: {
     marginBottom: Spacing.md,
-  },
-  successIconGradient: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    alignItems: "center",
-    justifyContent: "center",
   },
   successTitle: {
     fontSize: 28,
