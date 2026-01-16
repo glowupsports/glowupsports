@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import Animated, { FadeInRight, FadeIn } from "react-native-reanimated";
-import { ProTennisColors, Spacing, BorderRadius } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, Backgrounds, GlowColors, FunctionColors, Colors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
@@ -114,15 +114,15 @@ export function SocialDiscoveryStrip() {
 
         <Animated.View entering={FadeInRight.delay(80).duration(400)}>
           <Pressable onPress={handleChallengePress}>
-            <NeonEdgeCard color="#FF6B6B" glowIntensity="medium" style={styles.actionCard}>
+            <NeonEdgeCard color={FunctionColors.error} glowIntensity="medium" style={styles.actionCard}>
               <View style={styles.actionContent}>
-                <View style={[styles.actionIcon, { borderColor: "#FF6B6B40" }]}>
-                  <Feather name="zap" size={22} color="#FF6B6B" />
+                <View style={[styles.actionIcon, { borderColor: FunctionColors.error + "40" }]}>
+                  <Feather name="zap" size={22} color={FunctionColors.error} />
                 </View>
                 <Text style={styles.actionTitle}>Challenge</Text>
                 <Text style={styles.actionSubtitle}>1v1 Match</Text>
                 <View style={styles.actionArrow}>
-                  <Feather name="arrow-right" size={14} color="#FF6B6B" />
+                  <Feather name="arrow-right" size={14} color={FunctionColors.error} />
                 </View>
               </View>
             </NeonEdgeCard>
@@ -131,12 +131,12 @@ export function SocialDiscoveryStrip() {
 
         <Animated.View entering={FadeInRight.delay(160).duration(400)}>
           <Pressable onPress={handleSessionsPress}>
-            <NeonEdgeCard color={ProTennisColors.electricGreen} glowIntensity="medium" style={styles.sessionCard}>
+            <NeonEdgeCard color={GlowColors.primary} glowIntensity="medium" style={styles.sessionCard}>
               <View style={styles.sessionContent}>
                 <View style={styles.sessionHeader}>
                   <Text style={styles.sessionTitle}>Open Sessions</Text>
-                  <View style={[styles.countBadge, { backgroundColor: `${ProTennisColors.electricGreen}30` }]}>
-                    <Text style={[styles.countText, { color: ProTennisColors.electricGreen }]}>
+                  <View style={[styles.countBadge, { backgroundColor: `${GlowColors.primary}30` }]}>
+                    <Text style={[styles.countText, { color: GlowColors.primary }]}>
                       {state.openSessions.length}
                     </Text>
                   </View>
@@ -164,15 +164,15 @@ export function SocialDiscoveryStrip() {
 
         <Animated.View entering={FadeInRight.delay(240).duration(400)}>
           <Pressable onPress={handleEventsPress}>
-            <NeonEdgeCard color="#FFD93D" glowIntensity="low" style={styles.actionCard}>
+            <NeonEdgeCard color={FunctionColors.social} glowIntensity="low" style={styles.actionCard}>
               <View style={styles.actionContent}>
-                <View style={[styles.actionIcon, { borderColor: "#FFD93D40" }]}>
-                  <Feather name="award" size={22} color="#FFD93D" />
+                <View style={[styles.actionIcon, { borderColor: FunctionColors.social + "40" }]}>
+                  <Feather name="award" size={22} color={FunctionColors.social} />
                 </View>
                 <Text style={styles.actionTitle}>Events</Text>
                 <Text style={styles.actionSubtitle}>Tournaments</Text>
                 <View style={styles.actionArrow}>
-                  <Feather name="arrow-right" size={14} color="#FFD93D" />
+                  <Feather name="arrow-right" size={14} color={FunctionColors.social} />
                 </View>
               </View>
             </NeonEdgeCard>
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: ProTennisColors.electricGreen + "20",
+    backgroundColor: GlowColors.primary + "20",
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: BorderRadius.sm,
@@ -212,12 +212,12 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: ProTennisColors.electricGreen,
+    backgroundColor: GlowColors.primary,
   },
   badgeText: {
     fontSize: 9,
     fontWeight: "700",
-    color: ProTennisColors.electricGreen,
+    color: GlowColors.primary,
     letterSpacing: 1,
   },
   scrollContent: {
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    backgroundColor: Backgrounds.card + "4D",
   },
   actionTitle: {
     fontSize: 14,
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   sessionTime: {
     fontSize: 22,
     fontWeight: "700",
-    color: ProTennisColors.electricGreen,
+    color: GlowColors.primary,
     fontVariant: ["tabular-nums"],
   },
   sessionSpots: {

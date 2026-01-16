@@ -102,7 +102,7 @@ function VideoPostMedia({ uri }: { uri: string }) {
         nativeControls
       />
       <View style={styles.videoIndicator}>
-        <Ionicons name="videocam" size={16} color="#fff" />
+        <Ionicons name="videocam" size={16} color={Colors.dark.text} />
       </View>
     </View>
   );
@@ -537,9 +537,9 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
             disabled={!commentText.trim() || isSubmitting}
           >
             {isSubmitting ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
             ) : (
-              <Ionicons name="send" size={18} color="#fff" />
+              <Ionicons name="send" size={18} color={Colors.dark.buttonText} />
             )}
           </Pressable>
         </View>
@@ -738,7 +738,7 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
               ]}
             >
               {(isSubmitting || isUploading) ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <ThemedText style={styles.postButtonText}>Post</ThemedText>
               )}
@@ -813,7 +813,7 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
                   style={styles.removeImageButton}
                   onPress={() => setSelectedMedia(null)}
                 >
-                  <Ionicons name="close-circle" size={28} color="#fff" />
+                  <Ionicons name="close-circle" size={28} color={Colors.dark.text} />
                 </Pressable>
               </View>
             ) : null}
@@ -993,7 +993,7 @@ export default function CommunityScreen() {
             testID="button-create-moment"
           >
             <View style={styles.addButton}>
-              <Ionicons name="add" size={22} color="#fff" />
+              <Ionicons name="add" size={22} color={Colors.dark.buttonText} />
             </View>
           </Pressable>
         </View>
@@ -1300,7 +1300,7 @@ const styles = StyleSheet.create({
   },
   moreMediaText: {
     fontSize: 12,
-    color: "#fff",
+    color: Colors.dark.text,
     fontWeight: "600",
   },
   postActions: {
@@ -1399,7 +1399,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   postButtonText: {
-    color: "#fff",
+    color: Colors.dark.buttonText,
     fontWeight: "600",
     fontSize: 14,
   },
@@ -1574,7 +1574,7 @@ const styles = StyleSheet.create({
   },
   mediaCountText: {
     fontSize: 12,
-    color: "#fff",
+    color: Colors.dark.text,
     fontWeight: "600",
   },
   noMediaHeader: {

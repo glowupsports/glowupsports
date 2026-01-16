@@ -937,7 +937,7 @@ export default function PlayerBookingWizard({
               disabled={!canProceed || bookingMutation.isPending}
             >
               {bookingMutation.isPending ? (
-                <ActivityIndicator size="small" color="#FFF" />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
                   <Text style={styles.nextButtonText}>
@@ -948,7 +948,7 @@ export default function PlayerBookingWizard({
                       : "Next"}
                   </Text>
                   {currentSlide < TOTAL_SLIDES - 1 && (
-                    <Ionicons name="arrow-forward" size={20} color="#FFF" />
+                    <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
                   )}
                 </>
               )}
@@ -1349,7 +1349,7 @@ const styles = StyleSheet.create({
   coachAvatarText: {
     fontSize: 14,
     fontWeight: 700,
-    color: "#FFF",
+    color: Colors.dark.buttonText,
   },
   coachName: {
     fontSize: 16,
@@ -1383,7 +1383,7 @@ const styles = StyleSheet.create({
   playerAvatarText: {
     fontSize: 10,
     fontWeight: 700,
-    color: "#FFF",
+    color: Colors.dark.buttonText,
   },
   playersLabel: {
     fontSize: 14,
@@ -1443,7 +1443,7 @@ const styles = StyleSheet.create({
   coachAvatarTextSmall: {
     fontSize: 10,
     fontWeight: 700,
-    color: "#FFF",
+    color: Colors.dark.buttonText,
   },
   slotCoachName: {
     fontSize: 14,
@@ -1616,7 +1616,7 @@ const styles = StyleSheet.create({
   nextButtonText: {
     fontSize: 16,
     fontWeight: 700,
-    color: "#FFF",
+    color: Colors.dark.buttonText,
   },
   calendarOverlay: {
     flex: 1,
@@ -1687,7 +1687,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   calendarDayTextSelected: {
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   calendarDayTextPast: {

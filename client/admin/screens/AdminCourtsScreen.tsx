@@ -19,7 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
-import { Colors, Spacing, BorderRadius, CardStyles, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, CardStyles, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -343,7 +343,7 @@ export default function AdminCourtsScreen() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             }}
           >
-            <Ionicons name="add" size={24} color="#FFF" />
+            <Ionicons name="add" size={24} color={Colors.dark.buttonText} />
           </Pressable>
         </View>
 
@@ -459,7 +459,7 @@ export default function AdminCourtsScreen() {
                       onPress={() => setFormData({ ...formData, color: color.value })}
                     >
                       {formData.color === color.value && (
-                        <Ionicons name="checkmark" size={18} color="#FFF" />
+                        <Ionicons name="checkmark" size={18} color={Colors.dark.text} />
                       )}
                     </Pressable>
                   ))}
@@ -483,7 +483,7 @@ export default function AdminCourtsScreen() {
                         contentFit="cover"
                       />
                       <View style={styles.photoOverlay}>
-                        <Ionicons name="camera" size={20} color="#FFF" />
+                        <Ionicons name="camera" size={20} color={Colors.dark.text} />
                         <Text style={styles.photoOverlayText}>Change</Text>
                       </View>
                     </View>
@@ -512,7 +512,7 @@ export default function AdminCourtsScreen() {
                 disabled={createMutation.isPending}
               >
                 {createMutation.isPending ? (
-                  <ActivityIndicator color="#FFF" />
+                  <ActivityIndicator color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.submitButtonText}>Add Court</Text>
                 )}
@@ -590,7 +590,7 @@ export default function AdminCourtsScreen() {
                       onPress={() => setFormData({ ...formData, color: color.value })}
                     >
                       {formData.color === color.value && (
-                        <Ionicons name="checkmark" size={18} color="#FFF" />
+                        <Ionicons name="checkmark" size={18} color={Colors.dark.text} />
                       )}
                     </Pressable>
                   ))}
@@ -614,7 +614,7 @@ export default function AdminCourtsScreen() {
                         contentFit="cover"
                       />
                       <View style={styles.photoOverlay}>
-                        <Ionicons name="camera" size={20} color="#FFF" />
+                        <Ionicons name="camera" size={20} color={Colors.dark.text} />
                         <Text style={styles.photoOverlayText}>Change</Text>
                       </View>
                     </View>
@@ -644,7 +644,7 @@ export default function AdminCourtsScreen() {
                   disabled={updateMutation.isPending}
                 >
                   {updateMutation.isPending ? (
-                    <ActivityIndicator color="#FFF" />
+                    <ActivityIndicator color={Colors.dark.buttonText} />
                   ) : (
                     <Text style={styles.submitButtonText}>Save Changes</Text>
                   )}
@@ -721,7 +721,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: Colors.dark.gold,
+    backgroundColor: GlowColors.primary,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -732,8 +732,10 @@ const styles = StyleSheet.create({
   emptyContainer: {
     padding: Spacing["2xl"],
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   emptyText: {
     fontSize: Typography.h3.fontSize,
@@ -766,9 +768,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   inactiveCard: {
     opacity: 0.7,
@@ -801,11 +805,13 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.elevated,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
     maxHeight: "80%",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   modalHeader: {
     flexDirection: "row",
@@ -842,22 +848,22 @@ const styles = StyleSheet.create({
   locationOption: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     marginRight: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.dark.border,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   locationOptionActive: {
-    backgroundColor: Colors.dark.gold,
-    borderColor: Colors.dark.gold,
+    backgroundColor: GlowColors.primary,
+    borderColor: GlowColors.primary,
   },
   locationOptionText: {
     fontSize: Typography.small.fontSize,
     color: Colors.dark.textMuted,
   },
   locationOptionTextActive: {
-    color: "#FFF",
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   colorPicker: {
@@ -874,7 +880,7 @@ const styles = StyleSheet.create({
   },
   colorOptionActive: {
     borderWidth: 3,
-    borderColor: "#FFF",
+    borderColor: Colors.dark.text,
   },
   photoUploadButton: {
     width: "100%",
@@ -909,7 +915,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
   },
   photoOverlayText: {
-    color: "#FFF",
+    color: Colors.dark.text,
     fontSize: Typography.small.fontSize,
     fontWeight: "500",
   },
@@ -947,7 +953,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#FFF",
+    backgroundColor: Colors.dark.text,
   },
   toggleKnobActive: {
     alignSelf: "flex-end",
@@ -961,7 +967,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   submitButton: {
-    backgroundColor: Colors.dark.gold,
+    backgroundColor: GlowColors.primary,
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     alignItems: "center",
@@ -973,7 +979,7 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
-    color: "#FFF",
+    color: Colors.dark.buttonText,
   },
   deleteButton: {
     flexDirection: "row",

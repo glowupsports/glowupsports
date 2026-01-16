@@ -6,7 +6,7 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -334,12 +334,15 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.6)",
   },
   modalContainer: {
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.card,
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
     paddingHorizontal: Spacing.lg,
     maxHeight: "90%",
     minHeight: "60%",
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   handle: {
     width: 36,
@@ -477,7 +480,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   cancelButtonText: {
     fontSize: 16,
@@ -492,7 +497,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.sm,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
   },
   continueButtonText: {
     fontSize: 16,
@@ -507,7 +512,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.sm,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
   },
   submitButtonText: {
     fontSize: 16,

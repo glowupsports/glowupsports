@@ -10,7 +10,7 @@ import {
 import * as Updates from "expo-updates";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors, TextColors } from "@/constants/theme";
 
 interface UpdateControllerProps {
   children: React.ReactNode;
@@ -229,7 +229,7 @@ export function UpdateController({ children }: UpdateControllerProps) {
             colors={[Colors.dark.primary, Colors.dark.accent]}
             style={styles.iconGradient}
           >
-            <Feather name="download-cloud" size={48} color="#fff" />
+            <Feather name="download-cloud" size={48} color={TextColors.primary} />
           </LinearGradient>
         </View>
 
@@ -301,7 +301,7 @@ export function UpdateController({ children }: UpdateControllerProps) {
               <Feather
                 name="refresh-cw"
                 size={20}
-                color="#fff"
+                color={TextColors.primary}
                 style={styles.buttonIcon}
               />
               <Text style={styles.buttonText}>Restart App</Text>
@@ -324,7 +324,7 @@ export function UpdateController({ children }: UpdateControllerProps) {
                 <Feather
                   name="download"
                   size={20}
-                  color="#fff"
+                  color={TextColors.primary}
                   style={styles.buttonIcon}
                 />
                 <Text style={styles.buttonText}>Download Now</Text>
@@ -348,7 +348,7 @@ export function UpdateController({ children }: UpdateControllerProps) {
                 <Feather
                   name="refresh-cw"
                   size={20}
-                  color="#fff"
+                  color={TextColors.primary}
                   style={styles.buttonIcon}
                 />
                 <Text style={styles.buttonText}>Try Again</Text>
@@ -361,7 +361,7 @@ export function UpdateController({ children }: UpdateControllerProps) {
           <View style={styles.continueContainer}>
             <Pressable style={styles.continueButton} onPress={continueWithoutUpdate}>
               <LinearGradient
-                colors={["#444", "#333"]}
+                colors={[Backgrounds.elevated, Backgrounds.card]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.buttonGradient}
@@ -369,7 +369,7 @@ export function UpdateController({ children }: UpdateControllerProps) {
                 <Feather
                   name="arrow-right"
                   size={20}
-                  color="#fff"
+                  color={TextColors.primary}
                   style={styles.buttonIcon}
                 />
                 <Text style={styles.buttonText}>Continue Without Update</Text>
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#fff",
+    color: TextColors.primary,
   },
   skipButton: {
     paddingVertical: Spacing.md,

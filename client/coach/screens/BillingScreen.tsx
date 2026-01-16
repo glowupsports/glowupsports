@@ -372,7 +372,7 @@ export default function BillingScreen() {
           end={{ x: 1, y: 0 }}
           style={styles.createButtonGradient}
         >
-          <Ionicons name="add" size={20} color="#fff" />
+          <Ionicons name="add" size={20} color={Colors.dark.buttonText} />
           <Text style={styles.createButtonText}>Create Invoice</Text>
         </LinearGradient>
       </AnimatedButton>
@@ -539,7 +539,7 @@ export default function BillingScreen() {
           end={{ x: 1, y: 0 }}
           style={styles.createButtonGradient}
         >
-          <Ionicons name="add" size={20} color="#fff" />
+          <Ionicons name="add" size={20} color={Colors.dark.buttonText} />
           <Text style={styles.createButtonText}>New Credit Package</Text>
         </LinearGradient>
       </AnimatedButton>
@@ -705,7 +705,7 @@ export default function BillingScreen() {
                 style={styles.modalButtonGradient}
               >
                 {createPackageMutation.isPending ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.modalButtonText}>Create Package</Text>
                 )}
@@ -850,7 +850,7 @@ export default function BillingScreen() {
                 style={styles.modalButtonGradient}
               >
                 {createInvoiceMutation.isPending ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.modalButtonText}>Create Invoice</Text>
                 )}
@@ -903,10 +903,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.xs,
     paddingVertical: Spacing.sm,
-    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
-    borderColor: `${Colors.dark.primary}20`,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   tabActive: {
     backgroundColor: `${Colors.dark.xpCyan}15`,
@@ -958,12 +958,12 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   glassSection: {
-    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
     borderWidth: 1,
-    borderColor: `${Colors.dark.primary}20`,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   sectionHeader: {
     flexDirection: "row",
@@ -984,12 +984,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "rgba(30, 30, 35, 0.8)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.sm,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: `${Colors.dark.primary}15`,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   invoiceInfo: {},
   invoiceNumber: {
@@ -1037,12 +1037,12 @@ const styles = StyleSheet.create({
   paymentCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(30, 30, 35, 0.8)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.sm,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: `${Colors.dark.primary}15`,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   paymentIcon: {
     width: 36,
@@ -1123,12 +1123,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   invoiceListCard: {
-    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: `${Colors.dark.primary}20`,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   invoiceListHeader: {
     flexDirection: "row",
@@ -1182,12 +1182,12 @@ const styles = StyleSheet.create({
   paymentListCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: `${Colors.dark.primary}20`,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   paymentListIcon: {
     width: 48,
@@ -1219,7 +1219,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: "rgba(18, 18, 22, 0.98)",
+    backgroundColor: Backgrounds.elevated,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
   },
@@ -1255,13 +1255,13 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   input: {
-    backgroundColor: "rgba(30, 30, 35, 0.9)",
+    backgroundColor: Backgrounds.surface,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     ...Typography.body,
     color: Colors.dark.text,
     borderWidth: 1,
-    borderColor: `${Colors.dark.primary}30`,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   multilineInput: {
     minHeight: 80,
@@ -1274,9 +1274,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
-    backgroundColor: "rgba(30, 30, 35, 0.9)",
+    backgroundColor: Backgrounds.surface,
     borderWidth: 1,
-    borderColor: `${Colors.dark.xpCyan}30`,
+    borderColor: "rgba(255, 255, 255, 0.06)",
     marginRight: Spacing.sm,
   },
   playerChipActive: {
@@ -1310,12 +1310,12 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   packageCard: {
-    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: `${Colors.dark.primary}20`,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   packageHeader: {
     flexDirection: "row",
@@ -1374,9 +1374,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.sm,
-    backgroundColor: "rgba(30, 30, 35, 0.9)",
+    backgroundColor: Backgrounds.surface,
     borderWidth: 1,
-    borderColor: `${Colors.dark.primary}30`,
+    borderColor: "rgba(255, 255, 255, 0.06)",
     alignItems: "center",
   },
   creditTypeOptionText: {

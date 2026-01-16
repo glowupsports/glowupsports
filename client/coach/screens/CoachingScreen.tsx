@@ -1365,10 +1365,10 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
           disabled={saveFeedbackMutation.isPending}
         >
           {saveFeedbackMutation.isPending ? (
-            <ActivityIndicator size="small" color="#FFF" />
+            <ActivityIndicator size="small" color={Colors.dark.buttonText} />
           ) : (
             <>
-              <Ionicons name="checkmark-circle" size={20} color="#FFF" />
+              <Ionicons name="checkmark-circle" size={20} color={Colors.dark.buttonText} />
               <Text style={styles.saveButtonText}>Save Feedback</Text>
             </>
           )}
@@ -2155,10 +2155,10 @@ function ProgressTab({ insets, tabBarHeight }: { insets: { bottom: number }; tab
             disabled={submitAssessmentMutation.isPending}
           >
             {submitAssessmentMutation.isPending ? (
-              <ActivityIndicator size="small" color="#FFF" />
+              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
-                <Ionicons name="checkmark-circle" size={20} color="#FFF" />
+                <Ionicons name="checkmark-circle" size={20} color={Colors.dark.buttonText} />
                 <Text style={styles.saveAssessmentsText}>
                   Save {Object.keys(pendingAssessments).length} Assessment{Object.keys(pendingAssessments).length > 1 ? "s" : ""}
                 </Text>
@@ -2683,10 +2683,10 @@ function PlansTab({ insets, tabBarHeight }: { insets: { bottom: number }; tabBar
                 disabled={createTemplateMutation.isPending || !coachId}
               >
                 {createTemplateMutation.isPending ? (
-                  <ActivityIndicator size="small" color="#FFF" />
+                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <>
-                    <Ionicons name="checkmark" size={20} color="#FFF" />
+                    <Ionicons name="checkmark" size={20} color={Colors.dark.buttonText} />
                     <Text style={styles.saveTemplateText}>Save Template</Text>
                   </>
                 )}
@@ -5143,7 +5143,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
-    color: "#FFF",
+    color: Colors.dark.buttonText,
   },
   successOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -5547,7 +5547,7 @@ const styles = StyleSheet.create({
   saveAssessmentsText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
-    color: "#FFF",
+    color: Colors.dark.buttonText,
   },
   momentumRow: {
     flexDirection: "row",
@@ -5830,7 +5830,7 @@ const styles = StyleSheet.create({
   saveTemplateText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
-    color: "#FFF",
+    color: Colors.dark.buttonText,
   },
 
   // ============== CALM DESIGN STYLES ==============

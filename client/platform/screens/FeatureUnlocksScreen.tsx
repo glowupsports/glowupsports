@@ -6,7 +6,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
 const PLATFORM_COLOR = "#9B59B6";
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
   levelBadgeText: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#fff",
+    color: Colors.dark.text,
   },
   levelSubtext: {
     marginLeft: Spacing.sm,
@@ -307,8 +307,10 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   card: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
     overflow: "hidden",
   },
   featureRow: {
@@ -380,8 +382,10 @@ const styles = StyleSheet.create({
   modalContent: {
     width: "85%",
     maxHeight: "70%",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
     overflow: "hidden",
   },
   modalHeader: {

@@ -22,7 +22,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
@@ -388,10 +388,10 @@ export default function AcademySettingsScreen() {
                 style={styles.generateCodeGradient}
               >
                 {regenerateJoinCodeMutation.isPending ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <>
-                    <Ionicons name="add" size={20} color="#fff" />
+                    <Ionicons name="add" size={20} color={Colors.dark.buttonText} />
                     <Text style={styles.generateCodeButtonText}>Generate Code</Text>
                   </>
                 )}
@@ -656,10 +656,10 @@ export default function AcademySettingsScreen() {
             style={styles.buttonGradient}
           >
             {updateSettingsMutation.isPending ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={Colors.dark.buttonText} />
             ) : (
               <>
-                <Ionicons name="checkmark" size={20} color="#fff" />
+                <Ionicons name="checkmark" size={20} color={Colors.dark.buttonText} />
                 <Text style={styles.buttonText}>Save Changes</Text>
               </>
             )}
@@ -752,10 +752,10 @@ export default function AcademySettingsScreen() {
             style={styles.buttonGradient}
           >
             {createInviteMutation.isPending ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={Colors.dark.buttonText} />
             ) : (
               <>
-                <Ionicons name="mail-outline" size={20} color="#fff" />
+                <Ionicons name="mail-outline" size={20} color={Colors.dark.buttonText} />
                 <Text style={styles.buttonText}>Send Invite</Text>
               </>
             )}
@@ -902,10 +902,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.xs,
     paddingVertical: Spacing.sm,
-    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
-    borderColor: `${Colors.dark.primary}20`,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   tabActive: {
     backgroundColor: `${Colors.dark.xpCyan}15`,
@@ -927,11 +927,11 @@ const styles = StyleSheet.create({
     gap: Spacing.lg,
   },
   glassSection: {
-    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: `${Colors.dark.primary}20`,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   sectionTitle: {
     ...Typography.h4,
@@ -1080,13 +1080,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: "rgba(30, 30, 35, 0.9)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     ...Typography.body,
     color: Colors.dark.text,
     borderWidth: 1,
-    borderColor: `${Colors.dark.primary}30`,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   multilineInput: {
     minHeight: 70,
@@ -1102,8 +1102,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: `${Colors.dark.xpCyan}30`,
-    backgroundColor: "rgba(30, 30, 35, 0.9)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.elevated,
   },
   optionButtonActive: {
     backgroundColor: `${Colors.dark.xpCyan}25`,
@@ -1145,12 +1145,12 @@ const styles = StyleSheet.create({
   memberCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(30, 30, 35, 0.8)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: `${Colors.dark.primary}20`,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   memberIcon: {
     width: 44,
@@ -1205,12 +1205,12 @@ const styles = StyleSheet.create({
   inviteCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(30, 30, 35, 0.8)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: `${Colors.dark.primary}20`,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   inviteInfo: {
     flex: 1,

@@ -5,7 +5,7 @@ import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
 interface AcademyData {
@@ -384,7 +384,7 @@ export default function AcademyProfileScreen() {
                     }}
                   >
                     {formData.primaryColor === color.value ? (
-                      <Ionicons name="checkmark" size={16} color="#000" />
+                      <Ionicons name="checkmark" size={16} color={Colors.dark.buttonText} />
                     ) : null}
                   </Pressable>
                 ))}
@@ -418,7 +418,7 @@ export default function AcademyProfileScreen() {
                     }}
                   >
                     {formData.secondaryColor === color.value ? (
-                      <Ionicons name="checkmark" size={16} color="#000" />
+                      <Ionicons name="checkmark" size={16} color={Colors.dark.buttonText} />
                     ) : null}
                   </Pressable>
                 ))}
@@ -487,8 +487,10 @@ const styles = StyleSheet.create({
   logoSection: {
     alignItems: "center",
     padding: Spacing.xl,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   logoPlaceholder: {
     width: 100,
@@ -545,8 +547,10 @@ const styles = StyleSheet.create({
   },
   fieldCard: {
     padding: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   fieldRow: {
     flexDirection: "row",

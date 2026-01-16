@@ -67,7 +67,7 @@ function PlayerCard({ player, index }: { player: PlayerResult; index: number }) 
           )}
           {player.openToPlay ? (
             <View style={styles.openToPlayBadge}>
-              <Ionicons name="tennisball" size={10} color="#fff" />
+              <Ionicons name="tennisball" size={10} color={Colors.dark.text} />
             </View>
           ) : null}
         </View>

@@ -299,12 +299,14 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   modal: {
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     width: "100%",
     maxWidth: 340,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   closeButton: {
     position: "absolute",

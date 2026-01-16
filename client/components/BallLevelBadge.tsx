@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Colors, Spacing, Typography, BorderRadius, Backgrounds, GlowColors, FunctionColors } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, Backgrounds, GlowColors, FunctionColors, TextColors } from "@/constants/theme";
 import { getStageFromLevel, getStageColor, translateLevelLabel } from "@shared/language-switch";
 
 interface BallLevelBadgeProps {
@@ -77,7 +77,7 @@ export default function BallLevelBadge({
         />
         {isTrial ? (
           <View style={[styles.trialIndicator, { backgroundColor: FunctionColors.social }]}>
-            <Ionicons name="time" size={8} color="#FFF" />
+            <Ionicons name="time" size={8} color={TextColors.primary} />
           </View>
         ) : null}
       </View>

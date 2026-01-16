@@ -18,7 +18,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import { Colors, Spacing } from "@/constants/theme";
+import { Colors, Spacing, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useNavigation } from "@react-navigation/native";
 
@@ -996,11 +996,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: 12,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.dark.border,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   itemImage: {
     width: 56,
@@ -1067,11 +1067,11 @@ const styles = StyleSheet.create({
   },
   orderCard: {
     padding: Spacing.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: 12,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.dark.border,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   orderHeader: {
     flexDirection: "row",
@@ -1191,7 +1191,7 @@ const modalStyles = StyleSheet.create({
     backgroundColor: Colors.dark.textSecondary,
   },
   toggleThumbActive: {
-    backgroundColor: "#fff",
+    backgroundColor: Colors.dark.text,
     marginLeft: "auto",
   },
   typeSelector: {
@@ -1221,7 +1221,7 @@ const modalStyles = StyleSheet.create({
     fontWeight: "600",
   },
   submitButton: {
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
     paddingVertical: Spacing.md,
     borderRadius: 12,
     alignItems: "center",
@@ -1230,6 +1230,6 @@ const modalStyles = StyleSheet.create({
   submitButtonText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
 });

@@ -3,7 +3,7 @@ import { View, StyleSheet, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeIn, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 
@@ -45,7 +45,7 @@ function QuestItem({ quest, onPress, onClaim }: { quest: Quest; onPress?: () => 
         />
         {isComplete && !isClaimed ? (
           <View style={styles.checkBadge}>
-            <Ionicons name="checkmark" size={10} color="#fff" />
+            <Ionicons name="checkmark" size={10} color={Colors.dark.text} />
           </View>
         ) : null}
       </View>

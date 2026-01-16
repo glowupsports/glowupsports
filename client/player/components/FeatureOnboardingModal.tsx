@@ -7,7 +7,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";
@@ -106,7 +106,7 @@ export function FeatureOnboardingModal({
                 colors={[Colors.dark.primary, Colors.dark.xpCyan]}
                 style={styles.iconGradient}
               >
-                <Ionicons name={icon as any} size={32} color="#000" />
+                <Ionicons name={icon as any} size={32} color={Colors.dark.buttonText} />
               </LinearGradient>
             </View>
             <View style={styles.newBadge}>
@@ -141,7 +141,7 @@ export function FeatureOnboardingModal({
               style={styles.buttonGradient}
             >
               <Text style={styles.buttonText}>Got it!</Text>
-              <Ionicons name="checkmark" size={18} color="#000" />
+              <Ionicons name="checkmark" size={18} color={Colors.dark.buttonText} />
             </LinearGradient>
           </Pressable>
         </Animated.View>
@@ -161,10 +161,12 @@ const styles = StyleSheet.create({
   container: {
     width: "100%",
     maxWidth: 340,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   header: {
     position: "relative",
@@ -195,7 +197,7 @@ const styles = StyleSheet.create({
   newBadgeText: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#fff",
+    color: Colors.dark.text,
   },
   title: {
     ...Typography.h3,
@@ -270,6 +272,6 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
 });

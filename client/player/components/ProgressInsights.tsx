@@ -2,15 +2,15 @@ import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeInUp, useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from "react-native-reanimated";
-import { ProTennisColors, Spacing, BorderRadius } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, Backgrounds, GlowColors, FunctionColors, Colors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { GlassCard } from "./GlassCard";
 
 const trendConfig: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
-  up: { icon: "arrow-up", color: ProTennisColors.electricGreen },
-  down: { icon: "arrow-down", color: "#FF6B6B" },
+  up: { icon: "arrow-up", color: GlowColors.primary },
+  down: { icon: "arrow-down", color: FunctionColors.error },
   stable: { icon: "remove", color: ProTennisColors.textMuted },
 };
 
@@ -70,7 +70,7 @@ export function ProgressInsights() {
           <Pressable onPress={handlePromotionPress}>
             <Animated.View style={[styles.promotionRow, state.isNearLevelUp && promotionStyle]}>
               <View style={styles.promotionIcon}>
-                <Ionicons name="medal-outline" size={16} color={ProTennisColors.electricGreen} />
+                <Ionicons name="medal-outline" size={16} color={GlowColors.primary} />
               </View>
               <View style={styles.promotionContent}>
                 <Text style={styles.promotionLabel}>Level progress</Text>
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: ProTennisColors.surfaceElevated,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   content: {
     padding: Spacing.md,
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: ProTennisColors.electricGreen + "10",
+    backgroundColor: GlowColors.primary + "10",
     padding: Spacing.sm,
     borderRadius: BorderRadius.sm,
   },
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: ProTennisColors.electricGreen + "20",
+    backgroundColor: GlowColors.primary + "20",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -176,10 +176,10 @@ const styles = StyleSheet.create({
   promotionValue: {
     fontSize: 12,
     fontWeight: "600",
-    color: ProTennisColors.electricGreen,
+    color: GlowColors.primary,
   },
   hotBadge: {
-    backgroundColor: ProTennisColors.electricGreen,
+    backgroundColor: GlowColors.primary,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,

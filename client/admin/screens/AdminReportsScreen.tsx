@@ -17,7 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
 
 interface AdminStats {
   totalCoaches: number;
@@ -459,9 +459,9 @@ export default function AdminReportsScreen() {
                   disabled={isExporting}
                 >
                   {isExporting ? (
-                    <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                   ) : (
-                    <Ionicons name="download-outline" size={20} color={Colors.dark.backgroundRoot} />
+                    <Ionicons name="download-outline" size={20} color={Colors.dark.buttonText} />
                   )}
                   <Text style={styles.exportButtonText}>
                     {isExporting ? "Generating..." : "Download PDF"}
@@ -758,7 +758,7 @@ const styles = StyleSheet.create({
   distributionBarContainer: {
     flex: 1,
     height: 8,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: 4,
     marginHorizontal: Spacing.md,
   },
@@ -834,8 +834,10 @@ const styles = StyleSheet.create({
   reportStat: {
     alignItems: "center",
     padding: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   reportStatValue: {
     ...Typography.h1,
@@ -986,7 +988,7 @@ const styles = StyleSheet.create({
   utilizationBar: {
     width: 60,
     height: 4,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: 2,
   },
   utilizationFill: {
@@ -999,9 +1001,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   monthArrow: {
     padding: Spacing.sm,
@@ -1038,7 +1042,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.dark.gold,
+    backgroundColor: GlowColors.primary,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.xl,
     borderRadius: BorderRadius.md,
@@ -1049,7 +1053,7 @@ const styles = StyleSheet.create({
   },
   exportButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
 });

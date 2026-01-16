@@ -9,7 +9,7 @@ import {
   TextInput,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 
 export interface CountryCode {
   code: string;
@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
   picker: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.surface,
     borderRadius: BorderRadius.sm,
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.md,
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.card,
   },
   modalHeader: {
     flexDirection: "row",
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.backgroundSecondary,
+    borderBottomColor: "rgba(255, 255, 255, 0.06)",
   },
   modalTitle: {
     ...Typography.h3,
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.surface,
     borderRadius: BorderRadius.sm,
     marginHorizontal: Spacing.lg,
     marginVertical: Spacing.md,
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   countryItemSelected: {
-    backgroundColor: `${Colors.dark.primary}20`,
+    backgroundColor: `${GlowColors.primary}20`,
   },
   countryInfo: {
     flex: 1,

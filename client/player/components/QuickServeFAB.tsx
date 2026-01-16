@@ -10,7 +10,7 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from "react-native-reanimated";
-import { ProTennisColors, Spacing, BorderRadius } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, Backgrounds, GlowColors, Colors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    shadowColor: ProTennisColors.electricGreen,
+    shadowColor: GlowColors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: ProTennisColors.midnightBlue,
+    backgroundColor: Backgrounds.root,
   },
   menuContainer: {
     position: "absolute",
@@ -276,11 +276,11 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: ProTennisColors.midnightBlue + "80",
+    backgroundColor: Backgrounds.root + "80",
   },
   actionLabel: {
     fontSize: 14,
     fontWeight: "600",
-    color: ProTennisColors.white,
+    color: Colors.dark.text,
   },
 });

@@ -228,11 +228,14 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   container: {
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: Backgrounds.card,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
     maxHeight: "80%",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderBottomWidth: 0,
   },
   header: {
     flexDirection: "row",
@@ -302,7 +305,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   submitButton: {
-    backgroundColor: Colors.dark.error,
+    backgroundColor: GlowColors.primary,
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.md,
     alignItems: "center",
@@ -312,7 +315,7 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     ...Typography.body,
-    color: Colors.dark.text,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
 });

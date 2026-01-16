@@ -4,7 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeInUp } from "react-native-reanimated";
-import { ProTennisColors, Spacing, BorderRadius } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, Backgrounds, GlowColors, Colors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
 
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: ProTennisColors.surfaceElevated,
+    borderColor: "rgba(255, 255, 255, 0.06)",
     minHeight: 120,
   },
   tileLocked: {
@@ -182,12 +182,12 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: ProTennisColors.midnightBlue + "60",
+    backgroundColor: Backgrounds.root + "60",
   },
   tileTitle: {
     fontSize: 12,
     fontWeight: "800",
-    color: ProTennisColors.white,
+    color: Colors.dark.text,
     letterSpacing: 1,
   },
   tileSubtitle: {

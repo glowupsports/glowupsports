@@ -321,14 +321,14 @@ export default function SkillEvidenceScreen() {
                 setShowCamera(false);
               }}
             >
-              <Ionicons name="close" size={28} color="#fff" />
+              <Ionicons name="close" size={28} color={Colors.dark.text} />
             </Pressable>
             <Text style={styles.cameraTitle}>Record: {selectedSkill.name}</Text>
             <Pressable 
               style={styles.flipButton}
               onPress={() => setFacing(facing === "back" ? "front" : "back")}
             >
-              <Ionicons name="camera-reverse" size={24} color="#fff" />
+              <Ionicons name="camera-reverse" size={24} color={Colors.dark.text} />
             </Pressable>
           </View>
           
@@ -434,7 +434,7 @@ export default function SkillEvidenceScreen() {
                   end={{ x: 1, y: 1 }}
                   style={styles.captureButtonGradient}
                 >
-                  <Ionicons name="videocam" size={20} color={selectedSkill ? "#000" : Colors.dark.textMuted} />
+                  <Ionicons name="videocam" size={20} color={selectedSkill ? Colors.dark.buttonText : Colors.dark.textMuted} />
                   <Text style={[styles.captureButtonText, !selectedSkill && styles.captureButtonTextDisabled]}>
                     Start Recording
                   </Text>
@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
   },
   captureButtonText: {
     ...Typography.buttonMedium,
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   captureButtonTextDisabled: {
     color: Colors.dark.textMuted,
@@ -702,7 +702,7 @@ const styles = StyleSheet.create({
   },
   cameraContainer: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: Backgrounds.root,
   },
   cameraOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -724,7 +724,7 @@ const styles = StyleSheet.create({
   },
   cameraTitle: {
     ...Typography.bodyLarge,
-    color: "#fff",
+    color: Colors.dark.text,
     fontWeight: "600",
   },
   flipButton: {
@@ -741,7 +741,7 @@ const styles = StyleSheet.create({
   },
   instructionText: {
     ...Typography.body,
-    color: "#fff",
+    color: Colors.dark.text,
     textAlign: "center",
   },
   timerText: {
@@ -758,7 +758,7 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: 36,
     borderWidth: 4,
-    borderColor: "#fff",
+    borderColor: Colors.dark.text,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -809,6 +809,6 @@ const styles = StyleSheet.create({
   },
   permissionButtonText: {
     ...Typography.buttonMedium,
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
 });

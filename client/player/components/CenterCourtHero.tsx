@@ -11,7 +11,7 @@ import Animated, {
   withTiming,
   interpolate,
 } from "react-native-reanimated";
-import { ProTennisColors, Spacing, BorderRadius } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, Backgrounds, GlowColors, Colors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
 
@@ -89,7 +89,7 @@ const countdownStyles = StyleSheet.create({
   number: {
     fontSize: 28,
     fontWeight: "800",
-    color: ProTennisColors.electricGreen,
+    color: GlowColors.primary,
     letterSpacing: -1,
   },
   label: {
@@ -101,7 +101,7 @@ const countdownStyles = StyleSheet.create({
   separator: {
     fontSize: 24,
     fontWeight: "700",
-    color: ProTennisColors.electricGreen,
+    color: GlowColors.primary,
     opacity: 0.6,
   },
 });
@@ -212,8 +212,8 @@ function NoSessionScheduled({ onBookSession, onFindMatch }: { onBookSession?: ()
             <View style={[StyleSheet.absoluteFill, { backgroundColor: ProTennisColors.surfaceCard }]} />
           )}
           <View style={styles.actionCardContent}>
-            <View style={[styles.actionIconWrapper, { borderColor: ProTennisColors.electricGreen }]}>
-              <Ionicons name="calendar-outline" size={28} color={ProTennisColors.electricGreen} />
+            <View style={[styles.actionIconWrapper, { borderColor: GlowColors.primary }]}>
+              <Ionicons name="calendar-outline" size={28} color={GlowColors.primary} />
             </View>
             <Text style={styles.actionTitle}>HIT THE COURT</Text>
             <Text style={styles.actionSubtitle}>Book a training session</Text>
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: ProTennisColors.surfaceElevated,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   actionCardContent: {
     padding: Spacing.lg,

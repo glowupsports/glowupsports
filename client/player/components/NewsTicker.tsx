@@ -12,7 +12,7 @@ import Animated, {
   cancelAnimation,
 } from "react-native-reanimated";
 import { useQuery } from "@tanstack/react-query";
-import { ProTennisColors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors, Colors } from "@/constants/theme";
 
 interface NewsArticle {
   id: string;
@@ -172,7 +172,7 @@ export function NewsTicker({
   return (
     <View style={[styles.container, style]}>
       <LinearGradient
-        colors={["rgba(0, 0, 0, 0.95)", "rgba(21, 27, 41, 0.9)", "rgba(0, 0, 0, 0.95)"]}
+        colors={[Backgrounds.root + "F2", Backgrounds.card + "E6", Backgrounds.root + "F2"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.gradientBg}
@@ -203,7 +203,7 @@ export function NewsTicker({
       </View>
 
       <LinearGradient
-        colors={["transparent", "rgba(9, 14, 23, 0.95)"]}
+        colors={["transparent", Backgrounds.root + "F2"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.fadeRight}
@@ -273,9 +273,9 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     position: "relative",
     borderTopWidth: 1,
-    borderTopColor: "rgba(0, 240, 255, 0.2)",
+    borderTopColor: ProTennisColors.neonCyan + "33",
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(0, 240, 255, 0.2)",
+    borderBottomColor: ProTennisColors.neonCyan + "33",
   },
   gradientBg: {
     ...StyleSheet.absoluteFillObject,
@@ -302,18 +302,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: Spacing.md,
     paddingLeft: Spacing.sm,
-    backgroundColor: "rgba(9, 14, 23, 0.98)",
+    backgroundColor: Backgrounds.root + "FA",
     zIndex: 10,
     gap: 6,
     borderRightWidth: 1,
-    borderRightColor: "rgba(0, 240, 255, 0.3)",
+    borderRightColor: ProTennisColors.neonCyan + "4D",
   },
   liveDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: ProTennisColors.electricGreen,
-    shadowColor: ProTennisColors.electricGreen,
+    backgroundColor: GlowColors.primary,
+    shadowColor: GlowColors.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
     shadowRadius: 6,
@@ -326,14 +326,14 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: `${ProTennisColors.electricGreen}40`,
+    borderColor: GlowColors.primary + "40",
   },
   labelText: {
-    color: ProTennisColors.electricGreen,
+    color: GlowColors.primary,
     fontWeight: "900",
     fontSize: 11,
     letterSpacing: 1.5,
-    textShadowColor: ProTennisColors.electricGreen,
+    textShadowColor: GlowColors.primary,
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 4,
     marginLeft: 4,
@@ -408,11 +408,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   newsCard: {
-    backgroundColor: ProTennisColors.surfaceCard,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   newsCardPressed: {
     opacity: 0.8,

@@ -13,7 +13,7 @@ import Animated, {
   cancelAnimation 
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
-import { ProTennisColors, Spacing, BorderRadius, getPlayerLevelColor } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, getPlayerLevelColor, Backgrounds, GlowColors, Colors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
@@ -845,7 +845,7 @@ const styles = StyleSheet.create({
   levelChipText: {
     fontSize: 9,
     fontWeight: "800",
-    color: "#000",
+    color: Colors.dark.buttonText,
     letterSpacing: 0.5,
   },
   participantRow: {
@@ -1096,7 +1096,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    backgroundColor: Backgrounds.card,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.xs,

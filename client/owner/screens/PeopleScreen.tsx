@@ -7,7 +7,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
 import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { Picker } from "@react-native-picker/picker";
@@ -812,7 +812,7 @@ export default function PeopleScreen() {
                       style={styles.dangerButton}
                       onPress={handlePermanentDelete}
                     >
-                      <Ionicons name="trash" size={20} color="#fff" />
+                      <Ionicons name="trash" size={20} color={Colors.dark.text} />
                       <Text style={styles.dangerButtonText}>Permanently Delete Coach</Text>
                     </Pressable>
 
@@ -966,8 +966,10 @@ const styles = StyleSheet.create({
   },
   personCard: {
     padding: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   personCardHeader: {
     flexDirection: "row",
@@ -1067,11 +1069,13 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   detailModalContent: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.xl,
     minHeight: 300,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   modalHeader: {
     flexDirection: "row",
@@ -1243,11 +1247,13 @@ const styles = StyleSheet.create({
   },
   // Coach Removal Modal Styles
   removalModalContent: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.xl,
     minHeight: 350,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   removalContent: {
     gap: Spacing.lg,
@@ -1333,7 +1339,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.gold,
+    backgroundColor: GlowColors.primary,
   },
   primaryButtonDisabled: {
     opacity: 0.5,
@@ -1355,7 +1361,7 @@ const styles = StyleSheet.create({
   },
   dangerButtonText: {
     ...Typography.body,
-    color: "#fff",
+    color: Colors.dark.text,
     fontWeight: "700",
   },
   warningNote: {

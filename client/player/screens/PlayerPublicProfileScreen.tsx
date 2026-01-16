@@ -349,7 +349,7 @@ export default function PlayerPublicProfileScreen() {
             {/* Open to Play Badge */}
             {profile.openToPlay && (
               <View style={styles.openToPlayBadge}>
-                <Ionicons name="flame" size={12} color="#FFF" />
+                <Ionicons name="flame" size={12} color={Colors.dark.text} />
               </View>
             )}
           </View>
@@ -441,7 +441,7 @@ export default function PlayerPublicProfileScreen() {
           <View style={styles.heroActions}>
             {profile.isOwnProfile ? (
               <Pressable style={styles.findMatchBtn} onPress={handleFindMatch} testID="button-find-match">
-                <Ionicons name="tennisball" size={18} color="#000" />
+                <Ionicons name="tennisball" size={18} color={Colors.dark.backgroundRoot} />
                 <Text style={styles.findMatchBtnText}>Find Match</Text>
               </Pressable>
             ) : (
@@ -458,10 +458,10 @@ export default function PlayerPublicProfileScreen() {
                     testID="button-add-friend"
                   >
                     {sendFriendRequestMutation.isPending ? (
-                      <ActivityIndicator size="small" color="#fff" />
+                      <ActivityIndicator size="small" color={Colors.dark.text} />
                     ) : (
                       <>
-                        <Ionicons name="person-add" size={18} color="#fff" />
+                        <Ionicons name="person-add" size={18} color={Colors.dark.text} />
                         <Text style={styles.addFriendBtnText}>Add Friend</Text>
                       </>
                     )}
@@ -498,7 +498,7 @@ export default function PlayerPublicProfileScreen() {
                 value={profile.openToPlay}
                 onValueChange={(val) => toggleOpenToPlayMutation.mutate(val)}
                 trackColor={{ false: Colors.dark.backgroundTertiary, true: Colors.dark.primary }}
-                thumbColor="#FFF"
+                thumbColor={Colors.dark.text}
               />
             </View>
           )}
@@ -728,7 +728,7 @@ export default function PlayerPublicProfileScreen() {
                 style={styles.findMatchCta}
                 onPress={() => navigation.navigate("FindMatch" as never)}
               >
-                <Ionicons name="tennisball" size={18} color="#000" />
+                <Ionicons name="tennisball" size={18} color={Colors.dark.backgroundRoot} />
                 <Text style={styles.findMatchCtaText}>Find a Match</Text>
               </Pressable>
             </View>
@@ -781,7 +781,7 @@ export default function PlayerPublicProfileScreen() {
                 style={[styles.findMatchCta, { backgroundColor: Colors.dark.xpCyan }]}
                 onPress={() => navigation.navigate("FindMatch" as never)}
               >
-                <Ionicons name="people-outline" size={18} color="#000" />
+                <Ionicons name="people-outline" size={18} color={Colors.dark.backgroundRoot} />
                 <Text style={styles.findMatchCtaText}>Find Players</Text>
               </Pressable>
             </View>
@@ -901,7 +901,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   retryButtonText: {
-    color: "#000",
+    color: Colors.dark.backgroundRoot,
     fontWeight: "600",
   },
   scrollView: {
@@ -1083,7 +1083,7 @@ const styles = StyleSheet.create({
   findMatchBtnText: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.backgroundRoot,
   },
   challengeBtn: {
     flexDirection: "row",
@@ -1125,7 +1125,7 @@ const styles = StyleSheet.create({
   addFriendBtnText: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#fff",
+    color: Colors.dark.text,
   },
   pendingBtn: {
     flexDirection: "row",
@@ -1338,7 +1338,7 @@ const styles = StyleSheet.create({
   matchLevelBadgeText: {
     fontSize: 9,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.backgroundRoot,
   },
   matchName: {
     fontSize: 15,
@@ -1426,7 +1426,7 @@ const styles = StyleSheet.create({
   connectionMoreText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.backgroundRoot,
   },
   noConnectionsText: {
     fontSize: 14,
@@ -1485,7 +1485,7 @@ const styles = StyleSheet.create({
   findMatchCtaText: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.backgroundRoot,
   },
   
   emptyConnectionsCard: {

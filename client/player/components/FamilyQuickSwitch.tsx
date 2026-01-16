@@ -13,7 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, SlideInUp } from "react-native-reanimated";
-import { Colors, Spacing, FontSizes, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, FontSizes, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { useFamily, FamilyMember } from "@/player/context/FamilyContext";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xs,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.elevated,
   },
   avatarContainer: {
     position: "relative",
@@ -198,10 +198,10 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: Colors.dark.primary,
+    borderColor: GlowColors.primary,
   },
   avatarPlaceholder: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.elevated,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -213,19 +213,19 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: Colors.dark.backgroundRoot,
+    borderColor: Backgrounds.root,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: Backgrounds.overlay,
   },
   dropdown: {
     marginHorizontal: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.dark.border,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   dropdownHeader: {
     flexDirection: "row",
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.root,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",

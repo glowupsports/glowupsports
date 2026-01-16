@@ -48,11 +48,11 @@ interface NewsResponse {
 }
 
 const SOURCE_COLORS: Record<string, { bg: string; text: string; icon: string }> = {
-  "ATP Tour": { bg: "#0062FF", text: "#FFFFFF", icon: "tennisball" },
-  "BBC Sport": { bg: "#BB1919", text: "#FFFFFF", icon: "globe" },
-  "Tennis.com": { bg: "#00B894", text: "#FFFFFF", icon: "tennisball" },
-  "WTA": { bg: "#E91E63", text: "#FFFFFF", icon: "tennisball" },
-  default: { bg: ProTennisColors.neonGreen, text: "#000000", icon: "newspaper" },
+  "ATP Tour": { bg: "#0062FF", text: Colors.dark.text, icon: "tennisball" },
+  "BBC Sport": { bg: "#BB1919", text: Colors.dark.text, icon: "globe" },
+  "Tennis.com": { bg: "#00B894", text: Colors.dark.text, icon: "tennisball" },
+  "WTA": { bg: "#E91E63", text: Colors.dark.text, icon: "tennisball" },
+  default: { bg: ProTennisColors.neonGreen, text: Colors.dark.buttonText, icon: "newspaper" },
 };
 
 function getSourceConfig(source: string) {
@@ -298,7 +298,7 @@ export default function NewsScreen() {
             colors={[ProTennisColors.neonGreen, ProTennisColors.neonCyan]}
             style={styles.headerIconGradient}
           >
-            <Ionicons name="newspaper" size={24} color="#000" />
+            <Ionicons name="newspaper" size={24} color={Colors.dark.buttonText} />
           </LinearGradient>
         </View>
         <View>

@@ -76,7 +76,7 @@ function FriendCard({ connection, onPress }: { connection: Connection; onPress: 
           )}
           {player.openToPlay ? (
             <View style={styles.openToPlayBadge}>
-              <Ionicons name="tennisball" size={10} color="#fff" />
+              <Ionicons name="tennisball" size={10} color={Colors.dark.text} />
             </View>
           ) : null}
         </View>
@@ -178,10 +178,10 @@ function RequestCard({
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
-                <Ionicons name="checkmark" size={18} color="#fff" />
+                <Ionicons name="checkmark" size={18} color={Colors.dark.buttonText} />
                 <ThemedText style={styles.acceptText}>Accept</ThemedText>
               </>
             )}
@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#fff",
+    color: Colors.dark.text,
   },
   loadingContainer: {
     flex: 1,
@@ -613,7 +613,7 @@ const styles = StyleSheet.create({
   acceptText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#fff",
+    color: Colors.dark.buttonText,
   },
   sentSection: {
     marginBottom: Spacing.md,
@@ -692,7 +692,7 @@ const styles = StyleSheet.create({
   findPlayersText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#fff",
+    color: Colors.dark.buttonText,
   },
   retryButton: {
     marginTop: Spacing.md,

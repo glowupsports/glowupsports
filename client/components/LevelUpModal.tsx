@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   content: {
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing["2xl"],
     alignItems: "center",

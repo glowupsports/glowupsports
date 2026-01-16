@@ -71,7 +71,7 @@ function QuestCard({
             />
             {isComplete && !isClaimed ? (
               <View style={styles.completeBadge}>
-                <Ionicons name="checkmark" size={10} color="#000" />
+                <Ionicons name="checkmark" size={10} color={Colors.dark.backgroundRoot} />
               </View>
             ) : null}
           </View>
@@ -234,7 +234,7 @@ function StepIndicator({ steps, current }: { steps: number; current: number }) {
             ]} 
           >
             {i < current ? (
-              <Ionicons name="checkmark" size={10} color="#000" />
+              <Ionicons name="checkmark" size={10} color={Colors.dark.backgroundRoot} />
             ) : (
               <ThemedText style={styles.stepNumber}>{i + 1}</ThemedText>
             )}

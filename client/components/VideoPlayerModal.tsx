@@ -125,7 +125,7 @@ export function VideoPlayerModal({ visible, videoUrl, title, onClose }: VideoPla
               <Ionicons 
                 name={isPlaying ? "pause" : "play"} 
                 size={32} 
-                color={isPlaying ? Colors.dark.backgroundRoot : "#000"} 
+                color={Colors.dark.buttonText} 
               />
             </Pressable>
             
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     ...Typography.button,
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   controls: {
     flexDirection: "row",

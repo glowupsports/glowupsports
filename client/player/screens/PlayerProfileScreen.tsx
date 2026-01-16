@@ -1215,7 +1215,7 @@ const styles = StyleSheet.create({
     padding: Spacing.sm,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    backgroundColor: "rgba(30, 30, 30, 0.8)",
+    backgroundColor: Backgrounds.card,
     width: 72,
   },
   badgeIconCircle: {

@@ -8,7 +8,7 @@ import * as Clipboard from "expo-clipboard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { getEnv } from "@/lib/env";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -928,8 +928,10 @@ const styles = StyleSheet.create({
   },
   card: {
     padding: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   formRow: {
     marginBottom: Spacing.md,
@@ -1130,13 +1132,15 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   inviteModalContent: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     marginHorizontal: Spacing.lg,
     maxWidth: 400,
     width: "90%",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   inviteIconContainer: {
     width: 80,
@@ -1257,22 +1261,26 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   addMemberModalContent: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     width: "90%",
     maxWidth: 400,
     maxHeight: "80%",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   createAccountScrollView: {
     width: "100%",
     maxHeight: "90%",
   },
   createAccountModalContent: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     margin: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   modalTitle: {
     ...Typography.h2,

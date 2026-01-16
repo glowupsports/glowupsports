@@ -8,7 +8,7 @@ import * as Clipboard from "expo-clipboard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import type { PlatformStackParamList } from "@/platform/navigation/PlatformNavigator";
 
@@ -587,8 +587,10 @@ const styles = StyleSheet.create({
   },
   academyCard: {
     padding: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   academyHeader: {
     flexDirection: "row",
@@ -681,11 +683,13 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.6)",
   },
   modalContent: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
     paddingTop: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   modalHandle: {
     width: 36,
@@ -778,11 +782,13 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   inviteModalContent: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     marginHorizontal: Spacing.lg,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   inviteIconContainer: {
     width: 80,

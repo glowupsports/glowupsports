@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Animated as RNAnimated, 
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { ProTennisColors, Spacing, BorderRadius } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, Backgrounds, GlowColors, Colors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeIn, SlideInDown } from "react-native-reanimated";
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
   },
   topBorder: {
     height: 1,
-    backgroundColor: ProTennisColors.electricGreen,
+    backgroundColor: GlowColors.primary,
     opacity: 0.2,
   },
   tickerContainer: {
@@ -187,14 +187,14 @@ const styles = StyleSheet.create({
   tickerText: {
     fontSize: 12,
     fontWeight: "600",
-    color: ProTennisColors.white,
+    color: Colors.dark.text,
     flex: 1,
   },
   expandButton: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: ProTennisColors.surfaceElevated,
+    backgroundColor: Backgrounds.elevated,
     justifyContent: "center",
     alignItems: "center",
     marginLeft: Spacing.sm,

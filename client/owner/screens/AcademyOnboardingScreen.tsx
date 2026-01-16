@@ -20,7 +20,7 @@ import Animated, {
   FadeInDown,
 } from "react-native-reanimated";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { countries, getCitiesForCountry } from "@shared/countries";
 
@@ -475,7 +475,7 @@ function Step3Style({ data, setData, onNext, onBack }: StepProps) {
                   }}
                 >
                   {data.accentColor === color.id ? (
-                    <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+                    <Ionicons name="checkmark" size={20} color={Colors.dark.text} />
                   ) : null}
                 </Pressable>
               ))}
@@ -976,10 +976,12 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   previewCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     marginTop: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   previewLabel: {
     fontSize: 12,
@@ -1020,7 +1022,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   previewHeaderText: {
-    color: "#FFFFFF",
+    color: Colors.dark.text,
     fontSize: 16,
     fontWeight: "600" as const,
   },
@@ -1093,11 +1095,11 @@ const styles = StyleSheet.create({
   selectableChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     padding: Spacing.lg,
     borderRadius: BorderRadius.sm,
     borderWidth: 2,
-    borderColor: "transparent",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   selectableChipActive: {
     borderColor: Colors.dark.primary,
@@ -1121,11 +1123,11 @@ const styles = StyleSheet.create({
   walkthroughStep: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     padding: Spacing.lg,
     borderRadius: BorderRadius.md,
     borderWidth: 2,
-    borderColor: "transparent",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   walkthroughStepActive: {
     borderColor: Colors.dark.primary,
@@ -1182,12 +1184,14 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   academySummary: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     padding: Spacing.xl,
     borderRadius: BorderRadius.md,
     gap: Spacing.md,
     marginTop: Spacing.lg,
     width: "100%",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   summaryRow: {
     flexDirection: "row",
@@ -1220,7 +1224,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
     paddingVertical: Spacing.lg,
     paddingHorizontal: Spacing.xl,
     borderRadius: BorderRadius.lg,

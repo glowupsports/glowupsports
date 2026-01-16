@@ -10,7 +10,7 @@ import Animated, {
   withDelay,
   runOnJS,
 } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { PendingCelebration } from "../hooks/usePlayerLevel";
 
@@ -165,7 +165,7 @@ export function LevelUpCelebrationModal({
                 style={styles.continueButtonGradient}
               >
                 <Text style={styles.continueButtonText}>Continue</Text>
-                <Ionicons name="arrow-forward" size={18} color="#000" />
+                <Ionicons name="arrow-forward" size={18} color={Colors.dark.buttonText} />
               </LinearGradient>
             </Pressable>
           </View>
@@ -186,9 +186,11 @@ const styles = StyleSheet.create({
   container: {
     width: "100%",
     maxWidth: 340,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   header: {
     alignItems: "center",
@@ -231,7 +233,7 @@ const styles = StyleSheet.create({
   levelUpText: {
     fontSize: 28,
     fontWeight: "800",
-    color: "#000",
+    color: Colors.dark.buttonText,
     letterSpacing: 3,
   },
   content: {
@@ -323,6 +325,6 @@ const styles = StyleSheet.create({
   continueButtonText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
 });

@@ -15,7 +15,7 @@ import Animated, {
   FadeInDown,
 } from "react-native-reanimated";
 import Svg, { Line, Rect, Circle, Ellipse, Path } from "react-native-svg";
-import { ProTennisColors, Spacing, BorderRadius } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, Backgrounds, GlowColors, FunctionColors, Colors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { usePlayerState, BroadcastMode } from "@/player/context/PlayerStateContext";
 
@@ -109,7 +109,7 @@ function CourtSurfaceBackground({ mode }: { mode: BroadcastMode }) {
   }, [mode]);
 
   const lineOpacity = mode === "on_air" ? 0.35 : mode === "pre_game" ? 0.2 : 0.1;
-  const courtColor = mode === "rest_day" ? "#0a0f18" : ProTennisColors.midnightBlue;
+  const courtColor = mode === "rest_day" ? Backgrounds.root : ProTennisColors.midnightBlue;
 
   return (
     <Svg 
@@ -121,7 +121,7 @@ function CourtSurfaceBackground({ mode }: { mode: BroadcastMode }) {
       
       <Rect 
         x="10" y="15" width="80" height="70" 
-        stroke={ProTennisColors.electricGreen}
+        stroke={GlowColors.primary}
         strokeWidth="0.5"
         fill="none"
         opacity={lineOpacity}
@@ -129,28 +129,28 @@ function CourtSurfaceBackground({ mode }: { mode: BroadcastMode }) {
       
       <Line 
         x1="10" y1="50" x2="90" y2="50" 
-        stroke={ProTennisColors.electricGreen}
+        stroke={GlowColors.primary}
         strokeWidth="0.4"
         opacity={lineOpacity * 0.8}
       />
       
       <Line 
         x1="50" y1="15" x2="50" y2="85" 
-        stroke={ProTennisColors.electricGreen}
+        stroke={GlowColors.primary}
         strokeWidth="0.4"
         opacity={lineOpacity * 0.8}
       />
       
       <Rect 
         x="20" y="25" width="25" height="50" 
-        stroke={ProTennisColors.electricGreen}
+        stroke={GlowColors.primary}
         strokeWidth="0.3"
         fill="none"
         opacity={lineOpacity * 0.6}
       />
       <Rect 
         x="55" y="25" width="25" height="50" 
-        stroke={ProTennisColors.electricGreen}
+        stroke={GlowColors.primary}
         strokeWidth="0.3"
         fill="none"
         opacity={lineOpacity * 0.6}
@@ -158,7 +158,7 @@ function CourtSurfaceBackground({ mode }: { mode: BroadcastMode }) {
       
       {mode === "on_air" && (
         <>
-          <Circle cx="50" cy="50" r="3" fill={ProTennisColors.electricGreen} opacity="0.4" />
+          <Circle cx="50" cy="50" r="3" fill={GlowColors.primary} opacity="0.4" />
           <Ellipse 
             cx="50" cy="50" rx="8" ry="4" 
             stroke={ProTennisColors.neonCyan} 
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: ProTennisColors.electricGreen + "20",
+    borderColor: GlowColors.primary + "20",
   },
   gradient: {
     ...StyleSheet.absoluteFillObject,
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
     left: Spacing.md,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 0, 0, 0.2)",
+    backgroundColor: FunctionColors.error + "33",
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: BorderRadius.xs,
@@ -378,12 +378,12 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#FF0000",
+    backgroundColor: FunctionColors.error,
   },
   liveText: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#FF0000",
+    color: FunctionColors.error,
     letterSpacing: 1,
   },
   content: {
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
   commentatorNote: {
     fontSize: 10,
     fontWeight: "500",
-    color: ProTennisColors.electricGreen,
+    color: GlowColors.primary,
     opacity: 0.7,
     marginTop: 6,
     letterSpacing: 0.3,
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
   countdownNumber: {
     fontSize: 22,
     fontWeight: "800",
-    color: ProTennisColors.electricGreen,
+    color: GlowColors.primary,
     letterSpacing: -1,
   },
   countdownLabel: {
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
   countdownSeparator: {
     fontSize: 20,
     fontWeight: "700",
-    color: ProTennisColors.electricGreen,
+    color: GlowColors.primary,
     opacity: 0.6,
   },
   actionsRow: {
@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: ProTennisColors.electricGreen,
+    backgroundColor: GlowColors.primary,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm + 2,
     borderRadius: BorderRadius.md,

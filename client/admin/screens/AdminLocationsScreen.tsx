@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, CardStyles, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, CardStyles, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
@@ -186,7 +186,7 @@ export default function AdminLocationsScreen() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             }}
           >
-            <Ionicons name="add" size={24} color="#FFF" />
+            <Ionicons name="add" size={24} color={Colors.dark.buttonText} />
           </Pressable>
         </View>
 
@@ -315,7 +315,7 @@ export default function AdminLocationsScreen() {
                 disabled={createMutation.isPending}
               >
                 {createMutation.isPending ? (
-                  <ActivityIndicator color="#FFF" />
+                  <ActivityIndicator color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.submitButtonText}>Add Location</Text>
                 )}
@@ -382,7 +382,7 @@ export default function AdminLocationsScreen() {
                   disabled={updateMutation.isPending}
                 >
                   {updateMutation.isPending ? (
-                    <ActivityIndicator color="#FFF" />
+                    <ActivityIndicator color={Colors.dark.buttonText} />
                   ) : (
                     <Text style={styles.submitButtonText}>Save Changes</Text>
                   )}
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: Colors.dark.gold,
+    backgroundColor: GlowColors.primary,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -453,8 +453,10 @@ const styles = StyleSheet.create({
   emptyContainer: {
     padding: Spacing["2xl"],
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   emptyText: {
     fontSize: Typography.h3.fontSize,
@@ -482,9 +484,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   inactiveCard: {
     opacity: 0.7,
@@ -528,11 +532,13 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.elevated,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
     maxHeight: "80%",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   modalHeader: {
     flexDirection: "row",
@@ -593,7 +599,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#FFF",
+    backgroundColor: Colors.dark.text,
   },
   toggleKnobActive: {
     alignSelf: "flex-end",
@@ -607,7 +613,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   submitButton: {
-    backgroundColor: Colors.dark.gold,
+    backgroundColor: GlowColors.primary,
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     alignItems: "center",
@@ -619,7 +625,7 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
-    color: "#FFF",
+    color: Colors.dark.buttonText,
   },
   deleteButton: {
     flexDirection: "row",

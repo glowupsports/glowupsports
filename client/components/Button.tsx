@@ -11,7 +11,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { BorderRadius, Spacing, GlowColors, Backgrounds, FunctionColors } from "@/constants/theme";
+import { BorderRadius, Spacing, GlowColors, Backgrounds, FunctionColors, TextColors } from "@/constants/theme";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
@@ -58,8 +58,8 @@ export function Button({
       case "secondary":
         return {
           backgroundColor: Backgrounds.elevated,
-          textColor: "#FFFFFF",
-          borderColor: "rgba(255, 255, 255, 0.1)",
+          textColor: TextColors.primary,
+          borderColor: "rgba(255, 255, 255, 0.06)",
           pressedBg: Backgrounds.surface,
         };
       case "ghost":
@@ -72,7 +72,7 @@ export function Button({
       case "danger":
         return {
           backgroundColor: FunctionColors.error,
-          textColor: "#FFFFFF",
+          textColor: TextColors.primary,
           borderColor: "transparent",
           pressedBg: FunctionColors.errorMuted,
         };

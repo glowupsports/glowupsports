@@ -156,11 +156,14 @@ const styles = StyleSheet.create({
     backgroundColor: Backgrounds.overlay,
   },
   modalContainer: {
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: Backgrounds.card,
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
     paddingHorizontal: Spacing.lg,
     maxHeight: "85%",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderBottomWidth: 0,
   },
   handle: {
     width: 36,

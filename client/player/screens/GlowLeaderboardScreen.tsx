@@ -81,7 +81,7 @@ function TopThreePlayer({ player, position }: { player: RankedPlayer; position: 
             )}
           </LinearGradient>
           <View style={[styles.rankBadge, { backgroundColor: color }]}>
-            <Ionicons name={getRankIcon(position) as any} size={12} color="#fff" />
+            <Ionicons name={getRankIcon(position) as any} size={12} color={Colors.dark.text} />
           </View>
         </View>
         <ThemedText style={styles.topPlayerName} numberOfLines={1}>{player.name}</ThemedText>

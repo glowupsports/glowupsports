@@ -63,8 +63,8 @@ export function SuccessToast({
         return {
           bg: Colors.dark.error,
           icon: icon || "close-circle",
-          iconColor: "#fff",
-          textColor: "#fff",
+          iconColor: TextColors.primary,
+          textColor: TextColors.primary,
         };
       case "info":
         return {
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.lg,
     zIndex: 9999,
-    shadowColor: "#000",
+    shadowColor: Backgrounds.root,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
