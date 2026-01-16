@@ -5479,3 +5479,126 @@ export const playerFeatureUnlockHistory = pgTable("player_feature_unlock_history
   index("player_feature_unlock_history_player_idx").on(table.playerId),
   unique("player_feature_unlock_history_unique").on(table.playerId, table.featureKey),
 ]);
+
+// ==================== DEEP ASSESSMENT SYSTEM ====================
+// Layer 2 - Expert Deep Assessment (optional, unlimited depth)
+// Contains 140+ subskills organized by pillar for detailed coach assessment
+
+// Deep Assessment Skill Definitions - Master list of all assessable subskills
+export const deepAssessmentSkills = pgTable("deep_assessment_skills", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  
+  // Skill identification
+  pillar: text("pillar").notNull(), // TECHNIQUE, TACTICAL, PHYSICAL, MENTAL, SOCIAL, MATCH
+  category: text("category").notNull(), // e.g., forehand, backhand, serve, return, volley, movement, etc.
+  skillKey: text("skill_key").notNull().unique(), // Unique key like "tech_fh_grip", "tact_rally_patience"
+  skillName: text("skill_name").notNull(), // Display name: "Grip type (Eastern/Semi/Western)"
+  
+  // Descriptions (multi-language ready)
+  description: text("description"), // Coach-facing technical description
+  playerDescription: text("player_description"), // Fun, encouraging description for player view
+  parentDescription: text("parent_description"), // Informative description for parents
+  
+  // Scoring guide
+  score0Description: text("score_0_description"), // What 0 (Not Yet) looks like
+  score1Description: text("score_1_description"), // What 1 (Developing) looks like  
+  score2Description: text("score_2_description"), // What 2 (Meets) looks like
+  score3Description: text("score_3_description"), // What 3 (Above) looks like
+  
+  // Ball level applicability (which levels this skill applies to)
+  applicableBallLevels: jsonb("applicable_ball_levels").$type<string[]>().default([]), // ["RED", "ORANGE", "GREEN", "YELLOW", "GLOW"]
+  
+  // Ordering & visibility
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  
+  // System usage hints
+  drivesXP: boolean("drives_xp").default(false), // Does scoring this skill award XP?
+  drivesDrills: boolean("drives_drills").default(true), // Influences drill suggestions?
+  drivesQuests: boolean("drives_quests").default(false), // Creates quests/challenges?
+  promotionRequired: boolean("promotion_required").default(false), // Required for level promotion?
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("deep_assessment_skills_pillar_idx").on(table.pillar),
+  index("deep_assessment_skills_category_idx").on(table.category),
+  index("deep_assessment_skills_active_idx").on(table.isActive),
+]);
+
+export const insertDeepAssessmentSkillSchema = createInsertSchema(deepAssessmentSkills).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertDeepAssessmentSkill = z.infer<typeof insertDeepAssessmentSkillSchema>;
+export type DeepAssessmentSkill = typeof deepAssessmentSkills.$inferSelect;
+
+// Player Deep Assessments - Coach ratings for each skill per player
+export const playerDeepAssessments = pgTable("player_deep_assessments", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  skillId: varchar("skill_id").references(() => deepAssessmentSkills.id).notNull(),
+  
+  // Rating (0-3 scale)
+  score: integer("score"), // 0=not_yet, 1=developing, 2=meets, 3=above, NULL=not assessed
+  confidence: text("confidence").default("medium"), // low, medium, high
+  
+  // Evidence & notes
+  notes: text("notes"),
+  evidenceUrl: text("evidence_url"), // Link to video evidence
+  
+  // Assessment context
+  coachId: varchar("coach_id").references(() => coaches.id),
+  academyId: varchar("academy_id").references(() => academies.id),
+  sessionId: varchar("session_id").references(() => sessions.id), // Optional: which session this was assessed in
+  
+  // History tracking
+  previousScore: integer("previous_score"),
+  assessmentCount: integer("assessment_count").default(1), // How many times this skill has been assessed
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("player_deep_assessments_player_idx").on(table.playerId),
+  index("player_deep_assessments_skill_idx").on(table.skillId),
+  index("player_deep_assessments_pillar_idx").on(table.coachId),
+  unique("player_deep_assessments_unique").on(table.playerId, table.skillId),
+]);
+
+export const insertPlayerDeepAssessmentSchema = createInsertSchema(playerDeepAssessments).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertPlayerDeepAssessment = z.infer<typeof insertPlayerDeepAssessmentSchema>;
+export type PlayerDeepAssessment = typeof playerDeepAssessments.$inferSelect;
+
+// Deep Assessment Pillar Summaries - Aggregated progress per pillar for deep assessment
+export const deepAssessmentPillarSummaries = pgTable("deep_assessment_pillar_summaries", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  pillar: text("pillar").notNull(), // TECHNIQUE, TACTICAL, PHYSICAL, MENTAL, SOCIAL, MATCH
+  
+  // Progress tracking
+  totalSkills: integer("total_skills").default(0), // Total skills in this pillar
+  assessedSkills: integer("assessed_skills").default(0), // How many have been scored
+  averageScore: numeric("average_score", { precision: 4, scale: 2 }), // Average of scored skills
+  
+  // Score distribution
+  score0Count: integer("score_0_count").default(0),
+  score1Count: integer("score_1_count").default(0),
+  score2Count: integer("score_2_count").default(0),
+  score3Count: integer("score_3_count").default(0),
+  
+  // Confidence breakdown
+  lowConfidenceCount: integer("low_confidence_count").default(0),
+  mediumConfidenceCount: integer("medium_confidence_count").default(0),
+  highConfidenceCount: integer("high_confidence_count").default(0),
+  
+  lastAssessedAt: timestamp("last_assessed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("deep_assessment_pillar_summaries_player_idx").on(table.playerId),
+  unique("deep_assessment_pillar_summaries_unique").on(table.playerId, table.pillar),
+]);
