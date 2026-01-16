@@ -36,6 +36,7 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import PackagesCard from "@/coach/components/PackagesCard";
 import QuickBaselineDrawer from "@/coach/components/QuickBaselineDrawer";
+import { DeepAssessmentDrawer } from "@/coach/components/DeepAssessmentDrawer";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -991,6 +992,7 @@ function PlayerDetailView({
   const [newNoteCategory, setNewNoteCategory] = useState("general");
   const [isExportingReport, setIsExportingReport] = useState(false);
   const [showAllHistory, setShowAllHistory] = useState(false);
+  const [showDeepAssessment, setShowDeepAssessment] = useState(false);
 
   const handleExportProgressReport = async () => {
     try {
@@ -1191,17 +1193,28 @@ function PlayerDetailView({
           <Pressable style={styles.premiumBackButton} onPress={onBack}>
             <Ionicons name="arrow-back" size={22} color={Colors.dark.text} />
           </Pressable>
-          <Pressable 
-            style={styles.premiumExportButton} 
-            onPress={handleExportProgressReport}
-            disabled={isExportingReport}
-          >
-            {isExportingReport ? (
-              <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
-            ) : (
-              <Ionicons name="document-text-outline" size={22} color={Colors.dark.xpCyan} />
-            )}
-          </Pressable>
+          <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+            <Pressable 
+              style={styles.premiumExportButton} 
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setShowDeepAssessment(true);
+              }}
+            >
+              <Ionicons name="analytics" size={22} color={Colors.dark.xpCyan} />
+            </Pressable>
+            <Pressable 
+              style={styles.premiumExportButton} 
+              onPress={handleExportProgressReport}
+              disabled={isExportingReport}
+            >
+              {isExportingReport ? (
+                <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+              ) : (
+                <Ionicons name="document-text-outline" size={22} color={Colors.dark.xpCyan} />
+              )}
+            </Pressable>
+          </View>
         </View>
 
         {/* Premium Profile Card */}
@@ -1754,6 +1767,12 @@ function PlayerDetailView({
           )}
         </View>
       </ScrollView>
+
+      <DeepAssessmentDrawer
+        visible={showDeepAssessment}
+        player={player}
+        onClose={() => setShowDeepAssessment(false)}
+      />
     </View>
   );
 }

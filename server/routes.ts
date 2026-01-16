@@ -5886,6 +5886,189 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===================== DEEP ASSESSMENT (Layer 2) =====================
+  
+  // Get all deep assessment skills (optionally filtered by pillar)
+  app.get("/api/deep-assessment/skills", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { pillar, ballLevel } = req.query;
+      
+      let skills;
+      if (ballLevel && typeof ballLevel === "string") {
+        skills = await storage.getDeepAssessmentSkillsByBallLevel(ballLevel);
+      } else if (pillar && typeof pillar === "string") {
+        skills = await storage.getDeepAssessmentSkills(pillar);
+      } else {
+        skills = await storage.getDeepAssessmentSkills();
+      }
+      
+      // Group by pillar and category
+      const grouped: Record<string, Record<string, typeof skills>> = {};
+      for (const skill of skills) {
+        if (!grouped[skill.pillar]) {
+          grouped[skill.pillar] = {};
+        }
+        if (!grouped[skill.pillar][skill.category]) {
+          grouped[skill.pillar][skill.category] = [];
+        }
+        grouped[skill.pillar][skill.category].push(skill);
+      }
+      
+      res.json({ skills, grouped });
+    } catch (error) {
+      console.error("Error fetching deep assessment skills:", error);
+      res.status(500).json({ error: "Failed to fetch skills" });
+    }
+  });
+
+  // Get player's deep assessment with all skills
+  app.get("/api/players/:id/deep-assessment", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      
+      const { valid } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Get all skills and player's assessments
+      const allSkills = await storage.getDeepAssessmentSkills();
+      const playerAssessments = await storage.getPlayerDeepAssessments(id);
+      const summary = await storage.getPlayerDeepAssessmentSummary(id);
+      
+      // Create assessment map
+      const assessmentMap = new Map(playerAssessments.map(a => [a.skillId, a]));
+      
+      // Combine skills with assessments
+      const skillsWithAssessments = allSkills.map(skill => ({
+        ...skill,
+        assessment: assessmentMap.get(skill.id) || null,
+      }));
+      
+      // Group by pillar and category
+      const grouped: Record<string, Record<string, typeof skillsWithAssessments>> = {};
+      for (const skill of skillsWithAssessments) {
+        if (!grouped[skill.pillar]) {
+          grouped[skill.pillar] = {};
+        }
+        if (!grouped[skill.pillar][skill.category]) {
+          grouped[skill.pillar][skill.category] = [];
+        }
+        grouped[skill.pillar][skill.category].push(skill);
+      }
+      
+      res.json({
+        playerId: id,
+        skills: skillsWithAssessments,
+        grouped,
+        summary,
+        totalSkills: allSkills.length,
+        assessedSkills: playerAssessments.filter(a => a.score !== null).length,
+      });
+    } catch (error) {
+      console.error("Error fetching player deep assessment:", error);
+      res.status(500).json({ error: "Failed to fetch deep assessment" });
+    }
+  });
+
+  // Save/update a skill assessment for a player
+  app.post("/api/players/:id/deep-assessment", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId!;
+      const coachId = req.user!.coachId;
+      
+      const { valid } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const { skillId, score, confidence, notes, evidenceUrl, sessionId } = req.body;
+      
+      if (!skillId) {
+        return res.status(400).json({ error: "skillId is required" });
+      }
+      
+      const assessment = await storage.upsertPlayerDeepAssessment({
+        playerId: id,
+        skillId,
+        score,
+        confidence: confidence || "medium",
+        notes,
+        evidenceUrl,
+        coachId,
+        academyId,
+        sessionId,
+      });
+      
+      res.json(assessment);
+    } catch (error) {
+      console.error("Error saving deep assessment:", error);
+      res.status(500).json({ error: "Failed to save assessment" });
+    }
+  });
+
+  // Bulk save multiple assessments for a player
+  app.post("/api/players/:id/deep-assessment/bulk", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId!;
+      const coachId = req.user!.coachId;
+      
+      const { valid } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const { assessments } = req.body;
+      
+      if (!Array.isArray(assessments)) {
+        return res.status(400).json({ error: "assessments array is required" });
+      }
+      
+      const results = [];
+      for (const item of assessments) {
+        const assessment = await storage.upsertPlayerDeepAssessment({
+          playerId: id,
+          skillId: item.skillId,
+          score: item.score,
+          confidence: item.confidence || "medium",
+          notes: item.notes,
+          evidenceUrl: item.evidenceUrl,
+          coachId,
+          academyId,
+          sessionId: item.sessionId,
+        });
+        results.push(assessment);
+      }
+      
+      res.json({ saved: results.length, assessments: results });
+    } catch (error) {
+      console.error("Error bulk saving deep assessments:", error);
+      res.status(500).json({ error: "Failed to save assessments" });
+    }
+  });
+
+  // Get deep assessment summary for a player
+  app.get("/api/players/:id/deep-assessment/summary", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      
+      const { valid } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const summary = await storage.getPlayerDeepAssessmentSummary(id);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching deep assessment summary:", error);
+      res.status(500).json({ error: "Failed to fetch summary" });
+    }
+  });
+
   // ===================== PACKAGES / CREDITS =====================
   app.get("/api/players/:playerId/packages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {

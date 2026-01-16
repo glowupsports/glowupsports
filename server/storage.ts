@@ -275,6 +275,13 @@ import {
   ballLevels,
   type PlayerBaseline,
   type InsertPlayerBaseline,
+  // Deep Assessment
+  deepAssessmentSkills,
+  playerDeepAssessments,
+  type DeepAssessmentSkill,
+  type InsertDeepAssessmentSkill,
+  type PlayerDeepAssessment,
+  type InsertPlayerDeepAssessment,
 } from "@shared/schema";
 
 export const storage = {
@@ -9574,5 +9581,101 @@ export const storage = {
       academyMargin: Math.round(academyMargin * 100) / 100,
       currency: academyCurrency,
     };
+  },
+
+  // ==================== DEEP ASSESSMENT ====================
+  async getDeepAssessmentSkills(pillar?: string): Promise<DeepAssessmentSkill[]> {
+    if (pillar) {
+      return db.select().from(deepAssessmentSkills)
+        .where(and(eq(deepAssessmentSkills.pillar, pillar), eq(deepAssessmentSkills.isActive, true)))
+        .orderBy(asc(deepAssessmentSkills.category), asc(deepAssessmentSkills.sortOrder));
+    }
+    return db.select().from(deepAssessmentSkills)
+      .where(eq(deepAssessmentSkills.isActive, true))
+      .orderBy(asc(deepAssessmentSkills.pillar), asc(deepAssessmentSkills.category), asc(deepAssessmentSkills.sortOrder));
+  },
+
+  async getDeepAssessmentSkillsByBallLevel(ballLevel: string): Promise<DeepAssessmentSkill[]> {
+    const allSkills = await db.select().from(deepAssessmentSkills)
+      .where(eq(deepAssessmentSkills.isActive, true))
+      .orderBy(asc(deepAssessmentSkills.pillar), asc(deepAssessmentSkills.category), asc(deepAssessmentSkills.sortOrder));
+    
+    return allSkills.filter(skill => {
+      const levels = skill.applicableBallLevels as string[] || [];
+      return levels.includes(ballLevel);
+    });
+  },
+
+  async getPlayerDeepAssessments(playerId: string): Promise<PlayerDeepAssessment[]> {
+    return db.select().from(playerDeepAssessments)
+      .where(eq(playerDeepAssessments.playerId, playerId))
+      .orderBy(desc(playerDeepAssessments.updatedAt));
+  },
+
+  async getPlayerDeepAssessmentBySkill(playerId: string, skillId: string): Promise<PlayerDeepAssessment | undefined> {
+    const result = await db.select().from(playerDeepAssessments)
+      .where(and(eq(playerDeepAssessments.playerId, playerId), eq(playerDeepAssessments.skillId, skillId)));
+    return result[0];
+  },
+
+  async upsertPlayerDeepAssessment(data: InsertPlayerDeepAssessment): Promise<PlayerDeepAssessment> {
+    const existing = await this.getPlayerDeepAssessmentBySkill(data.playerId, data.skillId);
+    
+    if (existing) {
+      const result = await db.update(playerDeepAssessments).set({
+        score: data.score,
+        confidence: data.confidence || "medium",
+        notes: data.notes,
+        evidenceUrl: data.evidenceUrl,
+        coachId: data.coachId,
+        sessionId: data.sessionId,
+        previousScore: existing.score,
+        assessmentCount: (existing.assessmentCount || 0) + 1,
+        updatedAt: new Date(),
+      }).where(eq(playerDeepAssessments.id, existing.id)).returning();
+      return result[0];
+    } else {
+      const result = await db.insert(playerDeepAssessments).values({
+        ...data,
+        assessmentCount: 1,
+      }).returning();
+      return result[0];
+    }
+  },
+
+  async getPlayerDeepAssessmentSummary(playerId: string): Promise<{
+    pillar: string;
+    totalSkills: number;
+    assessedSkills: number;
+    averageScore: number | null;
+    percentComplete: number;
+  }[]> {
+    const allSkills = await this.getDeepAssessmentSkills();
+    const playerAssessments = await this.getPlayerDeepAssessments(playerId);
+    
+    const assessmentMap = new Map(playerAssessments.map(a => [a.skillId, a]));
+    const pillarStats: Record<string, { total: number; assessed: number; scoreSum: number; scoredCount: number }> = {};
+    
+    for (const skill of allSkills) {
+      if (!pillarStats[skill.pillar]) {
+        pillarStats[skill.pillar] = { total: 0, assessed: 0, scoreSum: 0, scoredCount: 0 };
+      }
+      pillarStats[skill.pillar].total++;
+      
+      const assessment = assessmentMap.get(skill.id);
+      if (assessment && assessment.score !== null) {
+        pillarStats[skill.pillar].assessed++;
+        pillarStats[skill.pillar].scoreSum += assessment.score;
+        pillarStats[skill.pillar].scoredCount++;
+      }
+    }
+    
+    return Object.entries(pillarStats).map(([pillar, stats]) => ({
+      pillar,
+      totalSkills: stats.total,
+      assessedSkills: stats.assessed,
+      averageScore: stats.scoredCount > 0 ? Math.round((stats.scoreSum / stats.scoredCount) * 100) / 100 : null,
+      percentComplete: Math.round((stats.assessed / stats.total) * 100),
+    }));
   },
 };
