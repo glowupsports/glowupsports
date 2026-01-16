@@ -427,7 +427,7 @@ export default function AttendanceDrawer({
             </Pressable>
           </View>
         ) : (
-          <View style={styles.playerList}>
+          <ScrollView style={styles.playerListScroll} contentContainerStyle={styles.playerList} showsVerticalScrollIndicator={false}>
             {players.map((player) => {
               const record = attendance.get(player.id);
               const status = record?.status || "present";
@@ -561,7 +561,7 @@ export default function AttendanceDrawer({
                 </View>
               );
             })}
-          </View>
+          </ScrollView>
         )}
 
         {/* Offline Warning */}
@@ -640,9 +640,13 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
     textAlign: "center",
   },
+  playerListScroll: {
+    flex: 1,
+  },
   playerList: {
     padding: Spacing.lg,
     gap: Spacing.md,
+    paddingBottom: Spacing.xl,
   },
   playerCard: {
     backgroundColor: Colors.dark.backgroundSecondary,
