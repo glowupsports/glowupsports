@@ -10,6 +10,7 @@ import Animated, { FadeIn, FadeInRight, SlideInRight } from "react-native-reanim
 import { Colors, Spacing, Typography, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
+import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { getStaticAssetsUrl, apiFetch, apiRequest } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
 
@@ -330,18 +331,13 @@ export default function FriendsListScreen() {
           contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + Spacing.xl }]}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Ionicons name="people-outline" size={48} color={Colors.dark.textMuted} />
-              <ThemedText style={styles.emptyTitle}>No friends yet</ThemedText>
-              <ThemedText style={styles.emptySubtitle}>
-                Find players to connect with and grow your network
-              </ThemedText>
-              <Pressable
-                style={styles.findPlayersButton}
+              <EmptyStateCard
+                icon="people"
+                title="No friends yet"
+                description="Find and connect with other players at your academy"
+                ctaText="Find Players"
                 onPress={() => navigation.navigate("PlayerFinder")}
-              >
-                <Ionicons name="search" size={18} color="#fff" />
-                <ThemedText style={styles.findPlayersText}>Find Players</ThemedText>
-              </Pressable>
+              />
             </View>
           }
         />

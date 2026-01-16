@@ -24,6 +24,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { EmptyStateCard } from "@/components/EmptyStateCard";
 
 interface Message {
   id: string;
@@ -444,25 +445,16 @@ export default function ChatInboxScreen() {
         </View>
       ) : filteredConversations.length === 0 ? (
         <View style={styles.emptyState}>
-          <View style={styles.emptyIcon}>
-            <Ionicons 
-              name={chatFilter === "parents" ? "people-outline" : "chatbubbles-outline"} 
-              size={48} 
-              color={Colors.dark.xpCyan} 
-            />
-          </View>
-          <ThemedText style={styles.emptyTitle}>
-            {chatFilter === "all" 
-              ? "No conversations yet" 
-              : chatFilter === "parents"
-              ? "No parent conversations"
-              : "No player conversations"}
-          </ThemedText>
-          <ThemedText style={styles.emptySubtitle}>
-            {chatFilter === "parents"
-              ? "Start chatting with parents from their player's profile"
-              : "Start chatting with your players from their profile"}
-          </ThemedText>
+          <EmptyStateCard
+            icon="message-circle"
+            title="No messages yet"
+            description="Start a conversation with your coach or teammates"
+            ctaText="New Message"
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              navigation.navigate("CoachTabs", { screen: "Players" });
+            }}
+          />
         </View>
       ) : (
         <FlatList

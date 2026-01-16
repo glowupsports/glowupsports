@@ -11,6 +11,7 @@ import { Colors, Spacing, Typography, BorderRadius, CardStyles, Backgrounds, Glo
 import { LinearGradient } from "expo-linear-gradient";
 import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
+import { EmptyStateCard } from "@/components/EmptyStateCard";
 import PinEntryModal from "@/components/PinEntryModal";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
@@ -722,9 +723,17 @@ export default function PlayerProfileScreen() {
               ))
             ) : (
               <View style={styles.emptyTabContent}>
-                <Ionicons name="people" size={40} color={Colors.dark.textMuted} />
-                <Text style={styles.emptyTabText}>No friends yet</Text>
-                <Text style={styles.emptyTabSubtext}>Connect with other players to build your network!</Text>
+                <EmptyStateCard
+                  icon="people"
+                  title="No friends yet"
+                  description="Find and connect with other players at your academy"
+                  ctaText="Find Players"
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    navigation.navigate("PlayerFinder");
+                  }}
+                  style={styles.emptyStateCardTab}
+                />
               </View>
             )}
           </View>
@@ -1753,6 +1762,9 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     textAlign: "center",
     maxWidth: "80%",
+  },
+  emptyStateCardTab: {
+    marginHorizontal: Spacing.lg,
   },
   friendItem: {
     flexDirection: "row",

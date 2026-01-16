@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform, Alert, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -8,6 +9,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { EmptyStateCard } from "@/components/EmptyStateCard";
 
 interface VacationData {
   active: boolean;
@@ -72,6 +74,7 @@ interface CalendarDay {
 
 export default function PlayerScheduleScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const queryClient = useQueryClient();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
@@ -813,10 +816,14 @@ export default function PlayerScheduleScreen() {
         </Text>
         
         {selectedDateSessions.length === 0 ? (
-          <View style={styles.emptyDayState}>
-            <Text style={styles.emptyDayText}>No sessions scheduled</Text>
-            <Text style={styles.emptyDaySubtext}>Tap a day with sessions to view details</Text>
-          </View>
+          <EmptyStateCard
+            icon="calendar"
+            title="No sessions scheduled"
+            description="Book a lesson with your coach to start training"
+            ctaText="Book a Lesson"
+            onPress={() => navigation.navigate("LessonBooking" as never)}
+            style={styles.emptyStateCard}
+          />
         ) : (
           selectedDateSessions.map((session) => (
             <View key={session.id} style={styles.sessionCard}>
@@ -1256,6 +1263,9 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.textMuted,
     marginTop: 4,
+  },
+  emptyStateCard: {
+    marginVertical: Spacing.lg,
   },
   sessionCard: {
     flexDirection: "row",

@@ -10,6 +10,7 @@ import Svg, { Polygon, Circle, Text as SvgText, Line } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import BallLevelBadge from "@/components/BallLevelBadge";
 import PillarProgressRings from "@/components/PillarProgressRings";
+import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { getStageFromLevel, type BallStage } from "@shared/language-switch";
 
 interface DomainInsights {
@@ -572,6 +573,33 @@ export default function PlayerProgressScreen() {
   const currentLevelXp = data.xp % 500;
 
   const totalObservations = data.skillRadar.reduce((sum, s) => sum + s.observationCount, 0);
+
+  if (totalObservations === 0) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={{ 
+            paddingHorizontal: Spacing.xl,
+            paddingVertical: Spacing.xl,
+            paddingBottom: insets.bottom + 200,
+            justifyContent: "center",
+            minHeight: "100%"
+          }}
+          showsVerticalScrollIndicator={false}
+        >
+          <EmptyStateCard
+            icon="trending-up"
+            title="No progress tracked yet"
+            description="Complete sessions to start tracking your development"
+            ctaText="View Schedule"
+            onPress={() => navigation.navigate("Schedule")}
+            style={{ marginTop: Spacing.xl }}
+          />
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

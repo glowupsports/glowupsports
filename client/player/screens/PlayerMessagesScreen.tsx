@@ -16,6 +16,7 @@ import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, Typography, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { getStaticAssetsUrl } from "@/lib/query-client";
+import { EmptyStateCard } from "@/components/EmptyStateCard";
 
 interface Conversation {
   id: string;
@@ -116,16 +117,16 @@ export default function PlayerMessagesScreen() {
 
   const renderEmpty = () => (
     <View style={styles.emptyState}>
-      <View style={styles.iconContainer}>
-        <Ionicons name="chatbubbles-outline" size={48} color={Colors.dark.textMuted} />
-      </View>
-      <Text style={styles.emptyTitle}>No Messages Yet</Text>
-      <Text style={styles.emptyText}>
-        Your conversations with coaches and players will appear here.
-      </Text>
-      <Text style={styles.emptyHint}>
-        Start a chat from your coach's profile or connect with other players!
-      </Text>
+      <EmptyStateCard
+        icon="message-circle"
+        title="No messages yet"
+        description="Start a conversation with your coach or teammates"
+        ctaText="New Message"
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          navigation.navigate("FriendsList");
+        }}
+      />
     </View>
   );
 
