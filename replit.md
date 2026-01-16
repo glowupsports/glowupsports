@@ -11,6 +11,16 @@ Preferred communication style: Simple, everyday language.
 ### UI/UX Decisions
 The application employs a dark-themed gaming aesthetic with neon green and cyan accents. It features card-based layouts, drawer navigation, a custom header displaying persistent player stats, and a collapsible chat footer. Each user role is assigned dedicated UI colors and navigation structures.
 
+### UX Component Library (10 Core Principles Implementation)
+- **EmptyStateCard** (`client/components/EmptyStateCard.tsx`): Animated empty states with icon, title, description, and CTA button. Used across Sessions, Progress, Friends, and Messages screens. Implements "No Empty Screens" principle.
+- **AnimatedCheck** (`client/components/AnimatedCheck.tsx`): Animated checkmark with spring physics for success feedback. Supports "glow" and "decoration" variants. 300ms display for immediate visual feedback.
+- **SuccessToast** (`client/components/SuccessToast.tsx`): Slide-up toast notifications for success messages. Auto-dismisses after configurable duration.
+- **ActionNeededCard** (`client/components/ActionNeededCard.tsx`): Priority-based action list for dashboards. Shows pending feedback, unpaid sessions, alerts. Used in Coach and Admin dashboards.
+- **SessionSummaryModal** (`client/components/SessionSummaryModal.tsx`): Post-session celebration modal with XP earned, stats, and "next focus" suggestions. Implements "Emotional Payoff" principle.
+- **PostActionModal** (`client/components/PostActionModal.tsx`): "What's Next?" flow after completing actions. Prevents dead ends by offering relevant next steps.
+- **QuickStatsStrip**: Compact horizontal stats display (Level, Streak, XP to next) on ProPlayerHomeScreen.
+- **Hero CTA Pattern**: Each main dashboard now has ONE primary action prominently displayed at the top.
+
 ### Technical Implementations
 - **Frontend**: Built with React Native and Expo SDK 54, utilizing React Navigation for routing, React Context for state management, and `AsyncStorage` for local data persistence. Animations are managed with `React Native Reanimated`.
 - **Backend**: Developed using Express.js and TypeScript, offering RESTful API endpoints. It incorporates a `Drizzle ORM` schema for PostgreSQL, though data is currently in-memory. CORS is dynamically configured for Replit environments.
