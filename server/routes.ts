@@ -3096,6 +3096,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Determine series to use: find existing or create new flexible series
+      let seriesId: string | null = null;
+      const sortedDates = [...flexibleSessions].sort((a: any, b: any) => a.date.localeCompare(b.date));
+      const firstDate = sortedDates[0]?.date;
+      const lastDate = sortedDates[sortedDates.length - 1]?.date;
+      
+      // If players provided, try to find their existing active series with this coach
+      if (playerIds && playerIds.length > 0 && academyId) {
+        const firstPlayerId = playerIds[0];
+        const playerSeries = await storage.getPlayerSeries(firstPlayerId);
+        const existingSeries = playerSeries.find((s: any) => 
+          s.coachId === coachId && 
+          s.sessionType === sessionType && 
+          s.status === "active"
+        );
+        if (existingSeries) {
+          seriesId = existingSeries.id;
+        }
+      }
+      
+      // If no existing series, create a flexible series
+      if (!seriesId && academyId) {
+        let seriesTitle = `Flexible ${sessionType === 'private' ? 'Private' : sessionType === 'semi_private' ? 'Semi-Private' : 'Group'}`;
+        if (playerIds && playerIds.length > 0) {
+          const playerNames: string[] = [];
+          for (const pid of playerIds.slice(0, 2)) {
+            const p = await storage.getPlayer(pid, academyId);
+            if (p) playerNames.push(p.name.split(' ')[0]);
+          }
+          if (playerNames.length > 0) {
+            seriesTitle = `${playerNames.join(' & ')}${playerIds.length > 2 ? ` +${playerIds.length - 2}` : ''} - Flexible`;
+          }
+        }
+        
+        const newSeries = await storage.createCoachingSeries({
+          academyId,
+          coachId,
+          courtId: courtId || null,
+          title: seriesTitle,
+          dayOfWeek: -1,
+          startTime: "00:00",
+          duration,
+          sessionType,
+          ballLevel: ballLevel || null,
+          skillLevel: skillLevel || null,
+          maxPlayers: sessionType === "private" ? 1 : maxPlayers || 4,
+          weekCount: flexibleSessions.length,
+          seriesStartDate: firstDate,
+          seriesEndDate: lastDate,
+          status: "active",
+        });
+        seriesId = newSeries.id;
+        
+        if (playerIds && Array.isArray(playerIds)) {
+          for (const playerId of playerIds) {
+            await storage.addPlayerToSeries({
+              seriesId: newSeries.id,
+              playerId,
+              status: "active",
+            });
+          }
+        }
+      }
+      
       for (const fs of flexibleSessions) {
         const start = new Date(fs.startTime);
         const end = new Date(fs.endTime);
@@ -3112,7 +3176,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           continue;
         }
         
-        // Create the session
+        // Create the session linked to series
         const session = await storage.createSession({
           coachId,
           courtId,
@@ -3127,6 +3191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           skillLevel: skillLevel || null,
           maxPlayers: sessionType === "private" ? 1 : maxPlayers || 4,
           recurringGroupId: null,
+          seriesId: seriesId || undefined,
           ...pricingSnapshot,
         });
         
@@ -3169,6 +3234,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(201).json({
         sessions: createdSessions,
+        seriesId,
         summary: {
           requested: flexibleSessions.length,
           created: createdSessions.length,
