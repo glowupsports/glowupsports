@@ -194,10 +194,10 @@ export function DeepAssessmentDrawer({ visible, player, onClose }: DeepAssessmen
                 disabled={saving}
               >
                 {saving ? (
-                  <ActivityIndicator size="small" color="#000" />
+                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <>
-                    <Ionicons name="save" size={16} color="#000" />
+                    <Ionicons name="save" size={16} color={Colors.dark.buttonText} />
                     <Text style={styles.saveButtonText}>Save ({pendingChanges.size})</Text>
                   </>
                 )}
@@ -402,7 +402,7 @@ export function DeepAssessmentDrawer({ visible, player, onClose }: DeepAssessmen
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.root,
   },
   header: {
     flexDirection: "row",
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: GlowColors.primary,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: FontSizes.sm,
     fontWeight: "600",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   closeButton: {
     padding: Spacing.xs,
@@ -514,6 +514,8 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
     fontWeight: "600",
     color: Colors.dark.text,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
   pillarStats: {
     fontSize: FontSizes.xs,
@@ -555,6 +557,8 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.sm,
     fontWeight: "600",
     color: Colors.dark.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
   categoryRight: {
     flexDirection: "row",
@@ -617,7 +621,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   scoreButtonTextSelected: {
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   confidenceButtons: {
     flexDirection: "row",

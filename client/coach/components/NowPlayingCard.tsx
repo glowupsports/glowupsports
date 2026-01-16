@@ -174,12 +174,12 @@ export default function NowPlayingCard({
 
   const getSessionTypeColor = (type: string) => {
     const sessionColors: Record<string, string> = {
-      private: "#2ECC40",
-      semi_private: "#00D4FF",
-      group: "#FF6B35",
-      physical: "#9B59B6",
-      activity: "#F39C12",
-      court_booking: "#95A5A6",
+      private: Colors.dark.sessionPrivate,
+      semi_private: Colors.dark.sessionSemiPrivate,
+      group: Colors.dark.sessionGroup,
+      physical: Colors.dark.sessionPhysical,
+      activity: Colors.dark.sessionActivity,
+      court_booking: Colors.dark.tabIconDefault,
     };
     return sessionColors[type] || Colors.dark.tabIconDefault;
   };
@@ -258,12 +258,12 @@ export default function NowPlayingCard({
               style={[
                 styles.statusDot,
                 {
-                  backgroundColor: isActive ? "#2ECC40" : "#00D4FF",
+                  backgroundColor: isActive ? GlowColors.primary : Colors.dark.xpCyan,
                   opacity: pulseAnim,
                 },
               ]}
             />
-            <Text style={[styles.statusText, !isActive && { color: "#00D4FF" }]}>
+            <Text style={[styles.statusText, !isActive && { color: Colors.dark.xpCyan }]}>
               {isActive ? "NOW PLAYING" : "UP NEXT"}
             </Text>
           </View>
@@ -330,7 +330,7 @@ export default function NowPlayingCard({
               style={[styles.actionButton, styles.primaryAction]}
               onPress={() => handleAction(() => onAttendance(activeSession!))}
             >
-              <Ionicons name="checkmark-circle-outline" size={14} color="#FFF" />
+              <Ionicons name="checkmark-circle-outline" size={14} color={Colors.dark.buttonText} />
               <Text style={styles.actionText}>Attendance</Text>
             </Pressable>
             <Pressable
@@ -344,8 +344,8 @@ export default function NowPlayingCard({
               style={styles.actionButton}
               onPress={() => handleAction(() => onEnd(activeSession!))}
             >
-              <Ionicons name="stop-circle-outline" size={14} color="#FF6B35" />
-              <Text style={[styles.actionTextSecondary, { color: "#FF6B35" }]}>End</Text>
+              <Ionicons name="stop-circle-outline" size={14} color={Colors.dark.error} />
+              <Text style={[styles.actionTextSecondary, { color: Colors.dark.error }]}>End</Text>
             </Pressable>
           </View>
         ) : isActive ? (
@@ -365,7 +365,8 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(46, 204, 64, 0.2)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   gradient: {
     paddingHorizontal: Spacing.md,
@@ -395,7 +396,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: Typography.caption.fontSize,
     fontWeight: "700",
-    color: "#2ECC40",
+    color: GlowColors.primary,
     letterSpacing: 1,
   },
   countdown: {
@@ -415,7 +416,7 @@ const styles = StyleSheet.create({
   },
   timeUntil: {
     fontSize: Typography.small.fontSize,
-    color: "#00D4FF",
+    color: Colors.dark.xpCyan,
     fontWeight: "600",
   },
   sessionInfo: {
@@ -543,12 +544,12 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   primaryAction: {
-    backgroundColor: "#2ECC40",
+    backgroundColor: GlowColors.primary,
   },
   actionText: {
     fontSize: Typography.small.fontSize,
     fontWeight: "600",
-    color: "#FFF",
+    color: Colors.dark.buttonText,
   },
   actionTextSecondary: {
     fontSize: Typography.small.fontSize,

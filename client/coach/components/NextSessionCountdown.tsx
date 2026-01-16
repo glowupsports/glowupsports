@@ -334,7 +334,7 @@ export function NextSessionCountdown({
         <View style={styles.mainContent}>
           <View style={styles.leftSection}>
             <View style={[styles.sessionTypeBadge, { backgroundColor: sessionColor }]}>
-              <Ionicons name="tennisball" size={12} color="#000" />
+              <Ionicons name="tennisball" size={12} color={Colors.dark.buttonText} />
               <Text style={styles.sessionTypeText}>{getSessionTypeLabel()}</Text>
             </View>
 
@@ -539,13 +539,13 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.error,
   },
   liveCircleText: {
-    color: "#fff",
+    color: Colors.dark.text,
     fontSize: 20,
     fontWeight: "900",
     letterSpacing: 2,
   },
   liveCircleSubtext: {
-    color: "rgba(255, 255, 255, 0.8)",
+    color: Colors.dark.textSecondary,
     fontSize: 9,
     fontWeight: "700",
     letterSpacing: 0.5,
@@ -639,7 +639,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   sessionTypeText: {
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 0.5,

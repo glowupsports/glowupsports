@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import { Colors, Typography, Spacing } from "@/constants/theme";
+import { Colors, Typography, Spacing, Backgrounds, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 
 interface BurnoutRiskData {
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: Colors.dark.backgroundTertiary,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   header: {
     flexDirection: "row",

@@ -2,9 +2,8 @@ import React from "react";
 import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Typography, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 
 interface EarningsSummary {
@@ -94,15 +93,10 @@ export function CoachEarningsCard({ onPress }: Props) {
         onPress?.();
       }}
     >
-      <LinearGradient
-        colors={[`${Colors.dark.primary}30`, `${Colors.dark.primary}10`]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.card}
-      >
+      <View style={styles.card}>
         <View style={styles.header}>
           <View style={styles.titleRow}>
-            <Ionicons name="wallet-outline" size={18} color={Colors.dark.primary} />
+            <Ionicons name="wallet-outline" size={18} color={GlowColors.primary} />
             <Text style={styles.title}>Coach Earnings</Text>
           </View>
           <View style={styles.periodBadge}>
@@ -154,10 +148,10 @@ export function CoachEarningsCard({ onPress }: Props) {
           </View>
           <View style={styles.viewDetails}>
             <Text style={styles.viewDetailsText}>View details</Text>
-            <Ionicons name="chevron-forward" size={14} color={Colors.dark.primary} />
+            <Ionicons name="chevron-forward" size={14} color={GlowColors.primary} />
           </View>
         </View>
-      </LinearGradient>
+      </View>
     </Pressable>
   );
 }
@@ -167,27 +161,29 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   loadingCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   loadingText: {
-    color: Colors.dark.textMuted,
+    color: Colors.dark.text,
     ...Typography.small,
   },
   errorCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.dark.error + "30",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   errorContent: {
     flex: 1,
@@ -203,10 +199,11 @@ const styles = StyleSheet.create({
     ...Typography.caption,
   },
   card: {
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: `${Colors.dark.primary}30`,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   header: {
     flexDirection: "row",
@@ -225,13 +222,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   periodBadge: {
-    backgroundColor: `${Colors.dark.primary}20`,
+    backgroundColor: `${GlowColors.primary}20`,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: BorderRadius.sm,
   },
   periodText: {
-    color: Colors.dark.primary,
+    color: GlowColors.primary,
     ...Typography.caption,
     fontWeight: "600",
   },
@@ -254,7 +251,7 @@ const styles = StyleSheet.create({
     ...Typography.caption,
   },
   earningAmount: {
-    color: Colors.dark.text,
+    color: GlowColors.primary,
     fontSize: 22,
     fontWeight: "700",
     marginBottom: 2,
@@ -294,7 +291,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   viewDetailsText: {
-    color: Colors.dark.primary,
+    color: GlowColors.primary,
     ...Typography.caption,
   },
 });

@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import { Colors, Typography, Spacing } from "@/constants/theme";
+import { Colors, Typography, Spacing, Backgrounds, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 
 interface ForecastDay {
@@ -210,12 +210,12 @@ export function LoadForecastCard({ onDayPress }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "rgba(20, 20, 20, 0.95)",
+    backgroundColor: Backgrounds.card,
     borderRadius: 12,
     padding: Spacing.md,
     marginTop: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "30",
+    borderColor: "rgba(255, 255, 255, 0.06)",
     position: "relative",
     overflow: "hidden",
   },
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
     borderRadius: 8,
     position: "relative",
-    backgroundColor: "rgba(30, 30, 30, 0.6)",
+    backgroundColor: Backgrounds.elevated + "99",
     borderWidth: 1,
     borderColor: "transparent",
   },
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   barTrack: {
     width: 16,
     height: "100%",
-    backgroundColor: "rgba(40, 40, 40, 0.8)",
+    backgroundColor: Backgrounds.surface + "CC",
     borderRadius: 4,
     justifyContent: "flex-end",
     overflow: "hidden",

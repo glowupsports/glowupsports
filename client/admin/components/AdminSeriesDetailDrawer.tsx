@@ -829,7 +829,7 @@ export default function AdminSeriesDetailDrawer({
                   style={styles.attendanceCloseBtn}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Ionicons name="close" size={24} color="#FFFFFF" />
+                  <Ionicons name="close" size={24} color={Colors.dark.text} />
                 </Pressable>
               </View>
               
@@ -920,10 +920,10 @@ export default function AdminSeriesDetailDrawer({
                   style={styles.saveAttendanceGradient}
                 >
                   {saveAttendanceMutation.isPending ? (
-                    <ActivityIndicator size="small" color="#000" />
+                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                   ) : (
                     <>
-                      <Ionicons name="checkmark-circle" size={22} color="#000" />
+                      <Ionicons name="checkmark-circle" size={22} color={Colors.dark.buttonText} />
                       <Text style={styles.saveAttendanceText}>Save Attendance</Text>
                     </>
                   )}
@@ -967,9 +967,11 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   loadingContainer: {
     flex: 1,
@@ -1076,6 +1078,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.text,
     marginBottom: Spacing.sm,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
   addButton: {
     width: 28,
@@ -1162,7 +1166,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 0,
     top: "100%",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.sm,
     zIndex: 100,
@@ -1171,6 +1175,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   actionMenuItem: {
     flexDirection: "row",
@@ -1328,12 +1334,14 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   modalContent: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     width: "100%",
     maxWidth: 400,
     maxHeight: "80%",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   modalTitle: {
     ...Typography.h3,
@@ -1346,11 +1354,13 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   searchInput: {
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.root,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     color: Colors.dark.text,
     marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   playerList: {
     maxHeight: 300,
@@ -1361,7 +1371,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.backgroundRoot,
+    borderBottomColor: Backgrounds.root,
   },
   playerOptionName: {
     ...Typography.body,
@@ -1389,19 +1399,23 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   dateButton: {
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.root,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   dateButtonText: {
     ...Typography.body,
     color: Colors.dark.text,
   },
   textInput: {
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.root,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     color: Colors.dark.text,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   modalActions: {
     flexDirection: "row",
@@ -1412,8 +1426,10 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.card,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   modalConfirmBtn: {
     flex: 1,
@@ -1424,7 +1440,7 @@ const styles = StyleSheet.create({
   },
   modalConfirmText: {
     ...Typography.body,
-    color: Colors.dark.text,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   timelineItemHighlight: {
@@ -1443,13 +1459,13 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   attendanceContent: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: `${ADMIN_COLOR}30`,
+    borderColor: "rgba(255, 255, 255, 0.06)",
     borderBottomWidth: 0,
     zIndex: 10,
     maxHeight: "80%",
@@ -1471,7 +1487,7 @@ const styles = StyleSheet.create({
   },
   attendanceTitle: {
     ...Typography.h2,
-    color: "#FFFFFF",
+    color: Colors.dark.text,
     fontWeight: "700",
   },
   attendanceSubtitle: {
@@ -1483,20 +1499,24 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: `${Colors.dark.surface}80`,
+    backgroundColor: Backgrounds.card,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   attendanceList: {
     maxHeight: 400,
     marginBottom: Spacing.lg,
   },
   attendancePlayerCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   attendancePlayerInfo: {
     flexDirection: "row",
@@ -1535,9 +1555,9 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: Backgrounds.card,
     borderWidth: 1,
-    borderColor: "transparent",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   attendanceStatusText: {
     fontSize: Typography.caption.fontSize,
@@ -1562,6 +1582,6 @@ const styles = StyleSheet.create({
   saveAttendanceText: {
     ...Typography.body,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
 });

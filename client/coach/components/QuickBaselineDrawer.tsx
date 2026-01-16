@@ -1285,7 +1285,7 @@ export default function QuickBaselineDrawer({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.root,
   },
   header: {
     flexDirection: "row",
@@ -1350,6 +1350,8 @@ const styles = StyleSheet.create({
     fontWeight: 700,
     color: Colors.dark.text,
     marginBottom: Spacing.xs,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
   stepSubtitle: {
     fontSize: FontSizes.sm,
@@ -1364,6 +1366,8 @@ const styles = StyleSheet.create({
     fontWeight: 600,
     color: Colors.dark.text,
     marginBottom: Spacing.sm,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
   optionRow: {
     flexDirection: "row",
@@ -1657,6 +1661,8 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
     fontWeight: 600,
     color: Colors.dark.text,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
   deepPillarCount: {
     fontSize: FontSizes.xs,
@@ -1676,6 +1682,8 @@ const styles = StyleSheet.create({
     fontWeight: 600,
     color: Colors.dark.textMuted,
     marginBottom: Spacing.xs,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
   deepSkillRow: {
     flexDirection: "row",
@@ -1781,8 +1789,10 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   backButtonText: {
     fontSize: FontSizes.md,
@@ -1795,7 +1805,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.sm,
     paddingVertical: Spacing.md,
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
     borderRadius: BorderRadius.md,
   },
   nextButtonText: {
@@ -1810,7 +1820,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.sm,
     paddingVertical: Spacing.md,
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
     borderRadius: BorderRadius.md,
   },
   saveButtonText: {

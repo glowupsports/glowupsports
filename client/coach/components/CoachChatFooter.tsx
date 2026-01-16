@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
@@ -613,8 +613,8 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
             onPress={() => handleStartCoachChat(item)}
             style={styles.conversationItem}
           >
-            <View style={[styles.conversationAvatar, { backgroundColor: "#00D4FF30" }]}>
-              <Ionicons name="ribbon" size={20} color="#00D4FF" />
+            <View style={[styles.conversationAvatar, { backgroundColor: Colors.dark.xpCyan + "30" }]}>
+              <Ionicons name="ribbon" size={20} color={Colors.dark.xpCyan} />
             </View>
             <ThemedText style={styles.conversationName}>{item.name}</ThemedText>
           </Pressable>
@@ -911,7 +911,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "#0C0C0C",
+    backgroundColor: Backgrounds.root,
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
     zIndex: 100,
@@ -935,7 +935,7 @@ const styles = StyleSheet.create({
     height: FOOTER_COLLAPSED,
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
-    backgroundColor: "rgba(15, 15, 15, 0.98)",
+    backgroundColor: Backgrounds.card,
     borderTopWidth: 2,
     borderTopColor: Colors.dark.primary + "50",
   },
@@ -992,7 +992,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 4,
     borderWidth: 2,
-    borderColor: "rgba(15, 15, 15, 0.98)",
+    borderColor: Backgrounds.root,
   },
   unreadText: {
     fontSize: 9,
@@ -1020,7 +1020,7 @@ const styles = StyleSheet.create({
   },
   expandedContent: {
     flex: 1,
-    backgroundColor: "#0C0C0C",
+    backgroundColor: Backgrounds.root,
   },
   tabBarContainer: {
     flexDirection: "row",
@@ -1258,7 +1258,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     right: 0,
     borderRadius: 6,
-    backgroundColor: "#0C0C0C",
+    backgroundColor: Backgrounds.root,
   },
   connectionDot: {
     width: 8,

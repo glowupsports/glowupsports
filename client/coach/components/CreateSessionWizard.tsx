@@ -1059,7 +1059,7 @@ export default function CreateSessionWizard({
                 <Text style={styles.sessionTypeSubtitle}>{type.subtitle}</Text>
                 {isSelected && (
                   <View style={[styles.selectedBadge, { backgroundColor: type.color }]}>
-                    <Ionicons name="checkmark" size={12} color={Colors.dark.backgroundRoot} />
+                    <Ionicons name="checkmark" size={12} color={Colors.dark.buttonText} />
                   </View>
                 )}
               </LinearGradient>
@@ -1387,7 +1387,7 @@ export default function CreateSessionWizard({
                   end={{ x: 1, y: 0 }}
                   style={styles.calendarBtnGradient}
                 >
-                  <Ionicons name="calendar" size={16} color={Colors.dark.backgroundRoot} />
+                  <Ionicons name="calendar" size={16} color={Colors.dark.buttonText} />
                   <Text style={styles.calendarBtnText}>Pick Date</Text>
                 </LinearGradient>
               </Pressable>
@@ -1441,7 +1441,7 @@ export default function CreateSessionWizard({
                   <Ionicons 
                     name="location" 
                     size={16} 
-                    color={isSelected ? Colors.dark.backgroundRoot : Colors.dark.textMuted} 
+                    color={isSelected ? Colors.dark.buttonText : Colors.dark.textMuted} 
                   />
                   <Text style={[styles.courtChipText, isSelected && styles.courtChipTextActive]}>
                     {court.name}
@@ -1758,7 +1758,7 @@ export default function CreateSessionWizard({
                   <View style={[styles.ballDot, { backgroundColor: level.color }]} />
                   <Text style={[
                     styles.ballLevelText,
-                    ballLevel === level.value && { color: Colors.dark.backgroundRoot },
+                    ballLevel === level.value && { color: Colors.dark.buttonText },
                   ]}>
                     {level.label}
                   </Text>
@@ -1780,7 +1780,7 @@ export default function CreateSessionWizard({
                 }}
                 style={[styles.toggleOption, isOpenGroup && styles.toggleOptionActive]}
               >
-                <Ionicons name="lock-open" size={20} color={isOpenGroup ? Colors.dark.backgroundRoot : Colors.dark.textMuted} />
+                <Ionicons name="lock-open" size={20} color={isOpenGroup ? Colors.dark.buttonText : Colors.dark.textMuted} />
                 <Text style={[styles.toggleOptionText, isOpenGroup && styles.toggleOptionTextActive]}>Open</Text>
                 <Text style={styles.toggleOptionHint}>Players can join</Text>
               </Pressable>
@@ -1791,7 +1791,7 @@ export default function CreateSessionWizard({
                 }}
                 style={[styles.toggleOption, !isOpenGroup && styles.toggleOptionActive]}
               >
-                <Ionicons name="lock-closed" size={20} color={!isOpenGroup ? Colors.dark.backgroundRoot : Colors.dark.textMuted} />
+                <Ionicons name="lock-closed" size={20} color={!isOpenGroup ? Colors.dark.buttonText : Colors.dark.textMuted} />
                 <Text style={[styles.toggleOptionText, !isOpenGroup && styles.toggleOptionTextActive]}>Closed</Text>
                 <Text style={styles.toggleOptionHint}>Invite only</Text>
               </Pressable>
@@ -1938,7 +1938,7 @@ export default function CreateSessionWizard({
           >
             {/* Session Type Badge */}
             <View style={[styles.summaryTypeBadge, { backgroundColor: typeCard?.color }]}>
-              <Ionicons name={typeCard?.icon || "tennisball"} size={16} color={Colors.dark.backgroundRoot} />
+              <Ionicons name={typeCard?.icon || "tennisball"} size={16} color={Colors.dark.buttonText} />
               <Text style={styles.summaryTypeBadgeText}>{typeCard?.label}</Text>
             </View>
 
@@ -2171,7 +2171,7 @@ export default function CreateSessionWizard({
                 style={styles.nextBtnGradient}
               >
                 <Text style={styles.nextBtnText}>Next</Text>
-                <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
               </LinearGradient>
             </Pressable>
           ) : (
@@ -2187,10 +2187,10 @@ export default function CreateSessionWizard({
                 style={styles.createBtnGradient}
               >
                 {createSessionMutation.isPending ? (
-                  <ActivityIndicator color={Colors.dark.backgroundRoot} />
+                  <ActivityIndicator color={Colors.dark.buttonText} />
                 ) : (
                   <>
-                    <Ionicons name="flash" size={20} color={Colors.dark.backgroundRoot} />
+                    <Ionicons name="flash" size={20} color={Colors.dark.buttonText} />
                     <Text style={styles.createBtnText}>{createSeriesMode ? "Create Class" : "Create Session"}</Text>
                   </>
                 )}
@@ -2568,7 +2568,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   weekCountChipTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   weekCountHint: {
     ...Typography.small,
@@ -2826,8 +2826,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.border,
   },
   dateCardActive: {
-    backgroundColor: Colors.dark.primary,
-    borderColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
+    borderColor: GlowColors.primary,
   },
   dateDayName: {
     ...Typography.small,
@@ -2835,7 +2835,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
   dateDayNameActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   dateNumber: {
     ...Typography.h2,
@@ -2843,7 +2843,7 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   dateNumberActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   dateMonth: {
     ...Typography.small,
@@ -2851,7 +2851,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
   dateMonthActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   courtScroll: {
     marginHorizontal: -Spacing.lg,
@@ -2870,15 +2870,15 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.border,
   },
   courtChipActive: {
-    backgroundColor: Colors.dark.primary,
-    borderColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
+    borderColor: GlowColors.primary,
   },
   courtChipText: {
     ...Typography.body,
     color: Colors.dark.text,
   },
   courtChipTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   durationRow: {
@@ -2894,8 +2894,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.border,
   },
   durationChipActive: {
-    backgroundColor: Colors.dark.primary,
-    borderColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
+    borderColor: GlowColors.primary,
   },
   durationChipText: {
     ...Typography.body,
@@ -2903,7 +2903,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   durationChipTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   slotCountBadge: {
     backgroundColor: Colors.dark.primary + "20",
@@ -2932,9 +2932,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   timeSlotActive: {
-    backgroundColor: Colors.dark.primary,
-    borderColor: Colors.dark.primary,
-    shadowColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
+    borderColor: GlowColors.primary,
+    shadowColor: GlowColors.shadow,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,
     shadowRadius: 8,
@@ -2984,7 +2984,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   timeSlotTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   noSlotsBox: {
@@ -3080,7 +3080,7 @@ const styles = StyleSheet.create({
   },
   ballLevelBadgeText: {
     ...Typography.caption,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
     fontSize: 10,
   },
@@ -3212,15 +3212,15 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.border,
   },
   optionChipActive: {
-    backgroundColor: Colors.dark.primary,
-    borderColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
+    borderColor: GlowColors.primary,
   },
   optionChipText: {
     ...Typography.body,
     color: Colors.dark.text,
   },
   optionChipTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   ballLevelChip: {
@@ -3257,8 +3257,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.border,
   },
   toggleOptionActive: {
-    backgroundColor: Colors.dark.primary,
-    borderColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
+    borderColor: GlowColors.primary,
   },
   toggleOptionText: {
     ...Typography.body,
@@ -3266,7 +3266,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   toggleOptionTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   toggleOptionHint: {
     ...Typography.small,
@@ -3320,9 +3320,11 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   searchInput: {
     flex: 1,
@@ -3420,7 +3422,7 @@ const styles = StyleSheet.create({
   },
   summaryTypeBadgeText: {
     ...Typography.small,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   summaryRow: {
@@ -3438,7 +3440,7 @@ const styles = StyleSheet.create({
     borderRadius: 7,
   },
   notesInput: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     ...Typography.body,
@@ -3446,7 +3448,7 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: "top",
     borderWidth: 1,
-    borderColor: Colors.dark.border,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
 
   // Footer
@@ -3484,7 +3486,7 @@ const styles = StyleSheet.create({
   },
   nextBtnText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   createBtn: {
@@ -3500,7 +3502,7 @@ const styles = StyleSheet.create({
   },
   createBtnText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
 
@@ -3525,7 +3527,7 @@ const styles = StyleSheet.create({
   },
   calendarBtnText: {
     ...Typography.small,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
 
@@ -3662,7 +3664,7 @@ const styles = StyleSheet.create({
   },
   calendarDayTextSelected: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   calendarDayTextToday: {

@@ -1591,9 +1591,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   sectionTitle: {
-    ...Typography.body,
+    ...Typography.sectionTitle,
     color: Colors.dark.text,
-    fontWeight: "600",
     marginBottom: Spacing.md,
   },
   playersList: {
@@ -1688,12 +1687,12 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.sm,
   },
   removePlayerSection: {
-    backgroundColor: Colors.dark.backgroundTertiary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.dark.error + "30",
+    borderColor: "rgba(255, 77, 77, 0.3)",
   },
   removePlayerHeader: {
     flexDirection: "row",
@@ -1712,11 +1711,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   removePlayerLabel: {
-    ...Typography.small,
+    ...Typography.sectionTitle,
     color: Colors.dark.tabIconDefault,
     marginBottom: Spacing.sm,
-    textTransform: "uppercase",
-    letterSpacing: 1,
   },
   removePlayerInput: {
     minHeight: 80,
@@ -1765,14 +1762,16 @@ const styles = StyleSheet.create({
   },
   removePlayerConfirmText: {
     ...Typography.body,
-    color: Colors.dark.text,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   guestConvertSection: {
-    backgroundColor: Colors.dark.backgroundTertiary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   guestConvertHeader: {
     flexDirection: "row",
@@ -1811,11 +1810,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   guestConvertLabel: {
-    ...Typography.small,
+    ...Typography.sectionTitle,
     color: Colors.dark.tabIconDefault,
     marginBottom: Spacing.sm,
-    textTransform: "uppercase",
-    letterSpacing: 1,
   },
   ballLevelRow: {
     flexDirection: "row",
@@ -1844,7 +1841,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   convertBtn: {
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: GlowColors.primary,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.md,
     alignItems: "center",
@@ -1854,7 +1851,7 @@ const styles = StyleSheet.create({
   },
   convertBtnText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   guestInputRow: {
@@ -1875,7 +1872,7 @@ const styles = StyleSheet.create({
   guestAddBtn: {
     width: 44,
     height: 44,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: GlowColors.primary,
     borderRadius: BorderRadius.md,
     justifyContent: "center",
     alignItems: "center",
@@ -1886,10 +1883,12 @@ const styles = StyleSheet.create({
   guestCancelBtn: {
     width: 44,
     height: 44,
-    backgroundColor: Colors.dark.backgroundTertiary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   actionsSection: {
     gap: Spacing.md,
@@ -1899,8 +1898,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
     padding: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   actionButtonText: {
     ...Typography.body,
@@ -1926,7 +1927,7 @@ const styles = StyleSheet.create({
   cancelConfirmButtonText: {
     ...Typography.body,
     fontWeight: "600",
-    color: Colors.dark.text,
+    color: Colors.dark.buttonText,
   },
   reasonInputContainer: {
     width: "100%",
@@ -1985,13 +1986,13 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
   },
   dropdownMenu: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,
     width: "100%",
     maxWidth: 400,
     maxHeight: 400,
     borderWidth: 1,
-    borderColor: Colors.dark.orange,
+    borderColor: "rgba(255, 255, 255, 0.06)",
     overflow: "hidden",
   },
   dropdownHeader: {
@@ -2033,7 +2034,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   cancelDoneButton: {
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.xl,
@@ -2042,7 +2043,7 @@ const styles = StyleSheet.create({
   cancelDoneButtonText: {
     ...Typography.body,
     fontWeight: "600",
-    color: Colors.dark.text,
+    color: Colors.dark.buttonText,
   },
   extendOptionsGrid: {
     flexDirection: "row",
@@ -2088,10 +2089,12 @@ const styles = StyleSheet.create({
   },
   endCancelButton: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   endCancelButtonText: {
     ...Typography.body,
@@ -2107,7 +2110,7 @@ const styles = StyleSheet.create({
   },
   endConfirmButtonText: {
     ...Typography.body,
-    color: Colors.dark.text,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   stepHeader: {
@@ -2121,11 +2124,9 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   stepLabel: {
-    ...Typography.small,
+    ...Typography.sectionTitle,
     color: Colors.dark.textMuted,
     marginBottom: Spacing.sm,
-    textTransform: "uppercase",
-    letterSpacing: 1,
   },
   searchContainer: {
     flexDirection: "row",
@@ -2171,10 +2172,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
     padding: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundTertiary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: Colors.dark.primary,
+    borderColor: GlowColors.primary,
     marginBottom: Spacing.xl,
   },
   selectedPlayerName: {
@@ -2195,9 +2196,9 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   dateOptionActive: {
-    backgroundColor: Colors.dark.backgroundTertiary,
+    backgroundColor: Backgrounds.card,
     borderWidth: 1,
-    borderColor: Colors.dark.primary,
+    borderColor: GlowColors.primary,
   },
   dateOptionText: {
     ...Typography.body,
@@ -2265,7 +2266,7 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
   },
   calendarDaySelected: {
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
   },
   calendarDayDisabled: {
     opacity: 0.3,
@@ -2282,7 +2283,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   confirmButton: {
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
     paddingVertical: Spacing.lg,
     borderRadius: BorderRadius.lg,
     alignItems: "center",
@@ -2293,7 +2294,7 @@ const styles = StyleSheet.create({
   },
   confirmButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   catchUpInfo: {
@@ -2315,19 +2316,19 @@ const styles = StyleSheet.create({
   },
   bulkButton: {
     flex: 1,
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.md,
     alignItems: "center",
   },
   bulkButtonSecondary: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderWidth: 1,
-    borderColor: Colors.dark.disabled,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   bulkButtonText: {
     ...Typography.small,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   bulkButtonTextSecondary: {
@@ -2371,7 +2372,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   catchUpOptionActive: {
-    backgroundColor: Colors.dark.backgroundTertiary,
+    backgroundColor: Backgrounds.card,
   },
   radioSmall: {
     width: 12,
@@ -2399,12 +2400,14 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
   },
   creditWarningContent: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     width: "100%",
     maxWidth: 340,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   creditWarningIcon: {
     width: 80,
@@ -2442,8 +2445,10 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.dark.backgroundTertiary,
+    backgroundColor: Backgrounds.card,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   creditWarningCancelText: {
     ...Typography.body,
@@ -2454,12 +2459,12 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
     alignItems: "center",
   },
   creditWarningAddText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   creditWarningFooter: {

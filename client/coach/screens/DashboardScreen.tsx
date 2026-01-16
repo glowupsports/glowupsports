@@ -892,7 +892,7 @@ export default function DashboardScreen() {
                       }}
                     >
                       <View style={[styles.gameActionIcon, { backgroundColor: Colors.dark.primary }]}>
-                        <Ionicons name="checkmark-circle" size={24} color="#000" />
+                        <Ionicons name="checkmark-circle" size={24} color={Colors.dark.buttonText} />
                       </View>
                       <Text style={styles.actionBtnLabel}>ATTEND</Text>
                     </Pressable>
@@ -904,7 +904,7 @@ export default function DashboardScreen() {
                       }}
                     >
                       <View style={[styles.gameActionIcon, { backgroundColor: Colors.dark.xpCyan }]}>
-                        <Ionicons name="time" size={24} color="#000" />
+                        <Ionicons name="time" size={24} color={Colors.dark.buttonText} />
                       </View>
                       <Text style={styles.actionBtnLabel}>EXTEND</Text>
                     </Pressable>
@@ -916,7 +916,7 @@ export default function DashboardScreen() {
                       }}
                     >
                       <View style={[styles.gameActionIcon, { backgroundColor: Colors.dark.warning }]}>
-                        <Ionicons name="close-circle" size={24} color="#000" />
+                        <Ionicons name="close-circle" size={24} color={Colors.dark.buttonText} />
                       </View>
                       <Text style={styles.actionBtnLabel}>CANCEL</Text>
                     </Pressable>
@@ -928,7 +928,7 @@ export default function DashboardScreen() {
                       }}
                     >
                       <View style={[styles.gameActionIcon, { backgroundColor: Colors.dark.orange }]}>
-                        <Ionicons name="stop-circle" size={24} color="#000" />
+                        <Ionicons name="stop-circle" size={24} color={Colors.dark.buttonText} />
                       </View>
                       <Text style={styles.actionBtnLabel}>END</Text>
                     </Pressable>
@@ -1664,7 +1664,7 @@ const styles = StyleSheet.create({
   levelBadge: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: Colors.dark.text,
     letterSpacing: 0.5,
   },
   xpBarContainer: {
@@ -2095,28 +2095,28 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: "#FF3333",
+    backgroundColor: Colors.dark.error,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 4,
-    borderColor: "#ffffff",
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   liveCircleText: {
     fontSize: 24,
     fontWeight: "900",
-    color: "#fff",
+    color: Colors.dark.text,
     letterSpacing: 2,
-    textShadowColor: "#000",
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
   liveCircleSubtext: {
     fontSize: 12,
     fontWeight: "800",
-    color: "#fff",
+    color: Colors.dark.text,
     letterSpacing: 0.5,
     marginTop: 2,
-    textShadowColor: "#000",
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
@@ -2212,9 +2212,9 @@ const styles = StyleSheet.create({
   actionBtnLabel: {
     fontSize: 11,
     fontWeight: "800",
-    color: "#fff",
+    color: Colors.dark.text,
     letterSpacing: 1,
-    textShadowColor: "#000",
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },

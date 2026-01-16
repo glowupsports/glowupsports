@@ -35,7 +35,7 @@ const BALL_COLORS = {
   orange: "#F97316",
   green: "#22C55E",
   yellow: "#EAB308",
-  adult: "#8B5CF6",
+  adult: GlowColors.primary,
   unassigned: "#6B7280",
 };
 
@@ -44,7 +44,7 @@ const BALL_GRADIENTS: Record<string, [string, string]> = {
   orange: ["#F97316", "#EA580C"],
   green: ["#22C55E", "#16A34A"],
   yellow: ["#EAB308", "#CA8A04"],
-  adult: ["#8B5CF6", "#7C3AED"],
+  adult: [GlowColors.primary, GlowColors.dark],
 };
 
 const BALL_LABELS = {

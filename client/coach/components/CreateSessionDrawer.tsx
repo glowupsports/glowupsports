@@ -1006,9 +1006,9 @@ export default function CreateSessionDrawer({
                   ]}
                 >
                   {createGuestMutation.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                   ) : (
-                    <Ionicons name="add" size={20} color={Colors.dark.backgroundRoot} />
+                    <Ionicons name="add" size={20} color={Colors.dark.buttonText} />
                   )}
                 </Pressable>
               </View>
@@ -1323,19 +1323,24 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   submitButton: {
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
     minWidth: 80,
     alignItems: "center",
+    shadowColor: GlowColors.shadow,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 4,
   },
   submitDisabled: {
     backgroundColor: Colors.dark.disabled,
   },
   submitText: {
     ...Typography.body,
-    color: Colors.dark.text,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   content: {
@@ -1380,11 +1385,13 @@ const styles = StyleSheet.create({
   guestInput: {
     flex: 1,
     height: 44,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     color: Colors.dark.text,
     ...Typography.body,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   guestAddBtn: {
     width: 44,
@@ -1426,11 +1433,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   dateButtonText: {
     ...Typography.body,
@@ -1451,14 +1460,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   timeSlotSelected: {
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
   },
   timeSlotText: {
     fontSize: 13,
     color: Colors.dark.tabIconDefault,
   },
   timeSlotTextSelected: {
-    color: Colors.dark.text,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   timeSlotBlocked: {
@@ -1595,7 +1604,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   typeChipTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   courtChip: {
@@ -1686,12 +1695,14 @@ const styles = StyleSheet.create({
   playerSearchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     marginBottom: Spacing.md,
     gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   playerSearchInput: {
     flex: 1,
@@ -1782,11 +1793,13 @@ const styles = StyleSheet.create({
   notesInput: {
     ...Typography.body,
     color: Colors.dark.text,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     minHeight: 80,
     textAlignVertical: "top",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   levelChip: {
     paddingHorizontal: Spacing.md,
@@ -1935,7 +1948,7 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
   },
   calendarDaySelected: {
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
   },
   calendarDayToday: {
     borderWidth: 1,
@@ -1946,7 +1959,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   calendarDayTextSelected: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   // New gaming-styled duration chips
@@ -1961,9 +1974,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   durationChipActive: {
-    backgroundColor: Colors.dark.primary,
-    borderColor: Colors.dark.primary,
-    shadowColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
+    borderColor: GlowColors.primary,
+    shadowColor: GlowColors.shadow,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,
     shadowRadius: 6,
@@ -1975,7 +1988,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   durationChipTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   // Available time badge
@@ -2085,8 +2098,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundSecondary,
   },
   filterChipActive: {
-    backgroundColor: Colors.dark.primary,
-    borderColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
+    borderColor: GlowColors.primary,
   },
   filterChipText: {
     fontSize: 10,
@@ -2094,7 +2107,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   filterChipTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   playerHeaderRight: {

@@ -270,7 +270,7 @@ export default function StandaloneSessionDetailDrawer({
             end={{ x: 1, y: 0 }}
             style={styles.addFeedbackGradient}
           >
-            <Ionicons name="flash" size={20} color="#000" />
+            <Ionicons name="flash" size={20} color={Colors.dark.buttonText} />
             <Text style={styles.addFeedbackText}>Add Feedback</Text>
           </LinearGradient>
         </Pressable>
@@ -285,7 +285,7 @@ export default function StandaloneSessionDetailDrawer({
           <Ionicons 
             name={isCompleted ? "checkmark-circle" : "time"} 
             size={20} 
-            color="#FFF" 
+            color={Colors.dark.buttonText} 
           />
         </View>
         <View style={styles.timelineContent}>
@@ -326,7 +326,7 @@ export default function StandaloneSessionDetailDrawer({
               end={{ x: 1, y: 0 }}
               style={styles.addFeedbackGradient}
             >
-              <Ionicons name="flash" size={20} color="#000" />
+              <Ionicons name="flash" size={20} color={Colors.dark.buttonText} />
               <Text style={styles.addFeedbackText}>Add Feedback</Text>
             </LinearGradient>
           </Pressable>
@@ -517,12 +517,15 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   drawer: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     maxHeight: "90%",
     minHeight: "60%",
     zIndex: 2,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderBottomWidth: 0,
   },
   handleContainer: {
     alignItems: "center",
@@ -668,6 +671,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.text,
     marginBottom: Spacing.sm,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
   scheduleCard: {
     backgroundColor: Colors.dark.backgroundRoot,
@@ -767,7 +772,7 @@ const styles = StyleSheet.create({
   addFeedbackText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   timelineItem: {
     flexDirection: "row",
