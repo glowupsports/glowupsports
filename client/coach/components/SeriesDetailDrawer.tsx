@@ -2942,10 +2942,11 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
+    zIndex: 9999,
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
     zIndex: 1,
   },
   drawer: {
@@ -4283,6 +4284,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.dark.accentCyan + "30",
     borderBottomWidth: 0,
+    zIndex: 10,
   },
   restoreModalGlow: {
     position: "absolute",
