@@ -1523,9 +1523,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   attendancePlayerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: "column",
+    gap: Spacing.sm,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Colors.dark.backgroundRoot,
@@ -1534,7 +1533,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    flex: 1,
   },
   attendancePlayerAvatar: {
     width: 40,
