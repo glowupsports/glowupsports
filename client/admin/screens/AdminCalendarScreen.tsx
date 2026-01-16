@@ -15,10 +15,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, GlowColors, RoleColors } from "@/constants/theme";
 import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
 
-const ADMIN_COLOR = "#F97316";
+const ADMIN_COLOR = RoleColors.admin;
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const TIME_COLUMN_WIDTH = 50;
 const HOUR_HEIGHT = 60;
@@ -955,13 +955,13 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: "#EF4444",
+    backgroundColor: Colors.dark.error,
     marginLeft: -5,
   },
   currentTimeLine: {
     flex: 1,
     height: 2,
-    backgroundColor: "#EF4444",
+    backgroundColor: Colors.dark.error,
   },
   timeColumn: {
     backgroundColor: Colors.dark.backgroundSecondary,

@@ -9,7 +9,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, GlowColors, Backgrounds } from "@/constants/theme";
 
 interface XPProgressBarProps {
   currentXP: number;
@@ -44,7 +44,7 @@ export function XPProgressBar({ currentXP, xpToNextLevel, level }: XPProgressBar
         <View style={styles.track}>
           <Animated.View style={[styles.fillContainer, animatedStyle]}>
             <LinearGradient
-              colors={[Colors.dark.xpCyan, Colors.dark.primary]}
+              colors={[Colors.dark.xpCyan, GlowColors.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.fill}
@@ -69,20 +69,21 @@ const styles = StyleSheet.create({
   },
   levelText: {
     fontSize: 14,
-    fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    fontWeight: "700",
+    color: GlowColors.primary,
+    letterSpacing: 0.5,
   },
   xpText: {
     fontSize: 12,
     color: Colors.dark.text,
-    opacity: 0.7,
+    opacity: 0.8,
   },
   trackContainer: {
     position: "relative",
   },
   track: {
-    height: 6,
-    backgroundColor: Colors.dark.backgroundDefault,
+    height: 8,
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.full,
     overflow: "hidden",
   },

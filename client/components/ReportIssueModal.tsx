@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useMutation } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useUIInteraction } from "@/contexts/UIInteractionContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -224,11 +224,11 @@ export function ReportIssueModal({ visible, onClose, currentScreen }: ReportIssu
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    backgroundColor: Backgrounds.overlay,
     justifyContent: "flex-end",
   },
   container: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.elevated,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
@@ -248,14 +248,14 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.card,
     alignItems: "center",
     justifyContent: "center",
   },
   lastActionCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.lg,
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   textInput: {
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     color: Colors.dark.text,

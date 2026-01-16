@@ -18,7 +18,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, GlowColors, RoleColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -391,7 +391,7 @@ export default function AdminSettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: "#E67E22" }]}>Developer Tools</Text>
+          <Text style={[styles.sectionTitle, { color: RoleColors.admin }]}>Developer Tools</Text>
           <View style={[styles.devToolsCard, CardStyles.elevated]}>
             <Text style={styles.devToolsNote}>
               Test push notifications and simulate events. Requires Expo Go with notifications enabled.
@@ -879,8 +879,8 @@ const styles = StyleSheet.create({
   devToolsCard: {
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: "rgba(230, 126, 34, 0.3)",
-    backgroundColor: "rgba(230, 126, 34, 0.05)",
+    borderColor: `${RoleColors.admin}30`,
+    backgroundColor: `${RoleColors.admin}08`,
     gap: Spacing.md,
   },
   devToolsNote: {
@@ -894,17 +894,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.sm,
     padding: Spacing.md,
-    backgroundColor: "rgba(230, 126, 34, 0.15)",
+    backgroundColor: `${RoleColors.admin}25`,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(230, 126, 34, 0.3)",
+    borderColor: `${RoleColors.admin}30`,
   },
   devToolsButtonDisabled: {
     opacity: 0.6,
   },
   devToolsButtonText: {
     ...Typography.body,
-    color: "#E67E22",
+    color: RoleColors.admin,
     fontWeight: "600",
   },
   logoutButton: {

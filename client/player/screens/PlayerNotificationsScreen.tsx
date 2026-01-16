@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { Pressable } from "react-native";
 import * as Haptics from "expo-haptics";
 
@@ -76,7 +76,7 @@ function NotificationTypeItem({ icon, label, color }: { icon: string; label: str
         <Ionicons name={icon as any} size={20} color={color} />
       </View>
       <Text style={styles.typeLabel}>{label}</Text>
-      <Ionicons name="checkmark-circle" size={20} color={Colors.dark.primary} />
+      <Ionicons name="checkmark-circle" size={20} color={GlowColors.primary} />
     </View>
   );
 }
@@ -84,7 +84,7 @@ function NotificationTypeItem({ icon, label, color }: { icon: string; label: str
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.root,
   },
   header: {
     flexDirection: "row",
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.md,
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     marginBottom: Spacing.sm,
   },

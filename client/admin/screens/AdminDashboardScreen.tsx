@@ -17,7 +17,7 @@ import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { CompositeNavigationProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import type { AdminTabParamList, AdminStackParamList } from "@/admin/navigation/AdminNavigator";

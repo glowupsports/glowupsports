@@ -29,7 +29,7 @@ import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useAuth } from "@/coach/context/AuthContext";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import MiniTimeline from "@/coach/components/MiniTimeline";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { CoachStatusPanel } from "@/coach/components/CoachStatusPanel";

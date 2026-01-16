@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable, Animated as RNAnimated, LayoutAnimat
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor, Backgrounds, GlowColors } from "@/constants/theme";
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);

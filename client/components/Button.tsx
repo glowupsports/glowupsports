@@ -5,17 +5,23 @@ import Animated, {
   useSharedValue,
   withSpring,
   WithSpringConfig,
+  interpolateColor,
 } from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { BorderRadius, Spacing } from "@/constants/theme";
+import { BorderRadius, Spacing, GlowColors, Backgrounds, FunctionColors } from "@/constants/theme";
+
+type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
 interface ButtonProps {
   onPress?: () => void;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
+  variant?: ButtonVariant;
+  haptic?: boolean;
 }
 
 const springConfig: WithSpringConfig = {
@@ -33,9 +39,54 @@ export function Button({
   children,
   style,
   disabled = false,
+  variant = "primary",
+  haptic = true,
 }: ButtonProps) {
   const { theme } = useTheme();
   const scale = useSharedValue(1);
+  const pressed = useSharedValue(0);
+
+  const getVariantStyles = () => {
+    switch (variant) {
+      case "primary":
+        return {
+          backgroundColor: GlowColors.primary,
+          textColor: Backgrounds.root,
+          borderColor: "transparent",
+          pressedBg: GlowColors.soft,
+        };
+      case "secondary":
+        return {
+          backgroundColor: Backgrounds.elevated,
+          textColor: "#FFFFFF",
+          borderColor: "rgba(255, 255, 255, 0.1)",
+          pressedBg: Backgrounds.surface,
+        };
+      case "ghost":
+        return {
+          backgroundColor: "transparent",
+          textColor: GlowColors.primary,
+          borderColor: GlowColors.primary + "40",
+          pressedBg: GlowColors.primary + "10",
+        };
+      case "danger":
+        return {
+          backgroundColor: FunctionColors.error,
+          textColor: "#FFFFFF",
+          borderColor: "transparent",
+          pressedBg: FunctionColors.errorMuted,
+        };
+      default:
+        return {
+          backgroundColor: GlowColors.primary,
+          textColor: Backgrounds.root,
+          borderColor: "transparent",
+          pressedBg: GlowColors.soft,
+        };
+    }
+  };
+
+  const variantStyles = getVariantStyles();
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -43,35 +94,53 @@ export function Button({
 
   const handlePressIn = () => {
     if (!disabled) {
-      scale.value = withSpring(0.98, springConfig);
+      scale.value = withSpring(0.97, springConfig);
+      pressed.value = 1;
     }
   };
 
   const handlePressOut = () => {
     if (!disabled) {
       scale.value = withSpring(1, springConfig);
+      pressed.value = 0;
+    }
+  };
+
+  const handlePress = () => {
+    if (!disabled && onPress) {
+      if (haptic) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+      onPress();
     }
   };
 
   return (
     <AnimatedPressable
-      onPress={disabled ? undefined : onPress}
+      onPress={handlePress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={disabled}
       style={[
         styles.button,
         {
-          backgroundColor: theme.link,
+          backgroundColor: variantStyles.backgroundColor,
+          borderColor: variantStyles.borderColor,
+          borderWidth: variant === "ghost" || variant === "secondary" ? 1 : 0,
           opacity: disabled ? 0.5 : 1,
         },
+        variant === "primary" && styles.primaryShadow,
         style,
         animatedStyle,
       ]}
     >
       <ThemedText
         type="body"
-        style={[styles.buttonText, { color: theme.buttonText }]}
+        style={[
+          styles.buttonText, 
+          { color: variantStyles.textColor },
+          variant === "primary" && styles.primaryText,
+        ]}
       >
         {children}
       </ThemedText>
@@ -85,8 +154,21 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: Spacing.xl,
   },
   buttonText: {
     fontWeight: "600",
+    fontSize: 15,
+    letterSpacing: 0.3,
+  },
+  primaryText: {
+    fontWeight: "700",
+  },
+  primaryShadow: {
+    shadowColor: GlowColors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
 });

@@ -26,7 +26,7 @@ import Animated, {
   SlideOutLeft,
 } from "react-native-reanimated";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Typography, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: Backgrounds.overlay,
   },
   modal: {
     maxHeight: "90%",

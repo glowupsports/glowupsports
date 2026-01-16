@@ -28,7 +28,7 @@ import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from "react-native-svg";
-import { ProTennisColors, Spacing, BorderRadius } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, Backgrounds, GlowColors, FunctionColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 import { usePlayerLevel } from "@/player/hooks/usePlayerLevel";
@@ -551,7 +551,7 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigate }: P
                 style={({ pressed }) => [styles.logoutButton, pressed && styles.logoutPressed]}
                 onPress={handleLogout}
               >
-                <Ionicons name="log-out-outline" size={20} color={ProTennisColors.error} />
+                <Ionicons name="log-out-outline" size={20} color={FunctionColors.error} />
                 <Text style={styles.logoutText}>Logout</Text>
               </Pressable>
             </View>
@@ -577,7 +577,7 @@ function getPlayerTitle(level: number): string {
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.85)",
+    backgroundColor: Backgrounds.overlay,
   },
   drawer: {
     position: "absolute",
@@ -585,9 +585,9 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: DRAWER_WIDTH,
-    backgroundColor: ProTennisColors.midnightBlue,
+    backgroundColor: Backgrounds.root,
     borderRightWidth: 1,
-    borderRightColor: ProTennisColors.electricGreen + "20",
+    borderRightColor: GlowColors.primary + "20",
   },
   drawerGradient: {
     flex: 1,
@@ -604,7 +604,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.xl,
     paddingBottom: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: ProTennisColors.electricGreen + "15",
+    borderBottomColor: GlowColors.primary + "15",
     gap: Spacing.md,
   },
   avatarSection: {
@@ -638,7 +638,7 @@ const styles = StyleSheet.create({
   avatarInitial: {
     fontSize: 28,
     fontWeight: "800",
-    color: ProTennisColors.electricGreen,
+    color: GlowColors.primary,
     letterSpacing: -1,
   },
   levelBadge: {
@@ -650,7 +650,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: "hidden",
     borderWidth: 2,
-    borderColor: ProTennisColors.midnightBlue,
+    borderColor: Backgrounds.root,
   },
   levelBadgeGradient: {
     flex: 1,
@@ -660,7 +660,7 @@ const styles = StyleSheet.create({
   levelNumber: {
     fontSize: 12,
     fontWeight: "800",
-    color: ProTennisColors.midnightBlue,
+    color: Backgrounds.root,
   },
   identityInfo: {
     flex: 1,
@@ -678,17 +678,17 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   titleBadge: {
-    backgroundColor: ProTennisColors.electricGreen + "20",
+    backgroundColor: GlowColors.primary + "20",
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: BorderRadius.xs,
     borderWidth: 1,
-    borderColor: ProTennisColors.electricGreen + "40",
+    borderColor: GlowColors.primary + "40",
   },
   titleText: {
     fontSize: 10,
     fontWeight: "700",
-    color: ProTennisColors.electricGreen,
+    color: GlowColors.primary,
     letterSpacing: 0.5,
   },
   xpSection: {
@@ -697,7 +697,7 @@ const styles = StyleSheet.create({
   xpLabel: {
     fontSize: 9,
     fontWeight: "700",
-    color: ProTennisColors.electricGreen,
+    color: GlowColors.primary,
     marginBottom: 3,
   },
   xpBarContainer: {
@@ -708,13 +708,13 @@ const styles = StyleSheet.create({
   xpBarBg: {
     flex: 1,
     height: 6,
-    backgroundColor: ProTennisColors.surfaceElevated,
+    backgroundColor: Backgrounds.elevated,
     borderRadius: 3,
     overflow: "hidden",
   },
   xpBarFill: {
     height: "100%",
-    backgroundColor: ProTennisColors.electricGreen,
+    backgroundColor: GlowColors.primary,
     borderRadius: 3,
   },
   xpText: {
@@ -765,12 +765,12 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     borderRadius: BorderRadius.md,
     overflow: "hidden",
-    backgroundColor: ProTennisColors.surfaceDark,
+    backgroundColor: Backgrounds.card,
     borderWidth: 1,
-    borderColor: ProTennisColors.surfaceElevated,
+    borderColor: Backgrounds.elevated,
   },
   sectionExpanded: {
-    borderColor: ProTennisColors.electricGreen + "30",
+    borderColor: GlowColors.primary + "30",
   },
   sectionHeader: {
     flexDirection: "row",
@@ -788,12 +788,12 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: ProTennisColors.surfaceElevated,
+    backgroundColor: Backgrounds.elevated,
     justifyContent: "center",
     alignItems: "center",
   },
   sectionIconActive: {
-    backgroundColor: ProTennisColors.electricGreen + "20",
+    backgroundColor: GlowColors.primary + "20",
   },
   sectionTitle: {
     fontSize: 13,
@@ -802,7 +802,7 @@ const styles = StyleSheet.create({
   },
   sectionItems: {
     paddingBottom: Spacing.sm,
-    backgroundColor: "rgba(0,0,0,0.2)",
+    backgroundColor: Backgrounds.card,
   },
   menuItem: {
     flexDirection: "row",
@@ -813,7 +813,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   menuItemPressed: {
-    backgroundColor: ProTennisColors.surfaceElevated,
+    backgroundColor: Backgrounds.elevated,
   },
   menuItemLocked: {
     opacity: 0.5,
@@ -847,7 +847,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   badge: {
-    backgroundColor: ProTennisColors.electricGreen,
+    backgroundColor: GlowColors.primary,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 10,
@@ -857,7 +857,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 10,
     fontWeight: "700",
-    color: ProTennisColors.midnightBlue,
+    color: Backgrounds.root,
   },
 
   /* LOGOUT */
@@ -872,17 +872,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.md,
-    backgroundColor: ProTennisColors.error + "15",
+    backgroundColor: FunctionColors.error + "15",
     borderWidth: 1,
-    borderColor: ProTennisColors.error + "30",
+    borderColor: FunctionColors.error + "30",
     gap: Spacing.sm,
   },
   logoutPressed: {
-    backgroundColor: ProTennisColors.error + "25",
+    backgroundColor: FunctionColors.error + "25",
   },
   logoutText: {
     fontSize: 14,
     fontWeight: "600",
-    color: ProTennisColors.error,
+    color: FunctionColors.error,
   },
 });

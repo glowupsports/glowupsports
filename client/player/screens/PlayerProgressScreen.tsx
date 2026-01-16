@@ -5,7 +5,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
 import Svg, { Polygon, Circle, Text as SvgText, Line } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import BallLevelBadge from "@/components/BallLevelBadge";
@@ -804,7 +804,7 @@ export default function PlayerProgressScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.root,
   },
   centered: {
     justifyContent: "center",
@@ -845,7 +845,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.lg,
     marginHorizontal: Spacing.xl,
     marginBottom: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
   },
   statsRow: {
@@ -927,7 +927,7 @@ const styles = StyleSheet.create({
   },
   xpBarTrack: {
     height: 10,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: 5,
     overflow: "hidden",
   },
@@ -1000,7 +1000,7 @@ const styles = StyleSheet.create({
   },
   skillBarTrack: {
     height: 6,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: 3,
     overflow: "hidden",
   },
@@ -1091,7 +1091,7 @@ const styles = StyleSheet.create({
   },
   miniProgressBar: {
     height: 6,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: 3,
     overflow: "hidden",
     marginLeft: 24,
@@ -1160,7 +1160,7 @@ const styles = StyleSheet.create({
   },
   attendanceSummary: {
     flexDirection: "row",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
@@ -1185,7 +1185,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundTertiary,
   },
   attendanceCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
@@ -1248,12 +1248,12 @@ const styles = StyleSheet.create({
   },
   attendanceRateFill: {
     height: "100%",
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
     borderRadius: 3,
   },
   attendanceRateText: {
     ...Typography.caption,
-    color: Colors.dark.primary,
+    color: GlowColors.primary,
     textAlign: "right",
   },
 });
@@ -1268,7 +1268,7 @@ const modalStyles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.7)",
   },
   content: {
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.root,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     paddingTop: Spacing.lg,
@@ -1294,22 +1294,22 @@ const modalStyles = StyleSheet.create({
     gap: Spacing.lg,
     marginBottom: Spacing.xl,
     padding: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
   },
   currentLevelCircle: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: "rgba(46, 204, 64, 0.2)",
+    backgroundColor: "rgba(200, 255, 61, 0.2)",
     borderWidth: 3,
-    borderColor: Colors.dark.primary,
+    borderColor: GlowColors.primary,
     justifyContent: "center",
     alignItems: "center",
   },
   currentLevelNumber: {
     ...Typography.h1,
-    color: Colors.dark.primary,
+    color: GlowColors.primary,
     fontSize: 28,
   },
   currentLevelInfo: {
@@ -1351,14 +1351,14 @@ const modalStyles = StyleSheet.create({
     gap: Spacing.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.sm,
     opacity: 0.6,
   },
   milestoneUnlocked: {
     opacity: 1,
     borderLeftWidth: 3,
-    borderLeftColor: Colors.dark.primary,
+    borderLeftColor: GlowColors.primary,
   },
   milestoneBadge: {
     width: 32,
@@ -1369,7 +1369,7 @@ const modalStyles = StyleSheet.create({
     alignItems: "center",
   },
   milestoneBadgeUnlocked: {
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
   },
   milestoneLevelNum: {
     ...Typography.body,

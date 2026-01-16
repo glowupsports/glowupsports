@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 
@@ -355,7 +355,7 @@ export default function PlayerSettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.root,
   },
   header: {
     flexDirection: "row",
@@ -436,13 +436,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   radioOuterSelected: {
-    borderColor: Colors.dark.primary,
+    borderColor: GlowColors.primary,
   },
   radioInner: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
   },
   devToolsCard: {
     ...CardStyles.elevated,

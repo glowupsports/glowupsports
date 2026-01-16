@@ -31,7 +31,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useQuery } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useRoute, RouteProp } from "@react-navigation/native";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { 
   getLocalDateString, 
   formatLocalDateToString, 
@@ -2486,7 +2486,7 @@ export default function CalendarScreen() {
       {/* Subtle refresh indicator when fetching with existing data */}
       {isFetching && calendarData && (
         <View style={styles.refreshIndicator}>
-          <ActivityIndicator size="small" color={Colors.dark.accentCyan} />
+          <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
         </View>
       )}
 
@@ -3288,9 +3288,9 @@ const styles = StyleSheet.create({
     right: Spacing.lg,
     backgroundColor: Colors.dark.backgroundSecondary + "E0",
     padding: Spacing.sm,
-    borderRadius: BorderRadius.round,
+    borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: Colors.dark.accentCyan + "40",
+    borderColor: Colors.dark.xpCyan + "40",
   },
   coachList: {
     width: "100%",

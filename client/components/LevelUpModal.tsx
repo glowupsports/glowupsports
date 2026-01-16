@@ -12,7 +12,7 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 
 interface LevelUpModalProps {
   visible: boolean;
@@ -81,12 +81,12 @@ export function LevelUpModal({ visible, level, onClose }: LevelUpModalProps) {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.85)",
+    backgroundColor: Backgrounds.overlay,
     alignItems: "center",
     justifyContent: "center",
   },
   content: {
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.lg,
     padding: Spacing["2xl"],
     alignItems: "center",
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: "700",
-    color: Colors.dark.successNeon,
+    color: GlowColors.primary,
     marginBottom: Spacing.sm,
   },
   level: {
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   button: {
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
     paddingHorizontal: Spacing["2xl"],
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.full,

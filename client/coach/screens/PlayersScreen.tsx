@@ -30,7 +30,7 @@ import Animated, {
   withTiming,
   interpolate,
 } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, Typography, FontSizes, getPlayerLevelColor } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, FontSizes, getPlayerLevelColor, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest, getStaticAssetsUrl, getApiUrl } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";

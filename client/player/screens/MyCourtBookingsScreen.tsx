@@ -14,7 +14,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
@@ -307,7 +307,7 @@ export default function MyCourtBookingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.root,
   },
   header: {
     flexDirection: "row",
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     alignItems: "center",
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
   },
   tabActive: {
     backgroundColor: Colors.dark.xpCyan,
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   bookingCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     gap: Spacing.sm,

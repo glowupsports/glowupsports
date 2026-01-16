@@ -14,7 +14,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, GlowColors, RoleColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import type { OwnerTabParamList } from "@/owner/navigation/OwnerNavigator";

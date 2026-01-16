@@ -7,7 +7,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { LevelUpModal } from "@/components/LevelUpModal";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { usePlayer } from "@/context/PlayerContext";
 import { SkillCategory } from "@/constants/playerData";
 
@@ -153,10 +153,10 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: Backgrounds.overlay,
   },
   modalContainer: {
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.elevated,
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
     paddingHorizontal: Spacing.lg,
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   handle: {
     width: 36,
     height: 4,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.surface,
     borderRadius: 2,
     alignSelf: "center",
     marginTop: Spacing.md,
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   totalScore: {
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Backgrounds.card,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
@@ -201,11 +201,11 @@ const styles = StyleSheet.create({
   scoreValue: {
     fontSize: 24,
     fontWeight: "700",
-    color: Colors.dark.successNeon,
+    color: GlowColors.primary,
   },
   divider: {
     height: 1,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.surface,
     marginVertical: Spacing.lg,
   },
   sectionTitle: {
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.sm,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   closeButton: {
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Backgrounds.card,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.full,
     alignItems: "center",

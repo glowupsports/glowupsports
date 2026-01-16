@@ -30,7 +30,7 @@ import Animated, {
 import { useCoach } from "@/coach/context/CoachContext";
 import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useNavigation } from "@react-navigation/native";
 import { useNetwork } from "@/context/NetworkContext";

@@ -5,7 +5,7 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import { useEvent } from "expo";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 
 interface VideoPlayerModalProps {
@@ -140,7 +140,7 @@ export function VideoPlayerModal({ visible, videoUrl, title, onClose }: VideoPla
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.95)",
+    backgroundColor: Backgrounds.overlay,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -161,20 +161,20 @@ const styles = StyleSheet.create({
     marginRight: Spacing.md,
   },
   title: {
-    ...Typography.heading4,
+    ...Typography.h4,
     color: Colors.dark.text,
   },
   closeButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.surface,
     alignItems: "center",
     justifyContent: "center",
   },
   videoContainer: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.root,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     justifyContent: "center",
@@ -210,11 +210,11 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
     borderRadius: BorderRadius.md,
   },
   retryButtonText: {
-    ...Typography.buttonMedium,
+    ...Typography.button,
     color: "#000",
   },
   controls: {
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.surface,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
     alignItems: "center",
     justifyContent: "center",
   },

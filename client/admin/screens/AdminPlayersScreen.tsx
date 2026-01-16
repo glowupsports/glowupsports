@@ -18,7 +18,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { ReportIssueModal } from "@/components/ReportIssueModal";
@@ -1907,7 +1907,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   deleteModalContent: {
-    ...CardStyles.card,
+    ...CardStyles.base,
     width: "100%",
     maxWidth: 400,
     maxHeight: "80%",
@@ -1936,7 +1936,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   deleteOptionsLabel: {
-    ...Typography.bodySmall,
+    ...Typography.small,
     color: Colors.dark.textMuted,
     marginBottom: Spacing.md,
     textTransform: "uppercase",
@@ -2020,7 +2020,7 @@ const styles = StyleSheet.create({
   },
   confirmDeleteBtnText: {
     ...Typography.body,
-    color: "#FFF",
+    color: Colors.dark.text,
     fontWeight: "600",
   },
   btnDisabled: {

@@ -7,7 +7,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
-import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -493,10 +493,10 @@ export default function PlayerProfileScreen() {
                   value={player.openToPlay}
                   onValueChange={(value) => toggleOpenToPlay.mutate(value)}
                   trackColor={{ 
-                    false: Colors.dark.backgroundSecondary, 
-                    true: Colors.dark.primary + "80" 
+                    false: Backgrounds.card, 
+                    true: GlowColors.primary + "80" 
                   }}
-                  thumbColor={player.openToPlay ? Colors.dark.primary : Colors.dark.textMuted}
+                  thumbColor={player.openToPlay ? GlowColors.primary : Colors.dark.textMuted}
                   disabled={toggleOpenToPlay.isPending}
                 />
               </View>
@@ -1053,7 +1053,7 @@ export default function PlayerProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.root,
   },
   centered: {
     justifyContent: "center",
@@ -1113,13 +1113,13 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
   },
   avatarImageWithBorder: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
   },
   cameraIconOverlay: {
     position: "absolute",
@@ -1295,7 +1295,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     padding: Spacing.md,
     borderRadius: BorderRadius.sm,
   },
@@ -1303,7 +1303,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
+    backgroundColor: "rgba(200, 255, 61, 0.15)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1330,7 +1330,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
     justifyContent: "center",
     alignItems: "center",
     marginRight: Spacing.md,
@@ -1355,7 +1355,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
+    backgroundColor: "rgba(200, 255, 61, 0.15)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1402,7 +1402,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
+    backgroundColor: "rgba(200, 255, 61, 0.15)",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: Spacing.md,
@@ -1434,13 +1434,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.backgroundSecondary,
+    borderBottomColor: Backgrounds.card,
   },
   settingsIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     justifyContent: "center",
     alignItems: "center",
     marginRight: Spacing.md,
@@ -1468,7 +1468,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginHorizontal: Spacing.xl,
@@ -1617,7 +1617,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   partnerAvatarMore: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
   },
   partnerAvatarMoreText: {
     ...Typography.small,
@@ -1710,7 +1710,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginHorizontal: Spacing.xl,
     marginBottom: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: 4,
   },
@@ -1757,7 +1757,7 @@ const styles = StyleSheet.create({
   friendItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
@@ -1766,7 +1766,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1791,7 +1791,7 @@ const styles = StyleSheet.create({
   groupItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
@@ -1800,7 +1800,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
+    backgroundColor: "rgba(200, 255, 61, 0.15)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1823,7 +1823,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   titlesModalContent: {
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Backgrounds.elevated,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     maxHeight: "70%",
@@ -1848,14 +1848,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
     borderWidth: 1,
   },
   titleItemEquipped: {
-    backgroundColor: "rgba(46, 204, 64, 0.1)",
+    backgroundColor: "rgba(200, 255, 61, 0.1)",
   },
   titleItemLeft: {
     flexDirection: "row",
@@ -1892,7 +1892,7 @@ const styles = StyleSheet.create({
   },
   equippedText: {
     ...Typography.small,
-    color: Colors.dark.primary,
+    color: GlowColors.primary,
     fontWeight: "600",
   },
   equipButton: {

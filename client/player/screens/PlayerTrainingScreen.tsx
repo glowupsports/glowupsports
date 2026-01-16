@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
 
 interface TrainingSession {
   id: string;
@@ -224,7 +224,7 @@ export default function PlayerTrainingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.root,
   },
   centerContent: {
     justifyContent: "center",
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   feedbackSection: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.sm,
     padding: Spacing.md,
     marginBottom: Spacing.md,
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundTertiary,
   },
   metricDotActive: {
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
   },
   feedbackMessage: {
     ...Typography.small,
@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
     borderLeftWidth: 3,
-    borderLeftColor: Colors.dark.primary,
+    borderLeftColor: GlowColors.primary,
   },
   focusHeader: {
     flexDirection: "row",

@@ -8,7 +8,7 @@ import Animated, {
   interpolate,
   Easing,
 } from "react-native-reanimated";
-import { Colors, BorderRadius, Spacing } from "@/constants/theme";
+import { Colors, BorderRadius, Spacing, Backgrounds } from "@/constants/theme";
 
 interface SkeletonProps {
   width?: number | string;
@@ -138,10 +138,10 @@ export function SkeletonDashboard() {
 
 const styles = StyleSheet.create({
   skeleton: {
-    backgroundColor: Colors.dark.disabled,
+    backgroundColor: Backgrounds.elevated,
   },
   card: {
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
   },
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.sm,
     marginBottom: Spacing.xs,
   },
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.sm,
   },
   sessionCard: {
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
   },
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
   },
   playerCard: {
     flexDirection: "row",
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,

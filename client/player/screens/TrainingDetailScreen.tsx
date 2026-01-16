@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoute, useNavigation, RouteProp } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
 
 type RouteParams = {
   TrainingDetail: {
@@ -256,7 +256,7 @@ export default function TrainingDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.root,
   },
   header: {
     flexDirection: "row",
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
     ...CardStyles.elevated,
     padding: Spacing.lg,
     borderLeftWidth: 3,
-    borderLeftColor: Colors.dark.primary,
+    borderLeftColor: GlowColors.primary,
   },
   focusHeader: {
     flexDirection: "row",
@@ -417,10 +417,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundTertiary,
   },
   metricDotActive: {
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
   },
   domainImpactCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginTop: Spacing.sm,
