@@ -1410,7 +1410,7 @@ export default function CreateSessionWizard({
               <Text style={styles.sectionLabel}>Ball Level</Text>
               {selectedPlayers.length > 0 && !ballLevelOverride && ballLevel && (
                 <View style={styles.autoSelectedBadge}>
-                  <Ionicons name="sparkles" size={12} color={Colors.dark.accentCyan} />
+                  <Ionicons name="sparkles" size={12} color={Colors.dark.xpCyan} />
                   <Text style={styles.autoSelectedText}>Auto</Text>
                 </View>
               )}
@@ -1429,7 +1429,7 @@ export default function CreateSessionWizard({
                   }}
                   style={styles.overrideButton}
                 >
-                  <Ionicons name="pencil" size={14} color={Colors.dark.accentCyan} />
+                  <Ionicons name="pencil" size={14} color={Colors.dark.xpCyan} />
                   <Text style={styles.overrideButtonText}>Change</Text>
                 </Pressable>
               </View>
@@ -1745,6 +1745,12 @@ export default function CreateSessionWizard({
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>{slideTitles[currentSlide]}</Text>
             <Text style={styles.headerSubtitle}>Step {currentSlide + 1} of {totalSlides}</Text>
+            {adminMode && effectiveCoach && currentSlide > 0 ? (
+              <View style={styles.schedulingForBadge}>
+                <Ionicons name="person" size={10} color={Colors.dark.orange} />
+                <Text style={styles.schedulingForText}>for {effectiveCoach.name}</Text>
+              </View>
+            ) : null}
           </View>
 
           <View style={styles.headerRight} />
@@ -2028,6 +2034,21 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     marginTop: 2,
   },
+  schedulingForBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.orange + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    marginTop: 4,
+  },
+  schedulingForText: {
+    ...Typography.caption,
+    color: Colors.dark.orange,
+    fontWeight: "600",
+  },
   headerRight: {
     width: 40,
   },
@@ -2213,7 +2234,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: Colors.dark.accentCyan + "20",
+    backgroundColor: Colors.dark.xpCyan + "20",
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
@@ -2221,7 +2242,7 @@ const styles = StyleSheet.create({
   autoSelectedText: {
     fontSize: 11,
     fontWeight: "600",
-    color: Colors.dark.accentCyan,
+    color: Colors.dark.xpCyan,
     textTransform: "uppercase",
   },
   autoLevelInfo: {
@@ -2245,7 +2266,7 @@ const styles = StyleSheet.create({
   overrideButtonText: {
     fontSize: 13,
     fontWeight: "600",
-    color: Colors.dark.accentCyan,
+    color: Colors.dark.xpCyan,
   },
   dateScroll: {
     marginHorizontal: -Spacing.lg,

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -73,6 +73,32 @@ export default function AdminCalendarScreen() {
     date: Date;
   } | null>(null);
   const [wizardCoachId, setWizardCoachId] = useState<string | undefined>(undefined);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  const isToday = useCallback((date: Date) => {
+    return date.toDateString() === new Date().toDateString();
+  }, []);
+
+  // Update current time every minute for the time indicator line
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Calculate the position of the current time indicator line
+  const getCurrentTimePosition = useCallback(() => {
+    const now = currentTime;
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    if (hours < START_HOUR || hours >= END_HOUR) return null;
+    const position = (hours - START_HOUR) * HOUR_HEIGHT + (minutes / 60) * HOUR_HEIGHT;
+    return position;
+  }, [currentTime]);
+
+  const currentTimePosition = getCurrentTimePosition();
+  const showTimeIndicator = isToday(selectedDate) && currentTimePosition !== null;
 
   const { data: sessions = [], isLoading: sessionsLoading } = useQuery<Session[]>({
     queryKey: ["/api/sessions"],
@@ -227,11 +253,7 @@ export default function AdminCalendarScreen() {
     return date.toLocaleDateString("en-US", { weekday: "short" });
   };
 
-  const isToday = (date: Date) => {
-    return date.toDateString() === new Date().toDateString();
-  };
-
-  const getSessionPosition = (session: Session) => {
+    const getSessionPosition = (session: Session) => {
     const startTime = new Date(session.startTime);
     const endTime = new Date(session.endTime);
     const startHour = startTime.getHours() + startTime.getMinutes() / 60;
@@ -307,6 +329,13 @@ export default function AdminCalendarScreen() {
               </View>
             ))}
           </View>
+
+          {showTimeIndicator ? (
+            <View style={[styles.currentTimeIndicator, { top: currentTimePosition }]}>
+              <View style={styles.currentTimeDot} />
+              <View style={styles.currentTimeLine} />
+            </View>
+          ) : null}
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.coachLanesContainer}>
@@ -912,6 +941,27 @@ const styles = StyleSheet.create({
   },
   gridContainer: {
     flexDirection: "row",
+    position: "relative",
+  },
+  currentTimeIndicator: {
+    position: "absolute",
+    left: TIME_COLUMN_WIDTH,
+    right: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    zIndex: 100,
+  },
+  currentTimeDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#EF4444",
+    marginLeft: -5,
+  },
+  currentTimeLine: {
+    flex: 1,
+    height: 2,
+    backgroundColor: "#EF4444",
   },
   timeColumn: {
     backgroundColor: Colors.dark.backgroundSecondary,

@@ -2395,9 +2395,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get calendar for a date range
   app.get("/api/coach/calendar", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { date, view = "day" } = req.query;
-      const coachId = req.user!.coachId;
+      const { date, view = "day", coachId: queryCoachId } = req.query;
       const academyId = req.user!.academyId;
+      
+      // In admin mode, allow querying another coach's calendar via query param
+      // Otherwise fall back to logged-in user's coachId
+      const isAdmin = req.user!.role === "platform_owner" || req.user!.role === "academy_owner";
+      const coachId = (isAdmin && queryCoachId) ? (queryCoachId as string) : req.user!.coachId;
       
       if (!date || !coachId) {
         return res.status(400).json({ error: "date is required" });
