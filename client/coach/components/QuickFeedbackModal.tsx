@@ -14,7 +14,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor, Backgrounds, GlowColors, TextColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { AnimatedCheck } from "@/components/AnimatedCheck";
 import { SuccessToast } from "@/components/SuccessToast";
@@ -575,7 +575,7 @@ export default function QuickFeedbackModal({
             disabled={submitMutation.isPending}
           >
             {submitMutation.isPending ? (
-              <ActivityIndicator size="small" color="#FFF" />
+              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
                 <Text style={styles.nextButtonText}>
@@ -584,7 +584,7 @@ export default function QuickFeedbackModal({
                 <Ionicons
                   name={currentPlayerIndex === players.length - 1 ? "checkmark" : "chevron-forward"}
                   size={20}
-                  color="#FFF"
+                  color={Colors.dark.buttonText}
                 />
               </>
             )}
@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: 3,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: Backgrounds.surface,
   },
   progressFill: {
     height: "100%",
@@ -674,8 +674,10 @@ const styles = StyleSheet.create({
   playerCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
     padding: Spacing.lg,
     marginTop: Spacing.lg,
     gap: Spacing.sm,
@@ -688,7 +690,7 @@ const styles = StyleSheet.create({
   levelText: {
     fontSize: Typography.small.fontSize,
     fontWeight: "600",
-    color: "#FFF",
+    color: Colors.dark.buttonText,
     textTransform: "uppercase",
   },
   playerName: {
@@ -701,9 +703,11 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xl,
   },
   sectionTitle: {
-    fontSize: Typography.body.fontSize,
+    fontSize: Typography.sectionTitle.fontSize,
     fontWeight: "600",
     color: Colors.dark.text,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
   sectionDesc: {
     fontSize: Typography.small.fontSize,
@@ -720,10 +724,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: Spacing.md,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "transparent",
+    borderColor: "rgba(255, 255, 255, 0.06)",
     gap: Spacing.xs,
   },
   ratingLabel: {
@@ -742,10 +746,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: Spacing.md,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "transparent",
+    borderColor: "rgba(255, 255, 255, 0.06)",
     gap: Spacing.xs,
   },
   overallLabel: {
@@ -770,7 +774,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
   },
@@ -788,7 +792,7 @@ const styles = StyleSheet.create({
   scoreBadgeText: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#FFF",
+    color: Colors.dark.buttonText,
   },
   skillsGrid: {
     flexDirection: "row",
@@ -802,10 +806,10 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: "transparent",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   skillChipText: {
     fontSize: Typography.small.fontSize,
@@ -822,7 +826,7 @@ const styles = StyleSheet.create({
   miniScoreText: {
     fontSize: 9,
     fontWeight: "700",
-    color: "#FFF",
+    color: Colors.dark.buttonText,
   },
   noSkillsText: {
     fontSize: Typography.small.fontSize,
@@ -831,8 +835,10 @@ const styles = StyleSheet.create({
   },
   rubricPanel: {
     marginTop: Spacing.md,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
     padding: Spacing.md,
   },
   rubricHeader: {
@@ -856,10 +862,10 @@ const styles = StyleSheet.create({
   },
   rubricOption: {
     padding: Spacing.md,
-    backgroundColor: "rgba(255,255,255,0.03)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "transparent",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   rubricScoreHeader: {
     flexDirection: "row",
@@ -877,7 +883,7 @@ const styles = StyleSheet.create({
   rubricScoreText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#FFF",
+    color: Colors.dark.buttonText,
   },
   rubricScoreLabel: {
     fontSize: Typography.body.fontSize,
@@ -925,7 +931,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.md,
@@ -936,6 +942,6 @@ const styles = StyleSheet.create({
   nextButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
-    color: "#FFF",
+    color: Colors.dark.buttonText,
   },
 });

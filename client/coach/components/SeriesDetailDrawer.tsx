@@ -2256,7 +2256,7 @@ export default function SeriesDetailDrawer({
                   }}
                   disabled={savingAttendance || cancellingSession}
                 >
-                  <Ionicons name="swap-horizontal" size={18} color={Colors.dark.accentCyan} />
+                  <Ionicons name="swap-horizontal" size={18} color={Colors.dark.text} />
                   <Text style={styles.transferButtonText}>Transfer to Another Coach</Text>
                 </Pressable>
               </View>
@@ -2319,7 +2319,7 @@ export default function SeriesDetailDrawer({
                       </View>
                       {selectedTargetCoachId === coach.id ? (
                         <View style={styles.transferCheckmark}>
-                          <Ionicons name="checkmark" size={16} color="#000" />
+                          <Ionicons name="checkmark" size={16} color={Backgrounds.root} />
                         </View>
                       ) : (
                         <View style={styles.transferRadio} />
@@ -2348,8 +2348,8 @@ export default function SeriesDetailDrawer({
                 >
                   <LinearGradient
                     colors={!selectedTargetCoachId || transferringSession
-                      ? [Colors.dark.textMuted + "50", Colors.dark.textMuted + "30"]
-                      : [Colors.dark.accentCyan, Colors.dark.accent]
+                      ? [Backgrounds.surface, Backgrounds.surface]
+                      : [GlowColors.primary, GlowColors.soft]
                     }
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
@@ -2358,7 +2358,7 @@ export default function SeriesDetailDrawer({
                     <Ionicons 
                       name={transferringSession ? "hourglass" : "swap-horizontal"} 
                       size={20} 
-                      color={!selectedTargetCoachId || transferringSession ? Colors.dark.textMuted : "#000"} 
+                      color={!selectedTargetCoachId || transferringSession ? Colors.dark.textMuted : Backgrounds.root} 
                     />
                     <Text style={[
                       styles.transferConfirmText,
@@ -2403,7 +2403,7 @@ export default function SeriesDetailDrawer({
                 style={styles.restoreCloseButton}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Ionicons name="close" size={24} color="#FFFFFF" />
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
               </Pressable>
             </View>
             
@@ -2447,10 +2447,10 @@ export default function SeriesDetailDrawer({
                     style={styles.restoreButtonGradient}
                   >
                     {restoringSession ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
+                      <ActivityIndicator size="small" color={Colors.dark.text} />
                     ) : (
                       <>
-                        <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />
+                        <Ionicons name="checkmark-circle" size={22} color={Colors.dark.text} />
                         <Text style={styles.restoreButtonText}>Restore Session</Text>
                       </>
                     )}
@@ -2490,7 +2490,7 @@ export default function SeriesDetailDrawer({
                 style={styles.restoreCloseButton}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Ionicons name="close" size={24} color="#FFFFFF" />
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
               </Pressable>
             </View>
             
@@ -2515,7 +2515,7 @@ export default function SeriesDetailDrawer({
                 </View>
                 
                 <Text style={[styles.sectionLabel, { marginTop: Spacing.lg, marginBottom: Spacing.sm }]}>
-                  New Start Time
+                  NEW START TIME
                 </Text>
                 
                 {Platform.OS === "web" ? (
@@ -2579,10 +2579,10 @@ export default function SeriesDetailDrawer({
                     style={styles.restoreButtonGradient}
                   >
                     {reschedulingSession ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
+                      <ActivityIndicator size="small" color={Colors.dark.text} />
                     ) : (
                       <>
-                        <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />
+                        <Ionicons name="checkmark-circle" size={22} color={Colors.dark.text} />
                         <Text style={styles.restoreButtonText}>Update Time</Text>
                       </>
                     )}
@@ -2950,12 +2950,15 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   drawer: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.elevated,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     maxHeight: "90%",
     minHeight: "60%",
     zIndex: 2,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderBottomWidth: 0,
   },
   handleContainer: {
     alignItems: "center",
@@ -3080,9 +3083,11 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   sectionTitle: {
-    fontSize: Typography.h4.fontSize,
+    fontSize: Typography.caption.fontSize,
     fontWeight: "600",
-    color: Colors.dark.text,
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
     marginBottom: Spacing.sm,
   },
   infoRow: {
@@ -3741,7 +3746,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundHighlight,
+    backgroundColor: Backgrounds.surface,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.lg,
@@ -3756,9 +3761,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderWidth: 1,
-    borderColor: Colors.dark.backgroundLight,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   creditAccordionHeader: {
     flexDirection: "row",
@@ -3768,7 +3773,7 @@ const styles = StyleSheet.create({
   },
   creditAccordionHeaderExpanded: {
     borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.backgroundLight,
+    borderBottomColor: "rgba(255, 255, 255, 0.06)",
   },
   creditAccordionLeft: {
     flexDirection: "row",
@@ -3850,7 +3855,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg,
     paddingTop: Spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: Colors.dark.backgroundLight,
+    borderTopColor: "rgba(255, 255, 255, 0.06)",
   },
   templateSectionTitle: {
     fontSize: Typography.caption.fontSize,
@@ -3885,14 +3890,14 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   formInput: {
-    backgroundColor: Colors.dark.backgroundHighlight,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.sm,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     fontSize: Typography.body.fontSize,
     color: Colors.dark.text,
     borderWidth: 1,
-    borderColor: Colors.dark.backgroundLight,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   totalPricePreview: {
     fontSize: Typography.body.fontSize,
@@ -3910,7 +3915,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     alignItems: "center",
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.backgroundLight,
+    backgroundColor: Backgrounds.surface,
   },
   formCancelButtonText: {
     fontSize: Typography.body.fontSize,
@@ -4072,12 +4077,12 @@ const styles = StyleSheet.create({
     color: Colors.dark.accentCyan,
   },
   transferButton: {
-    backgroundColor: Colors.dark.accentCyan + "15",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: Colors.dark.accentCyan,
+    borderColor: "rgba(255, 255, 255, 0.06)",
     flexDirection: "row",
     justifyContent: "center",
     gap: Spacing.sm,
@@ -4085,17 +4090,17 @@ const styles = StyleSheet.create({
   transferButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
-    color: Colors.dark.accentCyan,
+    color: Colors.dark.text,
   },
   transferModalContent: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
     maxHeight: "75%",
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: Colors.dark.accentCyan + "30",
+    borderColor: "rgba(255, 255, 255, 0.06)",
     borderBottomWidth: 0,
   },
   transferModalGlow: {
@@ -4166,11 +4171,11 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   transferSectionLabel: {
-    fontSize: Typography.small.fontSize,
+    fontSize: Typography.caption.fontSize,
     fontWeight: "600",
     color: Colors.dark.textMuted,
     textTransform: "uppercase",
-    letterSpacing: 1,
+    letterSpacing: 0.8,
     marginBottom: Spacing.sm,
   },
   transferCoachList: {
@@ -4191,15 +4196,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.md,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     marginBottom: Spacing.sm,
-    borderWidth: 1.5,
-    borderColor: Colors.dark.textMuted + "30",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
     overflow: "hidden",
   },
   transferCoachCardActive: {
-    borderColor: Colors.dark.accentCyan,
+    borderColor: GlowColors.primary,
   },
   transferCoachAvatar: {
     width: 48,
@@ -4211,7 +4216,7 @@ const styles = StyleSheet.create({
     marginRight: Spacing.md,
   },
   transferCoachAvatarActive: {
-    backgroundColor: Colors.dark.accentCyan + "30",
+    backgroundColor: GlowColors.primary + "30",
   },
   transferCoachAvatarText: {
     fontSize: 18,
@@ -4219,7 +4224,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   transferCoachAvatarTextActive: {
-    color: Colors.dark.accentCyan,
+    color: GlowColors.primary,
   },
   transferCoachInfo: {
     flex: 1,
@@ -4238,7 +4243,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Colors.dark.accentCyan,
+    backgroundColor: GlowColors.primary,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -4270,19 +4275,19 @@ const styles = StyleSheet.create({
   transferConfirmText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "700",
-    color: "#000",
+    color: Backgrounds.root,
   },
   transferConfirmTextDisabled: {
     color: Colors.dark.textMuted,
   },
   restoreModalContent: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: Colors.dark.accentCyan + "30",
+    borderColor: "rgba(255, 255, 255, 0.06)",
     borderBottomWidth: 0,
     zIndex: 10,
   },
@@ -4309,13 +4314,13 @@ const styles = StyleSheet.create({
   restoreModalTitle: {
     fontSize: Typography.h2.fontSize,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: Colors.dark.text,
   },
   restoreCloseButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.dark.surface + "80",
+    backgroundColor: Backgrounds.surface,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -4349,7 +4354,7 @@ const styles = StyleSheet.create({
   restoreSessionDate: {
     fontSize: 22,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: Colors.dark.text,
     marginBottom: Spacing.xs,
   },
   restoreSessionWeek: {
@@ -4360,7 +4365,7 @@ const styles = StyleSheet.create({
   restoreSessionDescription: {
     fontSize: Typography.body.fontSize,
     fontWeight: "500",
-    color: "#FFFFFF",
+    color: Colors.dark.text,
     textAlign: "center",
     lineHeight: 22,
     marginBottom: Spacing.xl,
@@ -4389,7 +4394,7 @@ const styles = StyleSheet.create({
   restoreButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: Colors.dark.text,
   },
   creditHintBox: {
     flexDirection: "row",
@@ -4448,10 +4453,13 @@ const styles = StyleSheet.create({
     color: Colors.dark.error,
   },
   modalContent: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderBottomWidth: 0,
   },
   modalContentElevated: {
     position: "relative",

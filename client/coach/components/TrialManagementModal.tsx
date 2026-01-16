@@ -15,7 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 
 interface Player {
@@ -312,8 +312,8 @@ export default function TrialManagementModal({
                       onPress={() => handleRecordTest(false)}
                       disabled={recordTestMutation.isPending}
                     >
-                      <Ionicons name="close-circle" size={20} color="#FFF" />
-                      <Text style={styles.recordButtonText}>Not Passed</Text>
+                      <Ionicons name="close-circle" size={20} color={Colors.dark.text} />
+                      <Text style={styles.recordButtonTextError}>Not Passed</Text>
                     </Pressable>
                     <Pressable 
                       style={[styles.recordButton, styles.recordButtonPass]}
@@ -321,11 +321,11 @@ export default function TrialManagementModal({
                       disabled={recordTestMutation.isPending}
                     >
                       {recordTestMutation.isPending ? (
-                        <ActivityIndicator size="small" color="#FFF" />
+                        <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                       ) : (
                         <>
-                          <Ionicons name="checkmark-circle" size={20} color="#FFF" />
-                          <Text style={styles.recordButtonText}>Passed</Text>
+                          <Ionicons name="checkmark-circle" size={20} color={Colors.dark.buttonText} />
+                          <Text style={styles.recordButtonTextPrimary}>Passed</Text>
                         </>
                       )}
                     </Pressable>
@@ -346,8 +346,8 @@ export default function TrialManagementModal({
                     onPress={() => handleCompleteTrial(false)}
                     disabled={completeTrialMutation.isPending}
                   >
-                    <Ionicons name="arrow-back" size={20} color="#FFF" />
-                    <Text style={styles.completeButtonText}>Fail Trial</Text>
+                    <Ionicons name="arrow-back" size={20} color={Colors.dark.text} />
+                    <Text style={styles.completeButtonTextError}>Fail Trial</Text>
                   </Pressable>
                   <Pressable 
                     style={[
@@ -359,11 +359,11 @@ export default function TrialManagementModal({
                     disabled={completeTrialMutation.isPending || !activeTrial.allTestsPassed}
                   >
                     {completeTrialMutation.isPending ? (
-                      <ActivityIndicator size="small" color="#FFF" />
+                      <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                     ) : (
                       <>
-                        <Ionicons name="arrow-up" size={20} color="#FFF" />
-                        <Text style={styles.completeButtonText}>Promote</Text>
+                        <Ionicons name="arrow-up" size={20} color={Colors.dark.buttonText} />
+                        <Text style={styles.completeButtonTextPrimary}>Promote</Text>
                       </>
                     )}
                   </Pressable>
@@ -405,11 +405,13 @@ const styles = StyleSheet.create({
   playerCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginTop: Spacing.md,
     gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   levelBadge: {
     paddingHorizontal: Spacing.sm,
@@ -419,7 +421,7 @@ const styles = StyleSheet.create({
   levelText: {
     fontSize: Typography.small.fontSize,
     fontWeight: "600",
-    color: "#FFF",
+    color: Colors.dark.buttonText,
     textTransform: "uppercase",
   },
   playerName: {
@@ -450,10 +452,12 @@ const styles = StyleSheet.create({
     color: Colors.dark.disabled,
   },
   trialInfoCard: {
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginTop: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   trialHeader: {
     marginBottom: Spacing.md,
@@ -526,11 +530,11 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   testCard: {
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: "transparent",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   testCardPassed: {
     borderColor: Colors.dark.primary + "40",
@@ -572,12 +576,12 @@ const styles = StyleSheet.create({
     marginLeft: 32,
   },
   recordPanel: {
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginTop: Spacing.lg,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "40",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   recordHeader: {
     flexDirection: "row",
@@ -596,7 +600,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   notesInput: {
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     fontSize: Typography.body.fontSize,
@@ -604,6 +608,8 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: "top",
     marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   recordActions: {
     flexDirection: "row",
@@ -619,21 +625,30 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   recordButtonPass: {
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
   },
   recordButtonFail: {
-    backgroundColor: Colors.dark.error,
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
-  recordButtonText: {
+  recordButtonTextPrimary: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
-    color: "#FFF",
+    color: Colors.dark.buttonText,
+  },
+  recordButtonTextError: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
   },
   completeSection: {
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginTop: Spacing.xl,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   completeSectionTitle: {
     fontSize: Typography.body.fontSize,
@@ -660,17 +675,24 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   completeButtonPass: {
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
   },
   completeButtonFail: {
-    backgroundColor: Colors.dark.error + "80",
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   completeButtonDisabled: {
     opacity: 0.5,
   },
-  completeButtonText: {
+  completeButtonTextPrimary: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
-    color: "#FFF",
+    color: Colors.dark.buttonText,
+  },
+  completeButtonTextError: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
   },
 });

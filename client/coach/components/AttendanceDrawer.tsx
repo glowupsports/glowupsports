@@ -367,7 +367,7 @@ export default function AttendanceDrawer({
             disabled={saveMutation.isPending || isOffline}
           >
             {saveMutation.isPending ? (
-              <ActivityIndicator size="small" color="#FFF" />
+              <ActivityIndicator size="small" color={Backgrounds.root} />
             ) : (
               <Text style={styles.saveButtonText}>Save</Text>
             )}
@@ -388,7 +388,7 @@ export default function AttendanceDrawer({
                 disabled={selectedPlayerIds.length === 0 || addPlayersMutation.isPending}
               >
                 {addPlayersMutation.isPending ? (
-                  <ActivityIndicator size="small" color="#FFF" />
+                  <ActivityIndicator size="small" color={Backgrounds.root} />
                 ) : (
                   <Text style={styles.confirmButtonText}>Add ({selectedPlayerIds.length})</Text>
                 )}
@@ -435,7 +435,7 @@ export default function AttendanceDrawer({
                     </View>
                     <View style={[styles.checkbox, isSelected && styles.checkboxActive]}>
                       {isSelected ? (
-                        <Ionicons name="checkmark" size={16} color="#FFF" />
+                        <Ionicons name="checkmark" size={16} color={Backgrounds.root} />
                       ) : null}
                     </View>
                   </Pressable>
@@ -460,7 +460,7 @@ export default function AttendanceDrawer({
                 setShowAddPlayers(true);
               }}
             >
-              <Ionicons name="person-add" size={20} color="#FFF" />
+              <Ionicons name="person-add" size={20} color={Backgrounds.root} />
               <Text style={styles.addPlayersButtonText}>Add Players</Text>
             </Pressable>
           </View>
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   saveButton: {
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
@@ -672,7 +672,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: Typography.small.fontSize,
     fontWeight: "600",
-    color: "#FFF",
+    color: Backgrounds.root,
   },
   emptyState: {
     flex: 1,
@@ -701,10 +701,12 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xl,
   },
   playerCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   playerHeader: {
     flexDirection: "row",
@@ -724,7 +726,7 @@ const styles = StyleSheet.create({
   levelText: {
     fontSize: Typography.caption.fontSize,
     fontWeight: "600",
-    color: "#FFF",
+    color: Backgrounds.root,
     textTransform: "uppercase",
   },
   playerName: {
@@ -847,7 +849,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,
@@ -856,7 +858,7 @@ const styles = StyleSheet.create({
   addPlayersButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
-    color: "#FFF",
+    color: Backgrounds.root,
   },
   addPlayersContainer: {
     flex: 1,
@@ -879,7 +881,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   confirmButton: {
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
@@ -892,7 +894,7 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     fontSize: Typography.small.fontSize,
     fontWeight: "600",
-    color: "#FFF",
+    color: Backgrounds.root,
   },
   searchContainer: {
     flexDirection: "row",
@@ -902,8 +904,10 @@ const styles = StyleSheet.create({
     marginVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   searchInput: {
     flex: 1,
@@ -922,14 +926,14 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.xs,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "transparent",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   playerSelectItemActive: {
-    borderColor: Colors.dark.primary,
-    backgroundColor: Colors.dark.primary + "10",
+    borderColor: GlowColors.primary,
+    backgroundColor: GlowColors.primary + "10",
   },
   playerSelectInfo: {
     flexDirection: "row",
@@ -951,8 +955,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   checkboxActive: {
-    backgroundColor: Colors.dark.primary,
-    borderColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
+    borderColor: GlowColors.primary,
   },
   noPlayersFound: {
     alignItems: "center",
