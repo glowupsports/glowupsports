@@ -485,7 +485,9 @@ export default function PlayersScreen() {
       {/* === GAMING SEARCH BAR === */}
       <View style={styles.gamingSearchContainer}>
         <View style={styles.gamingSearchBar}>
-          <Ionicons name="search" size={18} color={Colors.dark.xpCyan} />
+          <View style={styles.searchIconBg}>
+            <Ionicons name="search" size={16} color={GlowColors.primary} />
+          </View>
           <TextInput
             style={styles.gamingSearchInput}
             placeholder="Search roster..."
@@ -1806,17 +1808,18 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: Colors.dark.text,
     letterSpacing: 3,
+    textTransform: "uppercase",
   },
   gamingCountBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    backgroundColor: Colors.dark.xpCyan + "15",
+    backgroundColor: GlowColors.primary + "15",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "40",
+    borderColor: GlowColors.primary + "40",
     position: "relative",
     overflow: "hidden",
   },
@@ -1850,13 +1853,13 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     height: 48,
     gap: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "30",
+    borderColor: "rgba(255, 255, 255, 0.06)",
     ...Platform.select({
       ios: {
         shadowColor: Colors.dark.xpCyan,
@@ -1873,16 +1876,24 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     letterSpacing: 0.5,
   },
+  searchIconBg: {
+    width: 32,
+    height: 32,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: GlowColors.primary + "15",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   sortButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     height: 48,
     gap: 4,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "30",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   sortModalOverlay: {
     flex: 1,
@@ -1892,10 +1903,10 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
   },
   sortModalContent: {
-    backgroundColor: "#1a1a2e",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "60",
+    borderColor: "rgba(255, 255, 255, 0.08)",
     width: "100%",
     maxWidth: 320,
     overflow: "hidden",
@@ -1940,12 +1951,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     height: 36,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.md,
     gap: Spacing.xs,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.15)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
     overflow: "hidden",
   },
   gamingFilterPillActive: {
@@ -1997,12 +2008,12 @@ const styles = StyleSheet.create({
   gamingCardInner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(15, 15, 15, 0.95)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg - 2,
     padding: Spacing.md,
     gap: Spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   gamingAvatarContainer: {
     width: 54,
@@ -3016,12 +3027,12 @@ const styles = StyleSheet.create({
   playerCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(20, 20, 20, 0.95)",
+    backgroundColor: Backgrounds.card,
     padding: Spacing.md,
     gap: Spacing.md,
     borderWidth: 1,
     borderTopWidth: 0,
-    borderColor: Colors.dark.primary + "60",
+    borderColor: "rgba(255, 255, 255, 0.06)",
     borderBottomLeftRadius: BorderRadius.lg,
     borderBottomRightRadius: BorderRadius.lg,
   },
@@ -3158,12 +3169,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   infoCard: {
-    backgroundColor: "rgba(20, 20, 20, 0.95)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     gap: Spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   warningCard: {
     flexDirection: "row",
@@ -3272,12 +3283,12 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
   },
   addNoteForm: {
-    backgroundColor: "rgba(20, 20, 20, 0.95)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginTop: Spacing.sm,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   categoryPicker: {
     flexDirection: "row",
@@ -3346,21 +3357,21 @@ const styles = StyleSheet.create({
     color: "#FFF",
   },
   emptyNotesCard: {
-    backgroundColor: "rgba(20, 20, 20, 0.95)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.xl,
     alignItems: "center",
     gap: Spacing.sm,
     marginTop: Spacing.sm,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   notesList: {
     marginTop: Spacing.md,
     gap: Spacing.sm,
   },
   noteCard: {
-    backgroundColor: "rgba(20, 20, 20, 0.95)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     borderWidth: 1,
@@ -3555,13 +3566,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   levelReadinessCard: {
-    backgroundColor: "rgba(20, 20, 20, 0.95)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginHorizontal: Spacing.lg,
     marginTop: Spacing.lg,
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "30",
+    borderColor: GlowColors.primary + "30",
     ...Platform.select({
       ios: {
         shadowColor: Colors.dark.primary,
@@ -3729,10 +3740,10 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.lg,
     padding: Spacing.lg,
-    backgroundColor: "rgba(20, 20, 20, 0.95)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "30",
+    borderColor: "rgba(255, 255, 255, 0.06)",
     ...Platform.select({
       ios: {
         shadowColor: Colors.dark.xpCyan,
@@ -3804,8 +3815,9 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 12,
     fontWeight: "700",
-    color: Colors.dark.tabIconDefault,
-    letterSpacing: 1,
+    color: Colors.dark.textMuted,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
     marginTop: Spacing.lg,
     marginBottom: Spacing.md,
   },
@@ -3930,10 +3942,10 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.lg,
     marginTop: Spacing.sm,
     padding: Spacing.md,
-    backgroundColor: "rgba(20, 20, 20, 0.95)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "30",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   premiumAvatarContainer: {
     alignItems: "center",
@@ -4066,13 +4078,13 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
   },
   emptyAttendanceCard: {
-    backgroundColor: "rgba(20, 20, 20, 0.95)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.xl,
     alignItems: "center",
     gap: Spacing.sm,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   emptyAttendanceText: {
     fontSize: Typography.body.fontSize,
@@ -4089,13 +4101,13 @@ const styles = StyleSheet.create({
   attendanceHistoryRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(20, 20, 20, 0.95)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
     borderLeftWidth: 3,
-    borderLeftColor: Colors.dark.xpCyan,
+    borderLeftColor: GlowColors.primary,
   },
   attendanceHistoryDate: {
     flex: 1,
