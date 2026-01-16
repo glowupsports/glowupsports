@@ -16,7 +16,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 import { useCoach } from "@/coach/context/CoachContext";
@@ -2946,7 +2946,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    backgroundColor: Backgrounds.overlay,
     zIndex: 1,
   },
   drawer: {
@@ -3175,7 +3175,7 @@ const styles = StyleSheet.create({
   playerActionMenuGradient: {
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: Backgrounds.surface,
     padding: Spacing.sm,
   },
   playerActionMenuHeader: {
@@ -3194,7 +3194,7 @@ const styles = StyleSheet.create({
   },
   playerActionDivider: {
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.elevated,
     marginVertical: Spacing.xs,
   },
   playerActionIconWrapper: {
@@ -3213,7 +3213,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   playerActionItemPressed: {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: Backgrounds.elevated,
   },
   playerActionItemDanger: {
     marginTop: Spacing.xs,

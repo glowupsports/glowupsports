@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, FontSizes, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, FontSizes, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { Card } from "@/components/Card";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 

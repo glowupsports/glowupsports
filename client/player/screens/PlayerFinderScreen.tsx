@@ -7,7 +7,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import Animated, { FadeIn, FadeInRight } from "react-native-reanimated";
-import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { getStaticAssetsUrl, apiFetch } from "@/lib/query-client";

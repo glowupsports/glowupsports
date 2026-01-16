@@ -17,7 +17,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, FontSizes, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, FontSizes, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { LockedScreen } from "../components/LockedScreen";
 import { DateRailSelector } from "../components/DateRailSelector";

@@ -15,7 +15,7 @@ import Animated, {
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest, apiFetch } from "@/lib/query-client";
 
 interface DrillBlock {

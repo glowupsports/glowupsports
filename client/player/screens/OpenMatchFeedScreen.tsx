@@ -16,7 +16,7 @@ import Animated, { FadeIn, FadeInRight, SlideInUp } from "react-native-reanimate
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, FontSizes, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, FontSizes, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { apiRequest, getApiUrl } from "@/lib/query-client";

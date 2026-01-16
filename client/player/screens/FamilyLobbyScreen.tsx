@@ -16,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInUp, FadeInRight, ZoomIn } from "react-native-reanimated";
-import { Colors, Spacing, FontSizes, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, FontSizes, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { useFamily, FamilyMember } from "@/player/context/FamilyContext";
 import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 

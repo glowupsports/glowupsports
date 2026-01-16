@@ -17,7 +17,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { CameraView, useCameraPermissions, CameraType } from "expo-camera";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { LockedScreen } from "../components/LockedScreen";

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable, Dimensions } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, GlowColors, TextColors, FunctionColors } from "@/constants/theme";
 import { useLanguageSwitch } from "@/lib/useLanguageSwitch";
 import type { BallStage, ViewRole } from "@shared/language-switch";
 
@@ -87,11 +87,11 @@ function getTrendIcon(trend: string): keyof typeof Ionicons.glyphMap {
 function getTrendColor(trend: string): string {
   switch (trend) {
     case "improving":
-      return Colors.dark.primary;
+      return GlowColors.primary;
     case "declining":
-      return Colors.dark.error;
+      return FunctionColors.error;
     default:
-      return Colors.dark.disabled;
+      return TextColors.disabled;
   }
 }
 
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
   },
   pillarName: {
     fontSize: Typography.small.fontSize,
-    color: Colors.dark.text,
+    color: TextColors.primary,
     fontWeight: "500",
     marginTop: Spacing.xs,
     textAlign: "center",

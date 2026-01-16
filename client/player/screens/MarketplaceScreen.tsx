@@ -21,7 +21,7 @@ import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { useNavigation } from "@react-navigation/native";
-import { Colors, Spacing } from "@/constants/theme";
+import { Colors, Spacing, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { LockedScreen } from "../components/LockedScreen";
 

@@ -9,7 +9,7 @@ import type { DrawerNavigationProp } from "@react-navigation/drawer";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { usePlayer } from "@/player/context/PlayerContext";
 
 type DrawerParamList = {

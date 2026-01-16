@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors, FunctionColors, TextColors } from "@/constants/theme";
 
 interface Session {
   id: string;
@@ -41,9 +41,9 @@ export function CoachLoadIndicator({
   const staminaPercent = Math.max(0, 100 - loadPercent);
 
   const getStaminaColor = (): readonly [string, string] => {
-    if (staminaPercent <= 20) return [Colors.dark.error, Colors.dark.error] as const;
-    if (staminaPercent <= 50) return [Colors.dark.orange, Colors.dark.gold] as const;
-    return [Colors.dark.primary, Colors.dark.xpCyan] as const;
+    if (staminaPercent <= 20) return [FunctionColors.error, FunctionColors.error] as const;
+    if (staminaPercent <= 50) return [FunctionColors.social, Colors.dark.gold] as const;
+    return [GlowColors.primary, FunctionColors.info] as const;
   };
 
   const getStaminaLabel = () => {
@@ -80,11 +80,11 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    backgroundColor: "rgba(12, 12, 15, 0.98)",
+    backgroundColor: Backgrounds.card,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.primary + "20",
+    borderBottomColor: GlowColors.primary + "20",
     borderTopWidth: 1,
-    borderTopColor: Colors.dark.primary + "10",
+    borderTopColor: GlowColors.primary + "10",
   },
   labelRow: {
     flexDirection: "row",
@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 10,
     fontWeight: "700",
-    color: Colors.dark.tabIconDefault,
+    color: TextColors.muted,
     letterSpacing: 0.8,
     textTransform: "uppercase",
   },
@@ -107,24 +107,24 @@ const styles = StyleSheet.create({
   hoursText: {
     fontSize: 11,
     fontWeight: "600",
-    color: Colors.dark.tabIconDefault,
+    color: TextColors.muted,
     marginLeft: "auto",
     letterSpacing: 0.3,
   },
   barBackground: {
     height: 8,
-    backgroundColor: "rgba(30, 30, 35, 0.95)",
+    backgroundColor: Backgrounds.surface,
     borderRadius: 4,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "20",
+    borderColor: GlowColors.primary + "20",
   },
   barFill: {
     height: "100%",
     borderRadius: 4,
     ...Platform.select({
       ios: {
-        shadowColor: Colors.dark.primary,
+        shadowColor: GlowColors.primary,
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.5,
         shadowRadius: 6,

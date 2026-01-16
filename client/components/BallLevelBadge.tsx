@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, Backgrounds, GlowColors, FunctionColors } from "@/constants/theme";
 import { getStageFromLevel, getStageColor, translateLevelLabel } from "@shared/language-switch";
 
 interface BallLevelBadgeProps {
@@ -62,7 +62,7 @@ export default function BallLevelBadge({
           { 
             width: dims.width, 
             height: dims.height,
-            borderColor: isTrial ? Colors.dark.orange : stageColor,
+            borderColor: isTrial ? FunctionColors.social : stageColor,
           }
         ]}
       >
@@ -76,7 +76,7 @@ export default function BallLevelBadge({
           color={stageColor} 
         />
         {isTrial ? (
-          <View style={[styles.trialIndicator, { backgroundColor: Colors.dark.orange }]}>
+          <View style={[styles.trialIndicator, { backgroundColor: FunctionColors.social }]}>
             <Ionicons name="time" size={8} color="#FFF" />
           </View>
         ) : null}
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: Colors.dark.backgroundDefault,
+    borderColor: Backgrounds.card,
   },
   labelContainer: {
     alignItems: "center",
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
   },
   trialLabel: {
     fontSize: Typography.small.fontSize,
-    color: Colors.dark.orange,
+    color: FunctionColors.social,
     marginTop: 2,
   },
 });

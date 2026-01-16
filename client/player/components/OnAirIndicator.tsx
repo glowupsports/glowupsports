@@ -9,7 +9,7 @@ import Animated, {
   withSpring,
   Easing,
 } from "react-native-reanimated";
-import { ProTennisColors, Spacing, BorderRadius } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, Backgrounds, GlowColors, FunctionColors, TextColors } from "@/constants/theme";
 import { usePlayerState, BroadcastMode } from "@/player/context/PlayerStateContext";
 
 interface OnAirIndicatorProps {
@@ -27,36 +27,36 @@ const BROADCAST_CONFIG: Record<BroadcastMode, {
 }> = {
   on_air: {
     label: "ON AIR",
-    color: "#FF0000",
-    bgColor: "rgba(255, 0, 0, 0.15)",
+    color: FunctionColors.error,
+    bgColor: FunctionColors.error + "25",
     pulse: true,
     intensity: 1,
   },
   pre_game: {
     label: "PRE-GAME",
-    color: ProTennisColors.warning,
-    bgColor: "rgba(255, 170, 0, 0.12)",
+    color: FunctionColors.social,
+    bgColor: FunctionColors.social + "1F",
     pulse: true,
     intensity: 0.6,
   },
   post_game: {
     label: "POST-GAME",
-    color: ProTennisColors.neonCyan,
-    bgColor: "rgba(0, 255, 255, 0.1)",
+    color: FunctionColors.info,
+    bgColor: FunctionColors.info + "1A",
     pulse: false,
     intensity: 0.4,
   },
   rest_day: {
     label: "REST",
-    color: ProTennisColors.textMuted,
-    bgColor: "rgba(255, 255, 255, 0.05)",
+    color: TextColors.muted,
+    bgColor: Backgrounds.surface,
     pulse: false,
     intensity: 0.2,
   },
   off_air: {
     label: "OFF AIR",
-    color: ProTennisColors.textMuted,
-    bgColor: "rgba(255, 255, 255, 0.08)",
+    color: TextColors.muted,
+    bgColor: Backgrounds.elevated,
     pulse: false,
     intensity: 0.3,
   },

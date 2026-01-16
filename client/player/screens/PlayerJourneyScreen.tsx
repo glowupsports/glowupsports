@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Animated, { useAnimatedStyle, withSpring, useSharedValue } from "react-native-reanimated";
-import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
 import { LinearGradient } from "expo-linear-gradient";
 
 interface Milestone {

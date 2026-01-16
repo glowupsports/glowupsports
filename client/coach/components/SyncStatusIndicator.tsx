@@ -19,10 +19,8 @@ import Animated, {
   useSharedValue,
 } from "react-native-reanimated";
 import { useEffect } from "react";
-import { Colors, Spacing } from "@/constants/theme";
+import { Colors, Spacing, Backgrounds, GlowColors, FunctionColors, TextColors } from "@/constants/theme";
 import { useOfflineSync } from "@/lib/useOfflineSync";
-
-const theme = Colors.dark;
 
 export default function SyncStatusIndicator() {
   const {
@@ -84,18 +82,18 @@ export default function SyncStatusIndicator() {
     <Pressable onPress={handlePress} style={styles.container}>
       {syncStatus.isSyncing ? (
         <Animated.View style={animatedStyle}>
-          <Feather name="refresh-cw" size={16} color={theme.primary} />
+          <Feather name="refresh-cw" size={16} color={GlowColors.primary} />
         </Animated.View>
       ) : hasIssues ? (
         <View style={styles.errorBadge}>
-          <Feather name="alert-triangle" size={14} color={theme.orange} />
+          <Feather name="alert-triangle" size={14} color={FunctionColors.social} />
           <Text style={styles.badgeText}>
             {failedActions.length + conflicts.length}
           </Text>
         </View>
       ) : hasPendingSync ? (
         <View style={styles.pendingBadge}>
-          <Feather name="cloud-off" size={14} color={theme.tabIconDefault} />
+          <Feather name="cloud-off" size={14} color={TextColors.muted} />
           <Text style={styles.pendingText}>{syncStatus.pendingCount}</Text>
         </View>
       ) : null}
@@ -109,7 +107,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
-    backgroundColor: theme.backgroundSecondary,
+    backgroundColor: Backgrounds.elevated,
     borderRadius: 12,
     marginRight: Spacing.sm,
   },
@@ -124,12 +122,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   badgeText: {
-    color: theme.orange,
+    color: FunctionColors.social,
     fontSize: 12,
     fontWeight: "600",
   },
   pendingText: {
-    color: theme.tabIconDefault,
+    color: TextColors.muted,
     fontSize: 12,
   },
 });

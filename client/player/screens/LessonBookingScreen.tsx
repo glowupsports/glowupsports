@@ -2,7 +2,7 @@ import React from "react";
 import { View, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { StackActions } from "@react-navigation/native";
-import { Colors } from "@/constants/theme";
+import { Colors, Backgrounds, GlowColors } from "@/constants/theme";
 import PlayerBookingWizard from "@/player/components/PlayerBookingWizard";
 import { useAuth } from "@/coach/context/AuthContext";
 
