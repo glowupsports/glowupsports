@@ -276,7 +276,7 @@ export default function CoachProfileScreen() {
                   style={styles.saveButton}
                 >
                   {updateMutation.isPending ? (
-                    <ActivityIndicator size="small" color="#FFF" />
+                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                   ) : (
                     <Text style={styles.saveText}>Save</Text>
                   )}
@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
   saveText: {
     fontSize: Typography.small.fontSize,
     fontWeight: "600",
-    color: "#FFF",
+    color: Colors.dark.buttonText,
   },
   loadingContainer: {
     flex: 1,

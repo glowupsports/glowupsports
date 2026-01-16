@@ -1685,7 +1685,7 @@ function PlayerDetailView({
                   disabled={addNoteMutation.isPending || !newNoteContent.trim()}
                 >
                   {addNoteMutation.isPending ? (
-                    <ActivityIndicator size="small" color="#FFF" />
+                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                   ) : (
                     <Text style={styles.saveNoteButtonText}>Save</Text>
                   )}
@@ -2741,7 +2741,7 @@ const styles = StyleSheet.create({
   loadoutAvatarText: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   loadoutTierBadge: {
     position: "absolute",
@@ -2758,7 +2758,7 @@ const styles = StyleSheet.create({
   loadoutTierText: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   loadoutInfo: {
     flex: 1,
@@ -3354,7 +3354,7 @@ const styles = StyleSheet.create({
   saveNoteButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
-    color: "#FFF",
+    color: Colors.dark.buttonText,
   },
   emptyNotesCard: {
     backgroundColor: Backgrounds.card,

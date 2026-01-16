@@ -1087,25 +1087,25 @@ const styles = StyleSheet.create({
   sessionText: {
     fontSize: 9,
     fontWeight: "800",
-    color: "rgba(255, 255, 255, 0.95)",
+    color: Colors.dark.text,
     textTransform: "uppercase",
   },
   sessionTime: {
     fontSize: 8,
     fontWeight: "600",
-    color: "rgba(255, 255, 255, 0.85)",
+    color: Colors.dark.text,
     marginTop: 1,
   },
   sessionCourt: {
     fontSize: 7,
     fontWeight: "500",
-    color: "rgba(255, 255, 255, 0.75)",
+    color: Colors.dark.textSecondary,
     marginTop: 1,
   },
   sessionPlayers: {
     fontSize: 7,
     fontWeight: "500",
-    color: "rgba(255, 255, 255, 0.7)",
+    color: Colors.dark.textMuted,
     marginTop: 1,
   },
   weekSessionBlock: {
@@ -1134,12 +1134,12 @@ const styles = StyleSheet.create({
   weekSessionText: {
     fontSize: 7,
     fontWeight: "800",
-    color: "rgba(255, 255, 255, 0.95)",
+    color: Colors.dark.text,
     textTransform: "uppercase",
   },
   weekSessionTime: {
     fontSize: 6,
     fontWeight: "600",
-    color: "rgba(255, 255, 255, 0.85)",
+    color: Colors.dark.text,
   },
 });

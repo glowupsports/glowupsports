@@ -1144,7 +1144,7 @@ export default function AdminPlayersScreen() {
             <ScrollView style={styles.deleteOptionsContainer}>
               <View style={styles.deleteOptionRow}>
                 <View style={[styles.checkbox, styles.checkboxChecked]}>
-                  <Ionicons name="checkmark" size={14} color="#000" />
+                  <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} />
                 </View>
                 <View style={styles.deleteOptionContent}>
                   <Text style={styles.deleteOptionLabel}>Progress & XP Data</Text>
@@ -1154,7 +1154,7 @@ export default function AdminPlayersScreen() {
 
               <View style={styles.deleteOptionRow}>
                 <View style={[styles.checkbox, styles.checkboxChecked]}>
-                  <Ionicons name="checkmark" size={14} color="#000" />
+                  <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} />
                 </View>
                 <View style={styles.deleteOptionContent}>
                   <Text style={styles.deleteOptionLabel}>Feedback & Notes</Text>
@@ -1164,7 +1164,7 @@ export default function AdminPlayersScreen() {
 
               <View style={styles.deleteOptionRow}>
                 <View style={[styles.checkbox, styles.checkboxChecked]}>
-                  <Ionicons name="checkmark" size={14} color="#000" />
+                  <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} />
                 </View>
                 <View style={styles.deleteOptionContent}>
                   <Text style={styles.deleteOptionLabel}>Billing & Payments</Text>
@@ -1174,7 +1174,7 @@ export default function AdminPlayersScreen() {
 
               <View style={styles.deleteOptionRow}>
                 <View style={[styles.checkbox, styles.checkboxChecked]}>
-                  <Ionicons name="checkmark" size={14} color="#000" />
+                  <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} />
                 </View>
                 <View style={styles.deleteOptionContent}>
                   <Text style={styles.deleteOptionLabel}>Chat Messages</Text>
@@ -1184,7 +1184,7 @@ export default function AdminPlayersScreen() {
 
               <View style={styles.deleteOptionRow}>
                 <View style={[styles.checkbox, styles.checkboxChecked]}>
-                  <Ionicons name="checkmark" size={14} color="#000" />
+                  <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} />
                 </View>
                 <View style={styles.deleteOptionContent}>
                   <Text style={styles.deleteOptionLabel}>Coach Reviews</Text>
@@ -1194,7 +1194,7 @@ export default function AdminPlayersScreen() {
 
               <View style={styles.deleteOptionRow}>
                 <View style={[styles.checkbox, styles.checkboxChecked]}>
-                  <Ionicons name="checkmark" size={14} color="#000" />
+                  <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} />
                 </View>
                 <View style={styles.deleteOptionContent}>
                   <Text style={styles.deleteOptionLabel}>Booking Requests</Text>
@@ -1223,10 +1223,10 @@ export default function AdminPlayersScreen() {
                 disabled={deletePlayerMutation.isPending}
               >
                 {deletePlayerMutation.isPending ? (
-                  <ActivityIndicator size="small" color="#FFF" />
+                  <ActivityIndicator size="small" color={Colors.dark.text} />
                 ) : (
                   <>
-                    <Ionicons name="trash" size={16} color="#FFF" />
+                    <Ionicons name="trash" size={16} color={Colors.dark.text} />
                     <Text style={styles.confirmDeleteBtnText}>Delete Player</Text>
                   </>
                 )}

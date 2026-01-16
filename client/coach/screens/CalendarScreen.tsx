@@ -485,14 +485,14 @@ const dragStyles = StyleSheet.create({
   sessionText: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: Colors.dark.text,
     letterSpacing: 0.5,
     textTransform: "uppercase",
   },
   sessionTime: {
     fontSize: 8,
     fontWeight: "600",
-    color: "#FFFFFF",
+    color: Colors.dark.text,
     letterSpacing: 0.3,
     marginTop: 1,
   },
@@ -548,14 +548,14 @@ const dragStyles = StyleSheet.create({
   weekSessionText: {
     fontSize: 7,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: Colors.dark.text,
     letterSpacing: 0.3,
     textTransform: "uppercase",
   },
   weekSessionTime: {
     fontSize: 6,
     fontWeight: "600",
-    color: "#FFFFFF",
+    color: Colors.dark.text,
     letterSpacing: 0.2,
   },
 });
@@ -3189,7 +3189,7 @@ const styles = StyleSheet.create({
   sessionText: {
     fontSize: 11,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: Colors.dark.text,
     letterSpacing: 0.5,
     textTransform: "uppercase",
     ...Platform.select({
@@ -3911,14 +3911,14 @@ const styles = StyleSheet.create({
   weekSessionText: {
     fontSize: 8,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: Colors.dark.text,
     letterSpacing: 0.3,
     textTransform: "uppercase",
   },
   weekSessionTime: {
     fontSize: 7,
     fontWeight: "600",
-    color: "#FFFFFF",
+    color: Colors.dark.text,
     letterSpacing: 0.2,
     marginTop: 1,
   },

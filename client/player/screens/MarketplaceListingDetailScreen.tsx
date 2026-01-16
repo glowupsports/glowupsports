@@ -441,10 +441,12 @@ const styles = StyleSheet.create({
   sellerCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: 12,
     padding: Spacing.md,
     gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   sellerAvatar: {
     width: 48,
@@ -555,6 +557,6 @@ const styles = StyleSheet.create({
   sendButtonText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
 });

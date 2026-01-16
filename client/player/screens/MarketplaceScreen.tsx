@@ -288,7 +288,7 @@ export default function MarketplaceScreen() {
           colors={[Colors.dark.primary, Colors.dark.primary + "CC"]}
           style={styles.fabGradient}
         >
-          <Ionicons name="add" size={28} color="#000" />
+          <Ionicons name="add" size={28} color={Colors.dark.buttonText} />
         </LinearGradient>
       </Pressable>
 
@@ -692,7 +692,7 @@ const styles = StyleSheet.create({
   emptyButtonText: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   listingsGrid: {
     flexDirection: "row",
@@ -706,7 +706,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: Colors.dark.border,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   listingImage: {
     width: "100%",
@@ -936,6 +936,6 @@ const modalStyles = StyleSheet.create({
   submitButtonText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
 });

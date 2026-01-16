@@ -395,7 +395,7 @@ function LevelExplanationModal({
                   ]}>
                     <Text style={[
                       modalStyles.milestoneLevelNum,
-                      currentLevel >= milestone.level && { color: "#fff" }
+                      currentLevel >= milestone.level && { color: Colors.dark.buttonText }
                     ]}>
                       {milestone.level}
                     </Text>

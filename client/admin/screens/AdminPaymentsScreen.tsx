@@ -358,7 +358,7 @@ export default function AdminPaymentsScreen() {
         }}
       >
         <LinearGradient colors={[Colors.dark.orange, "#CC9900"]} style={styles.fabGradient}>
-          <Ionicons name="add" size={28} color="#000" />
+          <Ionicons name="add" size={28} color={Colors.dark.buttonText} />
         </LinearGradient>
       </Pressable>
 
@@ -471,7 +471,7 @@ export default function AdminPaymentsScreen() {
               disabled={createMutation.isPending}
             >
               {createMutation.isPending ? (
-                <ActivityIndicator size="small" color="#000" />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <Text style={styles.submitButtonText}>Record Payment</Text>
               )}
@@ -547,10 +547,10 @@ export default function AdminPaymentsScreen() {
                       disabled={confirmMutation.isPending}
                     >
                       {confirmMutation.isPending ? (
-                        <ActivityIndicator size="small" color="#000" />
+                        <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                       ) : (
                         <>
-                          <Ionicons name="checkmark" size={20} color="#000" />
+                          <Ionicons name="checkmark" size={20} color={Colors.dark.buttonText} />
                           <Text style={styles.confirmButtonText}>Confirm</Text>
                         </>
                       )}
@@ -559,7 +559,7 @@ export default function AdminPaymentsScreen() {
                       style={[styles.actionButton, styles.rejectButton]}
                       onPress={() => setShowRejectModal(true)}
                     >
-                      <Ionicons name="close" size={20} color="#fff" />
+                      <Ionicons name="close" size={20} color={Colors.dark.text} />
                       <Text style={styles.rejectButtonText}>Reject</Text>
                     </Pressable>
                   </View>
@@ -614,7 +614,7 @@ export default function AdminPaymentsScreen() {
                 disabled={rejectMutation.isPending}
               >
                 {rejectMutation.isPending ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={Colors.dark.text} />
                 ) : (
                   <Text style={styles.rejectModalConfirmText}>Reject</Text>
                 )}
@@ -933,7 +933,7 @@ const styles = StyleSheet.create({
   submitButtonText: {
     ...Typography.body,
     fontWeight: "600",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   detailAmount: {
     flexDirection: "row",
@@ -991,7 +991,7 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     ...Typography.body,
     fontWeight: "600",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   rejectButton: {
     backgroundColor: Colors.dark.error,
@@ -999,7 +999,7 @@ const styles = StyleSheet.create({
   rejectButtonText: {
     ...Typography.body,
     fontWeight: "600",
-    color: "#fff",
+    color: Colors.dark.text,
   },
   deleteButton: {
     alignItems: "center",
@@ -1058,6 +1058,6 @@ const styles = StyleSheet.create({
   rejectModalConfirmText: {
     ...Typography.body,
     fontWeight: "600",
-    color: "#fff",
+    color: Colors.dark.text,
   },
 });

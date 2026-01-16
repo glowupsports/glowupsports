@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
   createButtonText: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   section: {
     marginBottom: Spacing.xl,
@@ -338,12 +338,12 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   listingCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: 12,
     padding: Spacing.md,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.dark.border,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   soldCard: {
     opacity: 0.7,

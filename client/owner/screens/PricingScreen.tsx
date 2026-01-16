@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
@@ -294,7 +294,7 @@ export default function PricingScreen() {
       </ScrollView>
 
       <Pressable style={[styles.fab, { bottom: insets.bottom + 80 }]} onPress={handleOpenAdd}>
-        <Ionicons name="add" size={28} color={Colors.dark.backgroundRoot} />
+        <Ionicons name="add" size={28} color={Colors.dark.buttonText} />
       </Pressable>
 
       <Modal
@@ -549,10 +549,12 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.xs,
   },
   pricingCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   pricingCardHeader: {
     flexDirection: "row",

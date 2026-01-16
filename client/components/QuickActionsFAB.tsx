@@ -21,7 +21,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -137,7 +137,7 @@ export function QuickActionsFAB({
             end={{ x: 1, y: 1 }}
             style={styles.fabGradient}
           >
-            <Ionicons name="add" size={28} color={Colors.dark.backgroundRoot} />
+            <Ionicons name="add" size={28} color={Colors.dark.buttonText} />
           </LinearGradient>
         </Animated.View>
       </Pressable>
@@ -260,11 +260,11 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: Spacing.lg,
     right: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundDefault + "F0",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: Colors.dark.border,
+    borderColor: "rgba(255, 255, 255, 0.06)",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.5,
