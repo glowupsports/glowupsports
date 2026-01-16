@@ -20,6 +20,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
+import { ActionNeededCard } from "@/components/ActionNeededCard";
 import type { AdminTabParamList, AdminStackParamList } from "@/admin/navigation/AdminNavigator";
 
 type AdminNavProp = CompositeNavigationProp<
@@ -200,11 +201,71 @@ export default function AdminDashboardScreen() {
   const kpis = dashboardData?.kpis;
   const alerts = dashboardData?.alerts || [];
   const upcomingSessions = dashboardData?.upcomingSessions || [];
+  const quickStats = dashboardData?.quickStats;
   const currency = kpis?.currency || "AED";
 
   const formatCurrency = (amount: number) => {
     return `${currency} ${amount.toLocaleString()}`;
   };
+
+  const pendingActions = React.useMemo(() => {
+    const actions: Array<{
+      id: string;
+      label: string;
+      count: number;
+      icon: keyof typeof Ionicons.glyphMap;
+      priority: "high" | "medium" | "low";
+    }> = [];
+
+    const paymentAlerts = alerts.filter(a => a.category === "payment");
+    if (paymentAlerts.length > 0 || (quickStats?.unpaidPlayerCount && quickStats.unpaidPlayerCount > 0)) {
+      actions.push({
+        id: "overdue-payments",
+        label: "overdue payments",
+        count: quickStats?.unpaidPlayerCount || paymentAlerts.length,
+        icon: "card-outline",
+        priority: "high",
+      });
+    }
+
+    const attendanceAlerts = alerts.filter(a => a.category === "attendance");
+    if (attendanceAlerts.length > 0) {
+      actions.push({
+        id: "sessions-attention",
+        label: "sessions need attention",
+        count: attendanceAlerts.length,
+        icon: "calendar-outline",
+        priority: "medium",
+      });
+    }
+
+    const baselineAlerts = alerts.filter(a => 
+      a.title?.toLowerCase().includes("baseline") || 
+      a.description?.toLowerCase().includes("baseline")
+    );
+    if (baselineAlerts.length > 0) {
+      actions.push({
+        id: "players-without-baseline",
+        label: "players without baselines",
+        count: baselineAlerts.length,
+        icon: "fitness-outline",
+        priority: "medium",
+      });
+    }
+
+    const coachAlerts = alerts.filter(a => a.category === "coach");
+    if (coachAlerts.length > 0) {
+      actions.push({
+        id: "coach-issues",
+        label: "coach issues",
+        count: coachAlerts.length,
+        icon: "person-outline",
+        priority: "low",
+      });
+    }
+
+    return actions;
+  }, [alerts, quickStats]);
 
   if (isLoading) {
     return (
@@ -252,6 +313,26 @@ export default function AdminDashboardScreen() {
           </View>
 
         </View>
+
+        {pendingActions.length > 0 && (
+          <View style={styles.attentionSection}>
+            <ActionNeededCard
+              title="Attention Required"
+              actions={pendingActions}
+              onPress={() => {
+                const firstHighPriority = pendingActions.find(a => a.priority === "high");
+                if (firstHighPriority?.id === "overdue-payments") {
+                  navigation.navigate("AdminPayments");
+                } else if (firstHighPriority?.id === "sessions-attention") {
+                  navigation.navigate("AdminSchedule");
+                } else {
+                  navigation.navigate("AdminPlayers");
+                }
+              }}
+              ctaText="Review Items"
+            />
+          </View>
+        )}
 
         <View style={styles.kpisGrid}>
           <KpiCard 
@@ -544,6 +625,9 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   header: {
+    marginBottom: Spacing.xl,
+  },
+  attentionSection: {
     marginBottom: Spacing.xl,
   },
   headerTop: {

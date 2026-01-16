@@ -46,6 +46,7 @@ import { SeriesSummaryCard } from "@/coach/components/SeriesSummaryCard";
 import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
 import { PlayersByLevelCard } from "@/coach/components/PlayersByLevelCard";
 import { useWebSocket } from "@/lib/useWebSocket";
+import { ActionNeededCard } from "@/components/ActionNeededCard";
 
 interface Player {
   id: string;
@@ -677,6 +678,45 @@ export default function DashboardScreen() {
             </View>
           </LinearGradient>
         </View>
+
+        {/* === ACTION NEEDED - Primary CTA === */}
+        {(pendingFeedbackCount > 0 || alerts.length > 0) && (
+          <View style={styles.actionNeededSection}>
+            <ActionNeededCard
+              title="Action Needed"
+              actions={[
+                ...(pendingFeedbackCount > 0
+                  ? [
+                      {
+                        id: "feedback",
+                        label: "sessions need feedback",
+                        count: pendingFeedbackCount,
+                        icon: "chatbubble-ellipses" as const,
+                        priority: "high" as const,
+                      },
+                    ]
+                  : []),
+                ...alerts.map((alert) => ({
+                  id: alert.id,
+                  label: alert.message,
+                  count: 1,
+                  icon:
+                    alert.type === "unpaid"
+                      ? ("card" as const)
+                      : alert.type === "absent"
+                      ? ("person-remove" as const)
+                      : ("alert-circle" as const),
+                  priority: alert.priority,
+                })),
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                handleNavigate("Players");
+              }}
+              ctaText="Review Now"
+            />
+          </View>
+        )}
 
         {/* === COURT COMMAND - Tennis Control Centre === */}
         <View style={styles.missionConsole}>
@@ -1556,6 +1596,9 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.lg,
+  },
+  actionNeededSection: {
+    marginBottom: Spacing.lg,
   },
   
   // Header
