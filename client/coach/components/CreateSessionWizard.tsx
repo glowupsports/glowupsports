@@ -704,8 +704,8 @@ export default function CreateSessionWizard({
 
   // Can proceed to next slide?
   const canProceed = useMemo(() => {
-    // For flexible schedule mode, check flexibleDates + defaultTime instead of startTime
-    const hasFlexibleSchedule = scheduleMode === 'flexible' && flexibleDates.length > 0 && !!defaultTime;
+    // For flexible schedule mode, check flexibleDates + flexibleDefaultTime instead of startTime
+    const hasFlexibleSchedule = isFlexible && flexibleDates.length > 0 && !!flexibleDefaultTime;
     const hasRegularTime = !!startTime;
     const hasValidTimeSelection = hasFlexibleSchedule || hasRegularTime;
     
@@ -731,7 +731,7 @@ export default function CreateSessionWizard({
         default: return false;
       }
     }
-  }, [currentSlide, sessionType, selectedCourtId, startTime, adminMode, selectedCoachId, scheduleMode, flexibleDates, defaultTime]);
+  }, [currentSlide, sessionType, selectedCourtId, startTime, adminMode, selectedCoachId, isFlexible, flexibleDates, flexibleDefaultTime]);
 
   // Create session mutation - endpoint is passed in data to avoid closure issues
   const createSessionMutation = useMutation({
