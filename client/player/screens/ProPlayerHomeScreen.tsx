@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
-import { ProTennisColors, Spacing, Backgrounds, GlowColors, BorderRadius } from "@/constants/theme";
+import { Spacing, Backgrounds, GlowColors, BorderRadius, Colors, TextColors, FunctionColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePlayerDrawer } from "@/player/navigation/PlayerNavigator";
 import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
@@ -46,7 +46,7 @@ function QuickStatsStrip({ level, streak, xp }: QuickStatsStripProps) {
       <View style={quickStatsStyles.divider} />
 
       <View style={quickStatsStyles.statBadge}>
-        <Feather name="zap" size={14} color={ProTennisColors.warning} />
+        <Feather name="zap" size={14} color={FunctionColors.social} />
         <View style={quickStatsStyles.statContent}>
           <Text style={quickStatsStyles.statValue}>{streak}</Text>
           <Text style={quickStatsStyles.statLabel}>Streak</Text>
@@ -93,13 +93,13 @@ const quickStatsStyles = StyleSheet.create({
   statValue: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: Colors.dark.text,
     fontVariant: ["tabular-nums"],
   },
   statLabel: {
     fontSize: 10,
     fontWeight: "500",
-    color: "rgba(255, 255, 255, 0.5)",
+    color: Colors.dark.textMuted,
     letterSpacing: 0.5,
     textTransform: "uppercase",
   },
@@ -204,7 +204,7 @@ function PlayerHomeContent() {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
         <BroadcastBackground />
-        <ActivityIndicator size="large" color={ProTennisColors.electricGreen} />
+        <ActivityIndicator size="large" color={GlowColors.primary} />
       </View>
     );
   }
@@ -244,8 +244,8 @@ function PlayerHomeContent() {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={refetch}
-            tintColor={ProTennisColors.electricGreen}
-            colors={[ProTennisColors.electricGreen]}
+            tintColor={GlowColors.primary}
+            colors={[GlowColors.primary]}
           />
         }
       >
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
   discoverySectionTitle: {
     fontSize: 11,
     fontWeight: "700",
-    color: "rgba(255, 255, 255, 0.5)",
+    color: Colors.dark.textMuted,
     letterSpacing: 2.5,
     paddingHorizontal: Spacing.lg,
     marginBottom: -Spacing.sm,

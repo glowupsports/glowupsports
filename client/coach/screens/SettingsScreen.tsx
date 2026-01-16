@@ -30,7 +30,7 @@ import Animated, {
 import { useCoach } from "@/coach/context/CoachContext";
 import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
-import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors, FunctionColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useNavigation } from "@react-navigation/native";
 import { useNetwork } from "@/context/NetworkContext";
@@ -118,7 +118,7 @@ function GlowSwitch({ value, onValueChange }: { value: boolean; onValueChange: (
   }, [value]);
 
   const glowStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(glowOpacity.value, [0, 1], [0, 0.6]),
+    opacity: interpolate(glowOpacity.value, [0, 1], [0, 0.4]),
   }));
 
   return (
@@ -130,9 +130,9 @@ function GlowSwitch({ value, onValueChange }: { value: boolean; onValueChange: (
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           onValueChange(val);
         }}
-        trackColor={{ false: "rgba(80, 80, 80, 0.5)", true: "rgba(46, 204, 64, 0.4)" }}
-        thumbColor={value ? Colors.dark.primary : Colors.dark.tabIconDefault}
-        ios_backgroundColor="rgba(80, 80, 80, 0.5)"
+        trackColor={{ false: "rgba(255, 255, 255, 0.1)", true: "rgba(200, 255, 61, 0.2)" }}
+        thumbColor={value ? GlowColors.primary : Colors.dark.tabIconDefault}
+        ios_backgroundColor="rgba(255, 255, 255, 0.08)"
       />
     </View>
   );
@@ -1804,11 +1804,11 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: BorderRadius.md,
-    backgroundColor: "rgba(0, 212, 255, 0.15)",
+    backgroundColor: "rgba(0, 212, 255, 0.1)",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "40",
+    borderColor: "rgba(0, 212, 255, 0.2)",
   },
   title: {
     fontSize: 18,
@@ -1824,12 +1824,22 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
-    backgroundColor: "rgba(20, 20, 20, 0.9)",
+    backgroundColor: Backgrounds.card,
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "40",
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    ...Platform.select({
+      ios: {
+        shadowColor: GlowColors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+    }),
+    elevation: 3,
   },
   profileTopAccent: {
     height: 3,
+    backgroundColor: GlowColors.primary,
   },
   profileContent: {
     flexDirection: "row",
@@ -1845,12 +1855,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
     borderWidth: 2,
-    borderColor: Colors.dark.primary + "60",
+    borderColor: GlowColors.primary + "40",
   },
   profileInitial: {
     fontSize: 22,
     fontWeight: "700",
-    color: Colors.dark.primary,
+    color: GlowColors.primary,
   },
   profileInfo: {
     flex: 1,
@@ -1900,17 +1910,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "rgba(20, 20, 20, 0.85)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     gap: Spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    ...Platform.select({
+      ios: {
+        shadowColor: GlowColors.shadow,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+    }),
+    elevation: 2,
   },
   settingRowDivider: {
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     marginVertical: Spacing.md,
   },
   subsectionLabel: {
@@ -1926,13 +1945,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "rgba(20, 20, 20, 0.85)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     gap: Spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    ...Platform.select({
+      ios: {
+        shadowColor: GlowColors.shadow,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+    }),
+    elevation: 2,
   },
   settingInfo: {
     flex: 1,
@@ -1944,9 +1972,11 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: BorderRadius.sm,
-    backgroundColor: "rgba(0, 212, 255, 0.12)",
+    backgroundColor: "rgba(0, 212, 255, 0.1)",
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 255, 0.2)",
   },
   settingLabel: {
     fontSize: Typography.body.fontSize,
@@ -1968,12 +1998,12 @@ const styles = StyleSheet.create({
     right: -4,
     bottom: -4,
     borderRadius: 20,
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
     ...Platform.select({
       ios: {
-        shadowColor: Colors.dark.primary,
+        shadowColor: GlowColors.primary,
         shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.8,
+        shadowOpacity: 0.35,
         shadowRadius: 8,
       },
     }),
@@ -1986,13 +2016,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.sm,
-    backgroundColor: "rgba(60, 60, 60, 0.5)",
+    backgroundColor: Backgrounds.surface,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   optionButtonActive: {
-    backgroundColor: Colors.dark.primary + "30",
-    borderColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary + "20",
+    borderColor: GlowColors.primary,
   },
   optionButtonText: {
     fontSize: Typography.body.fontSize,
@@ -2000,7 +2030,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   optionButtonTextActive: {
-    color: Colors.dark.primary,
+    color: GlowColors.primary,
     fontWeight: "700",
   },
   weekButtons: {
@@ -2011,15 +2041,15 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(60, 60, 60, 0.5)",
+    backgroundColor: Backgrounds.surface,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   circleButtonActive: {
-    backgroundColor: Colors.dark.primary + "30",
-    borderColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary + "20",
+    borderColor: GlowColors.primary,
   },
   circleButtonText: {
     fontSize: Typography.body.fontSize,
@@ -2027,7 +2057,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   circleButtonTextActive: {
-    color: Colors.dark.primary,
+    color: GlowColors.primary,
     fontWeight: "700",
   },
   travelButtons: {
@@ -2038,22 +2068,22 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "rgba(60, 60, 60, 0.5)",
+    backgroundColor: Backgrounds.surface,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   smallCircleButtonActive: {
-    backgroundColor: Colors.dark.primary + "30",
-    borderColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary + "20",
+    borderColor: GlowColors.primary,
   },
   smallCircleButtonText: {
     fontSize: Typography.small.fontSize,
     color: Colors.dark.textMuted,
   },
   smallCircleButtonTextActive: {
-    color: Colors.dark.primary,
+    color: GlowColors.primary,
     fontWeight: "600",
   },
   addCourtButton: {
@@ -2067,12 +2097,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   emptyState: {
-    backgroundColor: "rgba(20, 20, 20, 0.85)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.xl,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
     borderStyle: "dashed",
   },
   emptyStateText: {
@@ -2112,9 +2142,9 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     overflow: "hidden",
     marginBottom: Spacing.sm,
-    backgroundColor: "rgba(20, 20, 20, 0.85)",
+    backgroundColor: Backgrounds.card,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   courtColorBar: {
     width: 4,
@@ -2158,20 +2188,25 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "rgba(0, 212, 255, 0.12)",
+    backgroundColor: "rgba(0, 212, 255, 0.1)",
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 255, 0.2)",
   },
   courtDeleteButton: {
-    backgroundColor: "rgba(255, 68, 68, 0.12)",
+    backgroundColor: "rgba(255, 77, 77, 0.1)",
+    borderColor: "rgba(255, 77, 77, 0.2)",
   },
   courtMoveButton: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   courtMoveButtonDisabled: {
     opacity: 0.3,
@@ -2203,11 +2238,11 @@ const styles = StyleSheet.create({
     color: Colors.dark.backgroundRoot,
   },
   infoCard: {
-    backgroundColor: "rgba(20, 20, 20, 0.85)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   infoRow: {
     flexDirection: "row",
@@ -2216,7 +2251,7 @@ const styles = StyleSheet.create({
   },
   infoRowDivider: {
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   infoLabel: {
     fontSize: Typography.body.fontSize,
@@ -2298,13 +2333,13 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   modalContent: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.lg,
     width: "100%",
     maxWidth: 340,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   modalAccent: {
     height: 3,
@@ -2319,7 +2354,7 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
   modalInput: {
-    backgroundColor: "rgba(60, 60, 60, 0.5)",
+    backgroundColor: Backgrounds.surface,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     fontSize: Typography.body.fontSize,
@@ -2327,7 +2362,7 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.lg,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   colorPickerLabel: {
     fontSize: 11,
@@ -2362,16 +2397,16 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     padding: Spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.05)",
+    borderTopColor: "rgba(255, 255, 255, 0.06)",
   },
   modalCancelButton: {
     flex: 1,
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
-    backgroundColor: "rgba(60, 60, 60, 0.5)",
+    backgroundColor: Backgrounds.surface,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   modalCancelText: {
     fontSize: Typography.body.fontSize,
@@ -2405,11 +2440,20 @@ const styles = StyleSheet.create({
   travelTimeCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(30, 30, 35, 0.8)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(0, 212, 255, 0.15)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    ...Platform.select({
+      ios: {
+        shadowColor: GlowColors.shadow,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+    }),
+    elevation: 2,
   },
   travelTimeInfo: {
     flex: 1,
@@ -2472,12 +2516,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
-    backgroundColor: "rgba(60, 60, 60, 0.5)",
+    backgroundColor: Backgrounds.surface,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   locationOptionSelected: {
-    backgroundColor: Colors.dark.gold + "30",
+    backgroundColor: Colors.dark.gold + "20",
     borderColor: Colors.dark.gold,
   },
   locationOptionText: {
@@ -2492,15 +2536,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
-    backgroundColor: "rgba(60, 60, 60, 0.5)",
+    backgroundColor: Backgrounds.surface,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
     minWidth: 60,
     alignItems: "center",
   },
   travelTimeOptionSelected: {
-    backgroundColor: Colors.dark.xpCyan + "30",
-    borderColor: Colors.dark.xpCyan,
+    backgroundColor: FunctionColors.info + "20",
+    borderColor: FunctionColors.info,
   },
   travelTimeOptionText: {
     fontSize: 13,
@@ -2508,7 +2552,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   travelTimeOptionTextSelected: {
-    color: Colors.dark.xpCyan,
+    color: FunctionColors.info,
   },
   courtPickerScroll: {
     maxHeight: 120,

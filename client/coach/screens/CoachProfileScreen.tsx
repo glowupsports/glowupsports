@@ -58,14 +58,21 @@ function StatBadge({
   color: string;
 }) {
   return (
-    <View style={[styles.statCard, { borderColor: color + "30" }]}>
-      <View style={styles.statCardInner}>
-        <View style={[styles.statIconBadge, { backgroundColor: color + "20" }]}>
-          <Ionicons name={icon} size={22} color={color} />
+    <View style={styles.statCard}>
+      <LinearGradient
+        colors={["rgba(255, 255, 255, 0.02)", "transparent"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.fieldGradient}
+      >
+        <View style={styles.statCardInner}>
+          <View style={[styles.statIconBadge, { backgroundColor: color + "20" }]}>
+            <Ionicons name={icon} size={22} color={color} />
+          </View>
+          <Text style={styles.statValue}>{value}</Text>
+          <Text style={styles.statLabel}>{label}</Text>
         </View>
-        <Text style={styles.statValue}>{value}</Text>
-        <Text style={styles.statLabel}>{label}</Text>
-      </View>
+      </LinearGradient>
     </View>
   );
 }
@@ -345,96 +352,131 @@ export default function CoachProfileScreen() {
           <Text style={styles.sectionTitle}>PERSONAL INFORMATION</Text>
           
           <View style={styles.field}>
-            <View style={styles.fieldInner}>
-              <Text style={styles.fieldLabel}>Name</Text>
-              {isEditing ? (
-                <TextInput
-                  style={styles.input}
-                  value={formData.name}
-                  onChangeText={(text) => setFormData({ ...formData, name: text })}
-                  placeholder="Enter name"
-                  placeholderTextColor={Colors.dark.textMuted}
-                />
-              ) : (
-                <Text style={styles.fieldValue}>{profile?.name || "Not set"}</Text>
-              )}
-            </View>
+            <LinearGradient
+              colors={["rgba(255, 255, 255, 0.02)", "transparent"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={styles.fieldGradient}
+            >
+              <View style={styles.fieldInner}>
+                <Text style={styles.fieldLabel}>Name</Text>
+                {isEditing ? (
+                  <TextInput
+                    style={styles.input}
+                    value={formData.name}
+                    onChangeText={(text) => setFormData({ ...formData, name: text })}
+                    placeholder="Enter name"
+                    placeholderTextColor={Colors.dark.textMuted}
+                  />
+                ) : (
+                  <Text style={styles.fieldValue}>{profile?.name || "Not set"}</Text>
+                )}
+              </View>
+            </LinearGradient>
           </View>
 
           <View style={styles.field}>
-            <View style={styles.fieldInner}>
-              <Text style={styles.fieldLabel}>Email</Text>
-              {isEditing ? (
-                <TextInput
-                  style={styles.input}
-                  value={formData.email || ""}
-                  onChangeText={(text) => setFormData({ ...formData, email: text })}
-                  placeholder="Enter email"
-                  placeholderTextColor={Colors.dark.textMuted}
-                  keyboardType="email-address"
-                />
-              ) : (
-                <Text style={styles.fieldValue}>{profile?.email || "Not set"}</Text>
-              )}
-            </View>
+            <LinearGradient
+              colors={["rgba(255, 255, 255, 0.02)", "transparent"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={styles.fieldGradient}
+            >
+              <View style={styles.fieldInner}>
+                <Text style={styles.fieldLabel}>Email</Text>
+                {isEditing ? (
+                  <TextInput
+                    style={styles.input}
+                    value={formData.email || ""}
+                    onChangeText={(text) => setFormData({ ...formData, email: text })}
+                    placeholder="Enter email"
+                    placeholderTextColor={Colors.dark.textMuted}
+                    keyboardType="email-address"
+                  />
+                ) : (
+                  <Text style={styles.fieldValue}>{profile?.email || "Not set"}</Text>
+                )}
+              </View>
+            </LinearGradient>
           </View>
 
           <View style={styles.field}>
-            <View style={styles.fieldInner}>
-              <Text style={styles.fieldLabel}>Phone</Text>
-              {isEditing ? (
-                <TextInput
-                  style={styles.input}
-                  value={formData.phone || ""}
-                  onChangeText={(text) => setFormData({ ...formData, phone: text })}
-                  placeholder="Enter phone"
-                  placeholderTextColor={Colors.dark.textMuted}
-                  keyboardType="phone-pad"
-                />
-              ) : (
-                <Text style={styles.fieldValue}>{profile?.phone || "Not set"}</Text>
-              )}
-            </View>
+            <LinearGradient
+              colors={["rgba(255, 255, 255, 0.02)", "transparent"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={styles.fieldGradient}
+            >
+              <View style={styles.fieldInner}>
+                <Text style={styles.fieldLabel}>Phone</Text>
+                {isEditing ? (
+                  <TextInput
+                    style={styles.input}
+                    value={formData.phone || ""}
+                    onChangeText={(text) => setFormData({ ...formData, phone: text })}
+                    placeholder="Enter phone"
+                    placeholderTextColor={Colors.dark.textMuted}
+                    keyboardType="phone-pad"
+                  />
+                ) : (
+                  <Text style={styles.fieldValue}>{profile?.phone || "Not set"}</Text>
+                )}
+              </View>
+            </LinearGradient>
           </View>
 
           <View style={styles.field}>
-            <View style={styles.fieldInner}>
-              <Text style={styles.fieldLabel}>Specialty</Text>
-              {isEditing ? (
-                <TextInput
-                  style={styles.input}
-                  value={formData.specialty || ""}
-                  onChangeText={(text) => setFormData({ ...formData, specialty: text })}
-                  placeholder="e.g., Youth coaching, Advanced technique"
-                  placeholderTextColor={Colors.dark.textMuted}
-                />
-              ) : (
-                <Text style={styles.fieldValue}>{profile?.specialty || "Not set"}</Text>
-              )}
-            </View>
+            <LinearGradient
+              colors={["rgba(255, 255, 255, 0.02)", "transparent"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={styles.fieldGradient}
+            >
+              <View style={styles.fieldInner}>
+                <Text style={styles.fieldLabel}>Specialty</Text>
+                {isEditing ? (
+                  <TextInput
+                    style={styles.input}
+                    value={formData.specialty || ""}
+                    onChangeText={(text) => setFormData({ ...formData, specialty: text })}
+                    placeholder="e.g., Youth coaching, Advanced technique"
+                    placeholderTextColor={Colors.dark.textMuted}
+                  />
+                ) : (
+                  <Text style={styles.fieldValue}>{profile?.specialty || "Not set"}</Text>
+                )}
+              </View>
+            </LinearGradient>
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>BIO</Text>
           <View style={styles.field}>
-            <View style={styles.fieldInner}>
-              {isEditing ? (
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  value={formData.bio || ""}
-                  onChangeText={(text) => setFormData({ ...formData, bio: text })}
-                  placeholder="Tell us about yourself..."
-                  placeholderTextColor={Colors.dark.textMuted}
-                  multiline
-                  numberOfLines={4}
-                />
-              ) : (
-                <Text style={styles.fieldValue}>
-                  {profile?.bio || "No bio added yet"}
-                </Text>
-              )}
-            </View>
+            <LinearGradient
+              colors={["rgba(255, 255, 255, 0.02)", "transparent"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={styles.fieldGradient}
+            >
+              <View style={styles.fieldInner}>
+                {isEditing ? (
+                  <TextInput
+                    style={[styles.input, styles.textArea]}
+                    value={formData.bio || ""}
+                    onChangeText={(text) => setFormData({ ...formData, bio: text })}
+                    placeholder="Tell us about yourself..."
+                    placeholderTextColor={Colors.dark.textMuted}
+                    multiline
+                    numberOfLines={4}
+                  />
+                ) : (
+                  <Text style={styles.fieldValue}>
+                    {profile?.bio || "No bio added yet"}
+                  </Text>
+                )}
+              </View>
+            </LinearGradient>
           </View>
         </View>
 
@@ -473,15 +515,22 @@ export default function CoachProfileScreen() {
 
           {profile?.hourlyRate ? (
             <View style={styles.rateCard}>
-              <View style={styles.rateCardInner}>
-                <View style={[styles.statIconBadge, { backgroundColor: Colors.dark.gold + "20" }]}>
-                  <Ionicons name="cash-outline" size={22} color={Colors.dark.gold} />
+              <LinearGradient
+                colors={["rgba(255, 255, 255, 0.02)", "transparent"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
+                style={styles.fieldGradient}
+              >
+                <View style={styles.rateCardInner}>
+                  <View style={[styles.statIconBadge, { backgroundColor: Colors.dark.gold + "20" }]}>
+                    <Ionicons name="cash-outline" size={22} color={Colors.dark.gold} />
+                  </View>
+                  <View>
+                    <Text style={styles.rateValue}>${profile.hourlyRate}/hr</Text>
+                    <Text style={styles.rateLabel}>Hourly Rate</Text>
+                  </View>
                 </View>
-                <View>
-                  <Text style={styles.rateValue}>${profile.hourlyRate}/hr</Text>
-                  <Text style={styles.rateLabel}>Hourly Rate</Text>
-                </View>
-              </View>
+              </LinearGradient>
             </View>
           ) : null}
         </View>
@@ -570,7 +619,8 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "30",
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   profileCardGradient: {
     padding: Spacing.xl,
@@ -646,11 +696,15 @@ const styles = StyleSheet.create({
   field: {
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: Colors.dark.primary + "20",
+    borderColor: "rgba(255, 255, 255, 0.06)",
     overflow: "hidden",
+    backgroundColor: Backgrounds.card,
+  },
+  fieldGradient: {
+    flex: 1,
   },
   fieldInner: {
-    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    backgroundColor: Backgrounds.card,
     padding: Spacing.md,
   },
   fieldLabel: {
@@ -681,10 +735,12 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
     overflow: "hidden",
+    backgroundColor: Backgrounds.card,
   },
   statCardInner: {
-    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    backgroundColor: Backgrounds.card,
     padding: Spacing.lg,
     alignItems: "center",
     gap: Spacing.sm,
@@ -710,14 +766,15 @@ const styles = StyleSheet.create({
   rateCard: {
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: Colors.dark.gold + "30",
+    borderColor: "rgba(255, 255, 255, 0.06)",
     overflow: "hidden",
+    backgroundColor: Backgrounds.card,
   },
   rateCardInner: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    backgroundColor: Backgrounds.card,
     padding: Spacing.lg,
   },
   rateValue: {
