@@ -42,6 +42,10 @@ export type AdminStackParamList = {
   AdminLocations: undefined;
   AdminSubscriptions: undefined;
   AdminRolesPermissions: undefined;
+  AdminCoaches: undefined;
+  AdminPlayers: undefined;
+  AdminClasses: undefined;
+  AdminReports: undefined;
 };
 
 const Tab = createBottomTabNavigator<AdminTabParamList>();
@@ -237,7 +241,8 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     position: "absolute",
-    borderTopWidth: 0,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 133, 27, 0.15)",
     elevation: 0,
     backgroundColor: "transparent",
     height: 85,
@@ -248,10 +253,11 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   androidTabBackground: {
-    backgroundColor: "rgba(18, 18, 18, 0.95)",
+    backgroundColor: "rgba(11, 13, 16, 0.98)",
   },
   tabLabel: {
     fontSize: 10,
-    fontWeight: "500",
+    fontWeight: "600",
+    letterSpacing: 0.3,
   },
 });

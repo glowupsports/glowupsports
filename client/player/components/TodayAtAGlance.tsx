@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { ProTennisColors, Spacing, BorderRadius } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
@@ -115,8 +115,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 11,
     fontWeight: "700",
-    color: ProTennisColors.textMuted,
-    letterSpacing: 2,
+    color: "rgba(255, 255, 255, 0.5)",
+    letterSpacing: 2.5,
+    textTransform: "uppercase",
   },
   liveIndicator: {
     flexDirection: "row",
@@ -127,19 +128,19 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: ProTennisColors.electricGreen,
+    backgroundColor: GlowColors.primary,
   },
   liveText: {
     fontSize: 10,
     fontWeight: "600",
-    color: ProTennisColors.electricGreen,
+    color: GlowColors.primary,
     letterSpacing: 1,
   },
   card: {
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: ProTennisColors.surfaceElevated,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   itemsGrid: {
     padding: Spacing.md,
@@ -158,14 +159,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: ProTennisColors.midnightBlue + "60",
+    backgroundColor: Backgrounds.root + "60",
   },
   itemContent: {
     flex: 1,
   },
   itemLabel: {
     fontSize: 11,
-    color: ProTennisColors.textMuted,
+    color: "rgba(255, 255, 255, 0.5)",
   },
   itemValue: {
     fontSize: 13,

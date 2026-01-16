@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl }
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ProTennisColors, Spacing } from "@/constants/theme";
+import { ProTennisColors, Spacing, Backgrounds, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePlayerDrawer } from "@/player/navigation/PlayerNavigator";
 import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
@@ -62,10 +62,10 @@ function BroadcastBackground() {
   return (
     <View style={styles.backgroundContainer}>
       <Svg style={StyleSheet.absoluteFill} preserveAspectRatio="none">
-        <Rect x="0" y="0" width="100%" height="100%" fill={ProTennisColors.midnightBlue} />
-        <Line x1="0" y1="25%" x2="100%" y2="25%" stroke={ProTennisColors.electricGreen} strokeWidth="0.5" opacity="0.02" />
-        <Line x1="0" y1="50%" x2="100%" y2="50%" stroke={ProTennisColors.electricGreen} strokeWidth="0.5" opacity="0.02" />
-        <Line x1="0" y1="75%" x2="100%" y2="75%" stroke={ProTennisColors.electricGreen} strokeWidth="0.5" opacity="0.02" />
+        <Rect x="0" y="0" width="100%" height="100%" fill={Backgrounds.root} />
+        <Line x1="0" y1="25%" x2="100%" y2="25%" stroke={GlowColors.primary} strokeWidth="0.5" opacity="0.015" />
+        <Line x1="0" y1="50%" x2="100%" y2="50%" stroke={GlowColors.primary} strokeWidth="0.5" opacity="0.015" />
+        <Line x1="0" y1="75%" x2="100%" y2="75%" stroke={GlowColors.primary} strokeWidth="0.5" opacity="0.015" />
       </Svg>
     </View>
   );
@@ -219,7 +219,7 @@ export default function ProPlayerHomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: ProTennisColors.midnightBlue,
+    backgroundColor: Backgrounds.root,
   },
   loadingContainer: {
     justifyContent: "center",
@@ -249,9 +249,10 @@ const styles = StyleSheet.create({
   discoverySectionTitle: {
     fontSize: 11,
     fontWeight: "700",
-    color: ProTennisColors.textMuted,
-    letterSpacing: 2,
+    color: "rgba(255, 255, 255, 0.5)",
+    letterSpacing: 2.5,
     paddingHorizontal: Spacing.lg,
     marginBottom: -Spacing.sm,
+    textTransform: "uppercase",
   },
 });

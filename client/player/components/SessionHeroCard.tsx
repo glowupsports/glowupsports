@@ -582,12 +582,12 @@ export function SessionHeroCard({
     );
   }
 
-  if (sessionStatus === "none_placeholder_for_old_code") {
+  if (false as boolean) {
     return (
       <GlassCard variant="hero" style={styles.heroCard}>
         <View style={styles.noSessionContent}>
           <View style={styles.openDayHeader}>
-            <View style={styles.openDayIconContainerOld}>
+            <View style={styles.openDayIconContainer}>
               <Feather name="sun" size={32} color={ProTennisColors.electricGreen} />
             </View>
             <View style={styles.openDayTextContainer}>
@@ -2102,7 +2102,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     marginBottom: Spacing.lg,
     borderWidth: 1,
-    borderColor: ProTennisColors.cardBorder,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   policySectionTitle: {
     ...Typography.small,
@@ -2130,7 +2130,7 @@ const styles = StyleSheet.create({
   policyRuleTitle: {
     ...Typography.small,
     fontWeight: "600",
-    color: ProTennisColors.text,
+    color: "#FFFFFF",
   },
   policyRuleDesc: {
     ...Typography.small,
