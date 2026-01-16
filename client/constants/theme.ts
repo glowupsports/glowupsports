@@ -1,135 +1,263 @@
 import { Platform } from "react-native";
 
+// ============================================
+// GLOW UP SPORTS - MASTER DESIGN TOKENS v2.0
+// ============================================
+
+// Premium Background System
+export const Backgrounds = {
+  root: "#0B0D10",        // Main app background - deepest
+  card: "#11141A",        // Cards, panels
+  elevated: "#171B22",    // Modals, sheets, drawers
+  surface: "#1F2430",     // Borders, dividers, subtle surfaces
+  overlay: "rgba(0, 0, 0, 0.6)", // Modal overlays
+  glass: "rgba(17, 20, 26, 0.85)", // Glass effect base
+};
+
+// Premium Text Hierarchy
+export const TextColors = {
+  primary: "#FFFFFF",     // Titles, important values
+  secondary: "#B8BCC6",   // Labels, descriptions
+  muted: "#7C8290",       // Helper text, meta
+  disabled: "#4A4F5C",    // Inactive elements
+};
+
+// Glow Primary - The DNA of Glow Up
+export const GlowColors = {
+  primary: "#C8FF3D",     // XP, Level, Active, Primary CTA
+  soft: "#A6E92A",        // Subtle accents, hover
+  dark: "#7FB300",        // Pressed, muted glow
+  // Glow shadows
+  shadow: "rgba(200, 255, 61, 0.35)",
+  shadowSubtle: "rgba(200, 255, 61, 0.15)",
+};
+
+// Function Colors (1 meaning = 1 color)
+export const FunctionColors = {
+  planning: "#4DA3FF",      // Calendar, scheduling
+  planningMuted: "#2E6FB8",
+  social: "#FFB020",        // Messages, community
+  socialMuted: "#C8891A",
+  error: "#FF4D4D",         // Errors, destructive
+  errorMuted: "#C83838",
+  success: "#00E676",       // Completed, confirmed
+  successMuted: "#00B85C",
+  info: "#00D4FF",          // Neutral stats
+  infoMuted: "#00A8CC",
+};
+
+// Role-specific Accents
+export const RoleColors = {
+  player: "#C8FF3D",        // Glow primary
+  coach: "#C8FF3D",         // Glow primary + blue accents
+  coachSecondary: "#4DA3FF",
+  admin: "#FF851B",         // Orange professional
+  adminSecondary: "#E67700",
+  owner: "#FFD700",         // Gold exclusive
+  ownerSecondary: "#FFC000",
+};
+
+// Ball Level Colors
+export const BallLevelColors = {
+  blue: "#4FC3F7",
+  red: "#FF4D4D",
+  orange: "#FF851B",
+  green: "#C8FF3D",
+  yellow: "#FFD700",
+  glow: "#E040FB",
+};
+
+// Session Type Colors
+export const SessionColors = {
+  private: "#C8FF3D",
+  semiPrivate: "#00D4FF",
+  group: "#FFB020",
+  camp: "#9B59B6",
+  activity: "#7C8290",
+};
+
 // Pro Tennis "Midnight Grand Slam" palette for Player App
 export const ProTennisColors = {
   // Backgrounds - Deep midnight blue
-  midnightBlue: "#090E17",
-  surfaceDark: "#151B29",
+  midnightBlue: Backgrounds.root,
+  surfaceDark: Backgrounds.card,
   surfaceCard: "#1A2235",
-  surfaceElevated: "#202840",
+  surfaceElevated: Backgrounds.elevated,
   
   // Primary Accent - Electric Tennis Yellow/Green
-  electricGreen: "#CCFF00",
+  electricGreen: GlowColors.primary,
   electricGreenLight: "#DFFF40",
-  electricGreenMuted: "#99CC00",
+  electricGreenMuted: GlowColors.dark,
   
   // Secondary Accent - Neon Cyan for social/cold actions
-  neonCyan: "#00F0FF",
-  neonCyanMuted: "#00C4D4",
+  neonCyan: FunctionColors.info,
+  neonCyanMuted: FunctionColors.infoMuted,
   
   // Text
-  white: "#FFFFFF",
-  textPrimary: "#FFFFFF",
-  textSecondary: "#B8C5D6",
-  textMuted: "#7A8AA3",
+  white: TextColors.primary,
+  textPrimary: TextColors.primary,
+  textSecondary: TextColors.secondary,
+  textMuted: TextColors.muted,
   
   // Status Colors
-  success: "#00E676",
-  danger: "#FF3333",
-  warning: "#FFAB00",
-  live: "#FF3333",
+  success: FunctionColors.success,
+  danger: FunctionColors.error,
+  warning: FunctionColors.social,
+  live: FunctionColors.error,
   
   // Form/XP Bar
-  formBarFill: "#CCFF00",
-  formBarBackground: "#1A2235",
+  formBarFill: GlowColors.primary,
+  formBarBackground: Backgrounds.card,
   
   // Gradients
-  gradientElectric: ["#CCFF00", "#DFFF40"],
-  gradientMidnight: ["#090E17", "#151B29"],
+  gradientElectric: [GlowColors.primary, "#DFFF40"],
+  gradientMidnight: [Backgrounds.root, Backgrounds.card],
   gradientCard: ["rgba(26, 34, 53, 0.95)", "rgba(21, 27, 41, 0.98)"],
-  gradientGlow: ["rgba(204, 255, 0, 0.15)", "rgba(204, 255, 0, 0.02)"],
+  gradientGlow: ["rgba(200, 255, 61, 0.15)", "rgba(200, 255, 61, 0.02)"],
 };
 
 export const Colors = {
   light: {
-    text: "#ECEDEE",
-    buttonText: "#FFFFFF",
-    tabIconDefault: "#9BA1A6",
-    tabIconSelected: "#2ECC40",
-    link: "#2ECC40",
-    backgroundRoot: "#1A1A1A",
-    backgroundDefault: "#2D2D2D",
-    backgroundSecondary: "#353739",
-    backgroundTertiary: "#404244",
-    primary: "#2ECC40",
-    gold: "#FFD700",
-    orange: "#FF851B",
-    xpCyan: "#00D4FF",
+    text: TextColors.primary,
+    textMuted: TextColors.secondary,
+    textSubtle: TextColors.muted,
+    textSecondary: TextColors.secondary,
+    buttonText: "#000000",
+    border: "rgba(255, 255, 255, 0.15)",
+    tabIconDefault: TextColors.muted,
+    tabIconSelected: GlowColors.primary,
+    link: GlowColors.primary,
+    backgroundRoot: Backgrounds.root,
+    backgroundDefault: Backgrounds.card,
+    backgroundSecondary: Backgrounds.elevated,
+    backgroundTertiary: Backgrounds.surface,
+    primary: GlowColors.primary,
+    gold: RoleColors.owner,
+    orange: RoleColors.admin,
+    xpCyan: FunctionColors.info,
     diamondSilver: "#E0E0E0",
     bronzeCoin: "#CD7F32",
-    successNeon: "#39FF14",
-    error: "#FF4444",
-    disabled: "#666666",
-    headerBorder: "rgba(46, 204, 64, 0.3)",
-    // Player ball level colors
-    ballBlue: "#4FC3F7",
-    ballRed: "#FF4444",
-    ballOrange: "#FF851B",
-    ballGreen: "#2ECC40",
-    ballYellow: "#FFD700",
-    ballGlow: "#E040FB",
-    // 3-Level Color Hierarchy
-    // Level 1: Primary Glow (CTA, active, focus) - bright, prominent
-    primaryGlow: "#3DDB52",
-    primaryGlowLight: "#50E865",
-    // Level 2: Soft Status (info, metrics) - muted, restful
-    softStatus: "#28A745",
-    softStatusMuted: "#1E7A34",
-    // Level 3: Accent (rare, warnings, errors)
-    accentWarning: "#FFD700",
-    accentError: "#FF4444",
-    accentInfo: "#00D4FF",
+    successNeon: FunctionColors.success,
+    error: FunctionColors.error,
+    disabled: TextColors.disabled,
+    headerBorder: "rgba(200, 255, 61, 0.2)",
+    // Ball level colors
+    ballBlue: BallLevelColors.blue,
+    ballRed: BallLevelColors.red,
+    ballOrange: BallLevelColors.orange,
+    ballGreen: BallLevelColors.green,
+    ballYellow: BallLevelColors.yellow,
+    ballGlow: BallLevelColors.glow,
+    // Glow hierarchy
+    primaryGlow: GlowColors.primary,
+    primaryGlowLight: GlowColors.soft,
+    glowSoft: GlowColors.soft,
+    glowDark: GlowColors.dark,
+    // Status colors
+    softStatus: FunctionColors.success,
+    softStatusMuted: FunctionColors.successMuted,
+    accentWarning: FunctionColors.social,
+    accentError: FunctionColors.error,
+    accentInfo: FunctionColors.info,
+    // Planning
+    planning: FunctionColors.planning,
+    planningMuted: FunctionColors.planningMuted,
+    // Social
+    social: FunctionColors.social,
+    socialMuted: FunctionColors.socialMuted,
+    // Session types
+    sessionPrivate: SessionColors.private,
+    sessionSemiPrivate: SessionColors.semiPrivate,
+    sessionGroup: SessionColors.group,
+    sessionPhysical: SessionColors.camp,
+    sessionActivity: SessionColors.activity,
+    // Role colors
+    rolePlayer: RoleColors.player,
+    roleCoach: RoleColors.coach,
+    roleAdmin: RoleColors.admin,
+    roleOwner: RoleColors.owner,
+    // Glass effect
+    glass: Backgrounds.glass,
+    overlay: Backgrounds.overlay,
+    // Warning
+    warning: FunctionColors.social,
+    // Legacy compatibility
+    green: FunctionColors.success,
+    red: FunctionColors.error,
+    cyan: FunctionColors.info,
+    surface: Backgrounds.surface,
+    accentOrange: RoleColors.adminSecondary,
   },
   dark: {
-    text: "#FFFFFF",
-    textMuted: "#D0D4D8",
-    textSubtle: "#B8BCC2",
-    textSecondary: "#C8CCD0",
-    buttonText: "#FFFFFF",
+    text: TextColors.primary,
+    textMuted: TextColors.secondary,
+    textSubtle: TextColors.muted,
+    textSecondary: TextColors.secondary,
+    buttonText: "#000000",
     border: "rgba(255, 255, 255, 0.15)",
-    tabIconDefault: "#C8CCD0",
-    tabIconSelected: "#2ECC40",
-    link: "#2ECC40",
-    backgroundRoot: "#1A1A1A",
-    backgroundDefault: "#2D2D2D",
-    backgroundSecondary: "#353739",
-    backgroundTertiary: "#404244",
-    primary: "#2ECC40",
-    gold: "#FFD700",
-    orange: "#FF851B",
-    xpCyan: "#00D4FF",
+    tabIconDefault: TextColors.muted,
+    tabIconSelected: GlowColors.primary,
+    link: GlowColors.primary,
+    backgroundRoot: Backgrounds.root,
+    backgroundDefault: Backgrounds.card,
+    backgroundSecondary: Backgrounds.elevated,
+    backgroundTertiary: Backgrounds.surface,
+    primary: GlowColors.primary,
+    gold: RoleColors.owner,
+    orange: RoleColors.admin,
+    xpCyan: FunctionColors.info,
     diamondSilver: "#E0E0E0",
     bronzeCoin: "#CD7F32",
-    successNeon: "#39FF14",
-    error: "#FF4444",
-    disabled: "#A0A4A8",
-    headerBorder: "rgba(46, 204, 64, 0.3)",
-    // Player ball level colors
-    ballBlue: "#4FC3F7",
-    ballRed: "#FF4444",
-    ballOrange: "#FF851B",
-    ballGreen: "#2ECC40",
-    ballYellow: "#FFD700",
-    ballGlow: "#E040FB",
-    // 3-Level Color Hierarchy
-    // Level 1: Primary Glow (CTA, active, focus) - bright, prominent
-    primaryGlow: "#3DDB52",
-    primaryGlowLight: "#50E865",
-    // Level 2: Soft Status (info, metrics) - muted, restful
-    softStatus: "#28A745",
-    softStatusMuted: "#1E7A34",
-    // Level 3: Accent (rare, warnings, errors)
-    accentWarning: "#FFD700",
-    accentError: "#FF4444",
-    accentInfo: "#00D4FF",
-    // Session type colors
-    sessionPrivate: "#2ECC40",
-    sessionSemiPrivate: "#00D4FF",
-    sessionGroup: "#F39C12",
-    sessionPhysical: "#9B59B6",
-    sessionActivity: "#888888",
-    // Warning color for cancel/alert actions
-    warning: "#FF851B",
+    successNeon: FunctionColors.success,
+    error: FunctionColors.error,
+    disabled: TextColors.disabled,
+    headerBorder: "rgba(200, 255, 61, 0.2)",
+    // Ball level colors
+    ballBlue: BallLevelColors.blue,
+    ballRed: BallLevelColors.red,
+    ballOrange: BallLevelColors.orange,
+    ballGreen: BallLevelColors.green,
+    ballYellow: BallLevelColors.yellow,
+    ballGlow: BallLevelColors.glow,
+    // Glow hierarchy
+    primaryGlow: GlowColors.primary,
+    primaryGlowLight: GlowColors.soft,
+    glowSoft: GlowColors.soft,
+    glowDark: GlowColors.dark,
+    // Status colors
+    softStatus: FunctionColors.success,
+    softStatusMuted: FunctionColors.successMuted,
+    accentWarning: FunctionColors.social,
+    accentError: FunctionColors.error,
+    accentInfo: FunctionColors.info,
+    // Planning
+    planning: FunctionColors.planning,
+    planningMuted: FunctionColors.planningMuted,
+    // Social
+    social: FunctionColors.social,
+    socialMuted: FunctionColors.socialMuted,
+    // Session types
+    sessionPrivate: SessionColors.private,
+    sessionSemiPrivate: SessionColors.semiPrivate,
+    sessionGroup: SessionColors.group,
+    sessionPhysical: SessionColors.camp,
+    sessionActivity: SessionColors.activity,
+    // Role colors
+    rolePlayer: RoleColors.player,
+    roleCoach: RoleColors.coach,
+    roleAdmin: RoleColors.admin,
+    roleOwner: RoleColors.owner,
+    // Glass effect
+    glass: Backgrounds.glass,
+    overlay: Backgrounds.overlay,
+    // Warning
+    warning: FunctionColors.social,
+    // Legacy compatibility
+    green: FunctionColors.success,
+    red: FunctionColors.error,
+    cyan: FunctionColors.info,
+    surface: Backgrounds.surface,
+    accentOrange: RoleColors.adminSecondary,
   },
 };
 
@@ -137,19 +265,36 @@ export const Colors = {
 export function getPlayerLevelColor(ballLevel?: string | null): string {
   switch (ballLevel?.toLowerCase()) {
     case "blue":
-      return Colors.dark.ballBlue;
+      return BallLevelColors.blue;
     case "red":
-      return Colors.dark.ballRed;
+      return BallLevelColors.red;
     case "orange":
-      return Colors.dark.ballOrange;
+      return BallLevelColors.orange;
     case "green":
-      return Colors.dark.ballGreen;
+      return BallLevelColors.green;
     case "yellow":
-      return Colors.dark.ballYellow;
+      return BallLevelColors.yellow;
     case "glow":
-      return Colors.dark.ballGlow;
+      return BallLevelColors.glow;
     default:
-      return Colors.dark.primary; // Default green
+      return GlowColors.primary;
+  }
+}
+
+// Get role accent color
+export function getRoleColor(role?: string | null): string {
+  switch (role?.toLowerCase()) {
+    case "player":
+      return RoleColors.player;
+    case "coach":
+      return RoleColors.coach;
+    case "admin":
+    case "academy_owner":
+      return RoleColors.admin;
+    case "platform_owner":
+      return RoleColors.owner;
+    default:
+      return GlowColors.primary;
   }
 }
 
@@ -262,37 +407,116 @@ export const Typography = {
   },
 };
 
-// Card depth and elevation styles (using background colors, not shadows per design guidelines)
+// Premium Card Styles
 export const CardStyles = {
-  // Base card with subtle depth via border highlights
-  elevated: {
-    backgroundColor: Colors.dark.backgroundDefault,
+  // Base card - subtle elevation
+  base: {
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
-    borderTopColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
-  // Premium card with glow effect via border (no shadows)
-  glowCard: {
-    backgroundColor: Colors.dark.backgroundDefault,
+  // Elevated card (modals, sheets)
+  elevated: {
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(46, 204, 64, 0.2)",
-    borderTopColor: "rgba(46, 204, 64, 0.25)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  // Premium glow card (selected, important)
+  glow: {
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(200, 255, 61, 0.3)",
+  },
+  // Glass effect card
+  glass: {
+    backgroundColor: Backgrounds.glass,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   // Interactive card (pressable)
   interactive: {
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.03)",
+    borderColor: "rgba(255, 255, 255, 0.04)",
   },
-  // Status card (metrics, stats)
-  statusCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+  // Legacy compatibility
+  glowCard: {
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.02)",
+    borderColor: "rgba(200, 255, 61, 0.2)",
+    borderTopColor: "rgba(200, 255, 61, 0.25)",
+  },
+  statusCard: {
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.04)",
+  },
+};
+
+// Premium Shadow Presets
+export const Shadows = {
+  // No shadow (flat)
+  none: {
+    shadowColor: "transparent",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  // Subtle shadow
+  subtle: {
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  // Medium shadow
+  medium: {
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  // Glow shadow (primary accent)
+  glow: {
+    shadowColor: GlowColors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  // Subtle glow
+  glowSubtle: {
+    shadowColor: GlowColors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  // Admin glow (orange)
+  glowAdmin: {
+    shadowColor: RoleColors.admin,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  // Error glow
+  glowError: {
+    shadowColor: FunctionColors.error,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 5,
   },
 };
 
@@ -301,11 +525,61 @@ export const Gradients = {
   // Subtle card gradient (top to bottom)
   cardSubtle: ["rgba(255, 255, 255, 0.03)", "rgba(0, 0, 0, 0.02)"],
   // Primary glow gradient
-  primaryGlow: ["rgba(46, 204, 64, 0.15)", "rgba(46, 204, 64, 0.05)"],
+  primaryGlow: ["rgba(200, 255, 61, 0.15)", "rgba(200, 255, 61, 0.02)"],
+  // Admin glow gradient
+  adminGlow: ["rgba(255, 133, 27, 0.15)", "rgba(255, 133, 27, 0.02)"],
   // Status gradient (muted green)
-  statusMuted: ["rgba(40, 167, 69, 0.12)", "rgba(40, 167, 69, 0.04)"],
+  statusMuted: ["rgba(0, 230, 118, 0.12)", "rgba(0, 230, 118, 0.04)"],
   // Dark fade
-  darkFade: ["rgba(26, 26, 26, 0)", "rgba(26, 26, 26, 0.95)"],
+  darkFade: [Backgrounds.root, "rgba(11, 13, 16, 0)"],
+  // Glass overlay
+  glassOverlay: ["rgba(17, 20, 26, 0.9)", "rgba(17, 20, 26, 0.7)"],
+  // Hero glow (for epic screens)
+  heroGlow: ["rgba(200, 255, 61, 0.2)", "rgba(200, 255, 61, 0.05)", "transparent"],
+};
+
+// Button Style Presets
+export const ButtonStyles = {
+  // Primary CTA - Glow
+  primary: {
+    backgroundColor: GlowColors.primary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    ...Shadows.glow,
+  },
+  // Secondary - Outline
+  secondary: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+  },
+  // Ghost - Subtle
+  ghost: {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+  },
+  // Danger
+  danger: {
+    backgroundColor: FunctionColors.error,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    ...Shadows.glowError,
+  },
+  // Admin primary
+  admin: {
+    backgroundColor: RoleColors.admin,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    ...Shadows.glowAdmin,
+  },
 };
 
 export const Fonts = Platform.select({
