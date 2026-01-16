@@ -128,7 +128,7 @@ export default function AdminSeriesDetailDrawer({
   const [showRemoveDatePicker, setShowRemoveDatePicker] = useState(false);
   const [selectedSession, setSelectedSession] = useState<SessionInstance | null>(null);
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
-  const [attendanceState, setAttendanceState] = useState<Record<string, "present" | "absent" | "excused" | null>>({});
+  const [attendanceState, setAttendanceState] = useState<Record<string, "present" | "late" | "absent" | "holiday" | null>>({});
 
   const { data: series, isLoading } = useQuery<SeriesDetail>({
     queryKey: [`/api/admin/series/${seriesId}`],
@@ -817,7 +817,7 @@ export default function AdminSeriesDetailDrawer({
                   <Text style={styles.attendanceTitle}>Mark Attendance</Text>
                   {selectedSession ? (
                     <Text style={styles.attendanceSubtitle}>
-                      {formatDate(selectedSession.startTime)} - Week {selectedSession.weekNumber || "?"}
+                      {formatDate((selectedSession as any).date || selectedSession.startTime)} - Week {selectedSession.weekNumber || "?"}
                     </Text>
                   ) : null}
                 </View>
@@ -869,9 +869,31 @@ export default function AdminSeriesDetailDrawer({
                         >
                           <Ionicons 
                             name="checkmark" 
-                            size={20} 
+                            size={18} 
                             color={currentStatus === "present" ? "#000" : Colors.dark.green} 
                           />
+                          <Text style={[styles.attendanceBtnText, currentStatus === "present" && styles.attendanceBtnTextActive]}>
+                            Present
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          style={[
+                            styles.attendanceBtn,
+                            currentStatus === "late" && styles.attendanceBtnLate,
+                          ]}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setAttendanceState(prev => ({ ...prev, [player.id]: "late" }));
+                          }}
+                        >
+                          <Ionicons 
+                            name="time" 
+                            size={18} 
+                            color={currentStatus === "late" ? "#000" : ADMIN_COLOR} 
+                          />
+                          <Text style={[styles.attendanceBtnText, currentStatus === "late" && styles.attendanceBtnTextActive]}>
+                            Late
+                          </Text>
                         </Pressable>
                         <Pressable
                           style={[
@@ -885,25 +907,31 @@ export default function AdminSeriesDetailDrawer({
                         >
                           <Ionicons 
                             name="close" 
-                            size={20} 
+                            size={18} 
                             color={currentStatus === "absent" ? "#fff" : Colors.dark.red} 
                           />
+                          <Text style={[styles.attendanceBtnText, currentStatus === "absent" && { color: currentStatus === "absent" ? "#fff" : Colors.dark.red }]}>
+                            Absent
+                          </Text>
                         </Pressable>
                         <Pressable
                           style={[
                             styles.attendanceBtn,
-                            currentStatus === "excused" && styles.attendanceBtnExcused,
+                            currentStatus === "holiday" && styles.attendanceBtnHoliday,
                           ]}
                           onPress={() => {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            setAttendanceState(prev => ({ ...prev, [player.id]: "excused" }));
+                            setAttendanceState(prev => ({ ...prev, [player.id]: "holiday" }));
                           }}
                         >
                           <Ionicons 
-                            name="remove" 
-                            size={20} 
-                            color={currentStatus === "excused" ? "#000" : ADMIN_COLOR} 
+                            name="sunny" 
+                            size={18} 
+                            color={currentStatus === "holiday" ? "#000" : Colors.dark.xpCyan} 
                           />
+                          <Text style={[styles.attendanceBtnText, currentStatus === "holiday" && styles.attendanceBtnTextActive]}>
+                            Holiday
+                          </Text>
                         </Pressable>
                       </View>
                     </View>
@@ -1530,29 +1558,45 @@ const styles = StyleSheet.create({
   },
   attendanceButtons: {
     flexDirection: "row",
-    gap: Spacing.sm,
+    gap: Spacing.xs,
+    flexWrap: "wrap",
   },
   attendanceBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    flex: 1,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: Colors.dark.backgroundRoot,
+    gap: 4,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
     borderWidth: 1,
-    borderColor: Colors.dark.backgroundSecondary,
+    borderColor: "transparent",
+    minWidth: 70,
+  },
+  attendanceBtnText: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: Colors.dark.textMuted,
+  },
+  attendanceBtnTextActive: {
+    color: "#000",
   },
   attendanceBtnPresent: {
-    backgroundColor: Colors.dark.green,
+    backgroundColor: `${Colors.dark.green}30`,
     borderColor: Colors.dark.green,
   },
+  attendanceBtnLate: {
+    backgroundColor: `${ADMIN_COLOR}30`,
+    borderColor: ADMIN_COLOR,
+  },
   attendanceBtnAbsent: {
-    backgroundColor: Colors.dark.red,
+    backgroundColor: `${Colors.dark.red}30`,
     borderColor: Colors.dark.red,
   },
-  attendanceBtnExcused: {
-    backgroundColor: ADMIN_COLOR,
-    borderColor: ADMIN_COLOR,
+  attendanceBtnHoliday: {
+    backgroundColor: `${Colors.dark.xpCyan}30`,
+    borderColor: Colors.dark.xpCyan,
   },
   saveAttendanceBtn: {
     borderRadius: BorderRadius.md,
