@@ -838,8 +838,28 @@ export default function AdminSeriesDetailDrawer({
                   const existingAttendance = sessionAttendance.find((a: any) => a.playerId === player.id);
                   const currentStatus = attendanceState[player.id] ?? existingAttendance?.status ?? null;
                   
+                  const getStatusColor = (status: string) => {
+                    switch (status) {
+                      case "present": return Colors.dark.primary;
+                      case "late": return Colors.dark.orange;
+                      case "absent": return Colors.dark.error;
+                      case "holiday": return Colors.dark.xpCyan;
+                      default: return Colors.dark.disabled;
+                    }
+                  };
+                  
+                  const getStatusIcon = (status: string): keyof typeof Ionicons.glyphMap => {
+                    switch (status) {
+                      case "present": return "checkmark-circle";
+                      case "late": return "time";
+                      case "absent": return "close-circle";
+                      case "holiday": return "snow";
+                      default: return "ellipse-outline";
+                    }
+                  };
+                  
                   return (
-                    <View key={player.id} style={styles.attendancePlayerRow}>
+                    <View key={player.id} style={styles.attendancePlayerCard}>
                       <View style={styles.attendancePlayerInfo}>
                         <View style={[styles.attendancePlayerAvatar, { backgroundColor: `${ADMIN_COLOR}30` }]}>
                           <Text style={[styles.attendancePlayerInitial, { color: ADMIN_COLOR }]}>
@@ -848,91 +868,40 @@ export default function AdminSeriesDetailDrawer({
                         </View>
                         <View>
                           <Text style={styles.attendancePlayerName}>{player.name}</Text>
-                          {player.credits ? (
-                            <Text style={styles.attendancePlayerCredits}>
-                              Credits: {player.credits.group + player.credits.private + player.credits.semi_private}
-                              {player.credits.hasDebt ? ` (Debt: ${player.credits.totalDebt})` : ""}
-                            </Text>
-                          ) : null}
+                          <Text style={styles.attendancePlayerCredits}>
+                            Credits: {player.credits ? player.credits.group + player.credits.private + player.credits.semi_private : 0}
+                          </Text>
                         </View>
                       </View>
-                      <View style={styles.attendanceButtons}>
-                        <Pressable
-                          style={[
-                            styles.attendanceBtn,
-                            currentStatus === "present" && styles.attendanceBtnPresent,
-                          ]}
-                          onPress={() => {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            setAttendanceState(prev => ({ ...prev, [player.id]: "present" }));
-                          }}
-                        >
-                          <Ionicons 
-                            name="checkmark" 
-                            size={18} 
-                            color={currentStatus === "present" ? "#000" : Colors.dark.green} 
-                          />
-                          <Text style={[styles.attendanceBtnText, currentStatus === "present" && styles.attendanceBtnTextActive]}>
-                            Present
-                          </Text>
-                        </Pressable>
-                        <Pressable
-                          style={[
-                            styles.attendanceBtn,
-                            currentStatus === "late" && styles.attendanceBtnLate,
-                          ]}
-                          onPress={() => {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            setAttendanceState(prev => ({ ...prev, [player.id]: "late" }));
-                          }}
-                        >
-                          <Ionicons 
-                            name="time" 
-                            size={18} 
-                            color={currentStatus === "late" ? "#000" : ADMIN_COLOR} 
-                          />
-                          <Text style={[styles.attendanceBtnText, currentStatus === "late" && styles.attendanceBtnTextActive]}>
-                            Late
-                          </Text>
-                        </Pressable>
-                        <Pressable
-                          style={[
-                            styles.attendanceBtn,
-                            currentStatus === "absent" && styles.attendanceBtnAbsent,
-                          ]}
-                          onPress={() => {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            setAttendanceState(prev => ({ ...prev, [player.id]: "absent" }));
-                          }}
-                        >
-                          <Ionicons 
-                            name="close" 
-                            size={18} 
-                            color={currentStatus === "absent" ? "#fff" : Colors.dark.red} 
-                          />
-                          <Text style={[styles.attendanceBtnText, currentStatus === "absent" && { color: currentStatus === "absent" ? "#fff" : Colors.dark.red }]}>
-                            Absent
-                          </Text>
-                        </Pressable>
-                        <Pressable
-                          style={[
-                            styles.attendanceBtn,
-                            currentStatus === "holiday" && styles.attendanceBtnHoliday,
-                          ]}
-                          onPress={() => {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            setAttendanceState(prev => ({ ...prev, [player.id]: "holiday" }));
-                          }}
-                        >
-                          <Ionicons 
-                            name="sunny" 
-                            size={18} 
-                            color={currentStatus === "holiday" ? "#000" : Colors.dark.xpCyan} 
-                          />
-                          <Text style={[styles.attendanceBtnText, currentStatus === "holiday" && styles.attendanceBtnTextActive]}>
-                            Holiday
-                          </Text>
-                        </Pressable>
+                      <View style={styles.attendanceStatusRow}>
+                        {(["present", "late", "absent", "holiday"] as const).map((status) => (
+                          <Pressable
+                            key={status}
+                            style={[
+                              styles.attendanceStatusBtn,
+                              currentStatus === status && { 
+                                backgroundColor: getStatusColor(status) + "30", 
+                                borderColor: getStatusColor(status) 
+                              },
+                            ]}
+                            onPress={() => {
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                              setAttendanceState(prev => ({ ...prev, [player.id]: status }));
+                            }}
+                          >
+                            <Ionicons 
+                              name={getStatusIcon(status)}
+                              size={16} 
+                              color={currentStatus === status ? getStatusColor(status) : Colors.dark.disabled} 
+                            />
+                            <Text style={[
+                              styles.attendanceStatusText,
+                              currentStatus === status && { color: getStatusColor(status) },
+                            ]}>
+                              {status.charAt(0).toUpperCase() + status.slice(1)}
+                            </Text>
+                          </Pressable>
+                        ))}
                       </View>
                     </View>
                   );
@@ -1522,12 +1491,12 @@ const styles = StyleSheet.create({
     maxHeight: 400,
     marginBottom: Spacing.lg,
   },
-  attendancePlayerRow: {
-    flexDirection: "column",
+  attendancePlayerCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
     gap: Spacing.sm,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.backgroundRoot,
   },
   attendancePlayerInfo: {
     flexDirection: "row",
@@ -1554,12 +1523,11 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.textMuted,
   },
-  attendanceButtons: {
+  attendanceStatusRow: {
     flexDirection: "row",
     gap: Spacing.xs,
-    flexWrap: "wrap",
   },
-  attendanceBtn: {
+  attendanceStatusBtn: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
@@ -1570,31 +1538,11 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.05)",
     borderWidth: 1,
     borderColor: "transparent",
-    minWidth: 70,
   },
-  attendanceBtnText: {
-    fontSize: 11,
+  attendanceStatusText: {
+    fontSize: Typography.caption.fontSize,
     fontWeight: "500",
     color: Colors.dark.textMuted,
-  },
-  attendanceBtnTextActive: {
-    color: "#000",
-  },
-  attendanceBtnPresent: {
-    backgroundColor: `${Colors.dark.green}30`,
-    borderColor: Colors.dark.green,
-  },
-  attendanceBtnLate: {
-    backgroundColor: `${ADMIN_COLOR}30`,
-    borderColor: ADMIN_COLOR,
-  },
-  attendanceBtnAbsent: {
-    backgroundColor: `${Colors.dark.red}30`,
-    borderColor: Colors.dark.red,
-  },
-  attendanceBtnHoliday: {
-    backgroundColor: `${Colors.dark.xpCyan}30`,
-    borderColor: Colors.dark.xpCyan,
   },
   saveAttendanceBtn: {
     borderRadius: BorderRadius.md,
