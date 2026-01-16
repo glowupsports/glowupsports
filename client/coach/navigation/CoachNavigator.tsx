@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     borderTopWidth: 0,
     elevation: 0,
-    backgroundColor: Platform.OS === "web" ? "rgba(12, 12, 12, 0.98)" : "transparent",
+    backgroundColor: Platform.OS === "web" ? "rgba(11, 13, 16, 0.98)" : "transparent",
     height: 85,
     paddingTop: 8,
   },
@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   androidTabBackground: {
-    backgroundColor: "rgba(12, 12, 12, 0.98)",
+    backgroundColor: "rgba(11, 13, 16, 0.98)",
   },
   tabLabel: {
     fontSize: 10,

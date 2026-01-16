@@ -388,9 +388,9 @@ export default function AttendanceDrawer({
                     }}
                   >
                     <View style={styles.playerSelectInfo}>
-                      {(player.ballLevel || player.level) ? (
-                        <View style={[styles.levelBadge, { backgroundColor: getPlayerLevelColor(player.ballLevel ?? player.level ?? "green") }]}>
-                          <Text style={styles.levelText}>{player.ballLevel || player.level}</Text>
+                      {player.ballLevel ? (
+                        <View style={[styles.levelBadge, { backgroundColor: getPlayerLevelColor(player.ballLevel) }]}>
+                          <Text style={styles.levelText}>{player.ballLevel}</Text>
                         </View>
                       ) : null}
                       <Text style={styles.playerSelectName}>{player.name}</Text>

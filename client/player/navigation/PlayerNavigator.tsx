@@ -949,9 +949,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderTopWidth: 0,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(200, 255, 61, 0.15)",
     elevation: 0,
-    backgroundColor: Platform.OS === "web" ? "rgba(18, 18, 18, 0.95)" : "transparent",
+    backgroundColor: Platform.OS === "web" ? "rgba(11, 13, 16, 0.95)" : "transparent",
     height: 85,
     paddingTop: 8,
   },
@@ -960,7 +961,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   androidTabBackground: {
-    backgroundColor: "rgba(18, 18, 18, 0.95)",
+    backgroundColor: "rgba(11, 13, 16, 0.98)",
   },
   tabLabel: {
     fontSize: 10,

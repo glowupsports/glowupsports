@@ -66,7 +66,7 @@ interface Session {
   sessionType: string;
   ballLevel?: string | null;
   skillLevel?: number | null;
-  isRecurring?: boolean;
+  isRecurring?: boolean | null;
   paymentStatus?: string | null;
   status: string | null;
   players?: Player[];

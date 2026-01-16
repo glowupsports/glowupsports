@@ -9,7 +9,7 @@ import Animated, {
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius } from "@/constants/theme";
+import { Spacing, BorderRadius, Backgrounds } from "@/constants/theme";
 
 interface CardProps {
   elevation?: number;
@@ -30,17 +30,17 @@ const springConfig: WithSpringConfig = {
 
 const getBackgroundColorForElevation = (
   elevation: number,
-  theme: any,
+  _theme: any,
 ): string => {
   switch (elevation) {
     case 1:
-      return theme.backgroundDefault;
+      return Backgrounds.card;
     case 2:
-      return theme.backgroundSecondary;
+      return Backgrounds.elevated;
     case 3:
-      return theme.backgroundTertiary;
+      return Backgrounds.surface;
     default:
-      return theme.backgroundRoot;
+      return Backgrounds.root;
   }
 };
 
