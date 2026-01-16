@@ -126,6 +126,9 @@ export default function AdminSeriesDetailDrawer({
   const [removingPlayerId, setRemovingPlayerId] = useState<string | null>(null);
   const [removeDate, setRemoveDate] = useState<Date>(new Date());
   const [showRemoveDatePicker, setShowRemoveDatePicker] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<SessionInstance | null>(null);
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [attendanceState, setAttendanceState] = useState<Record<string, "present" | "absent" | "excused" | null>>({});
 
   const { data: series, isLoading } = useQuery<SeriesDetail>({
     queryKey: [`/api/admin/series/${seriesId}`],
@@ -215,9 +218,49 @@ export default function AdminSeriesDetailDrawer({
     },
   });
 
+  const { data: sessionAttendance = [] } = useQuery<any[]>({
+    queryKey: [`/api/admin/sessions/${selectedSession?.id}/attendance`],
+    enabled: !!selectedSession && showAttendanceModal,
+  });
+
+  const saveAttendanceMutation = useMutation({
+    mutationFn: async (attendance: { playerId: string; status: string }[]) => {
+      return apiRequest("POST", `/api/admin/sessions/${selectedSession?.id}/attendance`, { attendance });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/series/${seriesId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/series/${seriesId}/timeline`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/sessions/${selectedSession?.id}/attendance`] });
+      setShowAttendanceModal(false);
+      setSelectedSession(null);
+      setAttendanceState({});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
   const handleTabPress = (tabId: TabId) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveTab(tabId);
+  };
+
+  const handleSessionPress = (session: any) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSelectedSession(session);
+    setShowAttendanceModal(true);
+    setAttendanceState({});
+  };
+
+  const handleSaveAttendance = async () => {
+    const attendance = Object.entries(attendanceState)
+      .filter(([_, status]) => status !== null)
+      .map(([playerId, status]) => ({ playerId, status: status as string }));
+    
+    if (attendance.length > 0) {
+      saveAttendanceMutation.mutate(attendance);
+    } else {
+      setShowAttendanceModal(false);
+      setSelectedSession(null);
+    }
   };
 
   const handleDeleteSeries = async () => {
@@ -492,21 +535,29 @@ export default function AdminSeriesDetailDrawer({
                       <Text style={styles.emptyStateText}>No sessions yet</Text>
                     </View>
                   ) : (
-                    timeline.map((session: any, index: number) => (
-                      <Pressable key={session.id} style={styles.timelineItem}>
-                        <View style={[styles.timelineDot, { backgroundColor: session.status === "completed" ? Colors.dark.green : session.status === "cancelled" ? Colors.dark.red : Colors.dark.cyan }]} />
-                        <View style={styles.timelineContent}>
-                          <Text style={styles.timelineDate}>{formatDate(session.date)}</Text>
-                          <Text style={styles.timelineWeek}>Week {session.weekNumber}</Text>
-                        </View>
-                        <View style={[styles.timelineStatus, { backgroundColor: session.status === "completed" ? `${Colors.dark.green}20` : session.status === "cancelled" ? `${Colors.dark.red}20` : `${Colors.dark.cyan}20` }]}>
-                          <Text style={[styles.timelineStatusText, { color: session.status === "completed" ? Colors.dark.green : session.status === "cancelled" ? Colors.dark.red : Colors.dark.cyan }]}>
-                            {session.status}
-                          </Text>
-                          <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
-                        </View>
-                      </Pressable>
-                    ))
+                    timeline.map((session: any, index: number) => {
+                      const statusColor = session.status === "completed" ? Colors.dark.green : session.status === "cancelled" ? Colors.dark.red : session.status === "scheduled" ? ADMIN_COLOR : Colors.dark.cyan;
+                      const needsAttendance = session.status === "scheduled" && new Date(session.date) <= new Date();
+                      return (
+                        <Pressable 
+                          key={session.id} 
+                          style={[styles.timelineItem, needsAttendance && styles.timelineItemHighlight]}
+                          onPress={() => handleSessionPress(session)}
+                        >
+                          <View style={[styles.timelineDot, { backgroundColor: statusColor }]} />
+                          <View style={styles.timelineContent}>
+                            <Text style={styles.timelineDate}>{formatDate(session.date)}</Text>
+                            <Text style={styles.timelineWeek}>Week {session.weekNumber}</Text>
+                          </View>
+                          <View style={[styles.timelineStatus, { backgroundColor: `${statusColor}20` }]}>
+                            <Text style={[styles.timelineStatusText, { color: statusColor }]}>
+                              {needsAttendance ? "Needs Attendance" : session.status}
+                            </Text>
+                            <Ionicons name="chevron-forward" size={16} color={statusColor} />
+                          </View>
+                        </Pressable>
+                      );
+                    })
                   )}
                 </View>
               )}
@@ -736,6 +787,153 @@ export default function AdminSeriesDetailDrawer({
               </View>
             </Pressable>
           </Pressable>
+        </Modal>
+
+        <Modal
+          visible={showAttendanceModal}
+          animationType="slide"
+          transparent
+          onRequestClose={() => {
+            setShowAttendanceModal(false);
+            setSelectedSession(null);
+          }}
+        >
+          <View style={styles.attendanceOverlay}>
+            <Pressable 
+              style={styles.attendanceBackdrop} 
+              onPress={() => {
+                setShowAttendanceModal(false);
+                setSelectedSession(null);
+              }} 
+            />
+            <View style={[styles.attendanceContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+              <LinearGradient
+                colors={[`${ADMIN_COLOR}15`, "transparent"]}
+                style={styles.attendanceGlow}
+              />
+              
+              <View style={styles.attendanceHeader}>
+                <View>
+                  <Text style={styles.attendanceTitle}>Mark Attendance</Text>
+                  {selectedSession ? (
+                    <Text style={styles.attendanceSubtitle}>
+                      {formatDate(selectedSession.startTime)} - Week {selectedSession.weekNumber || "?"}
+                    </Text>
+                  ) : null}
+                </View>
+                <Pressable 
+                  onPress={() => {
+                    setShowAttendanceModal(false);
+                    setSelectedSession(null);
+                  }} 
+                  style={styles.attendanceCloseBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close" size={24} color="#FFFFFF" />
+                </Pressable>
+              </View>
+              
+              <ScrollView style={styles.attendanceList} showsVerticalScrollIndicator={false}>
+                {series?.players?.filter(p => p.status === "active").map((player) => {
+                  const existingAttendance = sessionAttendance.find((a: any) => a.playerId === player.id);
+                  const currentStatus = attendanceState[player.id] ?? existingAttendance?.status ?? null;
+                  
+                  return (
+                    <View key={player.id} style={styles.attendancePlayerRow}>
+                      <View style={styles.attendancePlayerInfo}>
+                        <View style={[styles.attendancePlayerAvatar, { backgroundColor: `${ADMIN_COLOR}30` }]}>
+                          <Text style={[styles.attendancePlayerInitial, { color: ADMIN_COLOR }]}>
+                            {player.name.charAt(0)}
+                          </Text>
+                        </View>
+                        <View>
+                          <Text style={styles.attendancePlayerName}>{player.name}</Text>
+                          {player.credits ? (
+                            <Text style={styles.attendancePlayerCredits}>
+                              Credits: {player.credits.group + player.credits.private + player.credits.semi_private}
+                              {player.credits.hasDebt ? ` (Debt: ${player.credits.totalDebt})` : ""}
+                            </Text>
+                          ) : null}
+                        </View>
+                      </View>
+                      <View style={styles.attendanceButtons}>
+                        <Pressable
+                          style={[
+                            styles.attendanceBtn,
+                            currentStatus === "present" && styles.attendanceBtnPresent,
+                          ]}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setAttendanceState(prev => ({ ...prev, [player.id]: "present" }));
+                          }}
+                        >
+                          <Ionicons 
+                            name="checkmark" 
+                            size={20} 
+                            color={currentStatus === "present" ? "#000" : Colors.dark.green} 
+                          />
+                        </Pressable>
+                        <Pressable
+                          style={[
+                            styles.attendanceBtn,
+                            currentStatus === "absent" && styles.attendanceBtnAbsent,
+                          ]}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setAttendanceState(prev => ({ ...prev, [player.id]: "absent" }));
+                          }}
+                        >
+                          <Ionicons 
+                            name="close" 
+                            size={20} 
+                            color={currentStatus === "absent" ? "#fff" : Colors.dark.red} 
+                          />
+                        </Pressable>
+                        <Pressable
+                          style={[
+                            styles.attendanceBtn,
+                            currentStatus === "excused" && styles.attendanceBtnExcused,
+                          ]}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setAttendanceState(prev => ({ ...prev, [player.id]: "excused" }));
+                          }}
+                        >
+                          <Ionicons 
+                            name="remove" 
+                            size={20} 
+                            color={currentStatus === "excused" ? "#000" : ADMIN_COLOR} 
+                          />
+                        </Pressable>
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+              
+              <Pressable
+                style={[styles.saveAttendanceBtn, saveAttendanceMutation.isPending && styles.saveAttendanceBtnDisabled]}
+                onPress={handleSaveAttendance}
+                disabled={saveAttendanceMutation.isPending}
+              >
+                <LinearGradient
+                  colors={[ADMIN_COLOR, Colors.dark.accentOrange]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.saveAttendanceGradient}
+                >
+                  {saveAttendanceMutation.isPending ? (
+                    <ActivityIndicator size="small" color="#000" />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark-circle" size={22} color="#000" />
+                      <Text style={styles.saveAttendanceText}>Save Attendance</Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </Pressable>
+            </View>
+          </View>
         </Modal>
       </View>
     </Modal>
@@ -1231,5 +1429,149 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.text,
     fontWeight: "600",
+  },
+  timelineItemHighlight: {
+    backgroundColor: `${ADMIN_COLOR}10`,
+    borderLeftWidth: 3,
+    borderLeftColor: ADMIN_COLOR,
+  },
+  attendanceOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    zIndex: 9999,
+  },
+  attendanceBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    zIndex: 1,
+  },
+  attendanceContent: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: `${ADMIN_COLOR}30`,
+    borderBottomWidth: 0,
+    zIndex: 10,
+    maxHeight: "80%",
+  },
+  attendanceGlow: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 100,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+  },
+  attendanceHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.lg,
+  },
+  attendanceTitle: {
+    ...Typography.h2,
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+  attendanceSubtitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
+  },
+  attendanceCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: `${Colors.dark.surface}80`,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attendanceList: {
+    maxHeight: 400,
+    marginBottom: Spacing.lg,
+  },
+  attendancePlayerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundRoot,
+  },
+  attendancePlayerInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    flex: 1,
+  },
+  attendancePlayerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attendancePlayerInitial: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  attendancePlayerName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  attendancePlayerCredits: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  attendanceButtons: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  attendanceBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderWidth: 1,
+    borderColor: Colors.dark.backgroundSecondary,
+  },
+  attendanceBtnPresent: {
+    backgroundColor: Colors.dark.green,
+    borderColor: Colors.dark.green,
+  },
+  attendanceBtnAbsent: {
+    backgroundColor: Colors.dark.red,
+    borderColor: Colors.dark.red,
+  },
+  attendanceBtnExcused: {
+    backgroundColor: ADMIN_COLOR,
+    borderColor: ADMIN_COLOR,
+  },
+  saveAttendanceBtn: {
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  saveAttendanceBtnDisabled: {
+    opacity: 0.6,
+  },
+  saveAttendanceGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  saveAttendanceText: {
+    ...Typography.body,
+    fontWeight: "700",
+    color: "#000",
   },
 });

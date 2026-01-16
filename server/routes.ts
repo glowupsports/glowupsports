@@ -14316,6 +14316,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get session attendance (admin)
+  app.get("/api/admin/sessions/:id/attendance", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const session = await storage.getSession(id);
+      if (!session || session.academyId !== academyId) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      const sessionPlayers = await storage.getSessionPlayersWithPlayerInfo(id);
+      const attendance = sessionPlayers.map(sp => ({
+        playerId: sp.playerId,
+        playerName: sp.playerName || "Unknown",
+        status: sp.attendanceStatus,
+        lateMinutes: sp.lateMinutes,
+        absentReason: sp.absentReason,
+      }));
+
+      res.json(attendance);
+    } catch (error) {
+      console.error("Error fetching session attendance:", error);
+      res.status(500).json({ error: "Failed to fetch attendance" });
+    }
+  });
+
+  // Save session attendance (admin)
+  app.post("/api/admin/sessions/:id/attendance", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const session = await storage.getSession(id);
+      if (!session || session.academyId !== academyId) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      const { attendance } = req.body;
+      if (!attendance || !Array.isArray(attendance)) {
+        return res.status(400).json({ error: "attendance array required" });
+      }
+
+      const results = [];
+      for (const record of attendance) {
+        const updated = await storage.updateAttendance(
+          id,
+          record.playerId,
+          record.status,
+          record.lateMinutes,
+          record.absentReason
+        );
+        results.push(updated);
+      }
+
+      // Mark session as completed if all attendance is marked
+      const allSessionPlayers = await storage.getSessionPlayersWithPlayerInfo(id);
+      const allMarked = allSessionPlayers.every(sp => sp.attendanceStatus && sp.attendanceStatus !== "pending");
+      
+      if (allMarked && session.status === "scheduled") {
+        await storage.updateSession(id, { status: "completed" });
+        
+        // Award XP to present players
+        const xpPerSession = session.xpPerSession || 20;
+        const presentPlayers = attendance.filter((a: { status: string }) => a.status === "present");
+        
+        for (const presentPlayer of presentPlayers) {
+          try {
+            const existingXp = await storage.getPlayerXpTransactions(presentPlayer.playerId, 100, academyId);
+            const alreadyAwarded = existingXp.some((t: any) => t.sessionId === id && t.source === "session");
+            
+            if (!alreadyAwarded) {
+              await storage.createXpTransaction({
+                playerId: presentPlayer.playerId,
+                sessionId: id,
+                xpAmount: xpPerSession,
+                source: "session",
+                description: `Attended training session`,
+                metadata: session.seriesId ? { seriesId: session.seriesId } : {},
+              });
+            }
+          } catch (xpError) {
+            console.error(`[XP] Error awarding XP to player ${presentPlayer.playerId}:`, xpError);
+          }
+        }
+        
+        // Consume credits if this is a series session
+        if (session.seriesId) {
+          try {
+            await storage.deleteSessionCreditTransactions(id);
+            
+            const isGroupSession = session.sessionType === "group" || session.sessionType === "camp";
+            const chargeablePlayers = isGroupSession
+              ? attendance.filter((a: { status: string }) => a.status === "present" || a.status === "absent")
+              : presentPlayers;
+            
+            await storage.consumeCreditsForClassSessionWithAttendance(
+              session.seriesId,
+              id,
+              new Date(session.startTime),
+              chargeablePlayers.map((p: { playerId: string }) => p.playerId),
+              presentPlayers.length,
+              attendance.length
+            );
+          } catch (creditError) {
+            console.error("[Credits] Error consuming credits:", creditError);
+          }
+        }
+      }
+
+      res.json({ success: true, updated: results.length });
+    } catch (error) {
+      console.error("Error saving session attendance:", error);
+      res.status(500).json({ error: "Failed to save attendance" });
+    }
+  });
+
   // Admin create session (for any coach in the academy)
   app.post("/api/admin/sessions", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
