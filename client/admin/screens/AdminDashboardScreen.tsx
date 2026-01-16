@@ -17,7 +17,7 @@ import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { CompositeNavigationProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import { ActionNeededCard } from "@/components/ActionNeededCard";
@@ -81,10 +81,10 @@ interface KpiCardProps {
   onPress?: () => void;
 }
 
-function KpiCard({ icon, label, value, subValue, color = Colors.dark.primary, onPress }: KpiCardProps) {
+function KpiCard({ icon, label, value, subValue, color = GlowColors.primary, onPress }: KpiCardProps) {
   return (
     <Pressable
-      style={[styles.kpiCard, CardStyles.elevated]}
+      style={styles.kpiCard}
       onPress={() => {
         if (onPress) {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -93,6 +93,10 @@ function KpiCard({ icon, label, value, subValue, color = Colors.dark.primary, on
       }}
       disabled={!onPress}
     >
+      <LinearGradient
+        colors={[`${color}08`, "transparent"]}
+        style={styles.kpiCardGradient}
+      />
       <View style={[styles.kpiIconContainer, { backgroundColor: `${color}20` }]}>
         <Ionicons name={icon} size={20} color={color} />
       </View>
@@ -136,7 +140,7 @@ function AlertCard({ alert, onPress }: AlertCardProps) {
         onPress?.();
       }}
     >
-      <View style={[styles.alertIconContainer, { backgroundColor: `${color}20` }]}>
+      <View style={[styles.alertIconContainer, { backgroundColor: `${color}15` }]}>
         <Ionicons name={getAlertIcon(alert.category)} size={18} color={color} />
       </View>
       <View style={styles.alertContent}>
@@ -164,7 +168,7 @@ function SessionCard({ session }: SessionCardProps) {
   };
 
   return (
-    <View style={[styles.sessionCard, CardStyles.elevated]}>
+    <View style={styles.sessionCard}>
       <View style={styles.sessionTime}>
         <Text style={styles.sessionDay}>{formatDay(session.startTime)}</Text>
         <Text style={styles.sessionHour}>{formatTime(session.startTime)}</Text>
@@ -173,8 +177,8 @@ function SessionCard({ session }: SessionCardProps) {
         <Text style={styles.sessionTitle}>{session.title}</Text>
         <Text style={styles.sessionCoach}>{session.coachName}</Text>
       </View>
-      <View style={[styles.sessionStatus, { backgroundColor: `${Colors.dark.primary}20` }]}>
-        <Text style={[styles.sessionStatusText, { color: Colors.dark.primary }]}>
+      <View style={[styles.sessionStatus, { backgroundColor: `${GlowColors.primary}15` }]}>
+        <Text style={[styles.sessionStatusText, { color: GlowColors.primary }]}>
           {session.status}
         </Text>
       </View>
@@ -346,7 +350,7 @@ export default function AdminDashboardScreen() {
             icon="people" 
             label="Active Coaches" 
             value={kpis?.activeCoaches || 0}
-            color={Colors.dark.primary}
+            color={GlowColors.primary}
             onPress={() => navigation.navigate("AdminCoaches")}
           />
           <KpiCard 
@@ -413,7 +417,7 @@ export default function AdminDashboardScreen() {
                 navigation.navigate("AdminPlayers");
               }}
             >
-              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.xpCyan}20` }]}>
+              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.xpCyan}15` }]}>
                 <Ionicons name="person-add" size={22} color={Colors.dark.xpCyan} />
               </View>
               <Text style={styles.quickActionLabel}>Add Player</Text>
@@ -425,8 +429,8 @@ export default function AdminDashboardScreen() {
                 navigation.navigate("AdminCoaches");
               }}
             >
-              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.primary}20` }]}>
-                <Ionicons name="person-add-outline" size={22} color={Colors.dark.primary} />
+              <View style={[styles.quickActionIcon, { backgroundColor: `${GlowColors.primary}15` }]}>
+                <Ionicons name="person-add-outline" size={22} color={GlowColors.primary} />
               </View>
               <Text style={styles.quickActionLabel}>Add Coach</Text>
             </Pressable>
@@ -437,7 +441,7 @@ export default function AdminDashboardScreen() {
                 navigation.navigate("AdminSchedule");
               }}
             >
-              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.orange}20` }]}>
+              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.orange}15` }]}>
                 <Ionicons name="calendar-outline" size={22} color={Colors.dark.orange} />
               </View>
               <Text style={styles.quickActionLabel}>Schedule</Text>
@@ -449,7 +453,7 @@ export default function AdminDashboardScreen() {
                 navigation.navigate("AdminReports");
               }}
             >
-              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.gold}20` }]}>
+              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.gold}15` }]}>
                 <Ionicons name="analytics" size={22} color={Colors.dark.gold} />
               </View>
               <Text style={styles.quickActionLabel}>Reports</Text>
@@ -474,14 +478,14 @@ export default function AdminDashboardScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Management</Text>
           <Pressable 
-            style={[styles.menuCard, CardStyles.elevated]}
+            style={styles.menuCard}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               navigation.navigate("AdminCoaches");
             }}
           >
             <View style={styles.menuCardContent}>
-              <Ionicons name="people-outline" size={24} color={Colors.dark.primary} />
+              <Ionicons name="people-outline" size={24} color={GlowColors.primary} />
               <View style={styles.menuCardText}>
                 <Text style={styles.menuCardTitle}>Manage Coaches</Text>
                 <Text style={styles.menuCardSubtitle}>Performance, payments, profiles</Text>
@@ -491,7 +495,7 @@ export default function AdminDashboardScreen() {
           </Pressable>
 
           <Pressable 
-            style={[styles.menuCard, CardStyles.elevated]}
+            style={styles.menuCard}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               navigation.navigate("AdminPlayers");
@@ -508,7 +512,7 @@ export default function AdminDashboardScreen() {
           </Pressable>
 
           <Pressable 
-            style={[styles.menuCard, CardStyles.elevated]}
+            style={styles.menuCard}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               navigation.navigate("AdminPayments");
@@ -525,7 +529,7 @@ export default function AdminDashboardScreen() {
           </Pressable>
 
           <Pressable 
-            style={[styles.menuCard, CardStyles.elevated]}
+            style={styles.menuCard}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               navigation.navigate("AdminSubscriptions");
@@ -542,7 +546,7 @@ export default function AdminDashboardScreen() {
           </Pressable>
 
           <Pressable 
-            style={[styles.menuCard, CardStyles.elevated]}
+            style={styles.menuCard}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               navigation.navigate("AdminLocations");
@@ -559,14 +563,14 @@ export default function AdminDashboardScreen() {
           </Pressable>
 
           <Pressable 
-            style={[styles.menuCard, CardStyles.elevated]}
+            style={styles.menuCard}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               navigation.navigate("AdminCourts");
             }}
           >
             <View style={styles.menuCardContent}>
-              <Ionicons name="tennisball-outline" size={24} color={Colors.dark.primary} />
+              <Ionicons name="tennisball-outline" size={24} color={GlowColors.primary} />
               <View style={styles.menuCardText}>
                 <Text style={styles.menuCardTitle}>Courts</Text>
                 <Text style={styles.menuCardSubtitle}>Manage tennis courts</Text>
@@ -576,7 +580,7 @@ export default function AdminDashboardScreen() {
           </Pressable>
 
           <Pressable 
-            style={[styles.menuCard, CardStyles.elevated]}
+            style={styles.menuCard}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               navigation.navigate("AdminSettings");
@@ -640,6 +644,8 @@ const styles = StyleSheet.create({
     ...Typography.h2,
     color: Colors.dark.orange,
     marginBottom: Spacing.xs,
+    textTransform: "uppercase",
+    letterSpacing: 1,
   },
   academyName: {
     ...Typography.h1,
@@ -649,9 +655,11 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   notificationBadge: {
     position: "absolute",
@@ -679,6 +687,18 @@ const styles = StyleSheet.create({
     width: "31%",
     padding: Spacing.md,
     alignItems: "center",
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    overflow: "hidden",
+  },
+  kpiCardGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 40,
   },
   kpiIconContainer: {
     width: 36,
@@ -698,6 +718,8 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.textMuted,
     textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   kpiSubValue: {
     ...Typography.caption,
@@ -716,6 +738,8 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...Typography.sectionTitle,
     color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1,
   },
   alertCountBadge: {
     backgroundColor: Colors.dark.error,
@@ -735,11 +759,13 @@ const styles = StyleSheet.create({
   alertCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     borderLeftWidth: 3,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   alertIconContainer: {
     width: 36,
@@ -778,17 +804,26 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   quickActionLabel: {
     ...Typography.caption,
     color: Colors.dark.text,
     textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
   },
   sessionCard: {
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.md,
     marginBottom: Spacing.sm,
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   sessionTime: {
     alignItems: "center",
@@ -829,6 +864,10 @@ const styles = StyleSheet.create({
   menuCard: {
     marginBottom: Spacing.sm,
     padding: Spacing.lg,
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   menuCardContent: {
     flexDirection: "row",

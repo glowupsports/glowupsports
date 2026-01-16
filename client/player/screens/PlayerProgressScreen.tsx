@@ -132,8 +132,8 @@ function SkillRadar({ domains }: { domains: SkillDomain[] }) {
 
         <Polygon
           points={polygonPoints}
-          fill="rgba(46, 204, 64, 0.2)"
-          stroke={Colors.dark.primary}
+          fill="rgba(200, 255, 61, 0.2)"
+          stroke={GlowColors.primary}
           strokeWidth={2}
         />
 
@@ -143,7 +143,7 @@ function SkillRadar({ domains }: { domains: SkillDomain[] }) {
             cx={point.x}
             cy={point.y}
             r={4}
-            fill={Colors.dark.primary}
+            fill={GlowColors.primary}
           />
         ))}
 
@@ -220,18 +220,18 @@ function LevelReadinessSection({
         <View style={styles.readinessHeader}>
           <View style={[
             styles.readinessIcon,
-            { backgroundColor: isReady ? "rgba(46, 204, 64, 0.2)" : "rgba(255, 149, 0, 0.2)" }
+            { backgroundColor: isReady ? "rgba(200, 255, 61, 0.2)" : "rgba(255, 149, 0, 0.2)" }
           ]}>
             <Ionicons 
               name={isReady ? "checkmark-circle" : "time"} 
               size={24} 
-              color={isReady ? Colors.dark.primary : Colors.dark.orange} 
+              color={isReady ? GlowColors.primary : Colors.dark.orange} 
             />
           </View>
           <View style={styles.readinessInfo}>
             <Text style={[
               styles.readinessStatus,
-              { color: isReady ? Colors.dark.primary : Colors.dark.orange }
+              { color: isReady ? GlowColors.primary : Colors.dark.orange }
             ]}>
               {isReady ? "Ready for Level Up!" : "Not Ready Yet"}
             </Text>
@@ -249,7 +249,7 @@ function LevelReadinessSection({
               <Ionicons 
                 name={sessionsReady ? "checkmark-circle" : "ellipse-outline"} 
                 size={16} 
-                color={sessionsReady ? Colors.dark.primary : Colors.dark.textMuted} 
+                color={sessionsReady ? GlowColors.primary : Colors.dark.textMuted} 
               />
               <Text style={styles.progressText}>
                 Sessions: {readiness.sessionCount} / {readiness.minSessionsRequired}
@@ -260,7 +260,7 @@ function LevelReadinessSection({
                 styles.miniProgressFill,
                 { 
                   width: `${Math.min(100, (readiness.sessionCount / readiness.minSessionsRequired) * 100)}%`,
-                  backgroundColor: sessionsReady ? Colors.dark.primary : Colors.dark.textMuted
+                  backgroundColor: sessionsReady ? GlowColors.primary : Colors.dark.textMuted
                 }
               ]} />
             </View>
@@ -275,12 +275,12 @@ function LevelReadinessSection({
                 <Ionicons 
                   name={req.met ? "checkmark-circle" : "ellipse-outline"} 
                   size={16} 
-                  color={req.met ? Colors.dark.primary : Colors.dark.textMuted} 
+                  color={req.met ? GlowColors.primary : Colors.dark.textMuted} 
                 />
                 <Text style={styles.requirementDomain}>{req.domainName}</Text>
                 <Text style={[
                   styles.requirementStatus,
-                  { color: req.met ? Colors.dark.primary : Colors.dark.textMuted }
+                  { color: req.met ? GlowColors.primary : Colors.dark.textMuted }
                 ]}>
                   {getStatusDisplay(req.current)}
                 </Text>
@@ -290,8 +290,8 @@ function LevelReadinessSection({
         ) : null}
         
         <View style={styles.approvalNote}>
-          <Ionicons name="shield-checkmark" size={20} color={isReady ? Colors.dark.primary : Colors.dark.orange} />
-          <Text style={[styles.approvalText, { color: isReady ? Colors.dark.primary : Colors.dark.orange }]}>
+          <Ionicons name="shield-checkmark" size={20} color={isReady ? GlowColors.primary : Colors.dark.orange} />
+          <Text style={[styles.approvalText, { color: isReady ? GlowColors.primary : Colors.dark.orange }]}>
             {isReady ? "Ready! Ask your coach for approval" : "Coach approval required for level up"}
           </Text>
         </View>
@@ -362,7 +362,7 @@ function LevelExplanationModal({
             <View style={modalStyles.howToLevel}>
               <Text style={modalStyles.sectionTitle}>How to Level Up</Text>
               <View style={modalStyles.howToItem}>
-                <Ionicons name="calendar" size={18} color={Colors.dark.primary} />
+                <Ionicons name="calendar" size={18} color={GlowColors.primary} />
                 <Text style={modalStyles.howToText}>Attend training sessions</Text>
               </View>
               <View style={modalStyles.howToItem}>
@@ -405,7 +405,7 @@ function LevelExplanationModal({
                     <Text style={modalStyles.milestoneUnlocks}>{milestone.unlocks}</Text>
                   </View>
                   {currentLevel >= milestone.level ? (
-                    <Ionicons name="checkmark-circle" size={18} color={Colors.dark.primary} />
+                    <Ionicons name="checkmark-circle" size={18} color={GlowColors.primary} />
                   ) : (
                     <Ionicons name="lock-closed" size={16} color={Colors.dark.textMuted} />
                   )}
@@ -436,7 +436,7 @@ function SkillBar({ domain, onPress }: { domain: SkillDomain; onPress: () => voi
   };
   
   const getTrendColor = () => {
-    if (domain.trend === "rising") return Colors.dark.primary;
+    if (domain.trend === "rising") return GlowColors.primary;
     if (domain.trend === "falling") return Colors.dark.orange;
     return Colors.dark.textMuted;
   };
@@ -661,7 +661,7 @@ export default function PlayerProgressScreen() {
           </View>
           <View style={styles.xpBarTrack}>
             <LinearGradient
-              colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+              colors={[GlowColors.primary, Colors.dark.xpCyan]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={[styles.xpBarFill, { width: `${(currentLevelXp / 500) * 100}%` }]}
@@ -723,7 +723,7 @@ export default function PlayerProgressScreen() {
             <View style={styles.insightsList}>
               {data.overallInsights.strengths.map((strength, i) => (
                 <View key={i} style={styles.insightItem}>
-                  <Ionicons name="checkmark-circle" size={16} color={Colors.dark.primary} />
+                  <Ionicons name="checkmark-circle" size={16} color={GlowColors.primary} />
                   <Text style={styles.insightText}>{strength}</Text>
                 </View>
               ))}
@@ -761,7 +761,7 @@ export default function PlayerProgressScreen() {
               </View>
               <View style={styles.attendanceSummaryDivider} />
               <View style={styles.attendanceSummaryItem}>
-                <Text style={[styles.attendanceSummaryValue, { color: Colors.dark.primary }]}>
+                <Text style={[styles.attendanceSummaryValue, { color: GlowColors.primary }]}>
                   {attendanceData.summary.attendanceRate}%
                 </Text>
                 <Text style={styles.attendanceSummaryLabel}>Rate</Text>
@@ -790,7 +790,7 @@ export default function PlayerProgressScreen() {
                 </View>
                 <View style={styles.attendanceStats}>
                   <View style={styles.attendanceStat}>
-                    <Ionicons name="checkmark-circle" size={14} color={Colors.dark.primary} />
+                    <Ionicons name="checkmark-circle" size={14} color={GlowColors.primary} />
                     <Text style={styles.attendanceStatText}>{cls.attendance.present} present</Text>
                   </View>
                   <View style={styles.attendanceStat}>
@@ -884,7 +884,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    ...CardStyles.elevated,
+    ...CardStyles.base,
     padding: Spacing.lg,
     alignItems: "center",
     gap: Spacing.sm,
@@ -921,15 +921,15 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
+    backgroundColor: "rgba(200, 255, 61, 0.15)",
     borderWidth: 2,
-    borderColor: Colors.dark.primary,
+    borderColor: GlowColors.primary,
     justifyContent: "center",
     alignItems: "center",
   },
   sessionsValue: {
     ...Typography.numberMedium,
-    color: Colors.dark.primary,
+    color: GlowColors.primary,
   },
   statLabel: {
     ...Typography.caption,
@@ -978,8 +978,9 @@ const styles = StyleSheet.create({
   },
   radarContainer: {
     alignItems: "center",
-    ...CardStyles.elevated,
+    ...CardStyles.base,
     padding: Spacing.lg,
+    marginHorizontal: Spacing.xl,
   },
   skillsSection: {
     paddingHorizontal: Spacing.xl,
@@ -989,7 +990,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   skillCard: {
-    ...CardStyles.elevated,
+    ...CardStyles.base,
     padding: Spacing.lg,
   },
   skillHeader: {
@@ -1039,7 +1040,7 @@ const styles = StyleSheet.create({
   infoCard: {
     flexDirection: "row",
     marginHorizontal: Spacing.xl,
-    ...CardStyles.statusCard,
+    ...CardStyles.base,
     padding: Spacing.lg,
     gap: Spacing.md,
     alignItems: "flex-start",
@@ -1055,7 +1056,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   insightsList: {
-    ...CardStyles.elevated,
+    ...CardStyles.base,
     padding: Spacing.lg,
     gap: Spacing.sm,
   },
@@ -1074,7 +1075,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   readinessCard: {
-    ...CardStyles.elevated,
+    ...CardStyles.base,
     padding: Spacing.lg,
   },
   readinessHeader: {
@@ -1188,8 +1189,7 @@ const styles = StyleSheet.create({
   },
   attendanceSummary: {
     flexDirection: "row",
-    backgroundColor: Backgrounds.card,
-    borderRadius: BorderRadius.md,
+    ...CardStyles.base,
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
     alignItems: "center",
@@ -1213,8 +1213,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundTertiary,
   },
   attendanceCard: {
-    backgroundColor: Backgrounds.card,
-    borderRadius: BorderRadius.md,
+    ...CardStyles.base,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
   },
@@ -1321,9 +1320,8 @@ const modalStyles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.lg,
     marginBottom: Spacing.xl,
+    ...CardStyles.base,
     padding: Spacing.lg,
-    backgroundColor: Backgrounds.card,
-    borderRadius: BorderRadius.md,
   },
   currentLevelCircle: {
     width: 64,
@@ -1355,9 +1353,8 @@ const modalStyles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   sectionTitle: {
-    ...Typography.body,
+    ...Typography.sectionTitle,
     color: Colors.dark.text,
-    fontWeight: "600",
     marginBottom: Spacing.md,
   },
   howToItem: {
@@ -1379,8 +1376,7 @@ const modalStyles = StyleSheet.create({
     gap: Spacing.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
-    backgroundColor: Backgrounds.card,
-    borderRadius: BorderRadius.sm,
+    ...CardStyles.base,
     opacity: 0.6,
   },
   milestoneUnlocked: {

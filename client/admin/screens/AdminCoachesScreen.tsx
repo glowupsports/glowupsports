@@ -1013,6 +1013,8 @@ const styles = StyleSheet.create({
   title: {
     ...Typography.h2,
     color: Colors.dark.text,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.8,
   },
   addButton: {
     width: 44,
@@ -1031,6 +1033,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: Spacing.lg,
     marginBottom: Spacing.md,
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderRadius: BorderRadius.md,
   },
   coachAvatar: {
     width: 48,
@@ -1119,6 +1125,8 @@ const styles = StyleSheet.create({
   modalTitle: {
     ...Typography.h3,
     color: Colors.dark.text,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.5,
   },
   cancelButton: {
     ...Typography.body,
@@ -1147,7 +1155,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   input: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     ...Typography.body,
@@ -1190,6 +1200,10 @@ const styles = StyleSheet.create({
   section: {
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderRadius: BorderRadius.md,
   },
   sectionTitle: {
     ...Typography.sectionTitle,
@@ -1420,7 +1434,9 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   paymentModalContent: {
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     paddingHorizontal: Spacing.lg,
@@ -1461,8 +1477,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: Colors.dark.border,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     minWidth: 80,
     gap: Spacing.xs,
   },
@@ -1482,9 +1498,9 @@ const styles = StyleSheet.create({
   paymentReferenceInput: {
     ...Typography.body,
     color: Colors.dark.text,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderWidth: 1,
-    borderColor: Colors.dark.border,
+    borderColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
@@ -1501,7 +1517,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: Colors.dark.border,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   paymentCancelText: {
     ...Typography.body,

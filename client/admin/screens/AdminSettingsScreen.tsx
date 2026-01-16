@@ -18,7 +18,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, GlowColors, RoleColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, GlowColors, RoleColors, FunctionColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -281,7 +281,7 @@ export default function AdminSettingsScreen() {
           <View style={[styles.profileCard, CardStyles.elevated]}>
             <View style={styles.profileHeader}>
               <View style={styles.profileAvatar}>
-                <Ionicons name="business" size={32} color={Colors.dark.orange} />
+                <Ionicons name="business" size={32} color={GlowColors.primary} />
               </View>
               <View style={styles.profileInfo}>
                 <Text style={styles.profileName}>{profileData.name}</Text>
@@ -296,7 +296,7 @@ export default function AdminSettingsScreen() {
               }}
             >
               <Text style={styles.editProfileText}>Edit Profile</Text>
-              <Ionicons name="chevron-forward" size={16} color={Colors.dark.orange} />
+              <Ionicons name="chevron-forward" size={16} color={GlowColors.primary} />
             </Pressable>
           </View>
         </View>
@@ -317,7 +317,7 @@ export default function AdminSettingsScreen() {
             </Pressable>
           </View>
           {courtsLoading ? (
-            <ActivityIndicator size="small" color={Colors.dark.orange} />
+            <ActivityIndicator size="small" color={GlowColors.primary} />
           ) : courts.length === 0 ? (
             <View style={[styles.emptyCard, CardStyles.elevated]}>
               <Ionicons name="tennisball-outline" size={32} color={Colors.dark.textMuted} />
@@ -342,7 +342,7 @@ export default function AdminSettingsScreen() {
                 onLongPress={() => handleDeleteCourt(court)}
               >
                 <View style={styles.courtIcon}>
-                  <Ionicons name="tennisball" size={20} color={Colors.dark.primary} />
+                  <Ionicons name="tennisball" size={20} color={GlowColors.primary} />
                 </View>
                 <View style={styles.courtInfo}>
                   <Text style={styles.courtName}>{court.name}</Text>
@@ -363,7 +363,7 @@ export default function AdminSettingsScreen() {
             onPress={handleShowRolesPermissions}
           >
             <View style={styles.menuContent}>
-              <Ionicons name="shield-outline" size={24} color={Colors.dark.orange} />
+              <Ionicons name="shield-outline" size={24} color={GlowColors.primary} />
               <View style={styles.menuText}>
                 <Text style={styles.menuTitle}>Roles & Permissions</Text>
                 <Text style={styles.menuSubtitle}>Manage access controls</Text>
@@ -380,7 +380,7 @@ export default function AdminSettingsScreen() {
             }}
           >
             <View style={styles.menuContent}>
-              <Ionicons name="mail-outline" size={24} color={Colors.dark.xpCyan} />
+              <Ionicons name="mail-outline" size={24} color={FunctionColors.info} />
               <View style={styles.menuText}>
                 <Text style={styles.menuTitle}>Invite Users</Text>
                 <Text style={styles.menuSubtitle}>Send invitations to coaches and players</Text>
@@ -403,10 +403,10 @@ export default function AdminSettingsScreen() {
               disabled={testPushLoading}
             >
               {testPushLoading ? (
-                <ActivityIndicator size="small" color="#E67E22" />
+                <ActivityIndicator size="small" color={RoleColors.admin} />
               ) : (
                 <>
-                  <Ionicons name="notifications" size={20} color="#E67E22" />
+                  <Ionicons name="notifications" size={20} color={RoleColors.admin} />
                   <Text style={styles.devToolsButtonText}>Test Push Notification</Text>
                 </>
               )}
@@ -418,10 +418,10 @@ export default function AdminSettingsScreen() {
               disabled={testInviteLoading}
             >
               {testInviteLoading ? (
-                <ActivityIndicator size="small" color="#E67E22" />
+                <ActivityIndicator size="small" color={RoleColors.admin} />
               ) : (
                 <>
-                  <Ionicons name="person-add" size={20} color="#E67E22" />
+                  <Ionicons name="person-add" size={20} color={RoleColors.admin} />
                   <Text style={styles.devToolsButtonText}>Simulate Coach Invite Accept</Text>
                 </>
               )}
@@ -752,18 +752,23 @@ const styles = StyleSheet.create({
     ...Typography.sectionTitle,
     color: Colors.dark.textMuted,
     marginBottom: Spacing.md,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
   addSmallButton: {
     width: 32,
     height: 32,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.dark.orange,
+    backgroundColor: GlowColors.primary,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.md,
   },
   profileCard: {
     padding: Spacing.lg,
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   profileHeader: {
     flexDirection: "row",
@@ -796,18 +801,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: Spacing.md,
-    backgroundColor: `${Colors.dark.orange}20`,
+    backgroundColor: `${GlowColors.primary}15`,
     borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: `${GlowColors.primary}30`,
   },
   editProfileText: {
     ...Typography.body,
-    color: Colors.dark.orange,
+    color: GlowColors.primary,
     fontWeight: "600",
     marginRight: Spacing.xs,
   },
   emptyCard: {
     padding: Spacing.xl,
     alignItems: "center",
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   emptyText: {
     ...Typography.body,
@@ -818,7 +828,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.dark.orange,
+    backgroundColor: GlowColors.primary,
     borderRadius: BorderRadius.md,
   },
   addFirstText: {
@@ -831,12 +841,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: Spacing.lg,
     marginBottom: Spacing.sm,
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   courtIcon: {
     width: 40,
     height: 40,
     borderRadius: BorderRadius.md,
-    backgroundColor: `${Colors.dark.primary}20`,
+    backgroundColor: `${GlowColors.primary}20`,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -857,6 +870,9 @@ const styles = StyleSheet.create({
   menuCard: {
     marginBottom: Spacing.sm,
     padding: Spacing.lg,
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   menuContent: {
     flexDirection: "row",
@@ -879,8 +895,8 @@ const styles = StyleSheet.create({
   devToolsCard: {
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: `${RoleColors.admin}30`,
-    backgroundColor: `${RoleColors.admin}08`,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     gap: Spacing.md,
   },
   devToolsNote: {
@@ -894,7 +910,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.sm,
     padding: Spacing.md,
-    backgroundColor: `${RoleColors.admin}25`,
+    backgroundColor: `${RoleColors.admin}15`,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: `${RoleColors.admin}30`,
@@ -913,6 +929,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: Spacing.lg,
     gap: Spacing.md,
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   logoutText: {
     ...Typography.body,
@@ -942,7 +961,7 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     ...Typography.body,
-    color: Colors.dark.orange,
+    color: GlowColors.primary,
     fontWeight: "600",
   },
   disabledButton: {
@@ -963,11 +982,13 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   input: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     ...Typography.body,
     color: Colors.dark.text,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   optionRow: {
     flexDirection: "row",
@@ -977,10 +998,10 @@ const styles = StyleSheet.create({
   optionButton: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "transparent",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   optionWide: {
     flex: 1,
@@ -990,8 +1011,8 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   optionSelected: {
-    backgroundColor: `${Colors.dark.orange}20`,
-    borderColor: Colors.dark.orange,
+    backgroundColor: `${GlowColors.primary}20`,
+    borderColor: GlowColors.primary,
   },
   optionText: {
     ...Typography.body,
@@ -1006,9 +1027,11 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: Spacing.sm,
     padding: Spacing.md,
-    backgroundColor: `${Colors.dark.xpCyan}10`,
+    backgroundColor: `${FunctionColors.info}10`,
     borderRadius: BorderRadius.md,
     marginTop: Spacing.md,
+    borderWidth: 1,
+    borderColor: `${FunctionColors.info}20`,
   },
   inviteNoteText: {
     ...Typography.small,

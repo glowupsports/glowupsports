@@ -16,7 +16,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useNavigation } from "@react-navigation/native";
 
@@ -630,7 +630,7 @@ export default function AdminPaymentsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.root,
   },
   header: {
     paddingHorizontal: Spacing.lg,
@@ -649,11 +649,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 20,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   title: {
     ...Typography.h1,
     color: Colors.dark.text,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
   summaryRow: {
     flexDirection: "row",
@@ -661,10 +665,12 @@ const styles = StyleSheet.create({
   },
   summaryItem: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   summaryValue: {
     ...Typography.numberMedium,
@@ -672,7 +678,7 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     ...Typography.small,
-    color: Colors.dark.textSecondary,
+    color: Colors.dark.textMuted,
     marginTop: 2,
   },
   filters: {
@@ -685,10 +691,10 @@ const styles = StyleSheet.create({
   filterChip: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: "transparent",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   filterChipActive: {
     backgroundColor: Colors.dark.orange + "20",
@@ -696,7 +702,7 @@ const styles = StyleSheet.create({
   },
   filterChipText: {
     ...Typography.small,
-    color: Colors.dark.textSecondary,
+    color: Colors.dark.textMuted,
   },
   filterChipTextActive: {
     color: Colors.dark.orange,
@@ -729,14 +735,16 @@ const styles = StyleSheet.create({
   },
   emptySubtext: {
     ...Typography.small,
-    color: Colors.dark.textSecondary,
+    color: Colors.dark.textMuted,
     marginTop: Spacing.xs,
   },
   paymentCard: {
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   paymentHeader: {
     flexDirection: "row",
@@ -753,7 +761,7 @@ const styles = StyleSheet.create({
   },
   paymentDate: {
     ...Typography.small,
-    color: Colors.dark.textSecondary,
+    color: Colors.dark.textMuted,
     marginTop: 2,
   },
   paymentAmount: {
@@ -789,11 +797,11 @@ const styles = StyleSheet.create({
   },
   methodText: {
     ...Typography.small,
-    color: Colors.dark.textSecondary,
+    color: Colors.dark.textMuted,
   },
   receiverText: {
     ...Typography.small,
-    color: Colors.dark.textSecondary,
+    color: Colors.dark.textMuted,
   },
   fab: {
     position: "absolute",
@@ -819,7 +827,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.root,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     maxHeight: "85%",
@@ -830,29 +838,33 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.border,
+    borderBottomColor: "rgba(255, 255, 255, 0.06)",
   },
   modalTitle: {
     ...Typography.h3,
     color: Colors.dark.text,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   modalBody: {
     padding: Spacing.lg,
   },
   inputLabel: {
     ...Typography.caption,
-    color: Colors.dark.textSecondary,
+    color: Colors.dark.textMuted,
     marginBottom: Spacing.xs,
     marginTop: Spacing.md,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     ...Typography.body,
     color: Colors.dark.text,
     borderWidth: 1,
-    borderColor: Colors.dark.border,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   textArea: {
     minHeight: 80,
@@ -864,11 +876,11 @@ const styles = StyleSheet.create({
   playerChip: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.full,
     marginRight: Spacing.sm,
     borderWidth: 1,
-    borderColor: "transparent",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   playerChipActive: {
     backgroundColor: Colors.dark.orange + "20",
@@ -876,7 +888,7 @@ const styles = StyleSheet.create({
   },
   playerChipText: {
     ...Typography.small,
-    color: Colors.dark.textSecondary,
+    color: Colors.dark.textMuted,
   },
   playerChipTextActive: {
     color: Colors.dark.orange,
@@ -891,11 +903,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.xs,
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: "transparent",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   methodOptionActive: {
     backgroundColor: Colors.dark.orange + "20",
@@ -903,7 +915,7 @@ const styles = StyleSheet.create({
   },
   methodOptionText: {
     ...Typography.small,
-    color: Colors.dark.textSecondary,
+    color: Colors.dark.textMuted,
   },
   methodOptionTextActive: {
     color: Colors.dark.orange,
@@ -939,11 +951,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.border,
+    borderBottomColor: "rgba(255, 255, 255, 0.06)",
   },
   detailLabel: {
     ...Typography.body,
-    color: Colors.dark.textSecondary,
+    color: Colors.dark.textMuted,
   },
   detailValue: {
     ...Typography.body,
@@ -999,19 +1011,23 @@ const styles = StyleSheet.create({
     color: Colors.dark.error,
   },
   rejectModalContent: {
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.xl,
     margin: Spacing.lg,
     padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   rejectModalTitle: {
     ...Typography.h3,
     color: Colors.dark.text,
     marginBottom: Spacing.xs,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   rejectModalSubtitle: {
     ...Typography.small,
-    color: Colors.dark.textSecondary,
+    color: Colors.dark.textMuted,
     marginBottom: Spacing.md,
   },
   rejectModalButtons: {
@@ -1024,7 +1040,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   rejectModalCancelText: {
     ...Typography.body,

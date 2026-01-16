@@ -13,7 +13,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
 
 interface Session {
   id: string;
@@ -149,7 +149,7 @@ export default function AdminScheduleScreen() {
 
   const renderSession = ({ item }: { item: Session }) => (
     <Pressable
-      style={[styles.sessionCard, CardStyles.elevated]}
+      style={styles.sessionCard}
       onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
     >
       <View style={styles.sessionTime}>
@@ -244,13 +244,13 @@ export default function AdminScheduleScreen() {
       </View>
 
       <View style={styles.summaryRow}>
-        <View style={[styles.summaryCard, CardStyles.elevated]}>
+        <View style={styles.summaryCard}>
           <Text style={styles.summaryValue}>
             {viewMode === "week" ? totalWeekSessions : todaySessions.length}
           </Text>
           <Text style={styles.summaryLabel}>Sessions</Text>
         </View>
-        <View style={[styles.summaryCard, CardStyles.elevated]}>
+        <View style={styles.summaryCard}>
           <Text style={styles.summaryValue}>
             {viewMode === "week" 
               ? weekDays.reduce((sum, day) => sum + day.sessions.filter((s) => s.status === "scheduled").length, 0)
@@ -259,7 +259,7 @@ export default function AdminScheduleScreen() {
           </Text>
           <Text style={styles.summaryLabel}>Upcoming</Text>
         </View>
-        <View style={[styles.summaryCard, CardStyles.elevated]}>
+        <View style={styles.summaryCard}>
           <Text style={styles.summaryValue}>
             {viewMode === "week"
               ? weekDays.reduce((sum, day) => sum + day.sessions.filter((s) => s.status === "completed").length, 0)
@@ -311,7 +311,7 @@ export default function AdminScheduleScreen() {
                   day.sessions.map((session) => (
                     <Pressable 
                       key={session.id} 
-                      style={[styles.weekSessionCard, CardStyles.elevated]}
+                      style={styles.weekSessionCard}
                       onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
                     >
                       <View style={styles.weekSessionTime}>
@@ -343,7 +343,7 @@ export default function AdminScheduleScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Backgrounds.root,
   },
   centered: {
     justifyContent: "center",
@@ -364,14 +364,17 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
   },
   title: {
-    ...Typography.h2,
+    ...Typography.sectionTitle,
     color: Colors.dark.text,
+    textTransform: "uppercase",
   },
   viewToggle: {
     flexDirection: "row",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: 2,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   toggleButton: {
     paddingHorizontal: Spacing.md,
@@ -401,7 +404,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -435,15 +440,20 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: Spacing.md,
     alignItems: "center",
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderRadius: BorderRadius.md,
   },
   summaryValue: {
     ...Typography.numberLarge,
     color: Colors.dark.text,
   },
   summaryLabel: {
-    ...Typography.caption,
+    ...Typography.labelSmall,
     color: Colors.dark.textMuted,
     marginTop: 2,
+    textTransform: "uppercase",
   },
   list: {
     padding: Spacing.lg,
@@ -453,6 +463,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     padding: Spacing.lg,
     marginBottom: Spacing.md,
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderRadius: BorderRadius.md,
   },
   sessionTime: {
     alignItems: "center",
@@ -556,10 +570,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
     gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   weekDayHeaderToday: {
     backgroundColor: `${Colors.dark.orange}30`,
@@ -567,10 +583,11 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.orange,
   },
   weekDayName: {
-    ...Typography.body,
+    ...Typography.labelSmall,
     color: Colors.dark.textMuted,
     fontWeight: "600",
     width: 40,
+    textTransform: "uppercase",
   },
   weekDayNameToday: {
     color: Colors.dark.orange,
@@ -603,6 +620,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: Spacing.md,
     gap: Spacing.md,
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderRadius: BorderRadius.md,
   },
   weekSessionTime: {
     width: 50,

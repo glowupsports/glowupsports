@@ -385,7 +385,7 @@ export default function PlayerScheduleScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <ActivityIndicator size="large" color={GlowColors.primary} />
         <Text style={styles.loadingText}>Loading schedule...</Text>
       </View>
     );
@@ -415,7 +415,7 @@ export default function PlayerScheduleScreen() {
 
       {/* Weekly XP Quest Card */}
       <LinearGradient
-        colors={["rgba(46, 204, 64, 0.15)", "rgba(46, 204, 64, 0.05)"]}
+        colors={[`rgba(200, 255, 61, 0.1)`, `rgba(200, 255, 61, 0.02)`]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.weeklyQuestCard}
@@ -462,7 +462,7 @@ export default function PlayerScheduleScreen() {
         
         <View style={styles.weeklyQuestInfo}>
           <Text style={styles.weeklyQuestProgressText}>
-            <Text style={{ color: Colors.dark.primary, fontWeight: "700" }}>{weeklyXpStats.completedCount}</Text>
+            <Text style={{ color: GlowColors.primary, fontWeight: "700" }}>{weeklyXpStats.completedCount}</Text>
             <Text style={{ color: Colors.dark.textMuted }}> / {weeklyXpStats.sessionCount} quests completed</Text>
           </Text>
           {weeklyXpStats.bonusXp > 0 ? (
@@ -483,13 +483,13 @@ export default function PlayerScheduleScreen() {
           <View style={styles.nextTrainingHeader}>
             <Text style={styles.nextTrainingLabel}>NEXT TRAINING</Text>
             <View style={styles.confirmedBadge}>
-              <Ionicons name="checkmark-circle" size={20} color={Colors.dark.primary} />
+              <Ionicons name="checkmark-circle" size={20} color={GlowColors.primary} />
             </View>
           </View>
           
           <View style={styles.nextTrainingContent}>
             <View style={styles.nextTrainingIcon}>
-              <Ionicons name="tennisball" size={24} color={Colors.dark.primary} />
+              <Ionicons name="tennisball" size={24} color={GlowColors.primary} />
             </View>
             <View style={styles.nextTrainingInfo}>
               <Text style={styles.nextTrainingTitle}>{getTypeLabel(nextSession.type)}</Text>
@@ -520,7 +520,7 @@ export default function PlayerScheduleScreen() {
           <View style={styles.nextTrainingActions}>
             <Pressable style={styles.viewDetailsButton}>
               <Text style={styles.viewDetailsText}>View Details</Text>
-              <Ionicons name="chevron-forward" size={16} color={Colors.dark.primary} />
+              <Ionicons name="chevron-forward" size={16} color={GlowColors.primary} />
             </Pressable>
             <Pressable style={styles.rescheduleButton}>
               <Ionicons name="calendar-outline" size={16} color={Colors.dark.gold} />
@@ -535,7 +535,7 @@ export default function PlayerScheduleScreen() {
           <Text style={styles.noNextSessionSubtitle}>Book a lesson to continue your progress</Text>
           <Pressable style={styles.bookLessonButton}>
             <LinearGradient
-              colors={[Colors.dark.primary, "#1B8A2E"]}
+              colors={[GlowColors.primary, GlowColors.dark]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.bookLessonGradient}
@@ -594,7 +594,7 @@ export default function PlayerScheduleScreen() {
                   </View>
                 ) : hasTraining ? (
                   <View style={styles.trainingIndicator}>
-                    <Ionicons name="tennisball" size={12} color={Colors.dark.primary} />
+                    <Ionicons name="tennisball" size={12} color={GlowColors.primary} />
                   </View>
                 ) : null}
                 <Text style={[
@@ -828,11 +828,11 @@ export default function PlayerScheduleScreen() {
           selectedDateSessions.map((session) => (
             <View key={session.id} style={styles.sessionCard}>
               <View style={styles.sessionCardLeft}>
-                <View style={[styles.sessionIcon, { backgroundColor: session.isCourtBooking ? "rgba(0, 212, 255, 0.15)" : "rgba(46, 204, 64, 0.15)" }]}>
+                <View style={[styles.sessionIcon, { backgroundColor: session.isCourtBooking ? "rgba(0, 212, 255, 0.15)" : "rgba(200, 255, 61, 0.15)" }]}>
                   {session.isCourtBooking ? (
                     <Ionicons name="tennisball-outline" size={20} color={Colors.dark.xpCyan} />
                   ) : (
-                    <Ionicons name="tennisball" size={20} color={Colors.dark.primary} />
+                    <Ionicons name="tennisball" size={20} color={GlowColors.primary} />
                   )}
                 </View>
                 <View style={styles.sessionInfo}>
@@ -841,7 +841,7 @@ export default function PlayerScheduleScreen() {
                     <View style={styles.xpRow}>
                       <Text style={styles.sessionXp}>+{session.xpPotential} XP</Text>
                       <View style={styles.countsForProgressBadge}>
-                        <Ionicons name="checkmark" size={10} color={Colors.dark.primary} />
+                        <Ionicons name="checkmark" size={10} color={GlowColors.primary} />
                         <Text style={styles.countsForProgressText}>Counts for progress</Text>
                       </View>
                     </View>
@@ -861,7 +861,7 @@ export default function PlayerScheduleScreen() {
                   <Ionicons 
                     name={session.status === "cancelled" ? "close-circle" : "checkmark-circle"} 
                     size={12} 
-                    color={session.status === "cancelled" ? Colors.dark.error : Colors.dark.primary} 
+                    color={session.status === "cancelled" ? Colors.dark.error : GlowColors.primary} 
                   />
                   <Text style={[styles.statusText, session.status === "cancelled" && styles.statusTextCancelled]}>
                     {session.status === "cancelled" ? "Cancelled" : "Confirmed"}
@@ -884,7 +884,7 @@ export default function PlayerScheduleScreen() {
                       size={10} 
                       color={
                         session.attendanceImpact === "no_impact" 
-                          ? Colors.dark.primary 
+                          ? GlowColors.primary 
                           : session.attendanceImpact === "frozen"
                             ? Colors.dark.xpCyan
                             : Colors.dark.gold
@@ -980,10 +980,10 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.xl,
     marginBottom: Spacing.lg,
     padding: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: "rgba(46, 204, 64, 0.3)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   nextTrainingHeader: {
     flexDirection: "row",
@@ -996,12 +996,13 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     fontWeight: "700",
     letterSpacing: 1,
+    textTransform: "uppercase",
   },
   confirmedBadge: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
+    backgroundColor: "rgba(200, 255, 61, 0.15)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1015,7 +1016,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
+    backgroundColor: "rgba(200, 255, 61, 0.15)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1080,13 +1081,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
+    backgroundColor: "rgba(200, 255, 61, 0.15)",
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
   },
   viewDetailsText: {
     ...Typography.small,
-    color: Colors.dark.primary,
+    color: GlowColors.primary,
     fontWeight: "600",
   },
   rescheduleButton: {
@@ -1110,10 +1111,12 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.xl,
     marginBottom: Spacing.lg,
     padding: Spacing.xl,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     alignItems: "center",
     gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   noNextSessionTitle: {
     ...Typography.h4,
@@ -1141,10 +1144,12 @@ const styles = StyleSheet.create({
   // Calendar
   calendarContainer: {
     marginHorizontal: Spacing.xl,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   calendarHeader: {
     flexDirection: "row",
@@ -1156,9 +1161,11 @@ const styles = StyleSheet.create({
     padding: Spacing.xs,
   },
   monthTitle: {
-    ...Typography.body,
+    ...Typography.h3,
     color: Colors.dark.text,
     fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   weekDays: {
     flexDirection: "row",
@@ -1186,7 +1193,7 @@ const styles = StyleSheet.create({
     opacity: 0.3,
   },
   calendarDaySelected: {
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
     borderRadius: BorderRadius.sm,
   },
   calendarDayText: {
@@ -1198,15 +1205,15 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   calendarDayTextToday: {
-    color: Colors.dark.primary,
+    color: GlowColors.primary,
     fontWeight: "700",
   },
   calendarDayTextSelected: {
-    color: Colors.dark.backgroundRoot,
+    color: Backgrounds.root,
     fontWeight: "600",
   },
   calendarDayTextWithSession: {
-    color: Colors.dark.gold,
+    color: GlowColors.primary,
     fontWeight: "700",
   },
   trainingIndicator: {
@@ -1248,12 +1255,15 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 1,
     marginBottom: Spacing.md,
+    textTransform: "uppercase",
   },
   emptyDayState: {
     alignItems: "center",
     paddingVertical: Spacing.xl,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   emptyDayText: {
     ...Typography.body,
@@ -1270,12 +1280,19 @@ const styles = StyleSheet.create({
   sessionCard: {
     flexDirection: "row",
     justifyContent: "space-between",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
     borderLeftWidth: 3,
-    borderLeftColor: Colors.dark.primary,
+    borderLeftColor: GlowColors.primary,
+    shadowColor: GlowColors.shadow,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 1,
   },
   sessionCardLeft: {
     flexDirection: "row",
@@ -1316,7 +1333,7 @@ const styles = StyleSheet.create({
   },
   countsForProgressText: {
     ...Typography.caption,
-    color: Colors.dark.primary,
+    color: GlowColors.primary,
     fontSize: 10,
   },
   sessionSubtitle: {
@@ -1348,7 +1365,7 @@ const styles = StyleSheet.create({
   statusBadgeCancelled: {},
   statusText: {
     ...Typography.caption,
-    color: Colors.dark.primary,
+    color: GlowColors.primary,
     fontSize: 10,
   },
   statusTextCancelled: {
@@ -1376,7 +1393,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
   },
   impactTextNoImpact: {
-    color: Colors.dark.primary,
+    color: GlowColors.primary,
   },
   impactTextFrozen: {
     color: Colors.dark.xpCyan,
@@ -1387,9 +1404,11 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.xl,
     marginBottom: Spacing.lg,
     padding: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   consistencyHeader: {
     flexDirection: "row",
@@ -1402,6 +1421,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     fontWeight: "700",
     letterSpacing: 1,
+    textTransform: "uppercase",
   },
   streakCount: {
     ...Typography.h2,
@@ -1422,10 +1442,10 @@ const styles = StyleSheet.create({
   vacationCard: {
     marginHorizontal: Spacing.xl,
     marginBottom: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: "rgba(0, 212, 255, 0.2)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   vacationCardContent: {
     flexDirection: "row",
@@ -1460,10 +1480,10 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.xl,
     marginBottom: Spacing.lg,
     padding: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: "rgba(0, 212, 255, 0.3)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
     alignItems: "center",
   },
   activeVacationHeader: {
@@ -1477,6 +1497,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.xpCyan,
     fontWeight: "700",
     letterSpacing: 1,
+    textTransform: "uppercase",
   },
   activeVacationDates: {
     ...Typography.h3,
@@ -1506,10 +1527,10 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.xl,
     marginBottom: Spacing.lg,
     padding: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: "rgba(0, 212, 255, 0.3)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   vacationWizardHeader: {
     alignItems: "center",
@@ -1636,9 +1657,10 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.xl,
     marginBottom: Spacing.lg,
     padding: Spacing.lg,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: "rgba(46, 204, 64, 0.3)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   weeklyQuestHeader: {
     flexDirection: "row",
@@ -1660,6 +1682,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 1,
     flex: 1,
+    textTransform: "uppercase",
   },
   streakBonusBadge: {
     flexDirection: "row",
@@ -1684,7 +1707,7 @@ const styles = StyleSheet.create({
   },
   xpProgressFill: {
     height: "100%",
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: GlowColors.primary,
     borderRadius: 4,
   },
   xpStats: {
