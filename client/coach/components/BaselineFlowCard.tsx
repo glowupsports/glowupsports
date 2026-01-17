@@ -465,8 +465,9 @@ const styles = StyleSheet.create({
   },
   checkboxSublabel: {
     fontSize: FontSizes.sm,
-    color: "rgba(255, 255, 255, 0.7)",
+    color: "#FFFFFF",
     marginTop: 2,
+    fontWeight: "500",
   },
   // Progress ring styles
   progressRingContainer: {

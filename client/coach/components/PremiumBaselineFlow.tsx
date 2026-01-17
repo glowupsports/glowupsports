@@ -835,12 +835,13 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: FontSizes.lg,
-    fontWeight: "600",
-    color: Colors.dark.text,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
   headerSubtitle: {
-    fontSize: FontSizes.sm,
-    color: Colors.dark.textSecondary,
+    fontSize: FontSizes.md,
+    color: "#FFFFFF",
+    fontWeight: "500",
   },
   headerRight: {
     width: 40,
@@ -877,12 +878,13 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   introDescription: {
-    fontSize: FontSizes.md,
-    color: "rgba(255, 255, 255, 0.85)",
+    fontSize: FontSizes.lg,
+    color: "#FFFFFF",
     textAlign: "center",
-    lineHeight: 24,
+    lineHeight: 26,
     marginBottom: Spacing.xl,
     paddingHorizontal: Spacing.md,
+    fontWeight: "500",
   },
   introSteps: {
     width: "100%",
@@ -1032,16 +1034,18 @@ const styles = StyleSheet.create({
   },
   levelSuggestNote: {
     fontSize: FontSizes.md,
-    color: "rgba(255, 255, 255, 0.75)",
+    color: "#FFFFFF",
     textAlign: "center",
     paddingHorizontal: Spacing.lg,
-    lineHeight: 22,
+    lineHeight: 24,
+    fontWeight: "500",
   },
   // Requirements
   requirementsIntro: {
     fontSize: FontSizes.md,
-    color: "rgba(255, 255, 255, 0.85)",
+    color: "#FFFFFF",
     marginBottom: Spacing.lg,
+    fontWeight: "500",
   },
   emptySkills: {
     alignItems: "center",
@@ -1049,8 +1053,9 @@ const styles = StyleSheet.create({
   },
   emptySkillsText: {
     fontSize: FontSizes.md,
-    color: "rgba(255, 255, 255, 0.6)",
+    color: "#FFFFFF",
     marginTop: Spacing.md,
+    fontWeight: "500",
   },
   // Summary
   summaryHeader: {
@@ -1091,7 +1096,8 @@ const styles = StyleSheet.create({
   },
   summaryProgressSubtitle: {
     fontSize: FontSizes.md,
-    color: "rgba(255, 255, 255, 0.75)",
+    color: "#FFFFFF",
+    fontWeight: "500",
   },
   pillarSummary: {
     gap: Spacing.md,
@@ -1148,8 +1154,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   deepAssessmentSubtitle: {
-    fontSize: FontSizes.sm,
-    color: Colors.dark.textSecondary,
+    fontSize: FontSizes.md,
+    color: "#FFFFFF",
+    fontWeight: "500",
   },
   // Complete
   completeCard: {
@@ -1166,15 +1173,16 @@ const styles = StyleSheet.create({
   completeTitle: {
     fontSize: FontSizes.xxl,
     fontWeight: "700",
-    color: Colors.dark.text,
+    color: "#FFFFFF",
     marginTop: Spacing.xl,
     marginBottom: Spacing.sm,
   },
   completeSubtitle: {
-    fontSize: FontSizes.md,
-    color: Colors.dark.textSecondary,
+    fontSize: FontSizes.lg,
+    color: "#FFFFFF",
     textAlign: "center",
     marginBottom: Spacing.xl,
+    fontWeight: "500",
   },
   completeActions: {
     width: "100%",
