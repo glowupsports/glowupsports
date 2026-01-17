@@ -1,0 +1,213 @@
+🎾 GLOW 7 — INTERMEDIATE / CONTROL → INTENT
+
+(Overgang van “ik kan het uitvoeren” → “ik kies wat ik doe”)
+
+Filosofie Glow 7:
+De speler heeft controle, maar leert intentie.
+Minder toeval. Meer keuze. Minder chaos.
+
+🟦 TECHNIQUE (NOG STEEDS HOOFDZAAK, MAAR ANDERS)
+FOREHAND
+
+Stabiliteit
+
+⬜ Vaste grip (geen wisselen bij druk)
+
+⬜ Contactpunt consequent vóór lichaam
+
+⬜ Swingtempo gecontroleerd (niet alleen hard)
+
+Richting
+
+⬜ Crosscourt én down-the-line mogelijk
+
+⬜ Kan richting kiezen op opdracht
+
+⬜ ≥ 70% ballen landt waar bedoeld (zone-based)
+
+Spin & hoogte
+
+⬜ Topspin zichtbaar (net clearance)
+
+⬜ Kan bal hoger of lager slaan op verzoek
+
+BACKHAND
+
+Consistentie
+
+⬜ BH geen zwakke kant meer
+
+⬜ Rally BH↔BH ≥ 12 ballen mogelijk
+
+Richting
+
+⬜ Crosscourt stabiel
+
+⬜ Down-the-line geprobeerd zonder paniek
+
+Techniek
+
+⬜ Schouderrotatie consistent
+
+⬜ Follow-through compleet
+
+SERVE
+
+Betrouwbaarheid
+
+⬜ ≥ 65% eerste service in
+
+⬜ Dubbele fout zelden in games
+
+Variatie
+
+⬜ Kan links/rechts targetten
+
+⬜ Kan tempo aanpassen (veilig vs druk)
+
+Technisch
+
+⬜ Toss stabiel
+
+⬜ Ritme herkenbaar
+
+RETURN
+
+⬜ Ready position voor service
+
+⬜ Kan service terugbrengen zonder paniek
+
+⬜ Richt return bewust (crosscourt meestal)
+
+VOLLEY & TRANSITIE
+
+⬜ Volley met blok (geen swings)
+
+⬜ Beweegt door naar net na korte bal
+
+⬜ Begrijpt “approach + volley”
+
+OVERHEAD
+
+⬜ Positioneert onder bal
+
+⬜ Kan overhead scoren in training
+
+⬜ Minder paniek bij hoge bal
+
+🟨 TACTICAL (DIT IS WAAR GLOW 7 BEGINT TE SCHITTEREN)
+
+⬜ Speelt crosscourt onder druk
+
+⬜ Gaat alleen DTL bij juiste bal
+
+⬜ Herkent korte bal → aanval
+
+⬜ Herkent diepe bal → verdediging
+
+⬜ Probeert punt op te bouwen (3–4 slagen)
+
+⚠️ Belangrijk:
+Glow 7 hoeft het niet altijd goed te doen, maar de keuze moet kloppen.
+
+🟩 PHYSICAL (EFFICIËNTIE)
+
+⬜ Split step vóór meeste slagen
+
+⬜ Zijwaartse beweging vloeiend
+
+⬜ Herstelt naar basispositie
+
+⬜ Kan 60–75 min trainen op niveau
+
+⬜ Vermoeidheid beïnvloedt techniek niet direct
+
+🟦 MENTAL (HIER VALLEN DE MEESTEN AF)
+
+⬜ Kan fouten resetten binnen 1 punt
+
+⬜ Geen emotionele meltdown
+
+⬜ Blijft taakgericht tijdens rally
+
+⬜ Volgt tactische opdracht ook na fout
+
+⬜ Begrijpt verschil “trainen” vs “wedstrijd”
+
+👉 Coach-note:
+Glow 7 = eerste mentale volwassenheid
+
+🟪 SOCIAL
+
+⬜ Coöperatief in groep
+
+⬜ Kan sparren zonder ego
+
+⬜ Respecteert tegenstander
+
+⬜ Kan dubbel spelen met structuur
+
+⬜ Neemt verantwoordelijkheid (ballen, score)
+
+🟥 MATCH (ECHT TENNIS BEGINT HIER)
+
+⬜ Speelt volledige sets (short sets ok)
+
+⬜ Houdt score zelfstandig bij
+
+⬜ Speelt games tactisch (niet random)
+
+⬜ Probeert patroon (bv. FH cross → open court)
+
+⬜ Accepteert verlies zonder gedrag
+
+🎯 GLOW 7 — PROMOTIE NAAR GLOW 6
+MINIMUM VEREISTEN
+
+MOET:
+
+Forehand + Backhand = stabiel & richtbaar
+
+Serve betrouwbaar
+
+Tactische keuzes grotendeels correct
+
+Mentale stabiliteit aanwezig
+
+WEGING (ADVIES)
+
+Technique: 35%
+
+Tactical: 25%
+
+Mental: 20%
+
+Physical: 10%
+
+Match: 10%
+
+🧠 WAAROM GLOW 7 ZO BELANGRIJK IS IN JOUW APP
+
+Dit niveau:
+
+🔒 voorkomt te vroege promotie
+
+📊 maakt data echt betekenisvol
+
+🤝 voorkomt ouder-discussies
+
+🎮 voelt als “next tier unlocked”
+
+🧬 is perfect voor AI-suggesties
+
+🔧 BACKEND / APP IMPLICATIES
+
+Slider per subskill (0–100)
+
+Coach confidence score
+
+Automatische “Glow 6 readiness”
+
+Video evidence zwaar meetellend
+
+Historische trend (niet alleen snapshot)
