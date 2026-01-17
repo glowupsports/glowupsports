@@ -143,24 +143,16 @@ export function BaselineFlowCard({
               onPress={handleNext}
               disabled={nextDisabled}
             >
-              <LinearGradient
-                colors={nextDisabled 
-                  ? [Colors.dark.textMuted, Colors.dark.textMuted]
-                  : [GlowColors.primary, GlowColors.primaryDark]
-                }
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.nextButtonGradient}
-              >
+              <View style={styles.nextButtonInner}>
                 <Text style={[styles.nextButtonText, nextDisabled && styles.nextButtonTextDisabled]}>
                   {nextLabel}
                 </Text>
                 <Ionicons 
                   name="arrow-forward" 
                   size={18} 
-                  color={nextDisabled ? Colors.dark.textMuted : Colors.dark.buttonText} 
+                  color={nextDisabled ? "#666666" : "#FFFFFF"} 
                 />
-              </LinearGradient>
+              </View>
             </Pressable>
           )}
         </View>
@@ -400,13 +392,16 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "#1A1F2A",
     borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
   },
   backButtonText: {
     fontSize: FontSizes.md,
     color: "#FFFFFF",
     fontWeight: "600",
+    letterSpacing: 0.3,
   },
   backPlaceholder: {
     width: 80,
@@ -414,17 +409,21 @@ const styles = StyleSheet.create({
   nextButton: {
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
+    backgroundColor: "#1A1F2A",
+    borderWidth: 1.5,
+    borderColor: GlowColors.primary + "60",
     shadowColor: GlowColors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
     elevation: 6,
   },
   nextButtonDisabled: {
     opacity: 0.5,
     shadowOpacity: 0,
+    borderColor: "#333333",
   },
-  nextButtonGradient: {
+  nextButtonInner: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
@@ -435,6 +434,7 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.lg,
     fontWeight: "700",
     color: "#FFFFFF",
+    letterSpacing: 0.3,
   },
   nextButtonTextDisabled: {
     color: "#666666",
