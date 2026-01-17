@@ -214,6 +214,10 @@ export function PremiumSessionWizard({
   const isRecurring = schedulePattern === "recurring";
   const isFlexible = schedulePattern === "flexible";
   
+  const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
+  const [multiWeekBlockedSlots, setMultiWeekBlockedSlots] = useState<Set<string>>(new Set());
+  
   const successScale = useSharedValue(0);
 
   useEffect(() => {
@@ -248,6 +252,89 @@ export function PremiumSessionWizard({
 
   const players = Array.isArray(playersData) ? playersData : [];
   const courts = Array.isArray(courtsData) ? courtsData : [];
+
+  const selectedDateString = useMemo(() => {
+    return `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+  }, [selectedDate]);
+
+  interface ExistingSession {
+    id: string;
+    startTime: string;
+    endTime: string;
+    duration?: number;
+    courtId?: string;
+  }
+
+  const { data: calendarData } = useQuery<{ ownSessions: ExistingSession[]; blockedSessions: ExistingSession[] }>({
+    queryKey: ["/api/coach/calendar/day", effectiveCoach?.id, selectedDateString],
+    queryFn: async () => {
+      if (!effectiveCoach?.id) return { ownSessions: [], blockedSessions: [] };
+      const coachIdParam = adminMode ? `&coachId=${effectiveCoach.id}` : '';
+      const res = await fetch(`/api/coach/calendar?date=${selectedDateString}&view=day${coachIdParam}`);
+      if (!res.ok) return { ownSessions: [], blockedSessions: [] };
+      const data = await res.json();
+      return {
+        ownSessions: data.ownSessions || [],
+        blockedSessions: data.blockedSessions || [],
+      };
+    },
+    enabled: visible && !!effectiveCoach?.id && step === "date-time",
+  });
+
+  const TIME_SLOTS = [
+    "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
+    "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
+    "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
+    "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
+    "19:00", "19:30", "20:00", "20:30", "21:00",
+  ];
+
+  const blockedSlots = useMemo((): Set<string> => {
+    const blocked = new Set<string>();
+    if (!calendarData) return blocked;
+
+    const checkSessionOverlap = (session: ExistingSession) => {
+      const sessionStart = new Date(session.startTime.endsWith("Z") ? session.startTime : session.startTime + "Z");
+      const sessionEnd = new Date(session.endTime.endsWith("Z") ? session.endTime : session.endTime + "Z");
+      
+      for (const time of TIME_SLOTS) {
+        const [hours, mins] = time.split(":").map(Number);
+        const slotStart = new Date(selectedDate);
+        slotStart.setHours(hours, mins, 0, 0);
+        const slotEnd = new Date(slotStart);
+        slotEnd.setMinutes(slotEnd.getMinutes() + duration);
+        
+        if (slotStart < sessionEnd && slotEnd > sessionStart) {
+          blocked.add(time);
+        }
+      }
+    };
+    
+    for (const session of calendarData.ownSessions || []) {
+      checkSessionOverlap(session);
+    }
+    
+    if (selectedCourtId) {
+      for (const session of (calendarData.blockedSessions || []).filter(s => s.courtId === selectedCourtId)) {
+        checkSessionOverlap(session);
+      }
+    }
+    
+    return blocked;
+  }, [calendarData, selectedCourtId, selectedDate, duration]);
+
+  const availableSlots = useMemo(() => {
+    return TIME_SLOTS.filter(time => 
+      !blockedSlots.has(time) && 
+      !multiWeekBlockedSlots.has(time)
+    );
+  }, [blockedSlots, multiWeekBlockedSlots]);
+
+  useEffect(() => {
+    if (selectedTime && !availableSlots.includes(selectedTime)) {
+      setSelectedTime(null);
+    }
+  }, [availableSlots, selectedTime]);
 
   const filteredPlayers = useMemo(() => {
     let result = players;
@@ -1087,11 +1174,14 @@ export function PremiumSessionWizard({
 
   const renderDateTimeCard = () => {
     const courtName = selectedCourtId ? courts.find(c => c.id === selectedCourtId)?.name : null;
+    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const formattedSelectedDate = `${dayNames[selectedDate.getDay()]}, ${monthNames[selectedDate.getMonth()]} ${selectedDate.getDate()}, ${selectedDate.getFullYear()}`;
     
     return (
       <BaselineFlowCard
         title="Date & Time"
-        subtitle={courtName ? `Court: ${courtName}` : formatDate(selectedDate)}
+        subtitle={courtName ? `Court: ${courtName}` : "Select when"}
         icon="time"
         iconColor="#8B5CF6"
         step={getCurrentStepNumber()}
@@ -1102,73 +1192,93 @@ export function PremiumSessionWizard({
         nextDisabled={!canProceed()}
         glowColor="#8B5CF6"
       >
-        <ScrollView style={styles.cardScrollLarge} showsVerticalScrollIndicator={false}>
-          <Text style={styles.sectionLabel}>Select Date</Text>
-          <View style={styles.datePickerContainer}>
-            <View style={styles.datePickerNav}>
-              <Pressable
-                onPress={() => {
-                  const prev = new Date(datePickerMonth);
-                  prev.setMonth(prev.getMonth() - 1);
-                  setDatePickerMonth(prev);
-                }}
-                style={styles.datePickerNavBtn}
-              >
-                <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
-              </Pressable>
-              <Text style={styles.datePickerMonthLabel}>
-                {datePickerMonth.toLocaleDateString("en", { month: "long", year: "numeric" })}
-              </Text>
-              <Pressable
-                onPress={() => {
-                  const next = new Date(datePickerMonth);
-                  next.setMonth(next.getMonth() + 1);
-                  setDatePickerMonth(next);
-                }}
-                style={styles.datePickerNavBtn}
-              >
-                <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
-              </Pressable>
+        <ScrollView style={styles.cardScrollFull} showsVerticalScrollIndicator={false}>
+          <Pressable 
+            style={styles.selectedDateChip}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setIsCalendarExpanded(!isCalendarExpanded);
+            }}
+          >
+            <View style={styles.selectedDateInfo}>
+              <Ionicons name="calendar" size={20} color="#8B5CF6" />
+              <Text style={styles.selectedDateText}>{formattedSelectedDate}</Text>
             </View>
-            
-            <View style={styles.datePickerDayHeaders}>
-              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
-                <Text key={d} style={styles.datePickerDayHeader}>{d}</Text>
-              ))}
+            <Ionicons 
+              name={isCalendarExpanded ? "chevron-up" : "chevron-down"} 
+              size={20} 
+              color="#FFFFFF" 
+            />
+          </Pressable>
+          
+          {isCalendarExpanded && (
+            <View style={styles.datePickerContainer}>
+              <View style={styles.datePickerNav}>
+                <Pressable
+                  onPress={() => {
+                    const prev = new Date(datePickerMonth);
+                    prev.setMonth(prev.getMonth() - 1);
+                    setDatePickerMonth(prev);
+                  }}
+                  style={styles.datePickerNavBtn}
+                >
+                  <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+                </Pressable>
+                <Text style={styles.datePickerMonthLabel}>
+                  {datePickerMonth.toLocaleDateString("en", { month: "long", year: "numeric" })}
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    const next = new Date(datePickerMonth);
+                    next.setMonth(next.getMonth() + 1);
+                    setDatePickerMonth(next);
+                  }}
+                  style={styles.datePickerNavBtn}
+                >
+                  <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
+                </Pressable>
+              </View>
+              
+              <View style={styles.datePickerDayHeaders}>
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
+                  <Text key={d} style={styles.datePickerDayHeader}>{d}</Text>
+                ))}
+              </View>
+              
+              <View style={styles.datePickerGrid}>
+                {getDatePickerDays().map((day, idx) => {
+                  if (!day) {
+                    return <View key={`empty-${idx}`} style={styles.datePickerCell} />;
+                  }
+                  const isSelected = day.toDateString() === selectedDate.toDateString();
+                  const isToday = day.toDateString() === new Date().toDateString();
+                  
+                  return (
+                    <Pressable
+                      key={day.toISOString()}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSelectedDate(day);
+                        setIsCalendarExpanded(false);
+                      }}
+                      style={[
+                        styles.datePickerCell,
+                        isSelected && styles.datePickerCellSelected,
+                        isToday && !isSelected && styles.datePickerCellToday,
+                      ]}
+                    >
+                      <Text style={[
+                        styles.datePickerDayText,
+                        isSelected && styles.datePickerDayTextSelected,
+                      ]}>
+                        {day.getDate()}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
-            
-            <View style={styles.datePickerGrid}>
-              {getDatePickerDays().map((day, idx) => {
-                if (!day) {
-                  return <View key={`empty-${idx}`} style={styles.datePickerCell} />;
-                }
-                const isSelected = day.toDateString() === selectedDate.toDateString();
-                const isToday = day.toDateString() === new Date().toDateString();
-                
-                return (
-                  <Pressable
-                    key={day.toISOString()}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setSelectedDate(day);
-                    }}
-                    style={[
-                      styles.datePickerCell,
-                      isSelected && styles.datePickerCellSelected,
-                      isToday && !isSelected && styles.datePickerCellToday,
-                    ]}
-                  >
-                    <Text style={[
-                      styles.datePickerDayText,
-                      isSelected && styles.datePickerDayTextSelected,
-                    ]}>
-                      {day.getDate()}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
+          )}
           
           <Text style={styles.sectionLabel}>Duration</Text>
           <View style={styles.durationGrid}>
@@ -1194,29 +1304,41 @@ export function PremiumSessionWizard({
             ))}
           </View>
           
-          <Text style={styles.sectionLabel}>Start Time</Text>
-          <View style={styles.timeGrid}>
-            {TIME_SLOTS.map((time) => (
-              <Pressable
-                key={time}
-                style={[
-                  styles.timeSlot,
-                  selectedTime === time && styles.timeSlotSelected,
-                ]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setSelectedTime(time);
-                }}
-              >
-                <Text style={[
-                  styles.timeSlotText,
-                  selectedTime === time && styles.timeSlotTextSelected,
-                ]}>
-                  {time}
-                </Text>
-              </Pressable>
-            ))}
+          <View style={styles.availableTimesHeader}>
+            <Text style={styles.sectionLabel}>Available Times</Text>
+            <Text style={styles.slotCountText}>{availableSlots.length} slots</Text>
           </View>
+          
+          {availableSlots.length > 0 ? (
+            <View style={styles.timeGrid}>
+              {availableSlots.map((time) => (
+                <Pressable
+                  key={time}
+                  style={[
+                    styles.timeSlot,
+                    selectedTime === time && styles.timeSlotSelected,
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelectedTime(time);
+                  }}
+                >
+                  <Text style={[
+                    styles.timeSlotText,
+                    selectedTime === time && styles.timeSlotTextSelected,
+                  ]}>
+                    {time}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.noSlotsContainer}>
+              <Ionicons name="calendar-outline" size={32} color={Colors.dark.textMuted} />
+              <Text style={styles.noSlotsText}>No available time slots</Text>
+              <Text style={styles.noSlotsHint}>Try a different date or court</Text>
+            </View>
+          )}
         </ScrollView>
       </BaselineFlowCard>
     );
@@ -1706,6 +1828,56 @@ const styles = StyleSheet.create({
   datePickerDayTextSelected: {
     color: "#FFFFFF",
     fontWeight: "700",
+  },
+  cardScrollFull: {
+    flex: 1,
+  },
+  selectedDateChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#1A1F2A",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
+    borderColor: "#8B5CF6" + "40",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  selectedDateInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  selectedDateText: {
+    fontSize: FontSizes.lg,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  availableTimesHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.sm,
+  },
+  slotCountText: {
+    fontSize: FontSizes.sm,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan,
+  },
+  noSlotsContainer: {
+    alignItems: "center",
+    paddingVertical: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  noSlotsText: {
+    fontSize: FontSizes.md,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  noSlotsHint: {
+    fontSize: FontSizes.sm,
+    color: Colors.dark.textMuted,
   },
   introContent: {
     alignItems: "center",

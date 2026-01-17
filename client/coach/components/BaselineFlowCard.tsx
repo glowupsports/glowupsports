@@ -14,8 +14,9 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, FontSizes, Backgrounds, GlowColors } from "@/constants/theme";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const CARD_WIDTH = SCREEN_WIDTH - Spacing.xl * 2;
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const CARD_WIDTH = SCREEN_WIDTH - Spacing.lg * 2;
+const CARD_HEIGHT = SCREEN_HEIGHT * 0.85;
 
 interface BaselineFlowCardProps {
   children: React.ReactNode;
@@ -302,8 +303,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: GlowColors.primary + "50",
     overflow: "hidden",
-    minHeight: 520,
-    maxHeight: 650,
+    height: CARD_HEIGHT,
     shadowColor: GlowColors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
