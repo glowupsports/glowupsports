@@ -14,7 +14,7 @@ import Animated, {
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
 import { BaselineFlowCard } from "./BaselineFlowCard";
 
