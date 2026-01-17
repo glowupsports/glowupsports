@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView, Dimensions, Platform, Switch } from "react-native";
+import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView, Dimensions, Platform, Switch, ActivityIndicator } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -335,6 +335,61 @@ export function PremiumSessionWizard({
       setSelectedTime(null);
     }
   }, [availableSlots, selectedTime]);
+
+  useEffect(() => {
+    const checkMultiWeekAvailability = async () => {
+      if (!isRecurring || !effectiveCoach?.id || !selectedCourtId || step !== "date-time") {
+        setMultiWeekBlockedSlots(new Set());
+        return;
+      }
+      
+      setIsCheckingAvailability(true);
+      const blocked = new Set<string>();
+      
+      try {
+        for (let week = 1; week < weekCount; week++) {
+          const futureDate = new Date(selectedDate);
+          futureDate.setDate(futureDate.getDate() + (week * 7));
+          const dateStr = `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}-${String(futureDate.getDate()).padStart(2, '0')}`;
+          
+          const coachIdParam = adminMode ? `&coachId=${effectiveCoach.id}` : '';
+          const res = await fetch(`/api/coach/calendar?date=${dateStr}&view=day${coachIdParam}`);
+          if (!res.ok) continue;
+          
+          const data = await res.json();
+          const allSessions = [
+            ...(data.ownSessions || []),
+            ...(data.blockedSessions || []).filter((s: ExistingSession) => s.courtId === selectedCourtId),
+          ];
+          
+          for (const time of TIME_SLOTS) {
+            const [hours, mins] = time.split(":").map(Number);
+            const slotStart = new Date(futureDate);
+            slotStart.setHours(hours, mins, 0, 0);
+            const slotEnd = new Date(slotStart);
+            slotEnd.setMinutes(slotEnd.getMinutes() + duration);
+            
+            for (const session of allSessions) {
+              const sessionStart = new Date(session.startTime.endsWith("Z") ? session.startTime : session.startTime + "Z");
+              const sessionEnd = new Date(session.endTime.endsWith("Z") ? session.endTime : session.endTime + "Z");
+              
+              if (slotStart < sessionEnd && slotEnd > sessionStart) {
+                blocked.add(time);
+                break;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.log("Error checking multi-week availability:", e);
+      }
+      
+      setMultiWeekBlockedSlots(blocked);
+      setIsCheckingAvailability(false);
+    };
+    
+    checkMultiWeekAvailability();
+  }, [isRecurring, weekCount, selectedDate, selectedCourtId, effectiveCoach?.id, duration, step, adminMode]);
 
   const filteredPlayers = useMemo(() => {
     let result = players;
@@ -1304,12 +1359,35 @@ export function PremiumSessionWizard({
             ))}
           </View>
           
+          {isRecurring && (
+            <View style={styles.recurringBanner}>
+              <Ionicons name="repeat" size={16} color="#8B5CF6" />
+              <Text style={styles.recurringBannerText}>
+                Checking availability for {weekCount} weeks
+              </Text>
+              {isCheckingAvailability && (
+                <ActivityIndicator size="small" color="#8B5CF6" />
+              )}
+            </View>
+          )}
+          
           <View style={styles.availableTimesHeader}>
             <Text style={styles.sectionLabel}>Available Times</Text>
-            <Text style={styles.slotCountText}>{availableSlots.length} slots</Text>
+            <View style={styles.slotCountRow}>
+              {isCheckingAvailability ? (
+                <Text style={styles.slotCountTextMuted}>Checking...</Text>
+              ) : (
+                <Text style={styles.slotCountText}>{availableSlots.length} slots</Text>
+              )}
+            </View>
           </View>
           
-          {availableSlots.length > 0 ? (
+          {isCheckingAvailability ? (
+            <View style={styles.noSlotsContainer}>
+              <ActivityIndicator size="large" color="#8B5CF6" />
+              <Text style={styles.noSlotsText}>Checking {weekCount} weeks...</Text>
+            </View>
+          ) : availableSlots.length > 0 ? (
             <View style={styles.timeGrid}>
               {availableSlots.map((time) => (
                 <Pressable
@@ -1877,6 +1955,34 @@ const styles = StyleSheet.create({
   },
   noSlotsHint: {
     fontSize: FontSizes.sm,
+    color: Colors.dark.textMuted,
+  },
+  recurringBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: "#8B5CF6" + "20",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "#8B5CF6" + "40",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  recurringBannerText: {
+    fontSize: FontSizes.sm,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    flex: 1,
+  },
+  slotCountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  slotCountTextMuted: {
+    fontSize: FontSizes.sm,
+    fontWeight: "600",
     color: Colors.dark.textMuted,
   },
   introContent: {
