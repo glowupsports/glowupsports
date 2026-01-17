@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView, Dimensions, Platform } from "react-native";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView, Dimensions, Platform, Switch } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -9,8 +9,10 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withSequence,
+  FadeIn,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
@@ -18,19 +20,24 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { BaselineFlowCard } from "./BaselineFlowCard";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const SKIP_INTRO_KEY = "premium_session_wizard_skip_intro";
 
 type FlowStep = 
   | "intro" 
-  | "session-type" 
+  | "session-type"
+  | "schedule-pattern"
   | "group-level" 
   | "players" 
   | "date-time" 
+  | "session-setup"
   | "court" 
   | "summary" 
   | "complete";
 
 type SessionType = "private" | "semi_private" | "group" | "physical" | "activity";
 type BallLevel = "red" | "orange" | "green" | "yellow" | "glow";
+type SkillLevel = 1 | 2 | 3;
+type SchedulePattern = "one-time" | "recurring" | "flexible";
 
 interface Player {
   id: string;
@@ -39,6 +46,17 @@ interface Player {
   ballLevel?: string | null;
   skillLevel?: number | null;
   profilePhotoUrl?: string | null;
+  totalXp?: number;
+  level?: number;
+  streak?: number;
+  pillars?: {
+    forehand?: number;
+    backhand?: number;
+    serve?: number;
+    volley?: number;
+    movement?: number;
+    tactics?: number;
+  };
 }
 
 interface Court {
@@ -46,11 +64,28 @@ interface Court {
   name: string;
 }
 
+interface Coach {
+  id: string;
+  name: string;
+  profilePhotoUrl?: string | null;
+  color?: string | null;
+}
+
+interface FlexibleDate {
+  date: string;
+  time: string | null;
+}
+
 interface PremiumSessionWizardProps {
   visible: boolean;
   onClose: () => void;
   onComplete?: (session: any) => void;
   initialDate?: Date;
+  adminMode?: boolean;
+  coaches?: Coach[];
+  selectedCoachId?: string;
+  onCoachIdChange?: (coachId: string) => void;
+  createSeriesMode?: boolean;
 }
 
 const SESSION_TYPES = [
@@ -99,6 +134,12 @@ const BALL_LEVELS = [
   { id: "glow" as BallLevel, label: "Glow", color: Colors.dark.xpCyan, description: "Adults" },
 ];
 
+const SKILL_LEVELS = [
+  { value: 1 as SkillLevel, label: "Beginner" },
+  { value: 2 as SkillLevel, label: "Intermediate" },
+  { value: 3 as SkillLevel, label: "Advanced" },
+];
+
 const DURATIONS = [
   { value: 30, label: "30 min" },
   { value: 45, label: "45 min" },
@@ -115,12 +156,38 @@ const TIME_SLOTS = [
   "19:00", "19:30", "20:00", "20:30", "21:00",
 ];
 
-export function PremiumSessionWizard({ visible, onClose, onComplete, initialDate }: PremiumSessionWizardProps) {
+const WEEK_COUNTS = [1, 2, 5, 10, 15, 20, 30];
+const MAX_PLAYERS_OPTIONS = [2, 3, 4, 6, 8, 10, 12];
+
+const getXpProgress = (totalXp: number, level: number): number => {
+  const xpPerLevel = 100 + (level - 1) * 50;
+  const currentLevelXp = totalXp % xpPerLevel;
+  return Math.min((currentLevelXp / xpPerLevel) * 100, 100);
+};
+
+export function PremiumSessionWizard({ 
+  visible, 
+  onClose, 
+  onComplete, 
+  initialDate,
+  adminMode = false,
+  coaches = [],
+  selectedCoachId,
+  onCoachIdChange,
+  createSeriesMode = false,
+}: PremiumSessionWizardProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { coach, refetchCalendar } = useCoach();
+  const { coach: currentCoach, refetchCalendar } = useCoach();
+  
+  const effectiveCoach = adminMode 
+    ? coaches.find(c => c.id === selectedCoachId) 
+    : currentCoach;
   
   const [step, setStep] = useState<FlowStep>("intro");
+  const [skipIntro, setSkipIntro] = useState(false);
+  const [dontShowAgain, setDontShowAgain] = useState(false);
+  
   const [sessionType, setSessionType] = useState<SessionType | null>(null);
   const [groupLevel, setGroupLevel] = useState<BallLevel | null>(null);
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
@@ -132,7 +199,42 @@ export function PremiumSessionWizard({ visible, onClose, onComplete, initialDate
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   const [createdSession, setCreatedSession] = useState<any>(null);
   
+  const [schedulePattern, setSchedulePattern] = useState<SchedulePattern>(createSeriesMode ? "recurring" : "one-time");
+  const [weekCount, setWeekCount] = useState(10);
+  const [flexibleDates, setFlexibleDates] = useState<FlexibleDate[]>([]);
+  const [flexibleCalendarMonth, setFlexibleCalendarMonth] = useState(new Date());
+  
+  const [maxPlayers, setMaxPlayers] = useState(4);
+  const [skillLevel, setSkillLevel] = useState<SkillLevel | null>(null);
+  const [ballLevelOverride, setBallLevelOverride] = useState(false);
+  const [isOpenGroup, setIsOpenGroup] = useState(true);
+  const [visibleToPlayers, setVisibleToPlayers] = useState(true);
+  const [notes, setNotes] = useState("");
+  
+  const isRecurring = schedulePattern === "recurring";
+  const isFlexible = schedulePattern === "flexible";
+  
   const successScale = useSharedValue(0);
+
+  useEffect(() => {
+    const loadSkipIntroSetting = async () => {
+      try {
+        const saved = await AsyncStorage.getItem(SKIP_INTRO_KEY);
+        if (saved === "true") {
+          setSkipIntro(true);
+        }
+      } catch (e) {
+        console.log("Error loading skip intro setting:", e);
+      }
+    };
+    loadSkipIntroSetting();
+  }, []);
+
+  useEffect(() => {
+    if (createSeriesMode && visible) {
+      setSchedulePattern("recurring");
+    }
+  }, [createSeriesMode, visible]);
 
   const { data: playersData = [] } = useQuery<Player[]>({
     queryKey: ["/api/players"],
@@ -166,7 +268,7 @@ export function PremiumSessionWizard({ visible, onClose, onComplete, initialDate
     mutationFn: async () => {
       const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
       
-      return apiRequest("POST", "/api/sessions", {
+      const payload: any = {
         sessionType,
         date: dateStr,
         startTime: selectedTime,
@@ -174,8 +276,23 @@ export function PremiumSessionWizard({ visible, onClose, onComplete, initialDate
         courtId: selectedCourtId,
         playerIds: selectedPlayers.map(p => p.id),
         ballLevel: groupLevel || (selectedPlayers[0]?.ballLevel || "green"),
-        coachId: coach?.id,
-      });
+        coachId: effectiveCoach?.id,
+        maxPlayers,
+        skillLevel,
+        isOpenGroup,
+        visibleToPlayers,
+        notes: notes.trim() || null,
+      };
+      
+      if (isRecurring) {
+        payload.isRecurring = true;
+        payload.weekCount = weekCount;
+      } else if (isFlexible && flexibleDates.length > 0) {
+        payload.isFlexible = true;
+        payload.flexibleDates = flexibleDates;
+      }
+      
+      return apiRequest("POST", "/api/sessions", payload);
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
@@ -196,7 +313,8 @@ export function PremiumSessionWizard({ visible, onClose, onComplete, initialDate
 
   useEffect(() => {
     if (visible) {
-      setStep("intro");
+      const initialStep = skipIntro ? "session-type" : "intro";
+      setStep(initialStep);
       setSessionType(null);
       setGroupLevel(null);
       setSelectedPlayers([]);
@@ -207,14 +325,48 @@ export function PremiumSessionWizard({ visible, onClose, onComplete, initialDate
       setSelectedCourtId(null);
       setShowSuccessAnimation(false);
       setCreatedSession(null);
+      setSchedulePattern(createSeriesMode ? "recurring" : "one-time");
+      setWeekCount(10);
+      setFlexibleDates([]);
+      setMaxPlayers(4);
+      setSkillLevel(null);
+      setBallLevelOverride(false);
+      setIsOpenGroup(true);
+      setVisibleToPlayers(true);
+      setNotes("");
+      setDontShowAgain(false);
     }
-  }, [visible, initialDate]);
+  }, [visible, initialDate, skipIntro, createSeriesMode]);
+
+  const toggleFlexibleDate = (dateStr: string) => {
+    setFlexibleDates(prev => {
+      const exists = prev.find(d => d.date === dateStr);
+      if (exists) {
+        return prev.filter(d => d.date !== dateStr);
+      } else {
+        return [...prev, { date: dateStr, time: null }].sort((a, b) => a.date.localeCompare(b.date));
+      }
+    });
+  };
+
+  const getFlexibleCalendarDays = () => {
+    const year = flexibleCalendarMonth.getFullYear();
+    const month = flexibleCalendarMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startPadding = firstDay.getDay();
+    
+    const days: (Date | null)[] = [];
+    for (let i = 0; i < startPadding; i++) days.push(null);
+    for (let d = 1; d <= lastDay.getDate(); d++) {
+      days.push(new Date(year, month, d));
+    }
+    return days;
+  };
 
   const getTotalSteps = () => {
-    let steps = 5; // intro + type + players + datetime + court + summary
-    if (sessionType === "group") {
-      steps += 1; // group level step
-    }
+    let steps = 7;
+    if (sessionType === "group") steps += 1;
     return steps;
   };
 
@@ -223,22 +375,37 @@ export function PremiumSessionWizard({ visible, onClose, onComplete, initialDate
     switch (step) {
       case "intro": return 1;
       case "session-type": return 2;
-      case "group-level": return 3;
-      case "players": return hasGroupLevel ? 4 : 3;
-      case "date-time": return hasGroupLevel ? 5 : 4;
-      case "court": return hasGroupLevel ? 6 : 5;
+      case "schedule-pattern": return 3;
+      case "group-level": return 4;
+      case "players": return hasGroupLevel ? 5 : 4;
+      case "date-time": return hasGroupLevel ? 6 : 5;
+      case "session-setup": return hasGroupLevel ? 7 : 6;
+      case "court": return hasGroupLevel ? 8 : 7;
       case "summary": return getTotalSteps();
       default: return 1;
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    if (step === "intro" && dontShowAgain) {
+      try {
+        await AsyncStorage.setItem(SKIP_INTRO_KEY, "true");
+        setSkipIntro(true);
+      } catch (e) {
+        console.log("Error saving skip intro setting:", e);
+      }
+    }
+    
     switch (step) {
       case "intro":
         setStep("session-type");
         break;
       case "session-type":
+        setStep("schedule-pattern");
+        break;
+      case "schedule-pattern":
         if (sessionType === "group") {
           setStep("group-level");
         } else {
@@ -252,6 +419,9 @@ export function PremiumSessionWizard({ visible, onClose, onComplete, initialDate
         setStep("date-time");
         break;
       case "date-time":
+        setStep("session-setup");
+        break;
+      case "session-setup":
         setStep("court");
         break;
       case "court":
@@ -267,23 +437,29 @@ export function PremiumSessionWizard({ visible, onClose, onComplete, initialDate
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     switch (step) {
       case "session-type":
-        setStep("intro");
+        if (!skipIntro) setStep("intro");
+        break;
+      case "schedule-pattern":
+        setStep("session-type");
         break;
       case "group-level":
-        setStep("session-type");
+        setStep("schedule-pattern");
         break;
       case "players":
         if (sessionType === "group") {
           setStep("group-level");
         } else {
-          setStep("session-type");
+          setStep("schedule-pattern");
         }
         break;
       case "date-time":
         setStep("players");
         break;
-      case "court":
+      case "session-setup":
         setStep("date-time");
+        break;
+      case "court":
+        setStep("session-setup");
         break;
       case "summary":
         setStep("court");
@@ -295,12 +471,16 @@ export function PremiumSessionWizard({ visible, onClose, onComplete, initialDate
     switch (step) {
       case "intro": return true;
       case "session-type": return sessionType !== null;
+      case "schedule-pattern": 
+        if (isFlexible) return flexibleDates.length > 0;
+        return true;
       case "group-level": return groupLevel !== null;
       case "players": 
         if (sessionType === "private") return selectedPlayers.length === 1;
         if (sessionType === "semi_private") return selectedPlayers.length >= 1 && selectedPlayers.length <= 3;
         return selectedPlayers.length > 0;
       case "date-time": return selectedTime !== null;
+      case "session-setup": return true;
       case "court": return true;
       case "summary": return true;
       default: return false;
@@ -391,6 +571,16 @@ export function PremiumSessionWizard({ visible, onClose, onComplete, initialDate
             <Text style={styles.introFeatureText}>Pick date & time</Text>
           </View>
         </View>
+        
+        <Pressable 
+          style={styles.skipIntroRow}
+          onPress={() => setDontShowAgain(!dontShowAgain)}
+        >
+          <View style={[styles.skipCheckbox, dontShowAgain && styles.skipCheckboxChecked]}>
+            {dontShowAgain && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+          </View>
+          <Text style={styles.skipIntroText}>Don't show this intro again</Text>
+        </Pressable>
       </View>
     </BaselineFlowCard>
   );
@@ -407,7 +597,8 @@ export function PremiumSessionWizard({ visible, onClose, onComplete, initialDate
         step={getCurrentStepNumber()}
         totalSteps={getTotalSteps()}
         onNext={handleNext}
-        onBack={handleBack}
+        onBack={!skipIntro ? handleBack : undefined}
+        showBack={!skipIntro}
         nextLabel="Next"
         nextDisabled={!canProceed()}
         glowColor={selectedTypeData?.color || Colors.dark.xpCyan}
@@ -454,6 +645,232 @@ export function PremiumSessionWizard({ visible, onClose, onComplete, initialDate
       </BaselineFlowCard>
     );
   };
+
+  const renderSchedulePatternCard = () => (
+    <BaselineFlowCard
+      title="Schedule Pattern"
+      subtitle="How often?"
+      icon="repeat"
+      iconColor={isRecurring ? Colors.dark.xpCyan : isFlexible ? Colors.dark.orange : Colors.dark.primary}
+      step={getCurrentStepNumber()}
+      totalSteps={getTotalSteps()}
+      onNext={handleNext}
+      onBack={handleBack}
+      nextLabel="Next"
+      nextDisabled={!canProceed()}
+      glowColor={isRecurring ? Colors.dark.xpCyan : isFlexible ? Colors.dark.orange : Colors.dark.primary}
+    >
+      <ScrollView style={styles.cardScroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.schedulePatternRow}>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setSchedulePattern("one-time");
+            }}
+            style={[
+              styles.schedulePatternOption,
+              schedulePattern === "one-time" && styles.schedulePatternOptionActive,
+            ]}
+          >
+            <LinearGradient
+              colors={schedulePattern === "one-time" ? [Colors.dark.primary + "40", Colors.dark.primary + "10"] : ["transparent", "transparent"]}
+              style={styles.schedulePatternGradient}
+            >
+              <Ionicons 
+                name="calendar-outline" 
+                size={28} 
+                color={schedulePattern === "one-time" ? Colors.dark.primary : Colors.dark.textMuted} 
+              />
+              <Text style={[styles.schedulePatternLabel, schedulePattern === "one-time" && { color: Colors.dark.primary }]}>
+                One-Time
+              </Text>
+              <Text style={styles.schedulePatternSubtitle}>Single</Text>
+            </LinearGradient>
+          </Pressable>
+          
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setSchedulePattern("recurring");
+            }}
+            style={[
+              styles.schedulePatternOption,
+              schedulePattern === "recurring" && styles.schedulePatternOptionActive,
+            ]}
+          >
+            <LinearGradient
+              colors={schedulePattern === "recurring" ? [Colors.dark.xpCyan + "40", Colors.dark.xpCyan + "10"] : ["transparent", "transparent"]}
+              style={styles.schedulePatternGradient}
+            >
+              <Ionicons 
+                name="repeat" 
+                size={28} 
+                color={schedulePattern === "recurring" ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+              />
+              <Text style={[styles.schedulePatternLabel, schedulePattern === "recurring" && { color: Colors.dark.xpCyan }]}>
+                Weekly
+              </Text>
+              <Text style={styles.schedulePatternSubtitle}>Fixed day</Text>
+            </LinearGradient>
+          </Pressable>
+          
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setSchedulePattern("flexible");
+            }}
+            style={[
+              styles.schedulePatternOption,
+              schedulePattern === "flexible" && styles.schedulePatternOptionActive,
+            ]}
+          >
+            <LinearGradient
+              colors={schedulePattern === "flexible" ? [Colors.dark.orange + "40", Colors.dark.orange + "10"] : ["transparent", "transparent"]}
+              style={styles.schedulePatternGradient}
+            >
+              <Ionicons 
+                name="calendar-number-outline" 
+                size={28} 
+                color={schedulePattern === "flexible" ? Colors.dark.orange : Colors.dark.textMuted} 
+              />
+              <Text style={[styles.schedulePatternLabel, schedulePattern === "flexible" && { color: Colors.dark.orange }]}>
+                Flexible
+              </Text>
+              <Text style={styles.schedulePatternSubtitle}>Pick dates</Text>
+            </LinearGradient>
+          </Pressable>
+        </View>
+
+        {isRecurring && (
+          <Animated.View entering={FadeIn.duration(300)} style={styles.weekCountSection}>
+            <Text style={styles.weekCountLabel}>Number of weeks</Text>
+            <View style={styles.weekCountRow}>
+              {WEEK_COUNTS.map((count) => (
+                <Pressable
+                  key={count}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setWeekCount(count);
+                  }}
+                  style={[
+                    styles.weekCountChip,
+                    weekCount === count && styles.weekCountChipActive,
+                  ]}
+                >
+                  <Text style={[
+                    styles.weekCountChipText,
+                    weekCount === count && styles.weekCountChipTextActive,
+                  ]}>
+                    {count}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            <Text style={styles.weekCountHint}>
+              {weekCount} sessions total
+            </Text>
+          </Animated.View>
+        )}
+        
+        {isFlexible && (
+          <Animated.View entering={FadeIn.duration(300)} style={styles.flexibleSection}>
+            <Text style={styles.weekCountLabel}>Select dates ({flexibleDates.length} selected)</Text>
+            
+            <View style={styles.flexibleMonthNav}>
+              <Pressable
+                onPress={() => {
+                  const prev = new Date(flexibleCalendarMonth);
+                  prev.setMonth(prev.getMonth() - 1);
+                  setFlexibleCalendarMonth(prev);
+                }}
+                style={styles.flexibleMonthBtn}
+              >
+                <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+              </Pressable>
+              <Text style={styles.flexibleMonthLabel}>
+                {flexibleCalendarMonth.toLocaleDateString("en", { month: "long", year: "numeric" })}
+              </Text>
+              <Pressable
+                onPress={() => {
+                  const next = new Date(flexibleCalendarMonth);
+                  next.setMonth(next.getMonth() + 1);
+                  setFlexibleCalendarMonth(next);
+                }}
+                style={styles.flexibleMonthBtn}
+              >
+                <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
+              </Pressable>
+            </View>
+            
+            <View style={styles.flexibleDayHeaders}>
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
+                <Text key={d} style={styles.flexibleDayHeader}>{d}</Text>
+              ))}
+            </View>
+            
+            <View style={styles.flexibleCalendarGrid}>
+              {getFlexibleCalendarDays().map((day, idx) => {
+                if (!day) {
+                  return <View key={`empty-${idx}`} style={styles.flexibleDayCell} />;
+                }
+                const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+                const isSelected = flexibleDates.some(d => d.date === dateStr);
+                const isToday = day.toDateString() === new Date().toDateString();
+                
+                return (
+                  <Pressable
+                    key={dateStr}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      toggleFlexibleDate(dateStr);
+                    }}
+                    style={[
+                      styles.flexibleDayCell,
+                      isSelected && styles.flexibleDayCellSelected,
+                      isToday && styles.flexibleDayCellToday,
+                    ]}
+                  >
+                    <Text style={[
+                      styles.flexibleDayText,
+                      isSelected && styles.flexibleDayTextSelected,
+                    ]}>
+                      {day.getDate()}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            
+            {flexibleDates.length > 0 && (
+              <View style={styles.flexibleSummary}>
+                <Text style={styles.flexibleSummaryLabel}>
+                  {flexibleDates.length} date{flexibleDates.length !== 1 ? 's' : ''} selected
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.flexibleChipsScroll}>
+                  {flexibleDates.slice(0, 10).map(fd => {
+                    const [y, m, d] = fd.date.split('-').map(Number);
+                    const date = new Date(y, m - 1, d);
+                    return (
+                      <Pressable
+                        key={fd.date}
+                        onPress={() => toggleFlexibleDate(fd.date)}
+                        style={styles.flexibleChip}
+                      >
+                        <Text style={styles.flexibleChipText}>
+                          {date.toLocaleDateString("en", { month: "short", day: "numeric" })}
+                        </Text>
+                        <Ionicons name="close-circle" size={14} color={Colors.dark.orange} />
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+          </Animated.View>
+        )}
+      </ScrollView>
+    </BaselineFlowCard>
+  );
 
   const renderGroupLevelCard = () => {
     const selectedLevelData = BALL_LEVELS.find(l => l.id === groupLevel);
@@ -529,12 +946,12 @@ export function PremiumSessionWizard({ visible, onClose, onComplete, initialDate
 
   const renderPlayersCard = () => {
     const typeData = SESSION_TYPES.find(t => t.id === sessionType);
-    const maxPlayers = sessionType === "private" ? 1 : sessionType === "semi_private" ? 3 : 12;
+    const maxPlayersForType = sessionType === "private" ? 1 : sessionType === "semi_private" ? 3 : 12;
     
     return (
       <BaselineFlowCard
         title="Select Players"
-        subtitle={`${selectedPlayers.length}/${maxPlayers} selected`}
+        subtitle={`${selectedPlayers.length}/${maxPlayersForType} selected`}
         icon="people"
         iconColor={typeData?.color || GlowColors.primary}
         step={getCurrentStepNumber()}
@@ -581,6 +998,7 @@ export function PremiumSessionWizard({ visible, onClose, onComplete, initialDate
               filteredPlayers.map((player) => {
                 const isSelected = selectedPlayers.some(p => p.id === player.id);
                 const levelColor = getLevelColor(player.ballLevel);
+                const xpProgress = player.totalXp && player.level ? getXpProgress(player.totalXp, player.level) : 0;
                 
                 return (
                   <Pressable
@@ -615,7 +1033,24 @@ export function PremiumSessionWizard({ visible, onClose, onComplete, initialDate
                             {player.skillLevel ? `_${player.skillLevel}` : ""}
                           </Text>
                         </View>
+                        {player.level && (
+                          <View style={styles.playerXpBadge}>
+                            <Ionicons name="flash" size={10} color={Colors.dark.xpCyan} />
+                            <Text style={styles.playerXpText}>Lvl {player.level}</Text>
+                          </View>
+                        )}
+                        {player.streak && player.streak > 0 && (
+                          <View style={styles.playerStreakBadge}>
+                            <Ionicons name="flame" size={10} color={Colors.dark.orange} />
+                            <Text style={styles.playerStreakText}>{player.streak}</Text>
+                          </View>
+                        )}
                       </View>
+                      {player.totalXp && player.level && (
+                        <View style={styles.xpProgressBar}>
+                          <View style={[styles.xpProgressFill, { width: `${xpProgress}%` }]} />
+                        </View>
+                      )}
                     </View>
                     <View style={[
                       styles.playerCheckbox,
@@ -699,6 +1134,116 @@ export function PremiumSessionWizard({ visible, onClose, onComplete, initialDate
     </BaselineFlowCard>
   );
 
+  const renderSessionSetupCard = () => (
+    <BaselineFlowCard
+      title="Session Setup"
+      subtitle="Additional options"
+      icon="settings"
+      iconColor={Colors.dark.gold}
+      step={getCurrentStepNumber()}
+      totalSteps={getTotalSteps()}
+      onNext={handleNext}
+      onBack={handleBack}
+      nextLabel="Next"
+      glowColor={Colors.dark.gold}
+    >
+      <ScrollView style={styles.cardScroll} showsVerticalScrollIndicator={false}>
+        {sessionType === "group" && (
+          <>
+            <Text style={styles.sectionLabel}>Max Players</Text>
+            <View style={styles.maxPlayersRow}>
+              {MAX_PLAYERS_OPTIONS.map((count) => (
+                <Pressable
+                  key={count}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setMaxPlayers(count);
+                  }}
+                  style={[
+                    styles.maxPlayerChip,
+                    maxPlayers === count && styles.maxPlayerChipActive,
+                  ]}
+                >
+                  <Text style={[
+                    styles.maxPlayerChipText,
+                    maxPlayers === count && styles.maxPlayerChipTextActive,
+                  ]}>
+                    {count}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        )}
+        
+        <Text style={styles.sectionLabel}>Skill Level</Text>
+        <View style={styles.skillLevelRow}>
+          {SKILL_LEVELS.map((sl) => (
+            <Pressable
+              key={sl.value}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setSkillLevel(skillLevel === sl.value ? null : sl.value);
+              }}
+              style={[
+                styles.skillLevelChip,
+                skillLevel === sl.value && styles.skillLevelChipActive,
+              ]}
+            >
+              <Text style={[
+                styles.skillLevelChipText,
+                skillLevel === sl.value && styles.skillLevelChipTextActive,
+              ]}>
+                {sl.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        
+        {sessionType === "group" && (
+          <>
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleInfo}>
+                <Text style={styles.toggleLabel}>Open Group</Text>
+                <Text style={styles.toggleHint}>Allow players to join this session</Text>
+              </View>
+              <Switch
+                value={isOpenGroup}
+                onValueChange={setIsOpenGroup}
+                trackColor={{ false: "#2A2F3A", true: Colors.dark.primary + "60" }}
+                thumbColor={isOpenGroup ? Colors.dark.primary : "#666"}
+              />
+            </View>
+            
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleInfo}>
+                <Text style={styles.toggleLabel}>Visible to Players</Text>
+                <Text style={styles.toggleHint}>Show in player schedules</Text>
+              </View>
+              <Switch
+                value={visibleToPlayers}
+                onValueChange={setVisibleToPlayers}
+                trackColor={{ false: "#2A2F3A", true: Colors.dark.primary + "60" }}
+                thumbColor={visibleToPlayers ? Colors.dark.primary : "#666"}
+              />
+            </View>
+          </>
+        )}
+        
+        <Text style={styles.sectionLabel}>Notes (optional)</Text>
+        <TextInput
+          style={styles.notesInput}
+          placeholder="Add session notes..."
+          placeholderTextColor={Colors.dark.textMuted}
+          value={notes}
+          onChangeText={setNotes}
+          multiline
+          numberOfLines={3}
+        />
+      </ScrollView>
+    </BaselineFlowCard>
+  );
+
   const renderCourtCard = () => (
     <BaselineFlowCard
       title="Court"
@@ -768,6 +1313,12 @@ export function PremiumSessionWizard({ visible, onClose, onComplete, initialDate
     const levelColor = groupLevel ? getLevelColor(groupLevel) : (typeData?.color || GlowColors.primary);
     const courtName = selectedCourtId ? courts.find(c => c.id === selectedCourtId)?.name : "No specific court";
     
+    const getScheduleLabel = () => {
+      if (isRecurring) return `Weekly x ${weekCount} weeks`;
+      if (isFlexible) return `${flexibleDates.length} selected dates`;
+      return "One-time";
+    };
+    
     return (
       <BaselineFlowCard
         title="Summary"
@@ -791,6 +1342,16 @@ export function PremiumSessionWizard({ visible, onClose, onComplete, initialDate
               <View style={styles.summaryInfo}>
                 <Text style={styles.summaryLabel}>Session Type</Text>
                 <Text style={styles.summaryValue}>{typeData?.label}</Text>
+              </View>
+            </View>
+            
+            <View style={styles.summaryRow}>
+              <View style={[styles.summaryIcon, { backgroundColor: isRecurring ? Colors.dark.xpCyan + "20" : isFlexible ? Colors.dark.orange + "20" : Colors.dark.primary + "20" }]}>
+                <Ionicons name="repeat" size={20} color={isRecurring ? Colors.dark.xpCyan : isFlexible ? Colors.dark.orange : Colors.dark.primary} />
+              </View>
+              <View style={styles.summaryInfo}>
+                <Text style={styles.summaryLabel}>Schedule</Text>
+                <Text style={styles.summaryValue}>{getScheduleLabel()}</Text>
               </View>
             </View>
             
@@ -851,6 +1412,18 @@ export function PremiumSessionWizard({ visible, onClose, onComplete, initialDate
                 <Text style={styles.summaryValue}>{courtName}</Text>
               </View>
             </View>
+            
+            {notes.trim() && (
+              <View style={styles.summaryRow}>
+                <View style={[styles.summaryIcon, { backgroundColor: "#6B728020" }]}>
+                  <Ionicons name="document-text" size={20} color="#6B7280" />
+                </View>
+                <View style={styles.summaryInfo}>
+                  <Text style={styles.summaryLabel}>Notes</Text>
+                  <Text style={styles.summaryValue}>{notes}</Text>
+                </View>
+              </View>
+            )}
           </View>
         </ScrollView>
       </BaselineFlowCard>
@@ -869,7 +1442,12 @@ export function PremiumSessionWizard({ visible, onClose, onComplete, initialDate
         </View>
         <Text style={styles.completeTitle}>Session Created!</Text>
         <Text style={styles.completeSubtitle}>
-          Your session has been scheduled
+          {isRecurring 
+            ? `${weekCount} weekly sessions scheduled` 
+            : isFlexible 
+              ? `${flexibleDates.length} sessions scheduled`
+              : "Your session has been scheduled"
+          }
         </Text>
         <Pressable style={styles.completeDoneButton} onPress={handleClose}>
           <Text style={styles.completeDoneText}>Done</Text>
@@ -894,9 +1472,11 @@ export function PremiumSessionWizard({ visible, onClose, onComplete, initialDate
     switch (step) {
       case "intro": return renderIntroCard();
       case "session-type": return renderSessionTypeCard();
+      case "schedule-pattern": return renderSchedulePatternCard();
       case "group-level": return renderGroupLevelCard();
       case "players": return renderPlayersCard();
       case "date-time": return renderDateTimeCard();
+      case "session-setup": return renderSessionSetupCard();
       case "court": return renderCourtCard();
       case "summary": return renderSummaryCard();
       case "complete": return renderCompleteCard();
@@ -1016,6 +1596,29 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "500",
   },
+  skipIntroRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  skipCheckbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  skipCheckboxChecked: {
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
+  },
+  skipIntroText: {
+    fontSize: FontSizes.sm,
+    color: Colors.dark.textMuted,
+  },
   sessionTypeList: {
     gap: Spacing.sm,
   },
@@ -1058,6 +1661,165 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+  },
+  schedulePatternRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  schedulePatternOption: {
+    flex: 1,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    overflow: "hidden",
+  },
+  schedulePatternOptionActive: {
+    borderColor: "transparent",
+  },
+  schedulePatternGradient: {
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.sm,
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  schedulePatternLabel: {
+    fontSize: FontSizes.sm,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
+  },
+  schedulePatternSubtitle: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.textMuted,
+  },
+  weekCountSection: {
+    backgroundColor: "#1A1F2A",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+  },
+  weekCountLabel: {
+    fontSize: FontSizes.sm,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    marginBottom: Spacing.md,
+  },
+  weekCountRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  weekCountChip: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: "#2A2F3A",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1.5,
+    borderColor: "transparent",
+  },
+  weekCountChipActive: {
+    backgroundColor: Colors.dark.xpCyan + "20",
+    borderColor: Colors.dark.xpCyan,
+  },
+  weekCountChipText: {
+    fontSize: FontSizes.md,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  weekCountChipTextActive: {
+    color: Colors.dark.xpCyan,
+  },
+  weekCountHint: {
+    fontSize: FontSizes.sm,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
+    textAlign: "center",
+  },
+  flexibleSection: {
+    backgroundColor: "#1A1F2A",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+  },
+  flexibleMonthNav: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+  },
+  flexibleMonthBtn: {
+    padding: Spacing.sm,
+  },
+  flexibleMonthLabel: {
+    fontSize: FontSizes.md,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  flexibleDayHeaders: {
+    flexDirection: "row",
+    marginBottom: Spacing.sm,
+  },
+  flexibleDayHeader: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: FontSizes.xs,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  flexibleCalendarGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  flexibleDayCell: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  flexibleDayCellSelected: {
+    backgroundColor: Colors.dark.orange + "30",
+    borderRadius: BorderRadius.sm,
+  },
+  flexibleDayCellToday: {
+    borderWidth: 1,
+    borderColor: Colors.dark.primary,
+    borderRadius: BorderRadius.sm,
+  },
+  flexibleDayText: {
+    fontSize: FontSizes.sm,
+    color: "#FFFFFF",
+  },
+  flexibleDayTextSelected: {
+    color: Colors.dark.orange,
+    fontWeight: "700",
+  },
+  flexibleSummary: {
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.1)",
+  },
+  flexibleSummaryLabel: {
+    fontSize: FontSizes.sm,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+  },
+  flexibleChipsScroll: {
+    flexDirection: "row",
+  },
+  flexibleChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.orange + "20",
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    marginRight: Spacing.sm,
+  },
+  flexibleChipText: {
+    fontSize: FontSizes.sm,
+    color: Colors.dark.orange,
+    fontWeight: "500",
   },
   groupLevelContent: {
     paddingVertical: Spacing.md,
@@ -1225,6 +1987,7 @@ const styles = StyleSheet.create({
   playerMeta: {
     flexDirection: "row",
     alignItems: "center",
+    gap: Spacing.xs,
   },
   playerLevelBadge: {
     flexDirection: "row",
@@ -1242,6 +2005,46 @@ const styles = StyleSheet.create({
   playerLevelText: {
     fontSize: FontSizes.xs,
     fontWeight: "600",
+  },
+  playerXpBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+  },
+  playerXpText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan,
+  },
+  playerStreakBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: Colors.dark.orange + "20",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+  },
+  playerStreakText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.orange,
+  },
+  xpProgressBar: {
+    height: 3,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 1.5,
+    marginTop: 6,
+    overflow: "hidden",
+  },
+  xpProgressFill: {
+    height: "100%",
+    backgroundColor: Colors.dark.xpCyan,
+    borderRadius: 1.5,
   },
   playerCheckbox: {
     width: 24,
@@ -1309,6 +2112,87 @@ const styles = StyleSheet.create({
   timeSlotTextSelected: {
     color: "#8B5CF6",
     fontWeight: "600",
+  },
+  maxPlayersRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  maxPlayerChip: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: "#2A2F3A",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1.5,
+    borderColor: "transparent",
+  },
+  maxPlayerChipActive: {
+    backgroundColor: Colors.dark.gold + "20",
+    borderColor: Colors.dark.gold,
+  },
+  maxPlayerChipText: {
+    fontSize: FontSizes.md,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  maxPlayerChipTextActive: {
+    color: Colors.dark.gold,
+  },
+  skillLevelRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  skillLevelChip: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    backgroundColor: "#2A2F3A",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1.5,
+    borderColor: "transparent",
+    alignItems: "center",
+  },
+  skillLevelChipActive: {
+    backgroundColor: Colors.dark.primary + "20",
+    borderColor: Colors.dark.primary,
+  },
+  skillLevelChipText: {
+    fontSize: FontSizes.sm,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  skillLevelChipTextActive: {
+    color: Colors.dark.primary,
+  },
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#1A1F2A",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginTop: Spacing.md,
+  },
+  toggleInfo: {
+    flex: 1,
+  },
+  toggleLabel: {
+    fontSize: FontSizes.md,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  toggleHint: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  notesInput: {
+    backgroundColor: "#1A1F2A",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    fontSize: FontSizes.md,
+    color: "#FFFFFF",
+    minHeight: 80,
+    textAlignVertical: "top",
   },
   courtCard: {
     flexDirection: "row",
