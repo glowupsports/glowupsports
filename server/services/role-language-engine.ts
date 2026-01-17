@@ -96,6 +96,102 @@ const DEFAULT_TEMPLATES: Record<string, { coach: string; player: string; parent:
     player: "Your video was approved! Great job showing off your {skillName} skills!",
     parent: "The video evidence for {playerName}'s {skillName} has been approved by their coach. This contributes to their level progress.",
   },
+  // Skill descriptions by pillar
+  skill_technique: {
+    coach: "Technical skill: {skillName}. Focus on proper form, grip, and execution mechanics.",
+    player: "Learn how to {skillName} like a pro! It's all about practice and having fun!",
+    parent: "{skillName} is an important technique that helps build the foundation for advanced tennis skills.",
+  },
+  skill_tactical: {
+    coach: "Tactical skill: {skillName}. Court positioning, shot selection, and strategic thinking.",
+    player: "This is about being smart on the court! {skillName} helps you win more points!",
+    parent: "{skillName} teaches strategic thinking and decision-making during matches.",
+  },
+  skill_physical: {
+    coach: "Physical skill: {skillName}. Conditioning, agility, and movement fundamentals.",
+    player: "Get faster and stronger! {skillName} makes you a better athlete!",
+    parent: "{skillName} improves physical fitness and athletic ability, essential for tennis success.",
+  },
+  skill_mental: {
+    coach: "Mental skill: {skillName}. Focus, resilience, and competitive mindset development.",
+    player: "Stay strong in your head! {skillName} helps you stay calm and focused!",
+    parent: "{skillName} develops mental strength and emotional control, vital for competitive play.",
+  },
+  skill_social: {
+    coach: "Social skill: {skillName}. Sportsmanship, teamwork, and court etiquette.",
+    player: "Be a great teammate! {skillName} is about being kind and fair on the court!",
+    parent: "{skillName} teaches important life skills like respect, fairness, and teamwork.",
+  },
+  skill_match: {
+    coach: "Match skill: {skillName}. Competition readiness and performance under pressure.",
+    player: "Get ready for matches! {skillName} helps you play your best when it counts!",
+    parent: "{skillName} prepares players for competitive match situations.",
+  },
+  // Booking and court notifications
+  court_booking_confirmed: {
+    coach: "Court {courtName} booked for {sessionDate} at {sessionTime}. Player count: {playerCount}.",
+    player: "Court booked! See you at {courtName} on {sessionDate} at {sessionTime}! +{xpEarned} XP!",
+    parent: "Court {courtName} has been reserved for {sessionDate} at {sessionTime}. Please ensure {playerName} arrives on time.",
+  },
+  court_booking_cancelled: {
+    coach: "Court {courtName} booking cancelled for {sessionDate}. Slot now available.",
+    player: "Your booking at {courtName} for {sessionDate} has been cancelled.",
+    parent: "The booking at {courtName} for {sessionDate} has been cancelled.",
+  },
+  open_match_created: {
+    coach: "Open match created at {courtName} for {sessionDate} at {sessionTime}. {spotsAvailable} spots available.",
+    player: "New open match! Join players at {courtName} on {sessionDate} at {sessionTime}! +{xpEarned} XP if you host!",
+    parent: "An open match has been created for {sessionDate}. {playerName} can join to practice with other players.",
+  },
+  friend_request_sent: {
+    coach: "{playerName} sent friend request to {friendName}. Social engagement active.",
+    player: "Friend request sent! Hope {friendName} accepts soon!",
+    parent: "{playerName} has sent a friend request to another player at the academy.",
+  },
+  friend_request_accepted: {
+    coach: "{playerName} and {friendName} are now connected. Social network expanding.",
+    player: "Yay! {friendName} is now your friend! Time to book courts together!",
+    parent: "{playerName} is now connected with {friendName}. They can now book courts and play together.",
+  },
+  // XP and level notifications
+  xp_earned: {
+    coach: "{playerName} earned {xpEarned} XP. Source: {xpSource}. Total XP: {totalXp}.",
+    player: "+{xpEarned} XP! {xpSource} Keep it up, champion!",
+    parent: "{playerName} earned {xpEarned} experience points for {xpSource}.",
+  },
+  feature_unlocked: {
+    coach: "{playerName} unlocked feature: {featureName} at level {levelName}.",
+    player: "NEW FEATURE UNLOCKED! You can now use {featureName}! Explore it now!",
+    parent: "{playerName} has reached level {levelName} and unlocked a new feature: {featureName}.",
+  },
+  streak_milestone: {
+    coach: "{playerName} streak milestone: {streakDays} consecutive days. Engagement metric strong.",
+    player: "{streakDays} day streak! You're on fire! Keep the streak alive!",
+    parent: "{playerName} has maintained a {streakDays} day activity streak. Great consistency!",
+  },
+  // Payment and billing
+  payment_received: {
+    coach: "Payment received from {parentName} for {playerName}. Amount: {amount}. Sessions covered: {sessionCount}.",
+    player: "Thanks for your payment! You're all set for your next sessions!",
+    parent: "Thank you! Your payment of {amount} for {playerName}'s sessions has been received.",
+  },
+  payment_due: {
+    coach: "Outstanding balance for {playerName}: {amount}. Sessions: {sessionCount}. Follow up recommended.",
+    player: "Don't forget - there's a balance for your lessons. Ask your parents about it!",
+    parent: "{playerName} has an outstanding balance of {amount} for {sessionCount} sessions. Please arrange payment.",
+  },
+  // Baseline and assessment
+  baseline_completed: {
+    coach: "{playerName} baseline completed. Starting level: {levelName}. Skills assessed: {skillCount}.",
+    player: "Baseline done! You're starting at {levelName}! Time to level up!",
+    parent: "{playerName}'s starting assessment is complete. They begin at {levelName} level.",
+  },
+  // Welcome and onboarding
+  player_welcome: {
+    coach: "New player {playerName} added. Age: {age}. Baseline assessment pending.",
+    player: "Welcome to the academy! Your tennis adventure starts now! Ready to glow up?",
+    parent: "Welcome! {playerName} has been added to the academy. Their coach will conduct an initial assessment soon.",
+  },
 };
 
 export async function getMessage(
