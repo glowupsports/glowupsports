@@ -1,7 +1,7 @@
 # Glow Up Sports - Multi-Academy Tennis SaaS Platform
 
 ## Overview
-Glow Up Sports is a comprehensive multi-academy SaaS platform designed for Tennis Coaches, complemented by an integrated Player App. It supports four distinct user roles: Platform Owner, Academy Owner, Coach, and Player, each with a tailored application experience, unique UI themes, and specific functionalities. The platform's core purpose is to provide robust tennis academy management, facilitate player development tracking, and enable real-time communication, aiming to streamline operations and enhance the coaching and playing experience.
+Glow Up Sports is a comprehensive multi-academy SaaS platform for Tennis Coaches and Players, featuring distinct applications for four user roles: Platform Owner, Academy Owner, Coach, and Player. Its primary goal is to streamline tennis academy management, facilitate player development tracking, and enable real-time communication, enhancing the overall coaching and playing experience.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -9,88 +9,39 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### UI/UX Decisions
-The application employs a dark-themed gaming aesthetic with neon green and cyan accents. It features card-based layouts, drawer navigation, a custom header displaying persistent player stats, and a collapsible chat footer. Each user role is assigned dedicated UI colors and navigation structures.
-
-### UX Component Library (10 Core Principles Implementation)
-- **EmptyStateCard** (`client/components/EmptyStateCard.tsx`): Animated empty states with icon, title, description, and CTA button. Used across Sessions, Progress, Friends, and Messages screens. Implements "No Empty Screens" principle.
-- **AnimatedCheck** (`client/components/AnimatedCheck.tsx`): Animated checkmark with spring physics for success feedback. Supports "glow" and "decoration" variants. 300ms display for immediate visual feedback.
-- **SuccessToast** (`client/components/SuccessToast.tsx`): Slide-up toast notifications for success messages. Auto-dismisses after configurable duration.
-- **ActionNeededCard** (`client/components/ActionNeededCard.tsx`): Priority-based action list for dashboards. Shows pending feedback, unpaid sessions, alerts. Used in Coach and Admin dashboards.
-- **SessionSummaryModal** (`client/components/SessionSummaryModal.tsx`): Post-session celebration modal with XP earned, stats, and "next focus" suggestions. Implements "Emotional Payoff" principle.
-- **PostActionModal** (`client/components/PostActionModal.tsx`): "What's Next?" flow after completing actions. Prevents dead ends by offering relevant next steps.
-- **QuickStatsStrip**: Compact horizontal stats display (Level, Streak, XP to next) on ProPlayerHomeScreen.
-- **Hero CTA Pattern**: Each main dashboard now has ONE primary action prominently displayed at the top.
+The application uses a dark-themed gaming aesthetic with neon green and cyan accents, featuring card-based layouts, drawer navigation, a custom header for persistent player stats, and a collapsible chat footer. Each user role has dedicated UI themes and navigation. Core UX components include animated empty states (`EmptyStateCard`), success feedback (`AnimatedCheck`, `SuccessToast`), action prioritization (`ActionNeededCard`), and post-action modals (`SessionSummaryModal`, `PostActionModal`) to guide user flows and provide emotional payoff.
 
 ### Technical Implementations
-- **Frontend**: Built with React Native and Expo SDK 54, utilizing React Navigation for routing, React Context for state management, and `AsyncStorage` for local data persistence. Animations are managed with `React Native Reanimated`.
-- **Backend**: Developed using Express.js and TypeScript, offering RESTful API endpoints. It incorporates a `Drizzle ORM` schema for PostgreSQL, though data is currently in-memory. CORS is dynamically configured for Replit environments.
-- **Data Storage**: Client-side uses `AsyncStorage`; server-side utilizes `Drizzle ORM` with a PostgreSQL schema for various entities including users, coaches, players, sessions, feedback, progress, diagnostic reports, and platform configurations.
-- **Build System**: Development uses concurrent Expo and Express servers. Production deploys a static Expo web build served by Express. `Drizzle Kit` manages PostgreSQL schema migrations.
+- **Frontend**: Built with React Native and Expo SDK 54, using React Navigation, React Context for state, `AsyncStorage` for local persistence, and `React Native Reanimated` for animations.
+- **Backend**: Developed with Express.js and TypeScript, providing RESTful API endpoints. It uses a `Drizzle ORM` schema for PostgreSQL, with in-memory data for current development. CORS is dynamically configured for Replit.
+- **Data Storage**: `AsyncStorage` on the client; `Drizzle ORM` with PostgreSQL schema on the server for users, coaches, players, sessions, feedback, progress, and diagnostic reports.
+- **Build System**: Concurrent Expo and Express servers for development. Production uses a static Expo web build served by Express. `Drizzle Kit` manages PostgreSQL schema migrations.
 
 ### Feature Specifications
-- **Core Platform Features**: Includes comprehensive player and session management, a request-based player booking system, an advanced feedback and progress engine (V2) with gamification and anti-abuse rules, real-time WebSocket-based communication, robust authentication and role-based access control, in-app and push notifications, and business readiness features for academy management and billing. It also supports offline synchronization, centralized platform configuration, a maintenance mode, and a client-side diagnostics system.
-- **Glow Leveling OS**: A 12-level skill certification system with 6 pillars (Technique, Tactical, Physical, Mental, Social, Match), using a 0/1/2 rubric scoring method. It incorporates trial gates for promotion, a Glow Rank Engine with weighted scoring, and a Coach Calibration system to detect scoring bias. The system is seeded with extensive data for levels, skills, rubrics, and tests.
-- **Start Baseline System**: One-time player intake assessment for establishing starting levels:
-  - **Coach-Driven Level Selection**: Coaches directly select player type (Adult/Kid), ball level (RED/ORANGE/GREEN/YELLOW for kids) or Glow level (1-9 for adults), and sublevel
-  - **Auto-Detection from Birth Date**: If player has dateOfBirth, automatically determines Adult (18+) or Kid and skips the player type selection step
-  - **Quick Pillar Assessment**: Interactive skill checklists for each of 6 pillars, showing skills required for the selected level
-  - **Visual Ball Level Selector**: Color-coded level buttons (Red, Orange, Green, Yellow) with clear visual hierarchy
-  - **Baseline Locking**: Baselines can be locked to prevent changes; only academy owners can unlock
-  - **Baseline Needed Badge**: Orange badge appears on player cards for players without a completed baseline
-  - **Auto-Player Update**: Saving baseline automatically updates player.ballLevel and player.skillLevel in database
-  - **Database Table**: `player_baselines` stores intake data, confirmed levels, pillar ratings, and lock status
-  - **API Routes**: `/api/players/:id/baseline/*` for get/create/lock/unlock, `/api/academy/baseline-stats`, `/api/academy/players-without-baseline`, `/api/ball-levels`
-- **Lesson Templates & Session Plans**: Pre-built lesson structures per ball level (RED, ORANGE, GREEN, YELLOW) with drill blocks. Coaches can auto-generate session plans based on player levels or select from templates. Each drill block includes coach/player instructions, skill tags, equipment needs, and success criteria. Session execution tracking with block-by-block progress.
-- **Match Logging**: Complete match logging system with score tracking, match types (singles, doubles, practice, tournament), performance metrics (aces, double faults, winners, unforced errors), and pillar-based observations. Integrates with player progress for Match pillar assessment.
-- **Skill Evidence Capture**: 10-second video evidence system linked to specific skills. Supports coach review workflow with approval/rejection. Evidence can be linked to sessions and trial gates for verification.
-- **Level-Up Events & Celebrations**: Tracks player promotions with XP rewards, badges, and title unlocks. Pending celebrations queue for player UI with notification tracking for players and parents.
-- **Multi-Language Role Views**: Comprehensive role-specific messaging system with 25+ templates:
-  - **Three Role Types**: Coach (technical/data-driven), Player (fun/encouraging/gamified), Parent (informative/progress-focused)
-  - **Template Categories**: Skills (6 pillar-specific templates), Sessions, Progress, Matches, Evidence, Booking, Social, Gamification, Billing, Onboarding
-  - **Dynamic Placeholders**: Support for {playerName}, {skillName}, {levelName}, {xpEarned}, {sessionDate}, etc.
-  - **Academy Customization**: Academies can override default templates with custom messaging
-  - **API Routes**: `/api/role-messages/templates`, `/api/role-messages/get`, `/api/role-messages/get-all-roles`
-  - **Client Hook**: `useRoleMessage()` hook for fetching role-appropriate messages
-  - **Service**: `server/services/role-language-engine.ts` with getMessage() and getMessagesForAllRoles() functions
-- **Timezone Handling**: Each academy has an IANA timezone. Session `startTime` is stored as local academy time ("HH:MM") and converted to UTC by the backend. Client-side utilities display UTC timestamps in local academy time. A consistent DST handling policy ensures proper time resolution.
-- **Role-Specific Applications**: Dedicated applications for Coaches (player/session management, feedback, progress), Players (progress visualization, social features, schedules), and Platform Owners (platform-wide statistics, academy management, financial overviews, system configuration).
-- **Glow Market & Community Marketplace**: Features an Academy Shop for managing products/services and a Player Shop Experience with XP-based discounts. A Community Marketplace allows players to buy/sell used equipment, including listing creation, category/condition filters, and seller profiles with verification levels.
-- **Playtomic-Style Court Booking System**: A comprehensive court reservation system with three phases:
-  - **Phase 1 - Quick Booking**: 3-tap booking flow (Date → Slot → Book) with DateRailSelector, TimeSlotGrid, and BookingConfirmationCard components. XP rewards for booking courts.
-  - **Phase 2 - Social Booking**: "Book with Friends" toggle in confirmation card allows inviting up to 3 friends with automatic cost splitting. FriendSelector modal with search and avatar display. Push notifications sent to invited friends. Database tables: `booking_invites`, `booking_invite_guests`.
-  - **Phase 3 - Open Matches**: "Create Open Match" toggle to publish court bookings for others to join. OpenMatchFeedScreen with filter pills (All/Singles/Doubles), join/leave functionality, and XP bonuses (+25 XP for hosting). Database tables: `open_matches`, `open_match_slots`. API routes for get/create/join/leave operations.
-  - **Phase 4 - Smart Availability**: Player booking preferences (preferred days, times, surfaces, courts). Smart suggestions based on booking history patterns. Database tables: `player_booking_preferences`, `court_availability_snapshots`. API routes for preferences CRUD and booking suggestions.
-- **Family Lobby System**: Netflix-style multi-account management for parents with multiple children:
-  - **Profile Cards**: Visual child profile cards with avatar, name, level, and outstanding balance badges
-  - **Quick-Switch**: Header dropdown allowing instant account switching without logging out
-  - **Pay All Button**: One-click bulk payment for all family members' outstanding balances
-  - **API Endpoints**: `/api/family/status` returns family members with balances, `/api/billing/pay-bulk` processes bulk payments
-  - **Database**: Players table includes `parent_email` column to link family members
-  - **Navigation**: FamilyLobbyScreen registered in PlayerNavigator with FamilyContext provider
-- **Player Level System (XP Engine)**: A comprehensive gamification system for player engagement:
-  - **20-Level Progression**: Non-linear XP curve from Rookie (L1-3) to Elite (L19-20) with increasing XP requirements per level
-  - **XP Bar Resets Per Level**: Like video games, the XP bar resets to 0 upon leveling up - not cumulative progress
-  - **XP Triggers**: Automatic XP awards for session attendance, positive feedback, matches played, match wins, and match reflections
-  - **Anti-Abuse Rules**: Configurable one-time bonuses, cooldown periods, and daily caps per action source
-  - **Feature Unlocks (Solo Leveling Style)**: 30+ features gated by player level with teaser UI for locked content. Implemented feature gates:
-    - Marketplace (Level 12), Match Preparation (Level 7), Community Feed (Level 4), Academy Shop (Level 9)
-    - Glow Leaderboard (Level 5), Groups (Level 7), Player Finder (Level 6), Court Booking (Level 10)
-    - Each locked screen shows a teaser UI with unlock requirements via `LockedScreen` component
-    - Uses `PlayerLevelContext` for level checks and `isFeatureUnlocked()` for gate logic
-  - **Level-Up Celebrations**: Animated modals showing new level, title, badge/title unlocks, and newly unlocked features
-  - **Feature Onboarding**: New feature discovery modals when features are unlocked
-  - **Platform Owner Configuration**: Full control over XP amounts, level thresholds, and feature unlock levels via System > XP Engine Configuration
-  - **Database Tables**: `player_level_thresholds`, `player_level_xp_rules`, `player_feature_unlocks`, `player_xp_events`, `player_level_up_celebrations`, `player_feature_unlock_history`
-  - **API Routes**: `/api/player-level/*` for XP awarding, level status, celebrations, and configuration
+- **Core Platform Features**: Comprehensive player/session management, booking system, advanced feedback/progress engine (V2) with gamification, WebSocket communication, authentication/role-based access, notifications, academy management, billing, offline sync, platform configuration, maintenance mode, and client-side diagnostics.
+- **Glow Leveling OS**: A 12-level skill certification system across 6 pillars with a 0/1/2 rubric, trial gates, a weighted Glow Rank Engine, and Coach Calibration.
+- **Adult Glow DSS Rating System**: A dynamic, ELO-based rating system (0-3000 MMR mapping to 9-1 Glow Brackets) with trust factors, anti-farming rules, skill gates, doubles engine, and detailed progress tracking.
+- **Start Baseline System**: Coach-driven player intake assessment for initial skill levels (Adult/Kid, ball level, sublevel) with quick pillar assessments, visual selectors, and baseline locking.
+- **Lesson Templates & Session Plans**: Pre-built lesson structures per ball level with drill blocks, auto-generation, and session execution tracking.
+- **Match Logging**: Complete system for tracking scores, match types, performance metrics, and pillar-based observations.
+- **Skill Evidence Capture**: 10-second video evidence system for skill verification, linked to sessions and trial gates.
+- **Level-Up Events & Celebrations**: Tracks player promotions with XP, badges, title unlocks, and pending celebration queues.
+- **Multi-Language Role Views**: Role-specific messaging system (Coach, Player, Parent) with 25+ templates, dynamic placeholders, and academy customization.
+- **Timezone Handling**: Academy-specific IANA timezones for session scheduling and display.
+- **Role-Specific Applications**: Dedicated apps for Coaches (management, feedback), Players (progress, social, schedule), and Platform Owners (stats, academy management, finance).
+- **Glow Market & Community Marketplace**: Academy Shop and Player Shop (XP-based discounts), plus a Community Marketplace for used equipment.
+- **Playtomic-Style Court Booking System**: Multi-phase booking (Quick, Social, Open Matches) with friend invites, cost splitting, open match publishing, and smart availability suggestions based on player preferences.
+- **Family Lobby System**: Netflix-style multi-account management for parents, including profile cards, quick-switching, and bulk payment options.
+- **Player Level System (XP Engine)**: A 20-level gamification system with non-linear XP progression, level-up celebrations, feature unlocks (30+ features gated by level), anti-abuse rules, and platform owner configuration.
 
 ## External Dependencies
 
 ### Core Services
-- **Database**: Supabase PostgreSQL (via Drizzle ORM) - uses `SUPABASE_DATABASE_URL` with Session Pooler connection, falls back to Replit's `DATABASE_URL` if not set
+- **Database**: Supabase PostgreSQL (via Drizzle ORM)
 - **Deployment**: Replit
 - **Push Notifications**: Expo Push API
 - **Email Service**: Resend API
-- **Calendar Integration**: Google Calendar (for syncing sessions)
+- **Calendar Integration**: Google Calendar
 
 ### Key Libraries
 - **Server State Management**: TanStack Query
