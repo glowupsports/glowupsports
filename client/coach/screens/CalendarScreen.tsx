@@ -40,7 +40,7 @@ import {
   parseUTCTimestamp,
 } from "@/lib/dateUtils";
 
-import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
+import { PremiumSessionWizard } from "@/coach/components/PremiumSessionWizard";
 import NowPlayingCard from "@/coach/components/NowPlayingCard";
 import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
 import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
@@ -2490,15 +2490,14 @@ export default function CalendarScreen() {
         </View>
       )}
 
-      {/* Create Session Wizard */}
-      <CreateSessionWizard
+      {/* Create Session Wizard - Premium Card Flow */}
+      <PremiumSessionWizard
         visible={showCreateDrawer}
         onClose={() => {
           setShowCreateDrawer(false);
           setSelectedSlot(null);
         }}
-        initialCourtId={selectedSlot?.courtId}
-        initialTime={selectedSlot?.time}
+        initialDate={selectedSlot?.time}
       />
 
       {/* Session Detail Drawer */}
