@@ -524,7 +524,9 @@ export default function QuickBaselineDrawer({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
       queryClient.invalidateQueries({ queryKey: ["/api/academy/baseline-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/academy/players-without-baseline"] });
       queryClient.invalidateQueries({ queryKey: ["/api/players", player?.id, "baseline"] });
       
       setShowSuccessAnimation(true);

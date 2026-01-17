@@ -213,7 +213,9 @@ export function PremiumBaselineFlow({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
       queryClient.invalidateQueries({ queryKey: ["/api/academy/baseline-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/academy/players-without-baseline"] });
       setShowSuccessAnimation(true);
       setTimeout(() => {
         setShowSuccessAnimation(false);
