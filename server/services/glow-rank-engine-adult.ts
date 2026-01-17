@@ -391,3 +391,265 @@ export function getSkillRubric(skillId: string) {
 export function getSkillRubricsByPillar(pillar: string) {
   return ADULT_SKILL_RUBRICS.filter(s => s.pillar === pillar);
 }
+
+// =============================================================================
+// DSS-STYLE DECIMAL RATING SYSTEM
+// =============================================================================
+
+/**
+ * Convert MMR (0-3000) to DSS-style decimal rating (9.0000 to 1.0000)
+ * Higher MMR = Lower (better) DSS rating
+ * 
+ * DSS Format: X.YYYY where X is rank (1-9), YYYY is decimal (0000-9999)
+ * Example: MMR 750 → DSS 7.5000 (middle of rank 7 range)
+ */
+export function mmrToDssRating(mmr: number): number {
+  // Clamp MMR to valid range
+  const clampedMmr = Math.max(0, Math.min(3000, mmr));
+  
+  // Find the rank threshold
+  const threshold = MMR_CONFIG.rankThresholds.find(
+    t => clampedMmr >= t.minMmr && clampedMmr <= t.maxMmr
+  );
+  
+  if (!threshold) {
+    return 9.0000; // Default to beginner
+  }
+  
+  const rank = threshold.rank;
+  const rangeSize = threshold.maxMmr - threshold.minMmr;
+  const positionInRange = clampedMmr - threshold.minMmr;
+  
+  // Calculate decimal part (0.0000 to 0.9999 within rank)
+  // Higher MMR within rank = lower decimal (closer to next rank)
+  const decimalPart = 1 - (positionInRange / rangeSize);
+  
+  // Combine: rank + decimal
+  const dssRating = rank + decimalPart * 0.9999;
+  
+  return Math.round(dssRating * 10000) / 10000;
+}
+
+/**
+ * Convert DSS rating back to MMR
+ */
+export function dssRatingToMmr(dssRating: number): number {
+  const rank = Math.floor(dssRating);
+  const decimal = dssRating - rank;
+  
+  const threshold = MMR_CONFIG.rankThresholds.find(t => t.rank === rank);
+  if (!threshold) return 0;
+  
+  const rangeSize = threshold.maxMmr - threshold.minMmr;
+  const positionInRange = (1 - decimal / 0.9999) * rangeSize;
+  
+  return Math.round(threshold.minMmr + positionInRange);
+}
+
+/**
+ * Format DSS rating for display (e.g., "7.1234")
+ */
+export function formatDssRating(dssRating: number): string {
+  return dssRating.toFixed(4);
+}
+
+/**
+ * Get the DSS rating bracket label (e.g., "Bracket 7" or "Speelsterkte 7")
+ */
+export function getDssBracket(dssRating: number): number {
+  return Math.floor(dssRating);
+}
+
+// =============================================================================
+// MATCHES TO NEXT LEVEL CALCULATOR
+// =============================================================================
+
+/**
+ * Calculate estimated matches needed to reach next rank
+ * Based on average delta per match at current skill level
+ */
+export function estimateMatchesToNextRank(
+  currentMmr: number,
+  currentRank: number,
+  averageOpponentMmr?: number
+): {
+  matchesNeeded: number;
+  mmrNeeded: number;
+  targetRank: number;
+  confidence: "low" | "medium" | "high";
+} {
+  // Can't go higher than rank 1
+  if (currentRank <= 1) {
+    return { matchesNeeded: 0, mmrNeeded: 0, targetRank: 1, confidence: "high" };
+  }
+  
+  const targetRank = currentRank - 1;
+  const targetThreshold = MMR_CONFIG.rankThresholds.find(t => t.rank === targetRank);
+  
+  if (!targetThreshold) {
+    return { matchesNeeded: 999, mmrNeeded: 0, targetRank, confidence: "low" };
+  }
+  
+  const mmrNeeded = targetThreshold.minMmr - currentMmr;
+  
+  if (mmrNeeded <= 0) {
+    // Already has MMR for next rank, just needs skill gates
+    return { matchesNeeded: 0, mmrNeeded: 0, targetRank, confidence: "high" };
+  }
+  
+  // Estimate average delta per win
+  // Against equal opponent: ~14 MMR per win (K=28, expected=0.5, outcome=1)
+  // Against slightly stronger: ~18-20 MMR per win
+  // We use a conservative estimate assuming 60% win rate against equal opponents
+  const opponentMmr = averageOpponentMmr || currentMmr;
+  const expectedWinRate = calculateExpectedScore(currentMmr, opponentMmr);
+  
+  // Average delta per match (wins and losses combined)
+  // With 60% win rate: 0.6 * 14 + 0.4 * -14 = 8.4 - 5.6 = 2.8 MMR per match
+  const avgDeltaPerMatch = MMR_CONFIG.baseK * (0.6 - expectedWinRate);
+  
+  if (avgDeltaPerMatch <= 0) {
+    // Can't progress with current matchmaking
+    return { matchesNeeded: 999, mmrNeeded, targetRank, confidence: "low" };
+  }
+  
+  const matchesNeeded = Math.ceil(mmrNeeded / avgDeltaPerMatch);
+  
+  // Confidence based on variance
+  const confidence = matchesNeeded <= 10 ? "high" : matchesNeeded <= 30 ? "medium" : "low";
+  
+  return { matchesNeeded, mmrNeeded, targetRank, confidence };
+}
+
+/**
+ * Get rating trend based on recent matches
+ */
+export function getRatingTrend(
+  ratingHistory: { mmr: number; date: Date }[]
+): {
+  trend: "up" | "down" | "stable";
+  changePercent: number;
+  recentDelta: number;
+} {
+  if (ratingHistory.length < 2) {
+    return { trend: "stable", changePercent: 0, recentDelta: 0 };
+  }
+  
+  // Compare last 5 matches to previous 5
+  const recent = ratingHistory.slice(-5);
+  const previous = ratingHistory.slice(-10, -5);
+  
+  if (previous.length === 0) {
+    const firstMmr = ratingHistory[0].mmr;
+    const lastMmr = ratingHistory[ratingHistory.length - 1].mmr;
+    const delta = lastMmr - firstMmr;
+    const changePercent = (delta / firstMmr) * 100;
+    return {
+      trend: delta > 10 ? "up" : delta < -10 ? "down" : "stable",
+      changePercent: Math.round(changePercent * 10) / 10,
+      recentDelta: delta,
+    };
+  }
+  
+  const recentAvg = recent.reduce((sum, r) => sum + r.mmr, 0) / recent.length;
+  const previousAvg = previous.reduce((sum, r) => sum + r.mmr, 0) / previous.length;
+  
+  const delta = recentAvg - previousAvg;
+  const changePercent = (delta / previousAvg) * 100;
+  
+  return {
+    trend: delta > 15 ? "up" : delta < -15 ? "down" : "stable",
+    changePercent: Math.round(changePercent * 10) / 10,
+    recentDelta: Math.round(delta),
+  };
+}
+
+// =============================================================================
+// DOUBLES RATING ENGINE
+// =============================================================================
+
+/**
+ * DSS Doubles: Calculate team rating from two players
+ * Uses θ = 0.5 weighting (equal contribution)
+ */
+export function calculateTeamRating(player1Mmr: number, player2Mmr: number): number {
+  const theta = 0.5;
+  return theta * player1Mmr + theta * player2Mmr;
+}
+
+/**
+ * DSS Doubles: Calculate expected score for team vs team
+ * Uses q = 2.012 for doubles (vs 1.824 for singles)
+ */
+export function calculateDoublesExpectedScore(
+  teamAMmr: number,
+  teamBMmr: number
+): number {
+  const q = 2.012; // Doubles constant (slightly different from singles)
+  return 1 / (1 + Math.pow(10, (teamBMmr - teamAMmr) / (400 * q)));
+}
+
+/**
+ * Update both players' doubles ratings after a doubles match
+ */
+export function updateDoublesRatings(
+  player1Mmr: number,
+  player2Mmr: number,
+  opponent1Mmr: number,
+  opponent2Mmr: number,
+  didWin: boolean,
+  verification: MatchResult["verification"]
+): { player1Delta: number; player2Delta: number } {
+  const teamAMmr = calculateTeamRating(player1Mmr, player2Mmr);
+  const teamBMmr = calculateTeamRating(opponent1Mmr, opponent2Mmr);
+  
+  const expected = calculateDoublesExpectedScore(teamAMmr, teamBMmr);
+  const outcome = didWin ? 1 : 0;
+  const trustFactor = getTrustFactor(verification);
+  
+  // Both players get same delta based on team performance
+  const kFactor = MMR_CONFIG.baseK * 0.85; // Slightly lower K for doubles
+  const delta = Math.round(kFactor * (outcome - expected) * trustFactor);
+  
+  return { player1Delta: delta, player2Delta: delta };
+}
+
+// =============================================================================
+// RATING DISPLAY HELPERS
+// =============================================================================
+
+/**
+ * Get complete rating status for display
+ */
+export function getPlayerRatingStatus(
+  mmr: number,
+  rank: number,
+  matchesPlayed: number,
+  ratingHistory: { mmr: number; date: Date }[]
+): {
+  mmr: number;
+  dssRating: string;
+  bracket: number;
+  rankName: string;
+  trend: "up" | "down" | "stable";
+  matchesToNext: number;
+  confidence: "low" | "medium" | "high";
+  isProvisional: boolean;
+} {
+  const dssRating = formatDssRating(mmrToDssRating(mmr));
+  const bracket = getDssBracket(parseFloat(dssRating));
+  const rankInfo = getRankInfo(rank);
+  const trendInfo = getRatingTrend(ratingHistory);
+  const progressInfo = estimateMatchesToNextRank(mmr, rank);
+  
+  return {
+    mmr,
+    dssRating,
+    bracket,
+    rankName: rankInfo?.name || "Unknown",
+    trend: trendInfo.trend,
+    matchesToNext: progressInfo.matchesNeeded,
+    confidence: progressInfo.confidence,
+    isProvisional: matchesPlayed < MMR_CONFIG.newPlayerThreshold,
+  };
+}
