@@ -179,7 +179,7 @@ function CoachTabs() {
           }}
         />
       </Tab.Navigator>
-      {currentTab !== "Calendar" && <CoachQuickActionsFAB />}
+      {currentTab !== "Calendar" && currentTab !== "Players" && <CoachQuickActionsFAB />}
     </View>
   );
 }
