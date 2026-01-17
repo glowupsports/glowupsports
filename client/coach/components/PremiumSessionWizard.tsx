@@ -217,6 +217,8 @@ export function PremiumSessionWizard({
   const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [multiWeekBlockedSlots, setMultiWeekBlockedSlots] = useState<Set<string>>(new Set());
+  const [showAllPlayers, setShowAllPlayers] = useState(false);
+  const [showCourtChange, setShowCourtChange] = useState(false);
   
   const successScale = useSharedValue(0);
 
@@ -282,7 +284,7 @@ export function PremiumSessionWizard({
   });
 
   const TIME_SLOTS = [
-    "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
+    "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
     "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
     "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
     "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
@@ -404,7 +406,7 @@ export function PremiumSessionWizard({
   const filteredPlayers = useMemo(() => {
     let result = players;
     
-    if (sessionType === "group" && groupLevel) {
+    if (sessionType === "group" && groupLevel && !showAllPlayers) {
       result = result.filter(p => p.ballLevel?.toLowerCase() === groupLevel);
     }
     
@@ -414,7 +416,7 @@ export function PremiumSessionWizard({
     }
     
     return result;
-  }, [players, sessionType, groupLevel, playerSearch]);
+  }, [players, sessionType, groupLevel, playerSearch, showAllPlayers]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -1132,11 +1134,35 @@ export function PremiumSessionWizard({
           </View>
           
           {sessionType === "group" && groupLevel && (
-            <View style={[styles.filterBadge, { backgroundColor: getLevelColor(groupLevel) + "20" }]}>
-              <View style={[styles.filterDot, { backgroundColor: getLevelColor(groupLevel) }]} />
-              <Text style={[styles.filterText, { color: getLevelColor(groupLevel) }]}>
-                Showing {groupLevel.toUpperCase()} players only
-              </Text>
+            <View style={styles.filterRow}>
+              <View style={[styles.filterBadge, { backgroundColor: getLevelColor(groupLevel) + "20", flex: 1 }]}>
+                <View style={[styles.filterDot, { backgroundColor: getLevelColor(groupLevel) }]} />
+                <Text style={[styles.filterText, { color: getLevelColor(groupLevel) }]}>
+                  {showAllPlayers ? "All levels" : `${groupLevel.toUpperCase()} only`}
+                </Text>
+              </View>
+              <Pressable
+                style={[
+                  styles.showAllToggle,
+                  showAllPlayers && styles.showAllToggleActive,
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowAllPlayers(!showAllPlayers);
+                }}
+              >
+                <Ionicons 
+                  name={showAllPlayers ? "filter" : "filter-outline"} 
+                  size={16} 
+                  color={showAllPlayers ? Colors.dark.primary : "#FFFFFF"} 
+                />
+                <Text style={[
+                  styles.showAllText,
+                  showAllPlayers && { color: Colors.dark.primary },
+                ]}>
+                  {showAllPlayers ? "Filtered" : "Show All"}
+                </Text>
+              </Pressable>
             </View>
           )}
           
@@ -1258,6 +1284,50 @@ export function PremiumSessionWizard({
         glowColor="#8B5CF6"
       >
         <ScrollView style={styles.cardScrollFull} showsVerticalScrollIndicator={false}>
+          {courtName && (
+            <Pressable 
+              style={styles.courtChangeChip}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowCourtChange(!showCourtChange);
+              }}
+            >
+              <View style={styles.selectedDateInfo}>
+                <Ionicons name="tennisball" size={18} color={Colors.dark.gold} />
+                <Text style={styles.courtChangeText}>{courtName}</Text>
+              </View>
+              <Ionicons 
+                name="swap-horizontal" 
+                size={18} 
+                color={Colors.dark.gold} 
+              />
+            </Pressable>
+          )}
+          
+          {showCourtChange && (
+            <View style={styles.courtChangeList}>
+              {courts.map((court) => (
+                <Pressable
+                  key={court.id}
+                  style={[
+                    styles.courtChangeItem,
+                    selectedCourtId === court.id && styles.courtChangeItemSelected,
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelectedCourtId(court.id);
+                    setShowCourtChange(false);
+                  }}
+                >
+                  <Text style={styles.courtChangeItemText}>{court.name}</Text>
+                  {selectedCourtId === court.id && (
+                    <Ionicons name="checkmark" size={16} color={Colors.dark.gold} />
+                  )}
+                </Pressable>
+              ))}
+            </View>
+          )}
+          
           <Pressable 
             style={styles.selectedDateChip}
             onPress={() => {
@@ -1994,6 +2064,72 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.sm,
     fontWeight: "600",
     color: Colors.dark.textMuted,
+  },
+  filterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  showAllToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: "#1A1F2A",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  showAllToggleActive: {
+    backgroundColor: Colors.dark.primary + "20",
+    borderColor: Colors.dark.primary + "60",
+  },
+  showAllText: {
+    fontSize: FontSizes.sm,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  courtChangeChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#1A1F2A",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1.5,
+    borderColor: Colors.dark.gold + "40",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  courtChangeText: {
+    fontSize: FontSizes.md,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  courtChangeList: {
+    backgroundColor: "#1A1F2A",
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+    overflow: "hidden",
+  },
+  courtChangeItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+  },
+  courtChangeItemSelected: {
+    backgroundColor: Colors.dark.gold + "15",
+  },
+  courtChangeItemText: {
+    fontSize: FontSizes.md,
+    fontWeight: "500",
+    color: "#FFFFFF",
   },
   introContent: {
     alignItems: "center",
