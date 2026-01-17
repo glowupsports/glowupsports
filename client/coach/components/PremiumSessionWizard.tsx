@@ -378,9 +378,9 @@ export function PremiumSessionWizard({
       case "schedule-pattern": return 3;
       case "group-level": return 4;
       case "players": return hasGroupLevel ? 5 : 4;
-      case "date-time": return hasGroupLevel ? 6 : 5;
-      case "session-setup": return hasGroupLevel ? 7 : 6;
-      case "court": return hasGroupLevel ? 8 : 7;
+      case "court": return hasGroupLevel ? 6 : 5;
+      case "date-time": return hasGroupLevel ? 7 : 6;
+      case "session-setup": return hasGroupLevel ? 8 : 7;
       case "summary": return getTotalSteps();
       default: return 1;
     }
@@ -416,15 +416,15 @@ export function PremiumSessionWizard({
         setStep("players");
         break;
       case "players":
+        setStep("court");
+        break;
+      case "court":
         setStep("date-time");
         break;
       case "date-time":
         setStep("session-setup");
         break;
       case "session-setup":
-        setStep("court");
-        break;
-      case "court":
         setStep("summary");
         break;
       case "summary":
@@ -452,17 +452,17 @@ export function PremiumSessionWizard({
           setStep("schedule-pattern");
         }
         break;
-      case "date-time":
+      case "court":
         setStep("players");
+        break;
+      case "date-time":
+        setStep("court");
         break;
       case "session-setup":
         setStep("date-time");
         break;
-      case "court":
-        setStep("session-setup");
-        break;
       case "summary":
-        setStep("court");
+        setStep("session-setup");
         break;
     }
   };
@@ -1068,71 +1068,159 @@ export function PremiumSessionWizard({
     );
   };
 
-  const renderDateTimeCard = () => (
-    <BaselineFlowCard
-      title="Date & Time"
-      subtitle={selectedDate ? formatDate(selectedDate) : "Select when"}
-      icon="time"
-      iconColor="#8B5CF6"
-      step={getCurrentStepNumber()}
-      totalSteps={getTotalSteps()}
-      onNext={handleNext}
-      onBack={handleBack}
-      nextLabel="Next"
-      nextDisabled={!canProceed()}
-      glowColor="#8B5CF6"
-    >
-      <ScrollView style={styles.cardScroll} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionLabel}>Duration</Text>
-        <View style={styles.durationGrid}>
-          {DURATIONS.map((d) => (
-            <Pressable
-              key={d.value}
-              style={[
-                styles.durationCard,
-                duration === d.value && styles.durationCardSelected,
-              ]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setDuration(d.value);
-              }}
-            >
-              <Text style={[
-                styles.durationText,
-                duration === d.value && styles.durationTextSelected,
-              ]}>
-                {d.label}
+  const [datePickerMonth, setDatePickerMonth] = useState(new Date());
+  
+  const getDatePickerDays = () => {
+    const year = datePickerMonth.getFullYear();
+    const month = datePickerMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startPadding = firstDay.getDay();
+    
+    const days: (Date | null)[] = [];
+    for (let i = 0; i < startPadding; i++) days.push(null);
+    for (let d = 1; d <= lastDay.getDate(); d++) {
+      days.push(new Date(year, month, d));
+    }
+    return days;
+  };
+
+  const renderDateTimeCard = () => {
+    const courtName = selectedCourtId ? courts.find(c => c.id === selectedCourtId)?.name : null;
+    
+    return (
+      <BaselineFlowCard
+        title="Date & Time"
+        subtitle={courtName ? `Court: ${courtName}` : formatDate(selectedDate)}
+        icon="time"
+        iconColor="#8B5CF6"
+        step={getCurrentStepNumber()}
+        totalSteps={getTotalSteps()}
+        onNext={handleNext}
+        onBack={handleBack}
+        nextLabel="Next"
+        nextDisabled={!canProceed()}
+        glowColor="#8B5CF6"
+      >
+        <ScrollView style={styles.cardScrollLarge} showsVerticalScrollIndicator={false}>
+          <Text style={styles.sectionLabel}>Select Date</Text>
+          <View style={styles.datePickerContainer}>
+            <View style={styles.datePickerNav}>
+              <Pressable
+                onPress={() => {
+                  const prev = new Date(datePickerMonth);
+                  prev.setMonth(prev.getMonth() - 1);
+                  setDatePickerMonth(prev);
+                }}
+                style={styles.datePickerNavBtn}
+              >
+                <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+              </Pressable>
+              <Text style={styles.datePickerMonthLabel}>
+                {datePickerMonth.toLocaleDateString("en", { month: "long", year: "numeric" })}
               </Text>
-            </Pressable>
-          ))}
-        </View>
-        
-        <Text style={styles.sectionLabel}>Start Time</Text>
-        <View style={styles.timeGrid}>
-          {TIME_SLOTS.map((time) => (
-            <Pressable
-              key={time}
-              style={[
-                styles.timeSlot,
-                selectedTime === time && styles.timeSlotSelected,
-              ]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setSelectedTime(time);
-              }}
-            >
-              <Text style={[
-                styles.timeSlotText,
-                selectedTime === time && styles.timeSlotTextSelected,
-              ]}>
-                {time}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </ScrollView>
-    </BaselineFlowCard>
-  );
+              <Pressable
+                onPress={() => {
+                  const next = new Date(datePickerMonth);
+                  next.setMonth(next.getMonth() + 1);
+                  setDatePickerMonth(next);
+                }}
+                style={styles.datePickerNavBtn}
+              >
+                <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
+              </Pressable>
+            </View>
+            
+            <View style={styles.datePickerDayHeaders}>
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
+                <Text key={d} style={styles.datePickerDayHeader}>{d}</Text>
+              ))}
+            </View>
+            
+            <View style={styles.datePickerGrid}>
+              {getDatePickerDays().map((day, idx) => {
+                if (!day) {
+                  return <View key={`empty-${idx}`} style={styles.datePickerCell} />;
+                }
+                const isSelected = day.toDateString() === selectedDate.toDateString();
+                const isToday = day.toDateString() === new Date().toDateString();
+                
+                return (
+                  <Pressable
+                    key={day.toISOString()}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSelectedDate(day);
+                    }}
+                    style={[
+                      styles.datePickerCell,
+                      isSelected && styles.datePickerCellSelected,
+                      isToday && !isSelected && styles.datePickerCellToday,
+                    ]}
+                  >
+                    <Text style={[
+                      styles.datePickerDayText,
+                      isSelected && styles.datePickerDayTextSelected,
+                    ]}>
+                      {day.getDate()}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+          
+          <Text style={styles.sectionLabel}>Duration</Text>
+          <View style={styles.durationGrid}>
+            {DURATIONS.map((d) => (
+              <Pressable
+                key={d.value}
+                style={[
+                  styles.durationCard,
+                  duration === d.value && styles.durationCardSelected,
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setDuration(d.value);
+                }}
+              >
+                <Text style={[
+                  styles.durationText,
+                  duration === d.value && styles.durationTextSelected,
+                ]}>
+                  {d.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          
+          <Text style={styles.sectionLabel}>Start Time</Text>
+          <View style={styles.timeGrid}>
+            {TIME_SLOTS.map((time) => (
+              <Pressable
+                key={time}
+                style={[
+                  styles.timeSlot,
+                  selectedTime === time && styles.timeSlotSelected,
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedTime(time);
+                }}
+              >
+                <Text style={[
+                  styles.timeSlotText,
+                  selectedTime === time && styles.timeSlotTextSelected,
+                ]}>
+                  {time}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </ScrollView>
+      </BaselineFlowCard>
+    );
+  };
 
   const renderSessionSetupCard = () => (
     <BaselineFlowCard
@@ -1554,6 +1642,70 @@ const styles = StyleSheet.create({
   },
   cardScroll: {
     maxHeight: 350,
+  },
+  cardScrollLarge: {
+    maxHeight: 450,
+  },
+  datePickerContainer: {
+    backgroundColor: "#1A1F2A",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  datePickerNav: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+  },
+  datePickerNavBtn: {
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  datePickerMonthLabel: {
+    fontSize: FontSizes.md,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  datePickerDayHeaders: {
+    flexDirection: "row",
+    marginBottom: Spacing.xs,
+  },
+  datePickerDayHeader: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: FontSizes.xs,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  datePickerGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  datePickerCell: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  datePickerCellSelected: {
+    backgroundColor: "#8B5CF6" + "40",
+    borderRadius: BorderRadius.sm,
+  },
+  datePickerCellToday: {
+    borderWidth: 1.5,
+    borderColor: "#8B5CF6",
+    borderRadius: BorderRadius.sm,
+  },
+  datePickerDayText: {
+    fontSize: FontSizes.sm,
+    color: "#FFFFFF",
+    fontWeight: "500",
+  },
+  datePickerDayTextSelected: {
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
   introContent: {
     alignItems: "center",
