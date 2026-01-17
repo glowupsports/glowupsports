@@ -289,13 +289,22 @@ export function PremiumSessionWizard({
     "19:00", "19:30", "20:00", "20:30", "21:00",
   ];
 
+  const TRAVEL_TIME_MINUTES = 15;
+
   const blockedSlots = useMemo((): Set<string> => {
     const blocked = new Set<string>();
     if (!calendarData) return blocked;
 
-    const checkSessionOverlap = (session: ExistingSession) => {
+    const checkSessionOverlap = (session: ExistingSession, requireTravelTime = false) => {
       const sessionStart = new Date(session.startTime.endsWith("Z") ? session.startTime : session.startTime + "Z");
       const sessionEnd = new Date(session.endTime.endsWith("Z") ? session.endTime : session.endTime + "Z");
+      
+      const effectiveSessionStart = requireTravelTime 
+        ? new Date(sessionStart.getTime() - TRAVEL_TIME_MINUTES * 60 * 1000) 
+        : sessionStart;
+      const effectiveSessionEnd = requireTravelTime 
+        ? new Date(sessionEnd.getTime() + TRAVEL_TIME_MINUTES * 60 * 1000) 
+        : sessionEnd;
       
       for (const time of TIME_SLOTS) {
         const [hours, mins] = time.split(":").map(Number);
@@ -304,19 +313,20 @@ export function PremiumSessionWizard({
         const slotEnd = new Date(slotStart);
         slotEnd.setMinutes(slotEnd.getMinutes() + duration);
         
-        if (slotStart < sessionEnd && slotEnd > sessionStart) {
+        if (slotStart < effectiveSessionEnd && slotEnd > effectiveSessionStart) {
           blocked.add(time);
         }
       }
     };
     
     for (const session of calendarData.ownSessions || []) {
-      checkSessionOverlap(session);
+      const isDifferentCourt = selectedCourtId && session.courtId && session.courtId !== selectedCourtId;
+      checkSessionOverlap(session, isDifferentCourt);
     }
     
     if (selectedCourtId) {
       for (const session of (calendarData.blockedSessions || []).filter(s => s.courtId === selectedCourtId)) {
-        checkSessionOverlap(session);
+        checkSessionOverlap(session, false);
       }
     }
     
