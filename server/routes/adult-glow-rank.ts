@@ -22,6 +22,15 @@ import {
   getUnlockedSkillGates,
   mmrToRank,
   calculateExpectedScore,
+  mmrToDssRating,
+  formatDssRating,
+  getDssBracket,
+  estimateMatchesToNextRank,
+  getRatingTrend,
+  getPlayerRatingStatus,
+  calculateTeamRating,
+  calculateDoublesExpectedScore,
+  updateDoublesRatings,
   type MatchResult,
   type PlayerMatchStats,
 } from "../services/glow-rank-engine-adult";
@@ -746,6 +755,408 @@ router.get("/config", async (_req, res) => {
   } catch (error) {
     console.error("Error fetching config:", error);
     res.status(500).json({ error: "Failed to fetch config" });
+  }
+});
+
+// =============================================================================
+// DSS-STYLE RATING ENDPOINTS
+// =============================================================================
+
+/**
+ * GET /api/adult-glow/player/:playerId/dss-rating
+ * Get player's DSS-style rating (7.1234 format) with full status
+ */
+router.get("/player/:playerId/dss-rating", async (req, res) => {
+  try {
+    const { playerId } = req.params;
+    
+    const [player] = await db
+      .select({
+        id: players.id,
+        name: players.name,
+        glowMmr: players.glowMmr,
+        glowRank: players.glowRank,
+        totalMatchesPlayed: players.totalMatchesPlayed,
+      })
+      .from(players)
+      .where(eq(players.id, playerId))
+      .limit(1);
+    
+    if (!player) {
+      return res.status(404).json({ error: "Player not found" });
+    }
+    
+    const mmr = player.glowMmr || 1000;
+    const rank = player.glowRank || 9;
+    
+    // Get rating history for trend calculation
+    const ratingHistory = await db
+      .select({
+        mmr: adultGlowMatches.playerMmrBefore,
+        delta: adultGlowMatches.mmrDelta,
+        date: adultGlowMatches.matchDate,
+      })
+      .from(adultGlowMatches)
+      .where(eq(adultGlowMatches.playerId, playerId))
+      .orderBy(desc(adultGlowMatches.matchDate))
+      .limit(20);
+    
+    // Build cumulative rating history (most recent first, need to reverse)
+    const historyForTrend: { mmr: number; date: Date }[] = [];
+    let currentMmr = mmr;
+    
+    for (const match of ratingHistory) {
+      historyForTrend.unshift({ mmr: currentMmr, date: match.date! });
+      currentMmr = (match.mmr || 1000);
+    }
+    
+    if (historyForTrend.length === 0) {
+      historyForTrend.push({ mmr, date: new Date() });
+    }
+    
+    const status = getPlayerRatingStatus(
+      mmr,
+      rank,
+      player.totalMatchesPlayed || 0,
+      historyForTrend
+    );
+    
+    const dssRating = mmrToDssRating(mmr);
+    const progressToNext = estimateMatchesToNextRank(mmr, rank);
+    
+    res.json({
+      playerId: player.id,
+      name: player.name,
+      
+      // DSS-style rating
+      dssRating: formatDssRating(dssRating),
+      dssRatingNumeric: dssRating,
+      bracket: getDssBracket(dssRating),
+      
+      // Raw MMR (internal)
+      mmr,
+      mmrRange: {
+        min: MMR_CONFIG.rankThresholds.find(t => t.rank === rank)?.minMmr || 0,
+        max: MMR_CONFIG.rankThresholds.find(t => t.rank === rank)?.maxMmr || 300,
+      },
+      
+      // Status
+      rankName: status.rankName,
+      trend: status.trend,
+      isProvisional: status.isProvisional,
+      
+      // Progress to next level
+      progressToNext: {
+        targetRank: progressToNext.targetRank,
+        matchesNeeded: progressToNext.matchesNeeded,
+        mmrNeeded: progressToNext.mmrNeeded,
+        confidence: progressToNext.confidence,
+      },
+      
+      // Recent history for mini-chart
+      recentHistory: historyForTrend.slice(-10).map(h => ({
+        mmr: h.mmr,
+        dssRating: formatDssRating(mmrToDssRating(h.mmr)),
+        date: h.date,
+      })),
+    });
+  } catch (error) {
+    console.error("Error fetching DSS rating:", error);
+    res.status(500).json({ error: "Failed to fetch DSS rating" });
+  }
+});
+
+/**
+ * GET /api/adult-glow/player/:playerId/rating-history
+ * Get full rating history for chart display
+ */
+router.get("/player/:playerId/rating-history", async (req, res) => {
+  try {
+    const { playerId } = req.params;
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+    
+    const [player] = await db
+      .select({
+        id: players.id,
+        glowMmr: players.glowMmr,
+      })
+      .from(players)
+      .where(eq(players.id, playerId))
+      .limit(1);
+    
+    if (!player) {
+      return res.status(404).json({ error: "Player not found" });
+    }
+    
+    // Get match history with MMR changes
+    const matches = await db
+      .select({
+        id: adultGlowMatches.id,
+        mmrBefore: adultGlowMatches.playerMmrBefore,
+        mmrDelta: adultGlowMatches.mmrDelta,
+        didWin: adultGlowMatches.didWin,
+        matchType: adultGlowMatches.matchType,
+        verification: adultGlowMatches.verification,
+        matchDate: adultGlowMatches.matchDate,
+        opponentId: adultGlowMatches.opponentId,
+      })
+      .from(adultGlowMatches)
+      .where(eq(adultGlowMatches.playerId, playerId))
+      .orderBy(desc(adultGlowMatches.matchDate))
+      .limit(limit);
+    
+    // Build history array with calculated MMR after each match
+    const history = matches.reverse().map((match, index) => {
+      const mmrAfter = (match.mmrBefore || 1000) + (match.mmrDelta || 0);
+      return {
+        matchNumber: index + 1,
+        matchId: match.id,
+        mmrBefore: match.mmrBefore || 1000,
+        mmrAfter,
+        mmrDelta: match.mmrDelta || 0,
+        dssRatingBefore: formatDssRating(mmrToDssRating(match.mmrBefore || 1000)),
+        dssRatingAfter: formatDssRating(mmrToDssRating(mmrAfter)),
+        didWin: match.didWin,
+        matchType: match.matchType,
+        verification: match.verification,
+        matchDate: match.matchDate,
+      };
+    });
+    
+    // Calculate statistics
+    const currentMmr = player.glowMmr || 1000;
+    const startMmr = history.length > 0 ? history[0].mmrBefore : currentMmr;
+    const highestMmr = Math.max(currentMmr, ...history.map(h => h.mmrAfter));
+    const lowestMmr = Math.min(startMmr, ...history.map(h => h.mmrBefore));
+    
+    res.json({
+      playerId,
+      currentMmr,
+      currentDssRating: formatDssRating(mmrToDssRating(currentMmr)),
+      
+      stats: {
+        totalMatches: history.length,
+        startMmr,
+        highestMmr,
+        lowestMmr,
+        netChange: currentMmr - startMmr,
+        highestDssRating: formatDssRating(mmrToDssRating(highestMmr)),
+        lowestDssRating: formatDssRating(mmrToDssRating(lowestMmr)),
+      },
+      
+      history,
+    });
+  } catch (error) {
+    console.error("Error fetching rating history:", error);
+    res.status(500).json({ error: "Failed to fetch rating history" });
+  }
+});
+
+/**
+ * POST /api/adult-glow/doubles-match
+ * Record a doubles match result and update both players' ratings
+ */
+router.post("/doubles-match", async (req, res) => {
+  try {
+    const {
+      team1Player1Id,
+      team1Player2Id,
+      team2Player1Id,
+      team2Player2Id,
+      team1Won,
+      gamesDiff,
+      setScore,
+      matchType = "friendly",
+      verification = "self_reported",
+    } = req.body;
+    
+    // Validate required fields
+    if (!team1Player1Id || !team1Player2Id || !team2Player1Id || !team2Player2Id || team1Won === undefined) {
+      return res.status(400).json({ 
+        error: "Missing required fields: all 4 player IDs and team1Won required" 
+      });
+    }
+    
+    // Get all players
+    const allPlayerIds = [team1Player1Id, team1Player2Id, team2Player1Id, team2Player2Id];
+    const playersData = await db.select().from(players).where(
+      sql`${players.id} = ANY(${allPlayerIds})`
+    );
+    
+    if (playersData.length !== 4) {
+      return res.status(404).json({ error: "One or more players not found" });
+    }
+    
+    const getPlayer = (id: string) => playersData.find(p => p.id === id);
+    const t1p1 = getPlayer(team1Player1Id);
+    const t1p2 = getPlayer(team1Player2Id);
+    const t2p1 = getPlayer(team2Player1Id);
+    const t2p2 = getPlayer(team2Player2Id);
+    
+    if (!t1p1 || !t1p2 || !t2p1 || !t2p2) {
+      return res.status(404).json({ error: "Player data incomplete" });
+    }
+    
+    // Calculate doubles rating updates for team 1
+    const team1Updates = updateDoublesRatings(
+      t1p1.glowMmr || 1000,
+      t1p2.glowMmr || 1000,
+      t2p1.glowMmr || 1000,
+      t2p2.glowMmr || 1000,
+      team1Won,
+      verification
+    );
+    
+    // Calculate doubles rating updates for team 2
+    const team2Updates = updateDoublesRatings(
+      t2p1.glowMmr || 1000,
+      t2p2.glowMmr || 1000,
+      t1p1.glowMmr || 1000,
+      t1p2.glowMmr || 1000,
+      !team1Won,
+      verification
+    );
+    
+    // Update all players
+    const updates = [
+      { id: team1Player1Id, delta: team1Updates.player1Delta, won: team1Won },
+      { id: team1Player2Id, delta: team1Updates.player2Delta, won: team1Won },
+      { id: team2Player1Id, delta: team2Updates.player1Delta, won: !team1Won },
+      { id: team2Player2Id, delta: team2Updates.player2Delta, won: !team1Won },
+    ];
+    
+    for (const update of updates) {
+      const player = getPlayer(update.id);
+      if (player) {
+        const newMmr = Math.max(0, Math.min(3000, (player.glowMmr || 1000) + update.delta));
+        const newRank = mmrToRank(newMmr);
+        
+        await db.update(players)
+          .set({
+            glowMmr: newMmr,
+            glowRank: newRank,
+            totalMatchesPlayed: (player.totalMatchesPlayed || 0) + 1,
+          })
+          .where(eq(players.id, update.id));
+      }
+    }
+    
+    res.json({
+      success: true,
+      matchType: "doubles",
+      team1: {
+        players: [team1Player1Id, team1Player2Id],
+        won: team1Won,
+        mmrDeltas: [team1Updates.player1Delta, team1Updates.player2Delta],
+      },
+      team2: {
+        players: [team2Player1Id, team2Player2Id],
+        won: !team1Won,
+        mmrDeltas: [team2Updates.player1Delta, team2Updates.player2Delta],
+      },
+    });
+  } catch (error) {
+    console.error("Error recording doubles match:", error);
+    res.status(500).json({ error: "Failed to record doubles match" });
+  }
+});
+
+/**
+ * GET /api/adult-glow/simulate-match
+ * Simulate a match outcome without recording it (for UI preview)
+ */
+router.get("/simulate-match", async (req, res) => {
+  try {
+    const playerMmr = parseInt(req.query.playerMmr as string) || 1000;
+    const opponentMmr = parseInt(req.query.opponentMmr as string) || 1000;
+    
+    const expected = calculateExpectedScore(playerMmr, opponentMmr);
+    
+    // Simulate win
+    const winDelta = Math.round(MMR_CONFIG.baseK * (1 - expected));
+    const newMmrWin = playerMmr + winDelta;
+    
+    // Simulate loss
+    const loseDelta = Math.round(MMR_CONFIG.baseK * (0 - expected));
+    const newMmrLose = playerMmr + loseDelta;
+    
+    res.json({
+      playerMmr,
+      playerDssRating: formatDssRating(mmrToDssRating(playerMmr)),
+      opponentMmr,
+      opponentDssRating: formatDssRating(mmrToDssRating(opponentMmr)),
+      
+      winProbability: Math.round(expected * 100),
+      
+      ifWin: {
+        mmrDelta: winDelta,
+        newMmr: newMmrWin,
+        newDssRating: formatDssRating(mmrToDssRating(newMmrWin)),
+        newBracket: getDssBracket(mmrToDssRating(newMmrWin)),
+      },
+      ifLose: {
+        mmrDelta: loseDelta,
+        newMmr: newMmrLose,
+        newDssRating: formatDssRating(mmrToDssRating(newMmrLose)),
+        newBracket: getDssBracket(mmrToDssRating(newMmrLose)),
+      },
+    });
+  } catch (error) {
+    console.error("Error simulating match:", error);
+    res.status(500).json({ error: "Failed to simulate match" });
+  }
+});
+
+/**
+ * GET /api/adult-glow/leaderboard
+ * Get top players by DSS rating
+ */
+router.get("/leaderboard", async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+    const academyId = req.query.academyId as string;
+    
+    let query = db
+      .select({
+        id: players.id,
+        name: players.name,
+        glowMmr: players.glowMmr,
+        glowRank: players.glowRank,
+        totalMatchesPlayed: players.totalMatchesPlayed,
+        academyId: players.academyId,
+      })
+      .from(players)
+      .where(
+        and(
+          eq(players.isAdult, true),
+          gte(players.totalMatchesPlayed, 5) // Min 5 matches for leaderboard
+        )
+      )
+      .orderBy(desc(players.glowMmr))
+      .limit(limit);
+    
+    const topPlayers = await query;
+    
+    const leaderboard = topPlayers.map((player, index) => {
+      const mmr = player.glowMmr || 1000;
+      return {
+        rank: index + 1,
+        playerId: player.id,
+        name: player.name,
+        dssRating: formatDssRating(mmrToDssRating(mmr)),
+        bracket: getDssBracket(mmrToDssRating(mmr)),
+        mmr,
+        matchesPlayed: player.totalMatchesPlayed || 0,
+      };
+    });
+    
+    res.json({
+      leaderboard,
+      totalPlayers: leaderboard.length,
+    });
+  } catch (error) {
+    console.error("Error fetching leaderboard:", error);
+    res.status(500).json({ error: "Failed to fetch leaderboard" });
   }
 });
 
