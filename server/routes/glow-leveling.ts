@@ -17,6 +17,7 @@ import {
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { AuthenticatedRequest, authMiddlewareWithFreshData as authMiddleware, requireAcademy } from "../auth";
 import { awardXP } from "../services/xp-service";
+import { ADULT_GLOW_SKILLS_BY_LEVEL } from "../seeds/adult-glow-skills-seed";
 
 const router = Router();
 
@@ -68,6 +69,38 @@ router.get("/api/glow/levels/:levelId", async (req, res: Response) => {
       return res.status(404).json({ error: "Level not found" });
     }
     
+    // For GLOW levels (adults), use in-memory skill definitions
+    if (level.stage === "GLOW" && ADULT_GLOW_SKILLS_BY_LEVEL[levelId]) {
+      const adultConfig = ADULT_GLOW_SKILLS_BY_LEVEL[levelId];
+      const skillsByPillar: Record<string, any[]> = {};
+      
+      for (const skill of adultConfig.skills) {
+        if (!skillsByPillar[skill.pillar]) {
+          skillsByPillar[skill.pillar] = [];
+        }
+        skillsByPillar[skill.pillar].push({
+          id: skill.id,
+          name: skill.name,
+          pillar: skill.pillar,
+          stage: "GLOW",
+          description: skill.description,
+          targetScore: 2,
+          weight: 1,
+          isRequired: true,
+          rubric: skill.rubric,
+        });
+      }
+      
+      return res.json({
+        ...level,
+        skillsByPillar,
+        tests: [],
+        promotionRequirements: adultConfig.promotionRequirements,
+        abilitySnapshot: adultConfig.abilitySnapshot,
+      });
+    }
+    
+    // For ball levels (kids), use database
     const levelSkillsData = await db
       .select({
         mapping: levelSkills,
