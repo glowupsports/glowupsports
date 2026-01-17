@@ -36,6 +36,7 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import PackagesCard from "@/coach/components/PackagesCard";
 import QuickBaselineDrawer from "@/coach/components/QuickBaselineDrawer";
+import { PremiumBaselineFlow } from "@/coach/components/PremiumBaselineFlow";
 import { DeepAssessmentDrawer } from "@/coach/components/DeepAssessmentDrawer";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -948,7 +949,7 @@ export default function PlayersScreen() {
         </View>
       </Modal>
 
-      <QuickBaselineDrawer
+      <PremiumBaselineFlow
         visible={showBaselineDrawer}
         player={baselinePlayer}
         onClose={() => {

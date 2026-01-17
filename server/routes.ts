@@ -5654,6 +5654,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         overrideReason,
         overrideNote,
         deepSkillScores, // Deep baseline skill-by-skill scores
+        checkedSkillIds, // Quick baseline checked skill IDs from card-based flow
       } = req.body;
       
       const wasOverridden = confirmedLevelId && suggestedLevelId && confirmedLevelId !== suggestedLevelId;
@@ -5720,6 +5721,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         
+        // Save checked skill IDs from quick baseline flow as initial achievements
+        if (checkedSkillIds && Array.isArray(checkedSkillIds) && checkedSkillIds.length > 0) {
+          for (const skillId of checkedSkillIds) {
+            // Check if skill score already exists
+            const existing = await db.select().from(playerSkillScores)
+              .where(and(
+                eq(playerSkillScores.playerId, id),
+                eq(playerSkillScores.skillId, skillId)
+              ))
+              .limit(1);
+            
+            if (existing.length === 0) {
+              // Create initial skill score with score 2 (Meets expectations) as baseline achievement
+              await db.insert(playerSkillScores).values({
+                playerId: id,
+                skillId,
+                score: 2, // "Meets" level as confirmed during baseline
+                movingAverage: 2,
+                observationType: "baseline",
+                coachId: coachId || null,
+                notes: "Confirmed during baseline assessment",
+              });
+            }
+          }
+        }
+        
         res.json(updated);
       } else {
         // Create new baseline
@@ -5775,6 +5802,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 notObserved: scoreData.notObserved,
                 notes: scoreData.notes || null,
                 coachId: coachId || null,
+              });
+            }
+          }
+        }
+        
+        // Save checked skill IDs from quick baseline flow as initial achievements
+        if (checkedSkillIds && Array.isArray(checkedSkillIds) && checkedSkillIds.length > 0) {
+          for (const skillId of checkedSkillIds) {
+            // Check if skill score already exists
+            const existing = await db.select().from(playerSkillScores)
+              .where(and(
+                eq(playerSkillScores.playerId, id),
+                eq(playerSkillScores.skillId, skillId)
+              ))
+              .limit(1);
+            
+            if (existing.length === 0) {
+              // Create initial skill score with score 2 (Meets expectations) as baseline achievement
+              await db.insert(playerSkillScores).values({
+                playerId: id,
+                skillId,
+                score: 2, // "Meets" level as confirmed during baseline
+                movingAverage: 2,
+                observationType: "baseline",
+                coachId: coachId || null,
+                notes: "Confirmed during baseline assessment",
               });
             }
           }
