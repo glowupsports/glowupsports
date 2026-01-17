@@ -119,6 +119,27 @@ const OVERRIDE_REASONS = [
   { value: "age_mismatch", label: "Age doesn't match ability" },
 ];
 
+// Helper to calculate age from dateOfBirth
+const calculateAge = (dateOfBirth: string | null | undefined): number | null => {
+  if (!dateOfBirth) return null;
+  const birthDate = new Date(dateOfBirth);
+  if (isNaN(birthDate.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+};
+
+// Determine player type from age (adult = 18+)
+const determinePlayerType = (age: number | null, playerAge?: number | null): PlayerType | null => {
+  const ageToUse = age ?? playerAge;
+  if (ageToUse === null || ageToUse === undefined) return null;
+  return ageToUse >= 18 ? "adult" : "kid";
+};
+
 export function PremiumBaselineFlow({
   visible,
   player,
@@ -135,6 +156,7 @@ export function PremiumBaselineFlow({
   
   // Player type and level selection state
   const [playerType, setPlayerType] = useState<PlayerType | null>(null);
+  const [playerTypeAutoDetected, setPlayerTypeAutoDetected] = useState(false);
   const [selectedBallLevel, setSelectedBallLevel] = useState<BallLevel | null>(null);
   const [selectedGlowLevel, setSelectedGlowLevel] = useState<GlowLevel | null>(null);
   const [selectedSublevel, setSelectedSublevel] = useState<1 | 2 | 3 | null>(null);
@@ -205,7 +227,19 @@ export function PremiumBaselineFlow({
     if (visible && player) {
       setStep("intro");
       setCurrentPillarIndex(0);
-      setPlayerType(null);
+      
+      // Auto-detect player type from dateOfBirth or age
+      const calculatedAge = calculateAge(player.dateOfBirth);
+      const autoDetectedType = determinePlayerType(calculatedAge, player.age);
+      
+      if (autoDetectedType) {
+        setPlayerType(autoDetectedType);
+        setPlayerTypeAutoDetected(true);
+      } else {
+        setPlayerType(null);
+        setPlayerTypeAutoDetected(false);
+      }
+      
       setSelectedBallLevel(null);
       setSelectedGlowLevel(null);
       setSelectedSublevel(null);
@@ -221,19 +255,26 @@ export function PremiumBaselineFlow({
     const requirementPillars = levelDetails?.skillsByPillar 
       ? Object.keys(levelDetails.skillsByPillar).length 
       : 6;
-    // intro + player-type + (ball-level OR glow-level) + sublevel (for kids) + pillars + summary
-    const basesteps = playerType === "kid" ? 4 : 3; // kids have sublevel step
-    return basesteps + requirementPillars + 1;
+    // intro + player-type (if not auto) + (ball-level OR glow-level) + sublevel (for kids) + pillars + summary
+    let basesteps = 1; // intro
+    if (!playerTypeAutoDetected) basesteps += 1; // player-type step
+    basesteps += 1; // ball-level or glow-level
+    if (playerType === "kid") basesteps += 1; // sublevel for kids
+    return basesteps + requirementPillars + 1; // +1 for summary
   };
   
   const getCurrentStepNumber = () => {
+    const typeStepOffset = playerTypeAutoDetected ? 0 : 1;
     switch (step) {
       case "intro": return 1;
       case "player-type": return 2;
-      case "ball-level": return 3;
-      case "glow-level": return 3;
-      case "sublevel": return 4;
-      case "requirements": return (playerType === "kid" ? 5 : 4) + currentPillarIndex;
+      case "ball-level": return 2 + typeStepOffset;
+      case "glow-level": return 2 + typeStepOffset;
+      case "sublevel": return 3 + typeStepOffset;
+      case "requirements": {
+        const baseStep = playerType === "kid" ? 4 + typeStepOffset : 3 + typeStepOffset;
+        return baseStep + currentPillarIndex;
+      }
       case "summary": return getTotalSteps();
       default: return 1;
     }
@@ -244,7 +285,16 @@ export function PremiumBaselineFlow({
     
     switch (step) {
       case "intro":
-        setStep("player-type");
+        // Skip player-type step if we auto-detected from dateOfBirth/age
+        if (playerTypeAutoDetected && playerType) {
+          if (playerType === "kid") {
+            setStep("ball-level");
+          } else {
+            setStep("glow-level");
+          }
+        } else {
+          setStep("player-type");
+        }
         break;
       case "player-type":
         if (playerType === "kid") {
@@ -288,10 +338,20 @@ export function PremiumBaselineFlow({
         setStep("intro");
         break;
       case "ball-level":
-        setStep("player-type");
+        // Go back to intro if player type was auto-detected, otherwise to player-type
+        if (playerTypeAutoDetected) {
+          setStep("intro");
+        } else {
+          setStep("player-type");
+        }
         break;
       case "glow-level":
-        setStep("player-type");
+        // Go back to intro if player type was auto-detected, otherwise to player-type
+        if (playerTypeAutoDetected) {
+          setStep("intro");
+        } else {
+          setStep("player-type");
+        }
         break;
       case "sublevel":
         setStep("ball-level");
@@ -329,57 +389,87 @@ export function PremiumBaselineFlow({
     });
   };
   
-  const renderIntroCard = () => (
-    <BaselineFlowCard
-      title="Start Baseline"
-      subtitle={player?.name}
-      icon="rocket"
-      iconColor={GlowColors.primary}
-      step={1}
-      totalSteps={getTotalSteps()}
-      onNext={handleNext}
-      showBack={false}
-      nextLabel="Let's Go"
-      glowColor={GlowColors.primary}
-    >
-      <View style={styles.introContent}>
-        <View style={styles.introIconWrapper}>
-          <LinearGradient
-            colors={[`${GlowColors.primary}30`, `${GlowColors.primary}10`]}
-            style={styles.introIconGradient}
-          >
-            <Ionicons name="analytics" size={48} color={GlowColors.primary} />
-          </LinearGradient>
+  const renderIntroCard = () => {
+    const calculatedAge = calculateAge(player?.dateOfBirth);
+    const displayAge = calculatedAge ?? player?.age;
+    
+    return (
+      <BaselineFlowCard
+        title="Start Baseline"
+        subtitle={player?.name}
+        icon="rocket"
+        iconColor={GlowColors.primary}
+        step={1}
+        totalSteps={getTotalSteps()}
+        onNext={handleNext}
+        showBack={false}
+        nextLabel="Let's Go"
+        glowColor={GlowColors.primary}
+      >
+        <View style={styles.introContent}>
+          <View style={styles.introIconWrapper}>
+            <LinearGradient
+              colors={[`${GlowColors.primary}30`, `${GlowColors.primary}10`]}
+              style={styles.introIconGradient}
+            >
+              <Ionicons name="analytics" size={48} color={GlowColors.primary} />
+            </LinearGradient>
+          </View>
+          
+          <Text style={styles.introTitle}>Welcome to the Baseline Assessment</Text>
+          <Text style={styles.introDescription}>
+            In just a few steps, we'll determine the perfect starting level and track which skills {player?.name} already has.
+          </Text>
+          
+          {/* Show auto-detected player type info */}
+          {playerTypeAutoDetected && playerType && (
+            <View style={styles.autoDetectedBadge}>
+              <Ionicons 
+                name={playerType === "kid" ? "tennisball" : "person"} 
+                size={18} 
+                color={playerType === "kid" ? STAGE_COLORS.RED : GlowColors.primary} 
+              />
+              <Text style={styles.autoDetectedText}>
+                {playerType === "kid" ? "Youth" : "Adult"} player
+                {displayAge ? ` (${displayAge} years)` : ""}
+              </Text>
+              <View style={[styles.autoDetectedDot, { backgroundColor: playerType === "kid" ? STAGE_COLORS.RED : GlowColors.primary }]} />
+              <Text style={styles.autoDetectedLabel}>Auto-detected</Text>
+            </View>
+          )}
+          
+          <View style={styles.introSteps}>
+            {!playerTypeAutoDetected && (
+              <View style={styles.introStep}>
+                <View style={[styles.introStepNumber, { backgroundColor: `${STAGE_COLORS.ORANGE}20` }]}>
+                  <Text style={[styles.introStepNumberText, { color: STAGE_COLORS.ORANGE }]}>1</Text>
+                </View>
+                <Text style={styles.introStepText}>Choose player type (Adult/Kid)</Text>
+              </View>
+            )}
+            <View style={styles.introStep}>
+              <View style={[styles.introStepNumber, { backgroundColor: `${STAGE_COLORS.GREEN}20` }]}>
+                <Text style={[styles.introStepNumberText, { color: STAGE_COLORS.GREEN }]}>
+                  {playerTypeAutoDetected ? "1" : "2"}
+                </Text>
+              </View>
+              <Text style={styles.introStepText}>
+                Select their {playerType === "adult" ? "Glow" : "ball"} level
+              </Text>
+            </View>
+            <View style={styles.introStep}>
+              <View style={[styles.introStepNumber, { backgroundColor: `${GlowColors.primary}20` }]}>
+                <Text style={[styles.introStepNumberText, { color: GlowColors.primary }]}>
+                  {playerTypeAutoDetected ? "2" : "3"}
+                </Text>
+              </View>
+              <Text style={styles.introStepText}>Check off skills they can do</Text>
+            </View>
+          </View>
         </View>
-        
-        <Text style={styles.introTitle}>Welcome to the Baseline Assessment</Text>
-        <Text style={styles.introDescription}>
-          In just a few steps, we'll determine the perfect starting level and track which skills {player?.name} already has.
-        </Text>
-        
-        <View style={styles.introSteps}>
-          <View style={styles.introStep}>
-            <View style={[styles.introStepNumber, { backgroundColor: `${STAGE_COLORS.ORANGE}20` }]}>
-              <Text style={[styles.introStepNumberText, { color: STAGE_COLORS.ORANGE }]}>1</Text>
-            </View>
-            <Text style={styles.introStepText}>Choose player type (Adult/Kid)</Text>
-          </View>
-          <View style={styles.introStep}>
-            <View style={[styles.introStepNumber, { backgroundColor: `${STAGE_COLORS.GREEN}20` }]}>
-              <Text style={[styles.introStepNumberText, { color: STAGE_COLORS.GREEN }]}>2</Text>
-            </View>
-            <Text style={styles.introStepText}>Select their ball level</Text>
-          </View>
-          <View style={styles.introStep}>
-            <View style={[styles.introStepNumber, { backgroundColor: `${GlowColors.primary}20` }]}>
-              <Text style={[styles.introStepNumberText, { color: GlowColors.primary }]}>3</Text>
-            </View>
-            <Text style={styles.introStepText}>Check off skills they can do</Text>
-          </View>
-        </View>
-      </View>
-    </BaselineFlowCard>
-  );
+      </BaselineFlowCard>
+    );
+  };
   
   // Player Type selector card (Adult/Kid)
   const renderPlayerTypeCard = () => (
@@ -953,6 +1043,34 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
     paddingHorizontal: Spacing.md,
     fontWeight: "500",
+  },
+  autoDetectedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: BorderRadius.xl,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  autoDetectedText: {
+    fontSize: FontSizes.md,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  autoDetectedDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    marginHorizontal: Spacing.xs,
+  },
+  autoDetectedLabel: {
+    fontSize: FontSizes.sm,
+    color: "rgba(255, 255, 255, 0.6)",
+    fontStyle: "italic",
   },
   introSteps: {
     width: "100%",
