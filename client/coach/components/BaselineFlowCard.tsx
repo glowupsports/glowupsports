@@ -130,7 +130,7 @@ export function BaselineFlowCard({
         <View style={styles.navigation}>
           {showBack && step > 1 ? (
             <Pressable style={styles.backButton} onPress={handleBack}>
-              <Ionicons name="arrow-back" size={20} color={Colors.dark.textSecondary} />
+              <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
               <Text style={styles.backButtonText}>Back</Text>
             </Pressable>
           ) : (

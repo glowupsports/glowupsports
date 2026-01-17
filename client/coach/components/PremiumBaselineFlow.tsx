@@ -451,7 +451,7 @@ export function PremiumBaselineFlow({
                 setCanRallyFive(true);
               }}
             >
-              <Ionicons name="checkmark-circle" size={20} color={canRallyFive ? GlowColors.primary : Colors.dark.textMuted} />
+              <Ionicons name="checkmark-circle" size={20} color={canRallyFive ? GlowColors.primary : "#FFFFFF"} />
               <Text style={[styles.optionText, canRallyFive && styles.optionTextActive]}>Yes</Text>
             </Pressable>
             <Pressable
@@ -465,7 +465,7 @@ export function PremiumBaselineFlow({
                 setCanRallyFive(false);
               }}
             >
-              <Ionicons name="close-circle" size={20} color={!canRallyFive ? Colors.dark.error : Colors.dark.textMuted} />
+              <Ionicons name="close-circle" size={20} color={!canRallyFive ? Colors.dark.error : "#FFFFFF"} />
               <Text style={[styles.optionText, !canRallyFive && styles.optionTextActive]}>Not Yet</Text>
             </Pressable>
           </View>
@@ -615,7 +615,7 @@ export function PremiumBaselineFlow({
           
           {skills.length === 0 && (
             <View style={styles.emptySkills}>
-              <Ionicons name="checkmark-done-circle" size={40} color={Colors.dark.textMuted} />
+              <Ionicons name="checkmark-done-circle" size={40} color="#FFFFFF" />
               <Text style={styles.emptySkillsText}>No skills for this pillar at this level</Text>
             </View>
           )}
