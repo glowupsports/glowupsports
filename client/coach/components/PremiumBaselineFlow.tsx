@@ -694,8 +694,11 @@ export function PremiumBaselineFlow({
     const totalChecked = checkedSkills.size;
     const progress = totalSkills > 0 ? totalChecked / totalSkills : 0;
     
-    const stageColor = suggestion?.suggestedStage 
-      ? STAGE_COLORS[suggestion.suggestedStage] || GlowColors.primary
+    // Get stage and rank from selected values
+    const displayStage = playerType === "kid" ? selectedBallLevel : "GLOW";
+    const displayRank = playerType === "kid" ? selectedSublevel : selectedGlowLevel;
+    const stageColor = displayStage && STAGE_COLORS[displayStage] 
+      ? STAGE_COLORS[displayStage] 
       : GlowColors.primary;
     
     return (
@@ -703,20 +706,20 @@ export function PremiumBaselineFlow({
         title="Summary"
         subtitle="Ready to save baseline"
         icon="checkmark-circle"
-        iconColor={GlowColors.primary}
+        iconColor={stageColor}
         step={getTotalSteps()}
         totalSteps={getTotalSteps()}
         onNext={handleNext}
         onBack={handleBack}
         nextLabel={saveMutation.isPending ? "Saving..." : "Save Baseline"}
         nextDisabled={saveMutation.isPending}
-        glowColor={GlowColors.primary}
+        glowColor={stageColor}
       >
         <ScrollView style={styles.cardScrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.summaryHeader}>
             <View style={[styles.summaryLevelBadge, { borderColor: stageColor }]}>
               <Text style={[styles.summaryLevelText, { color: stageColor }]}>
-                {suggestion?.suggestedStage} {suggestion?.suggestedRank}
+                {displayStage} {displayRank}
               </Text>
             </View>
             <Text style={styles.summaryPlayerName}>{player?.name}</Text>
