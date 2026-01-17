@@ -1490,6 +1490,257 @@ router.get("/api/glow/messages/templates", async (_req, res: Response) => {
   }
 });
 
+// ==================== ADULT GLOW SKILLS API ====================
+
+// Get all adult Glow levels with full skill checklists
+router.get("/api/glow/adult-levels", async (_req, res: Response) => {
+  try {
+    const { 
+      ADULT_GLOW_SKILLS_BY_LEVEL, 
+      getOrderedLevelIds,
+      countSkillsPerLevel 
+    } = await import("../seeds/adult-glow-skills-seed");
+    
+    const levelIds = getOrderedLevelIds();
+    const levels = levelIds.map(levelId => {
+      const level = ADULT_GLOW_SKILLS_BY_LEVEL[levelId];
+      return {
+        levelId: level.levelId,
+        rank: level.rank,
+        name: level.name,
+        subtitle: level.subtitle,
+        abilitySnapshot: level.abilitySnapshot,
+        philosophy: level.philosophy,
+        pillarWeighting: level.pillarWeighting,
+        promotionRequirements: level.promotionRequirements,
+        isDataDriven: level.isDataDriven || false,
+        skillCount: countSkillsPerLevel(levelId),
+      };
+    });
+    
+    res.json({ levels });
+  } catch (error) {
+    console.error("Error fetching adult glow levels:", error);
+    res.status(500).json({ error: "Failed to fetch adult glow levels" });
+  }
+});
+
+// Get single adult Glow level with all skills organized by pillar
+router.get("/api/glow/adult-levels/:levelId", async (req, res: Response) => {
+  try {
+    const { levelId } = req.params;
+    const { ADULT_GLOW_SKILLS_BY_LEVEL, getSkillsByPillar } = await import("../seeds/adult-glow-skills-seed");
+    
+    const level = ADULT_GLOW_SKILLS_BY_LEVEL[levelId];
+    if (!level) {
+      return res.status(404).json({ error: "Level not found" });
+    }
+    
+    // Group skills by pillar
+    const pillars = ["TECHNIQUE", "TACTICAL", "PHYSICAL", "MENTAL", "SOCIAL", "MATCH"];
+    const skillsByPillar: Record<string, any[]> = {};
+    
+    for (const pillar of pillars) {
+      const skills = getSkillsByPillar(levelId, pillar);
+      if (skills.length > 0) {
+        // Group by category within pillar (for technique)
+        const categories: Record<string, any[]> = {};
+        for (const skill of skills) {
+          const category = skill.category || "General";
+          if (!categories[category]) {
+            categories[category] = [];
+          }
+          categories[category].push({
+            id: skill.id,
+            name: skill.name,
+            description: skill.description,
+            category: skill.category,
+            rubric: skill.rubric,
+          });
+        }
+        skillsByPillar[pillar] = Object.entries(categories).map(([cat, catSkills]) => ({
+          category: cat,
+          skills: catSkills,
+        }));
+      } else {
+        skillsByPillar[pillar] = [];
+      }
+    }
+    
+    res.json({
+      levelId: level.levelId,
+      rank: level.rank,
+      name: level.name,
+      subtitle: level.subtitle,
+      abilitySnapshot: level.abilitySnapshot,
+      philosophy: level.philosophy,
+      pillarWeighting: level.pillarWeighting,
+      promotionRequirements: level.promotionRequirements,
+      isDataDriven: level.isDataDriven || false,
+      skillsByPillar,
+      totalSkills: level.skills.length,
+    });
+  } catch (error) {
+    console.error("Error fetching adult level details:", error);
+    res.status(500).json({ error: "Failed to fetch adult level details" });
+  }
+});
+
+// Get skills for a specific pillar at a specific level
+router.get("/api/glow/adult-levels/:levelId/pillar/:pillar", async (req, res: Response) => {
+  try {
+    const { levelId, pillar } = req.params;
+    const { ADULT_GLOW_SKILLS_BY_LEVEL, getSkillsByPillar, getPillarWeighting } = await import("../seeds/adult-glow-skills-seed");
+    
+    const level = ADULT_GLOW_SKILLS_BY_LEVEL[levelId];
+    if (!level) {
+      return res.status(404).json({ error: "Level not found" });
+    }
+    
+    const upperPillar = pillar.toUpperCase();
+    const skills = getSkillsByPillar(levelId, upperPillar);
+    const weighting = getPillarWeighting(levelId);
+    
+    // Group by category
+    const categories: Record<string, any[]> = {};
+    for (const skill of skills) {
+      const category = skill.category || "General";
+      if (!categories[category]) {
+        categories[category] = [];
+      }
+      categories[category].push({
+        id: skill.id,
+        name: skill.name,
+        description: skill.description,
+        rubric: skill.rubric,
+      });
+    }
+    
+    res.json({
+      levelId,
+      pillar: upperPillar,
+      weight: weighting ? weighting[upperPillar.toLowerCase() as keyof typeof weighting] : 0,
+      categories: Object.entries(categories).map(([cat, catSkills]) => ({
+        category: cat,
+        skills: catSkills,
+      })),
+      totalSkills: skills.length,
+    });
+  } catch (error) {
+    console.error("Error fetching pillar skills:", error);
+    res.status(500).json({ error: "Failed to fetch pillar skills" });
+  }
+});
+
+// Save player skill assessment (coach checklist)
+router.post("/api/glow/players/:playerId/assessment", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { playerId } = req.params;
+    const { levelId, skillScores, notes } = req.body;
+    const academyId = req.user!.academyId;
+    const coachId = req.user!.coachId;
+    
+    if (!await validatePlayerAccess(playerId, academyId)) {
+      return res.status(404).json({ error: "Player not found" });
+    }
+    
+    if (!levelId || !skillScores) {
+      return res.status(400).json({ error: "levelId and skillScores are required" });
+    }
+    
+    // Calculate pillar scores and overall readiness
+    const { ADULT_GLOW_SKILLS_BY_LEVEL, getPillarWeighting } = await import("../seeds/adult-glow-skills-seed");
+    const level = ADULT_GLOW_SKILLS_BY_LEVEL[levelId];
+    
+    if (!level) {
+      return res.status(400).json({ error: "Invalid level" });
+    }
+    
+    const weighting = getPillarWeighting(levelId);
+    const pillarScores: Record<string, { achieved: number; total: number; percentage: number }> = {};
+    
+    // Group skills by pillar and calculate scores
+    for (const skill of level.skills) {
+      const pillar = skill.pillar;
+      if (!pillarScores[pillar]) {
+        pillarScores[pillar] = { achieved: 0, total: 0, percentage: 0 };
+      }
+      pillarScores[pillar].total += 2; // Max score per skill is 2
+      const score = skillScores[skill.id] ?? 0;
+      pillarScores[pillar].achieved += score;
+    }
+    
+    // Calculate percentages and weighted total
+    let weightedTotal = 0;
+    for (const pillar of Object.keys(pillarScores)) {
+      const ps = pillarScores[pillar];
+      ps.percentage = ps.total > 0 ? Math.round((ps.achieved / ps.total) * 100) : 0;
+      const pillarWeight = weighting ? weighting[pillar.toLowerCase() as keyof typeof weighting] || 0 : 0;
+      weightedTotal += (ps.percentage * pillarWeight) / 100;
+    }
+    
+    // Check promotion readiness
+    const promotionReady = level.promotionRequirements.techniqueMinPercent
+      ? pillarScores["TECHNIQUE"]?.percentage >= level.promotionRequirements.techniqueMinPercent
+      : weightedTotal >= 60;
+    
+    // Store assessment in player_skill_scores (one record per skill)
+    for (const [skillId, score] of Object.entries(skillScores)) {
+      if (typeof score === 'number') {
+        await db.insert(playerSkillScores).values({
+          id: `${playerId}_${skillId}_${Date.now()}`,
+          playerId,
+          skillId,
+          score,
+          movingAverage: score, // Initial moving average
+          observedByCoachId: coachId || undefined,
+          confidence: 1.0,
+        }).onConflictDoNothing();
+      }
+    }
+    
+    // Update pillar progress
+    for (const [pillar, scores] of Object.entries(pillarScores)) {
+      const existing = await db.select().from(playerPillarProgress).where(
+        and(eq(playerPillarProgress.playerId, playerId), eq(playerPillarProgress.pillar, pillar))
+      );
+      
+      if (existing.length > 0) {
+        await db.update(playerPillarProgress)
+          .set({
+            currentScore: scores.percentage,
+            trend: scores.percentage > (existing[0].currentScore || 0) ? "up" : 
+                   scores.percentage < (existing[0].currentScore || 0) ? "down" : "stable",
+            lastUpdated: new Date(),
+          })
+          .where(and(eq(playerPillarProgress.playerId, playerId), eq(playerPillarProgress.pillar, pillar)));
+      } else {
+        await db.insert(playerPillarProgress).values({
+          id: `${playerId}_${pillar}`,
+          playerId,
+          pillar,
+          currentScore: scores.percentage,
+          trend: "stable",
+        });
+      }
+    }
+    
+    res.json({
+      success: true,
+      playerId,
+      levelId,
+      pillarScores,
+      weightedScore: Math.round(weightedTotal),
+      promotionReady,
+      assessedAt: new Date().toISOString(),
+      notes,
+    });
+  } catch (error) {
+    console.error("Error saving assessment:", error);
+    res.status(500).json({ error: "Failed to save assessment" });
+  }
+});
+
 // ==================== SEED ENDPOINT ====================
 
 router.post("/api/glow/seed", async (_req, res: Response) => {
