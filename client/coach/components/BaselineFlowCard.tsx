@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
   nextButtonText: {
     fontSize: FontSizes.lg,
     fontWeight: "700",
-    color: "#000000",
+    color: "#FFFFFF",
   },
   nextButtonTextDisabled: {
     color: "#666666",
