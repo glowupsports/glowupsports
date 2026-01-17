@@ -31,18 +31,27 @@ The application employs a dark-themed gaming aesthetic with neon green and cyan 
 - **Core Platform Features**: Includes comprehensive player and session management, a request-based player booking system, an advanced feedback and progress engine (V2) with gamification and anti-abuse rules, real-time WebSocket-based communication, robust authentication and role-based access control, in-app and push notifications, and business readiness features for academy management and billing. It also supports offline synchronization, centralized platform configuration, a maintenance mode, and a client-side diagnostics system.
 - **Glow Leveling OS**: A 12-level skill certification system with 6 pillars (Technique, Tactical, Physical, Mental, Social, Match), using a 0/1/2 rubric scoring method. It incorporates trial gates for promotion, a Glow Rank Engine with weighted scoring, and a Coach Calibration system to detect scoring bias. The system is seeded with extensive data for levels, skills, rubrics, and tests.
 - **Start Baseline System**: One-time player intake assessment for establishing starting levels:
-  - **Auto-Level Suggestion**: Algorithm suggests starting level (RED_3 to YELLOW_1) based on player age and intake questions (tennis experience, competition play, rally ability, serve ability) with confidence scoring (0-100%)
-  - **Quick Pillar Assessment**: Coaches rate each of 6 pillars on a 0-3 scale (Not Yet, Developing, Meets, Above) during the 90-second intake flow
-  - **Override Tracking**: When coaches select a different level than suggested, they provide a reason (player clearly advanced, late starter athletic, came from another academy, competition experience, age mismatch)
+  - **Coach-Driven Level Selection**: Coaches directly select player type (Adult/Kid), ball level (RED/ORANGE/GREEN/YELLOW for kids) or Glow level (1-9 for adults), and sublevel
+  - **Auto-Detection from Birth Date**: If player has dateOfBirth, automatically determines Adult (18+) or Kid and skips the player type selection step
+  - **Quick Pillar Assessment**: Interactive skill checklists for each of 6 pillars, showing skills required for the selected level
+  - **Visual Ball Level Selector**: Color-coded level buttons (Red, Orange, Green, Yellow) with clear visual hierarchy
   - **Baseline Locking**: Baselines can be locked to prevent changes; only academy owners can unlock
   - **Baseline Needed Badge**: Orange badge appears on player cards for players without a completed baseline
-  - **Database Table**: `player_baselines` stores all intake data, suggested/confirmed levels, pillar ratings, and lock status
-  - **API Routes**: `/api/players/:id/baseline/*` for get/suggest-level/create/lock/unlock, `/api/academy/baseline-stats`, `/api/academy/players-without-baseline`, `/api/ball-levels`
+  - **Auto-Player Update**: Saving baseline automatically updates player.ballLevel and player.skillLevel in database
+  - **Database Table**: `player_baselines` stores intake data, confirmed levels, pillar ratings, and lock status
+  - **API Routes**: `/api/players/:id/baseline/*` for get/create/lock/unlock, `/api/academy/baseline-stats`, `/api/academy/players-without-baseline`, `/api/ball-levels`
 - **Lesson Templates & Session Plans**: Pre-built lesson structures per ball level (RED, ORANGE, GREEN, YELLOW) with drill blocks. Coaches can auto-generate session plans based on player levels or select from templates. Each drill block includes coach/player instructions, skill tags, equipment needs, and success criteria. Session execution tracking with block-by-block progress.
 - **Match Logging**: Complete match logging system with score tracking, match types (singles, doubles, practice, tournament), performance metrics (aces, double faults, winners, unforced errors), and pillar-based observations. Integrates with player progress for Match pillar assessment.
 - **Skill Evidence Capture**: 10-second video evidence system linked to specific skills. Supports coach review workflow with approval/rejection. Evidence can be linked to sessions and trial gates for verification.
 - **Level-Up Events & Celebrations**: Tracks player promotions with XP rewards, badges, and title unlocks. Pending celebrations queue for player UI with notification tracking for players and parents.
-- **Multi-Language Role Views**: Role-specific message templates (coach-taal=technical, speler-taal=fun/encouraging, ouder-taal=informative) with placeholder support for dynamic content.
+- **Multi-Language Role Views**: Comprehensive role-specific messaging system with 25+ templates:
+  - **Three Role Types**: Coach (technical/data-driven), Player (fun/encouraging/gamified), Parent (informative/progress-focused)
+  - **Template Categories**: Skills (6 pillar-specific templates), Sessions, Progress, Matches, Evidence, Booking, Social, Gamification, Billing, Onboarding
+  - **Dynamic Placeholders**: Support for {playerName}, {skillName}, {levelName}, {xpEarned}, {sessionDate}, etc.
+  - **Academy Customization**: Academies can override default templates with custom messaging
+  - **API Routes**: `/api/role-messages/templates`, `/api/role-messages/get`, `/api/role-messages/get-all-roles`
+  - **Client Hook**: `useRoleMessage()` hook for fetching role-appropriate messages
+  - **Service**: `server/services/role-language-engine.ts` with getMessage() and getMessagesForAllRoles() functions
 - **Timezone Handling**: Each academy has an IANA timezone. Session `startTime` is stored as local academy time ("HH:MM") and converted to UTC by the backend. Client-side utilities display UTC timestamps in local academy time. A consistent DST handling policy ensures proper time resolution.
 - **Role-Specific Applications**: Dedicated applications for Coaches (player/session management, feedback, progress), Players (progress visualization, social features, schedules), and Platform Owners (platform-wide statistics, academy management, financial overviews, system configuration).
 - **Glow Market & Community Marketplace**: Features an Academy Shop for managing products/services and a Player Shop Experience with XP-based discounts. A Community Marketplace allows players to buy/sell used equipment, including listing creation, category/condition filters, and seller profiles with verification levels.
