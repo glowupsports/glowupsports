@@ -38,6 +38,7 @@ import PackagesCard from "@/coach/components/PackagesCard";
 import QuickBaselineDrawer from "@/coach/components/QuickBaselineDrawer";
 import { PremiumBaselineFlow } from "@/coach/components/PremiumBaselineFlow";
 import { DeepAssessmentDrawer } from "@/coach/components/DeepAssessmentDrawer";
+import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -687,206 +688,18 @@ export default function PlayersScreen() {
         </LinearGradient>
       </Pressable>
 
-      <Modal visible={showAddModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: '85%' }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Player</Text>
-              <Pressable onPress={() => setShowAddModal(false)}>
-                <Ionicons name="close" size={24} color={Colors.dark.tabIconDefault} />
-              </Pressable>
-            </View>
-
-            <KeyboardAwareScrollViewCompat 
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: Spacing.md }}
-            >
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Name *</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="Player name"
-                placeholderTextColor={Colors.dark.tabIconDefault}
-                value={newPlayerName}
-                onChangeText={setNewPlayerName}
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Email</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="Email address"
-                placeholderTextColor={Colors.dark.tabIconDefault}
-                value={newPlayerEmail}
-                onChangeText={setNewPlayerEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Phone</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="Phone number"
-                placeholderTextColor={Colors.dark.tabIconDefault}
-                value={newPlayerPhone}
-                onChangeText={setNewPlayerPhone}
-                keyboardType="phone-pad"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Ball Level</Text>
-              <View style={styles.levelPicker}>
-                {ballLevels.map((level) => {
-                  const ballColor = getPlayerLevelColor(level);
-                  const isSelected = newPlayerBallLevel === level;
-                  return (
-                    <View key={level} style={styles.levelOptionWrapper}>
-                      {isSelected ? (
-                        <View style={[styles.levelOptionGlowOuter, { backgroundColor: ballColor }]}>
-                          <LinearGradient
-                            colors={[ballColor, Colors.dark.backgroundRoot]}
-                            start={{ x: 0.5, y: 0 }}
-                            end={{ x: 0.5, y: 1 }}
-                            style={[
-                              styles.levelOptionGradient,
-                              { borderWidth: 2, borderColor: ballColor },
-                            ]}
-                          >
-                            <Pressable
-                              style={styles.levelOptionInner}
-                              onPress={() => {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                setNewPlayerBallLevel(level);
-                              }}
-                            >
-                              <View style={[styles.levelDot, { backgroundColor: ballColor }]} />
-                              <Text style={[styles.levelOptionText, { color: Colors.dark.text, fontWeight: "700" }]}>
-                                {level.charAt(0).toUpperCase() + level.slice(1)}
-                              </Text>
-                            </Pressable>
-                          </LinearGradient>
-                        </View>
-                      ) : (
-                        <Pressable
-                          style={[styles.levelOptionUnselected, { borderWidth: 2, borderColor: ballColor }]}
-                          onPress={() => {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            setNewPlayerBallLevel(level);
-                          }}
-                        >
-                          <View style={[styles.levelDot, { backgroundColor: ballColor }]} />
-                          <Text style={[styles.levelOptionText, { color: ballColor }]}>
-                            {level.charAt(0).toUpperCase() + level.slice(1)}
-                          </Text>
-                        </Pressable>
-                      )}
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Skill Level (1-3)</Text>
-              <Text style={styles.formHint}>
-                {newPlayerBallLevel.toUpperCase()}_{newPlayerSkillLevel} - Level {newPlayerSkillLevel} within {newPlayerBallLevel} ball
-              </Text>
-              <View style={styles.skillLevelPicker}>
-                {[1, 2, 3].map((level) => {
-                  const isSelected = newPlayerSkillLevel === level;
-                  const ballColor = getPlayerLevelColor(newPlayerBallLevel);
-                  return (
-                    <Pressable
-                      key={level}
-                      style={[
-                        styles.skillLevelOption,
-                        isSelected && { backgroundColor: ballColor + "30", borderColor: ballColor },
-                      ]}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setNewPlayerSkillLevel(level);
-                      }}
-                    >
-                      <Text style={[
-                        styles.skillLevelText,
-                        isSelected && { color: ballColor, fontWeight: "700" },
-                      ]}>
-                        {level}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            <Text style={styles.sectionHeader}>PARENT/GUARDIAN</Text>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Parent Name</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="Parent name"
-                placeholderTextColor={Colors.dark.tabIconDefault}
-                value={newPlayerParentName}
-                onChangeText={setNewPlayerParentName}
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Parent Phone</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="+971 50 123 4567"
-                placeholderTextColor={Colors.dark.tabIconDefault}
-                value={newPlayerParentPhone}
-                onChangeText={setNewPlayerParentPhone}
-                keyboardType="phone-pad"
-              />
-            </View>
-
-            <View style={styles.modalActions}>
-              <Pressable
-                style={styles.addCancelButton}
-                onPress={() => setShowAddModal(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.addSaveButton,
-                  !newPlayerName.trim() && styles.addSaveButtonDisabled,
-                ]}
-                onPress={() => {
-                  if (newPlayerName.trim()) {
-                    createPlayerMutation.mutate({
-                      name: newPlayerName.trim(),
-                      email: newPlayerEmail.trim() || undefined,
-                      phone: newPlayerPhone.trim() || undefined,
-                      ballLevel: newPlayerBallLevel,
-                      skillLevel: newPlayerSkillLevel,
-                      coachId: coach?.id,
-                      parentName: newPlayerParentName.trim() || undefined,
-                      parentPhone: newPlayerParentPhone.trim() || undefined,
-                    });
-                  }
-                }}
-                disabled={!newPlayerName.trim() || createPlayerMutation.isPending}
-              >
-                {createPlayerMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.backgroundDefault} />
-                ) : (
-                  <Text style={styles.addSaveButtonText}>Add Player</Text>
-                )}
-              </Pressable>
-            </View>
-            </KeyboardAwareScrollViewCompat>
-          </View>
-        </View>
-      </Modal>
+      <PremiumAddPlayerFlow
+        visible={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onComplete={(player) => {
+          if (player?.inviteCode) {
+            setCreatedPlayerInvite({ name: player.name, inviteCode: player.inviteCode });
+            setShowInviteModal(true);
+          }
+          queryClient.invalidateQueries({ queryKey: ["/api/players"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+        }}
+      />
 
       {/* Player Invite Success Modal */}
       <Modal visible={showInviteModal} transparent animationType="fade">
