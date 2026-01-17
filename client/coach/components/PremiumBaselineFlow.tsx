@@ -50,10 +50,10 @@ interface PremiumBaselineFlowProps {
   onStartDeepAssessment?: () => void;
 }
 
-type FlowStep = "intro" | "intake" | "level-suggest" | "requirements" | "summary" | "complete";
-type TennisExperience = "0-6m" | "6-18m" | "18m+";
-type PlaysCompetition = "never" | "sometimes" | "often";
-type ServeAbility = "none" | "basic" | "consistent";
+type FlowStep = "intro" | "player-type" | "ball-level" | "glow-level" | "sublevel" | "requirements" | "summary" | "complete";
+type PlayerType = "kid" | "adult";
+type BallLevel = "RED" | "ORANGE" | "GREEN" | "YELLOW";
+type GlowLevel = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
 interface LevelSuggestion {
   suggestedLevelId: string;
@@ -133,16 +133,14 @@ export function PremiumBaselineFlow({
   const [step, setStep] = useState<FlowStep>("intro");
   const [currentPillarIndex, setCurrentPillarIndex] = useState(0);
   
-  // Intake state
-  const [tennisExperience, setTennisExperience] = useState<TennisExperience>("0-6m");
-  const [playsCompetition, setPlaysCompetition] = useState<PlaysCompetition>("never");
-  const [canRallyFive, setCanRallyFive] = useState(false);
-  const [serveAbility, setServeAbility] = useState<ServeAbility>("none");
+  // Player type and level selection state
+  const [playerType, setPlayerType] = useState<PlayerType | null>(null);
+  const [selectedBallLevel, setSelectedBallLevel] = useState<BallLevel | null>(null);
+  const [selectedGlowLevel, setSelectedGlowLevel] = useState<GlowLevel | null>(null);
+  const [selectedSublevel, setSelectedSublevel] = useState<1 | 2 | 3 | null>(null);
   
   // Level state
-  const [suggestion, setSuggestion] = useState<LevelSuggestion | null>(null);
   const [confirmedLevel, setConfirmedLevel] = useState<string | null>(null);
-  const [overrideReason, setOverrideReason] = useState<string | null>(null);
   
   // Requirements checklist state
   const [checkedSkills, setCheckedSkills] = useState<Set<string>>(new Set());
@@ -151,32 +149,24 @@ export function PremiumBaselineFlow({
   const [showPostActionModal, setShowPostActionModal] = useState(false);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   
+  // Compute the level ID based on selection
+  useEffect(() => {
+    if (playerType === "kid" && selectedBallLevel && selectedSublevel) {
+      setConfirmedLevel(`${selectedBallLevel}_${selectedSublevel}`);
+    } else if (playerType === "adult" && selectedGlowLevel) {
+      setConfirmedLevel(`GLOW_${selectedGlowLevel}`);
+    }
+  }, [playerType, selectedBallLevel, selectedGlowLevel, selectedSublevel]);
+  
   // Fetch level details when we have a confirmed level
   const { data: levelDetails, isLoading: loadingLevel } = useQuery<LevelDetails>({
     queryKey: [`/api/glow/levels/${confirmedLevel}`],
     enabled: !!confirmedLevel && step === "requirements",
   });
   
-  // API mutations
-  const suggestMutation = useMutation({
-    mutationFn: async () => {
-      if (!player) throw new Error("No player");
-      return apiRequest("POST", `/api/players/${player.id}/baseline/suggest-level`, {
-        tennisExperience,
-        playsCompetition,
-        canRallyFive,
-        serveAbility,
-      });
-    },
-    onSuccess: (data) => {
-      setSuggestion(data);
-      setConfirmedLevel(data.suggestedLevelId);
-    },
-  });
-  
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!player || !suggestion) throw new Error("Missing data");
+      if (!player || !confirmedLevel) throw new Error("Missing data");
       
       // Build pillar ratings from checked skills
       const pillarProgress = PILLARS.reduce((acc, pillar) => {
@@ -188,15 +178,14 @@ export function PremiumBaselineFlow({
       }, {} as Record<string, number>);
       
       return apiRequest("POST", `/api/players/${player.id}/baseline`, {
-        suggestedLevelId: suggestion.suggestedLevelId,
+        suggestedLevelId: confirmedLevel,
         confirmedLevelId: confirmedLevel,
-        confidenceScore: suggestion.confidenceScore,
-        tennisExperience,
-        playsCompetition,
-        canRallyFive,
-        serveAbility,
+        confidenceScore: 100, // Coach selected directly
+        playerType,
+        selectedBallLevel,
+        selectedGlowLevel,
+        selectedSublevel,
         ...pillarProgress,
-        overrideReason: confirmedLevel !== suggestion.suggestedLevelId ? overrideReason : null,
         checkedSkillIds: Array.from(checkedSkills),
       });
     },
@@ -216,33 +205,35 @@ export function PremiumBaselineFlow({
     if (visible && player) {
       setStep("intro");
       setCurrentPillarIndex(0);
-      setTennisExperience("0-6m");
-      setPlaysCompetition("never");
-      setCanRallyFive(false);
-      setServeAbility("none");
-      setSuggestion(null);
+      setPlayerType(null);
+      setSelectedBallLevel(null);
+      setSelectedGlowLevel(null);
+      setSelectedSublevel(null);
       setConfirmedLevel(null);
-      setOverrideReason(null);
       setCheckedSkills(new Set());
       setShowSuccessAnimation(false);
       setShowPostActionModal(false);
     }
   }, [visible, player?.id]);
   
-  // Calculate total steps
+  // Calculate total steps based on flow
   const getTotalSteps = () => {
     const requirementPillars = levelDetails?.skillsByPillar 
       ? Object.keys(levelDetails.skillsByPillar).length 
       : 6;
-    return 3 + requirementPillars + 1; // intro + intake + level-suggest + pillars + summary
+    // intro + player-type + (ball-level OR glow-level) + sublevel (for kids) + pillars + summary
+    const basesteps = playerType === "kid" ? 4 : 3; // kids have sublevel step
+    return basesteps + requirementPillars + 1;
   };
   
   const getCurrentStepNumber = () => {
     switch (step) {
       case "intro": return 1;
-      case "intake": return 2;
-      case "level-suggest": return 3;
-      case "requirements": return 4 + currentPillarIndex;
+      case "player-type": return 2;
+      case "ball-level": return 3;
+      case "glow-level": return 3;
+      case "sublevel": return 4;
+      case "requirements": return (playerType === "kid" ? 5 : 4) + currentPillarIndex;
       case "summary": return getTotalSteps();
       default: return 1;
     }
@@ -253,13 +244,23 @@ export function PremiumBaselineFlow({
     
     switch (step) {
       case "intro":
-        setStep("intake");
+        setStep("player-type");
         break;
-      case "intake":
-        suggestMutation.mutate();
-        setStep("level-suggest");
+      case "player-type":
+        if (playerType === "kid") {
+          setStep("ball-level");
+        } else {
+          setStep("glow-level");
+        }
         break;
-      case "level-suggest":
+      case "ball-level":
+        setStep("sublevel");
+        break;
+      case "glow-level":
+        setStep("requirements");
+        setCurrentPillarIndex(0);
+        break;
+      case "sublevel":
         setStep("requirements");
         setCurrentPillarIndex(0);
         break;
@@ -283,17 +284,27 @@ export function PremiumBaselineFlow({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     
     switch (step) {
-      case "intake":
+      case "player-type":
         setStep("intro");
         break;
-      case "level-suggest":
-        setStep("intake");
+      case "ball-level":
+        setStep("player-type");
+        break;
+      case "glow-level":
+        setStep("player-type");
+        break;
+      case "sublevel":
+        setStep("ball-level");
         break;
       case "requirements":
         if (currentPillarIndex > 0) {
           setCurrentPillarIndex(prev => prev - 1);
         } else {
-          setStep("level-suggest");
+          if (playerType === "kid") {
+            setStep("sublevel");
+          } else {
+            setStep("glow-level");
+          }
         }
         break;
       case "summary":
@@ -351,13 +362,13 @@ export function PremiumBaselineFlow({
             <View style={[styles.introStepNumber, { backgroundColor: `${STAGE_COLORS.ORANGE}20` }]}>
               <Text style={[styles.introStepNumberText, { color: STAGE_COLORS.ORANGE }]}>1</Text>
             </View>
-            <Text style={styles.introStepText}>Quick questions about experience</Text>
+            <Text style={styles.introStepText}>Choose player type (Adult/Kid)</Text>
           </View>
           <View style={styles.introStep}>
             <View style={[styles.introStepNumber, { backgroundColor: `${STAGE_COLORS.GREEN}20` }]}>
               <Text style={[styles.introStepNumberText, { color: STAGE_COLORS.GREEN }]}>2</Text>
             </View>
-            <Text style={styles.introStepText}>AI suggests the right level</Text>
+            <Text style={styles.introStepText}>Select their ball level</Text>
           </View>
           <View style={styles.introStep}>
             <View style={[styles.introStepNumber, { backgroundColor: `${GlowColors.primary}20` }]}>
@@ -370,193 +381,245 @@ export function PremiumBaselineFlow({
     </BaselineFlowCard>
   );
   
-  const renderIntakeCard = () => (
+  // Player Type selector card (Adult/Kid)
+  const renderPlayerTypeCard = () => (
     <BaselineFlowCard
-      title="Quick Intake"
-      subtitle="Answer a few questions"
-      icon="help-circle"
+      title="Player Type"
+      subtitle="Who is this player?"
+      icon="person"
       iconColor={STAGE_COLORS.ORANGE}
       step={2}
       totalSteps={getTotalSteps()}
       onNext={handleNext}
       onBack={handleBack}
-      nextLabel="Get Suggestion"
-      nextDisabled={suggestMutation.isPending}
+      nextLabel="Next"
+      nextDisabled={!playerType}
       glowColor={STAGE_COLORS.ORANGE}
     >
-      <ScrollView style={styles.cardScrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.questionGroup}>
-          <Text style={styles.questionLabel}>Tennis Experience</Text>
-          <View style={styles.optionRow}>
-            {(["0-6m", "6-18m", "18m+"] as TennisExperience[]).map((opt) => (
-              <Pressable
-                key={opt}
-                style={[
-                  styles.optionButton,
-                  tennisExperience === opt && styles.optionButtonActive,
-                ]}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setTennisExperience(opt);
-                }}
-              >
-                <Text style={[
-                  styles.optionText,
-                  tennisExperience === opt && styles.optionTextActive,
-                ]}>
-                  {opt === "0-6m" ? "< 6 months" : opt === "6-18m" ? "6-18 months" : "18+ months"}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
+      <View style={styles.levelSuggestContent}>
+        <Text style={styles.typeSelectionTitle}>Is this player a child or adult?</Text>
         
-        <View style={styles.questionGroup}>
-          <Text style={styles.questionLabel}>Plays Competition</Text>
-          <View style={styles.optionRow}>
-            {(["never", "sometimes", "often"] as PlaysCompetition[]).map((opt) => (
-              <Pressable
-                key={opt}
-                style={[
-                  styles.optionButton,
-                  playsCompetition === opt && styles.optionButtonActive,
-                ]}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setPlaysCompetition(opt);
-                }}
-              >
-                <Text style={[
-                  styles.optionText,
-                  playsCompetition === opt && styles.optionTextActive,
-                ]}>
-                  {opt.charAt(0).toUpperCase() + opt.slice(1)}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-        
-        <View style={styles.questionGroup}>
-          <Text style={styles.questionLabel}>Can Rally 5+ Balls</Text>
-          <View style={styles.optionRow}>
-            <Pressable
-              style={[
-                styles.optionButton,
-                styles.optionButtonWide,
-                canRallyFive && styles.optionButtonActive,
-              ]}
-              onPress={() => {
-                Haptics.selectionAsync();
-                setCanRallyFive(true);
-              }}
+        <View style={styles.typeButtonRow}>
+          <Pressable
+            style={[
+              styles.typeButton,
+              playerType === "kid" && styles.typeButtonActive,
+              { borderColor: STAGE_COLORS.RED }
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setPlayerType("kid");
+            }}
+          >
+            <LinearGradient
+              colors={playerType === "kid" ? [`${STAGE_COLORS.RED}40`, `${STAGE_COLORS.RED}20`] : ["transparent", "transparent"]}
+              style={styles.typeButtonGradient}
             >
-              <Ionicons name="checkmark-circle" size={20} color={canRallyFive ? GlowColors.primary : "#FFFFFF"} />
-              <Text style={[styles.optionText, canRallyFive && styles.optionTextActive]}>Yes</Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.optionButton,
-                styles.optionButtonWide,
-                !canRallyFive && styles.optionButtonActive,
-              ]}
-              onPress={() => {
-                Haptics.selectionAsync();
-                setCanRallyFive(false);
-              }}
+              <Ionicons name="tennisball" size={40} color={playerType === "kid" ? STAGE_COLORS.RED : "#FFFFFF"} />
+              <Text style={[styles.typeButtonLabel, playerType === "kid" && { color: STAGE_COLORS.RED }]}>Kid</Text>
+              <Text style={styles.typeButtonSubtext}>Ball levels (RED/ORANGE/GREEN/YELLOW)</Text>
+            </LinearGradient>
+          </Pressable>
+          
+          <Pressable
+            style={[
+              styles.typeButton,
+              playerType === "adult" && styles.typeButtonActive,
+              { borderColor: GlowColors.primary }
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setPlayerType("adult");
+            }}
+          >
+            <LinearGradient
+              colors={playerType === "adult" ? [`${GlowColors.primary}40`, `${GlowColors.primary}20`] : ["transparent", "transparent"]}
+              style={styles.typeButtonGradient}
             >
-              <Ionicons name="close-circle" size={20} color={!canRallyFive ? Colors.dark.error : "#FFFFFF"} />
-              <Text style={[styles.optionText, !canRallyFive && styles.optionTextActive]}>Not Yet</Text>
-            </Pressable>
-          </View>
+              <Ionicons name="fitness" size={40} color={playerType === "adult" ? GlowColors.primary : "#FFFFFF"} />
+              <Text style={[styles.typeButtonLabel, playerType === "adult" && { color: GlowColors.primary }]}>Adult</Text>
+              <Text style={styles.typeButtonSubtext}>Glow levels 1-9</Text>
+            </LinearGradient>
+          </Pressable>
         </View>
-        
-        <View style={styles.questionGroup}>
-          <Text style={styles.questionLabel}>Serve Ability</Text>
-          <View style={styles.optionRow}>
-            {(["none", "basic", "consistent"] as ServeAbility[]).map((opt) => (
-              <Pressable
-                key={opt}
-                style={[
-                  styles.optionButton,
-                  serveAbility === opt && styles.optionButtonActive,
-                ]}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setServeAbility(opt);
-                }}
-              >
-                <Text style={[styles.optionText, serveAbility === opt && styles.optionTextActive]}>
-                  {opt.charAt(0).toUpperCase() + opt.slice(1)}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-      </ScrollView>
+      </View>
     </BaselineFlowCard>
   );
   
-  const renderLevelSuggestCard = () => {
-    const stageColor = suggestion?.suggestedStage 
-      ? STAGE_COLORS[suggestion.suggestedStage] || GlowColors.primary
-      : GlowColors.primary;
+  // Ball Level selector for kids
+  const renderBallLevelCard = () => {
+    const ballLevels: { level: BallLevel; color: string; description: string }[] = [
+      { level: "RED", color: STAGE_COLORS.RED, description: "Beginners (ages 5-8)" },
+      { level: "ORANGE", color: STAGE_COLORS.ORANGE, description: "Developing (ages 8-10)" },
+      { level: "GREEN", color: STAGE_COLORS.GREEN, description: "Intermediate (ages 9-12)" },
+      { level: "YELLOW", color: STAGE_COLORS.YELLOW, description: "Advanced (ages 10+)" },
+    ];
     
     return (
       <BaselineFlowCard
-        title="Level Suggestion"
-        subtitle="Based on your answers"
-        icon="sparkles"
-        iconColor={stageColor}
+        title="Ball Level"
+        subtitle="Which ball does this player use?"
+        icon="tennisball"
+        iconColor={selectedBallLevel ? STAGE_COLORS[selectedBallLevel] : STAGE_COLORS.RED}
+        step={3}
+        totalSteps={getTotalSteps()}
+        onNext={handleNext}
+        onBack={handleBack}
+        nextLabel="Choose Sublevel"
+        nextDisabled={!selectedBallLevel}
+        glowColor={selectedBallLevel ? STAGE_COLORS[selectedBallLevel] : STAGE_COLORS.RED}
+      >
+        <ScrollView style={styles.cardScrollContent} showsVerticalScrollIndicator={false}>
+          {ballLevels.map(({ level, color, description }) => (
+            <Pressable
+              key={level}
+              style={[
+                styles.ballLevelButton,
+                { borderColor: color },
+                selectedBallLevel === level && styles.ballLevelButtonActive,
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setSelectedBallLevel(level);
+              }}
+            >
+              <LinearGradient
+                colors={selectedBallLevel === level ? [`${color}40`, `${color}15`] : ["transparent", "transparent"]}
+                style={styles.ballLevelGradient}
+              >
+                <View style={[styles.ballLevelDot, { backgroundColor: color }]} />
+                <View style={styles.ballLevelTextContainer}>
+                  <Text style={[styles.ballLevelName, { color: selectedBallLevel === level ? color : "#FFFFFF" }]}>
+                    {level} Ball
+                  </Text>
+                  <Text style={styles.ballLevelDescription}>{description}</Text>
+                </View>
+                {selectedBallLevel === level && (
+                  <Ionicons name="checkmark-circle" size={24} color={color} />
+                )}
+              </LinearGradient>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </BaselineFlowCard>
+    );
+  };
+  
+  // Glow Level selector for adults
+  const renderGlowLevelCard = () => {
+    const glowLevels: { level: GlowLevel; description: string }[] = [
+      { level: 1, description: "Absolute beginner" },
+      { level: 2, description: "Basic fundamentals" },
+      { level: 3, description: "Rally capable" },
+      { level: 4, description: "Game understanding" },
+      { level: 5, description: "Club player" },
+      { level: 6, description: "Strong club player" },
+      { level: 7, description: "Competition ready" },
+      { level: 8, description: "Tournament player" },
+      { level: 9, description: "Advanced competitor" },
+    ];
+    
+    return (
+      <BaselineFlowCard
+        title="Glow Level"
+        subtitle="What level is this adult player?"
+        icon="flash"
+        iconColor={GlowColors.primary}
         step={3}
         totalSteps={getTotalSteps()}
         onNext={handleNext}
         onBack={handleBack}
         nextLabel="Check Skills"
-        nextDisabled={!suggestion}
-        glowColor={stageColor}
+        nextDisabled={!selectedGlowLevel}
+        glowColor={GlowColors.primary}
+      >
+        <ScrollView style={styles.cardScrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.glowLevelGrid}>
+            {glowLevels.map(({ level, description }) => (
+              <Pressable
+                key={level}
+                style={[
+                  styles.glowLevelButton,
+                  selectedGlowLevel === level && styles.glowLevelButtonActive,
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  setSelectedGlowLevel(level);
+                }}
+              >
+                <Text style={[
+                  styles.glowLevelNumber, 
+                  selectedGlowLevel === level && styles.glowLevelNumberActive
+                ]}>
+                  {level}
+                </Text>
+                <Text style={styles.glowLevelDescription}>{description}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </ScrollView>
+      </BaselineFlowCard>
+    );
+  };
+  
+  // Sublevel selector for kids (1, 2, 3 within ball level)
+  const renderSublevelCard = () => {
+    const color = selectedBallLevel ? STAGE_COLORS[selectedBallLevel] : GlowColors.primary;
+    const sublevels: { level: 1 | 2 | 3; name: string; description: string }[] = [
+      { level: 1, name: "Stage 1", description: "Just starting at this level" },
+      { level: 2, name: "Stage 2", description: "Developing competency" },
+      { level: 3, name: "Stage 3", description: "Ready for next ball level" },
+    ];
+    
+    return (
+      <BaselineFlowCard
+        title={`${selectedBallLevel} Level Stage`}
+        subtitle="How far along at this level?"
+        icon="layers"
+        iconColor={color}
+        step={4}
+        totalSteps={getTotalSteps()}
+        onNext={handleNext}
+        onBack={handleBack}
+        nextLabel="Check Skills"
+        nextDisabled={!selectedSublevel}
+        glowColor={color}
       >
         <View style={styles.levelSuggestContent}>
-          {suggestMutation.isPending || !suggestion ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={GlowColors.primary} />
-              <Text style={styles.loadingText}>Analyzing...</Text>
-            </View>
-          ) : (
-            <>
-              <View style={[styles.levelBadge, { borderColor: stageColor }]}>
-                <LinearGradient
-                  colors={[`${stageColor}30`, `${stageColor}10`]}
-                  style={styles.levelBadgeGradient}
-                >
-                  <Text style={[styles.levelBadgeStage, { color: stageColor }]}>
-                    {suggestion.suggestedStage}
-                  </Text>
-                  <Text style={styles.levelBadgeRank}>{suggestion.suggestedRank}</Text>
-                </LinearGradient>
-              </View>
-              
-              <Text style={styles.levelSuggestTitle}>
-                Suggested: {suggestion.suggestedStage} {suggestion.suggestedRank}
-              </Text>
-              
-              <View style={styles.confidenceContainer}>
-                <View style={styles.confidenceBar}>
-                  <View 
-                    style={[
-                      styles.confidenceFill, 
-                      { width: `${suggestion.confidenceScore}%`, backgroundColor: stageColor }
-                    ]} 
-                  />
+          <Text style={styles.sublevelIntro}>
+            Which stage best describes {player?.name}'s current ability at {selectedBallLevel} level?
+          </Text>
+          
+          {sublevels.map(({ level, name, description }) => (
+            <Pressable
+              key={level}
+              style={[
+                styles.sublevelButton,
+                { borderColor: color },
+                selectedSublevel === level && styles.sublevelButtonActive,
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setSelectedSublevel(level);
+              }}
+            >
+              <LinearGradient
+                colors={selectedSublevel === level ? [`${color}40`, `${color}15`] : ["transparent", "transparent"]}
+                style={styles.sublevelGradient}
+              >
+                <View style={[styles.sublevelNumber, { backgroundColor: selectedSublevel === level ? color : "rgba(255,255,255,0.2)" }]}>
+                  <Text style={styles.sublevelNumberText}>{level}</Text>
                 </View>
-                <Text style={styles.confidenceText}>{suggestion.confidenceScore}% confidence</Text>
-              </View>
-              
-              <Text style={styles.levelSuggestNote}>
-                Tap "Check Skills" to see what skills are expected at this level
-              </Text>
-            </>
-          )}
+                <View style={styles.sublevelTextContainer}>
+                  <Text style={[styles.sublevelName, selectedSublevel === level && { color }]}>{name}</Text>
+                  <Text style={styles.sublevelDescription}>{description}</Text>
+                </View>
+                {selectedSublevel === level && (
+                  <Ionicons name="checkmark-circle" size={24} color={color} />
+                )}
+              </LinearGradient>
+            </Pressable>
+          ))}
         </View>
       </BaselineFlowCard>
     );
@@ -764,8 +827,10 @@ export function PremiumBaselineFlow({
   const renderCurrentStep = () => {
     switch (step) {
       case "intro": return renderIntroCard();
-      case "intake": return renderIntakeCard();
-      case "level-suggest": return renderLevelSuggestCard();
+      case "player-type": return renderPlayerTypeCard();
+      case "ball-level": return renderBallLevelCard();
+      case "glow-level": return renderGlowLevelCard();
+      case "sublevel": return renderSublevelCard();
       case "requirements": return renderRequirementsCard();
       case "summary": return renderSummaryCard();
       case "complete": return renderCompleteCard();
@@ -1216,5 +1281,170 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
     fontWeight: "500",
     color: Colors.dark.xpCyan,
+  },
+  // Player type selection styles
+  typeSelectionTitle: {
+    fontSize: FontSizes.xl,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    textAlign: "center",
+    marginBottom: Spacing.xl,
+  },
+  typeButtonRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    width: "100%",
+  },
+  typeButton: {
+    flex: 1,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
+    overflow: "hidden",
+  },
+  typeButtonActive: {
+    borderWidth: 3,
+  },
+  typeButtonGradient: {
+    alignItems: "center",
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm,
+  },
+  typeButtonLabel: {
+    fontSize: FontSizes.xl,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  typeButtonSubtext: {
+    fontSize: FontSizes.sm,
+    color: "#FFFFFF",
+    textAlign: "center",
+    fontWeight: "500",
+    opacity: 0.8,
+  },
+  // Ball level selection styles
+  ballLevelButton: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
+    marginBottom: Spacing.md,
+    overflow: "hidden",
+  },
+  ballLevelButtonActive: {
+    borderWidth: 3,
+  },
+  ballLevelGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.md,
+  },
+  ballLevelDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  ballLevelTextContainer: {
+    flex: 1,
+  },
+  ballLevelName: {
+    fontSize: FontSizes.lg,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  ballLevelDescription: {
+    fontSize: FontSizes.sm,
+    color: "#FFFFFF",
+    fontWeight: "500",
+    opacity: 0.8,
+  },
+  // Glow level selection styles
+  glowLevelGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    justifyContent: "center",
+  },
+  glowLevelButton: {
+    width: "30%",
+    aspectRatio: 1,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: Spacing.sm,
+  },
+  glowLevelButtonActive: {
+    borderColor: GlowColors.primary,
+    borderWidth: 3,
+    backgroundColor: `${GlowColors.primary}25`,
+  },
+  glowLevelNumber: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  glowLevelNumberActive: {
+    color: GlowColors.primary,
+  },
+  glowLevelDescription: {
+    fontSize: FontSizes.xs,
+    color: "#FFFFFF",
+    textAlign: "center",
+    fontWeight: "500",
+    opacity: 0.8,
+  },
+  // Sublevel selection styles
+  sublevelIntro: {
+    fontSize: FontSizes.lg,
+    color: "#FFFFFF",
+    textAlign: "center",
+    marginBottom: Spacing.xl,
+    fontWeight: "500",
+    paddingHorizontal: Spacing.md,
+  },
+  sublevelButton: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
+    marginBottom: Spacing.md,
+    overflow: "hidden",
+  },
+  sublevelButtonActive: {
+    borderWidth: 3,
+  },
+  sublevelGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.md,
+  },
+  sublevelNumber: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sublevelNumberText: {
+    fontSize: FontSizes.xl,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  sublevelTextContainer: {
+    flex: 1,
+  },
+  sublevelName: {
+    fontSize: FontSizes.lg,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  sublevelDescription: {
+    fontSize: FontSizes.sm,
+    color: "#FFFFFF",
+    fontWeight: "500",
+    opacity: 0.8,
   },
 });
