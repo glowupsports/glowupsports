@@ -2632,7 +2632,11 @@ export default function SeriesDetailDrawer({
       >
         <View style={styles.overlay}>
           <Pressable style={styles.backdrop} onPress={() => setShowPauseModal(false)} />
-          <View style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+          <View 
+            style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg, zIndex: 2 }]}
+            onStartShouldSetResponderCapture={() => true}
+            onResponderRelease={(e) => e.stopPropagation?.()}
+          >
             <KeyboardAwareScrollViewCompat>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Pause Player</Text>

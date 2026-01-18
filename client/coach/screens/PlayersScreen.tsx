@@ -378,6 +378,14 @@ export default function PlayersScreen() {
     }
     if (filterLevel) {
       result = result.filter((p) => getEffectiveBallLevel(p.ballLevel) === filterLevel);
+      
+      // Also filter by sublevel if selected (for kids ball stages: blue, red, orange, green, yellow)
+      if (filterSubLevel !== null && ["blue", "red", "orange", "green", "yellow"].includes(filterLevel)) {
+        result = result.filter((p) => {
+          const playerSkillLevel = p.skillLevel ? parseInt(p.skillLevel) : null;
+          return playerSkillLevel === filterSubLevel;
+        });
+      }
     }
     
     // Apply sorting
@@ -405,9 +413,11 @@ export default function PlayersScreen() {
           return a.name.localeCompare(b.name);
       }
     });
-  }, [players, searchQuery, filterLevel, sortBy]);
+  }, [players, searchQuery, filterLevel, filterSubLevel, sortBy]);
 
-  const ballLevels = ["red", "orange", "green", "yellow", "glow"];
+  const ballLevels = ["blue", "red", "orange", "green", "yellow", "glow"];
+  const [filterSubLevel, setFilterSubLevel] = useState<number | null>(null);
+  const [showSubLevelDropdown, setShowSubLevelDropdown] = useState<string | null>(null);
 
 
 
@@ -591,6 +601,7 @@ export default function PlayersScreen() {
           const isActive = filterLevel === level;
           const levelColor = getPlayerLevelColor(level);
           const count = players.filter(p => getEffectiveBallLevel(p.ballLevel) === level).length;
+          const isKidsLevel = ["blue", "red", "orange", "green", "yellow"].includes(level);
           return (
             <Pressable
               key={level}
@@ -607,7 +618,15 @@ export default function PlayersScreen() {
                   android: { elevation: 8 },
                 }),
               ]}
-              onPress={() => setFilterLevel(filterLevel === level ? null : level)}
+              onPress={() => {
+                if (filterLevel === level) {
+                  setFilterLevel(null);
+                  setFilterSubLevel(null);
+                } else {
+                  setFilterLevel(level);
+                  setFilterSubLevel(null);
+                }
+              }}
             >
               {isActive ? (
                 <LinearGradient
@@ -629,10 +648,50 @@ export default function PlayersScreen() {
                   {count}
                 </Text>
               </View>
+              {isActive && isKidsLevel ? (
+                <Ionicons name="chevron-down" size={14} color="#FFFFFF" style={{ marginLeft: 2 }} />
+              ) : null}
             </Pressable>
           );
         })}
       </ScrollView>
+
+      {/* Sublevel filter for kids ball stages */}
+      {filterLevel && ["blue", "red", "orange", "green", "yellow"].includes(filterLevel) ? (
+        <View style={styles.subLevelFilterRow}>
+          <Text style={styles.subLevelLabel}>{filterLevel.toUpperCase()} Level:</Text>
+          {[3, 2, 1].map((subLevel) => {
+            const levelColor = getPlayerLevelColor(filterLevel);
+            const isActive = filterSubLevel === subLevel;
+            const subLevelCount = players.filter(p => 
+              getEffectiveBallLevel(p.ballLevel) === filterLevel && 
+              (p.skillLevel ? parseInt(p.skillLevel) : null) === subLevel
+            ).length;
+            return (
+              <Pressable
+                key={subLevel}
+                style={[
+                  styles.subLevelPill,
+                  isActive && { backgroundColor: levelColor + "30", borderColor: levelColor },
+                ]}
+                onPress={() => setFilterSubLevel(filterSubLevel === subLevel ? null : subLevel)}
+              >
+                <Text style={[
+                  styles.subLevelPillText,
+                  isActive && { color: levelColor },
+                ]}>
+                  {filterLevel.toUpperCase()} {subLevel}
+                </Text>
+                <View style={[styles.subLevelCount, isActive && { backgroundColor: levelColor + "40" }]}>
+                  <Text style={[styles.subLevelCountText, isActive && { color: levelColor }]}>
+                    {subLevelCount}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
@@ -1808,6 +1867,50 @@ const styles = StyleSheet.create({
   },
   gamingFilterCountTextActive: {
     color: Colors.dark.backgroundRoot,
+  },
+  subLevelFilterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
+    gap: Spacing.sm,
+    flexWrap: "wrap",
+  },
+  subLevelLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    marginRight: Spacing.xs,
+  },
+  subLevelPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: 32,
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    gap: Spacing.xs,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  subLevelPillText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.tabIconDefault,
+    letterSpacing: 0.5,
+  },
+  subLevelCount: {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 3,
+    minWidth: 18,
+    alignItems: "center",
+  },
+  subLevelCountText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: Colors.dark.tabIconDefault,
   },
   gamingCardContainer: {
     marginHorizontal: Spacing.lg,
