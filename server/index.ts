@@ -216,18 +216,34 @@ function setupExpoDevProxy(app: express.Application) {
     logger: console,
     on: {
       error: (err, req, res) => {
-        log(`Expo proxy error: ${err.message}`);
+        log(`Expo proxy error: ${err.message} - falling back to static files`);
+        // Fall back to next middleware (static files) when proxy fails
+        if (res && typeof (res as any).redirect === 'function') {
+          return (res as any).redirect(req.url);
+        }
       }
     }
   });
 
   app.use((req, res, next) => {
     log(`[Proxy] ${req.method} ${req.path}`);
+    // Skip proxy for API, auth, uploads, assets
     if (req.path.startsWith('/api') || req.path.startsWith('/auth') || req.path.startsWith('/uploads') || req.path.startsWith('/assets')) {
       log(`[Proxy] Skipping proxy for ${req.path}`);
       return next();
     }
+    // Skip proxy for manifest requests
     if (req.path === '/manifest' && req.header('expo-platform')) {
+      return next();
+    }
+    // Skip proxy for static file requests - let static middleware handle them
+    if (req.path === '/' || req.path.endsWith('.html') || req.path.endsWith('.js') || req.path.endsWith('.css') || req.path.endsWith('.json') || req.path.endsWith('.png') || req.path.endsWith('.ico')) {
+      log(`[Proxy] Skipping proxy for static file: ${req.path}`);
+      return next();
+    }
+    // Skip proxy for bundle requests - these fail when expo dev server isn't running
+    if (req.path.includes('index.bundle') || req.path.includes('.bundle')) {
+      log(`[Proxy] Skipping proxy for bundle: ${req.path} - Expo dev server may not be running`);
       return next();
     }
     return expoProxy(req, res, next);
@@ -293,7 +309,9 @@ function configureExpoAndLanding(app: express.Application) {
 
   app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
   app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
+  // Try static-build first, then fall back to dist for static web files
   app.use(express.static(path.resolve(process.cwd(), "static-build")));
+  app.use(express.static(path.resolve(process.cwd(), "dist")));
 
   log("Expo routing: Checking expo-platform header on / and /manifest");
 }
