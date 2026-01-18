@@ -1921,8 +1921,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    justifyContent: "center",
-    paddingBottom: Spacing["2xl"],
+    paddingBottom: Spacing.lg,
   },
   cardScroll: {
     maxHeight: 350,
@@ -2687,7 +2686,7 @@ const styles = StyleSheet.create({
   },
   timeSlotText: {
     fontSize: FontSizes.sm,
-    color: Colors.dark.textMuted,
+    color: "#FFFFFF",
   },
   timeSlotTextSelected: {
     color: "#8B5CF6",
