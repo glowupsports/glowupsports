@@ -2769,6 +2769,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const {
         courtId,
         locationId,
+        date,
         startTime,
         duration,
         sessionType,
@@ -2783,7 +2784,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Missing required fields" });
       }
 
-      const start = new Date(startTime);
+      // Support both ISO timestamp format and separate date/time format
+      let start: Date;
+      if (date && startTime && !startTime.includes('T')) {
+        // Combine date (YYYY-MM-DD) and startTime (HH:MM) into ISO timestamp
+        start = new Date(`${date}T${startTime}:00.000Z`);
+      } else {
+        // startTime is already a full ISO timestamp
+        start = new Date(startTime);
+      }
       const end = new Date(start.getTime() + duration * 60000);
       const dateStr = start.toISOString().split('T')[0];
       const startTimeStr = start.toISOString().split('T')[1].slice(0, 5);
