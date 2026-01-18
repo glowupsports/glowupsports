@@ -153,7 +153,8 @@ const BALL_LEVEL_COLORS: Record<string, string> = {
   orange: "#F97316",
   green: "#22C55E",
   yellow: "#EAB308",
-  glow: Colors.dark.primary,
+  adult: "#00E5FF",  // Cyan for adult players
+  glow: "#00E5FF",   // Cyan for adult/glow players
 };
 
 function getBallLevelColor(ballLevel: string | null | undefined): string {

@@ -274,11 +274,14 @@ export default function AdminPlayersScreen() {
   };
 
   const getBallLevelColor = (level?: string) => {
-    switch (level) {
+    switch (level?.toLowerCase()) {
+      case "blue": return "#3B82F6";
       case "red": return "#EF4444";
       case "orange": return "#F97316";
       case "green": return "#22C55E";
       case "yellow": return "#EAB308";
+      case "adult":
+      case "glow": return "#00E5FF"; // Cyan for adult players
       default: return Colors.dark.textMuted;
     }
   };

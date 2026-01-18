@@ -182,11 +182,13 @@ function getBallLevelDisplay(level: string | null): string {
 
 function getBallLevelColor(level: string | null): string {
   if (!level) return Colors.dark.textMuted;
-  if (level.startsWith("red")) return "#FF4444";
-  if (level.startsWith("orange")) return "#FF9500";
-  if (level.startsWith("green")) return "#2ECC40";
-  if (level.startsWith("yellow")) return "#FFD700";
-  if (level === "glow") return Colors.dark.xpCyan;
+  const levelLower = level.toLowerCase();
+  if (levelLower.startsWith("blue")) return "#3B82F6";
+  if (levelLower.startsWith("red")) return "#EF4444";
+  if (levelLower.startsWith("orange")) return "#F97316";
+  if (levelLower.startsWith("green")) return "#22C55E";
+  if (levelLower.startsWith("yellow")) return "#EAB308";
+  if (levelLower.includes("adult") || levelLower === "glow") return "#00E5FF";
   return Colors.dark.textMuted;
 }
 

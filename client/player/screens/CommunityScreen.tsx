@@ -136,12 +136,15 @@ function formatTimeAgo(dateString: string): string {
 
 function getBallLevelColor(level?: string): string {
   const colors: Record<string, string> = {
-    red: "#FF4444",
-    orange: "#FF8C00",
-    green: "#32CD32",
-    yellow: "#FFD700",
+    blue: "#3B82F6",
+    red: "#EF4444",
+    orange: "#F97316",
+    green: "#22C55E",
+    yellow: "#EAB308",
+    adult: "#00E5FF",
+    glow: "#00E5FF",
   };
-  return colors[level || ""] || Colors.dark.textSecondary;
+  return colors[level?.toLowerCase() || ""] || Colors.dark.textSecondary;
 }
 
 function MomentCard({ 

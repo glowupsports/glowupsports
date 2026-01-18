@@ -1637,7 +1637,8 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
                           case "ORANGE": return "#F97316";
                           case "GREEN": return "#22C55E";
                           case "YELLOW": return "#EAB308";
-                          case "GLOW": return Colors.dark.gold;
+                          case "ADULT":
+                          case "GLOW": return "#00E5FF"; // Cyan for adult players
                           default: return Colors.dark.textMuted;
                         }
                       };

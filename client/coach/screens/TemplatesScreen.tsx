@@ -50,11 +50,13 @@ const SESSION_TYPES: { value: SessionType; label: string; color: string }[] = [
 ];
 
 const BALL_LEVELS: { value: BallLevel; label: string; color: string }[] = [
-  { value: "red", label: "Red", color: "#FF4444" },
-  { value: "orange", label: "Orange", color: "#FF851B" },
-  { value: "green", label: "Green", color: "#2ECC40" },
-  { value: "yellow", label: "Yellow", color: "#FFDC00" },
-  { value: "glow", label: "Glow", color: "#00D4FF" },
+  { value: "blue", label: "Blue", color: "#3B82F6" },
+  { value: "red", label: "Red", color: "#EF4444" },
+  { value: "orange", label: "Orange", color: "#F97316" },
+  { value: "green", label: "Green", color: "#22C55E" },
+  { value: "yellow", label: "Yellow", color: "#EAB308" },
+  { value: "adult", label: "Adult", color: "#00E5FF" },
+  { value: "glow", label: "Glow", color: "#00E5FF" },
 ];
 
 const DURATIONS = [30, 45, 60, 90, 120];

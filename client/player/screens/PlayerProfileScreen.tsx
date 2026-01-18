@@ -84,11 +84,13 @@ function getLevelTitle(level: number): string {
 
 function getBallLevelColor(ballLevel: string): string {
   switch (ballLevel.toLowerCase()) {
+    case "blue": return "#3B82F6";
     case "red": return Colors.dark.ballRed;
     case "orange": return Colors.dark.ballOrange;
     case "green": return Colors.dark.ballGreen;
     case "yellow": return Colors.dark.ballYellow;
-    case "glow": return Colors.dark.ballGlow;
+    case "adult":
+    case "glow": return "#00E5FF"; // Cyan for adult players
     default: return Colors.dark.primary;
   }
 }

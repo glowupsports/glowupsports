@@ -82,10 +82,12 @@ function getCurrentFocus(lastFeedback: LastFeedback | null | undefined): string 
 function getBallLevelColor(ballLevel: string | null): string {
   if (!ballLevel) return Colors.dark.textMuted;
   const level = ballLevel.toLowerCase();
-  if (level.includes("red")) return "#FF4444";
-  if (level.includes("orange")) return "#FF8C00";
-  if (level.includes("green")) return "#00CC66";
-  if (level.includes("yellow") || level.includes("glow")) return "#FFD700";
+  if (level.includes("blue")) return "#3B82F6";
+  if (level.includes("red")) return "#EF4444";
+  if (level.includes("orange")) return "#F97316";
+  if (level.includes("green")) return "#22C55E";
+  if (level.includes("yellow")) return "#EAB308";
+  if (level.includes("adult") || level.includes("glow")) return "#00E5FF";
   return Colors.dark.primary;
 }
 

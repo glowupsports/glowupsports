@@ -24,10 +24,12 @@ import { getStaticAssetsUrl } from "@/lib/query-client";
 // Helper to get color for ball level
 function getBallLevelColor(level: string): string {
   const levelLower = level.toLowerCase();
-  if (levelLower.includes("red")) return "#FF4444";
-  if (levelLower.includes("orange")) return "#FF9800";
-  if (levelLower.includes("green")) return "#4CAF50";
-  if (levelLower.includes("yellow")) return "#FFEB3B";
+  if (levelLower.includes("blue")) return "#3B82F6";
+  if (levelLower.includes("red")) return "#EF4444";
+  if (levelLower.includes("orange")) return "#F97316";
+  if (levelLower.includes("green")) return "#22C55E";
+  if (levelLower.includes("yellow")) return "#EAB308";
+  if (levelLower.includes("adult") || levelLower.includes("glow")) return "#00E5FF";
   return ProTennisColors.electricGreen;
 }
 

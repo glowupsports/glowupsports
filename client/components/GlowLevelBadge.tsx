@@ -36,10 +36,13 @@ const GLOW_LEVEL_CONFIG: Record<number, { name: string; color: string; tier: str
 };
 
 const BALL_LEVEL_CONFIG: Record<string, { name: string; color: string }> = {
+  BLUE: { name: "Blue Ball", color: "#3B82F6" },
   RED: { name: "Red Ball", color: "#EF4444" },
   ORANGE: { name: "Orange Ball", color: "#F97316" },
   GREEN: { name: "Green Ball", color: "#22C55E" },
   YELLOW: { name: "Yellow Ball", color: "#EAB308" },
+  ADULT: { name: "Adult Glow", color: "#00E5FF" },
+  GLOW: { name: "Glow Master", color: "#00E5FF" },
 };
 
 function getSizeStyles(size: BadgeSize) {
