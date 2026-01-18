@@ -2784,12 +2784,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Missing required fields" });
       }
 
+      // Get academy timezone for proper time handling
+      const academyData = await storage.getAcademy(academyId!);
+      const academyTimezone = academyData?.timezone || "Asia/Dubai";
+
       // Support both ISO timestamp format and separate date/time format
       let start: Date;
       if (date && startTime && !startTime.includes('T')) {
-        // Combine date (YYYY-MM-DD) and startTime (HH:MM) into local timestamp
-        // DO NOT add Z suffix - treat as local time
-        start = new Date(`${date}T${startTime}:00`);
+        // Validate that the start time is resolvable in the academy timezone
+        const timeResolution = ensureResolvableLocalTime(date, startTime, academyTimezone);
+        if (!timeResolution.ok) {
+          return res.status(400).json({ error: timeResolution.error });
+        }
+        // Convert local time to UTC using academy timezone
+        start = timeResolution.utcDate;
       } else {
         // startTime is already a full ISO timestamp
         start = new Date(startTime);
