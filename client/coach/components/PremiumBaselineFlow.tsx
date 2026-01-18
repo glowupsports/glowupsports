@@ -643,15 +643,15 @@ export function PremiumBaselineFlow({
   // Glow Level selector for adults
   const renderGlowLevelCard = () => {
     const glowLevels: { level: GlowLevel; description: string }[] = [
-      { level: 1, description: "Absolute beginner" },
-      { level: 2, description: "Basic fundamentals" },
-      { level: 3, description: "Rally capable" },
-      { level: 4, description: "Game understanding" },
-      { level: 5, description: "Club player" },
-      { level: 6, description: "Strong club player" },
-      { level: 7, description: "Competition ready" },
-      { level: 8, description: "Tournament player" },
-      { level: 9, description: "Advanced competitor" },
+      { level: 1, description: "Pro / Tour level" },
+      { level: 2, description: "Advanced competitor" },
+      { level: 3, description: "Tournament player" },
+      { level: 4, description: "Competition ready" },
+      { level: 5, description: "Strong club player" },
+      { level: 6, description: "Club player" },
+      { level: 7, description: "Game understanding" },
+      { level: 8, description: "Rally capable" },
+      { level: 9, description: "Beginner" },
     ];
     
     return (
