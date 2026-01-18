@@ -52,7 +52,7 @@ interface PremiumBaselineFlowProps {
 
 type FlowStep = "intro" | "player-type" | "ball-level" | "glow-level" | "sublevel" | "requirements" | "summary" | "complete";
 type PlayerType = "kid" | "adult";
-type BallLevel = "RED" | "ORANGE" | "GREEN" | "YELLOW";
+type BallLevel = "BLUE" | "RED" | "ORANGE" | "GREEN" | "YELLOW";
 type GlowLevel = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
 interface LevelSuggestion {
@@ -552,7 +552,7 @@ export function PremiumBaselineFlow({
             >
               <Ionicons name="tennisball" size={40} color={playerType === "kid" ? STAGE_COLORS.RED : "#FFFFFF"} />
               <Text style={[styles.typeButtonLabel, playerType === "kid" && { color: STAGE_COLORS.RED }]}>Kid</Text>
-              <Text style={styles.typeButtonSubtext}>Ball levels (RED/ORANGE/GREEN/YELLOW)</Text>
+              <Text style={styles.typeButtonSubtext}>Ball levels (BLUE/RED/ORANGE/GREEN/YELLOW)</Text>
             </LinearGradient>
           </Pressable>
           
@@ -584,6 +584,7 @@ export function PremiumBaselineFlow({
   // Ball Level selector for kids
   const renderBallLevelCard = () => {
     const ballLevels: { level: BallLevel; color: string; description: string }[] = [
+      { level: "BLUE", color: STAGE_COLORS.BLUE, description: "Foundation (ages 2-4)" },
       { level: "RED", color: STAGE_COLORS.RED, description: "Beginners (ages 5-8)" },
       { level: "ORANGE", color: STAGE_COLORS.ORANGE, description: "Developing (ages 8-10)" },
       { level: "GREEN", color: STAGE_COLORS.GREEN, description: "Intermediate (ages 9-12)" },
