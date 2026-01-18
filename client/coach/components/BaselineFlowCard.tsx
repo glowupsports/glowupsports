@@ -16,7 +16,7 @@ import { Colors, Spacing, BorderRadius, FontSizes, Backgrounds, GlowColors } fro
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH - Spacing.lg * 2;
-const CARD_HEIGHT = SCREEN_HEIGHT * 0.85;
+const CARD_HEIGHT = undefined; // Use flex: 1 instead of fixed height
 
 interface BaselineFlowCardProps {
   children: React.ReactNode;
@@ -296,6 +296,7 @@ const styles = StyleSheet.create({
   cardWrapper: {
     width: CARD_WIDTH,
     alignSelf: "center",
+    flex: 1,
   },
   card: {
     backgroundColor: "#1A1F2A",
@@ -303,7 +304,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: GlowColors.primary + "50",
     overflow: "hidden",
-    height: CARD_HEIGHT,
+    flex: 1,
     shadowColor: GlowColors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
