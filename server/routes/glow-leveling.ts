@@ -100,6 +100,43 @@ router.get("/api/glow/levels/:levelId", async (req, res: Response) => {
       });
     }
     
+    // For BLUE levels (foundation), use in-memory skill definitions
+    if (level.stage === "BLUE") {
+      const { BLUE_STAGE_SKILLS_BY_LEVEL } = await import("../seeds/blue-stage-skills-seed");
+      const blueConfig = BLUE_STAGE_SKILLS_BY_LEVEL[levelId];
+      
+      if (blueConfig) {
+        const skillsByPillar: Record<string, any[]> = {};
+        
+        for (const skill of blueConfig.skills) {
+          if (!skillsByPillar[skill.pillar]) {
+            skillsByPillar[skill.pillar] = [];
+          }
+          skillsByPillar[skill.pillar].push({
+            id: skill.id,
+            name: skill.name,
+            pillar: skill.pillar,
+            stage: "BLUE",
+            category: skill.category,
+            description: skill.description,
+            targetScore: 2,
+            weight: 1,
+            isRequired: true,
+            rubric: skill.rubric,
+          });
+        }
+        
+        return res.json({
+          ...level,
+          skillsByPillar,
+          tests: [],
+          promotionRequirements: blueConfig.promotionRequirements,
+          abilitySnapshot: blueConfig.abilitySnapshot,
+          philosophy: blueConfig.philosophy,
+        });
+      }
+    }
+    
     // For ball levels (kids), use database
     const levelSkillsData = await db
       .select({
@@ -1738,6 +1775,146 @@ router.post("/api/glow/players/:playerId/assessment", authMiddleware, requireAca
   } catch (error) {
     console.error("Error saving assessment:", error);
     res.status(500).json({ error: "Failed to save assessment" });
+  }
+});
+
+// ==================== BLUE STAGE SKILLS API ====================
+
+// Get all Blue stage levels with full skill checklists
+router.get("/api/glow/blue-levels", async (_req, res: Response) => {
+  try {
+    const { 
+      BLUE_STAGE_SKILLS_BY_LEVEL, 
+      getOrderedBlueLevelIds,
+      countBlueSkillsPerLevel 
+    } = await import("../seeds/blue-stage-skills-seed");
+    
+    const levelIds = getOrderedBlueLevelIds();
+    const levels = levelIds.map(levelId => {
+      const level = BLUE_STAGE_SKILLS_BY_LEVEL[levelId];
+      return {
+        levelId: level.levelId,
+        rank: level.rank,
+        name: level.name,
+        subtitle: level.subtitle,
+        abilitySnapshot: level.abilitySnapshot,
+        philosophy: level.philosophy,
+        pillarWeighting: level.pillarWeighting,
+        promotionRequirements: level.promotionRequirements,
+        skillCount: countBlueSkillsPerLevel(levelId),
+      };
+    });
+    
+    res.json({ levels });
+  } catch (error) {
+    console.error("Error fetching blue stage levels:", error);
+    res.status(500).json({ error: "Failed to fetch blue stage levels" });
+  }
+});
+
+// Get single Blue stage level with all skills organized by pillar
+router.get("/api/glow/blue-levels/:levelId", async (req, res: Response) => {
+  try {
+    const { levelId } = req.params;
+    const { BLUE_STAGE_SKILLS_BY_LEVEL, getBlueSkillsByPillar } = await import("../seeds/blue-stage-skills-seed");
+    
+    const level = BLUE_STAGE_SKILLS_BY_LEVEL[levelId];
+    if (!level) {
+      return res.status(404).json({ error: "Level not found" });
+    }
+    
+    // Group skills by pillar
+    const pillars = ["TECHNIQUE", "TACTICAL", "PHYSICAL", "MENTAL", "SOCIAL", "MATCH"];
+    const skillsByPillar: Record<string, any[]> = {};
+    
+    for (const pillar of pillars) {
+      const skills = getBlueSkillsByPillar(levelId, pillar);
+      if (skills.length > 0) {
+        // Group by category within pillar
+        const categories: Record<string, any[]> = {};
+        for (const skill of skills) {
+          const category = skill.category || "General";
+          if (!categories[category]) {
+            categories[category] = [];
+          }
+          categories[category].push({
+            id: skill.id,
+            name: skill.name,
+            description: skill.description,
+            category: skill.category,
+            rubric: skill.rubric,
+          });
+        }
+        skillsByPillar[pillar] = Object.entries(categories).map(([cat, catSkills]) => ({
+          category: cat,
+          skills: catSkills,
+        }));
+      } else {
+        skillsByPillar[pillar] = [];
+      }
+    }
+    
+    res.json({
+      levelId: level.levelId,
+      rank: level.rank,
+      name: level.name,
+      subtitle: level.subtitle,
+      abilitySnapshot: level.abilitySnapshot,
+      philosophy: level.philosophy,
+      pillarWeighting: level.pillarWeighting,
+      promotionRequirements: level.promotionRequirements,
+      skillsByPillar,
+      totalSkills: level.skills.length,
+    });
+  } catch (error) {
+    console.error("Error fetching blue level details:", error);
+    res.status(500).json({ error: "Failed to fetch blue level details" });
+  }
+});
+
+// Get skills for a specific pillar at a specific Blue level
+router.get("/api/glow/blue-levels/:levelId/pillar/:pillar", async (req, res: Response) => {
+  try {
+    const { levelId, pillar } = req.params;
+    const { BLUE_STAGE_SKILLS_BY_LEVEL, getBlueSkillsByPillar, getBluePillarWeighting } = await import("../seeds/blue-stage-skills-seed");
+    
+    const level = BLUE_STAGE_SKILLS_BY_LEVEL[levelId];
+    if (!level) {
+      return res.status(404).json({ error: "Level not found" });
+    }
+    
+    const upperPillar = pillar.toUpperCase();
+    const skills = getBlueSkillsByPillar(levelId, upperPillar);
+    const weighting = getBluePillarWeighting(levelId);
+    
+    // Group by category
+    const categories: Record<string, any[]> = {};
+    for (const skill of skills) {
+      const category = skill.category || "General";
+      if (!categories[category]) {
+        categories[category] = [];
+      }
+      categories[category].push({
+        id: skill.id,
+        name: skill.name,
+        description: skill.description,
+        rubric: skill.rubric,
+      });
+    }
+    
+    res.json({
+      levelId,
+      pillar: upperPillar,
+      weight: weighting ? weighting[upperPillar.toLowerCase() as keyof typeof weighting] : 0,
+      categories: Object.entries(categories).map(([cat, catSkills]) => ({
+        category: cat,
+        skills: catSkills,
+      })),
+      totalSkills: skills.length,
+    });
+  } catch (error) {
+    console.error("Error fetching blue pillar skills:", error);
+    res.status(500).json({ error: "Failed to fetch blue pillar skills" });
   }
 });
 
