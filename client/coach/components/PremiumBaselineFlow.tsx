@@ -1443,7 +1443,7 @@ const styles = StyleSheet.create({
   completePrimaryText: {
     fontSize: FontSizes.xl,
     fontWeight: "700",
-    color: "#0B0D10",
+    color: "#FFFFFF",
     letterSpacing: 0.5,
   },
   completeSecondaryButton: {
