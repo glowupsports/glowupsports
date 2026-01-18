@@ -322,7 +322,7 @@ export function PremiumSessionWizard({
     };
     
     for (const session of calendarData.ownSessions || []) {
-      const isDifferentCourt = selectedCourtId && session.courtId && session.courtId !== selectedCourtId;
+      const isDifferentCourt = !!(selectedCourtId && session.courtId && session.courtId !== selectedCourtId);
       checkSessionOverlap(session, isDifferentCourt);
     }
     
@@ -1918,7 +1918,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: "center",
-    paddingBottom: Spacing.xxl,
+    paddingBottom: Spacing["2xl"],
   },
   cardScroll: {
     maxHeight: 350,
@@ -2513,7 +2513,7 @@ const styles = StyleSheet.create({
   },
   emptyPlayers: {
     alignItems: "center",
-    paddingVertical: Spacing.xxl,
+    paddingVertical: Spacing["2xl"],
   },
   emptyPlayersText: {
     fontSize: FontSizes.md,
@@ -2854,7 +2854,7 @@ const styles = StyleSheet.create({
     width: "100%",
     backgroundColor: "#1A1F2A",
     borderRadius: BorderRadius.xl,
-    padding: Spacing.xxl,
+    padding: Spacing["2xl"],
     alignItems: "center",
     borderWidth: 2,
     borderColor: GlowColors.primary + "50",
@@ -2890,7 +2890,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: GlowColors.primary + "60",
     paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.xxl,
+    paddingHorizontal: Spacing["2xl"],
     borderRadius: BorderRadius.lg,
     shadowColor: GlowColors.primary,
     shadowOffset: { width: 0, height: 0 },
