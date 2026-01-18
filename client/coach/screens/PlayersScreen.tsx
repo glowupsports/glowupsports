@@ -366,6 +366,10 @@ export default function PlayersScreen() {
 
   const getEffectiveBallLevel = (level: string | null) => level || "green";
 
+  const ballLevels = ["blue", "red", "orange", "green", "yellow", "glow"];
+  const [filterSubLevel, setFilterSubLevel] = useState<number | null>(null);
+  const [showSubLevelDropdown, setShowSubLevelDropdown] = useState<string | null>(null);
+
   const filteredPlayers = useMemo(() => {
     let result = players;
     if (searchQuery) {
@@ -414,12 +418,6 @@ export default function PlayersScreen() {
       }
     });
   }, [players, searchQuery, filterLevel, filterSubLevel, sortBy]);
-
-  const ballLevels = ["blue", "red", "orange", "green", "yellow", "glow"];
-  const [filterSubLevel, setFilterSubLevel] = useState<number | null>(null);
-  const [showSubLevelDropdown, setShowSubLevelDropdown] = useState<string | null>(null);
-
-
 
   const getStatusBadge = (status: string | null) => {
     switch (status?.toLowerCase()) {
