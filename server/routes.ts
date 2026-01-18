@@ -3289,7 +3289,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const coachId = req.user!.coachId;
-      const updates = req.body;
+      const updates = { ...req.body };
+
+      // Convert timestamp strings to Date objects for Drizzle ORM
+      const timestampFields = ['startTime', 'endTime', 'completedAt', 'cancelledAt', 'createdAt', 'updatedAt'];
+      for (const field of timestampFields) {
+        if (updates[field] && typeof updates[field] === 'string') {
+          updates[field] = new Date(updates[field]);
+        }
+      }
 
       const academyId = req.user!.academyId!;
       const session = await storage.getSession(id, academyId);
