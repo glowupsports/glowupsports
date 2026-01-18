@@ -272,7 +272,9 @@ export function PremiumSessionWizard({
     queryFn: async () => {
       if (!effectiveCoach?.id) return { ownSessions: [], blockedSessions: [] };
       const coachIdParam = adminMode ? `&coachId=${effectiveCoach.id}` : '';
-      const data = await apiFetch(`/api/coach/calendar?date=${selectedDateString}&view=day${coachIdParam}`);
+      const res = await apiFetch(`/api/coach/calendar?date=${selectedDateString}&view=day${coachIdParam}`);
+      if (!res.ok) return { ownSessions: [], blockedSessions: [] };
+      const data = await res.json();
       return {
         ownSessions: data.ownSessions || [],
         blockedSessions: data.blockedSessions || [],
@@ -365,7 +367,9 @@ export function PremiumSessionWizard({
           const coachIdParam = adminMode ? `&coachId=${effectiveCoach.id}` : '';
           let data;
           try {
-            data = await apiFetch(`/api/coach/calendar?date=${dateStr}&view=day${coachIdParam}`);
+            const res = await apiFetch(`/api/coach/calendar?date=${dateStr}&view=day${coachIdParam}`);
+            if (!res.ok) continue;
+            data = await res.json();
           } catch {
             continue;
           }
