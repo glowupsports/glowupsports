@@ -332,6 +332,45 @@ let reminderInterval: ReturnType<typeof setInterval> | null = null;
 const AUTO_ATTENDANCE_GRACE_PERIOD = 30 * 60 * 1000; // 30 minutes after session ends
 const AUTO_ATTENDANCE_XP_REWARD = 25; // XP for marking attendance during class
 
+// Auto-complete sessions that have passed their end time
+async function processAutoCompleteSession(): Promise<void> {
+  try {
+    const now = new Date();
+    // Only auto-complete sessions that ended at least 10 minutes ago (to give coach time to mark manually)
+    const completeThreshold = new Date(now.getTime() - 10 * 60 * 1000);
+    // Don't auto-complete sessions older than 24 hours
+    const lookbackWindow = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    const sessionsToComplete = await db.select({
+      id: sessions.id,
+      endTime: sessions.endTime,
+      status: sessions.status,
+    })
+      .from(sessions)
+      .where(and(
+        lte(sessions.endTime, completeThreshold),
+        gte(sessions.endTime, lookbackWindow),
+        eq(sessions.status, "scheduled")
+      ));
+
+    if (sessionsToComplete.length === 0) {
+      return;
+    }
+
+    console.log(`[AutoComplete] Auto-completing ${sessionsToComplete.length} sessions that have ended`);
+
+    for (const session of sessionsToComplete) {
+      await db.update(sessions)
+        .set({ status: "completed" })
+        .where(eq(sessions.id, session.id));
+    }
+
+    console.log("[AutoComplete] Processing complete");
+  } catch (error) {
+    console.error("[AutoComplete] Error:", error);
+  }
+}
+
 async function processAutoAttendance(): Promise<void> {
   try {
     const now = new Date();
@@ -453,10 +492,12 @@ export function startReminderScheduler(): void {
   console.log("[SessionReminders] Starting reminder scheduler (every 5 minutes)");
   
   processScheduledReminders().catch(console.error);
+  processAutoCompleteSession().catch(console.error);
   processAutoAttendance().catch(console.error);
 
   reminderInterval = setInterval(() => {
     processScheduledReminders().catch(console.error);
+    processAutoCompleteSession().catch(console.error);
     processAutoAttendance().catch(console.error);
   }, 5 * 60 * 1000);
 }
