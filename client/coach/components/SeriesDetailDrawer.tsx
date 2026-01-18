@@ -146,6 +146,21 @@ function getSessionTypeColor(type: string): string {
   return SESSION_TYPE_COLORS[type] || Colors.dark.textMuted;
 }
 
+// Ball level colors for player avatars
+const BALL_LEVEL_COLORS: Record<string, string> = {
+  blue: "#3B82F6",
+  red: "#EF4444",
+  orange: "#F97316",
+  green: "#22C55E",
+  yellow: "#EAB308",
+  glow: Colors.dark.primary,
+};
+
+function getBallLevelColor(ballLevel: string | null | undefined): string {
+  if (!ballLevel) return Colors.dark.textMuted;
+  return BALL_LEVEL_COLORS[ballLevel.toLowerCase()] || Colors.dark.textMuted;
+}
+
 function isPlayerActiveForSession(player: Player, sessionDate: Date): boolean {
   if (!player.joinedAt) return true;
   
@@ -1082,10 +1097,11 @@ export default function SeriesDetailDrawer({
                     const isPausing = pausingPlayerId === player.id;
                     const isRemoving = removingPlayerId === player.id;
                     
+                    const ballColor = getBallLevelColor(player.ballLevel);
                     return (
                       <View key={player.id} style={[styles.playerRow, isMenuOpen && { zIndex: 999 }]}>
-                        <View style={[styles.playerAvatar, { backgroundColor: Colors.dark.successNeon + "30" }]}>
-                          <Text style={[styles.playerInitial, { color: Colors.dark.successNeon }]}>
+                        <View style={[styles.playerAvatar, { backgroundColor: ballColor + "30", borderWidth: 2, borderColor: ballColor }]}>
+                          <Text style={[styles.playerInitial, { color: ballColor }]}>
                             {player.name.charAt(0).toUpperCase()}
                           </Text>
                         </View>
@@ -1195,10 +1211,12 @@ export default function SeriesDetailDrawer({
                     <Text style={[styles.sectionTitle, { marginTop: Spacing.lg }]}>
                       On Vacation ({pausedPlayers.length})
                     </Text>
-                    {pausedPlayers.map((player) => (
+                    {pausedPlayers.map((player) => {
+                      const pausedBallColor = getBallLevelColor(player.ballLevel);
+                      return (
                       <View key={player.id} style={[styles.playerRow, { opacity: 0.7 }]}>
-                        <View style={[styles.playerAvatar, { backgroundColor: Colors.dark.gold + "30" }]}>
-                          <Ionicons name="airplane-outline" size={16} color={Colors.dark.gold} />
+                        <View style={[styles.playerAvatar, { backgroundColor: pausedBallColor + "20", borderWidth: 2, borderColor: pausedBallColor }]}>
+                          <Ionicons name="airplane-outline" size={16} color={pausedBallColor} />
                         </View>
                         <View style={styles.playerInfo}>
                           <Text style={styles.playerName}>{player.name}</Text>
@@ -1216,7 +1234,7 @@ export default function SeriesDetailDrawer({
                           <Text style={styles.reactivateButtonText}>Reactivate</Text>
                         </Pressable>
                       </View>
-                    ))}
+                    );})}
                   </>
                 ) : null}
                 
@@ -1225,10 +1243,12 @@ export default function SeriesDetailDrawer({
                     <Text style={[styles.sectionTitle, { marginTop: Spacing.lg }]}>
                       Former Players ({formerPlayers.length})
                     </Text>
-                    {formerPlayers.map((player) => (
+                    {formerPlayers.map((player) => {
+                      const formerBallColor = getBallLevelColor(player.ballLevel);
+                      return (
                       <View key={player.id} style={[styles.playerRow, { opacity: 0.5 }]}>
-                        <View style={[styles.playerAvatar, { backgroundColor: Colors.dark.backgroundTertiary }]}>
-                          <Text style={[styles.playerInitial, { color: Colors.dark.textMuted }]}>
+                        <View style={[styles.playerAvatar, { backgroundColor: formerBallColor + "20", borderWidth: 2, borderColor: formerBallColor + "60" }]}>
+                          <Text style={[styles.playerInitial, { color: formerBallColor + "80" }]}>
                             {player.name.charAt(0).toUpperCase()}
                           </Text>
                         </View>
@@ -1243,7 +1263,7 @@ export default function SeriesDetailDrawer({
                           </Text>
                         </View>
                       </View>
-                    ))}
+                    );})}
                   </>
                 ) : null}
               </>
@@ -2024,26 +2044,28 @@ export default function SeriesDetailDrawer({
                       {playerSearch ? "No matching players" : "No available players"}
                     </Text>
                   ) : (
-                    filteredPlayers.map((player) => (
+                    filteredPlayers.map((player) => {
+                      const playerBallColor = getBallLevelColor(player.ballLevel);
+                      return (
                       <Pressable
                         key={player.id}
                         style={styles.selectablePlayerRow}
                         onPress={() => handlePlayerSelect(player.id)}
                       >
-                        <View style={[styles.playerAvatar, { backgroundColor: Colors.dark.successNeon + "30" }]}>
-                          <Text style={[styles.playerInitial, { color: Colors.dark.successNeon }]}>
+                        <View style={[styles.playerAvatar, { backgroundColor: playerBallColor + "30", borderWidth: 2, borderColor: playerBallColor }]}>
+                          <Text style={[styles.playerInitial, { color: playerBallColor }]}>
                             {player.name.charAt(0).toUpperCase()}
                           </Text>
                         </View>
                         <View style={styles.playerInfo}>
                           <Text style={styles.playerName}>{player.name}</Text>
                           {player.ballLevel ? (
-                            <Text style={styles.playerStats}>{player.ballLevel}</Text>
+                            <Text style={styles.playerStats}>{player.ballLevel.toUpperCase()}</Text>
                           ) : null}
                         </View>
                         <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
                       </Pressable>
-                    ))
+                    );})
                   )}
                 </ScrollView>
               </View>
