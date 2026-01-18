@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -69,6 +69,7 @@ interface CoachData {
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const TIME_COLUMN_WIDTH = 50;
+const MIN_COURT_LANE_WIDTH = 90; // Minimum width per court for readability
 const COURT_LANE_WIDTH = (SCREEN_WIDTH - TIME_COLUMN_WIDTH - Spacing.lg * 2) / 3;
 const HOUR_HEIGHT_60 = 80;
 const HOUR_HEIGHT_30 = 60;
@@ -603,6 +604,10 @@ export default function CalendarScreen() {
   const [isExporting, setIsExporting] = useState(false);
   const [headerCollapsed, setHeaderCollapsed] = useState(false); // Collapse DAY/WEEK/MONTH and court filters
 
+  // Refs for synchronized horizontal scrolling between court headers and lanes
+  const courtHeaderScrollRef = useRef<ScrollView>(null);
+  const courtLanesScrollRef = useRef<ScrollView>(null);
+
   const allCourts = calendarData?.courts || [];
   const allLocations = calendarData?.locations || [];
 
@@ -724,9 +729,17 @@ export default function CalendarScreen() {
   };
   
   // Calculate dynamic lane width based on number of visible courts
+  // Use scrollable layout if courts don't fit, with minimum width per court
+  const availableWidth = SCREEN_WIDTH - TIME_COLUMN_WIDTH - Spacing.lg * 2;
   const dynamicLaneWidth = courts.length === 1 
-    ? SCREEN_WIDTH - TIME_COLUMN_WIDTH - Spacing.lg * 2 
-    : COURT_LANE_WIDTH;
+    ? availableWidth
+    : courts.length <= 3
+      ? availableWidth / courts.length
+      : MIN_COURT_LANE_WIDTH; // Use minimum width for many courts, allow horizontal scroll
+  
+  // Total width of all court lanes (for scroll content)
+  const totalCourtsWidth = courts.length * dynamicLaneWidth;
+  const needsHorizontalScroll = totalCourtsWidth > availableWidth;
 
   // Handle deep linking from Dashboard quick actions
   useEffect(() => {
@@ -1707,25 +1720,40 @@ export default function CalendarScreen() {
           {/* Court Headers */}
           <View style={styles.courtHeaders}>
             <View style={styles.timeColumnHeader} />
-            {courts.map((court, index) => {
-              const isNewLocation = isFirstCourtInNewLocation(index);
-              const locationName = allLocations.find(l => l.id === court.locationId)?.name;
-              return (
-                <View key={court.id} style={[
-                  styles.courtHeader,
-                  { width: dynamicLaneWidth },
-                  index > 0 && styles.courtHeaderWithDivider,
-                  isNewLocation && styles.courtHeaderWithLocationDivider,
-                ]}>
-                  {isNewLocation && locationName && (
-                    <View style={styles.locationDividerBadge}>
-                      <Text style={styles.locationDividerText}>{locationName}</Text>
-                    </View>
-                  )}
-                  <Text style={styles.courtHeaderText}>{court.name}</Text>
-                </View>
-              );
-            })}
+            <ScrollView
+              ref={courtHeaderScrollRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              scrollEventThrottle={16}
+              onScroll={(e) => {
+                // Sync scroll with court lanes
+                courtLanesScrollRef.current?.scrollTo({
+                  x: e.nativeEvent.contentOffset.x,
+                  animated: false,
+                });
+              }}
+              contentContainerStyle={{ width: totalCourtsWidth }}
+            >
+              {courts.map((court, index) => {
+                const isNewLocation = isFirstCourtInNewLocation(index);
+                const locationName = allLocations.find(l => l.id === court.locationId)?.name;
+                return (
+                  <View key={court.id} style={[
+                    styles.courtHeader,
+                    { width: dynamicLaneWidth },
+                    index > 0 && styles.courtHeaderWithDivider,
+                    isNewLocation && styles.courtHeaderWithLocationDivider,
+                  ]}>
+                    {isNewLocation && locationName && (
+                      <View style={styles.locationDividerBadge}>
+                        <Text style={styles.locationDividerText}>{locationName}</Text>
+                      </View>
+                    )}
+                    <Text style={styles.courtHeaderText} numberOfLines={1}>{court.name}</Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
           </View>
 
           {/* Calendar Grid */}
@@ -1740,8 +1768,22 @@ export default function CalendarScreen() {
                 ))}
               </View>
 
-              {/* Court Lanes */}
-              <View style={styles.courtLanesContainer}>
+              {/* Court Lanes - Horizontal Scrollable */}
+              <ScrollView
+                ref={courtLanesScrollRef}
+                horizontal
+                showsHorizontalScrollIndicator={needsHorizontalScroll}
+                scrollEventThrottle={16}
+                onScroll={(e) => {
+                  // Sync scroll with court headers
+                  courtHeaderScrollRef.current?.scrollTo({
+                    x: e.nativeEvent.contentOffset.x,
+                    animated: false,
+                  });
+                }}
+                contentContainerStyle={{ width: totalCourtsWidth }}
+                style={styles.courtLanesContainer}
+              >
                 {courts.map((court, courtIndex) => (
                   <View key={court.id} style={[
                     styles.courtLane,
@@ -1856,12 +1898,12 @@ export default function CalendarScreen() {
 
                 {/* Now Line */}
                 {nowPosition !== null && isToday && (
-                  <View style={[styles.nowLine, { top: nowPosition }]}>
+                  <View style={[styles.nowLine, { top: nowPosition, width: totalCourtsWidth }]}>
                     <PulsingDot />
-                    <View style={styles.nowLineBar} />
+                    <View style={[styles.nowLineBar, { width: totalCourtsWidth }]} />
                   </View>
                 )}
-              </View>
+              </ScrollView>
             </View>
           </ScrollView>
         </>
@@ -3122,7 +3164,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   courtLanesContainer: {
-    flex: 1,
     flexDirection: "row",
     position: "relative",
   },
