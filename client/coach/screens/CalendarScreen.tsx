@@ -35,6 +35,7 @@ import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } fr
 import { 
   getLocalDateString, 
   formatLocalDateToString, 
+  formatDateInTimezone,
   getTimeInTimezone,
   formatTimeInTimezone,
   parseUTCTimestamp,
@@ -1152,8 +1153,8 @@ export default function CalendarScreen() {
   };
 
   const getSessionsForDate = (date: Date) => {
-    // Use academy timezone for correct local date filtering
-    const targetDateStr = formatLocalDateToString(date);
+    // Use academy timezone for correct local date filtering on BOTH sides
+    const targetDateStr = formatDateInTimezone(date, academyTimezone);
     return ownSessions.filter((s) => {
       const sessionDateStr = getLocalDateString(s.startTime, academyTimezone);
       return sessionDateStr === targetDateStr;
@@ -1769,7 +1770,7 @@ export default function CalendarScreen() {
                       .filter((s) => {
                         // Filter by selected date using academy timezone (not UTC!)
                         const sessionDateStr = getLocalDateString(s.startTime, academyTimezone);
-                        const selectedDateStr = formatLocalDateToString(selectedDate);
+                        const selectedDateStr = formatDateInTimezone(selectedDate, academyTimezone);
                         if (sessionDateStr !== selectedDateStr) return false;
                         // Then filter by court
                         return s.courtId === court.id || (s.courtId === null && courtIndex === 0);
@@ -1829,7 +1830,7 @@ export default function CalendarScreen() {
                       .filter((block) => {
                         // Use academy timezone for date comparison
                         const blockDateStr = getLocalDateString(block.startTime, academyTimezone);
-                        const selectedDateStr = formatLocalDateToString(selectedDate);
+                        const selectedDateStr = formatDateInTimezone(selectedDate, academyTimezone);
                         return blockDateStr === selectedDateStr;
                       })
                       .map((block) => {
@@ -1986,7 +1987,7 @@ export default function CalendarScreen() {
               
               // Get blocked sessions for a specific date (using academy timezone)
               const getBlockedSessionsForDate = (date: Date) => {
-                const targetDateStr = formatLocalDateToString(date);
+                const targetDateStr = formatDateInTimezone(date, academyTimezone);
                 return blockedSessions.filter((s) => {
                   const sessionDateStr = getLocalDateString(s.startTime, academyTimezone);
                   return sessionDateStr === targetDateStr;

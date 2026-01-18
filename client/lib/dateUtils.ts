@@ -202,6 +202,24 @@ export function formatLocalDateToString(date: Date): string {
 }
 
 /**
+ * Format a Date object to YYYY-MM-DD string in a specific timezone.
+ * Use this when you need to format a local Date for comparison with session dates in the academy timezone.
+ */
+export function formatDateInTimezone(date: Date, timezone: string): string {
+  try {
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    return formatter.format(date);
+  } catch {
+    return formatLocalDateToString(date);
+  }
+}
+
+/**
  * Get hours and minutes in a specific timezone from a UTC timestamp.
  * Returns { hours, minutes } in the target timezone.
  * Used for positioning sessions on the calendar grid.
