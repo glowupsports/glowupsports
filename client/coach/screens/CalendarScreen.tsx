@@ -600,6 +600,7 @@ export default function CalendarScreen() {
   const [selectedLocationFilter, setSelectedLocationFilter] = useState<string | null>(null); // null = all locations
   const [selectedCourtFilter, setSelectedCourtFilter] = useState<string | null>(null); // null = all courts
   const [isExporting, setIsExporting] = useState(false);
+  const [headerCollapsed, setHeaderCollapsed] = useState(false); // Collapse DAY/WEEK/MONTH and court filters
 
   const allCourts = calendarData?.courts || [];
   const allLocations = calendarData?.locations || [];
@@ -1513,7 +1514,7 @@ export default function CalendarScreen() {
           )}
         </View>
 
-        {/* Date Navigation - Gaming Style */}
+        {/* Date Navigation - Gaming Style - Tap to collapse/expand filters */}
         <View style={styles.dateNavGaming}>
           <Pressable 
             style={styles.dateNavButtonGaming} 
@@ -1526,7 +1527,14 @@ export default function CalendarScreen() {
           >
             <Ionicons name="chevron-back" size={22} color="#00D4FF" />
           </Pressable>
-          <Pressable style={styles.dateDisplayGaming} onPress={goToToday}>
+          <Pressable 
+            style={styles.dateDisplayGaming} 
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setHeaderCollapsed(!headerCollapsed);
+            }}
+            onLongPress={goToToday}
+          >
             <Text style={styles.dateTextGaming}>
               {viewMode === "day" && formatDate(selectedDate)}
               {viewMode === "week" && formatWeekRange(weekDates)}
@@ -1537,6 +1545,12 @@ export default function CalendarScreen() {
                 <Text style={styles.todayBadgeTextGaming}>TODAY</Text>
               </View>
             )}
+            <Ionicons 
+              name={headerCollapsed ? "chevron-down" : "chevron-up"} 
+              size={14} 
+              color={Colors.dark.textMuted} 
+              style={{ marginLeft: 6 }} 
+            />
           </Pressable>
           <Pressable 
             style={styles.dateNavButtonGaming} 
@@ -1551,43 +1565,45 @@ export default function CalendarScreen() {
           </Pressable>
         </View>
 
-        {/* View Mode Toggle - Gaming Style */}
-        <View style={styles.viewToggleGaming}>
-          {(["day", "week", "month"] as const).map((mode) => (
-            <Pressable
-              key={mode}
-              style={[styles.viewButtonGaming, viewMode === mode && styles.viewButtonGamingActive]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setViewMode(mode);
-              }}
-            >
-              {viewMode === mode ? (
-                <LinearGradient
-                  colors={["#00D4FF", "#2ECC40"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.viewButtonGamingGradient}
-                >
-                  <Text style={styles.viewButtonTextGamingActive}>
+        {/* View Mode Toggle - Gaming Style - Collapsible */}
+        {!headerCollapsed && (
+          <View style={styles.viewToggleGaming}>
+            {(["day", "week", "month"] as const).map((mode) => (
+              <Pressable
+                key={mode}
+                style={[styles.viewButtonGaming, viewMode === mode && styles.viewButtonGamingActive]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setViewMode(mode);
+                }}
+              >
+                {viewMode === mode ? (
+                  <LinearGradient
+                    colors={["#00D4FF", "#2ECC40"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.viewButtonGamingGradient}
+                  >
+                    <Text style={styles.viewButtonTextGamingActive}>
+                      {mode.toUpperCase()}
+                    </Text>
+                  </LinearGradient>
+                ) : (
+                  <Text style={styles.viewButtonTextGaming}>
                     {mode.toUpperCase()}
                   </Text>
-                </LinearGradient>
-              ) : (
-                <Text style={styles.viewButtonTextGaming}>
-                  {mode.toUpperCase()}
-                </Text>
-              )}
-            </Pressable>
-          ))}
-        </View>
+                )}
+              </Pressable>
+            ))}
+          </View>
+        )}
       </View>
 
       {/* DAY VIEW */}
       {viewMode === "day" && (
         <>
-          {/* Location & Court Filters */}
-          {(allLocations.length > 0 || allCourts.length > 1) && (
+          {/* Location & Court Filters - Collapsible */}
+          {!headerCollapsed && (allLocations.length > 0 || allCourts.length > 1) && (
             <View style={styles.filterSection}>
               {/* Location Filter Row */}
               {allLocations.length > 0 && (
