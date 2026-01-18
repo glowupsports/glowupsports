@@ -1294,7 +1294,7 @@ export function PremiumSessionWizard({
         nextDisabled={!canProceed()}
         glowColor="#8B5CF6"
       >
-        <ScrollView style={styles.cardScrollFull} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.cardScrollFull} contentContainerStyle={styles.cardScrollFullContent} showsVerticalScrollIndicator={false}>
           {courtName && (
             <Pressable 
               style={styles.courtChangeChip}
@@ -1999,6 +1999,9 @@ const styles = StyleSheet.create({
   },
   cardScrollFull: {
     flex: 1,
+  },
+  cardScrollFullContent: {
+    flexGrow: 1,
   },
   selectedDateChip: {
     flexDirection: "row",

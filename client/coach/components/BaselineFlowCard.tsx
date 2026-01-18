@@ -68,6 +68,7 @@ export function BaselineFlowCard({
   }, [isActive]);
 
   const cardStyle = useAnimatedStyle(() => ({
+    flex: 1,
     transform: [
       { scale: scale.value },
       { translateY: translateY.value },
