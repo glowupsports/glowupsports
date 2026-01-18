@@ -224,6 +224,16 @@ export default function CoachHQScreen() {
 
           <Pressable 
             style={styles.quickActionCard}
+            onPress={() => navigation.navigate("LessonTemplateLibrary")}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: Colors.dark.orange + "20" }]}>
+              <Ionicons name="book-outline" size={24} color={Colors.dark.orange} />
+            </View>
+            <ThemedText style={styles.actionLabel}>Lesson Templates</ThemedText>
+          </Pressable>
+
+          <Pressable 
+            style={styles.quickActionCard}
             onPress={() => navigation.navigate("PlayerProgress")}
           >
             <View style={[styles.actionIcon, { backgroundColor: Colors.dark.gold + "20" }]}>

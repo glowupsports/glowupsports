@@ -31,6 +31,7 @@ import EvidenceCaptureScreen from "@/coach/screens/glow/EvidenceCaptureScreen";
 import LevelCardsScreen from "@/coach/screens/glow/LevelCardsScreen";
 import CoachCalibrationScreen from "@/coach/screens/glow/CoachCalibrationScreen";
 import MatchReviewScreen from "@/coach/screens/glow/MatchReviewScreen";
+import LessonTemplateLibraryScreen from "@/coach/screens/glow/LessonTemplateLibraryScreen";
 import OfflineBanner from "@/components/OfflineBanner";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -69,6 +70,7 @@ export type CoachStackParamList = {
   Availability: undefined;
   CourtPreferences: undefined;
   Templates: undefined;
+  LessonTemplateLibrary: undefined;
   AcademySettings: undefined;
   Billing: undefined;
   CoachInvitations: undefined;
@@ -235,6 +237,14 @@ function CoachStackNavigator() {
         component={TemplatesScreen}
         options={{
           presentation: "modal",
+        }}
+      />
+      <Stack.Screen 
+        name="LessonTemplateLibrary" 
+        component={LessonTemplateLibraryScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Lesson Templates",
         }}
       />
       <Stack.Screen 
