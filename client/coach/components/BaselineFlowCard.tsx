@@ -28,8 +28,11 @@ interface BaselineFlowCardProps {
   totalSteps: number;
   onNext?: () => void;
   onBack?: () => void;
+  onQuickSave?: () => void;
   nextLabel?: string;
+  quickSaveLabel?: string;
   nextDisabled?: boolean;
+  quickSaveDisabled?: boolean;
   showBack?: boolean;
   isActive?: boolean;
   glowColor?: string;
@@ -45,8 +48,11 @@ export function BaselineFlowCard({
   totalSteps,
   onNext,
   onBack,
+  onQuickSave,
   nextLabel = "Next",
+  quickSaveLabel = "Save Level",
   nextDisabled = false,
+  quickSaveDisabled = false,
   showBack = true,
   isActive = true,
   glowColor,
@@ -85,6 +91,12 @@ export function BaselineFlowCard({
   const handleBack = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onBack?.();
+  };
+
+  const handleQuickSave = () => {
+    if (quickSaveDisabled) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    onQuickSave?.();
   };
 
   const progress = step / totalSteps;
@@ -139,24 +151,43 @@ export function BaselineFlowCard({
             <View style={styles.backPlaceholder} />
           )}
 
-          {onNext && (
-            <Pressable
-              style={[styles.nextButton, nextDisabled && styles.nextButtonDisabled]}
-              onPress={handleNext}
-              disabled={nextDisabled}
-            >
-              <View style={styles.nextButtonInner}>
-                <Text style={[styles.nextButtonText, nextDisabled && styles.nextButtonTextDisabled]}>
-                  {nextLabel}
-                </Text>
+          <View style={styles.rightButtons}>
+            {onQuickSave && (
+              <Pressable
+                style={[styles.quickSaveButton, quickSaveDisabled && styles.quickSaveButtonDisabled]}
+                onPress={handleQuickSave}
+                disabled={quickSaveDisabled}
+              >
                 <Ionicons 
-                  name="arrow-forward" 
+                  name="checkmark-circle" 
                   size={18} 
-                  color={nextDisabled ? "#666666" : "#FFFFFF"} 
+                  color={quickSaveDisabled ? "#666666" : GlowColors.primary} 
                 />
-              </View>
-            </Pressable>
-          )}
+                <Text style={[styles.quickSaveButtonText, quickSaveDisabled && styles.quickSaveButtonTextDisabled]}>
+                  {quickSaveLabel}
+                </Text>
+              </Pressable>
+            )}
+
+            {onNext && (
+              <Pressable
+                style={[styles.nextButton, nextDisabled && styles.nextButtonDisabled]}
+                onPress={handleNext}
+                disabled={nextDisabled}
+              >
+                <View style={styles.nextButtonInner}>
+                  <Text style={[styles.nextButtonText, nextDisabled && styles.nextButtonTextDisabled]}>
+                    {nextLabel}
+                  </Text>
+                  <Ionicons 
+                    name="arrow-forward" 
+                    size={18} 
+                    color={nextDisabled ? "#666666" : "#FFFFFF"} 
+                  />
+                </View>
+              </Pressable>
+            )}
+          </View>
         </View>
       </View>
     </Animated.View>
@@ -409,6 +440,36 @@ const styles = StyleSheet.create({
   backPlaceholder: {
     width: 80,
   },
+  rightButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  quickSaveButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: "rgba(200, 255, 61, 0.1)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: GlowColors.primary + "40",
+  },
+  quickSaveButtonDisabled: {
+    opacity: 0.5,
+    borderColor: "#333333",
+    backgroundColor: "transparent",
+  },
+  quickSaveButtonText: {
+    fontSize: FontSizes.md,
+    color: GlowColors.primary,
+    fontWeight: "600",
+    letterSpacing: 0.3,
+  },
+  quickSaveButtonTextDisabled: {
+    color: "#666666",
+  },
   nextButton: {
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
@@ -431,7 +492,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
     paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.xxl,
+    paddingHorizontal: Spacing["2xl"],
   },
   nextButtonText: {
     fontSize: FontSizes.lg,

@@ -224,6 +224,49 @@ export function PremiumBaselineFlow({
     },
   });
   
+  // Quick save mutation - saves just the level without skill checks
+  const quickSaveMutation = useMutation({
+    mutationFn: async () => {
+      if (!player || !confirmedLevel) throw new Error("Missing data");
+      
+      // Default pillar ratings (all set to 1 = starting)
+      const defaultPillarProgress = PILLARS.reduce((acc, pillar) => {
+        acc[pillar.id.toLowerCase()] = 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      return apiRequest("POST", `/api/players/${player.id}/baseline`, {
+        suggestedLevelId: confirmedLevel,
+        confirmedLevelId: confirmedLevel,
+        confidenceScore: 100,
+        playerType,
+        selectedBallLevel,
+        selectedGlowLevel,
+        selectedSublevel,
+        ...defaultPillarProgress,
+        checkedSkillIds: [],
+        quickSave: true,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/academy/baseline-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/academy/players-without-baseline"] });
+      setShowSuccessAnimation(true);
+      setTimeout(() => {
+        setShowSuccessAnimation(false);
+        setStep("complete");
+      }, 300);
+    },
+  });
+  
+  // Handle quick save from sublevel/glow-level card
+  const handleQuickSave = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    quickSaveMutation.mutate();
+  };
+  
   // Reset state when modal opens
   useEffect(() => {
     if (visible && player) {
@@ -621,8 +664,11 @@ export function PremiumBaselineFlow({
         totalSteps={getTotalSteps()}
         onNext={handleNext}
         onBack={handleBack}
+        onQuickSave={handleQuickSave}
         nextLabel="Check Skills"
+        quickSaveLabel="Save Level"
         nextDisabled={!selectedGlowLevel}
+        quickSaveDisabled={!selectedGlowLevel || quickSaveMutation.isPending}
         glowColor={GlowColors.primary}
       >
         <ScrollView style={styles.cardScrollContent} showsVerticalScrollIndicator={false}>
@@ -673,8 +719,11 @@ export function PremiumBaselineFlow({
         totalSteps={getTotalSteps()}
         onNext={handleNext}
         onBack={handleBack}
+        onQuickSave={handleQuickSave}
         nextLabel="Check Skills"
+        quickSaveLabel="Save Level"
         nextDisabled={!selectedSublevel}
+        quickSaveDisabled={!selectedSublevel || quickSaveMutation.isPending}
         glowColor={color}
       >
         <View style={styles.levelSuggestContent}>
