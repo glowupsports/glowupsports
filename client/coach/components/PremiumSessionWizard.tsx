@@ -271,8 +271,11 @@ export function PremiumSessionWizard({
     queryKey: ["/api/coach/calendar/day", effectiveCoach?.id, selectedDateString],
     queryFn: async () => {
       if (!effectiveCoach?.id) return { ownSessions: [], blockedSessions: [] };
+      const token = await AsyncStorage.getItem("authToken");
       const coachIdParam = adminMode ? `&coachId=${effectiveCoach.id}` : '';
-      const res = await fetch(`/api/coach/calendar?date=${selectedDateString}&view=day${coachIdParam}`);
+      const res = await fetch(`/api/coach/calendar?date=${selectedDateString}&view=day${coachIdParam}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
       if (!res.ok) return { ownSessions: [], blockedSessions: [] };
       const data = await res.json();
       return {
@@ -359,13 +362,16 @@ export function PremiumSessionWizard({
       const blocked = new Set<string>();
       
       try {
+        const token = await AsyncStorage.getItem("authToken");
         for (let week = 1; week < weekCount; week++) {
           const futureDate = new Date(selectedDate);
           futureDate.setDate(futureDate.getDate() + (week * 7));
           const dateStr = `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}-${String(futureDate.getDate()).padStart(2, '0')}`;
           
           const coachIdParam = adminMode ? `&coachId=${effectiveCoach.id}` : '';
-          const res = await fetch(`/api/coach/calendar?date=${dateStr}&view=day${coachIdParam}`);
+          const res = await fetch(`/api/coach/calendar?date=${dateStr}&view=day${coachIdParam}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          });
           if (!res.ok) continue;
           
           const data = await res.json();
