@@ -3890,7 +3890,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           : presentPlayers;
         
         if (req.body.markCompleted) {
-          await storage.updateSession(id, { status: "completed" });
+          // Auto-adjust session type based on present players
+          // If only 1 player is present in a semi-private session, convert to private_adjusted
+          let adjustedSessionType = session.sessionType;
+          const presentCount = presentPlayers.length;
+          
+          if (session.sessionType === "semi_private" && presentCount === 1) {
+            adjustedSessionType = "private_adjusted";
+            console.log(`[SessionType] Auto-adjusting session ${id} from semi_private to private_adjusted (only 1 player present)`);
+          } else if (session.sessionType === "group" && presentCount === 1) {
+            adjustedSessionType = "private_adjusted";
+            console.log(`[SessionType] Auto-adjusting session ${id} from group to private_adjusted (only 1 player present)`);
+          } else if (session.sessionType === "group" && presentCount === 2) {
+            adjustedSessionType = "semi_private_adjusted";
+            console.log(`[SessionType] Auto-adjusting session ${id} from group to semi_private_adjusted (only 2 players present)`);
+          } else if (session.sessionType === "semi_private" && presentCount >= 3) {
+            adjustedSessionType = "group_adjusted";
+            console.log(`[SessionType] Auto-adjusting session ${id} from semi_private to group_adjusted (3+ players present)`);
+          }
+          
+          await storage.updateSession(id, { 
+            status: "completed",
+            sessionType: adjustedSessionType 
+          });
           
           // Consume credits for class session with dynamic credit type (only for series-based sessions)
           if (session.seriesId) {
