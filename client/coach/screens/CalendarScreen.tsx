@@ -41,12 +41,9 @@ import {
 } from "@/lib/dateUtils";
 
 import { PremiumSessionWizard } from "@/coach/components/PremiumSessionWizard";
-import NowPlayingCard from "@/coach/components/NowPlayingCard";
 import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
 import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
 import QuickFeedbackModal from "@/coach/components/QuickFeedbackModal";
-
-import CoachLoadIndicator from "@/coach/components/CoachLoadIndicator";
 
 type CalendarRouteParams = {
   Calendar: {
@@ -1585,27 +1582,6 @@ export default function CalendarScreen() {
           ))}
         </View>
       </View>
-
-      {/* Coach Load Indicator - only in day view */}
-      {viewMode === "day" && (
-        <CoachLoadIndicator
-          sessions={ownSessions}
-          selectedDate={selectedDate}
-          maxHoursPerDay={8}
-        />
-      )}
-
-      {/* Now Playing Card - only in day view */}
-      {viewMode === "day" && (
-        <NowPlayingCard
-          sessions={ownSessions}
-          courts={courts}
-          selectedDate={selectedDate}
-          onAttendance={handleAttendance}
-          onExtend={handleExtendSession}
-          onEnd={handleEndSession}
-        />
-      )}
 
       {/* DAY VIEW */}
       {viewMode === "day" && (

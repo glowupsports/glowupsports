@@ -446,7 +446,7 @@ export function PremiumSessionWizard({
         payload.flexibleDates = flexibleDates;
       }
       
-      return apiRequest("POST", "/api/sessions", payload);
+      return apiRequest("POST", "/api/coach/sessions", payload);
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
