@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView, Dimensions, Platform, Switch, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView, Dimensions, Platform, Switch, ActivityIndicator, Alert } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -466,6 +466,13 @@ export function PremiumSessionWizard({
         setShowSuccessAnimation(false);
         setStep("complete");
       }, 1500);
+    },
+    onError: (error: Error) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        "Could not create session",
+        error.message || "An error occurred while creating the session. Please try again."
+      );
     },
   });
 
@@ -1857,8 +1864,8 @@ export function PremiumSessionWizard({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+    <Modal visible={visible} animationType="slide" transparent={false}>
+      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={styles.header}>
           <Pressable style={styles.closeButton} onPress={handleClose}>
             <Ionicons name="close" size={24} color="#FFFFFF" />

@@ -2787,8 +2787,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Support both ISO timestamp format and separate date/time format
       let start: Date;
       if (date && startTime && !startTime.includes('T')) {
-        // Combine date (YYYY-MM-DD) and startTime (HH:MM) into ISO timestamp
-        start = new Date(`${date}T${startTime}:00.000Z`);
+        // Combine date (YYYY-MM-DD) and startTime (HH:MM) into local timestamp
+        // DO NOT add Z suffix - treat as local time
+        start = new Date(`${date}T${startTime}:00`);
       } else {
         // startTime is already a full ISO timestamp
         start = new Date(startTime);
