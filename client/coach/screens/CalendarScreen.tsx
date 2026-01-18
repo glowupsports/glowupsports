@@ -1528,7 +1528,7 @@ export default function CalendarScreen() {
             <Ionicons name="chevron-back" size={22} color="#00D4FF" />
           </Pressable>
           <Pressable 
-            style={styles.dateDisplayGaming} 
+            style={[styles.dateDisplayGaming, headerCollapsed && styles.dateDisplayCollapsed]} 
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setHeaderCollapsed(!headerCollapsed);
@@ -1545,12 +1545,16 @@ export default function CalendarScreen() {
                 <Text style={styles.todayBadgeTextGaming}>TODAY</Text>
               </View>
             )}
-            <Ionicons 
-              name={headerCollapsed ? "chevron-down" : "chevron-up"} 
-              size={14} 
-              color={Colors.dark.textMuted} 
-              style={{ marginLeft: 6 }} 
-            />
+            <View style={[styles.collapseIndicator, headerCollapsed && styles.collapseIndicatorExpanded]}>
+              {headerCollapsed && (
+                <Text style={styles.collapseHintText}>TAP TO SHOW FILTERS</Text>
+              )}
+              <Ionicons 
+                name={headerCollapsed ? "chevron-down" : "chevron-up"} 
+                size={16} 
+                color={headerCollapsed ? "#00D4FF" : Colors.dark.textMuted} 
+              />
+            </View>
           </Pressable>
           <Pressable 
             style={styles.dateNavButtonGaming} 
@@ -2866,6 +2870,28 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "rgba(0, 212, 255, 0.2)",
+  },
+  dateDisplayCollapsed: {
+    borderColor: "rgba(0, 212, 255, 0.5)",
+    backgroundColor: "rgba(0, 212, 255, 0.08)",
+  },
+  collapseIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginLeft: 4,
+  },
+  collapseIndicatorExpanded: {
+    backgroundColor: "rgba(0, 212, 255, 0.15)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  collapseHintText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#00D4FF",
+    letterSpacing: 0.5,
   },
   dateTextGaming: {
     fontSize: 16,
