@@ -705,9 +705,9 @@ export function PremiumBaselineFlow({
   const renderSublevelCard = () => {
     const color = selectedBallLevel ? STAGE_COLORS[selectedBallLevel] : GlowColors.primary;
     const sublevels: { level: 1 | 2 | 3; name: string; description: string }[] = [
-      { level: 1, name: "Stage 1", description: "Ready for next ball level" },
-      { level: 2, name: "Stage 2", description: "Developing competency" },
       { level: 3, name: "Stage 3", description: "Just starting at this level" },
+      { level: 2, name: "Stage 2", description: "Developing competency" },
+      { level: 1, name: "Stage 1", description: "Ready for next ball level" },
     ];
     
     return (
