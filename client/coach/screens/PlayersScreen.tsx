@@ -922,6 +922,37 @@ function PlayerDetailView({
     queryKey: [`/api/players/${player.id}/xp`],
   });
 
+  // Fetch baseline status
+  interface BaselineData {
+    id: string;
+    playerId: string;
+    status: string;
+    ballLevel: string | null;
+    skillLevel: number | null;
+    createdAt: string;
+    lockedAt: string | null;
+  }
+  const { data: baselineData } = useQuery<BaselineData>({
+    queryKey: [`/api/players/${player.id}/baseline`],
+  });
+  const [showResetBaselineConfirm, setShowResetBaselineConfirm] = useState(false);
+
+  const resetBaselineMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("DELETE", `/api/players/${player.id}/baseline`);
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: [`/api/players/${player.id}/baseline`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/academy/players-without-baseline"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/academy/baseline-stats"] });
+      setShowResetBaselineConfirm(false);
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to reset baseline. Please try again.");
+    },
+  });
+
   // Fetch pillar progress for Glow Leveling OS
   interface PillarProgressData {
     pillars: Array<{
@@ -1248,6 +1279,85 @@ function PlayerDetailView({
         ) : null}
 
         <PackagesCard playerId={player.id} playerName={player.name} />
+
+        {/* Baseline Management Card */}
+        <View style={styles.baselineManagementCard}>
+          <View style={styles.baselineManagementHeader}>
+            <View style={styles.baselineIconContainer}>
+              <Ionicons name="flag" size={18} color={baselineData ? Colors.dark.primary : Colors.dark.gold} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.baselineManagementTitle}>Start Baseline</Text>
+              <Text style={styles.baselineManagementStatus}>
+                {baselineData 
+                  ? `Current: ${(baselineData.ballLevel || "Unknown").toUpperCase()} ${baselineData.skillLevel || ""} (${baselineData.status})`
+                  : "No baseline set"
+                }
+              </Text>
+            </View>
+          </View>
+          <Pressable
+            style={[
+              styles.baselineActionButton,
+              baselineData ? styles.baselineResetButton : styles.baselineStartButton,
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              if (baselineData) {
+                setShowResetBaselineConfirm(true);
+              } else {
+                onBack();
+              }
+            }}
+          >
+            <Ionicons 
+              name={baselineData ? "refresh" : "play"} 
+              size={16} 
+              color={baselineData ? Colors.dark.gold : Colors.dark.backgroundRoot} 
+            />
+            <Text style={[
+              styles.baselineActionButtonText,
+              baselineData && styles.baselineResetButtonText,
+            ]}>
+              {baselineData ? "Reopen Baseline" : "Start Baseline"}
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Reset Baseline Confirmation Modal */}
+        <Modal visible={showResetBaselineConfirm} transparent animationType="fade">
+          <View style={styles.confirmModalOverlay}>
+            <View style={styles.confirmModalContent}>
+              <View style={styles.confirmModalIcon}>
+                <Ionicons name="warning" size={32} color={Colors.dark.gold} />
+              </View>
+              <Text style={styles.confirmModalTitle}>Reopen Baseline?</Text>
+              <Text style={styles.confirmModalText}>
+                This will delete the current baseline assessment for {player.name}. 
+                You can then set a new baseline from scratch.
+              </Text>
+              <View style={styles.confirmModalActions}>
+                <Pressable
+                  style={styles.confirmModalCancelButton}
+                  onPress={() => setShowResetBaselineConfirm(false)}
+                >
+                  <Text style={styles.confirmModalCancelText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.confirmModalConfirmButton}
+                  onPress={() => resetBaselineMutation.mutate()}
+                  disabled={resetBaselineMutation.isPending}
+                >
+                  {resetBaselineMutation.isPending ? (
+                    <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                  ) : (
+                    <Text style={styles.confirmModalConfirmText}>Reopen</Text>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {player.onboardingCompleted ? (
           <View style={styles.onboardingCard}>
@@ -3652,6 +3762,131 @@ const styles = StyleSheet.create({
   feedbackSummaryText: {
     fontSize: Typography.caption.fontSize,
     color: Colors.dark.tabIconDefault,
+  },
+  baselineManagementCard: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+  },
+  baselineManagementHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  baselineIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.primary + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  baselineManagementTitle: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  baselineManagementStatus: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.tabIconDefault,
+    marginTop: 2,
+  },
+  baselineActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  baselineStartButton: {
+    backgroundColor: Colors.dark.primary,
+  },
+  baselineResetButton: {
+    backgroundColor: Colors.dark.gold + "20",
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "40",
+  },
+  baselineActionButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.backgroundRoot,
+  },
+  baselineResetButtonText: {
+    color: Colors.dark.gold,
+  },
+  confirmModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  confirmModalContent: {
+    width: "100%",
+    maxWidth: 320,
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  confirmModalIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.dark.gold + "20",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.md,
+  },
+  confirmModalTitle: {
+    fontSize: Typography.h3.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: Spacing.sm,
+  },
+  confirmModalText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    marginBottom: Spacing.xl,
+    lineHeight: 22,
+  },
+  confirmModalActions: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    width: "100%",
+  },
+  confirmModalCancelButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+  },
+  confirmModalCancelText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  confirmModalConfirmButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.dark.gold,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+  },
+  confirmModalConfirmText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.backgroundRoot,
   },
   onboardingCard: {
     marginHorizontal: Spacing.lg,

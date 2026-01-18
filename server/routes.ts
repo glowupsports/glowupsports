@@ -12,7 +12,7 @@ import {
   invoices, payments, sessionPlayers, sessionWaitlist, creditTransactions, players, 
   locationTravelTimes, sessions, sessionFeedback, seriesPlayers, coachingSeries,
   sessionSkillObservations, sessionSkillFeedback, playerSessionCancellations,
-  playerPillarProgress, coachXpTransactions, xpTransactions, packages, playerBaselineSkillScores,
+  playerPillarProgress, coachXpTransactions, xpTransactions, packages, playerBaselineSkillScores, playerBaselines,
   // Social features
   posts as postsTable,
   postReactions as postReactionsTable,
@@ -5951,6 +5951,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error unlocking baseline:", error);
       res.status(500).json({ error: "Failed to unlock baseline" });
+    }
+  });
+
+  // Reset/Reopen player baseline (allows starting a new baseline)
+  app.delete("/api/players/:id/baseline", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      
+      const { valid } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const baseline = await storage.getPlayerBaseline(id);
+      if (!baseline) {
+        return res.status(404).json({ error: "No baseline found for this player" });
+      }
+      
+      // Delete the baseline (this allows a new baseline to be created)
+      await db.delete(playerBaselineSkillScores).where(eq(playerBaselineSkillScores.baselineId, baseline.id));
+      await db.delete(playerBaselines).where(eq(playerBaselines.id, baseline.id));
+      
+      res.json({ success: true, message: "Baseline reset successfully" });
+    } catch (error) {
+      console.error("Error resetting baseline:", error);
+      res.status(500).json({ error: "Failed to reset baseline" });
     }
   });
 
