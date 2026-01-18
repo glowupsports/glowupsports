@@ -205,7 +205,7 @@ export function formatLocalDateToString(date: Date): string {
  * Format a Date object to YYYY-MM-DD string in a specific timezone.
  * Use this when you need to format a local Date for comparison with session dates in the academy timezone.
  */
-export function formatDateInTimezone(date: Date, timezone: string): string {
+export function formatDateObjectInTimezone(date: Date, timezone: string): string {
   try {
     const formatter = new Intl.DateTimeFormat("en-CA", {
       timeZone: timezone,
