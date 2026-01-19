@@ -35,6 +35,7 @@ import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor, Backgro
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
+import InSessionFeedbackDrawer from "./InSessionFeedbackDrawer";
 
 interface Player {
   id: string;
@@ -96,6 +97,7 @@ export default function SessionDetailDrawer({
   
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [showExtendOptions, setShowExtendOptions] = useState(false);
+  const [showQuickFeedback, setShowQuickFeedback] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showIntroCard, setShowIntroCard] = useState(true);
@@ -1011,6 +1013,33 @@ export default function SessionDetailDrawer({
         <Ionicons name="chevron-forward" size={20} color={Colors.dark.orange} />
       </Pressable>
 
+      {/* Quick Feedback Button - In-Session */}
+      {session.players && session.players.length > 0 && (
+        <Pressable 
+          style={styles.quickFeedbackCard} 
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setShowQuickFeedback(true);
+          }}
+        >
+          <View style={styles.attendanceCardLeft}>
+            <LinearGradient
+              colors={[GlowColors.primary, "#7ACC2C"]}
+              style={[styles.attendanceIconContainer]}
+            >
+              <Ionicons name="flash" size={22} color={Colors.dark.buttonText} />
+            </LinearGradient>
+            <View>
+              <Text style={[styles.attendanceCardTitle, { color: GlowColors.primary }]}>Quick Feedback</Text>
+              <Text style={styles.attendanceCardSubtitle}>Give instant feedback to players</Text>
+            </View>
+          </View>
+          <View style={styles.xpIndicator}>
+            <Text style={styles.xpIndicatorText}>+XP</Text>
+          </View>
+        </Pressable>
+      )}
+
       {/* Feedback Card */}
       {onFeedback ? (
         <Pressable style={styles.feedbackCard} onPress={onFeedback}>
@@ -1610,6 +1639,14 @@ export default function SessionDetailDrawer({
         </View>
       </View>
       </Modal>
+
+      {/* In-Session Feedback Drawer */}
+      <InSessionFeedbackDrawer
+        visible={showQuickFeedback}
+        sessionId={session.id}
+        players={session.players || []}
+        onClose={() => setShowQuickFeedback(false)}
+      />
     </>
   );
 }
@@ -2240,6 +2277,28 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.dark.gold + "30",
+  },
+  quickFeedbackCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: GlowColors.primary + "15",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: GlowColors.primary + "30",
+  },
+  xpIndicator: {
+    backgroundColor: GlowColors.primary + "30",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs / 2,
+    borderRadius: BorderRadius.sm,
+  },
+  xpIndicatorText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: GlowColors.primary,
   },
   sessionControlsSection: {
     backgroundColor: Backgrounds.card,

@@ -1681,6 +1681,38 @@ export const insertSessionFeedbackSchema = createInsertSchema(sessionFeedback).o
 export type InsertSessionFeedback = z.infer<typeof insertSessionFeedbackSchema>;
 export type SessionFeedback = typeof sessionFeedback.$inferSelect;
 
+// In-Session Player Feedback - Real-time feedback during sessions with visibility control
+export const inSessionFeedback = pgTable("in_session_feedback", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => sessions.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  coachId: varchar("coach_id").references(() => users.id).notNull(),
+  
+  // Feedback type: praise, technique, effort, focus, attitude, attendance, custom
+  feedbackType: text("feedback_type").notNull(),
+  
+  // The actual feedback message
+  message: text("message").notNull(),
+  
+  // Visibility: public (shows in player app, XP eligible) or private (coach only)
+  visibility: text("visibility").notNull().default("private"),
+  
+  // Optional XP bonus for positive public feedback
+  xpAwarded: integer("xp_awarded").default(0),
+  
+  // Pillar association for skill-based feedback
+  pillarId: text("pillar_id"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertInSessionFeedbackSchema = createInsertSchema(inSessionFeedback).omit({ id: true, createdAt: true });
+export type InsertInSessionFeedback = z.infer<typeof insertInSessionFeedbackSchema>;
+export type InSessionFeedback = typeof inSessionFeedback.$inferSelect;
+
 // Audit Logs - Enhanced for payment tracking and admin actions
 export const auditLogs = pgTable("audit_logs", {
   id: varchar("id")

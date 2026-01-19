@@ -10,7 +10,7 @@ import { playerHolidays } from "@shared/schema";
 import { eq, sql, desc, and, ne, gt, gte, asc, inArray, isNull, isNotNull, or, count } from "drizzle-orm";
 import { 
   invoices, payments, sessionPlayers, sessionWaitlist, creditTransactions, players, 
-  locationTravelTimes, sessions, sessionFeedback, seriesPlayers, coachingSeries,
+  locationTravelTimes, sessions, sessionFeedback, inSessionFeedback, seriesPlayers, coachingSeries,
   sessionSkillObservations, sessionSkillFeedback, playerSessionCancellations,
   playerPillarProgress, coachXpTransactions, xpTransactions, packages, playerBaselineSkillScores, playerBaselines,
   // Social features
@@ -4463,6 +4463,126 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error saving feedback:", error);
       res.status(500).json({ error: "Failed to save feedback" });
+    }
+  });
+
+  // ==================== IN-SESSION PLAYER FEEDBACK ====================
+  
+  // Get in-session feedback for a session
+  app.get("/api/coach/sessions/:id/in-session-feedback", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      
+      const { valid } = await validateSessionOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      const feedback = await db.select().from(inSessionFeedback)
+        .leftJoin(players, eq(inSessionFeedback.playerId, players.id))
+        .where(eq(inSessionFeedback.sessionId, id))
+        .orderBy(desc(inSessionFeedback.createdAt));
+      
+      res.json(feedback.map(f => ({
+        ...f.in_session_feedback,
+        player: f.players ? { id: f.players.id, name: f.players.name } : null,
+      })));
+    } catch (error) {
+      console.error("Error fetching in-session feedback:", error);
+      res.status(500).json({ error: "Failed to fetch feedback" });
+    }
+  });
+  
+  // Create in-session feedback for a player
+  app.post("/api/coach/sessions/:id/in-session-feedback", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { playerId, feedbackType, message, visibility, pillarId } = req.body;
+      const coachId = req.user!.coachId || req.user!.userId;
+      const academyId = req.user!.academyId;
+      
+      const { valid, session } = await validateSessionOwnership(id, academyId, storage);
+      if (!valid || !session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      if (!playerId || !feedbackType || !message) {
+        return res.status(400).json({ error: "Missing required fields: playerId, feedbackType, message" });
+      }
+      
+      // Validate visibility
+      const feedbackVisibility = visibility === "public" ? "public" : "private";
+      
+      // Calculate XP for positive public feedback
+      let xpAwarded = 0;
+      const POSITIVE_FEEDBACK_TYPES = ["praise", "effort", "technique", "improvement"];
+      if (feedbackVisibility === "public" && POSITIVE_FEEDBACK_TYPES.includes(feedbackType)) {
+        xpAwarded = feedbackType === "praise" ? 15 : feedbackType === "effort" ? 10 : 5;
+        
+        // Award XP to player
+        await storage.createXpTransaction({
+          playerId,
+          xpAmount: xpAwarded,
+          source: "in_session_feedback",
+          description: `Coach feedback: ${feedbackType}`,
+          sessionId: id,
+        });
+        
+        // Update player total XP
+        const player = await storage.getPlayer(playerId);
+        if (player) {
+          const newTotalXp = (player.totalXp || 0) + xpAwarded;
+          await storage.updatePlayer(playerId, { totalXp: newTotalXp });
+        }
+      }
+      
+      // Create feedback record
+      const [feedback] = await db.insert(inSessionFeedback).values({
+        sessionId: id,
+        playerId,
+        coachId,
+        feedbackType,
+        message,
+        visibility: feedbackVisibility,
+        xpAwarded,
+        pillarId: pillarId || null,
+      }).returning();
+      
+      res.json({ success: true, feedback, xpAwarded });
+    } catch (error) {
+      console.error("Error creating in-session feedback:", error);
+      res.status(500).json({ error: "Failed to create feedback" });
+    }
+  });
+  
+  // Get player's public feedback (for player app)
+  app.get("/api/player/me/feedback", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) {
+        return res.status(400).json({ error: "Player not found" });
+      }
+      
+      const feedback = await db.select({
+        id: inSessionFeedback.id,
+        feedbackType: inSessionFeedback.feedbackType,
+        message: inSessionFeedback.message,
+        xpAwarded: inSessionFeedback.xpAwarded,
+        createdAt: inSessionFeedback.createdAt,
+        sessionId: inSessionFeedback.sessionId,
+      }).from(inSessionFeedback)
+        .where(and(
+          eq(inSessionFeedback.playerId, playerId),
+          eq(inSessionFeedback.visibility, "public")
+        ))
+        .orderBy(desc(inSessionFeedback.createdAt))
+        .limit(50);
+      
+      res.json(feedback);
+    } catch (error) {
+      console.error("Error fetching player feedback:", error);
+      res.status(500).json({ error: "Failed to fetch feedback" });
     }
   });
 
