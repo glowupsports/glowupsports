@@ -3161,7 +3161,7 @@ const styles = StyleSheet.create({
   timeText: {
     fontSize: 10,
     fontWeight: "600",
-    color: Colors.dark.textMuted,
+    color: "#FFFFFF",
     letterSpacing: 0.5,
   },
   courtLanesContainer: {
@@ -3174,7 +3174,7 @@ const styles = StyleSheet.create({
   },
   courtLaneWithDivider: {
     borderLeftWidth: 1,
-    borderLeftColor: "rgba(255, 255, 255, 0.1)",
+    borderLeftColor: "rgba(255, 255, 255, 0.4)",
   },
   courtLaneWithLocationDivider: {
     borderLeftWidth: 1,
@@ -3196,7 +3196,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.35)",
+    backgroundColor: "rgba(255, 255, 255, 0.5)",
   },
   halfHourLine: {
     position: "absolute",
@@ -3204,7 +3204,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
   },
   sessionBlock: {
     position: "absolute",
@@ -3904,7 +3904,7 @@ const styles = StyleSheet.create({
   weekTimeText: {
     fontSize: 9,
     fontWeight: "600",
-    color: Colors.dark.textMuted,
+    color: "#FFFFFF",
     letterSpacing: 0.3,
   },
   weekDayColumns: {
@@ -3915,14 +3915,14 @@ const styles = StyleSheet.create({
     flex: 1,
     position: "relative",
     borderLeftWidth: 1,
-    borderLeftColor: "rgba(255, 255, 255, 0.06)",
+    borderLeftColor: "rgba(255, 255, 255, 0.35)",
   },
   weekDayColumnToday: {
-    backgroundColor: GlowColors.primary + "08",
+    backgroundColor: GlowColors.primary + "15",
   },
   weekHourSlot: {
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.04)",
+    borderBottomColor: "rgba(255, 255, 255, 0.25)",
   },
   weekHourLine: {
     position: "absolute",
@@ -3930,14 +3930,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255, 255, 255, 0.5)",
   },
   weekHalfHourLine: {
     position: "absolute",
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
   },
   weekSessionBlock: {
     position: "absolute",

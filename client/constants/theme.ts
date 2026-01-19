@@ -187,6 +187,11 @@ export const Colors = {
     cyan: FunctionColors.info,
     surface: Backgrounds.surface,
     accentOrange: RoleColors.adminSecondary,
+    // Missing color aliases
+    accentCyan: FunctionColors.info,
+    accentNeon: FunctionColors.info,
+    accentGreen: FunctionColors.success,
+    accent: FunctionColors.info,
   },
   dark: {
     text: TextColors.primary,
@@ -258,6 +263,11 @@ export const Colors = {
     cyan: FunctionColors.info,
     surface: Backgrounds.surface,
     accentOrange: RoleColors.adminSecondary,
+    // Missing color aliases
+    accentCyan: FunctionColors.info,
+    accentNeon: FunctionColors.info,
+    accentGreen: FunctionColors.success,
+    accent: FunctionColors.info,
   },
 };
 

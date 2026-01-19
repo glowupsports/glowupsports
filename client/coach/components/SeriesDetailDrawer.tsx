@@ -4398,6 +4398,13 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
     paddingHorizontal: Spacing.md,
   },
+  sectionLabel: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    textTransform: "uppercase" as const,
+    letterSpacing: 1,
+  },
   restoreButton: {
     width: "100%",
     borderRadius: BorderRadius.md,
