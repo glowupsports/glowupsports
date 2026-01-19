@@ -55,6 +55,7 @@ type FilterType = "all" | "active" | "paused" | "ended";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const DAY_ABBREV = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const FLEXIBLE_DAY = -1;
 
 const SESSION_TYPE_COLORS: Record<string, string> = {
   private: Colors.dark.sessionPrivate,
@@ -69,6 +70,7 @@ interface CollapsibleDaySectionProps {
   isExpanded: boolean;
   onToggle: () => void;
   onSeriesPress: (series: CoachingSeries) => void;
+  isFlexible?: boolean;
 }
 
 function CollapsibleDaySection({
@@ -77,6 +79,7 @@ function CollapsibleDaySection({
   isExpanded,
   onToggle,
   onSeriesPress,
+  isFlexible = false,
 }: CollapsibleDaySectionProps) {
   const rotation = useSharedValue(isExpanded ? 1 : 0);
   const height = useSharedValue(isExpanded ? 1 : 0);
@@ -102,15 +105,17 @@ function CollapsibleDaySection({
   };
 
   const sortedSeries = [...series].sort((a, b) => a.startTime.localeCompare(b.startTime));
+  const sectionTitle = isFlexible ? "Flexible Schedule" : DAY_NAMES[dayOfWeek];
+  const accentColor = isFlexible ? Colors.dark.cyan : ADMIN_COLOR;
 
   return (
     <View style={dayStyles.container}>
-      <Pressable onPress={handlePress} style={dayStyles.header}>
+      <Pressable onPress={handlePress} style={[dayStyles.header, isFlexible && { borderColor: `${accentColor}30` }]}>
         <View style={dayStyles.headerLeft}>
           <Animated.View style={arrowStyle}>
-            <Ionicons name="chevron-down" size={20} color={ADMIN_COLOR} />
+            <Ionicons name="chevron-down" size={20} color={accentColor} />
           </Animated.View>
-          <Text style={dayStyles.dayTitle}>{DAY_NAMES[dayOfWeek]}</Text>
+          <Text style={[dayStyles.dayTitle, isFlexible && { color: accentColor }]}>{sectionTitle}</Text>
         </View>
         <View style={dayStyles.headerRight}>
           <Text style={dayStyles.classCount}>{series.length}</Text>
@@ -359,14 +364,22 @@ export default function AdminClassesScreen() {
     return filteredByCoach.filter((s) => s.status === filter);
   }, [filteredByCoach, filter]);
 
+  const flexibleSeries = useMemo(() => {
+    return filteredSeries.filter(s => s.dayOfWeek === FLEXIBLE_DAY);
+  }, [filteredSeries]);
+
+  const regularSeries = useMemo(() => {
+    return filteredSeries.filter(s => s.dayOfWeek !== FLEXIBLE_DAY);
+  }, [filteredSeries]);
+
   const groupedByDay = useMemo(() => {
-    return filteredSeries.reduce((acc, series) => {
+    return regularSeries.reduce((acc, series) => {
       const day = series.dayOfWeek;
       if (!acc[day]) acc[day] = [];
       acc[day].push(series);
       return acc;
     }, {} as Record<number, CoachingSeries[]>);
-  }, [filteredSeries]);
+  }, [regularSeries]);
 
   const sortedDays = Object.keys(groupedByDay).map(Number).sort((a, b) => a - b);
 
@@ -516,16 +529,29 @@ export default function AdminClassesScreen() {
             </Text>
           </View>
         ) : (
-          sortedDays.map((day) => (
-            <CollapsibleDaySection
-              key={day}
-              dayOfWeek={day}
-              series={groupedByDay[day]}
-              isExpanded={expandedDays.has(day)}
-              onToggle={() => toggleDay(day)}
-              onSeriesPress={handleSeriesPress}
-            />
-          ))
+          <>
+            {flexibleSeries.length > 0 && (
+              <CollapsibleDaySection
+                key="flexible"
+                dayOfWeek={FLEXIBLE_DAY}
+                series={flexibleSeries}
+                isExpanded={expandedDays.has(FLEXIBLE_DAY)}
+                onToggle={() => toggleDay(FLEXIBLE_DAY)}
+                onSeriesPress={handleSeriesPress}
+                isFlexible
+              />
+            )}
+            {sortedDays.map((day) => (
+              <CollapsibleDaySection
+                key={day}
+                dayOfWeek={day}
+                series={groupedByDay[day]}
+                isExpanded={expandedDays.has(day)}
+                onToggle={() => toggleDay(day)}
+                onSeriesPress={handleSeriesPress}
+              />
+            ))}
+          </>
         )}
       </ScrollView>
 
