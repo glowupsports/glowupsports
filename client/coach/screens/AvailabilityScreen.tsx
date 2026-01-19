@@ -47,10 +47,35 @@ type Exception = {
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const WEEKDAY_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const TIME_OPTIONS = ["06:00", "07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00"];
+const TIME_GRID = [
+  ["06:00", "06:30", "07:00", "07:30"],
+  ["08:00", "08:30", "09:00", "09:30"],
+  ["10:00", "10:30", "11:00", "11:30"],
+  ["12:00", "12:30", "13:00", "13:30"],
+  ["14:00", "14:30", "15:00", "15:30"],
+  ["16:00", "16:30", "17:00", "17:30"],
+  ["18:00", "18:30", "19:00", "19:30"],
+  ["20:00", "20:30", "21:00", "21:30"],
+  ["22:00", "22:30", "23:00", "23:30"],
+];
 const SESSION_LENGTHS = [30, 45, 60, 90];
 const BUFFER_OPTIONS = [0, 10, 15, 30];
 const REASON_OPTIONS = ["Holiday", "Sick", "Tournament", "Personal"];
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function generateCalendarDays(year: number, month: number) {
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const days: (number | null)[] = [];
+  for (let i = 0; i < firstDay; i++) days.push(null);
+  for (let i = 1; i <= daysInMonth; i++) days.push(i);
+  return days;
+}
+
+function formatDateISO(year: number, month: number, day: number) {
+  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
 
 const DEFAULT_AVAILABILITY: DayAvailability[] = WEEKDAYS.map((_, i) => ({
   weekday: i,
@@ -120,6 +145,13 @@ export default function AvailabilityScreen() {
   const [exceptionStartDate, setExceptionStartDate] = useState("");
   const [exceptionEndDate, setExceptionEndDate] = useState("");
   const [exceptionReason, setExceptionReason] = useState("Holiday");
+  
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [timePickerContext, setTimePickerContext] = useState<{ weekday: number; blockId: string; field: "startTime" | "endTime" } | null>(null);
+  const [showCalendarPicker, setShowCalendarPicker] = useState(false);
+  const [calendarField, setCalendarField] = useState<"start" | "end">("start");
+  const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
 
   const saveScale = useSharedValue(1);
 
@@ -313,6 +345,54 @@ export default function AvailabilityScreen() {
     return `${newH.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
   };
 
+  const openTimePicker = (weekday: number, blockId: string, field: "startTime" | "endTime") => {
+    setTimePickerContext({ weekday, blockId, field });
+    setShowTimePicker(true);
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
+  const selectTime = (time: string) => {
+    if (timePickerContext) {
+      updateTimeBlock(timePickerContext.weekday, timePickerContext.blockId, timePickerContext.field, time);
+      setShowTimePicker(false);
+      setTimePickerContext(null);
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+    }
+  };
+
+  const openCalendarPicker = (field: "start" | "end") => {
+    setCalendarField(field);
+    const today = new Date();
+    setCalendarYear(today.getFullYear());
+    setCalendarMonth(today.getMonth());
+    setShowCalendarPicker(true);
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
+  const selectDate = (day: number) => {
+    const dateStr = formatDateISO(calendarYear, calendarMonth, day);
+    if (calendarField === "start") {
+      setExceptionStartDate(dateStr);
+      if (!exceptionEndDate || dateStr > exceptionEndDate) {
+        setExceptionEndDate(dateStr);
+      }
+    } else {
+      setExceptionEndDate(dateStr);
+    }
+    setShowCalendarPicker(false);
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+  };
+
+  const calendarDays = useMemo(() => generateCalendarDays(calendarYear, calendarMonth), [calendarYear, calendarMonth]);
+
   const renderDayCard = (day: DayAvailability) => {
     const isExpanded = selectedDay === day.weekday;
 
@@ -373,18 +453,26 @@ export default function AvailabilityScreen() {
               <View key={block.id} style={styles.timeBlockRow}>
                 <View style={styles.timeSelector}>
                   <Text style={styles.timeSelectorLabel}>From</Text>
-                  <View style={styles.timeButton}>
+                  <Pressable 
+                    style={styles.timeButton}
+                    onPress={() => openTimePicker(day.weekday, block.id, "startTime")}
+                  >
                     <Text style={styles.timeButtonText}>{block.startTime}</Text>
-                  </View>
+                    <Feather name="chevron-down" size={14} color={Colors.dark.xpCyan} />
+                  </Pressable>
                 </View>
                 <View style={styles.arrowContainer}>
                   <Feather name="arrow-right" size={16} color={Colors.dark.xpCyan} />
                 </View>
                 <View style={styles.timeSelector}>
                   <Text style={styles.timeSelectorLabel}>To</Text>
-                  <View style={styles.timeButton}>
+                  <Pressable 
+                    style={styles.timeButton}
+                    onPress={() => openTimePicker(day.weekday, block.id, "endTime")}
+                  >
                     <Text style={styles.timeButtonText}>{block.endTime}</Text>
-                  </View>
+                    <Feather name="chevron-down" size={14} color={Colors.dark.xpCyan} />
+                  </Pressable>
                 </View>
                 <Pressable
                   style={styles.removeBlockButton}
@@ -627,28 +715,28 @@ export default function AvailabilityScreen() {
 
             <View style={styles.modalFormGroup}>
               <Text style={styles.modalLabel}>START DATE</Text>
-              <View style={styles.modalInputWrapper}>
-                <TextInput
-                  style={styles.modalInput}
-                  value={exceptionStartDate}
-                  onChangeText={setExceptionStartDate}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={Colors.dark.textMuted}
-                />
-              </View>
+              <Pressable 
+                style={styles.datePickerButton}
+                onPress={() => openCalendarPicker("start")}
+              >
+                <Feather name="calendar" size={18} color={Colors.dark.xpCyan} />
+                <Text style={exceptionStartDate ? styles.datePickerText : styles.datePickerPlaceholder}>
+                  {exceptionStartDate || "Select start date"}
+                </Text>
+              </Pressable>
             </View>
 
             <View style={styles.modalFormGroup}>
               <Text style={styles.modalLabel}>END DATE</Text>
-              <View style={styles.modalInputWrapper}>
-                <TextInput
-                  style={styles.modalInput}
-                  value={exceptionEndDate}
-                  onChangeText={setExceptionEndDate}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={Colors.dark.textMuted}
-                />
-              </View>
+              <Pressable 
+                style={styles.datePickerButton}
+                onPress={() => openCalendarPicker("end")}
+              >
+                <Feather name="calendar" size={18} color={Colors.dark.xpCyan} />
+                <Text style={exceptionEndDate ? styles.datePickerText : styles.datePickerPlaceholder}>
+                  {exceptionEndDate || "Select end date"}
+                </Text>
+              </Pressable>
             </View>
 
             <View style={styles.modalFormGroup}>
@@ -716,6 +804,174 @@ export default function AvailabilityScreen() {
                 <Text style={styles.modalSaveButtonText}>Add Exception</Text>
               </LinearGradient>
             </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showTimePicker}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowTimePicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.timePickerContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <LinearGradient
+              colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.modalGradientLine}
+            />
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {timePickerContext?.field === "startTime" ? "START TIME" : "END TIME"}
+              </Text>
+              <Pressable onPress={() => setShowTimePicker(false)}>
+                <Feather name="x" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+            <Text style={styles.modalHint}>Tap to select a time</Text>
+            <ScrollView style={styles.timeGridScroll} showsVerticalScrollIndicator={false}>
+              {TIME_GRID.map((row, rowIndex) => (
+                <View key={rowIndex} style={styles.timeGridRow}>
+                  {row.map((time) => {
+                    const currentBlock = timePickerContext 
+                      ? availability[timePickerContext.weekday]?.timeBlocks.find(b => b.id === timePickerContext.blockId)
+                      : null;
+                    const isSelected = currentBlock?.[timePickerContext?.field || "startTime"] === time;
+                    return (
+                      <Pressable
+                        key={time}
+                        style={[styles.timeGridCell, isSelected && styles.timeGridCellSelected]}
+                        onPress={() => selectTime(time)}
+                      >
+                        {isSelected ? (
+                          <LinearGradient
+                            colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.timeGridCellGradient}
+                          >
+                            <Text style={styles.timeGridTextSelected}>{time}</Text>
+                          </LinearGradient>
+                        ) : (
+                          <Text style={styles.timeGridText}>{time}</Text>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showCalendarPicker}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowCalendarPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.calendarContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <LinearGradient
+              colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.modalGradientLine}
+            />
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {calendarField === "start" ? "START DATE" : "END DATE"}
+              </Text>
+              <Pressable onPress={() => setShowCalendarPicker(false)}>
+                <Feather name="x" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+            
+            <View style={styles.calendarNav}>
+              <Pressable 
+                style={styles.calendarNavButton}
+                onPress={() => {
+                  if (calendarMonth === 0) {
+                    setCalendarMonth(11);
+                    setCalendarYear(y => y - 1);
+                  } else {
+                    setCalendarMonth(m => m - 1);
+                  }
+                }}
+              >
+                <Feather name="chevron-left" size={24} color={Colors.dark.xpCyan} />
+              </Pressable>
+              <Text style={styles.calendarMonthYear}>
+                {MONTHS[calendarMonth]} {calendarYear}
+              </Text>
+              <Pressable 
+                style={styles.calendarNavButton}
+                onPress={() => {
+                  if (calendarMonth === 11) {
+                    setCalendarMonth(0);
+                    setCalendarYear(y => y + 1);
+                  } else {
+                    setCalendarMonth(m => m + 1);
+                  }
+                }}
+              >
+                <Feather name="chevron-right" size={24} color={Colors.dark.xpCyan} />
+              </Pressable>
+            </View>
+
+            <View style={styles.calendarWeekdays}>
+              {WEEKDAYS.map(d => (
+                <Text key={d} style={styles.calendarWeekday}>{d}</Text>
+              ))}
+            </View>
+
+            <View style={styles.calendarGrid}>
+              {calendarDays.map((day, i) => {
+                if (day === null) {
+                  return <View key={`empty-${i}`} style={styles.calendarDayEmpty} />;
+                }
+                const dateStr = formatDateISO(calendarYear, calendarMonth, day);
+                const isStart = exceptionStartDate === dateStr;
+                const isEnd = exceptionEndDate === dateStr;
+                const isInRange = exceptionStartDate && exceptionEndDate && dateStr > exceptionStartDate && dateStr < exceptionEndDate;
+                const today = new Date();
+                const todayStr = formatDateISO(today.getFullYear(), today.getMonth(), today.getDate());
+                const isToday = dateStr === todayStr;
+                const isPast = dateStr < todayStr;
+                
+                return (
+                  <Pressable
+                    key={day}
+                    style={[
+                      styles.calendarDay,
+                      (isStart || isEnd) && styles.calendarDaySelected,
+                      isInRange && styles.calendarDayInRange,
+                      isToday && styles.calendarDayToday,
+                    ]}
+                    onPress={() => !isPast && selectDate(day)}
+                    disabled={isPast}
+                  >
+                    {isStart || isEnd ? (
+                      <LinearGradient
+                        colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                        style={styles.calendarDayGradient}
+                      >
+                        <Text style={styles.calendarDayTextSelected}>{day}</Text>
+                      </LinearGradient>
+                    ) : (
+                      <Text style={[
+                        styles.calendarDayText,
+                        isPast && styles.calendarDayTextPast,
+                        isInRange && styles.calendarDayTextInRange,
+                      ]}>{day}</Text>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
         </View>
       </Modal>
@@ -928,6 +1184,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   timeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.sm,
     padding: Spacing.sm,
@@ -937,7 +1196,6 @@ const styles = StyleSheet.create({
   timeButtonText: {
     ...Typography.body,
     color: Colors.dark.text,
-    textAlign: "center",
   },
   arrowContainer: {
     paddingTop: Spacing.lg,
@@ -1238,6 +1496,152 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modalSaveButtonText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  datePickerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+  },
+  datePickerText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  datePickerPlaceholder: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    flex: 1,
+  },
+  timePickerContent: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    maxHeight: "70%",
+  },
+  timeGridScroll: {
+    maxHeight: 350,
+  },
+  timeGridRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  timeGridCell: {
+    flex: 1,
+    borderRadius: BorderRadius.sm,
+    overflow: "hidden",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "20",
+  },
+  timeGridCellSelected: {
+    borderWidth: 0,
+  },
+  timeGridCellGradient: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  timeGridText: {
+    ...Typography.small,
+    color: Colors.dark.text,
+    textAlign: "center",
+    paddingVertical: Spacing.sm,
+  },
+  timeGridTextSelected: {
+    ...Typography.small,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  calendarContent: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+  },
+  calendarNav: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  calendarNavButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  calendarMonthYear: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  calendarWeekdays: {
+    flexDirection: "row",
+    marginBottom: Spacing.sm,
+  },
+  calendarWeekday: {
+    flex: 1,
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+    textAlign: "center",
+    fontWeight: "600",
+  },
+  calendarGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  calendarDay: {
+    width: "14.28%",
+    aspectRatio: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: BorderRadius.sm,
+    overflow: "hidden",
+  },
+  calendarDayEmpty: {
+    width: "14.28%",
+    aspectRatio: 1,
+  },
+  calendarDaySelected: {},
+  calendarDayInRange: {
+    backgroundColor: Colors.dark.xpCyan + "15",
+  },
+  calendarDayToday: {
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan,
+  },
+  calendarDayGradient: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  calendarDayText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  calendarDayTextPast: {
+    color: Colors.dark.tabIconDefault + "60",
+  },
+  calendarDayTextInRange: {
+    color: Colors.dark.xpCyan,
+  },
+  calendarDayTextSelected: {
     ...Typography.body,
     color: Colors.dark.backgroundRoot,
     fontWeight: "600",
