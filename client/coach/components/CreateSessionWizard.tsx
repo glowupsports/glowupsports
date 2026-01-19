@@ -52,6 +52,7 @@ interface Player {
   totalXp?: number | null;
   glowBattlePower?: number | null;
   streak?: number | null;
+  isGuest?: boolean;
 }
 
 // Pillar configuration for display
@@ -273,6 +274,11 @@ export default function CreateSessionWizard({
   const [playerSearch, setPlayerSearch] = useState("");
   const [visibleToPlayers, setVisibleToPlayers] = useState(true);
   const [enableWaitlist, setEnableWaitlist] = useState(false);
+  
+  // Guest player modal
+  const [showGuestModal, setShowGuestModal] = useState(false);
+  const [guestName, setGuestName] = useState("");
+  const [guestBallLevel, setGuestBallLevel] = useState<BallLevel | null>(null);
 
   // Auto-select ball level based on selected players (unless manually overridden)
   useEffect(() => {
@@ -631,6 +637,9 @@ export default function CreateSessionWizard({
     setPlayerSearch("");
     setVisibleToPlayers(true);
     setEnableWaitlist(false);
+    setShowGuestModal(false);
+    setGuestName("");
+    setGuestBallLevel(null);
     setTravelTime(0);
     setNotes("");
     setMultiWeekBlockedSlots(new Set());
@@ -1860,6 +1869,18 @@ export default function CreateSessionWizard({
           />
         </View>
 
+        {/* Add Guest Player Button */}
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setShowGuestModal(true);
+          }}
+          style={styles.addGuestButton}
+        >
+          <Ionicons name="person-add" size={18} color={Colors.dark.primary} />
+          <Text style={styles.addGuestButtonText}>Add Guest Player</Text>
+        </Pressable>
+
         {/* Selected Players */}
         {selectedPlayers.length > 0 && (
           <View style={styles.selectedPlayersRow}>
@@ -1870,8 +1891,13 @@ export default function CreateSessionWizard({
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setSelectedPlayers(prev => prev.filter(p => p.id !== player.id));
                 }}
-                style={styles.selectedPlayerChip}
+                style={[styles.selectedPlayerChip, player.isGuest && styles.selectedPlayerChipGuest]}
               >
+                {player.isGuest && (
+                  <View style={styles.guestBadge}>
+                    <Text style={styles.guestBadgeText}>GUEST</Text>
+                  </View>
+                )}
                 <Text style={styles.selectedPlayerName}>{player.name}</Text>
                 <Ionicons name="close" size={14} color={Colors.dark.error} />
               </Pressable>
@@ -2362,6 +2388,108 @@ export default function CreateSessionWizard({
               style={styles.calendarQuickBtn}
             >
               <Text style={styles.calendarQuickBtnText}>Next Month</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+
+    {/* Add Guest Player Modal */}
+    <Modal
+      visible={showGuestModal}
+      animationType="fade"
+      transparent
+      onRequestClose={() => setShowGuestModal(false)}
+    >
+      <View style={styles.guestModalOverlay}>
+        <View style={styles.guestModalContent}>
+          <LinearGradient
+            colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.guestModalHeaderLine}
+          />
+          
+          <View style={styles.guestModalHeader}>
+            <Text style={styles.guestModalTitle}>ADD GUEST PLAYER</Text>
+            <Pressable
+              onPress={() => {
+                setShowGuestModal(false);
+                setGuestName("");
+                setGuestBallLevel(null);
+              }}
+              style={styles.guestModalCloseBtn}
+            >
+              <Ionicons name="close" size={24} color={Colors.dark.text} />
+            </Pressable>
+          </View>
+
+          <View style={styles.guestModalBody}>
+            <Text style={styles.guestModalLabel}>Guest Name</Text>
+            <TextInput
+              style={styles.guestModalInput}
+              placeholder="Enter guest name..."
+              placeholderTextColor={Colors.dark.textMuted}
+              value={guestName}
+              onChangeText={setGuestName}
+              autoFocus
+            />
+
+            <Text style={[styles.guestModalLabel, { marginTop: Spacing.lg }]}>Ball Level (Optional)</Text>
+            <View style={styles.guestBallLevels}>
+              {BALL_LEVELS.map(level => (
+                <Pressable
+                  key={level.value}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setGuestBallLevel(guestBallLevel === level.value ? null : level.value);
+                  }}
+                  style={[
+                    styles.guestBallOption,
+                    guestBallLevel === level.value && { borderColor: level.color, backgroundColor: level.color + "20" }
+                  ]}
+                >
+                  <View style={[styles.guestBallDot, { backgroundColor: level.color }]} />
+                  <Text style={[
+                    styles.guestBallText,
+                    guestBallLevel === level.value && { color: Colors.dark.text }
+                  ]}>
+                    {level.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Pressable
+              onPress={() => {
+                if (!guestName.trim()) return;
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                const guestPlayer: Player = {
+                  id: `guest-${Date.now()}`,
+                  name: guestName.trim(),
+                  email: "",
+                  ballLevel: guestBallLevel,
+                  isGuest: true,
+                };
+                setSelectedPlayers(prev => [...prev, guestPlayer]);
+                setGuestName("");
+                setGuestBallLevel(null);
+                setShowGuestModal(false);
+              }}
+              disabled={!guestName.trim()}
+              style={[styles.guestModalAddBtn, !guestName.trim() && styles.guestModalAddBtnDisabled]}
+            >
+              <LinearGradient
+                colors={guestName.trim() ? [Colors.dark.primary, "#00FF88"] : [Colors.dark.disabled, Colors.dark.disabled]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.guestModalAddBtnGradient}
+              >
+                <Ionicons name="person-add" size={18} color={guestName.trim() ? Colors.dark.buttonText : Colors.dark.textMuted} />
+                <Text style={[styles.guestModalAddBtnText, !guestName.trim() && { color: Colors.dark.textMuted }]}>
+                  Add Guest
+                </Text>
+              </LinearGradient>
             </Pressable>
           </View>
         </View>
@@ -3352,6 +3480,22 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.primary,
   },
+  selectedPlayerChipGuest: {
+    backgroundColor: Colors.dark.orange + "20",
+    borderColor: Colors.dark.orange,
+  },
+  guestBadge: {
+    backgroundColor: Colors.dark.orange,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
+  },
+  guestBadgeText: {
+    fontSize: 8,
+    color: Colors.dark.buttonText,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
   playerList: {
     flex: 1,
   },
@@ -3734,5 +3878,131 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.text,
     fontWeight: "600",
+  },
+  // Add Guest Button styles
+  addGuestButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.dark.primary + "15",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+    borderStyle: "dashed",
+    marginBottom: Spacing.sm,
+  },
+  addGuestButtonText: {
+    ...Typography.body,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  // Guest Modal styles
+  guestModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  guestModalContent: {
+    width: "100%",
+    maxWidth: 400,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  guestModalHeaderLine: {
+    height: 3,
+  },
+  guestModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  guestModalTitle: {
+    ...Typography.h4,
+    color: Colors.dark.text,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  guestModalCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.backgroundRoot,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  guestModalBody: {
+    padding: Spacing.lg,
+  },
+  guestModalLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+    marginBottom: Spacing.sm,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  guestModalInput: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  guestBallLevels: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  guestBallOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  guestBallDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  guestBallText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  guestModalAddBtn: {
+    marginTop: Spacing.xl,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  guestModalAddBtnDisabled: {
+    opacity: 0.6,
+  },
+  guestModalAddBtnGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+  },
+  guestModalAddBtnText: {
+    ...Typography.body,
+    color: Colors.dark.buttonText,
+    fontWeight: "700",
   },
 });
