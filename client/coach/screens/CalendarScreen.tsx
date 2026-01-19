@@ -3102,8 +3102,8 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(255, 255, 255, 0.08)",
   },
   courtHeaderWithDivider: {
-    borderLeftWidth: 1,
-    borderLeftColor: "rgba(255, 255, 255, 0.12)",
+    borderLeftWidth: 3,
+    borderLeftColor: GlowColors.primary,
   },
   courtHeaderText: {
     fontSize: 12,
@@ -3118,6 +3118,7 @@ const styles = StyleSheet.create({
   calendarGrid: {
     flexDirection: "row",
     paddingHorizontal: Spacing.md,
+    paddingBottom: 120,
   },
   timeColumn: {
     width: TIME_COLUMN_WIDTH,
@@ -3148,14 +3149,14 @@ const styles = StyleSheet.create({
     backgroundColor: Backgrounds.elevated,
   },
   courtLaneWithDivider: {
-    borderLeftWidth: 1,
-    borderLeftColor: "rgba(255, 255, 255, 0.15)",
+    borderLeftWidth: 3,
+    borderLeftColor: GlowColors.primary,
   },
   hourSlot: {
     height: HOUR_HEIGHT_60,
     position: "relative",
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+    borderBottomColor: "rgba(255, 255, 255, 0.2)",
   },
   hourSlotEven: {
     backgroundColor: Backgrounds.elevated,
@@ -3169,7 +3170,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
   },
   halfHourLine: {
     position: "absolute",
