@@ -893,6 +893,52 @@ export default function SeriesDetailDrawer({
     }
   };
 
+  // Complete entire series (archive it)
+  const [completingSeries, setCompletingSeries] = useState(false);
+  
+  const handleCompleteSeries = async () => {
+    if (!seriesId) return;
+    
+    // Confirmation dialog
+    const confirmComplete = Platform.OS === "web" && typeof window !== "undefined"
+      ? window.confirm("Complete this class series? The class will be archived and no new sessions will be scheduled. You can still view the history.")
+      : await new Promise<boolean>((resolve) => {
+          const Alert = require("react-native").Alert;
+          Alert.alert(
+            "Complete Class Series",
+            "The class will be archived and no new sessions will be scheduled. You can still view the history in the Ended filter.",
+            [
+              { text: "Cancel", onPress: () => resolve(false), style: "cancel" },
+              { text: "Complete", onPress: () => resolve(true) },
+            ]
+          );
+        });
+    
+    if (!confirmComplete) return;
+    
+    setCompletingSeries(true);
+    try {
+      await apiRequest("POST", `/api/coach/series/${seriesId}/end`);
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === "string" && key.startsWith("/api/coach/calendar");
+        }
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onClose();
+    } catch (error) {
+      console.error("Error completing series:", error);
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.alert("Failed to complete class series. Please try again.");
+      }
+    } finally {
+      setCompletingSeries(false);
+    }
+  };
+
   // Delete entire series
   const [deletingSeries, setDeletingSeries] = useState(false);
   
@@ -1273,6 +1319,37 @@ export default function SeriesDetailDrawer({
         </View>
 
         <View style={styles.deleteSeriesSection}>
+          {/* Complete Series Button - only show if series is active */}
+          {series?.status === "active" && (
+            <Pressable
+              onPress={handleCompleteSeries}
+              style={[styles.completeSeriesButton, completingSeries && styles.completeSeriesButtonDisabled]}
+              disabled={completingSeries}
+            >
+              {completingSeries ? (
+                <ActivityIndicator size="small" color={Colors.dark.successNeon} />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle-outline" size={18} color={Colors.dark.successNeon} />
+                  <Text style={styles.completeSeriesButtonText}>Complete Class</Text>
+                </>
+              )}
+            </Pressable>
+          )}
+          
+          {/* Show "Completed" badge if series is ended */}
+          {series?.status === "ended" && (
+            <View style={styles.completedBadge}>
+              <Ionicons name="checkmark-circle" size={18} color={Colors.dark.successNeon} />
+              <Text style={styles.completedBadgeText}>Class Completed</Text>
+              {series.endedAt && (
+                <Text style={styles.completedDateText}>
+                  {new Date(series.endedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                </Text>
+              )}
+            </View>
+          )}
+          
           <Pressable
             onPress={handleDeleteSeries}
             style={[styles.deleteSeriesButton, deletingSeries && styles.deleteSeriesButtonDisabled]}
@@ -4465,6 +4542,49 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     borderTopWidth: 1,
     borderTopColor: Colors.dark.border,
+    gap: Spacing.md,
+  },
+  completeSeriesButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.successNeon + "40",
+    backgroundColor: Colors.dark.successNeon + "10",
+  },
+  completeSeriesButtonDisabled: {
+    opacity: 0.5,
+  },
+  completeSeriesButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.successNeon,
+  },
+  completedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.successNeon + "15",
+    borderWidth: 1,
+    borderColor: Colors.dark.successNeon + "30",
+  },
+  completedBadgeText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.successNeon,
+  },
+  completedDateText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    marginLeft: Spacing.sm,
   },
   deleteSeriesButton: {
     flexDirection: "row",
