@@ -3129,7 +3129,7 @@ const styles = StyleSheet.create({
   timeColumn: {
     width: TIME_COLUMN_WIDTH,
     borderRightWidth: 1,
-    borderRightColor: "rgba(255, 255, 255, 0.08)",
+    borderRightColor: "rgba(255, 255, 255, 0.15)",
   },
   timeSlot: {
     height: HOUR_HEIGHT_60,
@@ -3170,7 +3170,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.5)",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
   },
   halfHourLine: {
     position: "absolute",
@@ -3178,7 +3178,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.25)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   sessionBlock: {
     position: "absolute",
