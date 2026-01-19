@@ -2746,20 +2746,24 @@ const styles = StyleSheet.create({
   },
   ballFilterRow: {
     marginBottom: Spacing.md,
+    maxHeight: 40,
   },
   ballFilterContent: {
     gap: Spacing.sm,
+    alignItems: "center",
   },
   ballFilterChip: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 4,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 6,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 8,
     backgroundColor: "#1A1F2A",
     borderRadius: 20,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: "rgba(255, 255, 255, 0.4)",
+    height: 36,
   },
   ballFilterChipActive: {
     backgroundColor: GlowColors.primary + "20",

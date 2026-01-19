@@ -309,6 +309,7 @@ function configureExpoAndLanding(app: express.Application) {
 
   app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
   app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
+  app.use("/images", express.static(path.resolve(process.cwd(), "server/public/images")));
   // Try static-build first, then fall back to dist for static web files
   app.use(express.static(path.resolve(process.cwd(), "static-build")));
   app.use(express.static(path.resolve(process.cwd(), "dist")));

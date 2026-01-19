@@ -1373,7 +1373,7 @@ export default function SeriesDetailDrawer({
     if (!series) return null;
 
     const sortedSessions = [...series.sessions].sort(
-      (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+      (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
     );
     
     const formatSessionTime = (startTime: string) => {

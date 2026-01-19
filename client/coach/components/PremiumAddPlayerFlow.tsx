@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView, Dimensions } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -65,8 +66,35 @@ export function PremiumAddPlayerFlow({ visible, onClose, onComplete }: PremiumAd
   const [parentPhone, setParentPhone] = useState("");
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   const [createdPlayer, setCreatedPlayer] = useState<any>(null);
+  const [skipIntroNextTime, setSkipIntroNextTime] = useState(false);
   
   const successScale = useSharedValue(0);
+  
+  // Check if user has opted to skip intro
+  useEffect(() => {
+    const checkSkipIntro = async () => {
+      try {
+        const skipPref = await AsyncStorage.getItem("skipAddPlayerIntro");
+        if (skipPref === "true" && visible) {
+          setStep("basic-info");
+        }
+      } catch (e) {
+        // Ignore errors
+      }
+    };
+    if (visible) {
+      checkSkipIntro();
+    }
+  }, [visible]);
+  
+  const handleSkipIntroChange = async (value: boolean) => {
+    setSkipIntroNextTime(value);
+    try {
+      await AsyncStorage.setItem("skipAddPlayerIntro", value ? "true" : "false");
+    } catch (e) {
+      // Ignore errors
+    }
+  };
   
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -272,6 +300,18 @@ export function PremiumAddPlayerFlow({ visible, onClose, onComplete }: PremiumAd
             <Text style={styles.introFeatureText}>Parent info for kids</Text>
           </View>
         </View>
+        
+        <Pressable 
+          style={styles.skipCheckboxRow}
+          onPress={() => handleSkipIntroChange(!skipIntroNextTime)}
+        >
+          <View style={[styles.skipCheckbox, skipIntroNextTime && styles.skipCheckboxActive]}>
+            {skipIntroNextTime ? (
+              <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+            ) : null}
+          </View>
+          <Text style={styles.skipCheckboxText}>Skip this screen next time</Text>
+        </Pressable>
       </View>
     </BaselineFlowCard>
   );
@@ -844,7 +884,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xxl,
   },
   cardScroll: {
-    maxHeight: 300,
+    flex: 1,
   },
   introContent: {
     alignItems: "center",
@@ -886,6 +926,30 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
     color: "#FFFFFF",
     fontWeight: "500",
+  },
+  skipCheckboxRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.xl,
+    paddingVertical: Spacing.sm,
+  },
+  skipCheckbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  skipCheckboxActive: {
+    backgroundColor: GlowColors.primary,
+    borderColor: GlowColors.primary,
+  },
+  skipCheckboxText: {
+    fontSize: FontSizes.sm,
+    color: "rgba(255, 255, 255, 0.7)",
   },
   inputGroup: {
     marginBottom: Spacing.lg,
