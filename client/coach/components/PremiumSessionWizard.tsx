@@ -461,31 +461,6 @@ export function PremiumSessionWizard({
     mutationFn: async () => {
       const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
       
-      // Flexible schedule uses the series endpoint to create a proper coaching series
-      if (isFlexible && flexibleDates.length > 0) {
-        const playerName = selectedPlayers[0]?.name || "Flexible";
-        const seriesTitle = sessionType === "private" 
-          ? `${playerName} - Flexible` 
-          : `Flexible ${sessionType === "semi_private" ? "Semi-Private" : sessionType === "group" ? "Group" : "Session"}`;
-        
-        const seriesPayload = {
-          title: seriesTitle,
-          sessionType,
-          startTime: selectedTime,
-          duration,
-          courtId: selectedCourtId,
-          playerIds: selectedPlayers.map(p => p.id),
-          ballLevel: groupLevel || (selectedPlayers[0]?.ballLevel || "green"),
-          skillLevel,
-          maxPlayers,
-          isFlexible: true,
-          flexibleDates: flexibleDates,
-        };
-        
-        return apiRequest("POST", "/api/coach/series", seriesPayload);
-      }
-      
-      // Regular one-time or recurring session
       const payload: any = {
         sessionType,
         date: dateStr,
@@ -505,6 +480,9 @@ export function PremiumSessionWizard({
       if (isRecurring) {
         payload.isRecurring = true;
         payload.weekCount = weekCount;
+      } else if (isFlexible && flexibleDates.length > 0) {
+        payload.isFlexible = true;
+        payload.flexibleDates = flexibleDates;
       }
       
       return apiRequest("POST", "/api/coach/sessions", payload);
@@ -512,8 +490,6 @@ export function PremiumSessionWizard({
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/series"] });
       refetchCalendar?.();
       setCreatedSession(data);
       setShowSuccessAnimation(true);
