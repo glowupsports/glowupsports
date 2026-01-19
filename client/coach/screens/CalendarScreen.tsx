@@ -1717,7 +1717,7 @@ export default function CalendarScreen() {
             </View>
           )}
 
-          {/* Court Headers */}
+          {/* Court Headers - Clean minimal style */}
           <View style={styles.courtHeaders}>
             <View style={styles.timeColumnHeader} />
             <ScrollView
@@ -1735,20 +1735,12 @@ export default function CalendarScreen() {
               contentContainerStyle={{ width: totalCourtsWidth }}
             >
               {courts.map((court, index) => {
-                const isNewLocation = isFirstCourtInNewLocation(index);
-                const locationName = allLocations.find(l => l.id === court.locationId)?.name;
                 return (
                   <View key={court.id} style={[
                     styles.courtHeader,
                     { width: dynamicLaneWidth },
                     index > 0 && styles.courtHeaderWithDivider,
-                    isNewLocation && styles.courtHeaderWithLocationDivider,
                   ]}>
-                    {isNewLocation && locationName && (
-                      <View style={styles.locationDividerBadge}>
-                        <Text style={styles.locationDividerText}>{locationName}</Text>
-                      </View>
-                    )}
                     <Text style={styles.courtHeaderText} numberOfLines={1}>{court.name}</Text>
                   </View>
                 );
@@ -1772,7 +1764,7 @@ export default function CalendarScreen() {
               <ScrollView
                 ref={courtLanesScrollRef}
                 horizontal
-                showsHorizontalScrollIndicator={needsHorizontalScroll}
+                showsHorizontalScrollIndicator={false}
                 scrollEventThrottle={16}
                 onScroll={(e) => {
                   // Sync scroll with court headers
@@ -1789,7 +1781,6 @@ export default function CalendarScreen() {
                     styles.courtLane,
                     { width: dynamicLaneWidth },
                     courtIndex > 0 && styles.courtLaneWithDivider,
-                    isFirstCourtInNewLocation(courtIndex) && styles.courtLaneWithLocationDivider,
                   ]}>
                     {/* Hour grid lines and clickable slots */}
                     {hours.map((hour, hourIndex) => (
@@ -3111,34 +3102,11 @@ const styles = StyleSheet.create({
     borderLeftWidth: 1,
     borderLeftColor: "rgba(255, 255, 255, 0.08)",
   },
-  courtHeaderWithLocationDivider: {
-    borderLeftWidth: 2,
-    borderLeftColor: Colors.dark.gold,
-    marginLeft: 4,
-    paddingLeft: 4,
-  },
-  locationDividerBadge: {
-    position: "absolute",
-    top: -8,
-    left: 2,
-    backgroundColor: Colors.dark.gold + "30",
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 4,
-  },
-  locationDividerText: {
-    fontSize: 8,
-    fontWeight: "700",
-    color: Colors.dark.gold,
-    letterSpacing: 0.3,
-    textTransform: "uppercase",
-  },
   courtHeaderText: {
     fontSize: 11,
-    fontWeight: "700",
-    color: Colors.dark.text,
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    letterSpacing: 0.5,
   },
   calendarScroll: {
     flex: 1,
@@ -3174,11 +3142,7 @@ const styles = StyleSheet.create({
   },
   courtLaneWithDivider: {
     borderLeftWidth: 1,
-    borderLeftColor: "rgba(255, 255, 255, 0.4)",
-  },
-  courtLaneWithLocationDivider: {
-    borderLeftWidth: 1,
-    borderLeftColor: Colors.dark.gold + "60",
+    borderLeftColor: "rgba(255, 255, 255, 0.1)",
   },
   hourSlot: {
     height: HOUR_HEIGHT_60,
