@@ -490,7 +490,7 @@ export function PremiumAddPlayerFlow({ visible, onClose, onComplete }: PremiumAd
           </Text>
           
           <View style={styles.sublevelGrid}>
-            {[1, 2, 3].map((level) => (
+            {[3, 2, 1].map((level) => (
               <Pressable
                 key={level}
                 style={[
@@ -510,7 +510,7 @@ export function PremiumAddPlayerFlow({ visible, onClose, onComplete }: PremiumAd
                   {level}
                 </Text>
                 <Text style={styles.sublevelLabel}>
-                  {level === 1 ? "Entry" : level === 2 ? "Developing" : "Ready"}
+                  {level === 3 ? "Entry" : level === 2 ? "Developing" : "Ready"}
                 </Text>
                 {selectedSublevel === level && (
                   <View style={[styles.sublevelCheck, { backgroundColor: levelColor }]}>
@@ -524,7 +524,7 @@ export function PremiumAddPlayerFlow({ visible, onClose, onComplete }: PremiumAd
           <View style={styles.sublevelInfo}>
             <View style={[styles.sublevelInfoDot, { backgroundColor: levelColor }]} />
             <Text style={styles.sublevelInfoText}>
-              {selectedBallLevel?.toUpperCase()}_{selectedSublevel || "?"} - Level {selectedSublevel || "?"} within {selectedBallLevel} ball
+              {selectedBallLevel?.toUpperCase()}_{selectedSublevel || "?"} - {selectedSublevel === 3 ? "Entry" : selectedSublevel === 2 ? "Developing" : selectedSublevel === 1 ? "Ready" : "?"} level within {selectedBallLevel} ball
             </Text>
           </View>
         </View>
