@@ -280,6 +280,7 @@ export default function CreateSessionWizard({
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [guestName, setGuestName] = useState("");
   const [guestBallLevel, setGuestBallLevel] = useState<BallLevel | null>(null);
+  const [isCreatingGuest, setIsCreatingGuest] = useState(false);
 
   // Auto-select ball level based on selected players (unless manually overridden)
   useEffect(() => {
@@ -2511,33 +2512,60 @@ export default function CreateSessionWizard({
             </View>
 
             <Pressable
-              onPress={() => {
-                if (!guestName.trim()) return;
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                const guestPlayer: Player = {
-                  id: `guest-${Date.now()}`,
-                  name: guestName.trim(),
-                  email: "",
-                  ballLevel: guestBallLevel,
-                  isGuest: true,
-                };
-                setSelectedPlayers(prev => [...prev, guestPlayer]);
-                setGuestName("");
-                setGuestBallLevel(null);
-                setShowGuestModal(false);
+              onPress={async () => {
+                if (!guestName.trim() || isCreatingGuest) return;
+                
+                setIsCreatingGuest(true);
+                try {
+                  // Create the player in the database
+                  const response = await apiRequest("POST", "/api/players", {
+                    name: guestName.trim(),
+                    ballLevel: guestBallLevel,
+                    status: "active",
+                  });
+                  
+                  const savedPlayer = await response.json();
+                  
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  
+                  // Add the saved player to selected players
+                  setSelectedPlayers(prev => [...prev, {
+                    id: savedPlayer.id,
+                    name: savedPlayer.name,
+                    email: savedPlayer.email || "",
+                    ballLevel: savedPlayer.ballLevel,
+                  }]);
+                  
+                  // Invalidate players query to refresh the list
+                  queryClient.invalidateQueries({ queryKey: ["/api/players"] });
+                  
+                  setGuestName("");
+                  setGuestBallLevel(null);
+                  setShowGuestModal(false);
+                } catch (error) {
+                  console.error("Failed to create guest player:", error);
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                  Alert.alert("Error", "Failed to add guest player. Please try again.");
+                } finally {
+                  setIsCreatingGuest(false);
+                }
               }}
-              disabled={!guestName.trim()}
-              style={[styles.guestModalAddBtn, !guestName.trim() && styles.guestModalAddBtnDisabled]}
+              disabled={!guestName.trim() || isCreatingGuest}
+              style={[styles.guestModalAddBtn, (!guestName.trim() || isCreatingGuest) && styles.guestModalAddBtnDisabled]}
             >
               <LinearGradient
-                colors={guestName.trim() ? [Colors.dark.primary, "#00FF88"] : [Colors.dark.disabled, Colors.dark.disabled]}
+                colors={guestName.trim() && !isCreatingGuest ? [Colors.dark.primary, "#00FF88"] : [Colors.dark.disabled, Colors.dark.disabled]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.guestModalAddBtnGradient}
               >
-                <Ionicons name="person-add" size={18} color={guestName.trim() ? Colors.dark.buttonText : Colors.dark.textMuted} />
-                <Text style={[styles.guestModalAddBtnText, !guestName.trim() && { color: Colors.dark.textMuted }]}>
-                  Add Guest
+                {isCreatingGuest ? (
+                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                ) : (
+                  <Ionicons name="person-add" size={18} color={guestName.trim() ? Colors.dark.buttonText : Colors.dark.textMuted} />
+                )}
+                <Text style={[styles.guestModalAddBtnText, (!guestName.trim() || isCreatingGuest) && { color: Colors.dark.textMuted }]}>
+                  {isCreatingGuest ? "Adding..." : "Add Guest"}
                 </Text>
               </LinearGradient>
             </Pressable>
