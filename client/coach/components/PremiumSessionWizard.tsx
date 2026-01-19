@@ -142,6 +142,15 @@ const SKILL_LEVELS = [
   { value: 3 as SkillLevel, label: "Advanced" },
 ];
 
+const PILLARS = [
+  { key: "technique", label: "Tech", color: Colors.dark.primary },
+  { key: "tactical", label: "Tact", color: Colors.dark.xpCyan },
+  { key: "physical", label: "Phys", color: Colors.dark.gold },
+  { key: "mental", label: "Ment", color: "#9B59B6" },
+  { key: "social", label: "Soc", color: "#FF6B9D" },
+  { key: "match", label: "Match", color: Colors.dark.orange },
+];
+
 const DURATIONS = [
   { value: 30, label: "30 min" },
   { value: 45, label: "45 min" },
@@ -1290,27 +1299,133 @@ export function PremiumSessionWizard({
             </View>
           )}
 
-          {/* Selected Players (including guests) */}
+          {/* Selected Players Summary Cards */}
           {selectedPlayers.length > 0 && (
-            <View style={styles.selectedPlayersRow}>
-              {selectedPlayers.map(player => (
-                <Pressable
-                  key={player.id}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSelectedPlayers(prev => prev.filter(p => p.id !== player.id));
-                  }}
-                  style={[styles.selectedPlayerChip, player.isGuest && styles.selectedPlayerChipGuest]}
-                >
-                  {player.isGuest && (
-                    <View style={styles.guestBadge}>
-                      <Text style={styles.guestBadgeText}>GUEST</Text>
-                    </View>
-                  )}
-                  <Text style={[styles.selectedPlayerName, player.isGuest && { color: Colors.dark.orange }]}>{player.name}</Text>
-                  <Ionicons name="close" size={14} color={Colors.dark.error} />
-                </Pressable>
-              ))}
+            <View style={styles.selectedPlayersSummarySection}>
+              <View style={styles.selectedPlayersSummaryHeader}>
+                <Text style={styles.selectedPlayersSummaryLabel}>Selected Players</Text>
+                <View style={styles.selectedPlayersCountBadge}>
+                  <Text style={styles.selectedPlayersCountText}>{selectedPlayers.length}</Text>
+                </View>
+              </View>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={styles.selectedPlayersSummaryScroll}
+                contentContainerStyle={styles.selectedPlayersSummaryScrollContent}
+              >
+                {selectedPlayers.map(player => {
+                  const xpLevel = typeof player.level === "number" ? player.level : parseInt(String(player.level)) || 1;
+                  const totalXp = player.totalXp || 0;
+                  const xpProgress = getXpProgress(totalXp, xpLevel);
+                  const glowPower = player.glowBattlePower || 0;
+                  const ballLevelColor = BALL_LEVELS.find(b => b.id === player.ballLevel)?.color || Colors.dark.disabled;
+                  const formatBallLevel = (ballLevel?: string | null, skillLevel?: number | null): string => {
+                    if (!ballLevel) return "Not Set";
+                    const levelName = ballLevel.charAt(0).toUpperCase() + ballLevel.slice(1);
+                    if (skillLevel && skillLevel >= 1 && skillLevel <= 3) {
+                      return `${levelName} ${skillLevel}`;
+                    }
+                    return levelName;
+                  };
+
+                  return (
+                    <Pressable
+                      key={player.id}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSelectedPlayers(prev => prev.filter(p => p.id !== player.id));
+                      }}
+                      style={styles.playerSummaryCard}
+                    >
+                      <LinearGradient
+                        colors={[ballLevelColor + "15", Colors.dark.backgroundSecondary]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.playerSummaryGradient}
+                      >
+                        {/* Close button */}
+                        <View style={styles.playerSummaryCloseBtn}>
+                          <Ionicons name="close-circle" size={18} color={Colors.dark.error} />
+                        </View>
+                        
+                        {/* Guest badge */}
+                        {player.isGuest && (
+                          <View style={styles.playerSummaryGuestBadge}>
+                            <Text style={styles.playerSummaryGuestText}>GUEST</Text>
+                          </View>
+                        )}
+                        
+                        {/* Header Row: Avatar, Name, Ball Level Badge */}
+                        <View style={styles.playerSummaryHeader}>
+                          <View style={styles.playerSummaryAvatar}>
+                            {player.profilePhotoUrl ? (
+                              <Image 
+                                source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }} 
+                                style={styles.playerSummaryAvatarImage}
+                                contentFit="cover"
+                              />
+                            ) : (
+                              <View style={[styles.playerSummaryAvatarPlaceholder, { backgroundColor: ballLevelColor + "30" }]}>
+                                <Text style={[styles.playerSummaryAvatarText, { color: ballLevelColor }]}>
+                                  {player.name.charAt(0).toUpperCase()}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                          <View style={styles.playerSummaryNameRow}>
+                            <Text style={styles.playerSummaryName} numberOfLines={1}>{player.name}</Text>
+                            <View style={[styles.ballLevelBadge, { backgroundColor: ballLevelColor }]}>
+                              <Text style={styles.ballLevelBadgeText}>
+                                {formatBallLevel(player.ballLevel, player.skillLevel)}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+
+                        {/* XP Level Row */}
+                        <View style={styles.xpLevelRow}>
+                          <View style={styles.xpLevelLeft}>
+                            <Ionicons name="star" size={14} color={Colors.dark.gold} />
+                            <Text style={styles.xpLevelText}>Level {xpLevel}</Text>
+                          </View>
+                          <View style={styles.xpProgressContainer}>
+                            <View style={styles.xpProgressBarMini}>
+                              <View style={[styles.xpProgressFillMini, { width: `${xpProgress}%` }]} />
+                            </View>
+                            <Text style={styles.xpText}>{totalXp} XP</Text>
+                          </View>
+                        </View>
+
+                        {/* 6 Pillars Mini-Bar */}
+                        <View style={styles.pillarsRow}>
+                          <Text style={styles.pillarsLabel}>Glow Power</Text>
+                          <View style={styles.pillarsContainer}>
+                            {PILLARS.map((pillar) => {
+                              const pillarScore = Math.min(100, Math.floor(glowPower / 6));
+                              return (
+                                <View key={pillar.key} style={styles.pillarItem}>
+                                  <View style={[styles.pillarBar, { backgroundColor: pillar.color + "30" }]}>
+                                    <View 
+                                      style={[
+                                        styles.pillarBarFill, 
+                                        { 
+                                          backgroundColor: pillar.color,
+                                          height: `${pillarScore}%` 
+                                        }
+                                      ]} 
+                                    />
+                                  </View>
+                                </View>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      </LinearGradient>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
             </View>
           )}
           
@@ -3375,6 +3490,181 @@ const styles = StyleSheet.create({
   selectedPlayerName: {
     fontSize: FontSizes.xs,
     color: Colors.dark.primary,
+  },
+  selectedPlayersSummarySection: {
+    marginBottom: Spacing.md,
+  },
+  selectedPlayersSummaryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  selectedPlayersSummaryLabel: {
+    fontSize: FontSizes.sm,
+    color: Colors.dark.textSecondary,
+    fontWeight: "600",
+  },
+  selectedPlayersCountBadge: {
+    backgroundColor: Colors.dark.primary,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+    minWidth: 20,
+    alignItems: "center",
+  },
+  selectedPlayersCountText: {
+    fontSize: FontSizes.xs,
+    color: "#0B0D10",
+    fontWeight: "700",
+  },
+  selectedPlayersSummaryScroll: {
+    flexDirection: "row",
+  },
+  selectedPlayersSummaryScrollContent: {
+    paddingRight: Spacing.md,
+    gap: Spacing.sm,
+  },
+  playerSummaryCard: {
+    width: 160,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  playerSummaryGradient: {
+    padding: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  playerSummaryCloseBtn: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    zIndex: 1,
+  },
+  playerSummaryGuestBadge: {
+    position: "absolute",
+    top: 4,
+    left: 4,
+    backgroundColor: Colors.dark.orange,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 2,
+    zIndex: 1,
+  },
+  playerSummaryGuestText: {
+    fontSize: 8,
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+  playerSummaryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  playerSummaryAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  playerSummaryAvatarImage: {
+    width: "100%",
+    height: "100%",
+  },
+  playerSummaryAvatarPlaceholder: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playerSummaryAvatarText: {
+    fontSize: FontSizes.sm,
+    fontWeight: "700",
+  },
+  playerSummaryNameRow: {
+    flex: 1,
+    gap: 2,
+  },
+  playerSummaryName: {
+    fontSize: FontSizes.sm,
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
+  ballLevelBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 2,
+  },
+  ballLevelBadgeText: {
+    fontSize: 9,
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+  xpLevelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: Spacing.xs,
+  },
+  xpLevelLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  xpLevelText: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.gold,
+    fontWeight: "600",
+  },
+  xpProgressContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  xpProgressBarMini: {
+    width: 40,
+    height: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  xpProgressFillMini: {
+    height: "100%",
+    backgroundColor: Colors.dark.xpCyan,
+    borderRadius: 2,
+  },
+  xpText: {
+    fontSize: 9,
+    color: Colors.dark.textMuted,
+  },
+  pillarsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: Spacing.xs,
+  },
+  pillarsLabel: {
+    fontSize: 9,
+    color: Colors.dark.textMuted,
+  },
+  pillarsContainer: {
+    flexDirection: "row",
+    gap: 3,
+  },
+  pillarItem: {
+    alignItems: "center",
+  },
+  pillarBar: {
+    width: 6,
+    height: 20,
+    borderRadius: 3,
+    overflow: "hidden",
+    justifyContent: "flex-end",
+  },
+  pillarBarFill: {
+    width: "100%",
+    borderRadius: 3,
   },
   guestBadge: {
     backgroundColor: Colors.dark.orange,
