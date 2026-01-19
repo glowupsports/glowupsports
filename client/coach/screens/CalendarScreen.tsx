@@ -610,16 +610,11 @@ export default function CalendarScreen() {
 
   const allLocations = calendarData?.locations || [];
   
-  // Sort courts by location name, then by court name for consistent ordering
+  // Sort courts by user-defined position (set in Settings)
   const allCourts = useMemo(() => {
     const courts = calendarData?.courts || [];
-    return [...courts].sort((a, b) => {
-      const locA = allLocations.find(l => l.id === a.locationId)?.name || "";
-      const locB = allLocations.find(l => l.id === b.locationId)?.name || "";
-      if (locA !== locB) return locA.localeCompare(locB);
-      return a.name.localeCompare(b.name);
-    });
-  }, [calendarData?.courts, allLocations]);
+    return [...courts].sort((a, b) => (a.position || 0) - (b.position || 0));
+  }, [calendarData?.courts]);
 
   const exportCalendarToICS = useCallback(async () => {
     if (!calendarData?.ownSessions || calendarData.ownSessions.length === 0) {
