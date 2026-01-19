@@ -195,6 +195,7 @@ export function PremiumSessionWizard({
   const [groupLevel, setGroupLevel] = useState<BallLevel | null>(null);
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
   const [playerSearch, setPlayerSearch] = useState("");
+  const [playerBallFilter, setPlayerBallFilter] = useState<BallLevel | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(initialDate || new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [duration, setDuration] = useState(60);
@@ -418,8 +419,14 @@ export function PremiumSessionWizard({
   const filteredPlayers = useMemo(() => {
     let result = players;
     
+    // Filter by group level for group sessions
     if (sessionType === "group" && groupLevel && !showAllPlayers) {
       result = result.filter(p => p.ballLevel?.toLowerCase() === groupLevel);
+    }
+    
+    // Filter by ball level filter chips (for non-group sessions or when showing all)
+    if (playerBallFilter) {
+      result = result.filter(p => p.ballLevel?.toLowerCase() === playerBallFilter);
     }
     
     if (playerSearch) {
@@ -428,7 +435,7 @@ export function PremiumSessionWizard({
     }
     
     return result;
-  }, [players, sessionType, groupLevel, playerSearch, showAllPlayers]);
+  }, [players, sessionType, groupLevel, playerSearch, showAllPlayers, playerBallFilter]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -1154,6 +1161,53 @@ export function PremiumSessionWizard({
               </Pressable>
             ) : null}
           </View>
+          
+          {/* Ball Level Filter Chips */}
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            style={styles.ballFilterRow}
+            contentContainerStyle={styles.ballFilterContent}
+          >
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setPlayerBallFilter(null);
+              }}
+              style={[
+                styles.ballFilterChip,
+                !playerBallFilter && styles.ballFilterChipActive,
+              ]}
+            >
+              <Text style={[
+                styles.ballFilterChipText,
+                !playerBallFilter && styles.ballFilterChipTextActive,
+              ]}>All</Text>
+            </Pressable>
+            {BALL_LEVELS.map((level) => (
+              <Pressable
+                key={level.id}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setPlayerBallFilter(playerBallFilter === level.id ? null : level.id);
+                }}
+                style={[
+                  styles.ballFilterChip,
+                  { borderColor: level.color + "60" },
+                  playerBallFilter === level.id && { 
+                    backgroundColor: level.color + "20",
+                    borderColor: level.color,
+                  },
+                ]}
+              >
+                <View style={[styles.ballFilterDot, { backgroundColor: level.color }]} />
+                <Text style={[
+                  styles.ballFilterChipText,
+                  playerBallFilter === level.id && { color: level.color },
+                ]}>{level.label}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
           
           {/* Add Guest Player Button */}
           <Pressable
@@ -2652,6 +2706,39 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
     color: "#FFFFFF",
     marginLeft: Spacing.sm,
+  },
+  ballFilterRow: {
+    marginBottom: Spacing.md,
+  },
+  ballFilterContent: {
+    gap: Spacing.sm,
+  },
+  ballFilterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    backgroundColor: "#1A1F2A",
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+  },
+  ballFilterChipActive: {
+    backgroundColor: GlowColors.primary + "20",
+    borderColor: GlowColors.primary,
+  },
+  ballFilterChipText: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.textMuted,
+  },
+  ballFilterChipTextActive: {
+    color: GlowColors.primary,
+  },
+  ballFilterDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   filterBadge: {
     flexDirection: "row",
