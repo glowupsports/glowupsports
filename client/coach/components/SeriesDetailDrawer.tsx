@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -245,6 +245,10 @@ export default function SeriesDetailDrawer({
   const [showEditJoinDatePicker, setShowEditJoinDatePicker] = useState(false);
   const [savingJoinDate, setSavingJoinDate] = useState(false);
   
+  // Timeline scroll ref
+  const timelineScrollRef = useRef<ScrollView>(null);
+  const TIMELINE_ITEM_HEIGHT = 72; // Approximate height of each timeline item
+  
   // Create package inline form state
   const [showCreatePackageForm, setShowCreatePackageForm] = useState(false);
   const [newPackageName, setNewPackageName] = useState("");
@@ -270,6 +274,48 @@ export default function SeriesDetailDrawer({
     queryKey: [`/api/coach/series/${seriesId}`],
     enabled: !!seriesId && visible,
   });
+
+  // Auto-scroll to current/next lesson when timeline tab becomes active
+  useEffect(() => {
+    if (activeTab === "timeline" && series?.sessions?.length) {
+      const now = new Date();
+      const sortedSessions = [...series.sessions].sort(
+        (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+      );
+      
+      // Find the index of today's session or the next upcoming session
+      // Since sorted newest first, we look for the first session that is today or in the future
+      let targetIndex = -1;
+      for (let i = 0; i < sortedSessions.length; i++) {
+        const sessionDate = new Date(sortedSessions[i].startTime);
+        const isToday = sessionDate.toDateString() === now.toDateString();
+        const isFuture = sessionDate > now;
+        const isCompleted = sortedSessions[i].status === "completed";
+        const isCancelled = sortedSessions[i].status === "cancelled" || sortedSessions[i].status === "skipped";
+        
+        // Find session that needs attention: today, future, or past needing attendance
+        if (isToday || (isFuture && !isCancelled)) {
+          targetIndex = i;
+          break;
+        }
+        // If past and needs attendance, this is a good candidate
+        if (!isCompleted && !isCancelled) {
+          targetIndex = i;
+          // Don't break - keep looking for today/future
+        }
+      }
+      
+      if (targetIndex > 0) {
+        // Add a small delay to ensure the ScrollView is rendered
+        setTimeout(() => {
+          timelineScrollRef.current?.scrollTo({
+            y: targetIndex * TIMELINE_ITEM_HEIGHT,
+            animated: true,
+          });
+        }, 150);
+      }
+    }
+  }, [activeTab, series?.sessions]);
 
   // Build display title - startTime is stored as UTC (HH:MM), convert to local academy time
   const displayTitle = useMemo(() => {
@@ -1722,6 +1768,7 @@ export default function SeriesDetailDrawer({
               </View>
 
               <ScrollView
+                ref={timelineScrollRef}
                 style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
