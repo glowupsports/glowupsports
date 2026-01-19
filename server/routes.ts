@@ -41,6 +41,9 @@ import {
   openMatchSlots,
   playerBookingPreferences,
   courtAvailabilitySnapshots,
+  coachSettings,
+  coachAvailability,
+  availabilityExceptions,
 } from "@shared/schema";
 import { setupWebSocket, broadcastNewMessage, broadcastNewSession, broadcastFeedbackReceived, broadcastSessionUpdate } from "./websocket";
 import { 
@@ -22517,6 +22520,198 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // ==================== COACH AVAILABILITY BY ID (Frontend expects these routes) ====================
+
+  // Get coach availability by coach ID
+  app.get("/api/coaches/:coachId/availability", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { coachId } = req.params;
+      const academyId = req.user?.academyId || "default-academy";
+      
+      const availability = await storage.getCoachAvailability(coachId, academyId);
+      res.json(availability);
+    } catch (error) {
+      console.error("Coach availability error:", error);
+      res.status(500).json({ error: "Failed to fetch availability" });
+    }
+  });
+
+  // Update/save coach availability (full replacement)
+  app.put("/api/coaches/:coachId/availability", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { coachId } = req.params;
+      const academyId = req.user?.academyId || "default-academy";
+      const { weeklySchedule, isActive } = req.body;
+      
+      // Delete existing availability for this coach
+      await db.delete(coachAvailability).where(eq(coachAvailability.coachId, coachId));
+      
+      // Create new availability slots from weekly schedule
+      if (weeklySchedule && Array.isArray(weeklySchedule)) {
+        for (const day of weeklySchedule) {
+          if (day.enabled && day.timeBlocks?.length > 0) {
+            for (const block of day.timeBlocks) {
+              await db.insert(coachAvailability).values({
+                id: crypto.randomUUID(),
+                coachId,
+                academyId,
+                weekday: day.dayIndex,
+                startTime: block.startTime,
+                endTime: block.endTime,
+                createdAt: new Date(),
+              });
+            }
+          }
+        }
+      }
+      
+      // Update settings if isActive was provided
+      if (isActive !== undefined) {
+        const [existing] = await db.select().from(coachSettings).where(eq(coachSettings.coachId, coachId));
+        if (existing) {
+          await db.update(coachSettings)
+            .set({ availabilityPaused: !isActive, updatedAt: new Date() })
+            .where(eq(coachSettings.coachId, coachId));
+        } else {
+          await db.insert(coachSettings).values({
+            id: crypto.randomUUID(),
+            coachId,
+            minSessionLength: 60,
+            bufferBetweenSessions: 0,
+            availabilityPaused: !isActive,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+        }
+      }
+      
+      const availability = await storage.getCoachAvailability(coachId, academyId);
+      res.json(availability);
+    } catch (error) {
+      console.error("Update availability error:", error);
+      res.status(500).json({ error: "Failed to update availability" });
+    }
+  });
+
+  // Get coach settings (Smart Rules)
+  app.get("/api/coaches/:coachId/settings", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { coachId } = req.params;
+      
+      const [settings] = await db.select().from(coachSettings).where(eq(coachSettings.coachId, coachId));
+      
+      if (!settings) {
+        return res.json({
+          minSessionLength: 60,
+          bufferBetweenSessions: 0,
+          availabilityPaused: false,
+        });
+      }
+      
+      res.json({
+        minSessionLength: settings.minSessionLength || 60,
+        bufferBetweenSessions: settings.bufferBetweenSessions || 0,
+        availabilityPaused: settings.availabilityPaused || false,
+      });
+    } catch (error) {
+      console.error("Coach settings error:", error);
+      res.status(500).json({ error: "Failed to fetch settings" });
+    }
+  });
+
+  // Update coach settings (Smart Rules)
+  app.put("/api/coaches/:coachId/settings", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { coachId } = req.params;
+      const { minSessionLength, bufferBetweenSessions, availabilityPaused } = req.body;
+      
+      const [existing] = await db.select().from(coachSettings).where(eq(coachSettings.coachId, coachId));
+      
+      if (existing) {
+        await db.update(coachSettings)
+          .set({
+            minSessionLength: minSessionLength ?? existing.minSessionLength,
+            bufferBetweenSessions: bufferBetweenSessions ?? existing.bufferBetweenSessions,
+            availabilityPaused: availabilityPaused ?? existing.availabilityPaused,
+            updatedAt: new Date(),
+          })
+          .where(eq(coachSettings.coachId, coachId));
+      } else {
+        await db.insert(coachSettings).values({
+          id: crypto.randomUUID(),
+          coachId,
+          minSessionLength: minSessionLength ?? 60,
+          bufferBetweenSessions: bufferBetweenSessions ?? 0,
+          availabilityPaused: availabilityPaused ?? false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Update settings error:", error);
+      res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
+
+  // Get availability exceptions
+  app.get("/api/coaches/:coachId/availability-exceptions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { coachId } = req.params;
+      
+      const exceptions = await db.select()
+        .from(availabilityExceptions)
+        .where(eq(availabilityExceptions.coachId, coachId))
+        .orderBy(desc(availabilityExceptions.startDate));
+      
+      res.json(exceptions);
+    } catch (error) {
+      console.error("Availability exceptions error:", error);
+      res.status(500).json({ error: "Failed to fetch exceptions" });
+    }
+  });
+
+  // Create availability exception
+  app.post("/api/coaches/:coachId/availability-exceptions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { coachId } = req.params;
+      const { startDate, endDate, reason } = req.body;
+      
+      if (!startDate) {
+        return res.status(400).json({ error: "startDate is required" });
+      }
+      
+      const exception = await db.insert(availabilityExceptions).values({
+        id: crypto.randomUUID(),
+        coachId,
+        startDate: new Date(startDate),
+        endDate: endDate ? new Date(endDate) : new Date(startDate),
+        reason: reason || "Not available",
+        createdAt: new Date(),
+      }).returning();
+      
+      res.json(exception[0]);
+    } catch (error) {
+      console.error("Create exception error:", error);
+      res.status(500).json({ error: "Failed to create exception" });
+    }
+  });
+
+  // Delete availability exception
+  app.delete("/api/coaches/:coachId/availability-exceptions/:id", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      
+      await db.delete(availabilityExceptions).where(eq(availabilityExceptions.id, id));
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete exception error:", error);
+      res.status(500).json({ error: "Failed to delete exception" });
+    }
+  });
   // ==================== LOCATION TRAVEL TIMES ====================
 
   // Get all travel times for coach
