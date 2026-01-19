@@ -347,12 +347,12 @@ export default function AttendanceDrawer({
           style={StyleSheet.absoluteFill}
         />
 
-        {/* Header */}
+        {/* Premium Header */}
         <View style={styles.header}>
           <Pressable style={styles.closeButton} onPress={onClose}>
             <Ionicons name="close" size={24} color={Colors.dark.text} />
           </Pressable>
-          <View style={styles.headerTitle}>
+          <View style={styles.headerCenter}>
             <Text style={styles.title}>Attendance</Text>
             <Text style={styles.sessionInfo}>
               {formatTime(session.startTime)} - {formatTime(session.endTime)}
@@ -373,6 +373,35 @@ export default function AttendanceDrawer({
             )}
           </Pressable>
         </View>
+
+        {/* Progress Indicator */}
+        {players.length > 0 ? (
+          <View style={styles.progressSection}>
+            <View style={styles.progressHeader}>
+              <Text style={styles.progressLabel}>
+                {getPresentCount()} of {players.length} attending
+              </Text>
+              <Pressable
+                style={styles.markAllButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  players.forEach(p => setPlayerStatus(p.id, "present"));
+                }}
+              >
+                <Ionicons name="checkmark-done" size={16} color={Colors.dark.primary} />
+                <Text style={styles.markAllText}>All Present</Text>
+              </Pressable>
+            </View>
+            <View style={styles.progressBar}>
+              <View 
+                style={[
+                  styles.progressFill, 
+                  { width: `${(getPresentCount() / players.length) * 100}%` }
+                ]} 
+              />
+            </View>
+          </View>
+        ) : null}
 
         {/* Add Players Mode */}
         {showAddPlayers ? (
@@ -465,140 +494,108 @@ export default function AttendanceDrawer({
             </Pressable>
           </View>
         ) : (
-          <ScrollView style={styles.playerListScroll} contentContainerStyle={styles.playerList} showsVerticalScrollIndicator={false}>
-            {players.map((player) => {
-              const record = attendance.get(player.id);
-              const status = record?.status || "present";
-              const isExpanded = expandedPlayer === player.id;
+          <ScrollView style={styles.playerListScroll} contentContainerStyle={styles.playerGridContainer} showsVerticalScrollIndicator={false}>
+            <View style={styles.playersGrid}>
+              {players.map((player) => {
+                const record = attendance.get(player.id);
+                const status = record?.status || "present";
+                const isExpanded = expandedPlayer === player.id;
+                const levelColor = getPlayerLevelColor(player.ballLevel ?? player.level ?? "green");
 
-              return (
-                <View key={player.id} style={styles.playerCard}>
-                  <View style={styles.playerHeader}>
-                    <View style={styles.playerInfo}>
-                      <View style={[styles.levelBadge, { backgroundColor: getPlayerLevelColor(player.ballLevel ?? player.level ?? "green") }]}>
-                        <Text style={styles.levelText}>{player.ballLevel || player.level}</Text>
-                      </View>
-                      <Text style={styles.playerName}>{player.name}</Text>
-                    </View>
-                  </View>
-
-                  {/* Status Buttons */}
-                  <View style={styles.statusRow}>
-                    {(["present", "late", "absent", "holiday"] as AttendanceStatus[]).map((s) => (
-                      <Pressable
-                        key={s}
-                        style={[
-                          styles.statusButton,
-                          status === s && { backgroundColor: getStatusColor(s) + "30", borderColor: getStatusColor(s) },
-                        ]}
-                        onPress={() => setPlayerStatus(player.id, s)}
-                      >
-                        <Ionicons
-                          name={getStatusIcon(s)}
-                          size={18}
-                          color={status === s ? getStatusColor(s) : Colors.dark.disabled}
-                        />
-                        <Text
-                          style={[
-                            styles.statusButtonText,
-                            status === s && { color: getStatusColor(s) },
-                          ]}
-                        >
-                          {s.charAt(0).toUpperCase() + s.slice(1)}
+                return (
+                  <View key={player.id} style={styles.playerGridCard}>
+                    {/* Avatar with status ring */}
+                    <View style={[styles.avatarContainer, { borderColor: getStatusColor(status) }]}>
+                      <View style={[styles.playerAvatar, { backgroundColor: levelColor + "30" }]}>
+                        <Text style={[styles.avatarInitial, { color: levelColor }]}>
+                          {player.name.charAt(0).toUpperCase()}
                         </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-
-                  {/* Late Options */}
-                  {status === "late" && isExpanded ? (
-                    <View style={styles.optionsRow}>
-                      <Text style={styles.optionsLabel}>How late?</Text>
-                      <View style={styles.optionChips}>
-                        {lateOptions.map((opt) => (
-                          <Pressable
-                            key={opt.value}
-                            style={[
-                              styles.optionChip,
-                              record?.lateMinutes === opt.value && styles.optionChipActive,
-                            ]}
-                            onPress={() => setLateMinutes(player.id, opt.value)}
-                          >
-                            <Text
-                              style={[
-                                styles.optionChipText,
-                                record?.lateMinutes === opt.value && styles.optionChipTextActive,
-                              ]}
-                            >
-                              {opt.label}
-                            </Text>
-                          </Pressable>
-                        ))}
+                      </View>
+                      <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(status) }]}>
+                        <Ionicons name={getStatusIcon(status)} size={10} color="#fff" />
                       </View>
                     </View>
-                  ) : null}
-
-                  {/* Absent Options */}
-                  {status === "absent" && isExpanded ? (
-                    <View style={styles.optionsRow}>
-                      <Text style={styles.optionsLabel}>Reason</Text>
-                      {/* Priority: No Show - shown separately */}
-                      <Pressable
-                        style={[
-                          styles.noShowChip,
-                          record?.absentReason === "no_show" && styles.noShowChipActive,
-                        ]}
-                        onPress={() => setAbsentReason(player.id, "no_show")}
-                      >
-                        <Ionicons 
-                          name="alert-circle" 
-                          size={16} 
-                          color={record?.absentReason === "no_show" ? Colors.dark.backgroundRoot : Colors.dark.error} 
-                        />
-                        <Text
-                          style={[
-                            styles.noShowChipText,
-                            record?.absentReason === "no_show" && styles.noShowChipTextActive,
-                          ]}
-                        >
-                          No Show
+                    
+                    {/* Player name and level */}
+                    <Text style={styles.gridPlayerName} numberOfLines={1}>{player.name}</Text>
+                    {player.ballLevel ? (
+                      <View style={[styles.gridLevelBadge, { backgroundColor: levelColor + "20" }]}>
+                        <View style={[styles.gridLevelDot, { backgroundColor: levelColor }]} />
+                        <Text style={[styles.gridLevelText, { color: levelColor }]}>
+                          {player.ballLevel?.split("_")[0] || ""}
                         </Text>
-                      </Pressable>
-                      {/* Other reasons */}
-                      <View style={styles.optionChips}>
-                        {absentReasons.filter(opt => !opt.priority).map((opt) => (
-                          <Pressable
-                            key={opt.value}
-                            style={[
-                              styles.optionChip,
-                              record?.absentReason === opt.value && styles.optionChipActiveRed,
-                            ]}
-                            onPress={() => setAbsentReason(player.id, opt.value)}
-                          >
-                            <Text
-                              style={[
-                                styles.optionChipText,
-                                record?.absentReason === opt.value && styles.optionChipTextActive,
-                              ]}
-                            >
-                              {opt.label}
-                            </Text>
-                          </Pressable>
-                        ))}
                       </View>
-                    </View>
-                  ) : null}
+                    ) : null}
 
-                  {/* Holiday Info */}
-                  {status === "holiday" ? (
-                    <View style={styles.holidayInfo}>
-                      <Ionicons name="information-circle-outline" size={14} color={Colors.dark.xpCyan} />
-                      <Text style={styles.holidayInfoText}>No charge · Package frozen</Text>
+                    {/* Compact Status Icons */}
+                    <View style={styles.compactStatusRow}>
+                      {(["present", "late", "absent", "holiday"] as AttendanceStatus[]).map((s) => (
+                        <Pressable
+                          key={s}
+                          style={[
+                            styles.compactStatusBtn,
+                            status === s && { backgroundColor: getStatusColor(s), borderColor: getStatusColor(s) },
+                          ]}
+                          onPress={() => setPlayerStatus(player.id, s)}
+                        >
+                          <Ionicons
+                            name={getStatusIcon(s)}
+                            size={14}
+                            color={status === s ? "#fff" : Colors.dark.disabled}
+                          />
+                        </Pressable>
+                      ))}
                     </View>
-                  ) : null}
-                </View>
-              );
-            })}
+
+                    {/* Expanded options for late/absent */}
+                    {isExpanded && status === "late" ? (
+                      <View style={styles.expandedOptions}>
+                        <Text style={styles.expandedLabel}>How late?</Text>
+                        <View style={styles.expandedChips}>
+                          {lateOptions.slice(0, 4).map((opt) => (
+                            <Pressable
+                              key={opt.value}
+                              style={[
+                                styles.miniChip,
+                                record?.lateMinutes === opt.value && styles.miniChipActive,
+                              ]}
+                              onPress={() => setLateMinutes(player.id, opt.value)}
+                            >
+                              <Text style={[
+                                styles.miniChipText,
+                                record?.lateMinutes === opt.value && styles.miniChipTextActive,
+                              ]}>{opt.label}</Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      </View>
+                    ) : null}
+
+                    {isExpanded && status === "absent" ? (
+                      <View style={styles.expandedOptions}>
+                        <Pressable
+                          style={[
+                            styles.noShowBtn,
+                            record?.absentReason === "no_show" && styles.noShowBtnActive,
+                          ]}
+                          onPress={() => setAbsentReason(player.id, "no_show")}
+                        >
+                          <Ionicons 
+                            name="alert-circle" 
+                            size={14} 
+                            color={record?.absentReason === "no_show" ? "#fff" : Colors.dark.error} 
+                          />
+                          <Text style={[
+                            styles.noShowBtnText,
+                            record?.absentReason === "no_show" && styles.noShowBtnTextActive,
+                          ]}>No Show</Text>
+                        </Pressable>
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </View>
           </ScrollView>
         )}
 
@@ -644,7 +641,7 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: Spacing.xs,
   },
-  headerTitle: {
+  headerCenter: {
     flex: 1,
     alignItems: "center",
   },
@@ -692,8 +689,200 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
     textAlign: "center",
   },
+  progressSection: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Backgrounds.surface,
+  },
+  progressHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.sm,
+  },
+  progressLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  markAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    backgroundColor: Colors.dark.primary + "15",
+    borderRadius: BorderRadius.sm,
+  },
+  markAllText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.primary,
+  },
+  progressBar: {
+    height: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 2,
+  },
   playerListScroll: {
     flex: 1,
+  },
+  playerGridContainer: {
+    padding: Spacing.lg,
+    paddingBottom: Spacing.xl,
+  },
+  playersGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  playerGridCard: {
+    width: "48%",
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  avatarContainer: {
+    position: "relative",
+    borderWidth: 3,
+    borderRadius: 30,
+    padding: 2,
+    marginBottom: Spacing.xs,
+  },
+  playerAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarInitial: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  statusIndicator: {
+    position: "absolute",
+    bottom: -2,
+    right: -2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: Backgrounds.card,
+  },
+  gridPlayerName: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    textAlign: "center",
+    marginBottom: 2,
+  },
+  gridLevelBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginBottom: Spacing.sm,
+  },
+  gridLevelDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  gridLevelText: {
+    fontSize: 10,
+    fontWeight: "600",
+    textTransform: "capitalize",
+  },
+  compactStatusRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 4,
+  },
+  compactStatusBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  expandedOptions: {
+    width: "100%",
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.08)",
+  },
+  expandedLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  expandedChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 4,
+  },
+  miniChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+  },
+  miniChipActive: {
+    backgroundColor: Colors.dark.orange,
+  },
+  miniChipText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  miniChipTextActive: {
+    color: "#fff",
+  },
+  noShowBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: Colors.dark.error + "15",
+    borderWidth: 1,
+    borderColor: Colors.dark.error + "40",
+  },
+  noShowBtnActive: {
+    backgroundColor: Colors.dark.error,
+    borderColor: Colors.dark.error,
+  },
+  noShowBtnText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.error,
+  },
+  noShowBtnTextActive: {
+    color: "#fff",
   },
   playerList: {
     padding: Spacing.lg,
