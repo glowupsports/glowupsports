@@ -1682,97 +1682,124 @@ export default function SettingsScreen() {
       <Modal
         visible={showTravelTimeModal}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setShowTravelTimeModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <LinearGradient
-              colors={[Colors.dark.gold, Colors.dark.orange]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.modalAccent}
-            />
-            <Text style={styles.modalTitle}>ADD TRAVEL TIME</Text>
-            
-            <Text style={styles.colorPickerLabel}>FROM COURT</Text>
-            <ScrollView style={styles.courtPickerScroll} nestedScrollEnabled>
-              <View style={styles.locationPicker}>
-                {courts.filter(c => c.locationId).map((court) => (
-                  <Pressable
-                    key={court.id}
-                    style={[
-                      styles.locationOption,
-                      fromCourtId === court.id && styles.locationOptionSelected,
-                    ]}
-                    onPress={() => handleSelectFromCourt(court)}
-                  >
-                    <View style={[styles.courtColorDot, { backgroundColor: court.color || Colors.dark.primary }]} />
-                    <Text style={[
-                      styles.locationOptionText,
-                      fromCourtId === court.id && styles.locationOptionTextSelected,
-                    ]}>
-                      {getCourtLabel(court)}
-                    </Text>
-                  </Pressable>
-                ))}
+        <View style={styles.drawerOverlay}>
+          <Pressable style={styles.drawerBackdrop} onPress={() => setShowTravelTimeModal(false)} />
+          <View style={styles.drawerContent}>
+            <View style={styles.drawerHandle} />
+            <View style={styles.drawerHeader}>
+              <View style={styles.drawerTitleRow}>
+                <View style={styles.drawerIconWrapper}>
+                  <Ionicons name="time-outline" size={20} color={Colors.dark.gold} />
+                </View>
+                <Text style={styles.drawerTitle}>Add Travel Time</Text>
               </View>
-            </ScrollView>
-
-            <Text style={styles.colorPickerLabel}>TO COURT</Text>
-            <ScrollView style={styles.courtPickerScroll} nestedScrollEnabled>
-              <View style={styles.locationPicker}>
-                {courts.filter(c => c.locationId && c.locationId !== fromLocationId).map((court) => (
-                  <Pressable
-                    key={court.id}
-                    style={[
-                      styles.locationOption,
-                      toCourtId === court.id && styles.locationOptionSelected,
-                    ]}
-                    onPress={() => handleSelectToCourt(court)}
-                  >
-                    <View style={[styles.courtColorDot, { backgroundColor: court.color || Colors.dark.primary }]} />
-                    <Text style={[
-                      styles.locationOptionText,
-                      toCourtId === court.id && styles.locationOptionTextSelected,
-                    ]}>
-                      {getCourtLabel(court)}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </ScrollView>
-
-            <Text style={styles.colorPickerLabel}>TRAVEL TIME</Text>
-            <View style={styles.locationPicker}>
-              {TRAVEL_TIME_OPTIONS.map((mins) => (
-                <Pressable
-                  key={mins}
-                  style={[
-                    styles.travelTimeOption,
-                    selectedTravelTime === mins && styles.travelTimeOptionSelected,
-                  ]}
-                  onPress={() => {
-                    setSelectedTravelTime(mins);
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }}
-                >
-                  <Text style={[
-                    styles.travelTimeOptionText,
-                    selectedTravelTime === mins && styles.travelTimeOptionTextSelected,
-                  ]}>
-                    {mins} min
-                  </Text>
-                </Pressable>
-              ))}
+              <Pressable style={styles.drawerCloseButton} onPress={() => setShowTravelTimeModal(false)}>
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
             </View>
 
-            <View style={styles.modalButtons}>
-              <Pressable style={styles.modalCancelButton} onPress={() => setShowTravelTimeModal(false)}>
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </Pressable>
+            <ScrollView style={styles.drawerBody} showsVerticalScrollIndicator={false}>
+              <View style={styles.drawerSection}>
+                <Text style={styles.drawerSectionLabel}>From Location</Text>
+                <View style={styles.drawerOptionsGrid}>
+                  {courts.filter(c => c.locationId).map((court) => (
+                    <Pressable
+                      key={court.id}
+                      style={[
+                        styles.drawerOptionCard,
+                        fromCourtId === court.id && styles.drawerOptionCardSelected,
+                      ]}
+                      onPress={() => handleSelectFromCourt(court)}
+                    >
+                      <View style={[styles.drawerOptionDot, { backgroundColor: court.color || Colors.dark.primary }]} />
+                      <Text style={[
+                        styles.drawerOptionText,
+                        fromCourtId === court.id && styles.drawerOptionTextSelected,
+                      ]} numberOfLines={1}>
+                        {getCourtLabel(court)}
+                      </Text>
+                      {fromCourtId === court.id && (
+                        <Ionicons name="checkmark-circle" size={16} color={Colors.dark.gold} />
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.drawerArrowContainer}>
+                <View style={styles.drawerArrowLine} />
+                <View style={styles.drawerArrowIcon}>
+                  <Ionicons name="arrow-down" size={20} color={Colors.dark.gold} />
+                </View>
+                <View style={styles.drawerArrowLine} />
+              </View>
+
+              <View style={styles.drawerSection}>
+                <Text style={styles.drawerSectionLabel}>To Location</Text>
+                <View style={styles.drawerOptionsGrid}>
+                  {courts.filter(c => c.locationId && c.locationId !== fromLocationId).map((court) => (
+                    <Pressable
+                      key={court.id}
+                      style={[
+                        styles.drawerOptionCard,
+                        toCourtId === court.id && styles.drawerOptionCardSelected,
+                      ]}
+                      onPress={() => handleSelectToCourt(court)}
+                    >
+                      <View style={[styles.drawerOptionDot, { backgroundColor: court.color || Colors.dark.primary }]} />
+                      <Text style={[
+                        styles.drawerOptionText,
+                        toCourtId === court.id && styles.drawerOptionTextSelected,
+                      ]} numberOfLines={1}>
+                        {getCourtLabel(court)}
+                      </Text>
+                      {toCourtId === court.id && (
+                        <Ionicons name="checkmark-circle" size={16} color={Colors.dark.gold} />
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.drawerSection}>
+                <Text style={styles.drawerSectionLabel}>Travel Duration</Text>
+                <View style={styles.drawerTimeGrid}>
+                  {TRAVEL_TIME_OPTIONS.map((mins) => (
+                    <Pressable
+                      key={mins}
+                      style={[
+                        styles.drawerTimeCard,
+                        selectedTravelTime === mins && styles.drawerTimeCardSelected,
+                      ]}
+                      onPress={() => {
+                        setSelectedTravelTime(mins);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                    >
+                      <Text style={[
+                        styles.drawerTimeValue,
+                        selectedTravelTime === mins && styles.drawerTimeValueSelected,
+                      ]}>
+                        {mins}
+                      </Text>
+                      <Text style={[
+                        styles.drawerTimeUnit,
+                        selectedTravelTime === mins && styles.drawerTimeUnitSelected,
+                      ]}>
+                        min
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.drawerFooter}>
               <Pressable 
-                style={[styles.modalSaveButtonWrapper, (!fromCourtId || !toCourtId || fromLocationId === toLocationId) && { opacity: 0.5 }]} 
+                style={[styles.drawerSaveButton, (!fromCourtId || !toCourtId || fromLocationId === toLocationId) && { opacity: 0.5 }]} 
                 onPress={handleSaveTravelTime}
                 disabled={!fromCourtId || !toCourtId || fromLocationId === toLocationId}
               >
@@ -1780,9 +1807,10 @@ export default function SettingsScreen() {
                   colors={[Colors.dark.gold, Colors.dark.orange]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
-                  style={styles.modalSaveButton}
+                  style={styles.drawerSaveGradient}
                 >
-                  <Text style={styles.modalSaveText}>Add</Text>
+                  <Ionicons name="add-circle" size={20} color={Colors.dark.backgroundRoot} />
+                  <Text style={styles.drawerSaveText}>Add Travel Time</Text>
                 </LinearGradient>
               </Pressable>
             </View>
@@ -2584,5 +2612,194 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.dark.gold,
     fontWeight: "600",
+  },
+  drawerOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  drawerBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+  },
+  drawerContent: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "80%",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderBottomWidth: 0,
+  },
+  drawerHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginTop: Spacing.md,
+  },
+  drawerHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.08)",
+  },
+  drawerTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  drawerIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.gold + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  drawerTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  drawerCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  drawerBody: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
+  },
+  drawerSection: {
+    marginBottom: Spacing.md,
+  },
+  drawerSectionLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: Spacing.sm,
+  },
+  drawerOptionsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  drawerOptionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Backgrounds.surface,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    minWidth: 100,
+  },
+  drawerOptionCardSelected: {
+    backgroundColor: Colors.dark.gold + "15",
+    borderColor: Colors.dark.gold,
+  },
+  drawerOptionDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  drawerOptionText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    flex: 1,
+  },
+  drawerOptionTextSelected: {
+    color: Colors.dark.gold,
+  },
+  drawerArrowContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginVertical: Spacing.md,
+    gap: Spacing.md,
+  },
+  drawerArrowLine: {
+    height: 1,
+    flex: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  drawerArrowIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.gold + "15",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  drawerTimeGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  drawerTimeCard: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Backgrounds.surface,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    minWidth: 56,
+  },
+  drawerTimeCardSelected: {
+    backgroundColor: FunctionColors.info + "15",
+    borderColor: FunctionColors.info,
+  },
+  drawerTimeValue: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+  },
+  drawerTimeValueSelected: {
+    color: FunctionColors.info,
+  },
+  drawerTimeUnit: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+  },
+  drawerTimeUnitSelected: {
+    color: FunctionColors.info,
+  },
+  drawerFooter: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.08)",
+  },
+  drawerSaveButton: {
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  drawerSaveGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+  },
+  drawerSaveText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
   },
 });
