@@ -1947,6 +1947,28 @@ export function PremiumSessionWizard({
               </View>
             )}
           </View>
+          
+          {/* Sessions Schedule for Flexible */}
+          {isFlexible && flexibleDates.length > 0 && (
+            <View style={styles.sessionsScheduleSection}>
+              <Text style={styles.sessionsScheduleTitle}>SESSIONS SCHEDULE</Text>
+              {flexibleDates.map((fd, index) => {
+                const [y, m, d] = fd.date.split('-').map(Number);
+                const date = new Date(y, m - 1, d);
+                const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+                const dayName = dayNames[date.getDay()];
+                const monthDay = date.toLocaleDateString("en", { month: "short", day: "numeric" });
+                return (
+                  <View key={fd.date} style={styles.sessionsScheduleRow}>
+                    <Text style={styles.sessionsScheduleIndex}>{index + 1}</Text>
+                    <Text style={styles.sessionsScheduleDay}>{dayName}</Text>
+                    <Text style={styles.sessionsScheduleDate}>{monthDay}</Text>
+                    <Text style={styles.sessionsScheduleTime}>{selectedTime || "13:00"}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
         </ScrollView>
       </BaselineFlowCard>
     );
@@ -2681,6 +2703,46 @@ const styles = StyleSheet.create({
   flexibleChipText: {
     fontSize: FontSizes.sm,
     color: Colors.dark.orange,
+    fontWeight: "500",
+  },
+  sessionsScheduleSection: {
+    marginTop: Spacing.lg,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.1)",
+  },
+  sessionsScheduleTitle: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.textMuted,
+    letterSpacing: 1,
+    marginBottom: Spacing.sm,
+  },
+  sessionsScheduleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.05)",
+  },
+  sessionsScheduleIndex: {
+    width: 24,
+    fontSize: FontSizes.sm,
+    color: Colors.dark.textMuted,
+  },
+  sessionsScheduleDay: {
+    width: 40,
+    fontSize: FontSizes.sm,
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
+  sessionsScheduleDate: {
+    flex: 1,
+    fontSize: FontSizes.sm,
+    color: "#FFFFFF",
+  },
+  sessionsScheduleTime: {
+    fontSize: FontSizes.sm,
+    color: GlowColors.primary,
     fontWeight: "500",
   },
   groupLevelContent: {
