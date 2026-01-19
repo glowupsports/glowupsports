@@ -530,17 +530,15 @@ export default function AdminClassesScreen() {
           </View>
         ) : (
           <>
-            {flexibleSeries.length > 0 && (
-              <CollapsibleDaySection
-                key="flexible"
-                dayOfWeek={FLEXIBLE_DAY}
-                series={flexibleSeries}
-                isExpanded={expandedDays.has(FLEXIBLE_DAY)}
-                onToggle={() => toggleDay(FLEXIBLE_DAY)}
-                onSeriesPress={handleSeriesPress}
-                isFlexible
-              />
-            )}
+            <CollapsibleDaySection
+              key="flexible"
+              dayOfWeek={FLEXIBLE_DAY}
+              series={flexibleSeries}
+              isExpanded={expandedDays.has(FLEXIBLE_DAY)}
+              onToggle={() => toggleDay(FLEXIBLE_DAY)}
+              onSeriesPress={handleSeriesPress}
+              isFlexible
+            />
             {sortedDays.map((day) => (
               <CollapsibleDaySection
                 key={day}

@@ -351,17 +351,15 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
         </View>
       ) : (
         <View style={styles.seriesListContainer}>
-          {flexibleSeries.length > 0 && (
-            <CollapsibleDaySection
-              key="flexible"
-              dayOfWeek={FLEXIBLE_DAY}
-              series={flexibleSeries}
-              isExpanded={expandedDays.has(FLEXIBLE_DAY)}
-              onToggle={() => toggleDay(FLEXIBLE_DAY)}
-              onSeriesPress={onSeriesPress}
-              isFlexible
-            />
-          )}
+          <CollapsibleDaySection
+            key="flexible"
+            dayOfWeek={FLEXIBLE_DAY}
+            series={flexibleSeries}
+            isExpanded={expandedDays.has(FLEXIBLE_DAY)}
+            onToggle={() => toggleDay(FLEXIBLE_DAY)}
+            onSeriesPress={onSeriesPress}
+            isFlexible
+          />
           
           {sortedDays.map((dayOfWeek) => (
             <CollapsibleDaySection
