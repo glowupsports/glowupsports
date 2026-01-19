@@ -1441,7 +1441,7 @@ export default function SettingsScreen() {
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Version</Text>
-              <Text style={styles.infoValue}>{require("../../../../app.json").expo.version}</Text>
+              <Text style={styles.infoValue}>{require("../../../app.json").expo.version}</Text>
             </View>
             <View style={styles.infoRowDivider} />
             <View style={styles.infoRow}>
