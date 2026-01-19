@@ -2383,6 +2383,10 @@ export const storage = {
     return db.select().from(sessions).where(and(...conditions));
   },
 
+  async getSessionsBySeriesId(seriesId: string): Promise<Session[]> {
+    return db.select().from(sessions).where(eq(sessions.seriesId, seriesId));
+  },
+
   async getSessionsByDateRange(startDate: Date, endDate: Date, academyId?: string): Promise<Session[]> {
     const conditions = [
       gte(sessions.startTime, startDate),

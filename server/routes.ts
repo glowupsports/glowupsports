@@ -8494,6 +8494,175 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Sync all coaching series - regenerate missing sessions
+  app.post("/api/coach/series/sync-all", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      
+      if (!coachId || !academyId) {
+        return res.status(400).json({ error: "Coach and academy required" });
+      }
+      
+      // Get academy timezone
+      const academy = await storage.getAcademy(academyId);
+      const academyTimezone = academy?.timezone || "Asia/Dubai";
+      
+      // Get all active series for this coach
+      const allSeries = await storage.getCoachingSeriesByCoach(coachId, academyId);
+      const activeSeries = allSeries.filter(s => s.status === "active");
+      
+      const syncResults: { seriesId: string; title: string; sessionsCreated: number; errors: string[] }[] = [];
+      
+      for (const series of activeSeries) {
+        const result = { seriesId: series.id, title: series.title, sessionsCreated: 0, errors: [] as string[] };
+        
+        // Get existing sessions for this series
+        const existingSessions = await storage.getSessionsBySeriesId(series.id);
+        const existingDates = new Set(existingSessions.map(s => {
+          const d = new Date(s.startTime);
+          return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+        }));
+        
+        // Calculate which sessions should exist
+        const FLEXIBLE_DAY = -1;
+        const isFlexible = series.dayOfWeek === FLEXIBLE_DAY;
+        
+        if (isFlexible) {
+          // Flexible series - sessions should already exist from creation
+          // Just verify they exist
+          result.errors.push("Flexible series - no auto-sync needed");
+        } else {
+          // Regular recurring series - check weekly pattern
+          if (!series.seriesStartDate) {
+            result.errors.push("Missing seriesStartDate");
+            syncResults.push(result);
+            continue;
+          }
+          
+          // Calculate expected session dates
+          const startDate = new Date(series.seriesStartDate);
+          const endDate = series.seriesEndDate ? new Date(series.seriesEndDate) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+          const today = new Date();
+          
+          // Find first occurrence of dayOfWeek on or after start date
+          let currentDate = new Date(startDate);
+          while (currentDate.getDay() !== series.dayOfWeek) {
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+          
+          // Generate sessions week by week up to endDate or 52 weeks
+          let weekCount = 0;
+          const maxWeeks = series.weekCount || 52;
+          
+          while (currentDate <= endDate && weekCount < maxWeeks) {
+            const dateStr = currentDate.toISOString().split('T')[0];
+            
+            // Only create sessions for dates that should have happened or are upcoming (within 4 weeks)
+            const fourWeeksAhead = new Date(today.getTime() + 28 * 24 * 60 * 60 * 1000);
+            if (currentDate <= fourWeeksAhead) {
+              // Check if session exists for this date
+              const sessionExists = existingSessions.some(s => {
+                const sDate = new Date(s.startTime);
+                // Convert to local date in academy timezone for comparison
+                const localDate = utcToLocalTime(sDate, academyTimezone);
+                return localDate.date === dateStr;
+              });
+              
+              if (!sessionExists) {
+                // Create the missing session
+                try {
+                  const resolution = ensureResolvableLocalTime(dateStr, series.startTime, academyTimezone);
+                  if (resolution.ok) {
+                    const sessionDate = resolution.utcDate;
+                    const sessionEndTime = new Date(sessionDate.getTime() + series.duration * 60000);
+                    
+                    // Check for conflicts before creating
+                    const coachConflict = await storage.checkCoachConflict(coachId, sessionDate, sessionEndTime, undefined, academyId);
+                    const courtConflict = series.courtId ? await storage.checkCourtConflict(series.courtId, sessionDate, sessionEndTime, undefined, academyId) : false;
+                    
+                    if (!coachConflict && !courtConflict) {
+                      // Get pricing
+                      let pricingSnapshot: { academyPrice?: string; coachPayout?: string; academyMargin?: string } = {};
+                      try {
+                        const pricing = await storage.calculateSessionPricing(academyId, coachId, series.sessionType, series.duration);
+                        pricingSnapshot = {
+                          academyPrice: String(pricing.academyPrice),
+                          coachPayout: String(pricing.coachPayout),
+                          academyMargin: String(pricing.academyMargin),
+                        };
+                      } catch {}
+                      
+                      const session = await storage.createSession({
+                        academyId,
+                        coachId,
+                        courtId: series.courtId || null,
+                        locationId: series.locationId || null,
+                        startTime: sessionDate,
+                        endTime: sessionEndTime,
+                        duration: series.duration,
+                        sessionType: series.sessionType,
+                        ballLevel: series.ballLevel,
+                        skillLevel: series.skillLevel,
+                        isRecurring: true,
+                        recurringGroupId: series.id,
+                        weekCount: maxWeeks,
+                        seriesId: series.id,
+                        weekNumber: weekCount + 1,
+                        travelTime: 0,
+                        paymentStatus: "unpaid",
+                        status: currentDate < today ? "completed" : "scheduled",
+                        ...pricingSnapshot,
+                      });
+                      
+                      // Add players from series to session
+                      const seriesPlayers = await storage.getSeriesPlayers(series.id);
+                      for (const sp of seriesPlayers) {
+                        if (sp.status === "active") {
+                          await storage.addPlayerToSession({
+                            sessionId: session.id,
+                            playerId: sp.playerId,
+                            status: "confirmed",
+                          });
+                        }
+                      }
+                      
+                      result.sessionsCreated++;
+                    } else {
+                      result.errors.push(`${dateStr}: conflict`);
+                    }
+                  } else {
+                    result.errors.push(`${dateStr}: time unresolvable`);
+                  }
+                } catch (err: any) {
+                  result.errors.push(`${dateStr}: ${err.message}`);
+                }
+              }
+            }
+            
+            // Move to next week
+            currentDate.setDate(currentDate.getDate() + 7);
+            weekCount++;
+          }
+        }
+        
+        syncResults.push(result);
+      }
+      
+      const totalCreated = syncResults.reduce((sum, r) => sum + r.sessionsCreated, 0);
+      
+      res.json({
+        success: true,
+        seriesSynced: activeSeries.length,
+        totalSessionsCreated: totalCreated,
+        results: syncResults,
+      });
+    } catch (error: any) {
+      console.error("Error syncing coaching series:", error);
+      res.status(500).json({ error: "Failed to sync series", message: error.message });
+    }
+  });
+
   // Add a player to a class (with optional joinedAt date for backdating, package linking, and attendance backfill)
   app.post("/api/coach/series/:id/players", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
