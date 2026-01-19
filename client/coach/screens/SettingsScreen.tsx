@@ -12,6 +12,7 @@ import {
   Platform,
   ActivityIndicator,
   Dimensions,
+  Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -1448,6 +1449,39 @@ export default function SettingsScreen() {
               <Text style={styles.infoLabel}>Build</Text>
               <Text style={styles.infoValue}>{new Date().toISOString().split("T")[0]}</Text>
             </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <SectionHeader title="Legal" icon="document-text-outline" />
+          <View style={styles.card}>
+            <Pressable
+              style={styles.settingRow}
+              onPress={() => Linking.openURL("https://glowupsports.com/privacy")}
+            >
+              <View style={styles.settingInfo}>
+                <Ionicons name="shield-checkmark-outline" size={22} color={Colors.dark.xpCyan} />
+                <View>
+                  <Text style={styles.settingLabel}>Privacy Policy</Text>
+                  <Text style={styles.settingDescription}>How we handle your data</Text>
+                </View>
+              </View>
+              <Ionicons name="open-outline" size={20} color={Colors.dark.xpCyan} />
+            </Pressable>
+            <View style={styles.settingDivider} />
+            <Pressable
+              style={styles.settingRow}
+              onPress={() => Linking.openURL("https://glowupsports.com/terms")}
+            >
+              <View style={styles.settingInfo}>
+                <Ionicons name="document-text-outline" size={22} color={Colors.dark.xpCyan} />
+                <View>
+                  <Text style={styles.settingLabel}>Terms of Service</Text>
+                  <Text style={styles.settingDescription}>Usage terms and conditions</Text>
+                </View>
+              </View>
+              <Ionicons name="open-outline" size={20} color={Colors.dark.xpCyan} />
+            </Pressable>
           </View>
         </View>
 
