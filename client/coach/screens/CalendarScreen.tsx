@@ -74,7 +74,7 @@ const COURT_LANE_WIDTH = (SCREEN_WIDTH - TIME_COLUMN_WIDTH - Spacing.lg * 2) / 3
 const HOUR_HEIGHT_60 = 80;
 const HOUR_HEIGHT_30 = 60;
 const START_HOUR = 6;
-const END_HOUR = 23;
+const END_HOUR = 21;
 
 
 // Compare dates by UTC date string to avoid timezone issues
