@@ -227,7 +227,7 @@ export default function SessionPlanScreen() {
           <View style={styles.focusSkills}>
             <ThemedText style={styles.focusLabel}>Focus Skills</ThemedText>
             <View style={styles.skillTags}>
-              {sessionPlan.focusSkills.map((skill, index) => (
+              {(sessionPlan.focusSkills || []).map((skill, index) => (
                 <View key={index} style={[styles.skillTag, { backgroundColor: getPillarColor(skill) + "20" }]}>
                   <ThemedText style={[styles.skillTagText, { color: getPillarColor(skill) }]}>
                     {skill.replace(/_/g, " ")}
@@ -237,9 +237,9 @@ export default function SessionPlanScreen() {
             </View>
           </View>
 
-          <ThemedText style={styles.blocksTitle}>Drill Blocks ({sessionPlan.blocks.length})</ThemedText>
+          <ThemedText style={styles.blocksTitle}>Drill Blocks ({(sessionPlan.blocks || []).length})</ThemedText>
 
-          {sessionPlan.blocks.map((block, index) => (
+          {(sessionPlan.blocks || []).map((block, index) => (
             <Card key={block.id} style={styles.drillCard}>
               <View style={styles.drillHeader}>
                 <View style={styles.drillNumber}>
@@ -266,7 +266,7 @@ export default function SessionPlanScreen() {
               </View>
 
               <View style={styles.drillTags}>
-                {block.skillTags.map((tag, tagIndex) => (
+                {(block.skillTags || []).map((tag, tagIndex) => (
                   <View 
                     key={tagIndex} 
                     style={[styles.miniTag, { backgroundColor: Colors.dark.backgroundSecondary }]}
@@ -276,10 +276,10 @@ export default function SessionPlanScreen() {
                 ))}
               </View>
 
-              {block.equipment.length > 0 ? (
+              {(block.equipment || []).length > 0 ? (
                 <View style={styles.equipmentRow}>
                   <Ionicons name="basket-outline" size={14} color={Colors.dark.text} style={{ opacity: 0.6 }} />
-                  <ThemedText style={styles.equipmentText}>{block.equipment.join(", ")}</ThemedText>
+                  <ThemedText style={styles.equipmentText}>{(block.equipment || []).join(", ")}</ThemedText>
                 </View>
               ) : null}
 
