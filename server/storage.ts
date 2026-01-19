@@ -6362,6 +6362,43 @@ export const storage = {
     }
   },
 
+  // Create a debt transaction when no credits are available
+  async createDebtTransaction(playerId: string, sessionId: string, academyId: string, sessionType?: string): Promise<boolean> {
+    try {
+      const normalizeType = (type: string | undefined): string => {
+        if (!type) return "group";
+        const normalized = type.toLowerCase().replace("-", "_").replace(" ", "_");
+        if (normalized === "semi" || normalized === "semi_private") return "semi_private";
+        if (normalized === "private") return "private";
+        return "group";
+      };
+      
+      const creditType = normalizeType(sessionType);
+      
+      const result = await db.execute(sql`
+        INSERT INTO credit_transactions (player_id, academy_id, session_id, package_id, type, credit_type, amount, reason, balance_before, balance_after, metadata)
+        VALUES (${playerId}, ${academyId}, ${sessionId}, NULL, 'debit', ${creditType}, -1, 'session_join_debt', 0, -1, 
+               ${JSON.stringify({ description: `Debt: ${creditType} credit owed (no package)`, isDebt: true, actualCreditType: creditType })}::jsonb)
+        ON CONFLICT DO NOTHING
+        RETURNING id
+      `);
+      
+      if (result.rowCount === 0) {
+        console.log(`[Credits] Debt transaction already exists for session ${sessionId}, player ${playerId}`);
+        return false;
+      }
+      
+      console.log(`[Credits] Created debt transaction for player ${playerId}, session ${sessionId}, type ${creditType}`);
+      return true;
+    } catch (error: any) {
+      if (error.code === '23505') {
+        return false;
+      }
+      console.error(`[Credits] Error creating debt transaction for player ${playerId}:`, error);
+      return false;
+    }
+  },
+
   // Backfill debt transactions for past attended sessions without credits
   // This handles the case where players attended sessions before the debt system was implemented
   async backfillDebtTransactions(academyId: string): Promise<{

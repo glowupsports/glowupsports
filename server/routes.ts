@@ -8415,13 +8415,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (attendedSessionIds && attendedSessionIds.length > 0) {
             for (const sessionId of attendedSessionIds) {
               try {
+                // Get session to determine type for credit matching
+                const session = await storage.getSession(sessionId);
+                const sessionType = session?.sessionType || existing.sessionType || "group";
+                
+                // First add player to session if not already
+                const sessionPlayersList = await storage.getSessionPlayers(sessionId);
+                if (!sessionPlayersList.some(p => p.id === playerId)) {
+                  await storage.addPlayerToSession({ sessionId, playerId });
+                }
+                
                 // Mark as attended - returns object with isNewAttendance flag
                 const attendanceResult = await storage.markAttendance(sessionId, playerId, true, academyId);
                 // Only consume credit if this is NEW attendance (not a duplicate)
                 if (attendanceResult && attendanceResult.isNewAttendance) {
-                  await storage.consumeSingleCreditForSession(playerId, sessionId, academyId, assignedPackageId);
+                  const consumed = await storage.consumeSingleCreditForSession(playerId, sessionId, academyId, assignedPackageId, sessionType);
+                  // If no credits consumed, create debt transaction
+                  if (!consumed) {
+                    await storage.createDebtTransaction(playerId, sessionId, academyId, sessionType);
+                  }
                   // Award XP for attended session
-                  const session = await storage.getSession(sessionId);
                   if (session) {
                     const xpAmount = session.xpValue || 20;
                     await storage.addPlayerXP(playerId, xpAmount, sessionId, "session_attendance");
@@ -8430,6 +8443,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
               } catch (e) {
                 console.error(`Failed to backfill attendance for session ${sessionId}:`, e);
               }
+            }
+          }
+          
+          // Add player to future session instances
+          const allSeriesSessions = await db.select().from(sessions).where(eq(sessions.seriesId, id));
+          const now = new Date();
+          const futureSessions = allSeriesSessions.filter(s => new Date(s.startTime) > now);
+          for (const futureSession of futureSessions) {
+            try {
+              const existingPlayers = await storage.getSessionPlayers(futureSession.id);
+              if (!existingPlayers.some(p => p.id === playerId)) {
+                await storage.addPlayerToSession({ sessionId: futureSession.id, playerId });
+              }
+            } catch (e) {
+              console.error(`Failed to add player to future session ${futureSession.id}:`, e);
             }
           }
           
@@ -8460,6 +8488,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (attendedSessionIds && attendedSessionIds.length > 0) {
         for (const sessionId of attendedSessionIds) {
           try {
+            // Get session to determine type for credit matching
+            const session = await storage.getSession(sessionId);
+            const sessionType = session?.sessionType || existing.sessionType || "group";
+            
             // First add player to session if not already
             const sessionPlayersList = await storage.getSessionPlayers(sessionId);
             if (!sessionPlayersList.some(p => p.id === playerId)) {
@@ -8469,9 +8501,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const attendanceResult = await storage.markAttendance(sessionId, playerId, true, academyId);
             // Only consume credit if this is NEW attendance (not a duplicate)
             if (attendanceResult && attendanceResult.isNewAttendance) {
-              await storage.consumeSingleCreditForSession(playerId, sessionId, academyId, assignedPackageId);
+              const consumed = await storage.consumeSingleCreditForSession(playerId, sessionId, academyId, assignedPackageId, sessionType);
+              // If no credits consumed, create debt transaction
+              if (!consumed) {
+                await storage.createDebtTransaction(playerId, sessionId, academyId, sessionType);
+              }
               // Award XP for attended session
-              const session = await storage.getSession(sessionId);
               if (session) {
                 const xpAmount = session.xpValue || 20;
                 await storage.addPlayerXP(playerId, xpAmount, sessionId, "session_attendance");
@@ -8480,6 +8515,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } catch (e) {
             console.error(`Failed to backfill attendance for session ${sessionId}:`, e);
           }
+        }
+      }
+      
+      // Add player to future session instances
+      const newPlayerSeriesSessions = await db.select().from(sessions).where(eq(sessions.seriesId, id));
+      const nowTime = new Date();
+      const newPlayerFutureSessions = newPlayerSeriesSessions.filter(s => new Date(s.startTime) > nowTime);
+      for (const futureSession of newPlayerFutureSessions) {
+        try {
+          const existingPlayers = await storage.getSessionPlayers(futureSession.id);
+          if (!existingPlayers.some(p => p.id === playerId)) {
+            await storage.addPlayerToSession({ sessionId: futureSession.id, playerId });
+          }
+        } catch (e) {
+          console.error(`Failed to add player to future session ${futureSession.id}:`, e);
         }
       }
       
