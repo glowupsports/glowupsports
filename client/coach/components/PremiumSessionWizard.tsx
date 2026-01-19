@@ -82,6 +82,7 @@ interface PremiumSessionWizardProps {
   onClose: () => void;
   onComplete?: (session: any) => void;
   initialDate?: Date;
+  initialCourtId?: string;
   adminMode?: boolean;
   coaches?: Coach[];
   selectedCoachId?: string;
@@ -171,6 +172,7 @@ export function PremiumSessionWizard({
   onClose, 
   onComplete, 
   initialDate,
+  initialCourtId,
   adminMode = false,
   coaches = [],
   selectedCoachId,
@@ -196,7 +198,7 @@ export function PremiumSessionWizard({
   const [selectedDate, setSelectedDate] = useState<Date>(initialDate || new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [duration, setDuration] = useState(60);
-  const [selectedCourtId, setSelectedCourtId] = useState<string | null>(null);
+  const [selectedCourtId, setSelectedCourtId] = useState<string | null>(initialCourtId || null);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   const [createdSession, setCreatedSession] = useState<any>(null);
   
@@ -493,7 +495,7 @@ export function PremiumSessionWizard({
       setSelectedDate(initialDate || new Date());
       setSelectedTime(null);
       setDuration(60);
-      setSelectedCourtId(null);
+      setSelectedCourtId(initialCourtId || null);
       setShowSuccessAnimation(false);
       setCreatedSession(null);
       setSchedulePattern(createSeriesMode ? "recurring" : "one-time");
@@ -2080,7 +2082,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.lg,
   },
   cardScroll: {
-    maxHeight: 350,
+    maxHeight: 420,
   },
   cardScrollLarge: {
     maxHeight: 450,

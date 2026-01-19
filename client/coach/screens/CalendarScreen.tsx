@@ -2537,6 +2537,7 @@ export default function CalendarScreen() {
           setSelectedSlot(null);
         }}
         initialDate={selectedSlot?.time}
+        initialCourtId={selectedSlot?.courtId}
       />
 
       {/* Session Detail Drawer */}
@@ -3195,7 +3196,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255, 255, 255, 0.35)",
   },
   halfHourLine: {
     position: "absolute",
@@ -3203,7 +3204,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
   },
   sessionBlock: {
     position: "absolute",
