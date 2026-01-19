@@ -3094,7 +3094,7 @@ const styles = StyleSheet.create({
   },
   addGuestButtonText: {
     fontSize: FontSizes.sm,
-    color: Colors.dark.primary,
+    color: "#FFFFFF",
     fontWeight: "600",
   },
   // Selected players row

@@ -43,7 +43,12 @@
 | `text.muted` | `#7C8290` | Helper text, meta info |
 | `text.disabled` | `#4A4F5C` | Inactieve elementen |
 
-**❌ NOOIT**: Groen voor normale tekst. Groen = actie/status, geen lees-kleur.
+**❌ NOOIT**: 
+- Groen voor normale tekst. Groen = alleen voor iconen/badges/accenten
+- Gekleurde tekst (behalve wit) voor labels, buttons, of beschrijvingen
+- Zwart of grijs tekst (slechte leesbaarheid in zonlicht)
+
+**🌞 ZONLICHT REGEL**: ALLE leesbare tekst = `#FFFFFF` (wit). Dit is KRITIEK voor outdoor tennis apps!
 
 ---
 

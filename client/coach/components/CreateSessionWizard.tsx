@@ -3895,7 +3895,7 @@ const styles = StyleSheet.create({
   },
   addGuestButtonText: {
     ...Typography.body,
-    color: Colors.dark.primary,
+    color: "#FFFFFF",
     fontWeight: "600",
   },
   // Guest Modal styles
