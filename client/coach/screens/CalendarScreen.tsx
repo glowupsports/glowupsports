@@ -3103,7 +3103,7 @@ const styles = StyleSheet.create({
   },
   courtHeaderWithDivider: {
     borderLeftWidth: 3,
-    borderLeftColor: GlowColors.primary,
+    borderLeftColor: "#FFFFFF",
   },
   courtHeaderText: {
     fontSize: 12,
@@ -3150,13 +3150,13 @@ const styles = StyleSheet.create({
   },
   courtLaneWithDivider: {
     borderLeftWidth: 3,
-    borderLeftColor: GlowColors.primary,
+    borderLeftColor: "#FFFFFF",
   },
   hourSlot: {
     height: HOUR_HEIGHT_60,
     position: "relative",
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.2)",
+    borderBottomWidth: 2,
+    borderBottomColor: "#FFFFFF",
   },
   hourSlotEven: {
     backgroundColor: Backgrounds.elevated,
@@ -3169,8 +3169,8 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.25)",
+    height: 2,
+    backgroundColor: "#FFFFFF",
   },
   halfHourLine: {
     position: "absolute",
