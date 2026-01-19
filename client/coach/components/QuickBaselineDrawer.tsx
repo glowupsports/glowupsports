@@ -1150,7 +1150,7 @@ export default function QuickBaselineDrawer({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <LinearGradient
           colors={[Colors.dark.backgroundSecondary, Colors.dark.backgroundRoot]}
           style={StyleSheet.absoluteFill}

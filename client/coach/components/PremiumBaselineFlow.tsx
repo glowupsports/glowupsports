@@ -992,7 +992,7 @@ export function PremiumBaselineFlow({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         {/* Header */}
         <View style={styles.header}>
           <Pressable style={styles.closeButton} onPress={onClose}>
