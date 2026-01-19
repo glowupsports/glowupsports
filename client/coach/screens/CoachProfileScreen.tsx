@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Image as RNImage,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -318,11 +319,19 @@ export default function CoachProfileScreen() {
                   style={styles.avatarBorder}
                 >
                   {profile?.photoUrl ? (
-                    <Image
-                      source={{ uri: `${getApiUrl()}${profile.photoUrl}` }}
-                      style={styles.avatarImage}
-                      contentFit="cover"
-                    />
+                    Platform.OS === 'web' ? (
+                      <RNImage
+                        source={{ uri: `${getApiUrl()}${profile.photoUrl}` }}
+                        style={styles.avatarImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Image
+                        source={{ uri: `${getApiUrl()}${profile.photoUrl}` }}
+                        style={styles.avatarImage}
+                        contentFit="cover"
+                      />
+                    )
                   ) : (
                     <View style={styles.avatar}>
                       <Ionicons name="person" size={48} color={Colors.dark.xpCyan} />

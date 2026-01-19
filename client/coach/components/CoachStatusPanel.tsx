@@ -8,6 +8,8 @@ import {
   Switch,
   Dimensions,
   Modal,
+  Platform,
+  Image as RNImage,
 } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -250,11 +252,19 @@ export function CoachStatusPanel({ visible, onClose, onNavigate }: CoachStatusPa
                     style={styles.avatarGradient}
                   >
                     {coach?.photoUrl ? (
-                      <Image
-                        source={{ uri: `${getApiUrl()}${coach.photoUrl}` }}
-                        style={styles.avatarImage}
-                        contentFit="cover"
-                      />
+                      Platform.OS === 'web' ? (
+                        <RNImage
+                          source={{ uri: `${getApiUrl()}${coach.photoUrl}` }}
+                          style={styles.avatarImage}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <Image
+                          source={{ uri: `${getApiUrl()}${coach.photoUrl}` }}
+                          style={styles.avatarImage}
+                          contentFit="cover"
+                        />
+                      )
                     ) : (
                       <View style={styles.avatarInner}>
                         <Ionicons name="person" size={32} color={Colors.dark.primary} />

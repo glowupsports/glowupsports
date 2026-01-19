@@ -9,6 +9,7 @@ import {
   Alert as RNAlert,
   Platform,
   RefreshControl,
+  Image as RNImage,
 } from "react-native";
 import { Image } from "expo-image";
 import Animated, {
@@ -609,11 +610,19 @@ export default function DashboardScreen() {
                     style={styles.avatarBorder}
                   >
                     {coach?.photoUrl ? (
-                      <Image
-                        source={{ uri: `${getApiUrl()}${coach.photoUrl}` }}
-                        style={styles.avatarPhoto}
-                        contentFit="cover"
-                      />
+                      Platform.OS === 'web' ? (
+                        <RNImage
+                          source={{ uri: `${getApiUrl()}${coach.photoUrl}` }}
+                          style={styles.avatarPhoto}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <Image
+                          source={{ uri: `${getApiUrl()}${coach.photoUrl}` }}
+                          style={styles.avatarPhoto}
+                          contentFit="cover"
+                        />
+                      )
                     ) : (
                       <View style={styles.avatarInnerBg}>
                         <Ionicons name="person" size={28} color={Colors.dark.primary} />
