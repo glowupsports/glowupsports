@@ -608,8 +608,18 @@ export default function CalendarScreen() {
   const courtHeaderScrollRef = useRef<ScrollView>(null);
   const courtLanesScrollRef = useRef<ScrollView>(null);
 
-  const allCourts = calendarData?.courts || [];
   const allLocations = calendarData?.locations || [];
+  
+  // Sort courts by location name, then by court name for consistent ordering
+  const allCourts = useMemo(() => {
+    const courts = calendarData?.courts || [];
+    return [...courts].sort((a, b) => {
+      const locA = allLocations.find(l => l.id === a.locationId)?.name || "";
+      const locB = allLocations.find(l => l.id === b.locationId)?.name || "";
+      if (locA !== locB) return locA.localeCompare(locB);
+      return a.name.localeCompare(b.name);
+    });
+  }, [calendarData?.courts, allLocations]);
 
   const exportCalendarToICS = useCallback(async () => {
     if (!calendarData?.ownSessions || calendarData.ownSessions.length === 0) {
@@ -3100,7 +3110,7 @@ const styles = StyleSheet.create({
   },
   courtHeaderWithDivider: {
     borderLeftWidth: 1,
-    borderLeftColor: "rgba(255, 255, 255, 0.08)",
+    borderLeftColor: "rgba(255, 255, 255, 0.25)",
   },
   courtHeaderText: {
     fontSize: 11,
@@ -3142,7 +3152,7 @@ const styles = StyleSheet.create({
   },
   courtLaneWithDivider: {
     borderLeftWidth: 1,
-    borderLeftColor: "rgba(255, 255, 255, 0.1)",
+    borderLeftColor: "rgba(255, 255, 255, 0.25)",
   },
   hourSlot: {
     height: HOUR_HEIGHT_60,
