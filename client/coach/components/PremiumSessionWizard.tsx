@@ -57,6 +57,7 @@ interface Player {
     movement?: number;
     tactics?: number;
   };
+  isGuest?: boolean;
 }
 
 interface Court {
@@ -219,6 +220,11 @@ export function PremiumSessionWizard({
   const [multiWeekBlockedSlots, setMultiWeekBlockedSlots] = useState<Set<string>>(new Set());
   const [showAllPlayers, setShowAllPlayers] = useState(false);
   const [showCourtChange, setShowCourtChange] = useState(false);
+  
+  // Guest player modal
+  const [showGuestModal, setShowGuestModal] = useState(false);
+  const [guestName, setGuestName] = useState("");
+  const [guestBallLevel, setGuestBallLevel] = useState<BallLevel | null>(null);
   
   const successScale = useSharedValue(0);
 
@@ -500,6 +506,9 @@ export function PremiumSessionWizard({
       setVisibleToPlayers(true);
       setNotes("");
       setDontShowAgain(false);
+      setShowGuestModal(false);
+      setGuestName("");
+      setGuestBallLevel(null);
     }
   }, [visible, initialDate, skipIntro, createSeriesMode]);
 
@@ -1144,6 +1153,18 @@ export function PremiumSessionWizard({
             ) : null}
           </View>
           
+          {/* Add Guest Player Button */}
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowGuestModal(true);
+            }}
+            style={styles.addGuestButton}
+          >
+            <Ionicons name="person-add" size={18} color={Colors.dark.primary} />
+            <Text style={styles.addGuestButtonText}>Add Guest Player</Text>
+          </Pressable>
+
           {sessionType === "group" && groupLevel && (
             <View style={styles.filterRow}>
               <View style={[styles.filterBadge, { backgroundColor: getLevelColor(groupLevel) + "20", flex: 1 }]}>
@@ -1174,6 +1195,30 @@ export function PremiumSessionWizard({
                   {showAllPlayers ? "Filtered" : "Show All"}
                 </Text>
               </Pressable>
+            </View>
+          )}
+
+          {/* Selected Players (including guests) */}
+          {selectedPlayers.length > 0 && (
+            <View style={styles.selectedPlayersRow}>
+              {selectedPlayers.map(player => (
+                <Pressable
+                  key={player.id}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelectedPlayers(prev => prev.filter(p => p.id !== player.id));
+                  }}
+                  style={[styles.selectedPlayerChip, player.isGuest && styles.selectedPlayerChipGuest]}
+                >
+                  {player.isGuest && (
+                    <View style={styles.guestBadge}>
+                      <Text style={styles.guestBadgeText}>GUEST</Text>
+                    </View>
+                  )}
+                  <Text style={[styles.selectedPlayerName, player.isGuest && { color: Colors.dark.orange }]}>{player.name}</Text>
+                  <Ionicons name="close" size={14} color={Colors.dark.error} />
+                </Pressable>
+              ))}
             </View>
           )}
           
@@ -1864,6 +1909,7 @@ export function PremiumSessionWizard({
   };
 
   return (
+    <>
     <Modal visible={visible} animationType="slide" transparent={false}>
       <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={styles.header}>
@@ -1886,6 +1932,109 @@ export function PremiumSessionWizard({
         </View>
       </View>
     </Modal>
+
+    {/* Add Guest Player Modal */}
+    <Modal
+      visible={showGuestModal}
+      animationType="fade"
+      transparent
+      onRequestClose={() => setShowGuestModal(false)}
+    >
+      <View style={styles.guestModalOverlay}>
+        <View style={styles.guestModalContent}>
+          <LinearGradient
+            colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.guestModalHeaderLine}
+          />
+          
+          <View style={styles.guestModalHeader}>
+            <Text style={styles.guestModalTitle}>ADD GUEST PLAYER</Text>
+            <Pressable
+              onPress={() => {
+                setShowGuestModal(false);
+                setGuestName("");
+                setGuestBallLevel(null);
+              }}
+              style={styles.guestModalCloseBtn}
+            >
+              <Ionicons name="close" size={24} color="#FFFFFF" />
+            </Pressable>
+          </View>
+
+          <View style={styles.guestModalBody}>
+            <Text style={styles.guestModalLabel}>Guest Name</Text>
+            <TextInput
+              style={styles.guestModalInput}
+              placeholder="Enter guest name..."
+              placeholderTextColor={Colors.dark.textMuted}
+              value={guestName}
+              onChangeText={setGuestName}
+              autoFocus
+            />
+
+            <Text style={[styles.guestModalLabel, { marginTop: Spacing.lg }]}>Ball Level (Optional)</Text>
+            <View style={styles.guestBallLevels}>
+              {BALL_LEVELS.map(level => (
+                <Pressable
+                  key={level.id}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setGuestBallLevel(guestBallLevel === level.id ? null : level.id);
+                  }}
+                  style={[
+                    styles.guestBallOption,
+                    guestBallLevel === level.id && { borderColor: level.color, backgroundColor: level.color + "20" }
+                  ]}
+                >
+                  <View style={[styles.guestBallDot, { backgroundColor: level.color }]} />
+                  <Text style={[
+                    styles.guestBallOptionText,
+                    guestBallLevel === level.id && { color: "#FFFFFF" }
+                  ]}>
+                    {level.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Pressable
+              onPress={() => {
+                if (!guestName.trim()) return;
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                const guestPlayer: Player = {
+                  id: `guest-${Date.now()}`,
+                  name: guestName.trim(),
+                  email: "",
+                  ballLevel: guestBallLevel,
+                  isGuest: true,
+                };
+                setSelectedPlayers(prev => [...prev, guestPlayer]);
+                setGuestName("");
+                setGuestBallLevel(null);
+                setShowGuestModal(false);
+              }}
+              disabled={!guestName.trim()}
+              style={[styles.guestModalAddBtn, !guestName.trim() && styles.guestModalAddBtnDisabled]}
+            >
+              <LinearGradient
+                colors={guestName.trim() ? [Colors.dark.primary, "#00FF88"] : [Colors.dark.disabled, Colors.dark.disabled]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.guestModalAddBtnGradient}
+              >
+                <Ionicons name="person-add" size={18} color={guestName.trim() ? "#0B0D10" : Colors.dark.textMuted} />
+                <Text style={[styles.guestModalAddBtnText, !guestName.trim() && { color: Colors.dark.textMuted }]}>
+                  Add Guest
+                </Text>
+              </LinearGradient>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+    </>
   );
 }
 
@@ -2928,5 +3077,169 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: GlowColors.primary,
     marginTop: Spacing.lg,
+  },
+  // Add Guest Button styles
+  addGuestButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.dark.primary + "15",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+    borderStyle: "dashed",
+    marginBottom: Spacing.sm,
+  },
+  addGuestButtonText: {
+    fontSize: FontSizes.sm,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  // Selected players row
+  selectedPlayersRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  selectedPlayerChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    backgroundColor: Colors.dark.primary + "20",
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary,
+  },
+  selectedPlayerChipGuest: {
+    backgroundColor: Colors.dark.orange + "20",
+    borderColor: Colors.dark.orange,
+  },
+  selectedPlayerName: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.primary,
+  },
+  guestBadge: {
+    backgroundColor: Colors.dark.orange,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
+  },
+  guestBadgeText: {
+    fontSize: 8,
+    color: "#0B0D10",
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  // Guest Modal styles
+  guestModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  guestModalContent: {
+    width: "100%",
+    maxWidth: 400,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  guestModalHeaderLine: {
+    height: 3,
+  },
+  guestModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  guestModalTitle: {
+    fontSize: FontSizes.md,
+    color: "#FFFFFF",
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  guestModalCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  guestModalBody: {
+    padding: Spacing.lg,
+  },
+  guestModalLabel: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+    marginBottom: Spacing.sm,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  guestModalInput: {
+    fontSize: FontSizes.md,
+    color: "#FFFFFF",
+    backgroundColor: "#0B0D10",
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  guestBallLevels: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  guestBallOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: "#0B0D10",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  guestBallDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  guestBallOptionText: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  guestModalAddBtn: {
+    marginTop: Spacing.xl,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  guestModalAddBtnDisabled: {
+    opacity: 0.6,
+  },
+  guestModalAddBtnGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+  },
+  guestModalAddBtnText: {
+    fontSize: FontSizes.md,
+    color: "#0B0D10",
+    fontWeight: "700",
   },
 });
