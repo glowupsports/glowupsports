@@ -252,6 +252,24 @@ export function PremiumSessionWizard({
       setSchedulePattern("recurring");
     }
   }, [createSeriesMode, visible]);
+  
+  // Auto-populate session ball level from selected players when entering session-setup
+  useEffect(() => {
+    if (step === "session-setup" && selectedPlayers.length > 0 && !sessionBallLevel) {
+      // Find the most common ball level among selected players
+      const ballLevelCounts: Record<string, number> = {};
+      for (const player of selectedPlayers) {
+        if (player.ballLevel) {
+          const level = player.ballLevel.toUpperCase();
+          ballLevelCounts[level] = (ballLevelCounts[level] || 0) + 1;
+        }
+      }
+      const mostCommonLevel = Object.entries(ballLevelCounts).sort((a, b) => b[1] - a[1])[0];
+      if (mostCommonLevel) {
+        setSessionBallLevel(mostCommonLevel[0].toLowerCase() as BallLevel);
+      }
+    }
+  }, [step, selectedPlayers, sessionBallLevel]);
 
   const { data: playersData = [] } = useQuery<Player[]>({
     queryKey: ["/api/players"],
