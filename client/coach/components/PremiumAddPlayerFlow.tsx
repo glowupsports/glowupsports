@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView, Dimensions } from "react-native";
+import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -14,7 +15,7 @@ import Animated, {
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
 import { BaselineFlowCard } from "./BaselineFlowCard";
 
@@ -29,10 +30,11 @@ interface PremiumAddPlayerFlowProps {
 }
 
 const BALL_LEVELS = [
-  { id: "red", label: "Red", color: Colors.dark.ballRed, description: "Beginners (5-8 yrs)", icon: "tennisball" },
-  { id: "orange", label: "Orange", color: Colors.dark.ballOrange, description: "Developing (8-10 yrs)", icon: "tennisball" },
-  { id: "green", label: "Green", color: Colors.dark.ballGreen, description: "Intermediate (9-12 yrs)", icon: "tennisball" },
-  { id: "yellow", label: "Yellow", color: Colors.dark.ballYellow, description: "Advanced (10+ yrs)", icon: "tennisball" },
+  { id: "blue", label: "Blue", color: "#3B82F6", description: "Starter (3-5 yrs)", image: "blue_tennis_ball_icon.png" },
+  { id: "red", label: "Red", color: Colors.dark.ballRed, description: "Beginners (5-8 yrs)", image: "red_tennis_ball_icon.png" },
+  { id: "orange", label: "Orange", color: Colors.dark.ballOrange, description: "Developing (8-10 yrs)", image: "orange_tennis_ball_icon.png" },
+  { id: "green", label: "Green", color: Colors.dark.ballGreen, description: "Intermediate (9-12 yrs)", image: "green_tennis_ball_icon.png" },
+  { id: "yellow", label: "Yellow", color: Colors.dark.ballYellow, description: "Advanced (10+ yrs)", image: "yellow_tennis_ball_icon.png" },
 ];
 
 const GLOW_LEVELS = [
@@ -444,16 +446,20 @@ export function PremiumAddPlayerFlow({ visible, onClose, onComplete }: PremiumAd
                 setSelectedBallLevel(level.id);
               }}
             >
-              <View style={[styles.ballDot, { backgroundColor: level.color }]} />
+              <Image
+                source={{ uri: `${getStaticAssetsUrl()}/images/${level.image}` }}
+                style={styles.ballImage}
+                contentFit="contain"
+              />
               <Text style={[styles.ballLevelLabel, selectedBallLevel === level.id && { color: level.color }]}>
                 {level.label}
               </Text>
               <Text style={styles.ballLevelDesc}>{level.description}</Text>
-              {selectedBallLevel === level.id && (
+              {selectedBallLevel === level.id ? (
                 <View style={[styles.ballCheck, { backgroundColor: level.color }]}>
                   <Ionicons name="checkmark" size={14} color="#FFFFFF" />
                 </View>
-              )}
+              ) : null}
             </Pressable>
           ))}
         </View>
@@ -983,17 +989,22 @@ const styles = StyleSheet.create({
     backgroundColor: "#1A1F2A",
     borderRadius: BorderRadius.lg,
     borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.15)",
+    borderColor: "rgba(255, 255, 255, 0.3)",
     padding: Spacing.md,
     alignItems: "center",
   },
   ballLevelCardSelected: {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   ballDot: {
     width: 32,
     height: 32,
     borderRadius: 16,
+    marginBottom: Spacing.sm,
+  },
+  ballImage: {
+    width: 56,
+    height: 56,
     marginBottom: Spacing.sm,
   },
   ballLevelLabel: {
