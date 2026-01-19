@@ -2778,7 +2778,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         weekCount,
         travelTime,
         playerIds,
+        isFlexible,
+        flexibleDates,
+        maxPlayers,
+        isOpenGroup,
+        visibleToPlayers,
+        notes,
       } = req.body;
+      
+      const FLEXIBLE_DAY = -1;
 
       if (!coachId || !courtId || !startTime || !duration || !sessionType) {
         return res.status(400).json({ error: "Missing required fields" });
@@ -2836,28 +2844,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Create sessions (single or recurring)
-      const sessionsToCreate = weekCount && weekCount > 1 ? weekCount : 1;
+      // Create sessions (single, recurring, or flexible)
+      const isFlexibleSession = isFlexible && flexibleDates && Array.isArray(flexibleDates) && flexibleDates.length > 0;
+      const sessionsToCreate = isFlexibleSession ? flexibleDates.length : (weekCount && weekCount > 1 ? weekCount : 1);
       const recurringGroupId = sessionsToCreate > 1 ? crypto.randomUUID() : null;
       const createdSessions = [];
       const skippedWeeks: number[] = [];
       
-      // Create coaching_series for recurring sessions (so they appear in Classes view)
+      // Create coaching_series for ALL sessions (recurring, flexible, AND one-off)
+      // - Recurring (weekly): dayOfWeek = 0-6
+      // - Flexible/One-off: dayOfWeek = -1 (appears in "Flexible Schedule" section)
       let seriesId: string | null = null;
-      if (sessionsToCreate > 1 && academyId && coachId) {
-        const dayOfWeek = start.getUTCDay(); // 0=Sunday, 1=Monday, etc.
+      const sessionTypeLabels: Record<string, string> = {
+        private: "Private Lesson",
+        semi_private: "Semi-Private",
+        group: "Group Session",
+        physical: "Physical Training",
+        activity: "Activity",
+      };
+      
+      if (academyId && coachId) {
         const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-        const sessionTypeLabels: Record<string, string> = {
-          private: "Private Lesson",
-          semi_private: "Semi-Private",
-          group: "Group Session",
-        };
-        const seriesTitle = `${sessionTypeLabels[sessionType] || sessionType} - ${dayNames[dayOfWeek]} ${startTimeStr}`;
-        const seriesStartDate = dateStr;
+        let seriesTitle: string;
+        let effectiveDayOfWeek: number;
+        let seriesStartDateStr: string;
+        let seriesEndDateStr: string;
+        let effectiveWeekCount: number;
         
-        // Calculate end date based on weekCount
-        const seriesEndDate = new Date(start.getTime() + (sessionsToCreate - 1) * 7 * 24 * 60 * 60 * 1000);
-        const seriesEndDateStr = seriesEndDate.toISOString().split('T')[0];
+        if (isFlexibleSession) {
+          // FLEXIBLE: dayOfWeek = -1, multiple dates
+          effectiveDayOfWeek = FLEXIBLE_DAY;
+          const sortedDates = [...flexibleDates].sort((a: any, b: any) => 
+            (a.date || a).localeCompare(b.date || b)
+          );
+          seriesStartDateStr = typeof sortedDates[0] === 'string' ? sortedDates[0] : sortedDates[0].date;
+          seriesEndDateStr = typeof sortedDates[sortedDates.length - 1] === 'string' 
+            ? sortedDates[sortedDates.length - 1] 
+            : sortedDates[sortedDates.length - 1].date;
+          effectiveWeekCount = flexibleDates.length;
+          seriesTitle = `${sessionTypeLabels[sessionType] || sessionType} - Flexible`;
+        } else if (sessionsToCreate === 1) {
+          // ONE-OFF: dayOfWeek = -1, single date
+          effectiveDayOfWeek = FLEXIBLE_DAY;
+          seriesStartDateStr = dateStr;
+          seriesEndDateStr = dateStr;
+          effectiveWeekCount = 1;
+          seriesTitle = `${sessionTypeLabels[sessionType] || sessionType} - One-Off`;
+        } else {
+          // RECURRING (weekly): dayOfWeek = 0-6
+          effectiveDayOfWeek = start.getUTCDay();
+          seriesStartDateStr = dateStr;
+          const seriesEndDate = new Date(start.getTime() + (sessionsToCreate - 1) * 7 * 24 * 60 * 60 * 1000);
+          seriesEndDateStr = seriesEndDate.toISOString().split('T')[0];
+          effectiveWeekCount = sessionsToCreate;
+          seriesTitle = `${sessionTypeLabels[sessionType] || sessionType} - ${dayNames[effectiveDayOfWeek]} ${startTimeStr}`;
+        }
         
         const series = await storage.createCoachingSeries({
           academyId,
@@ -2865,15 +2906,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           courtId: courtId || null,
           locationId: locationId || null,
           title: seriesTitle,
-          dayOfWeek,
+          dayOfWeek: effectiveDayOfWeek,
           startTime: startTimeStr,
           duration,
           sessionType,
           ballLevel: ballLevel || null,
           skillLevel: skillLevel || null,
-          maxPlayers: sessionType === "private" ? 1 : sessionType === "semi_private" ? 2 : 4,
-          weekCount: sessionsToCreate,
-          seriesStartDate,
+          maxPlayers: maxPlayers || (sessionType === "private" ? 1 : sessionType === "semi_private" ? 2 : 4),
+          weekCount: effectiveWeekCount,
+          seriesStartDate: seriesStartDateStr,
           seriesEndDate: seriesEndDateStr,
           status: "active",
         });
@@ -2890,21 +2931,150 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
       }
-      
-      // For one-off sessions, try to find player's existing series with this coach
-      if (sessionsToCreate === 1 && !seriesId && playerIds && playerIds.length > 0 && academyId) {
-        const firstPlayerId = playerIds[0];
-        const playerSeries = await storage.getPlayerSeries(firstPlayerId);
-        const existingSeries = playerSeries.find((s: any) => 
-          s.coachId === coachId && 
-          s.sessionType === sessionType && 
-          s.status === "active"
-        );
-        if (existingSeries) {
-          seriesId = existingSeries.id;
+
+      // FLEXIBLE sessions: create session for each date in flexibleDates
+      if (isFlexibleSession) {
+        for (let i = 0; i < flexibleDates.length; i++) {
+          const flexDate = flexibleDates[i];
+          const flexDateStr = typeof flexDate === 'string' ? flexDate : flexDate.date;
+          const flexTimeStr = typeof flexDate === 'object' && flexDate.time ? flexDate.time : startTime;
+          
+          // Parse the flexible date with time
+          const timeResolution = ensureResolvableLocalTime(flexDateStr, flexTimeStr, academyTimezone);
+          if (!timeResolution.ok) {
+            skippedWeeks.push(i + 1);
+            continue;
+          }
+          
+          const flexStart = timeResolution.utcDate;
+          const flexEnd = new Date(flexStart.getTime() + duration * 60000);
+          const flexStartTimeStr = flexStart.toISOString().split('T')[1].slice(0, 5);
+          const flexEndTimeStr = flexEnd.toISOString().split('T')[1].slice(0, 5);
+          
+          // Check conflicts
+          const unifiedConflict = await storage.checkUnifiedCoachConflict(coachId, flexDateStr, flexStartTimeStr, flexEndTimeStr, undefined, academyId ?? undefined);
+          const coachConflict = await storage.checkCoachConflict(coachId, flexStart, flexEnd, undefined, academyId ?? undefined);
+          const courtConflict = await storage.checkCourtConflict(courtId, flexStart, flexEnd, undefined, academyId ?? undefined);
+          
+          if ((unifiedConflict.hasConflict && !unifiedConflict.isOwnAcademy) || coachConflict || courtConflict) {
+            skippedWeeks.push(i + 1);
+            continue;
+          }
+          
+          // Snapshot pricing
+          let pricingSnapshot: { academyPrice?: string; coachPayout?: string; academyMargin?: string } = {};
+          if (academyId && coachId) {
+            try {
+              const pricing = await storage.calculateSessionPricing(academyId, coachId, sessionType, duration);
+              pricingSnapshot = {
+                academyPrice: String(pricing.academyPrice),
+                coachPayout: String(pricing.coachPayout),
+                academyMargin: String(pricing.academyMargin),
+              };
+            } catch (err: any) {
+              return res.status(422).json({ 
+                error: "Pricing error", 
+                message: err.message || "Could not calculate session pricing"
+              });
+            }
+          }
+          
+          const session = await storage.createSession({
+            academyId,
+            coachId,
+            courtId,
+            locationId,
+            startTime: flexStart,
+            endTime: flexEnd,
+            duration,
+            sessionType,
+            ballLevel,
+            skillLevel,
+            isRecurring: false,
+            recurringGroupId,
+            weekCount: flexibleDates.length,
+            travelTime: travelTime || 0,
+            paymentStatus: "unpaid",
+            status: "scheduled",
+            seriesId: seriesId || undefined,
+            weekNumber: i + 1,
+            ...pricingSnapshot,
+          });
+          
+          // Create time block
+          await storage.createCoachTimeBlock({
+            coachId,
+            sourceType: 'session',
+            sourceAcademyId: academyId ?? undefined,
+            sourceSessionId: session.id,
+            date: flexDateStr,
+            startTime: flexStartTimeStr,
+            endTime: flexEndTimeStr,
+            isPrivate: true,
+          });
+          
+          // Add players to session
+          if (playerIds && Array.isArray(playerIds)) {
+            for (const playerId of playerIds) {
+              await storage.addPlayerToSession({
+                sessionId: session.id,
+                playerId,
+              });
+              
+              const creditResult = await storage.deductTypedCreditsForSession(
+                playerId,
+                sessionType,
+                session.id,
+                academyId || undefined
+              );
+              
+              if (!creditResult.success) {
+                const player = await storage.getPlayer(playerId, academyId!);
+                if (player) {
+                  const creditTypeLabel = (creditResult.creditType || sessionType).replace("_", "-");
+                  await storage.createNotification({
+                    playerId,
+                    type: "credits_needed",
+                    title: "Credits Required",
+                    message: `You've been added to a ${creditTypeLabel} lesson but don't have matching credits.`,
+                    metadata: JSON.stringify({
+                      sessionId: session.id,
+                      sessionType,
+                      requiredCreditType: creditResult.creditType,
+                    }),
+                  });
+                }
+              }
+            }
+          }
+          
+          createdSessions.push(session);
         }
+        
+        // Return early for flexible sessions
+        if (createdSessions.length === 0) {
+          return res.status(409).json({ 
+            error: "All time slots have conflicts",
+            message: "Could not create any sessions due to conflicts"
+          });
+        }
+        
+        await storage.createAuditLog({
+          entityType: "session",
+          entityId: createdSessions[0].id,
+          action: `create_flexible_${createdSessions.length}`,
+          performedBy: coachId,
+        });
+        
+        return res.status(201).json({
+          sessions: createdSessions,
+          seriesId,
+          skippedWeeks,
+          message: `Created ${createdSessions.length} flexible session(s)`,
+        });
       }
 
+      // REGULAR and ONE-OFF sessions: continue with original loop
       for (let week = 0; week < sessionsToCreate; week++) {
         const weekStart = new Date(start.getTime() + week * 7 * 24 * 60 * 60 * 1000);
         const weekEnd = new Date(weekStart.getTime() + duration * 60000);
