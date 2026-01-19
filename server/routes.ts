@@ -22088,44 +22088,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Cannot set travel time to same location" });
       }
 
-      // Check if travel time already exists for this pair
-      const existing = await db
-        .select()
-        .from(locationTravelTimes)
-        .where(and(
-          eq(locationTravelTimes.coachId, coachId),
-          eq(locationTravelTimes.academyId, academyId),
-          eq(locationTravelTimes.fromLocationId, fromLocationId),
-          eq(locationTravelTimes.toLocationId, toLocationId)
-        ))
-        .limit(1);
+      // Create bidirectional travel times (A→B and B→A)
+      const directions = [
+        { from: fromLocationId, to: toLocationId },
+        { from: toLocationId, to: fromLocationId }, // Reverse direction
+      ];
+      
+      const results = [];
+      
+      for (const dir of directions) {
+        const existing = await db
+          .select()
+          .from(locationTravelTimes)
+          .where(and(
+            eq(locationTravelTimes.coachId, coachId),
+            eq(locationTravelTimes.academyId, academyId),
+            eq(locationTravelTimes.fromLocationId, dir.from),
+            eq(locationTravelTimes.toLocationId, dir.to)
+          ))
+          .limit(1);
 
-      let result;
-      if (existing.length > 0) {
-        // Update existing
-        [result] = await db
-          .update(locationTravelTimes)
-          .set({ 
-            travelTimeMinutes,
-            updatedAt: new Date()
-          })
-          .where(eq(locationTravelTimes.id, existing[0].id))
-          .returning();
-      } else {
-        // Create new
-        [result] = await db
-          .insert(locationTravelTimes)
-          .values({
-            coachId,
-            academyId,
-            fromLocationId,
-            toLocationId,
-            travelTimeMinutes,
-          })
-          .returning();
+        let result;
+        if (existing.length > 0) {
+          // Update existing
+          [result] = await db
+            .update(locationTravelTimes)
+            .set({ 
+              travelTimeMinutes,
+              updatedAt: new Date()
+            })
+            .where(eq(locationTravelTimes.id, existing[0].id))
+            .returning();
+        } else {
+          // Create new
+          [result] = await db
+            .insert(locationTravelTimes)
+            .values({
+              coachId,
+              academyId,
+              fromLocationId: dir.from,
+              toLocationId: dir.to,
+              travelTimeMinutes,
+            })
+            .returning();
+        }
+        results.push(result);
       }
 
-      res.json(result);
+      res.json({ created: results, bidirectional: true });
     } catch (error) {
       console.error("Create travel time error:", error);
       res.status(500).json({ error: "Failed to create travel time" });
