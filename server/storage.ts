@@ -1493,6 +1493,11 @@ export const storage = {
     return result[0];
   },
 
+  async getCourtById(id: string): Promise<Court | undefined> {
+    const result = await db.select().from(courts).where(eq(courts.id, id));
+    return result[0];
+  },
+
   async getCourtsByLocation(locationId: string, academyId?: string): Promise<Court[]> {
     const conditions = [eq(courts.locationId, locationId)];
     if (academyId) {
