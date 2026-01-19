@@ -15,6 +15,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const SESSION_DETAILS_INTRO_KEY = "skipSessionDetailsIntro";
 
 const CANCELLATION_REASONS = [
   { label: "Select a reason...", value: "" },
@@ -95,6 +98,18 @@ export default function SessionDetailDrawer({
   const [showExtendOptions, setShowExtendOptions] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showIntroCard, setShowIntroCard] = useState(true);
+
+  useEffect(() => {
+    AsyncStorage.getItem(SESSION_DETAILS_INTRO_KEY).then((value) => {
+      if (value === "true") setShowIntroCard(false);
+    });
+  }, []);
+
+  const handleDismissIntro = async () => {
+    await AsyncStorage.setItem(SESSION_DETAILS_INTRO_KEY, "true");
+    setShowIntroCard(false);
+  };
   const [cancelReason, setCancelReason] = useState("");
   const [showReasonDropdown, setShowReasonDropdown] = useState(false);
   const [cancelResult, setCancelResult] = useState<{
@@ -660,20 +675,58 @@ export default function SessionDetailDrawer({
         )}
       </View>
 
+      {showIntroCard ? (
+        <View style={styles.introCard}>
+          <View style={styles.introCardHeader}>
+            <View style={styles.introCardIcon}>
+              <Ionicons name="sparkles" size={18} color={Colors.dark.xpCyan} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.introCardTitle}>Session Command Center</Text>
+              <Text style={styles.introCardText}>
+                Manage your session here - track attendance, add players or guests, extend time, or end early.
+              </Text>
+            </View>
+            <Pressable onPress={handleDismissIntro} style={styles.introCardClose}>
+              <Ionicons name="close" size={16} color={Colors.dark.textMuted} />
+            </Pressable>
+          </View>
+          <Pressable onPress={handleDismissIntro} style={styles.introCardDismiss}>
+            <Text style={styles.introCardDismissText}>Don't show again</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       <View style={styles.playersSection}>
         <Text style={styles.sectionTitle}>Players ({session.players?.length || 0})</Text>
         {session.players && session.players.length > 0 ? (
-          <View style={styles.playersList}>
+          <View style={styles.playersGrid}>
             {session.players.map(player => {
               const isGuest = player.name.includes("(Guest)");
               const isPastSession = new Date(session.endTime) < new Date();
+              const levelColor = getPlayerLevelColor(player.ballLevel || player.level);
               return (
                 <View 
                   key={player.id} 
-                  style={[styles.playerRow, isGuest && styles.playerRowGuest]}
+                  style={[
+                    styles.playerCard,
+                    isGuest && styles.playerCardGuest,
+                    player.status && { borderColor: getStatusColor(player.status) + "60" }
+                  ]}
                 >
                   <Pressable
-                    style={styles.playerRowContent}
+                    style={styles.playerCardRemove}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setShowRemovePlayer(player);
+                      setRemoveReason("");
+                      setRemoveFromDate("today");
+                    }}
+                  >
+                    <Ionicons name="close" size={12} color={Colors.dark.error} />
+                  </Pressable>
+                  <Pressable
+                    style={styles.playerCardContent}
                     onPress={() => {
                       if (isGuest && isPastSession) {
                         setShowGuestConvert({ id: player.id, name: player.name });
@@ -684,61 +737,42 @@ export default function SessionDetailDrawer({
                     disabled={!isGuest || !isPastSession}
                   >
                     <View style={[
-                      styles.playerAvatar, 
-                      isGuest && styles.playerAvatarGuest,
-                      !isGuest && { backgroundColor: getPlayerLevelColor(player.ballLevel || player.level) }
+                      styles.playerCardAvatar, 
+                      isGuest && styles.playerCardAvatarGuest,
+                      !isGuest && { backgroundColor: levelColor + "30", borderColor: levelColor }
                     ]}>
-                      <Text style={styles.playerAvatarText}>{player.name.charAt(0)}</Text>
+                      <Text style={[styles.playerCardInitial, !isGuest && { color: levelColor }]}>
+                        {player.name.charAt(0).toUpperCase()}
+                      </Text>
                     </View>
-                    <View style={styles.playerNameContainer}>
-                      <Text style={styles.playerName}>{player.name}</Text>
-                      {!isGuest && (player.ballLevel || player.level) ? (
-                        <View style={styles.playerMetaRow}>
-                          {player.ballLevel ? (
-                            <View style={styles.playerLevelBadge}>
-                              <View style={[styles.levelDotSmall, { backgroundColor: getPlayerLevelColor(player.ballLevel) }]} />
-                              <Text style={[styles.playerLevelText, { color: getPlayerLevelColor(player.ballLevel) }]}>
-                                {player.ballLevel.charAt(0).toUpperCase() + player.ballLevel.slice(1)}
-                              </Text>
-                            </View>
-                          ) : null}
-                          {player.level ? (
-                            <Text style={styles.playerSkillText}>
-                              {player.level === "1" || player.level === "beginner" ? "Beginner" : 
-                               player.level === "2" || player.level === "intermediate" ? "Intermediate" : 
-                               player.level === "3" || player.level === "advanced" ? "Advanced" : ""}
-                            </Text>
-                          ) : null}
-                        </View>
-                      ) : null}
-                      {isGuest && isPastSession ? (
-                        <Text style={styles.convertHint}>Tap to convert</Text>
-                      ) : null}
-                    </View>
+                    <Text style={styles.playerCardName} numberOfLines={1}>
+                      {player.name.replace(" (Guest)", "")}
+                    </Text>
+                    {player.ballLevel ? (
+                      <View style={[styles.playerCardLevel, { backgroundColor: levelColor + "20" }]}>
+                        <View style={[styles.playerCardLevelDot, { backgroundColor: levelColor }]} />
+                        <Text style={[styles.playerCardLevelText, { color: levelColor }]}>
+                          {player.ballLevel.split("_")[0]}
+                        </Text>
+                      </View>
+                    ) : isGuest ? (
+                      <View style={[styles.playerCardLevel, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
+                        <Text style={[styles.playerCardLevelText, { color: Colors.dark.xpCyan }]}>Guest</Text>
+                      </View>
+                    ) : null}
                     {player.status ? (
-                      <View style={[styles.statusDot, { backgroundColor: getStatusColor(player.status) }]} />
+                      <View style={[styles.playerCardStatus, { backgroundColor: getStatusColor(player.status) }]} />
                     ) : null}
-                    {isGuest && isPastSession ? (
-                      <Ionicons name="chevron-forward" size={16} color={Colors.dark.xpCyan} />
-                    ) : null}
-                  </Pressable>
-                  <Pressable
-                    style={styles.playerRemoveButton}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setShowRemovePlayer(player);
-                      setRemoveReason("");
-                      setRemoveFromDate("today");
-                    }}
-                  >
-                    <Ionicons name="close-circle" size={20} color={Colors.dark.error} />
                   </Pressable>
                 </View>
               );
             })}
           </View>
         ) : (
-          <Text style={styles.noPlayersText}>No players assigned yet</Text>
+          <View style={styles.noPlayersCard}>
+            <Ionicons name="people-outline" size={32} color={Colors.dark.disabled} />
+            <Text style={styles.noPlayersText}>No players assigned yet</Text>
+          </View>
         )}
       </View>
 
@@ -938,49 +972,78 @@ export default function SessionDetailDrawer({
         </View>
       )}
 
-      <View style={styles.actionsSection}>
-        <Pressable style={styles.actionButton} onPress={() => setShowAddPlayer(true)}>
-          <Ionicons name="person-add-outline" size={20} color={Colors.dark.primary} />
-          <Text style={styles.actionButtonText}>Add Player</Text>
+      {/* Quick Add Cards Row */}
+      <View style={styles.quickAddRow}>
+        <Pressable 
+          style={[styles.quickAddCard, { borderColor: Colors.dark.primary + "40" }]} 
+          onPress={() => setShowAddPlayer(true)}
+        >
+          <View style={[styles.quickAddIcon, { backgroundColor: Colors.dark.primary + "20" }]}>
+            <Ionicons name="person-add" size={22} color={Colors.dark.primary} />
+          </View>
+          <Text style={styles.quickAddLabel}>Add Player</Text>
         </Pressable>
 
         <Pressable 
-          style={styles.actionButton} 
+          style={[styles.quickAddCard, { borderColor: Colors.dark.xpCyan + "40" }]} 
           onPress={() => setShowGuestInput(true)}
         >
-          <Ionicons name="person-add-outline" size={20} color={Colors.dark.xpCyan} />
-          <Text style={[styles.actionButtonText, { color: Colors.dark.xpCyan }]}>Add Guest</Text>
+          <View style={[styles.quickAddIcon, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
+            <Ionicons name="person-outline" size={22} color={Colors.dark.xpCyan} />
+          </View>
+          <Text style={styles.quickAddLabel}>Add Guest</Text>
         </Pressable>
-        
-        <Pressable style={styles.actionButton} onPress={onAttendance}>
-          <Ionicons name="checkmark-circle-outline" size={20} color={Colors.dark.orange} />
-          <Text style={[styles.actionButtonText, { color: Colors.dark.orange }]}>Attendance</Text>
+      </View>
+
+      {/* Attendance Action Card */}
+      <Pressable style={styles.attendanceCard} onPress={onAttendance}>
+        <View style={styles.attendanceCardLeft}>
+          <View style={styles.attendanceIconContainer}>
+            <Ionicons name="checkmark-done" size={24} color={Colors.dark.orange} />
+          </View>
+          <View>
+            <Text style={styles.attendanceCardTitle}>Take Attendance</Text>
+            <Text style={styles.attendanceCardSubtitle}>
+              {session.players?.length || 0} players • Tap to mark present/absent
+            </Text>
+          </View>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={Colors.dark.orange} />
+      </Pressable>
+
+      {/* Feedback Card */}
+      {onFeedback ? (
+        <Pressable style={styles.feedbackCard} onPress={onFeedback}>
+          <View style={styles.attendanceCardLeft}>
+            <View style={[styles.attendanceIconContainer, { backgroundColor: Colors.dark.gold + "20" }]}>
+              <Ionicons name="chatbubble-ellipses" size={22} color={Colors.dark.gold} />
+            </View>
+            <View>
+              <Text style={[styles.attendanceCardTitle, { color: Colors.dark.gold }]}>Session Feedback</Text>
+              <Text style={styles.attendanceCardSubtitle}>Add notes and player feedback</Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={Colors.dark.gold} />
         </Pressable>
-        
-        {onFeedback && (
-          <Pressable style={styles.actionButton} onPress={onFeedback}>
-            <Ionicons name="chatbubble-outline" size={20} color={Colors.dark.gold} />
-            <Text style={[styles.actionButtonText, { color: Colors.dark.gold }]}>Feedback</Text>
+      ) : null}
+
+      {/* Session Controls */}
+      <View style={styles.sessionControlsSection}>
+        <Text style={styles.controlsSectionTitle}>Session Controls</Text>
+        <View style={styles.controlsRow}>
+          <Pressable style={styles.controlButton} onPress={() => setShowExtendOptions(true)}>
+            <Ionicons name="time-outline" size={18} color={Colors.dark.xpCyan} />
+            <Text style={[styles.controlButtonText, { color: Colors.dark.xpCyan }]}>Extend</Text>
           </Pressable>
-        )}
-
-        <Pressable style={styles.actionButton} onPress={() => setShowExtendOptions(true)}>
-          <Ionicons name="time-outline" size={20} color={Colors.dark.xpCyan} />
-          <Text style={[styles.actionButtonText, { color: Colors.dark.xpCyan }]}>Extend Session</Text>
-        </Pressable>
-
-        <Pressable style={[styles.actionButton, styles.dangerActionButton]} onPress={() => setShowEndConfirm(true)}>
-          <Ionicons name="stop-circle-outline" size={20} color={Colors.dark.error} />
-          <Text style={[styles.actionButtonText, { color: Colors.dark.error }]}>End Session Now</Text>
-        </Pressable>
-
-        <Pressable 
-          style={[styles.actionButton, styles.warningActionButton]} 
-          onPress={() => setShowCancelConfirm(true)}
-        >
-          <Ionicons name="close-circle-outline" size={20} color={Colors.dark.orange} />
-          <Text style={[styles.actionButtonText, { color: Colors.dark.orange }]}>Cancel Session</Text>
-        </Pressable>
+          <Pressable style={styles.controlButton} onPress={() => setShowEndConfirm(true)}>
+            <Ionicons name="stop-circle-outline" size={18} color={Colors.dark.error} />
+            <Text style={[styles.controlButtonText, { color: Colors.dark.error }]}>End Now</Text>
+          </Pressable>
+          <Pressable style={styles.controlButton} onPress={() => setShowCancelConfirm(true)}>
+            <Ionicons name="close-circle-outline" size={18} color={Colors.dark.orange} />
+            <Text style={[styles.controlButtonText, { color: Colors.dark.orange }]}>Cancel</Text>
+          </Pressable>
+        </View>
       </View>
     </>
   );
@@ -1962,6 +2025,254 @@ const styles = StyleSheet.create({
   warningActionButton: {
     borderWidth: 1,
     borderColor: Colors.dark.orange + "40",
+  },
+  introCard: {
+    backgroundColor: Colors.dark.xpCyan + "10",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+  },
+  introCardHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+  },
+  introCardIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  introCardTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.xpCyan,
+    marginBottom: 2,
+  },
+  introCardText: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    lineHeight: 16,
+  },
+  introCardClose: {
+    padding: 4,
+  },
+  introCardDismiss: {
+    alignSelf: "flex-end",
+    marginTop: Spacing.sm,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  introCardDismissText: {
+    fontSize: 11,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+  },
+  playersGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  playerCard: {
+    width: "48%",
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    position: "relative",
+  },
+  playerCardGuest: {
+    borderStyle: "dashed" as any,
+    borderColor: Colors.dark.xpCyan + "40",
+  },
+  playerCardRemove: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: Colors.dark.error + "20",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
+  },
+  playerCardContent: {
+    alignItems: "center",
+    paddingTop: Spacing.xs,
+  },
+  playerCardAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    marginBottom: Spacing.xs,
+  },
+  playerCardAvatarGuest: {
+    backgroundColor: Colors.dark.xpCyan + "20",
+    borderColor: Colors.dark.xpCyan + "40",
+    borderStyle: "dashed" as any,
+  },
+  playerCardInitial: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  playerCardName: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  playerCardLevel: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  playerCardLevelDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  playerCardLevelText: {
+    fontSize: 10,
+    fontWeight: "600",
+    textTransform: "capitalize",
+  },
+  playerCardStatus: {
+    position: "absolute",
+    top: Spacing.sm,
+    left: Spacing.sm,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  noPlayersCard: {
+    alignItems: "center",
+    padding: Spacing.xl,
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    gap: Spacing.sm,
+  },
+  quickAddRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  quickAddCard: {
+    flex: 1,
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    alignItems: "center",
+    gap: Spacing.sm,
+    borderWidth: 1,
+  },
+  quickAddIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  quickAddLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  attendanceCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.dark.orange + "15",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.orange + "30",
+  },
+  attendanceCardLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    flex: 1,
+  },
+  attendanceIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.dark.orange + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attendanceCardTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.dark.orange,
+    marginBottom: 2,
+  },
+  attendanceCardSubtitle: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+  },
+  feedbackCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.dark.gold + "15",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "30",
+  },
+  sessionControlsSection: {
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+  },
+  controlsSectionTitle: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: Spacing.sm,
+  },
+  controlsRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  controlButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: Spacing.sm,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: BorderRadius.md,
+  },
+  controlButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
   },
   cancelConfirmButton: {
     flex: 1,
