@@ -568,7 +568,7 @@ export function PremiumSessionWizard({
   };
 
   const getTotalSteps = () => {
-    let steps = 7;
+    let steps = 6; // Removed session-setup step (ball level page)
     if (sessionType === "group") steps += 1;
     return steps;
   };
@@ -583,7 +583,6 @@ export function PremiumSessionWizard({
       case "players": return hasGroupLevel ? 5 : 4;
       case "court": return hasGroupLevel ? 6 : 5;
       case "date-time": return hasGroupLevel ? 7 : 6;
-      case "session-setup": return hasGroupLevel ? 8 : 7;
       case "summary": return getTotalSteps();
       default: return 1;
     }
@@ -625,9 +624,6 @@ export function PremiumSessionWizard({
         setStep("date-time");
         break;
       case "date-time":
-        setStep("session-setup");
-        break;
-      case "session-setup":
         setStep("summary");
         break;
       case "summary":
@@ -661,11 +657,8 @@ export function PremiumSessionWizard({
       case "date-time":
         setStep("court");
         break;
-      case "session-setup":
-        setStep("date-time");
-        break;
       case "summary":
-        setStep("session-setup");
+        setStep("date-time");
         break;
     }
   };
@@ -683,7 +676,6 @@ export function PremiumSessionWizard({
         if (sessionType === "semi_private") return selectedPlayers.length >= 1 && selectedPlayers.length <= 3;
         return selectedPlayers.length > 0;
       case "date-time": return selectedTime !== null;
-      case "session-setup": return true;
       case "court": return true;
       case "summary": return true;
       default: return false;
@@ -1982,7 +1974,6 @@ export function PremiumSessionWizard({
       case "group-level": return renderGroupLevelCard();
       case "players": return renderPlayersCard();
       case "date-time": return renderDateTimeCard();
-      case "session-setup": return renderSessionSetupCard();
       case "court": return renderCourtCard();
       case "summary": return renderSummaryCard();
       case "complete": return renderCompleteCard();
