@@ -1849,11 +1849,13 @@ export default function CalendarScreen() {
                         const sessionStart = parseUTCTimestamp(session.startTime);
                         const isPast = sessionEnd < now;
                         const isActive = now >= sessionStart && now < sessionEnd;
-                        const sessionLabel = session.sessionType === "private" ? "Private" :
-                                            session.sessionType === "semi_private" ? "Semi" :
-                                            session.sessionType === "group" ? "Group" :
-                                            session.sessionType === "physical" ? "Physical" :
-                                            session.sessionType;
+                        const typeLabel = session.sessionType === "private" ? "P" :
+                                          session.sessionType === "semi_private" ? "S" :
+                                          session.sessionType === "group" ? "G" :
+                                          session.sessionType === "physical" ? "Ph" : "";
+                        const sessionCourt = courts.find(c => c.id === session.courtId);
+                        const courtShortName = sessionCourt?.name?.split(" ")[0] || "";
+                        const sessionLabel = courtShortName ? `${typeLabel} • ${courtShortName}` : typeLabel;
                         const gradientColors = getSessionTypeGradient(session.sessionType);
                         return (
                           <DraggableSessionBlock
@@ -2138,9 +2140,13 @@ export default function CalendarScreen() {
                             const isPast = sessionEnd < now;
                             const isActive = now >= sessionStart && now < sessionEnd;
                             const gradientColors = getSessionTypeGradient(session.sessionType);
-                            const sessionLabel = session.sessionType === "private" ? "Private" :
-                                                session.sessionType === "semi_private" ? "Semi" :
-                                                session.sessionType === "group" ? "Group" : session.sessionType;
+                            const typeLabel = session.sessionType === "private" ? "P" :
+                                              session.sessionType === "semi_private" ? "S" :
+                                              session.sessionType === "group" ? "G" : 
+                                              session.sessionType === "physical" ? "Ph" : "";
+                            const sessionCourt = courts.find(c => c.id === session.courtId);
+                            const courtShortName = sessionCourt?.name?.split(" ")[0] || "";
+                            const sessionLabel = courtShortName ? `${typeLabel} • ${courtShortName}` : typeLabel;
                             const dayColumnWidth = (SCREEN_WIDTH - TIME_COLUMN_WIDTH - Spacing.lg * 2) / 7;
                             
                             return (
