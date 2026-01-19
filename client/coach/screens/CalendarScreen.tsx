@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Modal,
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import * as Sharing from "expo-sharing";
@@ -19,9 +20,13 @@ import Animated, {
   withRepeat,
   withTiming,
   withSpring,
+  withDelay,
+  withSequence,
   Easing,
   runOnJS,
+  FadeIn,
 } from "react-native-reanimated";
+import { BlurView } from "expo-blur";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
@@ -599,6 +604,14 @@ export default function CalendarScreen() {
     originalCourtId: string | null;
   } | null>(null);
   const [dragConflict, setDragConflict] = useState<string | null>(null);
+  const [pendingDrag, setPendingDrag] = useState<{
+    session: Session;
+    newStart: Date;
+    newEnd: Date;
+    newCourtId?: string;
+    newCourtName?: string;
+    isPastSession: boolean;
+  } | null>(null);
   const [selectedLocationFilter, setSelectedLocationFilter] = useState<string | null>(null); // null = all locations
   const [selectedCourtFilter, setSelectedCourtFilter] = useState<string | null>(null); // null = all courts
   const [isExporting, setIsExporting] = useState(false);
@@ -844,24 +857,25 @@ export default function CalendarScreen() {
     
     const newCourtIndex = Math.max(0, Math.min(courts.length - 1, currentCourtIndex + courtsChanged));
     const newCourtId = courts[newCourtIndex]?.id;
+    const newCourtName = courts[newCourtIndex]?.name;
     
     if (newStart.getHours() < START_HOUR || newEnd.getHours() > END_HOUR + 1) {
       Alert.alert("Invalid Time", "Session cannot be moved outside operating hours.");
       return;
     }
     
-    updateSessionMutation.mutate({
-      sessionId: session.id,
-      startTime: newStart.toISOString(),
-      endTime: newEnd.toISOString(),
-      courtId: newCourtId,
-      originalData: {
-        startTime: session.startTime,
-        endTime: session.endTime,
-        courtId: session.courtId,
-      },
+    const isPastSession = newStart < new Date();
+    
+    setPendingDrag({
+      session,
+      newStart,
+      newEnd,
+      newCourtId,
+      newCourtName,
+      isPastSession,
     });
-  }, [hourHeight, courts, updateSessionMutation]);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  }, [hourHeight, courts]);
   
   const handleWeekSessionDragEnd = useCallback((
     session: Session,
@@ -888,17 +902,38 @@ export default function CalendarScreen() {
       return;
     }
     
+    const isPastSession = newStart < new Date();
+    
+    setPendingDrag({
+      session,
+      newStart,
+      newEnd,
+      isPastSession,
+    });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  }, [hourHeight]);
+
+  const confirmPendingDrag = useCallback(() => {
+    if (!pendingDrag) return;
+    
     updateSessionMutation.mutate({
-      sessionId: session.id,
-      startTime: newStart.toISOString(),
-      endTime: newEnd.toISOString(),
+      sessionId: pendingDrag.session.id,
+      startTime: pendingDrag.newStart.toISOString(),
+      endTime: pendingDrag.newEnd.toISOString(),
+      courtId: pendingDrag.newCourtId,
       originalData: {
-        startTime: session.startTime,
-        endTime: session.endTime,
-        courtId: session.courtId,
+        startTime: pendingDrag.session.startTime,
+        endTime: pendingDrag.session.endTime,
+        courtId: pendingDrag.session.courtId,
       },
     });
-  }, [hourHeight, updateSessionMutation]);
+    setPendingDrag(null);
+  }, [pendingDrag, updateSessionMutation]);
+
+  const cancelPendingDrag = useCallback(() => {
+    setPendingDrag(null);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
 
   // Fetch available coaches
   const { data: coaches = [], isLoading: coachesLoading } = useQuery<CoachData[]>({
@@ -2572,6 +2607,126 @@ export default function CalendarScreen() {
           setSelectedSessionForFeedback(null);
         }}
       />
+
+      {/* Drag Confirm Modal */}
+      <Modal
+        visible={!!pendingDrag}
+        transparent
+        animationType="fade"
+        onRequestClose={cancelPendingDrag}
+      >
+        <Pressable style={dragModalStyles.backdrop} onPress={cancelPendingDrag}>
+          <Pressable style={dragModalStyles.container} onPress={(e) => e.stopPropagation()}>
+            <Animated.View entering={FadeIn.duration(200)} style={dragModalStyles.card}>
+              {/* Header */}
+              <View style={dragModalStyles.header}>
+                <View style={dragModalStyles.iconContainer}>
+                  <Ionicons name="move" size={28} color={GlowColors.primary} />
+                </View>
+                <Text style={dragModalStyles.title}>Move Session</Text>
+                {pendingDrag?.isPastSession ? (
+                  <View style={dragModalStyles.warningBadge}>
+                    <Ionicons name="warning" size={14} color="#FF6B35" />
+                    <Text style={dragModalStyles.warningText}>Past Time</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {/* Session Info */}
+              <View style={dragModalStyles.sessionInfo}>
+                <Text style={dragModalStyles.sessionName} numberOfLines={1}>
+                  {pendingDrag?.session?.type === "private" ? "PRIVATE" : 
+                   pendingDrag?.session?.type === "group" ? "GROUP" : 
+                   pendingDrag?.session?.type?.toUpperCase() || "SESSION"}
+                </Text>
+              </View>
+
+              {/* Changes Preview */}
+              <View style={dragModalStyles.changesContainer}>
+                {/* Time Change */}
+                <View style={dragModalStyles.changeRow}>
+                  <Ionicons name="time-outline" size={20} color="#8E8E93" />
+                  <View style={dragModalStyles.changeContent}>
+                    <Text style={dragModalStyles.changeLabel}>Time</Text>
+                    <View style={dragModalStyles.changeValues}>
+                      <Text style={dragModalStyles.oldValue}>
+                        {pendingDrag?.session ? formatTimeInTimezone(parseUTCTimestamp(pendingDrag.session.startTime)) : ""}
+                      </Text>
+                      <Ionicons name="arrow-forward" size={16} color={GlowColors.primary} />
+                      <Text style={dragModalStyles.newValue}>
+                        {pendingDrag?.newStart ? formatTimeInTimezone(pendingDrag.newStart) : ""}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Date Change (if different) */}
+                {pendingDrag?.session && pendingDrag?.newStart && 
+                 parseUTCTimestamp(pendingDrag.session.startTime).toDateString() !== pendingDrag.newStart.toDateString() ? (
+                  <View style={dragModalStyles.changeRow}>
+                    <Ionicons name="calendar-outline" size={20} color="#8E8E93" />
+                    <View style={dragModalStyles.changeContent}>
+                      <Text style={dragModalStyles.changeLabel}>Date</Text>
+                      <View style={dragModalStyles.changeValues}>
+                        <Text style={dragModalStyles.oldValue}>
+                          {formatDateObjectInTimezone(parseUTCTimestamp(pendingDrag.session.startTime), "EEE, MMM d")}
+                        </Text>
+                        <Ionicons name="arrow-forward" size={16} color={GlowColors.primary} />
+                        <Text style={dragModalStyles.newValue}>
+                          {formatDateObjectInTimezone(pendingDrag.newStart, "EEE, MMM d")}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                ) : null}
+
+                {/* Court Change */}
+                {pendingDrag?.newCourtName ? (
+                  <View style={dragModalStyles.changeRow}>
+                    <Ionicons name="tennisball-outline" size={20} color="#8E8E93" />
+                    <View style={dragModalStyles.changeContent}>
+                      <Text style={dragModalStyles.changeLabel}>Court</Text>
+                      <View style={dragModalStyles.changeValues}>
+                        <Text style={dragModalStyles.oldValue}>
+                          {courts.find(c => c.id === pendingDrag?.session?.courtId)?.name || "Unassigned"}
+                        </Text>
+                        <Ionicons name="arrow-forward" size={16} color={GlowColors.primary} />
+                        <Text style={dragModalStyles.newValue}>
+                          {pendingDrag.newCourtName}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                ) : null}
+              </View>
+
+              {/* Actions */}
+              <View style={dragModalStyles.actions}>
+                <Pressable 
+                  style={dragModalStyles.cancelButton} 
+                  onPress={cancelPendingDrag}
+                >
+                  <Text style={dragModalStyles.cancelButtonText}>Cancel</Text>
+                </Pressable>
+                <Pressable 
+                  style={dragModalStyles.confirmButton} 
+                  onPress={confirmPendingDrag}
+                >
+                  <LinearGradient
+                    colors={[GlowColors.primary, GlowColors.primaryDark || "#9ACC2C"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={dragModalStyles.confirmGradient}
+                  >
+                    <Ionicons name="checkmark" size={20} color="#000" />
+                    <Text style={dragModalStyles.confirmButtonText}>Confirm Move</Text>
+                  </LinearGradient>
+                </Pressable>
+              </View>
+            </Animated.View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -4276,5 +4431,153 @@ const styles = StyleSheet.create({
   },
   dayContextActionTextDisabled: {
     color: Colors.dark.textMuted,
+  },
+});
+
+const dragModalStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  container: {
+    width: "90%",
+    maxWidth: 360,
+  },
+  card: {
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.5,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 20,
+      },
+    }),
+  },
+  header: {
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  iconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: GlowColors.primary + "20",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: 0.3,
+  },
+  warningBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#FF6B35" + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+    marginTop: Spacing.xs,
+  },
+  warningText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#FF6B35",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  sessionInfo: {
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  sessionName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
+  },
+  changesContainer: {
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  changeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  changeContent: {
+    flex: 1,
+  },
+  changeLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  changeValues: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  oldValue: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: Colors.dark.textSecondary,
+  },
+  newValue: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: GlowColors.primary,
+  },
+  actions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
+  },
+  confirmButton: {
+    flex: 1.5,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  confirmGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.md,
+  },
+  confirmButtonText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#000",
   },
 });
