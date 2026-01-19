@@ -3273,7 +3273,7 @@ const styles = StyleSheet.create({
   calendarGrid: {
     flexDirection: "row",
     paddingHorizontal: Spacing.md,
-    paddingBottom: 120,
+    paddingBottom: 200,
   },
   timeColumn: {
     width: TIME_COLUMN_WIDTH,
