@@ -198,64 +198,170 @@ router.get("/api/glow-leveling/levels", async (req, res: Response) => {
   try {
     const { stage } = req.query;
     
-    let levelsQuery = db.select().from(ballLevels).orderBy(ballLevels.stage, desc(ballLevels.rank));
-    const levels = await levelsQuery;
+    // Import in-memory seed data for all ball stages
+    const { RED_STAGE_SKILLS_BY_LEVEL } = await import("../seeds/red-stage-skills-seed");
+    const { ORANGE_STAGE_SKILLS_BY_LEVEL } = await import("../seeds/orange-stage-skills-seed");
+    const { GREEN_STAGE_SKILLS_BY_LEVEL } = await import("../seeds/green-stage-skills-seed");
     
-    // Filter by stage if provided
-    const filteredLevels = stage 
-      ? levels.filter(l => l.stage === stage)
-      : levels;
+    // Build levels from in-memory data
+    const levelsWithDetails: any[] = [];
     
-    // Get all skills and rubrics
-    const allLevelSkillsData = await db
-      .select({
-        mapping: levelSkills,
-        skill: glowSkills,
-      })
-      .from(levelSkills)
-      .innerJoin(glowSkills, eq(levelSkills.skillId, glowSkills.id));
-    
-    const allTests = await db.select().from(levelTests);
-    const allRubrics = await db.select().from(skillRubrics);
-    
-    // Group rubrics by skill
-    const rubricsBySkill: Record<string, any[]> = {};
-    for (const rubric of allRubrics) {
-      if (!rubricsBySkill[rubric.skillId]) {
-        rubricsBySkill[rubric.skillId] = [];
+    // Process RED stage levels
+    if (!stage || stage === "RED") {
+      for (const [levelId, config] of Object.entries(RED_STAGE_SKILLS_BY_LEVEL)) {
+        levelsWithDetails.push({
+          id: levelId,
+          stage: "RED",
+          rank: config.rank,
+          displayNamePlayer: `Red ${config.rank} (${config.name})`,
+          displayNameCoach: `Red ${config.rank} (${config.name})`,
+          identity: config.abilitySnapshot,
+          courtType: "RED_COURT",
+          ballType: "RED_BALL",
+          promotionRequirements: {
+            skillAchievedCount: Math.round(config.skills.length * 0.7),
+            pillarMinimum: {},
+            tests: [],
+            evidenceMin: 2,
+            matchEvents: 4,
+          },
+          skills: config.skills.map(skill => ({
+            skillId: skill.id,
+            skillName: skill.name,
+            pillar: skill.pillar,
+            targetScore: 2,
+            weight: 1,
+            rubric: skill.rubric.sort((a, b) => a.score - b.score),
+          })),
+          tests: [],
+        });
       }
-      rubricsBySkill[rubric.skillId].push({
-        score: rubric.score,
-        observable: rubric.observable,
-      });
     }
     
-    // Build response with full details
-    const levelsWithDetails = filteredLevels.map(level => {
-      const levelSkillsForLevel = allLevelSkillsData.filter(s => s.mapping.levelId === level.id);
-      const testsForLevel = allTests.filter(t => t.levelId === level.id);
+    // Process ORANGE stage levels
+    if (!stage || stage === "ORANGE") {
+      for (const [levelId, config] of Object.entries(ORANGE_STAGE_SKILLS_BY_LEVEL)) {
+        levelsWithDetails.push({
+          id: levelId,
+          stage: "ORANGE",
+          rank: config.rank,
+          displayNamePlayer: `Orange ${config.rank} (${config.name})`,
+          displayNameCoach: `Orange ${config.rank} (${config.name})`,
+          identity: config.abilitySnapshot,
+          courtType: "ORANGE_COURT",
+          ballType: "ORANGE_BALL",
+          promotionRequirements: {
+            skillAchievedCount: Math.round(config.skills.length * 0.7),
+            pillarMinimum: {},
+            tests: [],
+            evidenceMin: 3,
+            matchEvents: 6,
+          },
+          skills: config.skills.map(skill => ({
+            skillId: skill.id,
+            skillName: skill.name,
+            pillar: skill.pillar,
+            targetScore: 2,
+            weight: 1,
+            rubric: skill.rubric.sort((a, b) => a.score - b.score),
+          })),
+          tests: [],
+        });
+      }
+    }
+    
+    // Process GREEN stage levels
+    if (!stage || stage === "GREEN") {
+      for (const [levelId, config] of Object.entries(GREEN_STAGE_SKILLS_BY_LEVEL)) {
+        levelsWithDetails.push({
+          id: levelId,
+          stage: "GREEN",
+          rank: config.rank,
+          displayNamePlayer: `Green ${config.rank} (${config.name})`,
+          displayNameCoach: `Green ${config.rank} (${config.name})`,
+          identity: config.abilitySnapshot,
+          courtType: "GREEN_COURT",
+          ballType: "GREEN_BALL",
+          promotionRequirements: {
+            skillAchievedCount: Math.round(config.skills.length * 0.7),
+            pillarMinimum: {},
+            tests: [],
+            evidenceMin: 3,
+            matchEvents: 8,
+          },
+          skills: config.skills.map(skill => ({
+            skillId: skill.id,
+            skillName: skill.name,
+            pillar: skill.pillar,
+            targetScore: 2,
+            weight: 1,
+            rubric: skill.rubric.sort((a, b) => a.score - b.score),
+          })),
+          tests: [],
+        });
+      }
+    }
+    
+    // YELLOW stage - full court, standard tennis
+    if (!stage || stage === "YELLOW") {
+      // Yellow has 3 sublevels similar structure
+      const yellowLevels = [
+        { id: "YELLOW_3", rank: 3, name: "Starter", abilitySnapshot: "Ik speel op een volledige baan met gele ballen." },
+        { id: "YELLOW_2", rank: 2, name: "Builder", abilitySnapshot: "Ik kan rallyen en tactieken toepassen." },
+        { id: "YELLOW_1", rank: 1, name: "Graduate", abilitySnapshot: "Ik ben klaar voor competitie tennis." },
+      ];
       
-      const skills = levelSkillsForLevel.map(({ mapping, skill }) => ({
-        skillId: skill.id,
-        skillName: skill.name,
-        pillar: skill.pillar,
-        targetScore: mapping.targetScore,
-        weight: mapping.weight,
-        isRequired: mapping.isRequired,
-        rubric: (rubricsBySkill[skill.id] || []).sort((a: any, b: any) => a.score - b.score),
-      }));
-      
-      return {
-        ...level,
-        skills,
-        tests: testsForLevel.map(t => ({
-          id: t.id,
-          name: t.name,
-          description: t.description,
-          type: t.type,
-          metrics: t.metrics,
-        })),
-      };
+      for (const level of yellowLevels) {
+        levelsWithDetails.push({
+          id: level.id,
+          stage: "YELLOW",
+          rank: level.rank,
+          displayNamePlayer: `Yellow ${level.rank} (${level.name})`,
+          displayNameCoach: `Yellow ${level.rank} (${level.name})`,
+          identity: level.abilitySnapshot,
+          courtType: "FULL_COURT",
+          ballType: "YELLOW_BALL",
+          promotionRequirements: {
+            skillAchievedCount: 20,
+            pillarMinimum: {},
+            tests: [],
+            evidenceMin: 4,
+            matchEvents: 10,
+          },
+          skills: [
+            { skillId: `Y${level.rank}_SERVE`, skillName: "Full Court Serve", pillar: "TECHNIQUE", targetScore: 2, weight: 1,
+              rubric: [
+                { score: 0, label: "Not Yet", observable: "Geen consistente service" },
+                { score: 1, label: "Emerging", observable: "Service in spel maar met fouten" },
+                { score: 2, label: "Achieved", observable: "Consistente service met plaatsing" },
+              ]
+            },
+            { skillId: `Y${level.rank}_RALLY`, skillName: "Rally Consistency", pillar: "TECHNIQUE", targetScore: 2, weight: 1,
+              rubric: [
+                { score: 0, label: "Not Yet", observable: "Kan geen rally opbouwen" },
+                { score: 1, label: "Emerging", observable: "Kan korte rally's spelen" },
+                { score: 2, label: "Achieved", observable: "Kan langere rally's consistant spelen" },
+              ]
+            },
+            { skillId: `Y${level.rank}_TACTIC`, skillName: "Court Positioning", pillar: "TACTICAL", targetScore: 2, weight: 1,
+              rubric: [
+                { score: 0, label: "Not Yet", observable: "Staat op verkeerde positie" },
+                { score: 1, label: "Emerging", observable: "Keert soms naar midden terug" },
+                { score: 2, label: "Achieved", observable: "Goede baanpositie en recovery" },
+              ]
+            },
+          ],
+          tests: [],
+        });
+      }
+    }
+    
+    // Sort by stage order and rank
+    const stageOrder = { RED: 0, ORANGE: 1, GREEN: 2, YELLOW: 3 };
+    levelsWithDetails.sort((a, b) => {
+      const stageCompare = (stageOrder[a.stage as keyof typeof stageOrder] || 0) - (stageOrder[b.stage as keyof typeof stageOrder] || 0);
+      if (stageCompare !== 0) return stageCompare;
+      return b.rank - a.rank; // Higher rank first (3, 2, 1)
     });
     
     res.json(levelsWithDetails);
