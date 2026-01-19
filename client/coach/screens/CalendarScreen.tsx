@@ -489,14 +489,14 @@ const dragStyles = StyleSheet.create({
   sessionText: {
     fontSize: 10,
     fontWeight: "800",
-    color: Colors.dark.text,
+    color: "#000000",
     letterSpacing: 0.5,
     textTransform: "uppercase",
   },
   sessionTime: {
     fontSize: 8,
     fontWeight: "600",
-    color: Colors.dark.text,
+    color: "rgba(0, 0, 0, 0.8)",
     letterSpacing: 0.3,
     marginTop: 1,
   },
@@ -552,14 +552,14 @@ const dragStyles = StyleSheet.create({
   weekSessionText: {
     fontSize: 7,
     fontWeight: "800",
-    color: Colors.dark.text,
+    color: "#000000",
     letterSpacing: 0.3,
     textTransform: "uppercase",
   },
   weekSessionTime: {
     fontSize: 6,
     fontWeight: "600",
-    color: Colors.dark.text,
+    color: "rgba(0, 0, 0, 0.8)",
     letterSpacing: 0.2,
   },
 });
@@ -3380,28 +3380,13 @@ const styles = StyleSheet.create({
   sessionText: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: "#000000",
     letterSpacing: 0.2,
-    ...Platform.select({
-      ios: {
-        textShadowColor: "rgba(0, 0, 0, 0.4)",
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 3,
-      },
-      android: {
-        textShadowColor: "rgba(0, 0, 0, 0.4)",
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 3,
-      },
-      web: {
-        textShadow: "0 1px 3px rgba(0, 0, 0, 0.4)",
-      },
-    }),
   },
   sessionTime: {
     fontSize: 9,
     fontWeight: "600",
-    color: "rgba(255, 255, 255, 0.9)",
+    color: "rgba(0, 0, 0, 0.8)",
     letterSpacing: 0.3,
   },
   blockedBlock: {
@@ -4101,14 +4086,14 @@ const styles = StyleSheet.create({
   weekSessionText: {
     fontSize: 8,
     fontWeight: "800",
-    color: Colors.dark.text,
+    color: "#000000",
     letterSpacing: 0.3,
     textTransform: "uppercase",
   },
   weekSessionTime: {
     fontSize: 7,
     fontWeight: "600",
-    color: Colors.dark.text,
+    color: "rgba(0, 0, 0, 0.8)",
     letterSpacing: 0.2,
     marginTop: 1,
   },
