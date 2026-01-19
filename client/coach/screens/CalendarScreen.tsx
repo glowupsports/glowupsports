@@ -3142,11 +3142,13 @@ const styles = StyleSheet.create({
   courtLanesContainer: {
     flexDirection: "row",
     position: "relative",
+    overflow: "visible",
   },
   courtLane: {
     width: COURT_LANE_WIDTH,
     position: "relative",
     backgroundColor: Backgrounds.elevated,
+    overflow: "visible",
   },
   courtLaneWithDivider: {
     borderLeftWidth: 3,
@@ -3157,6 +3159,7 @@ const styles = StyleSheet.create({
     position: "relative",
     borderBottomWidth: 2,
     borderBottomColor: "#FFFFFF",
+    overflow: "visible",
   },
   hourSlotEven: {
     backgroundColor: Backgrounds.elevated,
