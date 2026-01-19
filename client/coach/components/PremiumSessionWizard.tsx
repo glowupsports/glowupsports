@@ -129,12 +129,11 @@ const SESSION_TYPES = [
 ];
 
 const BALL_LEVELS = [
-  { id: "blue" as BallLevel, label: "Blue", color: "#3B82F6", description: "Starter" },
-  { id: "red" as BallLevel, label: "Red", color: Colors.dark.ballRed, description: "Beginners" },
-  { id: "orange" as BallLevel, label: "Orange", color: Colors.dark.ballOrange, description: "Developing" },
-  { id: "green" as BallLevel, label: "Green", color: Colors.dark.ballGreen, description: "Intermediate" },
-  { id: "yellow" as BallLevel, label: "Yellow", color: Colors.dark.ballYellow, description: "Advanced" },
-  { id: "glow" as BallLevel, label: "Glow", color: Colors.dark.xpCyan, description: "Adults" },
+  { id: "blue" as BallLevel, label: "Blue", color: "#3B82F6", description: "Starter", image: "blue_tennis_ball_icon.png" },
+  { id: "red" as BallLevel, label: "Red", color: Colors.dark.ballRed, description: "Beginners", image: "red_tennis_ball_icon.png" },
+  { id: "orange" as BallLevel, label: "Orange", color: Colors.dark.ballOrange, description: "Developing", image: "orange_tennis_ball_icon.png" },
+  { id: "green" as BallLevel, label: "Green", color: Colors.dark.ballGreen, description: "Intermediate", image: "green_tennis_ball_icon.png" },
+  { id: "yellow" as BallLevel, label: "Yellow", color: Colors.dark.ballYellow, description: "Advanced", image: "yellow_tennis_ball_icon.png" },
 ];
 
 const SKILL_LEVELS = [
@@ -211,6 +210,7 @@ export function PremiumSessionWizard({
   
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [skillLevel, setSkillLevel] = useState<SkillLevel | null>(null);
+  const [sessionBallLevel, setSessionBallLevel] = useState<BallLevel | null>(null);
   const [ballLevelOverride, setBallLevelOverride] = useState(false);
   const [isOpenGroup, setIsOpenGroup] = useState(true);
   const [visibleToPlayers, setVisibleToPlayers] = useState(true);
@@ -1658,25 +1658,31 @@ export function PremiumSessionWizard({
           </>
         )}
         
-        <Text style={styles.sectionLabel}>Skill Level</Text>
-        <View style={styles.skillLevelRow}>
-          {SKILL_LEVELS.map((sl) => (
+        <Text style={styles.sectionLabel}>Ball Level</Text>
+        <View style={styles.sessionBallLevelRow}>
+          {BALL_LEVELS.map((level) => (
             <Pressable
-              key={sl.value}
+              key={level.id}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setSkillLevel(skillLevel === sl.value ? null : sl.value);
+                setSessionBallLevel(sessionBallLevel === level.id ? null : level.id);
               }}
               style={[
-                styles.skillLevelChip,
-                skillLevel === sl.value && styles.skillLevelChipActive,
+                styles.sessionBallLevelChip,
+                sessionBallLevel === level.id && styles.sessionBallLevelChipActive,
+                sessionBallLevel === level.id && { borderColor: level.color },
               ]}
             >
+              <Image
+                source={{ uri: `${getStaticAssetsUrl()}/images/${level.image}` }}
+                style={styles.sessionBallImage}
+                contentFit="contain"
+              />
               <Text style={[
-                styles.skillLevelChipText,
-                skillLevel === sl.value && styles.skillLevelChipTextActive,
+                styles.sessionBallLevelText,
+                sessionBallLevel === level.id && { color: level.color },
               ]}>
-                {sl.label}
+                {level.label}
               </Text>
             </Pressable>
           ))}
@@ -3020,6 +3026,34 @@ const styles = StyleSheet.create({
   },
   skillLevelChipTextActive: {
     color: Colors.dark.primary,
+  },
+  sessionBallLevelRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    justifyContent: "center",
+  },
+  sessionBallLevelChip: {
+    width: (SCREEN_WIDTH - Spacing.xl * 2 - Spacing.lg * 2 - Spacing.sm * 2) / 3 - 4,
+    paddingVertical: Spacing.sm,
+    backgroundColor: "#1A1F2A",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.25)",
+    alignItems: "center",
+  },
+  sessionBallLevelChipActive: {
+    backgroundColor: "rgba(200, 255, 61, 0.1)",
+  },
+  sessionBallImage: {
+    width: 32,
+    height: 32,
+    marginBottom: Spacing.xs,
+  },
+  sessionBallLevelText: {
+    fontSize: FontSizes.xs,
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
   toggleRow: {
     flexDirection: "row",

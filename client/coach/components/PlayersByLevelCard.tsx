@@ -144,7 +144,7 @@ export function PlayersByLevelCard() {
                 </View>
                 <Text style={styles.levelCount}>{summary[level].total}</Text>
                 <View style={styles.sublevelRow}>
-                  {[1, 2, 3].map((sub) => {
+                  {[3, 2, 1].map((sub) => {
                     const count = summary[level].levels[sub as 1 | 2 | 3];
                     return (
                       <View 
