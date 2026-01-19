@@ -649,7 +649,7 @@ export function PremiumAddPlayerFlow({ visible, onClose, onComplete }: PremiumAd
       ? `Glow ${selectedGlowLevel}`
       : `${selectedBallLevel?.toUpperCase()}_${selectedSublevel}`;
     const levelColor = playerType === "adult"
-      ? Colors.dark.gold
+      ? Colors.dark.xpCyan // Glow levels use cyan, not gold
       : BALL_LEVELS.find(b => b.id === selectedBallLevel)?.color || GlowColors.primary;
     
     return (
@@ -773,7 +773,7 @@ export function PremiumAddPlayerFlow({ visible, onClose, onComplete }: PremiumAd
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={styles.header}>
           <Pressable style={styles.closeButton} onPress={handleClose}>
             <Ionicons name="close" size={24} color="#FFFFFF" />
