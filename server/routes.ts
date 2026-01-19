@@ -7894,10 +7894,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         courtId,
         locationId,
         playerIds,
+        isFlexible,
+        flexibleDates,
       } = req.body;
       
-      if (!title || dayOfWeek === undefined || !startTime || !duration || !sessionType || !seriesStartDate) {
-        return res.status(400).json({ error: "title, dayOfWeek, startTime, duration, sessionType, and seriesStartDate are required" });
+      // Flexible series: dayOfWeek = -1, sessions from flexibleDates array
+      const FLEXIBLE_DAY = -1;
+      const effectiveDayOfWeek = isFlexible ? FLEXIBLE_DAY : dayOfWeek;
+      
+      // Validation differs for flexible vs regular series
+      if (isFlexible) {
+        if (!title || !startTime || !duration || !sessionType) {
+          return res.status(400).json({ error: "title, startTime, duration, and sessionType are required" });
+        }
+        if (!flexibleDates || !Array.isArray(flexibleDates) || flexibleDates.length === 0) {
+          return res.status(400).json({ error: "flexibleDates array is required for flexible series" });
+        }
+      } else {
+        if (!title || dayOfWeek === undefined || !startTime || !duration || !sessionType || !seriesStartDate) {
+          return res.status(400).json({ error: "title, dayOfWeek, startTime, duration, sessionType, and seriesStartDate are required" });
+        }
+      }
+      
+      // For flexible series, derive start/end dates from flexibleDates
+      let effectiveSeriesStartDate = seriesStartDate;
+      let effectiveSeriesEndDate = seriesEndDate;
+      let effectiveWeekCount = weekCount;
+      
+      if (isFlexible && flexibleDates && flexibleDates.length > 0) {
+        // Sort dates and use first/last
+        const sortedDates = [...flexibleDates].sort((a: any, b: any) => 
+          new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+        effectiveSeriesStartDate = sortedDates[0].date;
+        effectiveSeriesEndDate = sortedDates[sortedDates.length - 1].date;
+        effectiveWeekCount = flexibleDates.length;
       }
       
       // Create the series
@@ -7907,16 +7938,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         courtId: courtId || null,
         locationId: locationId || null,
         title: sanitizeTemplateName(title),
-        dayOfWeek,
+        dayOfWeek: effectiveDayOfWeek,
         startTime,
         duration,
         sessionType,
         ballLevel,
         skillLevel,
         maxPlayers: maxPlayers || 4,
-        weekCount: weekCount || null,
-        seriesStartDate,
-        seriesEndDate: seriesEndDate || null,
+        weekCount: effectiveWeekCount || null,
+        seriesStartDate: effectiveSeriesStartDate,
+        seriesEndDate: effectiveSeriesEndDate || null,
         xpPerSession: xpPerSession || 20,
         vibe: vibe || "casual",
         price: price || null,
@@ -7942,6 +7973,168 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const academy = await storage.getAcademy(academyId);
       const academyTimezone = academy?.timezone || "Asia/Dubai";
       
+      // FLEXIBLE SERIES: Create sessions for each date in flexibleDates
+      if (isFlexible && flexibleDates && flexibleDates.length > 0) {
+        const sortedDates = [...flexibleDates].sort((a: any, b: any) => 
+          new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+        
+        for (let sessionIndex = 0; sessionIndex < sortedDates.length; sessionIndex++) {
+          const flexDate = sortedDates[sessionIndex];
+          const sessionDateStr = flexDate.date; // YYYY-MM-DD format
+          
+          // Validate and convert to UTC
+          const resolution = ensureResolvableLocalTime(sessionDateStr, startTime, academyTimezone);
+          if (!resolution.ok) {
+            skippedWeeks.push({
+              week: sessionIndex + 1,
+              reason: resolution.error.message
+            });
+            continue;
+          }
+          
+          const sessionDate = resolution.utcDate;
+          const sessionEndTime = new Date(sessionDate.getTime() + duration * 60000);
+          
+          // Convert to local for display
+          const localSession = utcToLocalTime(sessionDate, academyTimezone);
+          const localEndSession = utcToLocalTime(sessionEndTime, academyTimezone);
+          const dateStr = localSession.date;
+          const startTimeStr = localSession.time;
+          const endTimeStr = localEndSession.time;
+          
+          // Check for conflicts
+          const coachConflict = await storage.checkCoachConflict(coachId, sessionDate, sessionEndTime, undefined, academyId);
+          const courtConflict = courtId ? await storage.checkCourtConflict(courtId, sessionDate, sessionEndTime, undefined, academyId) : false;
+          
+          if (coachConflict || courtConflict) {
+            const reasons: string[] = [];
+            if (coachConflict) reasons.push("Coach already booked");
+            if (courtConflict) reasons.push("Court already booked");
+            skippedWeeks.push({
+              week: sessionIndex + 1,
+              reason: reasons.join(" and "),
+            });
+            continue;
+          }
+          
+          // Snapshot pricing
+          let pricingSnapshot: { academyPrice?: string; coachPayout?: string; academyMargin?: string } = {};
+          if (academyId && coachId) {
+            try {
+              const pricing = await storage.calculateSessionPricing(academyId, coachId, sessionType, duration);
+              pricingSnapshot = {
+                academyPrice: String(pricing.academyPrice),
+                coachPayout: String(pricing.coachPayout),
+                academyMargin: String(pricing.academyMargin),
+              };
+            } catch (err: any) {
+              return res.status(422).json({ 
+                error: "Pricing error", 
+                message: err.message || "Could not calculate session pricing"
+              });
+            }
+          }
+          
+          // Create session for this flexible date
+          const session = await storage.createSession({
+            academyId,
+            coachId,
+            courtId: courtId || null,
+            locationId: locationId || null,
+            startTime: sessionDate,
+            endTime: sessionEndTime,
+            duration,
+            sessionType,
+            ballLevel,
+            skillLevel,
+            isRecurring: false, // Flexible sessions are not weekly recurring
+            recurringGroupId: series.id,
+            weekCount: sortedDates.length,
+            seriesId: series.id,
+            weekNumber: sessionIndex + 1,
+            travelTime: 0,
+            paymentStatus: "unpaid",
+            status: "scheduled",
+            ...pricingSnapshot,
+          });
+          
+          // Create time block
+          await storage.createCoachTimeBlock({
+            coachId,
+            sourceType: "session",
+            sourceAcademyId: academyId,
+            sourceSessionId: session.id,
+            date: dateStr,
+            startTime: startTimeStr,
+            endTime: endTimeStr,
+            isPrivate: true,
+          });
+          
+          // Add players
+          if (playerIds && Array.isArray(playerIds)) {
+            for (const playerId of playerIds) {
+              await storage.addPlayerToSession({
+                sessionId: session.id,
+                playerId,
+                status: "confirmed",
+              });
+            }
+          }
+          
+          createdSessions.push({
+            ...session,
+            startTime: session.startTime instanceof Date ? session.startTime.toISOString() : session.startTime,
+            endTime: session.endTime instanceof Date ? session.endTime.toISOString() : session.endTime,
+            weekNumber: sessionIndex + 1,
+          });
+        }
+        
+        // Build enriched response for flexible series (skip to response section)
+        const enrichedPlayers = playerIds && Array.isArray(playerIds) ? await Promise.all(
+          playerIds.map(async (playerId: string) => {
+            const player = await storage.getPlayer(playerId);
+            return {
+              id: playerId,
+              name: player?.name || "Unknown Player",
+              ballLevel: player?.ballLevel || null,
+              status: "active",
+              sessionsAttended: 0,
+              totalXpEarned: 0,
+            };
+          })
+        ) : [];
+
+        let locationName = null;
+        let courtName = null;
+        if (locationId) {
+          const location = await storage.getLocationById(locationId);
+          locationName = location?.name || null;
+        }
+        if (courtId) {
+          const court = await storage.getCourtById(courtId);
+          courtName = court?.name || null;
+        }
+        
+        return res.status(201).json({
+          series: {
+            ...series,
+            seriesStartDate: series.seriesStartDate instanceof Date ? series.seriesStartDate.toISOString() : series.seriesStartDate,
+            seriesEndDate: series.seriesEndDate instanceof Date ? series.seriesEndDate?.toISOString() : series.seriesEndDate,
+            createdAt: series.createdAt instanceof Date ? series.createdAt.toISOString() : series.createdAt,
+            locationName,
+            courtName,
+            players: enrichedPlayers,
+            sessions: createdSessions,
+            sessionsCount: createdSessions.length,
+            isFlexible: true,
+          },
+          sessions: createdSessions,
+          skippedWeeks,
+        });
+      }
+      
+      // REGULAR RECURRING SERIES: Weekly pattern
       // Validate that the start time is resolvable in the academy timezone using consolidated helper
       const initialResolution = ensureResolvableLocalTime(seriesStartDate, startTime, academyTimezone);
       if (!initialResolution.ok) {
