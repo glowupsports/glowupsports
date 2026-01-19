@@ -22,6 +22,7 @@ function setupSecurityHeaders(app: express.Application) {
   app.use(helmet({
     contentSecurityPolicy: false, // Disabled for Expo compatibility
     crossOriginEmbedderPolicy: false, // Disabled for API compatibility
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow Expo Go to load images
   }));
   
   // Additional custom headers
