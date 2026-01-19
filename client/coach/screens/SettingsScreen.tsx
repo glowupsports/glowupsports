@@ -265,12 +265,25 @@ export default function SettingsScreen() {
     mutationFn: async (prefs: Partial<PushPreferences>) => {
       return apiRequest("PATCH", "/api/push/preferences", prefs);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/push/preferences"] });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    onMutate: async (newPrefs) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/push/preferences"] });
+      const previousPrefs = queryClient.getQueryData<PushPreferences>(["/api/push/preferences"]);
+      queryClient.setQueryData<PushPreferences>(["/api/push/preferences"], (old) => ({
+        ...defaultPushPrefs,
+        ...old,
+        ...newPrefs,
+      }));
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      return { previousPrefs };
     },
-    onError: () => {
+    onError: (_err, _newPrefs, context) => {
+      if (context?.previousPrefs) {
+        queryClient.setQueryData(["/api/push/preferences"], context.previousPrefs);
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/push/preferences"] });
     },
   });
 
@@ -1428,12 +1441,12 @@ export default function SettingsScreen() {
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Version</Text>
-              <Text style={styles.infoValue}>1.0.0</Text>
+              <Text style={styles.infoValue}>{require("../../../../app.json").expo.version}</Text>
             </View>
             <View style={styles.infoRowDivider} />
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Build</Text>
-              <Text style={styles.infoValue}>2024.12.26</Text>
+              <Text style={styles.infoValue}>{new Date().toISOString().split("T")[0]}</Text>
             </View>
           </View>
         </View>

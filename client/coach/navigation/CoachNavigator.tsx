@@ -34,11 +34,13 @@ import MatchReviewScreen from "@/coach/screens/glow/MatchReviewScreen";
 import LessonTemplateLibraryScreen from "@/coach/screens/glow/LessonTemplateLibraryScreen";
 import OfflineBanner from "@/components/OfflineBanner";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
+import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import * as Haptics from "expo-haptics";
 
 function GamingTabIcon({ name, focused, size }: { name: keyof typeof Ionicons.glyphMap; focused: boolean; size: number }) {
   return (
@@ -90,6 +92,8 @@ const Stack = createNativeStackNavigator<CoachStackParamList>();
 
 function CoachTabs() {
   const [currentTab, setCurrentTab] = useState("Dashboard");
+  const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
+  const queryClient = useQueryClient();
   
   return (
     <View style={styles.tabsWrapper}>
@@ -181,7 +185,18 @@ function CoachTabs() {
           }}
         />
       </Tab.Navigator>
-      {currentTab !== "Calendar" && currentTab !== "Players" && <CoachQuickActionsFAB />}
+      {currentTab !== "Calendar" && currentTab !== "Players" && (
+        <CoachQuickActionsFAB onAddPlayer={() => setShowAddPlayerModal(true)} />
+      )}
+      <PremiumAddPlayerFlow
+        visible={showAddPlayerModal}
+        onClose={() => setShowAddPlayerModal(false)}
+        onComplete={(player) => {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          queryClient.invalidateQueries({ queryKey: ["/api/players"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+        }}
+      />
     </View>
   );
 }
@@ -378,7 +393,7 @@ export default function CoachNavigator() {
   );
 }
 
-function CoachQuickActionsFAB() {
+function CoachQuickActionsFAB({ onAddPlayer }: { onAddPlayer: () => void }) {
   const navigation = useNavigation<any>();
 
   const coachActions: QuickAction[] = [
@@ -401,7 +416,7 @@ function CoachQuickActionsFAB() {
       label: "Add Player",
       icon: "person-add-outline",
       color: Colors.dark.orange,
-      onPress: () => navigation.navigate("CoachTabs", { screen: "Players" }),
+      onPress: onAddPlayer,
     },
     {
       id: "log-match",
