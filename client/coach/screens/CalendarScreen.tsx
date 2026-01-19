@@ -921,16 +921,10 @@ export default function CalendarScreen() {
     );
   }, [selectedDate]);
   
+  // Always show full time range 06:00-21:00 in DAY view
   const displayHours = useMemo(() => {
-    if (focusMode && isToday) {
-      const now = new Date();
-      const currentHour = now.getHours();
-      const focusStart = Math.max(START_HOUR, currentHour - 1);
-      const focusEnd = Math.min(END_HOUR, currentHour + 3);
-      return Array.from({ length: focusEnd - focusStart + 1 }, (_, i) => focusStart + i);
-    }
     return Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
-  }, [focusMode, isToday]);
+  }, []);
   
   const focusBaseHour = focusMode && isToday ? displayHours[0] : START_HOUR;
   const hours = displayHours;
@@ -3119,7 +3113,7 @@ const styles = StyleSheet.create({
   },
   calendarScroll: {
     flex: 1,
-    backgroundColor: "#0A0C0F",
+    backgroundColor: Backgrounds.root,
   },
   calendarGrid: {
     flexDirection: "row",
@@ -3127,18 +3121,21 @@ const styles = StyleSheet.create({
   },
   timeColumn: {
     width: TIME_COLUMN_WIDTH,
-    backgroundColor: "#0D0F12",
+    backgroundColor: Backgrounds.root,
+    borderRightWidth: 1,
+    borderRightColor: "rgba(255, 255, 255, 0.15)",
   },
   timeSlot: {
     height: HOUR_HEIGHT_60,
-    justifyContent: "center",
+    justifyContent: "flex-start",
     alignItems: "flex-end",
-    paddingRight: 8,
+    paddingRight: 10,
+    paddingTop: 2,
   },
   timeText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "rgba(255, 255, 255, 0.5)",
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#FFFFFF",
     letterSpacing: 0.3,
   },
   courtLanesContainer: {
@@ -3148,39 +3145,39 @@ const styles = StyleSheet.create({
   courtLane: {
     width: COURT_LANE_WIDTH,
     position: "relative",
-    backgroundColor: "#111418",
+    backgroundColor: Backgrounds.elevated,
   },
   courtLaneWithDivider: {
     borderLeftWidth: 1,
-    borderLeftColor: "rgba(255, 255, 255, 0.06)",
+    borderLeftColor: "rgba(255, 255, 255, 0.15)",
   },
   hourSlot: {
     height: HOUR_HEIGHT_60,
     position: "relative",
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.06)",
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
   hourSlotEven: {
-    backgroundColor: "#111418",
+    backgroundColor: Backgrounds.elevated,
   },
   hourSlotOdd: {
-    backgroundColor: "#0E1115",
+    backgroundColor: Backgrounds.card,
   },
   hourLine: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    height: 0,
-    backgroundColor: "transparent",
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
   },
   halfHourLine: {
     position: "absolute",
     top: HOUR_HEIGHT_60 / 2,
-    left: 8,
-    right: 8,
+    left: 0,
+    right: 0,
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   sessionBlock: {
     position: "absolute",
