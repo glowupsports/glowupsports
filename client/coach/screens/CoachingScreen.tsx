@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -132,6 +133,7 @@ interface ObservationTrend {
 export default function CoachingScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
+  const navigation = useNavigation<any>();
   const [activeTab, setActiveTab] = useState<TabType>("series");
   const { coach } = useCoach();
 
@@ -240,6 +242,80 @@ export default function CoachingScreen() {
               </Pressable>
             );
           })}
+        </ScrollView>
+      </View>
+
+      {/* Glow Tools Quick Access Row */}
+      <View style={styles.glowToolsContainer}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.glowToolsScroll}
+        >
+          <Pressable
+            style={styles.glowToolButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("LessonTemplateLibrary");
+            }}
+          >
+            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
+              <Ionicons name="book-outline" size={18} color={Colors.dark.xpCyan} />
+            </View>
+            <Text style={styles.glowToolLabel}>Templates</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.glowToolButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("LevelCards");
+            }}
+          >
+            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.primary + "20" }]}>
+              <Ionicons name="layers-outline" size={18} color={Colors.dark.primary} />
+            </View>
+            <Text style={styles.glowToolLabel}>Level Cards</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.glowToolButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("EvidenceCapture", {});
+            }}
+          >
+            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.successNeon + "20" }]}>
+              <Ionicons name="videocam-outline" size={18} color={Colors.dark.successNeon} />
+            </View>
+            <Text style={styles.glowToolLabel}>Evidence</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.glowToolButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              Alert.alert("Match Logging", "Select a player from the Players screen to log a match.");
+            }}
+          >
+            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.orange + "20" }]}>
+              <Ionicons name="tennisball-outline" size={18} color={Colors.dark.orange} />
+            </View>
+            <Text style={styles.glowToolLabel}>Match Log</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.glowToolButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              Alert.alert("Session Plan", "Create a session first, then access the session plan from the session details.");
+            }}
+          >
+            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.gold + "20" }]}>
+              <Ionicons name="clipboard-outline" size={18} color={Colors.dark.gold} />
+            </View>
+            <Text style={styles.glowToolLabel}>Session Plan</Text>
+          </Pressable>
         </ScrollView>
       </View>
 
@@ -3570,6 +3646,35 @@ const styles = StyleSheet.create({
   pillTabTextActive: {
     color: Colors.dark.backgroundRoot,
     fontWeight: '700',
+  },
+  glowToolsContainer: {
+    paddingVertical: Spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  glowToolsScroll: {
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm,
+  },
+  glowToolButton: {
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+  },
+  glowToolIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  glowToolLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.dark.textMuted,
   },
   feedbackHeader: {
     flexDirection: 'row',
