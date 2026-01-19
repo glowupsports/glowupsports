@@ -900,9 +900,14 @@ export default function DashboardScreen() {
                         (navigation as any).navigate("Calendar", { openSessionId: currentSession.id, action: "attendance" });
                       }}
                     >
-                      <View style={[styles.gameActionIcon, { backgroundColor: Colors.dark.primary }]}>
+                      <LinearGradient
+                        colors={[Colors.dark.primary, "#7ACC2C"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.gameActionIcon}
+                      >
                         <Ionicons name="checkmark-circle" size={24} color={Colors.dark.buttonText} />
-                      </View>
+                      </LinearGradient>
                       <Text style={styles.actionBtnLabel}>ATTEND</Text>
                     </Pressable>
                     <Pressable
@@ -912,9 +917,14 @@ export default function DashboardScreen() {
                         (navigation as any).navigate("Calendar", { openSessionId: currentSession.id, action: "extend" });
                       }}
                     >
-                      <View style={[styles.gameActionIcon, { backgroundColor: Colors.dark.xpCyan }]}>
+                      <LinearGradient
+                        colors={[Colors.dark.xpCyan, "#1BA8D5"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.gameActionIcon}
+                      >
                         <Ionicons name="time" size={24} color={Colors.dark.buttonText} />
-                      </View>
+                      </LinearGradient>
                       <Text style={styles.actionBtnLabel}>EXTEND</Text>
                     </Pressable>
                     <Pressable
@@ -924,9 +934,14 @@ export default function DashboardScreen() {
                         setSelectedSessionForDetail(currentSession);
                       }}
                     >
-                      <View style={[styles.gameActionIcon, { backgroundColor: Colors.dark.warning }]}>
+                      <LinearGradient
+                        colors={[Colors.dark.warning, "#E85C4A"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.gameActionIcon}
+                      >
                         <Ionicons name="close-circle" size={24} color={Colors.dark.buttonText} />
-                      </View>
+                      </LinearGradient>
                       <Text style={styles.actionBtnLabel}>CANCEL</Text>
                     </Pressable>
                     <Pressable
@@ -936,9 +951,14 @@ export default function DashboardScreen() {
                         (navigation as any).navigate("Calendar", { openSessionId: currentSession.id, action: "end" });
                       }}
                     >
-                      <View style={[styles.gameActionIcon, { backgroundColor: Colors.dark.orange }]}>
+                      <LinearGradient
+                        colors={[Colors.dark.orange, "#E07B3A"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.gameActionIcon}
+                      >
                         <Ionicons name="stop-circle" size={24} color={Colors.dark.buttonText} />
-                      </View>
+                      </LinearGradient>
                       <Text style={styles.actionBtnLabel}>END</Text>
                     </Pressable>
                   </View>
@@ -2216,7 +2236,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.3)",
+    borderColor: "rgba(255, 255, 255, 0.4)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
   },
   actionBtnLabel: {
     fontSize: 11,

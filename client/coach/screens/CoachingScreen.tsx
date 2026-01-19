@@ -217,10 +217,7 @@ export default function CoachingScreen() {
         >
           {([
             { id: "series", label: "Classes", icon: "layers" },
-            { id: "today", label: "One-Off", icon: "flash" },
-            { id: "progress", label: "Feedback", icon: "chatbubble" },
             { id: "plans", label: "Plans", icon: "bulb" },
-            { id: "levels", label: "Glow Levels", icon: "trophy" },
           ] as const).map((tab) => {
             const isActive = activeTab === tab.id;
             return (
