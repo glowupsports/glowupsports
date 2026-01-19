@@ -8112,7 +8112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           locationName = location?.name || null;
         }
         if (courtId) {
-          const court = await storage.getCourt(courtId);
+          const court = await storage.getCourtById(courtId);
           courtName = court?.name || null;
         }
         
@@ -8342,7 +8342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         locationName = location?.name || null;
       }
       if (courtId) {
-        const court = await storage.getCourt(courtId);
+        const court = await storage.getCourtById(courtId);
         courtName = court?.name || null;
       }
       
