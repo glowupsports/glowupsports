@@ -196,7 +196,12 @@ export default function SessionDetailDrawer({
       }
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/coach/calendar');
+        }
+      });
       setShowAddPlayer(false);
       setSelectedPlayer(null);
       setStartDateOption("today");
@@ -217,7 +222,12 @@ export default function SessionDetailDrawer({
       });
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/coach/calendar');
+        }
+      });
       setCreditMismatchWarning(null);
       setShowAddPlayer(false);
       setSelectedPlayer(null);
@@ -238,7 +248,12 @@ export default function SessionDetailDrawer({
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/coach/calendar');
+        }
+      });
       setShowCatchUp(false);
       setCatchUpAttendance(new Map());
       setPastSessions([]);
@@ -272,7 +287,12 @@ export default function SessionDetailDrawer({
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/coach/calendar');
+        }
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/players"] });
       setGuestName("");
       setShowGuestInput(false);
@@ -296,7 +316,12 @@ export default function SessionDetailDrawer({
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/coach/calendar');
+        }
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/players"] });
       setShowGuestConvert(null);
       setGuestPhone("");
@@ -323,7 +348,12 @@ export default function SessionDetailDrawer({
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/coach/calendar');
+        }
+      });
       setShowExtendOptions(false);
       Alert.alert("Success", "Session extended");
     },
@@ -344,7 +374,12 @@ export default function SessionDetailDrawer({
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/coach/calendar');
+        }
+      });
       setShowEndConfirm(false);
       onClose();
       Alert.alert("Session Ended", "Session has been marked as completed");
@@ -365,8 +400,15 @@ export default function SessionDetailDrawer({
     },
     onSuccess: (data) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && (
+            key.startsWith('/api/coach/calendar') || 
+            key.startsWith('/api/coach/series')
+          );
+        }
+      });
       setShowCancelConfirm(false);
       onClose();
       Alert.alert("Sessie Verwijderd", "De sessie is volledig verwijderd uit je kalender.");
@@ -390,7 +432,12 @@ export default function SessionDetailDrawer({
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/coach/calendar');
+        }
+      });
       setShowRemovePlayer(null);
       setRemoveReason("");
       setRemoveFromDate("today");
