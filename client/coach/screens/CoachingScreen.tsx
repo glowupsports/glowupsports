@@ -35,6 +35,7 @@ import { CoachingSeriesSection } from "@/coach/components/CoachingSeriesSection"
 import SeriesDetailDrawer from "@/coach/components/SeriesDetailDrawer";
 import StandaloneSessionDetailDrawer from "@/coach/components/StandaloneSessionDetailDrawer";
 import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
+import QuickFeedbackModal from "@/coach/components/QuickFeedbackModal";
 
 interface ProgressSummary {
   skillArea: string;
@@ -1866,6 +1867,8 @@ function ProgressTab({ insets, tabBarHeight }: { insets: { bottom: number }; tab
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerWithProgress | null>(null);
   const [assessmentMode, setAssessmentMode] = useState(false);
   const [pendingAssessments, setPendingAssessments] = useState<Record<string, AssessmentStatus>>({});
+  const [feedbackSession, setFeedbackSession] = useState<any>(null);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const queryClient = useQueryClient();
   const { calendarData } = useCoach();
 
@@ -2308,7 +2311,8 @@ function ProgressTab({ insets, tabBarHeight }: { insets: { bottom: number }; tab
       style={styles.feedbackSessionCard}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        // TODO: Open feedback form for this session
+        setFeedbackSession(session);
+        setShowFeedbackModal(true);
       }}
     >
       <View style={styles.feedbackSessionLeft}>
@@ -2386,6 +2390,20 @@ function ProgressTab({ insets, tabBarHeight }: { insets: { bottom: number }; tab
           {earlierSessions.map((s: any) => renderSessionCard(s, true))}
         </View>
       ) : null}
+
+      <QuickFeedbackModal
+        visible={showFeedbackModal}
+        session={feedbackSession}
+        onClose={() => {
+          setShowFeedbackModal(false);
+          setFeedbackSession(null);
+        }}
+        onComplete={() => {
+          setShowFeedbackModal(false);
+          setFeedbackSession(null);
+          queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+        }}
+      />
     </ScrollView>
   );
 }
