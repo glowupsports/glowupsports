@@ -283,30 +283,43 @@ export default function SeriesDetailDrawer({
         (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
       );
       
-      // Find the index of today's session or the next upcoming session
-      // Since sorted newest first, we look for the first session that is today or in the future
+      // Find the session closest to today:
+      // 1. Today's session (highest priority)
+      // 2. Next upcoming session (closest future date)
+      // 3. Most recent past session that needs attention
       let targetIndex = -1;
+      let closestUpcomingIndex = -1;
+      let mostRecentPastIndex = -1;
+      
       for (let i = 0; i < sortedSessions.length; i++) {
         const sessionDate = new Date(sortedSessions[i].startTime);
         const isToday = sessionDate.toDateString() === now.toDateString();
         const isFuture = sessionDate > now;
-        const isCompleted = sortedSessions[i].status === "completed";
+        const isPast = sessionDate < now;
         const isCancelled = sortedSessions[i].status === "cancelled" || sortedSessions[i].status === "skipped";
         
-        // Find session that needs attention: today, future, or past needing attendance
-        if (isToday || (isFuture && !isCancelled)) {
+        if (isToday && !isCancelled) {
           targetIndex = i;
           break;
         }
-        // If past and needs attendance, this is a good candidate
-        if (!isCompleted && !isCancelled) {
-          targetIndex = i;
-          // Don't break - keep looking for today/future
+        
+        // Track closest upcoming (last in descending sort = closest to now)
+        if (isFuture && !isCancelled) {
+          closestUpcomingIndex = i;
+        }
+        
+        // Track most recent past session (first past session in descending sort)
+        if (isPast && mostRecentPastIndex === -1) {
+          mostRecentPastIndex = i;
         }
       }
       
-      if (targetIndex > 0) {
-        // Add a small delay to ensure the ScrollView is rendered
+      // If no today session, use closest upcoming, then most recent past
+      if (targetIndex === -1) {
+        targetIndex = closestUpcomingIndex !== -1 ? closestUpcomingIndex : mostRecentPastIndex;
+      }
+      
+      if (targetIndex >= 0) {
         setTimeout(() => {
           timelineScrollRef.current?.scrollTo({
             y: targetIndex * TIMELINE_ITEM_HEIGHT,
