@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Modal } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Modal, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
@@ -542,6 +542,19 @@ export default function PlayerProgressScreen() {
     queryKey: ["/api/player/me/attendance"],
   });
 
+  interface CoachFeedbackItem {
+    id: string;
+    feedbackType: string;
+    message: string;
+    xpAwarded: number;
+    createdAt: string;
+    sessionId: string;
+  }
+
+  const { data: coachFeedback } = useQuery<CoachFeedbackItem[]>({
+    queryKey: ["/api/player/me/feedback"],
+  });
+
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
@@ -743,6 +756,60 @@ export default function PlayerProgressScreen() {
                   <Text style={styles.insightText}>{area}</Text>
                 </View>
               ))}
+            </View>
+          </View>
+        ) : null}
+
+        {/* Coach Feedback Section */}
+        {coachFeedback && coachFeedback.length > 0 ? (
+          <View style={styles.feedbackSection}>
+            <View style={styles.feedbackHeader}>
+              <Text style={styles.sectionTitle}>Coach Feedback</Text>
+              <View style={styles.feedbackBadge}>
+                <Ionicons name="star" size={12} color={GlowColors.primary} />
+                <Text style={styles.feedbackBadgeText}>{coachFeedback.length}</Text>
+              </View>
+            </View>
+            <View style={styles.feedbackList}>
+              {coachFeedback.slice(0, 5).map((feedback) => {
+                const feedbackIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
+                  praise: "star",
+                  effort: "flame",
+                  technique: "bulb",
+                  improvement: "trending-up",
+                };
+                const feedbackColors: Record<string, string> = {
+                  praise: GlowColors.primary,
+                  effort: Colors.dark.orange,
+                  technique: Colors.dark.xpCyan,
+                  improvement: "#10B981",
+                };
+                return (
+                  <View key={feedback.id} style={styles.feedbackCard}>
+                    <View style={[styles.feedbackIconContainer, { backgroundColor: (feedbackColors[feedback.feedbackType] || GlowColors.primary) + "20" }]}>
+                      <Ionicons 
+                        name={feedbackIcons[feedback.feedbackType] || "chatbubble"} 
+                        size={18} 
+                        color={feedbackColors[feedback.feedbackType] || GlowColors.primary} 
+                      />
+                    </View>
+                    <View style={styles.feedbackContent}>
+                      <Text style={styles.feedbackMessage}>{feedback.message}</Text>
+                      <View style={styles.feedbackMeta}>
+                        <Text style={styles.feedbackDate}>
+                          {new Date(feedback.createdAt).toLocaleDateString()}
+                        </Text>
+                        {feedback.xpAwarded > 0 && (
+                          <View style={styles.feedbackXp}>
+                            <Ionicons name="sparkles" size={10} color={GlowColors.primary} />
+                            <Text style={styles.feedbackXpText}>+{feedback.xpAwarded} XP</Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
             </View>
           </View>
         ) : null}
@@ -1068,6 +1135,81 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   insightText: {
+    ...Typography.body,
+  },
+  feedbackSection: {
+    paddingHorizontal: Spacing.xl,
+    marginBottom: Spacing.xl,
+  },
+  feedbackHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.sm,
+  },
+  feedbackBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: GlowColors.primary + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs / 2,
+    borderRadius: BorderRadius.sm,
+  },
+  feedbackBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: GlowColors.primary,
+  },
+  feedbackList: {
+    gap: Spacing.sm,
+  },
+  feedbackCard: {
+    ...CardStyles.base,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  feedbackIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  feedbackContent: {
+    flex: 1,
+  },
+  feedbackMessage: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    marginBottom: Spacing.xs,
+  },
+  feedbackMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  feedbackDate: {
+    fontSize: 11,
+    color: Colors.dark.tabIconDefault,
+  },
+  feedbackXp: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: GlowColors.primary + "20",
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+  },
+  feedbackXpText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: GlowColors.primary,
+  },
+  feedbackEmpty: {
     ...Typography.body,
     color: Colors.dark.text,
     flex: 1,
