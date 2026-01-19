@@ -35,7 +35,7 @@ type FlowStep =
   | "complete";
 
 type SessionType = "private" | "semi_private" | "group" | "physical" | "activity";
-type BallLevel = "red" | "orange" | "green" | "yellow" | "glow";
+type BallLevel = "blue" | "red" | "orange" | "green" | "yellow" | "glow";
 type SkillLevel = 1 | 2 | 3;
 type SchedulePattern = "one-time" | "recurring" | "flexible";
 
@@ -129,6 +129,7 @@ const SESSION_TYPES = [
 ];
 
 const BALL_LEVELS = [
+  { id: "blue" as BallLevel, label: "Blue", color: "#3B82F6", description: "Starter" },
   { id: "red" as BallLevel, label: "Red", color: Colors.dark.ballRed, description: "Beginners" },
   { id: "orange" as BallLevel, label: "Orange", color: Colors.dark.ballOrange, description: "Developing" },
   { id: "green" as BallLevel, label: "Green", color: Colors.dark.ballGreen, description: "Intermediate" },
@@ -2727,6 +2728,8 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.4)",
   },
   searchInput: {
     flex: 1,
@@ -2744,13 +2747,13 @@ const styles = StyleSheet.create({
   ballFilterChip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
+    gap: 4,
     paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
+    paddingVertical: 6,
     backgroundColor: "#1A1F2A",
-    borderRadius: BorderRadius.sm,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.15)",
+    borderColor: "rgba(255, 255, 255, 0.4)",
   },
   ballFilterChipActive: {
     backgroundColor: GlowColors.primary + "20",

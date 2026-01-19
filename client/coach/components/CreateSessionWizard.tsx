@@ -103,7 +103,7 @@ interface CreateSessionWizardProps {
 }
 
 type SessionType = "private" | "semi_private" | "group" | "physical" | "activity";
-type BallLevel = "red" | "orange" | "green" | "yellow" | "glow";
+type BallLevel = "blue" | "red" | "orange" | "green" | "yellow" | "glow";
 type SkillLevel = 1 | 2 | 3;
 
 const SESSION_TYPE_CARDS: { 
@@ -157,6 +157,7 @@ const SESSION_TYPE_CARDS: {
 ];
 
 const BALL_LEVELS: { value: BallLevel; label: string; color: string }[] = [
+  { value: "blue", label: "Blue", color: "#3B82F6" },
   { value: "red", label: "Red", color: "#FF4444" },
   { value: "orange", label: "Orange", color: "#FF851B" },
   { value: "green", label: "Green", color: "#2ECC40" },
@@ -3530,7 +3531,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: "rgba(255, 255, 255, 0.4)",
   },
   searchInput: {
     flex: 1,
@@ -3546,13 +3547,13 @@ const styles = StyleSheet.create({
   playerFilterChip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
+    gap: 4,
     paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
+    paddingVertical: 6,
     backgroundColor: Backgrounds.card,
-    borderRadius: BorderRadius.sm,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.15)",
+    borderColor: "rgba(255, 255, 255, 0.4)",
   },
   playerFilterChipActive: {
     backgroundColor: Colors.dark.primary + "20",

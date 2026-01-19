@@ -43,7 +43,7 @@ interface CreateSessionDrawerProps {
 }
 
 type SessionType = "private" | "semi_private" | "group" | "physical" | "activity";
-type BallLevel = "red" | "orange" | "green" | "yellow" | "glow";
+type BallLevel = "blue" | "red" | "orange" | "green" | "yellow" | "glow";
 type SkillLevel = 1 | 2 | 3;
 
 const SESSION_TYPES: { value: SessionType; label: string; color: string }[] = [
@@ -55,6 +55,7 @@ const SESSION_TYPES: { value: SessionType; label: string; color: string }[] = [
 ];
 
 const BALL_LEVELS: { value: BallLevel; label: string; color: string }[] = [
+  { value: "blue", label: "Blue", color: "#3B82F6" },
   { value: "red", label: "Red", color: "#FF4444" },
   { value: "orange", label: "Orange", color: "#FF851B" },
   { value: "green", label: "Green", color: "#2ECC40" },
