@@ -1,5 +1,6 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
+import helmet from "helmet";
 import { registerRoutes } from "./routes";
 import * as fs from "fs";
 import * as path from "path";
@@ -17,6 +18,13 @@ declare module "http" {
 }
 
 function setupSecurityHeaders(app: express.Application) {
+  // Use helmet for comprehensive security headers
+  app.use(helmet({
+    contentSecurityPolicy: false, // Disabled for Expo compatibility
+    crossOriginEmbedderPolicy: false, // Disabled for API compatibility
+  }));
+  
+  // Additional custom headers
   app.use((req, res, next) => {
     res.header("X-Content-Type-Options", "nosniff");
     res.header("X-Frame-Options", "DENY");

@@ -47,6 +47,7 @@ import {
   hashPassword, 
   verifyPassword, 
   generateToken, 
+  validatePassword,
   authMiddlewareWithFreshData as authMiddleware,
   requireRole, 
   requireAcademy,
@@ -594,6 +595,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { username: rawUsername, firstName, lastName, dateOfBirth, email, phone, password, tshirtSize, height } = parsed.data;
       
+      // Validate password strength
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.valid) {
+        return res.status(400).json({ error: passwordValidation.errors.join(". ") });
+      }
+      
       // Normalize username to lowercase for consistent storage
       const username = rawUsername.toLowerCase();
       
@@ -680,6 +687,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { token, username: rawUsername, name, email, password, phone, specialty, tshirtSize } = parsed.data;
+      
+      // Validate password strength
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.valid) {
+        return res.status(400).json({ error: passwordValidation.errors.join(". ") });
+      }
       
       // Normalize username to lowercase for consistent storage
       const username = rawUsername.toLowerCase();
@@ -913,8 +926,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Username can only contain letters, numbers, and underscores" });
       }
 
-      if (password.length < 8) {
-        return res.status(400).json({ error: "Password must be at least 8 characters" });
+      // Validate password strength
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.valid) {
+        return res.status(400).json({ error: passwordValidation.errors.join(". ") });
       }
 
       // Validate invite
@@ -1034,8 +1049,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Username can only contain letters, numbers, and underscores" });
       }
 
-      if (password.length < 8) {
-        return res.status(400).json({ error: "Password must be at least 8 characters" });
+      // Validate password strength
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.valid) {
+        return res.status(400).json({ error: passwordValidation.errors.join(". ") });
       }
 
       // Validate player invite
