@@ -1885,9 +1885,28 @@ export function PremiumSessionWizard({
               </View>
               <View style={styles.summaryInfo}>
                 <Text style={styles.summaryLabel}>Date & Time</Text>
-                <Text style={styles.summaryValue}>
-                  {formatDate(selectedDate)} at {selectedTime || "Not set"}
-                </Text>
+                {isFlexible && flexibleDates.length > 0 ? (
+                  <View>
+                    {flexibleDates.slice(0, 3).map((fd, idx) => {
+                      const dateStr = typeof fd === 'string' ? fd : fd.date;
+                      const d = new Date(dateStr + 'T12:00:00');
+                      return (
+                        <Text key={idx} style={styles.summaryValue}>
+                          {formatDate(d)} at {selectedTime || "Not set"}
+                        </Text>
+                      );
+                    })}
+                    {flexibleDates.length > 3 && (
+                      <Text style={[styles.summaryValue, { color: Colors.dark.textMuted }]}>
+                        +{flexibleDates.length - 3} more dates
+                      </Text>
+                    )}
+                  </View>
+                ) : (
+                  <Text style={styles.summaryValue}>
+                    {formatDate(selectedDate)} at {selectedTime || "Not set"}
+                  </Text>
+                )}
               </View>
             </View>
             
