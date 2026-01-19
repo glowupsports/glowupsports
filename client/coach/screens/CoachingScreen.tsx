@@ -216,8 +216,8 @@ export default function CoachingScreen() {
           contentContainerStyle={styles.pillTabScroll}
         >
           {([
-            { id: "series", label: "Classes", icon: "layers" },
-            { id: "plans", label: "Plans", icon: "bulb" },
+            { id: "series", label: "Classes", icon: "layers", color: Colors.dark.xpCyan },
+            { id: "plans", label: "Plans", icon: "bulb", color: Colors.dark.gold },
           ] as const).map((tab) => {
             const isActive = activeTab === tab.id;
             return (
@@ -229,11 +229,16 @@ export default function CoachingScreen() {
                   setActiveTab(tab.id);
                 }}
               >
-                <Ionicons
-                  name={tab.icon as keyof typeof Ionicons.glyphMap}
-                  size={14}
-                  color={isActive ? Colors.dark.backgroundRoot : Colors.dark.textMuted}
-                />
+                <View style={[
+                  styles.pillTabIconContainer,
+                  { backgroundColor: isActive ? (tab.color + "30") : Colors.dark.backgroundSecondary }
+                ]}>
+                  <Ionicons
+                    name={tab.icon as keyof typeof Ionicons.glyphMap}
+                    size={14}
+                    color={isActive ? tab.color : Colors.dark.textMuted}
+                  />
+                </View>
                 <Text style={[styles.pillTabText, isActive && styles.pillTabTextActive]}>
                   {tab.label}
                 </Text>
@@ -3644,14 +3649,24 @@ const styles = StyleSheet.create({
   pillTab: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 6,
-    borderRadius: 16,
+    gap: 6,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 8,
+    borderRadius: 20,
     backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
   },
   pillTabActive: {
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderColor: Colors.dark.primary + "40",
+  },
+  pillTabIconContainer: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pillTabText: {
     fontSize: 12,
@@ -3659,7 +3674,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   pillTabTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.text,
     fontWeight: '700',
   },
   glowToolsContainer: {
