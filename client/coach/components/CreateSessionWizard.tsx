@@ -1989,8 +1989,10 @@ export default function CreateSessionWizard({
                     )}
                   </View>
                 </View>
-                {isSelected && (
+                {isSelected ? (
                   <Ionicons name="checkmark-circle" size={24} color={Colors.dark.primary} />
+                ) : (
+                  <View style={styles.playerSelectCircle} />
                 )}
               </Pressable>
             );
@@ -3561,7 +3563,7 @@ const styles = StyleSheet.create({
   },
   playerFilterChipText: {
     ...Typography.caption,
-    color: Colors.dark.textMuted,
+    color: "#FFFFFF",
   },
   playerFilterChipTextActive: {
     color: Colors.dark.primary,
@@ -3619,6 +3621,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.xs,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.25)",
+    backgroundColor: Backgrounds.card,
   },
   playerRowSelected: {
     backgroundColor: Colors.dark.primary + "20",
@@ -3631,6 +3636,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   playerAvatarImage: {
     width: 40,
@@ -3653,6 +3660,13 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
+  },
+  playerSelectCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
   },
 
   // Confirm

@@ -2761,7 +2761,7 @@ const styles = StyleSheet.create({
   },
   ballFilterChipText: {
     fontSize: FontSizes.xs,
-    color: Colors.dark.textMuted,
+    color: "#FFFFFF",
   },
   ballFilterChipTextActive: {
     color: GlowColors.primary,
@@ -2808,7 +2808,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#1A1F2A",
     borderRadius: BorderRadius.md,
     borderWidth: 1.5,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(255, 255, 255, 0.35)",
     padding: Spacing.md,
     marginBottom: Spacing.sm,
   },
@@ -2909,7 +2909,7 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.3)",
+    borderColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
   },
