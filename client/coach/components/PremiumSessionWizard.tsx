@@ -1275,18 +1275,18 @@ export function PremiumSessionWizard({
                             <Text style={styles.playerXpText}>Lvl {player.level}</Text>
                           </View>
                         )}
-                        {player.streak && player.streak > 0 && (
+                        {player.streak && player.streak > 0 ? (
                           <View style={styles.playerStreakBadge}>
                             <Ionicons name="flame" size={10} color={Colors.dark.orange} />
                             <Text style={styles.playerStreakText}>{player.streak}</Text>
                           </View>
-                        )}
+                        ) : null}
                       </View>
-                      {player.totalXp && player.level && (
+                      {player.totalXp && player.level ? (
                         <View style={styles.xpProgressBar}>
                           <View style={[styles.xpProgressFill, { width: `${xpProgress}%` }]} />
                         </View>
-                      )}
+                      ) : null}
                     </View>
                     <View style={[
                       styles.playerCheckbox,
@@ -2673,7 +2673,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   playersList: {
-    maxHeight: 250,
+    flex: 1,
   },
   emptyPlayers: {
     alignItems: "center",
