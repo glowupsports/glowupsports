@@ -272,6 +272,7 @@ export default function CreateSessionWizard({
   // Slide 4: Players
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
   const [playerSearch, setPlayerSearch] = useState("");
+  const [playerBallFilter, setPlayerBallFilter] = useState<BallLevel | null>(null);
   const [visibleToPlayers, setVisibleToPlayers] = useState(true);
   const [enableWaitlist, setEnableWaitlist] = useState(false);
   
@@ -1813,9 +1814,11 @@ export default function CreateSessionWizard({
 
   // SLIDE 4: Players
   const renderPlayersSlide = () => {
-    const filteredPlayers = players.filter(p => 
-      p.name.toLowerCase().includes(playerSearch.toLowerCase())
-    );
+    const filteredPlayers = players.filter(p => {
+      const matchesSearch = p.name.toLowerCase().includes(playerSearch.toLowerCase());
+      const matchesLevel = !playerBallFilter || p.ballLevel?.toLowerCase() === playerBallFilter;
+      return matchesSearch && matchesLevel;
+    });
 
     return (
       <View style={styles.slideContent}>
@@ -1868,6 +1871,53 @@ export default function CreateSessionWizard({
             onChangeText={setPlayerSearch}
           />
         </View>
+
+        {/* Ball Level Filter */}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.playerFilterRow}
+          contentContainerStyle={styles.playerFilterContent}
+        >
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setPlayerBallFilter(null);
+            }}
+            style={[
+              styles.playerFilterChip,
+              !playerBallFilter && styles.playerFilterChipActive,
+            ]}
+          >
+            <Text style={[
+              styles.playerFilterChipText,
+              !playerBallFilter && styles.playerFilterChipTextActive,
+            ]}>All</Text>
+          </Pressable>
+          {BALL_LEVELS.map((level) => (
+            <Pressable
+              key={level.value}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setPlayerBallFilter(playerBallFilter === level.value ? null : level.value);
+              }}
+              style={[
+                styles.playerFilterChip,
+                { borderColor: level.color + "60" },
+                playerBallFilter === level.value && { 
+                  backgroundColor: level.color + "20",
+                  borderColor: level.color,
+                },
+              ]}
+            >
+              <View style={[styles.playerFilterDot, { backgroundColor: level.color }]} />
+              <Text style={[
+                styles.playerFilterChipText,
+                playerBallFilter === level.value && { color: level.color },
+              ]}>{level.label}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
 
         {/* Add Guest Player Button */}
         <Pressable
@@ -2130,7 +2180,7 @@ export default function CreateSessionWizard({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         {/* Header */}
         <View style={styles.header}>
           <Pressable onPress={onClose} style={styles.closeBtn}>
@@ -3458,6 +3508,39 @@ const styles = StyleSheet.create({
     flex: 1,
     ...Typography.body,
     color: Colors.dark.text,
+  },
+  playerFilterRow: {
+    marginBottom: Spacing.md,
+  },
+  playerFilterContent: {
+    gap: Spacing.sm,
+  },
+  playerFilterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+  },
+  playerFilterChipActive: {
+    backgroundColor: Colors.dark.primary + "20",
+    borderColor: Colors.dark.primary,
+  },
+  playerFilterChipText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  playerFilterChipTextActive: {
+    color: Colors.dark.primary,
+  },
+  playerFilterDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   selectedPlayersRow: {
     flexDirection: "row",
