@@ -57,7 +57,7 @@ interface PlayerWithProgress {
   };
 }
 
-type TabType = "series" | "today" | "progress" | "plans" | "levels";
+type TabType = "series" | "today" | "progress" | "plans" | "levels" | "templates" | "levelCards" | "matchLog" | "sessionPlan";
 type ProgressTrend = "up" | "stable" | "down";
 type EffortLevel = "high" | "normal" | "low";
 type Intensity = "light" | "normal" | "intense";
@@ -256,29 +256,29 @@ export default function CoachingScreen() {
           contentContainerStyle={styles.glowToolsScroll}
         >
           <Pressable
-            style={styles.glowToolButton}
+            style={[styles.glowToolButton, activeTab === "templates" && styles.glowToolButtonActive]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("LessonTemplateLibrary");
+              setActiveTab(activeTab === "templates" ? "series" : "templates");
             }}
           >
-            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
+            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.xpCyan + "20" }, activeTab === "templates" && { backgroundColor: Colors.dark.xpCyan + "40" }]}>
               <Ionicons name="book-outline" size={18} color={Colors.dark.xpCyan} />
             </View>
-            <Text style={styles.glowToolLabel}>Templates</Text>
+            <Text style={[styles.glowToolLabel, activeTab === "templates" && { color: Colors.dark.xpCyan }]}>Templates</Text>
           </Pressable>
 
           <Pressable
-            style={styles.glowToolButton}
+            style={[styles.glowToolButton, activeTab === "levelCards" && styles.glowToolButtonActive]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("LevelCards");
+              setActiveTab(activeTab === "levelCards" ? "series" : "levelCards");
             }}
           >
-            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.primary + "20" }]}>
+            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.primary + "20" }, activeTab === "levelCards" && { backgroundColor: Colors.dark.primary + "40" }]}>
               <Ionicons name="layers-outline" size={18} color={Colors.dark.primary} />
             </View>
-            <Text style={styles.glowToolLabel}>Level Cards</Text>
+            <Text style={[styles.glowToolLabel, activeTab === "levelCards" && { color: Colors.dark.primary }]}>Level Cards</Text>
           </Pressable>
 
           <Pressable
@@ -295,29 +295,29 @@ export default function CoachingScreen() {
           </Pressable>
 
           <Pressable
-            style={styles.glowToolButton}
+            style={[styles.glowToolButton, activeTab === "matchLog" && styles.glowToolButtonActive]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              Alert.alert("Match Logging", "Select a player from the Players screen to log a match.");
+              setActiveTab(activeTab === "matchLog" ? "series" : "matchLog");
             }}
           >
-            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.orange + "20" }]}>
+            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.orange + "20" }, activeTab === "matchLog" && { backgroundColor: Colors.dark.orange + "40" }]}>
               <Ionicons name="tennisball-outline" size={18} color={Colors.dark.orange} />
             </View>
-            <Text style={styles.glowToolLabel}>Match Log</Text>
+            <Text style={[styles.glowToolLabel, activeTab === "matchLog" && { color: Colors.dark.orange }]}>Match Log</Text>
           </Pressable>
 
           <Pressable
-            style={styles.glowToolButton}
+            style={[styles.glowToolButton, activeTab === "sessionPlan" && styles.glowToolButtonActive]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              Alert.alert("Session Plan", "Create a session first, then access the session plan from the session details.");
+              setActiveTab(activeTab === "sessionPlan" ? "series" : "sessionPlan");
             }}
           >
-            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.gold + "20" }]}>
+            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.gold + "20" }, activeTab === "sessionPlan" && { backgroundColor: Colors.dark.gold + "40" }]}>
               <Ionicons name="clipboard-outline" size={18} color={Colors.dark.gold} />
             </View>
-            <Text style={styles.glowToolLabel}>Session Plan</Text>
+            <Text style={[styles.glowToolLabel, activeTab === "sessionPlan" && { color: Colors.dark.gold }]}>Session Plan</Text>
           </Pressable>
         </ScrollView>
       </View>
@@ -330,8 +330,18 @@ export default function CoachingScreen() {
         <ProgressTab insets={insets} tabBarHeight={tabBarHeight} />
       ) : activeTab === "plans" ? (
         <PlansTab insets={insets} tabBarHeight={tabBarHeight} />
-      ) : (
+      ) : activeTab === "levels" ? (
         <GlowLevelsTab insets={insets} tabBarHeight={tabBarHeight} />
+      ) : activeTab === "templates" ? (
+        <TemplatesTab insets={insets} tabBarHeight={tabBarHeight} />
+      ) : activeTab === "levelCards" ? (
+        <LevelCardsTab insets={insets} tabBarHeight={tabBarHeight} />
+      ) : activeTab === "matchLog" ? (
+        <MatchLogTab insets={insets} tabBarHeight={tabBarHeight} />
+      ) : activeTab === "sessionPlan" ? (
+        <SessionPlanTab insets={insets} tabBarHeight={tabBarHeight} />
+      ) : (
+        <SeriesTab insets={insets} tabBarHeight={tabBarHeight} />
       )}
     </View>
   );
@@ -3367,6 +3377,364 @@ const glowLevelsStyles = StyleSheet.create({
   },
 });
 
+// Templates Tab - Lesson template library inline
+function TemplatesTab({ insets, tabBarHeight }: { insets: { bottom: number }; tabBarHeight: number }) {
+  const navigation = useNavigation<any>();
+  
+  const { data: templates, isLoading } = useQuery<{
+    blue: any[];
+    red: any[];
+    orange: any[];
+    green: any[];
+    yellow: any[];
+    adult: any[];
+  }>({
+    queryKey: ["/api/lesson-templates/library"],
+  });
+
+  const ballLevels = [
+    { key: "blue", label: "Blue Ball", ages: "2-4 jaar", desc: "Pre-tennis foundation", color: "#3B82F6", icon: "star" },
+    { key: "red", label: "Red Ball", ages: "4-8 jaar", desc: "First strokes & rallies", color: "#EF4444", icon: "tennisball" },
+    { key: "orange", label: "Orange Ball", ages: "7-10 jaar", desc: "Bigger court, faster ball", color: "#F97316", icon: "tennisball" },
+    { key: "green", label: "Green Ball", ages: "9-12 jaar", desc: "Full court transition", color: "#22C55E", icon: "tennisball" },
+    { key: "yellow", label: "Yellow Ball", ages: "11+ jaar", desc: "Competition ready", color: "#EAB308", icon: "tennisball" },
+  ];
+
+  const getCounts = () => {
+    if (!templates) return { blue: 0, red: 0, orange: 0, green: 0, yellow: 0, adult: 0 };
+    return {
+      blue: templates.blue?.length || 0,
+      red: templates.red?.length || 0,
+      orange: templates.orange?.length || 0,
+      green: templates.green?.length || 0,
+      yellow: templates.yellow?.length || 0,
+      adult: templates.adult?.length || 0,
+    };
+  };
+
+  const counts = getCounts();
+  const totalTemplates = Object.values(counts).reduce((a, b) => a + b, 0);
+
+  if (isLoading) {
+    return (
+      <View style={templatesStyles.container}>
+        <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView 
+      style={templatesStyles.container}
+      contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
+    >
+      <View style={templatesStyles.header}>
+        <Text style={templatesStyles.title}>Lesson Templates</Text>
+        <Text style={templatesStyles.subtitle}>{totalTemplates} templates across {ballLevels.length} ball levels</Text>
+        
+        <View style={templatesStyles.countBadges}>
+          {ballLevels.map(level => (
+            <View key={level.key} style={templatesStyles.countBadge}>
+              <View style={[templatesStyles.countDot, { backgroundColor: level.color }]} />
+              <Text style={templatesStyles.countText}>{counts[level.key as keyof typeof counts]}</Text>
+              <Text style={templatesStyles.countLabel}>{level.key.toUpperCase()}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {ballLevels.map(level => (
+        <Pressable
+          key={level.key}
+          style={[templatesStyles.levelCard, { backgroundColor: level.color }]}
+          onPress={() => navigation.navigate("LessonTemplateLibrary", { initialLevel: level.key })}
+        >
+          <View style={templatesStyles.levelIcon}>
+            <Ionicons name={level.icon as any} size={28} color="#fff" />
+          </View>
+          <View style={templatesStyles.levelInfo}>
+            <Text style={templatesStyles.levelTitle}>{level.label}</Text>
+            <Text style={templatesStyles.levelSubtitle}>{level.ages} • {counts[level.key as keyof typeof counts]} templates</Text>
+            <Text style={templatesStyles.levelDesc}>{level.desc}</Text>
+          </View>
+          <Ionicons name="chevron-down" size={24} color="#fff" style={{ opacity: 0.7 }} />
+        </Pressable>
+      ))}
+    </ScrollView>
+  );
+}
+
+const templatesStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.dark.background },
+  header: { padding: Spacing.lg },
+  title: { fontSize: 24, fontWeight: "700", color: Colors.dark.text, marginBottom: Spacing.xs },
+  subtitle: { fontSize: 14, color: Colors.dark.disabled, marginBottom: Spacing.md },
+  countBadges: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm },
+  countBadge: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.dark.card, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs },
+  countDot: { width: 8, height: 8, borderRadius: 4, marginRight: Spacing.xs },
+  countText: { fontSize: 14, fontWeight: "700", color: Colors.dark.text, marginRight: Spacing.xs },
+  countLabel: { fontSize: 12, color: Colors.dark.disabled },
+  levelCard: { marginHorizontal: Spacing.lg, marginBottom: Spacing.md, borderRadius: BorderRadius.lg, padding: Spacing.lg, flexDirection: "row", alignItems: "center" },
+  levelIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center", marginRight: Spacing.md },
+  levelInfo: { flex: 1 },
+  levelTitle: { fontSize: 18, fontWeight: "700", color: "#fff", marginBottom: 2 },
+  levelSubtitle: { fontSize: 13, color: "rgba(255,255,255,0.9)", marginBottom: 2 },
+  levelDesc: { fontSize: 12, color: "rgba(255,255,255,0.7)" },
+});
+
+// Level Cards Tab - Skill definitions inline
+function LevelCardsTab({ insets, tabBarHeight }: { insets: { bottom: number }; tabBarHeight: number }) {
+  const navigation = useNavigation<any>();
+  const [selectedLevel, setSelectedLevel] = useState<string>("red");
+
+  const { data: levelData, isLoading } = useQuery<any>({
+    queryKey: ["/api/glow-leveling/level-cards", selectedLevel],
+  });
+
+  const levels = [
+    { key: "red", label: "RED", color: "#EF4444" },
+    { key: "orange", label: "ORANGE", color: "#F97316" },
+    { key: "green", label: "GREEN", color: "#22C55E" },
+    { key: "yellow", label: "YELLOW", color: "#EAB308" },
+  ];
+
+  return (
+    <ScrollView
+      style={levelCardsStyles.container}
+      contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
+    >
+      <View style={levelCardsStyles.header}>
+        <Text style={levelCardsStyles.title}>Level Cards</Text>
+        <Text style={levelCardsStyles.subtitle}>Complete skill definitions and requirements for each level</Text>
+      </View>
+
+      <View style={levelCardsStyles.levelTabs}>
+        {levels.map(level => (
+          <Pressable
+            key={level.key}
+            style={[
+              levelCardsStyles.levelTab,
+              selectedLevel === level.key && { backgroundColor: level.color, borderColor: level.color }
+            ]}
+            onPress={() => setSelectedLevel(level.key)}
+          >
+            <Ionicons name="tennisball" size={14} color={selectedLevel === level.key ? "#fff" : level.color} />
+            <Text style={[levelCardsStyles.levelTabText, selectedLevel === level.key && { color: "#fff" }]}>{level.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {isLoading ? (
+        <ActivityIndicator size="large" color={Colors.dark.primary} style={{ marginTop: Spacing.xl }} />
+      ) : levelData?.pillars ? (
+        <View style={levelCardsStyles.pillarsContainer}>
+          {levelData.pillars.map((pillar: any, index: number) => (
+            <View key={index} style={levelCardsStyles.pillarCard}>
+              <Text style={levelCardsStyles.pillarName}>{pillar.name}</Text>
+              <Text style={levelCardsStyles.pillarDesc}>{pillar.description || "Skills in this pillar"}</Text>
+              {pillar.skills?.map((skill: any, skillIndex: number) => (
+                <View key={skillIndex} style={levelCardsStyles.skillRow}>
+                  <View style={[levelCardsStyles.skillDot, { backgroundColor: levels.find(l => l.key === selectedLevel)?.color }]} />
+                  <Text style={levelCardsStyles.skillText}>{skill.name || skill}</Text>
+                </View>
+              ))}
+            </View>
+          ))}
+        </View>
+      ) : (
+        <View style={levelCardsStyles.emptyState}>
+          <Ionicons name="layers-outline" size={48} color={Colors.dark.disabled} />
+          <Text style={levelCardsStyles.emptyText}>No level card data available</Text>
+          <Text style={levelCardsStyles.emptySubtext}>Select a different level to view skills</Text>
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+const levelCardsStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.dark.background },
+  header: { padding: Spacing.lg },
+  title: { fontSize: 24, fontWeight: "700", color: Colors.dark.text, marginBottom: Spacing.xs },
+  subtitle: { fontSize: 14, color: Colors.dark.disabled },
+  levelTabs: { flexDirection: "row", paddingHorizontal: Spacing.lg, marginBottom: Spacing.lg, gap: Spacing.sm },
+  levelTab: { flexDirection: "row", alignItems: "center", paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: BorderRadius.full, borderWidth: 1, borderColor: Colors.dark.border, gap: Spacing.xs },
+  levelTabText: { fontSize: 12, fontWeight: "600", color: Colors.dark.text },
+  pillarsContainer: { paddingHorizontal: Spacing.lg },
+  pillarCard: { backgroundColor: Colors.dark.card, borderRadius: BorderRadius.lg, padding: Spacing.lg, marginBottom: Spacing.md },
+  pillarName: { fontSize: 16, fontWeight: "700", color: Colors.dark.text, marginBottom: Spacing.xs },
+  pillarDesc: { fontSize: 12, color: Colors.dark.disabled, marginBottom: Spacing.md },
+  skillRow: { flexDirection: "row", alignItems: "center", paddingVertical: Spacing.xs },
+  skillDot: { width: 6, height: 6, borderRadius: 3, marginRight: Spacing.sm },
+  skillText: { fontSize: 14, color: Colors.dark.text },
+  emptyState: { alignItems: "center", justifyContent: "center", paddingVertical: Spacing.xxl },
+  emptyText: { fontSize: 16, fontWeight: "600", color: Colors.dark.text, marginTop: Spacing.md },
+  emptySubtext: { fontSize: 14, color: Colors.dark.disabled, marginTop: Spacing.xs },
+});
+
+// Match Log Tab - Recent matches inline
+function MatchLogTab({ insets, tabBarHeight }: { insets: { bottom: number }; tabBarHeight: number }) {
+  const navigation = useNavigation<any>();
+  const { coach } = useCoach();
+
+  const { data: matchLogs, isLoading } = useQuery<any[]>({
+    queryKey: ["/api/match-logs", { coachId: coach?.id }],
+    enabled: !!coach?.id,
+  });
+
+  if (isLoading) {
+    return (
+      <View style={matchLogStyles.container}>
+        <ActivityIndicator size="large" color={Colors.dark.orange} />
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={matchLogStyles.container}
+      contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
+    >
+      <View style={matchLogStyles.header}>
+        <Text style={matchLogStyles.title}>Match Logs</Text>
+        <Text style={matchLogStyles.subtitle}>Track player match results and performance</Text>
+      </View>
+
+      {(!matchLogs || matchLogs.length === 0) ? (
+        <View style={matchLogStyles.emptyState}>
+          <Ionicons name="tennisball-outline" size={48} color={Colors.dark.disabled} />
+          <Text style={matchLogStyles.emptyText}>No Matches Logged Yet</Text>
+          <Text style={matchLogStyles.emptySubtext}>Log matches from a player's profile to track their results</Text>
+          <Pressable
+            style={matchLogStyles.actionButton}
+            onPress={() => navigation.navigate("Players")}
+          >
+            <Ionicons name="people-outline" size={18} color="#fff" />
+            <Text style={matchLogStyles.actionButtonText}>Go to Players</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View style={matchLogStyles.listContainer}>
+          {matchLogs.map((match: any, index: number) => (
+            <View key={match.id || index} style={matchLogStyles.matchCard}>
+              <View style={matchLogStyles.matchHeader}>
+                <Text style={matchLogStyles.matchPlayer}>{match.playerName || "Player"}</Text>
+                <Text style={[matchLogStyles.matchResult, { color: match.won ? Colors.dark.successNeon : Colors.dark.danger }]}>
+                  {match.won ? "WIN" : "LOSS"}
+                </Text>
+              </View>
+              <Text style={matchLogStyles.matchScore}>{match.score || "Score not recorded"}</Text>
+              <Text style={matchLogStyles.matchDate}>{match.date || match.createdAt}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+const matchLogStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.dark.background },
+  header: { padding: Spacing.lg },
+  title: { fontSize: 24, fontWeight: "700", color: Colors.dark.text, marginBottom: Spacing.xs },
+  subtitle: { fontSize: 14, color: Colors.dark.disabled },
+  emptyState: { alignItems: "center", justifyContent: "center", paddingVertical: Spacing.xxl, paddingHorizontal: Spacing.lg },
+  emptyText: { fontSize: 18, fontWeight: "600", color: Colors.dark.text, marginTop: Spacing.md },
+  emptySubtext: { fontSize: 14, color: Colors.dark.disabled, marginTop: Spacing.xs, textAlign: "center" },
+  actionButton: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.dark.orange, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderRadius: BorderRadius.full, marginTop: Spacing.lg, gap: Spacing.sm },
+  actionButtonText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+  listContainer: { paddingHorizontal: Spacing.lg },
+  matchCard: { backgroundColor: Colors.dark.card, borderRadius: BorderRadius.lg, padding: Spacing.lg, marginBottom: Spacing.md },
+  matchHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.xs },
+  matchPlayer: { fontSize: 16, fontWeight: "600", color: Colors.dark.text },
+  matchResult: { fontSize: 14, fontWeight: "700" },
+  matchScore: { fontSize: 14, color: Colors.dark.text, marginBottom: Spacing.xs },
+  matchDate: { fontSize: 12, color: Colors.dark.disabled },
+});
+
+// Session Plan Tab - Session plans inline
+function SessionPlanTab({ insets, tabBarHeight }: { insets: { bottom: number }; tabBarHeight: number }) {
+  const navigation = useNavigation<any>();
+  const { coach } = useCoach();
+
+  const { data: sessionPlans, isLoading } = useQuery<any[]>({
+    queryKey: ["/api/session-plans", { coachId: coach?.id }],
+    enabled: !!coach?.id,
+  });
+
+  if (isLoading) {
+    return (
+      <View style={sessionPlanStyles.container}>
+        <ActivityIndicator size="large" color={Colors.dark.gold} />
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={sessionPlanStyles.container}
+      contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
+    >
+      <View style={sessionPlanStyles.header}>
+        <Text style={sessionPlanStyles.title}>Session Plans</Text>
+        <Text style={sessionPlanStyles.subtitle}>Pre-built lesson structures with drill blocks</Text>
+      </View>
+
+      {(!sessionPlans || sessionPlans.length === 0) ? (
+        <View style={sessionPlanStyles.emptyState}>
+          <Ionicons name="clipboard-outline" size={48} color={Colors.dark.disabled} />
+          <Text style={sessionPlanStyles.emptyText}>No Session Plans Yet</Text>
+          <Text style={sessionPlanStyles.emptySubtext}>Session plans are auto-generated when you create sessions with templates</Text>
+          <Pressable
+            style={sessionPlanStyles.actionButton}
+            onPress={() => navigation.navigate("Calendar")}
+          >
+            <Ionicons name="calendar-outline" size={18} color="#000" />
+            <Text style={sessionPlanStyles.actionButtonText}>View Calendar</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View style={sessionPlanStyles.listContainer}>
+          {sessionPlans.map((plan: any, index: number) => (
+            <Pressable 
+              key={plan.id || index} 
+              style={sessionPlanStyles.planCard}
+              onPress={() => navigation.navigate("SessionPlanDetail", { planId: plan.id })}
+            >
+              <View style={sessionPlanStyles.planIcon}>
+                <Ionicons name="document-text" size={24} color={Colors.dark.gold} />
+              </View>
+              <View style={sessionPlanStyles.planInfo}>
+                <Text style={sessionPlanStyles.planTitle}>{plan.title || plan.name || "Session Plan"}</Text>
+                <Text style={sessionPlanStyles.planMeta}>{plan.drillCount || 0} drills • {plan.duration || 60} min</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={Colors.dark.disabled} />
+            </Pressable>
+          ))}
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+const sessionPlanStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.dark.background },
+  header: { padding: Spacing.lg },
+  title: { fontSize: 24, fontWeight: "700", color: Colors.dark.text, marginBottom: Spacing.xs },
+  subtitle: { fontSize: 14, color: Colors.dark.disabled },
+  emptyState: { alignItems: "center", justifyContent: "center", paddingVertical: Spacing.xxl, paddingHorizontal: Spacing.lg },
+  emptyText: { fontSize: 18, fontWeight: "600", color: Colors.dark.text, marginTop: Spacing.md },
+  emptySubtext: { fontSize: 14, color: Colors.dark.disabled, marginTop: Spacing.xs, textAlign: "center" },
+  actionButton: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.dark.gold, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderRadius: BorderRadius.full, marginTop: Spacing.lg, gap: Spacing.sm },
+  actionButtonText: { color: "#000", fontWeight: "600", fontSize: 14 },
+  listContainer: { paddingHorizontal: Spacing.lg },
+  planCard: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.dark.card, borderRadius: BorderRadius.lg, padding: Spacing.lg, marginBottom: Spacing.md },
+  planIcon: { width: 48, height: 48, borderRadius: BorderRadius.md, backgroundColor: Colors.dark.gold + "20", alignItems: "center", justifyContent: "center", marginRight: Spacing.md },
+  planInfo: { flex: 1 },
+  planTitle: { fontSize: 16, fontWeight: "600", color: Colors.dark.text, marginBottom: 2 },
+  planMeta: { fontSize: 13, color: Colors.dark.disabled },
+});
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -3691,6 +4059,10 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.sm,
+  },
+  glowToolButtonActive: {
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   glowToolIcon: {
     width: 40,
