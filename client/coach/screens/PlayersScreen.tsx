@@ -866,6 +866,7 @@ function PlayerDetailView({
   const [isExportingReport, setIsExportingReport] = useState(false);
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [showDeepAssessment, setShowDeepAssessment] = useState(false);
+  const [selectedAttendanceMonth, setSelectedAttendanceMonth] = useState<string | null>(null);
 
   const handleExportProgressReport = async () => {
     try {
@@ -1073,7 +1074,38 @@ function PlayerDetailView({
   const regularNotes = notes.filter(n => !n.isPinned);
   const nextLessonNotes = notes.filter(n => n.category === "next-lesson");
 
-  const displayedHistory = showAllHistory ? attendanceHistory : attendanceHistory.slice(0, 5);
+  // Get unique months from attendance history for tabs
+  const attendanceMonths = useMemo(() => {
+    const monthsSet = new Set<string>();
+    attendanceHistory.forEach(record => {
+      if (record.date) {
+        const d = new Date(record.date);
+        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        monthsSet.add(monthKey);
+      }
+    });
+    return Array.from(monthsSet).sort((a, b) => b.localeCompare(a)); // newest first
+  }, [attendanceHistory]);
+
+  // Format month key to display label
+  const formatMonthLabel = (monthKey: string) => {
+    const [year, month] = monthKey.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    return date.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+  };
+
+  // Filter attendance by selected month
+  const filteredAttendance = useMemo(() => {
+    if (!selectedAttendanceMonth) return attendanceHistory;
+    return attendanceHistory.filter(record => {
+      if (!record.date) return false;
+      const d = new Date(record.date);
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      return monthKey === selectedAttendanceMonth;
+    });
+  }, [attendanceHistory, selectedAttendanceMonth]);
+
+  const displayedHistory = showAllHistory ? filteredAttendance : filteredAttendance.slice(0, 10);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -1524,9 +1556,53 @@ function PlayerDetailView({
               <Text style={styles.sectionLabel}>Attendance History</Text>
             </View>
             <Text style={styles.attendanceHistoryCount}>
-              {attendanceHistory.length} sessions
+              {selectedAttendanceMonth ? filteredAttendance.length : attendanceHistory.length} sessions
             </Text>
           </View>
+
+          {/* Month Tabs */}
+          {attendanceMonths.length > 0 && (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              style={styles.monthTabsContainer}
+              contentContainerStyle={styles.monthTabsContent}
+            >
+              <Pressable
+                style={[
+                  styles.monthTab,
+                  !selectedAttendanceMonth && styles.monthTabActive
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedAttendanceMonth(null);
+                }}
+              >
+                <Text style={[
+                  styles.monthTabText,
+                  !selectedAttendanceMonth && styles.monthTabTextActive
+                ]}>All</Text>
+              </Pressable>
+              {attendanceMonths.map((monthKey) => (
+                <Pressable
+                  key={monthKey}
+                  style={[
+                    styles.monthTab,
+                    selectedAttendanceMonth === monthKey && styles.monthTabActive
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelectedAttendanceMonth(monthKey);
+                  }}
+                >
+                  <Text style={[
+                    styles.monthTabText,
+                    selectedAttendanceMonth === monthKey && styles.monthTabTextActive
+                  ]}>{formatMonthLabel(monthKey)}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          )}
 
           {attendanceHistory.length === 0 ? (
             <View style={styles.emptyAttendanceCard}>
@@ -1591,7 +1667,7 @@ function PlayerDetailView({
                   }}
                 >
                   <Text style={styles.showMoreHistoryText}>
-                    {showAllHistory ? "Show Less" : `Show All (${attendanceHistory.length} sessions)`}
+                    {showAllHistory ? "Show Less" : `Show All (${filteredAttendance.length} sessions)`}
                   </Text>
                   <Ionicons 
                     name={showAllHistory ? "chevron-up" : "chevron-down"} 
@@ -4244,6 +4320,35 @@ const styles = StyleSheet.create({
   emptyAttendanceSubtext: {
     fontSize: Typography.small.fontSize,
     color: Colors.dark.disabled,
+  },
+  monthTabsContainer: {
+    marginBottom: Spacing.md,
+    marginTop: Spacing.xs,
+  },
+  monthTabsContent: {
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.xs,
+  },
+  monthTab: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  monthTabActive: {
+    backgroundColor: `${Colors.dark.xpCyan}20`,
+    borderColor: Colors.dark.xpCyan,
+  },
+  monthTabText: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "500",
+    color: Colors.dark.textMuted,
+  },
+  monthTabTextActive: {
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
   },
   attendanceHistoryList: {
     gap: Spacing.sm,
