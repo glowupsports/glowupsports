@@ -3009,6 +3009,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`[SmartSession] Adding to existing series: ${matchingSeries.title} (ID: ${matchingSeries.id})`);
             
             // Skip series creation, go directly to session creation
+            // Get pricing from matchingSeries or fetch academy pricing
+            let sessionPricing: { academyPrice?: string; coachPayout?: string; academyMargin?: string } = {};
+            if (matchingSeries.price) {
+              sessionPricing = { academyPrice: matchingSeries.price };
+            } else {
+              const academyPricing = await storage.getAcademyPricing(academyId!);
+              const pricingForType = academyPricing?.find((p: any) => p.sessionType === sessionType);
+              if (pricingForType) {
+                sessionPricing = {
+                  academyPrice: pricingForType.price,
+                  coachPayout: pricingForType.coachPayout,
+                  academyMargin: pricingForType.academyMargin
+                };
+              }
+            }
+
             const newSession = await storage.createSession({
               seriesId: matchingSeries.id,
               coachId: coachId!,
@@ -3019,8 +3035,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               endTime: end,
               status: "scheduled",
               maxPlayers: matchingSeries.maxPlayers,
-              xpValue: matchingSeries.xpValue || 20,
-              ...pricingSnapshot
+              xpValue: matchingSeries.xpPerSession || 20,
+              ...sessionPricing
             });
             
             // Add players to this session
