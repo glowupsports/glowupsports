@@ -16225,12 +16225,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const xpProgress = xpData.totalXp || 0;
       const xpToNext = xpData.xpToNextLevel || 500;
       
-      const totalOwed = player.balanceDue || 0;
-      const totalPaid = player.totalPaid || 0;
-      let paymentStatus: "paid" | "partial" | "overdue" = "paid";
-      if (totalOwed > 0) {
-        paymentStatus = totalPaid > 0 ? "partial" : "overdue";
-      }
 
       // Get player credits by type (includes debt/negative balances)
       const creditBalance = await storage.getPlayerCreditBalanceByType(playerId);
@@ -16238,6 +16232,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get active packages count
       const playerPackages = await storage.getPlayerPackages(playerId, player.academyId ?? undefined);
+
+      // Calculate payments from packages
+      const unpaidPackages = playerPackages.filter((p: any) => !p.isPaid);
+      const paidPackages = playerPackages.filter((p: any) => p.isPaid);
+      
+      const totalOwed = unpaidPackages.reduce((sum: number, pkg: any) => {
+        const pkgPrice = Number(pkg.price) || (Number(pkg.pricePerCredit || 0) * (pkg.totalCredits || 0));
+        return sum + pkgPrice;
+      }, 0);
+      
+      const totalPaid = paidPackages.reduce((sum: number, pkg: any) => {
+        const pkgPrice = Number(pkg.price) || (Number(pkg.pricePerCredit || 0) * (pkg.totalCredits || 0));
+        return sum + pkgPrice;
+      }, 0);
+      
+      let paymentStatus: "paid" | "partial" | "overdue" = "paid";
+      if (totalOwed > 0) {
+        paymentStatus = totalPaid > 0 ? "partial" : "overdue";
+      }
 
       res.json({
         player: {
@@ -16297,6 +16310,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           expiryDate: pkg.expiryDate,
           createdAt: pkg.createdAt,
           pricePerCredit: pkg.pricePerCredit || 0,
+          isPaid: pkg.isPaid || false,
+          price: pkg.price || 0,
         })),
         sessions: sessions.slice(0, 50).map((s: any) => ({
           id: s.id,
@@ -16765,6 +16780,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get player credits by type
       const playerPackages = await storage.getPlayerPackages(playerId, player.academyId ?? undefined);
+
+      // Calculate payments from packages
+      const unpaidPackages = playerPackages.filter((p: any) => !p.isPaid);
+      const paidPackages = playerPackages.filter((p: any) => p.isPaid);
+      
+      const totalOwed = unpaidPackages.reduce((sum: number, pkg: any) => {
+        const pkgPrice = Number(pkg.price) || (Number(pkg.pricePerCredit || 0) * (pkg.totalCredits || 0));
+        return sum + pkgPrice;
+      }, 0);
+      
+      const totalPaid = paidPackages.reduce((sum: number, pkg: any) => {
+        const pkgPrice = Number(pkg.price) || (Number(pkg.pricePerCredit || 0) * (pkg.totalCredits || 0));
+        return sum + pkgPrice;
+      }, 0);
+      
+      let paymentStatus: "paid" | "partial" | "overdue" = "paid";
+      if (totalOwed > 0) {
+        paymentStatus = totalPaid > 0 ? "partial" : "overdue";
+      }
       const creditsByType = { group: 0, private: 0, semi_private: 0 };
       let totalCredits = 0;
       for (const pkg of playerPackages) {

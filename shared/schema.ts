@@ -1324,6 +1324,7 @@ export const packages = pgTable("packages", {
   invoiceId: varchar("invoice_id"),
   
   status: text("status").default("active"), // active | expired | depleted
+  isPaid: boolean("is_paid").default(false), // Whether payment has been received for this package
   
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({

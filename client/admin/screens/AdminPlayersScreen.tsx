@@ -62,6 +62,8 @@ interface PlayerPackage {
   expiryDate?: string;
   createdAt?: string;
   pricePerCredit?: number;
+  isPaid?: boolean;
+  price?: number;
 }
 
 interface PlayerStats {
@@ -704,6 +706,7 @@ export default function AdminPlayersScreen() {
                       const typeLabel = pkg.creditType === "private" ? "Private" : 
                                        pkg.creditType === "semi_private" ? "Semi-Private" : "Group";
                       const expiryDate = pkg.expiryDate ? new Date(pkg.expiryDate) : null;
+                      const pkgPrice = Number(pkg.price) || (Number(pkg.pricePerCredit || 0) * pkg.totalCredits);
                       
                       return (
                         <View key={pkg.id} style={[styles.packageCard, { borderColor: `${typeColor}40` }]}>
@@ -711,23 +714,48 @@ export default function AdminPlayersScreen() {
                             <View style={[styles.packageTypeBadge, { backgroundColor: `${typeColor}20` }]}>
                               <Text style={[styles.packageTypeText, { color: typeColor }]}>{typeLabel}</Text>
                             </View>
-                            <View style={[
-                              styles.packageStatusBadge, 
-                              { backgroundColor: isDepleted ? `${Colors.dark.error}20` : `${Colors.dark.successNeon}20` }
-                            ]}>
-                              <Text style={[
-                                styles.packageStatusText, 
-                                { color: isDepleted ? Colors.dark.error : Colors.dark.successNeon }
+                            <View style={styles.packageHeaderRight}>
+                              <View style={[
+                                styles.packagePaymentBadge, 
+                                { backgroundColor: pkg.isPaid ? `${Colors.dark.successNeon}20` : `${Colors.dark.gold}20` }
                               ]}>
-                                {isDepleted ? "Depleted" : "Active"}
-                              </Text>
+                                <Text style={[
+                                  styles.packagePaymentText, 
+                                  { color: pkg.isPaid ? Colors.dark.successNeon : Colors.dark.gold }
+                                ]}>
+                                  {pkg.isPaid ? "Paid" : "Unpaid"}
+                                </Text>
+                              </View>
+                              <View style={[
+                                styles.packageStatusBadge, 
+                                { backgroundColor: isDepleted ? `${Colors.dark.error}20` : `${Colors.dark.successNeon}20` }
+                              ]}>
+                                <Text style={[
+                                  styles.packageStatusText, 
+                                  { color: isDepleted ? Colors.dark.error : Colors.dark.successNeon }
+                                ]}>
+                                  {isDepleted ? "Depleted" : "Active"}
+                                </Text>
+                              </View>
                             </View>
                           </View>
                           <View style={styles.packageCardBody}>
-                            <Text style={styles.packageCreditsLabel}>Credits</Text>
-                            <Text style={[styles.packageCreditsValue, { color: typeColor }]}>
-                              {pkg.remainingCredits} / {pkg.totalCredits}
-                            </Text>
+                            <View style={styles.packageCreditsRow}>
+                              <View>
+                                <Text style={styles.packageCreditsLabel}>Credits</Text>
+                                <Text style={[styles.packageCreditsValue, { color: typeColor }]}>
+                                  {pkg.remainingCredits} / {pkg.totalCredits}
+                                </Text>
+                              </View>
+                              {pkgPrice > 0 && (
+                                <View style={styles.packagePriceBlock}>
+                                  <Text style={styles.packageCreditsLabel}>Price</Text>
+                                  <Text style={[styles.packagePriceValue, { color: pkg.isPaid ? Colors.dark.successNeon : Colors.dark.gold }]}>
+                                    AED {pkgPrice.toFixed(0)}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
                           </View>
                           {expiryDate ? (
                             <View style={styles.packageCardFooter}>
@@ -741,6 +769,23 @@ export default function AdminPlayersScreen() {
                               </Text>
                             </View>
                           ) : null}
+                          {!pkg.isPaid && (
+                            <Pressable 
+                              style={styles.markPaidButton}
+                              onPress={async () => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                try {
+                                  await apiRequest("PATCH", `/api/packages/${pkg.id}`, { isPaid: true });
+                                  queryClient.invalidateQueries({ queryKey: [`/api/admin/players/${selectedPlayer?.id}/stats`] });
+                                } catch (error) {
+                                  console.error("Failed to mark package as paid:", error);
+                                }
+                              }}
+                            >
+                              <Ionicons name="checkmark-circle-outline" size={16} color={Colors.dark.successNeon} />
+                              <Text style={styles.markPaidText}>Mark as Paid</Text>
+                            </Pressable>
+                          )}
                         </View>
                       );
                     })}
@@ -763,14 +808,16 @@ export default function AdminPlayersScreen() {
                     {stats.sessions.slice(0, 10).map((session, index) => {
                       const sessionDate = new Date(session.startTime);
                       const isAttended = session.attended === "present";
-                      const isPaid = session.creditsUsed > 0;
+                      const isAbsent = session.attended === "absent" || session.attended === "no_show";
+                      const attendanceLabel = isAttended ? "Present" : isAbsent ? "Absent" : "Pending";
+                      const attendanceColor = isAttended ? Colors.dark.successNeon : isAbsent ? Colors.dark.error : Colors.dark.gold;
                       
                       return (
                         <View key={session.id || index} style={styles.sessionRow}>
                           <View style={styles.sessionDateBlock}>
                             <View style={[
                               styles.sessionIndicator, 
-                              { backgroundColor: isAttended ? Colors.dark.successNeon : Colors.dark.error }
+                              { backgroundColor: attendanceColor }
                             ]} />
                             <View>
                               <Text style={styles.sessionDate}>
@@ -790,17 +837,17 @@ export default function AdminPlayersScreen() {
                             </View>
                             <View style={[
                               styles.paymentBadge, 
-                              { backgroundColor: isPaid ? `${Colors.dark.successNeon}20` : `${Colors.dark.gold}20` }
+                              { backgroundColor: `${attendanceColor}20` }
                             ]}>
                               <View style={[
                                 styles.paymentDot,
-                                { backgroundColor: isPaid ? Colors.dark.successNeon : Colors.dark.gold }
+                                { backgroundColor: attendanceColor }
                               ]} />
                               <Text style={[
                                 styles.paymentBadgeText, 
-                                { color: isPaid ? Colors.dark.successNeon : Colors.dark.gold }
+                                { color: attendanceColor }
                               ]}>
-                                {isPaid ? "Paid" : "Pending"}
+                                {attendanceLabel}
                               </Text>
                             </View>
                           </View>
@@ -2535,5 +2582,49 @@ const styles = StyleSheet.create({
   packageExpiryText: {
     ...Typography.caption,
     color: Colors.dark.textMuted,
+  },
+  packageHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  packagePaymentBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  packagePaymentText: {
+    ...Typography.caption,
+    fontWeight: "600",
+  },
+  packageCreditsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+    width: "100%",
+  },
+  packagePriceBlock: {
+    alignItems: "center",
+  },
+  packagePriceValue: {
+    ...Typography.h3,
+    fontWeight: "700",
+  },
+  markPaidButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    marginTop: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.successNeon}40`,
+    backgroundColor: `${Colors.dark.successNeon}10`,
+  },
+  markPaidText: {
+    ...Typography.caption,
+    color: Colors.dark.successNeon,
+    fontWeight: "600",
   },
 });
