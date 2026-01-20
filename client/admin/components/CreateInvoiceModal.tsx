@@ -1085,7 +1085,7 @@ export default function CreateInvoiceModal({
                 </View>
                 <View>
                   <Text style={styles.categoryTitle}>Semi-Private</Text>
-                  <Text style={styles.categorySubtitle}>AED 180/session</Text>
+                  <Text style={styles.categorySubtitle}>AED 160/session</Text>
                 </View>
               </View>
               <Ionicons 
@@ -1099,7 +1099,7 @@ export default function CreateInvoiceModal({
                 {[5, 10, 20].map((qty) => {
                   const templateId = `semi_private_${qty}`;
                   const isSelected = selectedPackageTemplate === templateId;
-                  const total = qty * 180;
+                  const total = qty * 160;
                   return (
                     <Pressable
                       key={templateId}
@@ -1111,7 +1111,7 @@ export default function CreateInvoiceModal({
                       <Text style={[styles.packagePrice, isSelected && styles.packagePriceSelected]}>
                         AED {total.toLocaleString()}
                       </Text>
-                      <Text style={styles.packagePriceEach}>AED 180/ea</Text>
+                      <Text style={styles.packagePriceEach}>AED 160/ea</Text>
                     </Pressable>
                   );
                 })}
@@ -1132,7 +1132,7 @@ export default function CreateInvoiceModal({
                 </View>
                 <View>
                   <Text style={styles.categoryTitle}>Group</Text>
-                  <Text style={styles.categorySubtitle}>AED 75/session</Text>
+                  <Text style={styles.categorySubtitle}>AED 95/session</Text>
                 </View>
               </View>
               <Ionicons 
@@ -1146,7 +1146,7 @@ export default function CreateInvoiceModal({
                 {[10, 20, 40].map((qty) => {
                   const templateId = `group_${qty}`;
                   const isSelected = selectedPackageTemplate === templateId;
-                  const total = qty * 75;
+                  const total = qty * 95;
                   return (
                     <Pressable
                       key={templateId}
@@ -1158,7 +1158,7 @@ export default function CreateInvoiceModal({
                       <Text style={[styles.packagePrice, isSelected && styles.packagePriceSelected]}>
                         AED {total.toLocaleString()}
                       </Text>
-                      <Text style={styles.packagePriceEach}>AED 75/ea</Text>
+                      <Text style={styles.packagePriceEach}>AED 95/ea</Text>
                     </Pressable>
                   );
                 })}
