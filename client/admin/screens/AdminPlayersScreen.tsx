@@ -23,6 +23,7 @@ import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { ReportIssueModal } from "@/components/ReportIssueModal";
 import CreateInvoiceModal from "@/admin/components/CreateInvoiceModal";
+import CreditStoreModal from "@/admin/components/CreditStoreModal";
 
 interface Player {
   id: string;
@@ -157,6 +158,7 @@ export default function AdminPlayersScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showReportIssueModal, setShowReportIssueModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [showCreditStoreModal, setShowCreditStoreModal] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
   const [ballLevelFilter, setBallLevelFilter] = useState<string>("all");
@@ -672,6 +674,7 @@ export default function AdminPlayersScreen() {
                   style={styles.grantCreditsButton}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setShowCreditStoreModal(true);
                   }}
                 >
                   <Ionicons name="add-circle-outline" size={18} color={Colors.dark.primary} />
@@ -1415,6 +1418,13 @@ export default function AdminPlayersScreen() {
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ["/api/admin/players", selectedPlayerId, "stats"] });
         }}
+      />
+
+      <CreditStoreModal
+        visible={showCreditStoreModal}
+        onClose={() => setShowCreditStoreModal(false)}
+        playerId={selectedPlayerId || ""}
+        playerName={playerStats?.player?.name || ""}
       />
     </View>
   );
