@@ -35,35 +35,94 @@ const generateAttendanceReportPDF = (stats: any, player: any) => {
   const now = new Date();
   const reportDate = now.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   
-  const presentCount = stats.sessions.filter((s: any) => s.attended === "present").length;
-  const absentCount = stats.sessions.filter((s: any) => s.attended === "absent" || s.attended === "no_show").length;
-  const pendingCount = stats.sessions.filter((s: any) => !s.attended || s.attended === "pending").length;
-  const attendanceRate = stats.sessions.length > 0 ? Math.round((presentCount / stats.sessions.length) * 100) : 0;
+  // Filter out future sessions - only show past sessions
+  const pastSessions = stats.sessions.filter((s: any) => {
+    if (!s.startTime) return false;
+    const sessionTime = new Date(s.startTime);
+    return sessionTime < now;
+  });
+  
+  if (pastSessions.length === 0) {
+    Alert.alert("No Past Sessions", "There are no completed sessions to include in the report.");
+    return;
+  }
+  
+  // Calculate stats only for past sessions
+  const presentCount = pastSessions.filter((s: any) => s.attended === "present").length;
+  const absentCount = pastSessions.filter((s: any) => s.attended === "absent" || s.attended === "no_show").length;
+  const attendanceRate = pastSessions.length > 0 ? Math.round((presentCount / pastSessions.length) * 100) : 0;
 
-  const sessionRows = stats.sessions.map((session: any) => {
+  // Group sessions by month
+  const sessionsByMonth: { [key: string]: any[] } = {};
+  pastSessions.forEach((session: any) => {
     const sessionDate = new Date(session.startTime);
-    const isAttended = session.attended === "present";
-    const isAbsent = session.attended === "absent" || session.attended === "no_show";
-    const statusLabel = isAttended ? "Present" : isAbsent ? "Absent" : "Pending";
-    const statusColor = isAttended ? "#00E676" : isAbsent ? "#FF5252" : "#FFD740";
-    const sessionType = session.sessionType === "private" ? "Private" : 
-                        session.sessionType === "semi_private" ? "Semi-Private" : "Group";
+    const monthKey = `${sessionDate.getFullYear()}-${String(sessionDate.getMonth() + 1).padStart(2, '0')}`;
+    if (!sessionsByMonth[monthKey]) {
+      sessionsByMonth[monthKey] = [];
+    }
+    sessionsByMonth[monthKey].push(session);
+  });
+  
+  // Sort months newest first
+  const sortedMonths = Object.keys(sessionsByMonth).sort((a, b) => b.localeCompare(a));
+  
+  // Generate month tabs HTML
+  const monthTabsHtml = sortedMonths.map((monthKey, index) => {
+    const date = new Date(monthKey + '-01');
+    const label = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    const count = sessionsByMonth[monthKey].length;
+    return `<span style="display: inline-block; padding: 6px 12px; background: ${index === 0 ? 'rgba(0, 212, 255, 0.2)' : 'rgba(255,255,255,0.06)'}; border: 1px solid ${index === 0 ? '#00D4FF' : 'rgba(255,255,255,0.1)'}; border-radius: 16px; font-size: 12px; color: ${index === 0 ? '#00D4FF' : 'rgba(255,255,255,0.6)'}; margin-right: 8px; margin-bottom: 8px;">${label} (${count})</span>`;
+  }).join('');
+  
+  // Generate month sections HTML
+  const monthSectionsHtml = sortedMonths.map(monthKey => {
+    const sessions = sessionsByMonth[monthKey];
+    const date = new Date(monthKey + '-01');
+    const monthLabel = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    
+    const rowsHtml = sessions.map((session: any) => {
+      const sessionDate = new Date(session.startTime);
+      const isAttended = session.attended === "present";
+      const isAbsent = session.attended === "absent" || session.attended === "no_show";
+      const statusLabel = isAttended ? "Present" : isAbsent ? "Absent" : "Pending";
+      const statusColor = isAttended ? "#00E676" : isAbsent ? "#FF5252" : "#FFD740";
+      const sessionType = session.sessionType === "private" ? "Private" : 
+                          session.sessionType === "semi_private" ? "Semi-Private" : "Group";
+      
+      return `
+        <tr>
+          <td style="padding: 14px 16px; border-bottom: 1px solid #2a2d35;">
+            <div style="font-weight: 600; color: #fff;">${sessionDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>
+            <div style="font-size: 12px; color: #6b7280;">${sessionDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</div>
+          </td>
+          <td style="padding: 14px 16px; border-bottom: 1px solid #2a2d35;">
+            <span style="background: #1e2127; padding: 4px 10px; border-radius: 6px; font-size: 12px; color: #00D4FF;">${sessionType}</span>
+          </td>
+          <td style="padding: 14px 16px; border-bottom: 1px solid #2a2d35; text-align: center;">
+            <span style="background: ${statusColor}20; color: ${statusColor}; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;">${statusLabel}</span>
+          </td>
+        </tr>
+      `;
+    }).join('');
     
     return `
-      <tr>
-        <td style="padding: 14px 16px; border-bottom: 1px solid #2a2d35;">
-          <div style="font-weight: 600; color: #fff;">${sessionDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>
-          <div style="font-size: 12px; color: #6b7280;">${sessionDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</div>
-        </td>
-        <td style="padding: 14px 16px; border-bottom: 1px solid #2a2d35;">
-          <span style="background: #1e2127; padding: 4px 10px; border-radius: 6px; font-size: 12px; color: #00D4FF;">${sessionType}</span>
-        </td>
-        <td style="padding: 14px 16px; border-bottom: 1px solid #2a2d35; text-align: center;">
-          <span style="background: ${statusColor}20; color: ${statusColor}; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;">${statusLabel}</span>
-        </td>
-      </tr>
+      <div style="margin-bottom: 24px;">
+        <div style="font-size: 14px; font-weight: 600; color: #00D4FF; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(0, 212, 255, 0.3);">${monthLabel}</div>
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr>
+              <th style="text-align: left; padding: 10px 16px; font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; background: #1a1d22;">Date & Time</th>
+              <th style="text-align: left; padding: 10px 16px; font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; background: #1a1d22;">Type</th>
+              <th style="text-align: center; padding: 10px 16px; font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; background: #1a1d22;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </div>
     `;
-  }).join("");
+  }).join('');
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -90,14 +149,9 @@ const generateAttendanceReportPDF = (stats: any, player: any) => {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
-          margin-bottom: 40px;
-          padding-bottom: 30px;
+          margin-bottom: 20px;
+          padding-bottom: 20px;
           border-bottom: 1px solid #2a2d35;
-        }
-        .logo-section img {
-          width: 140px;
-          height: auto;
-          margin-bottom: 12px;
         }
         .report-badge {
           background: linear-gradient(135deg, #00D4FF20, #00D4FF10);
@@ -118,12 +172,28 @@ const generateAttendanceReportPDF = (stats: any, player: any) => {
           font-weight: 700;
           color: #fff;
         }
+        .download-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          background: linear-gradient(135deg, #C8FF3D 0%, #9FCC31 100%);
+          color: #0B0D10;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          margin-left: 16px;
+        }
+        .download-btn:hover { opacity: 0.9; }
+        @media print { .download-btn { display: none !important; } }
         .player-section {
           background: linear-gradient(135deg, #C8FF3D10, #C8FF3D05);
           border: 1px solid #C8FF3D30;
           border-radius: 16px;
           padding: 24px;
-          margin-bottom: 30px;
+          margin-bottom: 24px;
         }
         .player-name {
           font-size: 24px;
@@ -131,15 +201,11 @@ const generateAttendanceReportPDF = (stats: any, player: any) => {
           color: #C8FF3D;
           margin-bottom: 8px;
         }
-        .player-email {
-          font-size: 14px;
-          color: #6b7280;
-        }
         .stats-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
           gap: 16px;
-          margin-bottom: 30px;
+          margin-bottom: 24px;
         }
         .stat-card {
           background: #14171C;
@@ -159,39 +225,6 @@ const generateAttendanceReportPDF = (stats: any, player: any) => {
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
-        .sessions-section {
-          background: #14171C;
-          border-radius: 16px;
-          overflow: hidden;
-          border: 1px solid #2a2d35;
-        }
-        .sessions-header {
-          background: #1a1d22;
-          padding: 16px 20px;
-          border-bottom: 1px solid #2a2d35;
-        }
-        .sessions-title {
-          font-size: 14px;
-          font-weight: 700;
-          color: #fff;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-        }
-        table {
-          width: 100%;
-          border-collapse: collapse;
-        }
-        th {
-          text-align: left;
-          padding: 14px 16px;
-          font-size: 11px;
-          color: #6b7280;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          background: #1a1d22;
-          border-bottom: 1px solid #2a2d35;
-        }
-        th:last-child { text-align: center; }
         .footer {
           margin-top: 40px;
           padding-top: 20px;
@@ -206,22 +239,35 @@ const generateAttendanceReportPDF = (stats: any, player: any) => {
       <div class="container">
         <div class="header">
           <div class="logo-section">
-            <img src="${GLOW_UP_TENNIS_LOGO}" alt="Glow Up Tennis" />
+            <img src="${GLOW_UP_TENNIS_LOGO}" alt="Glow Up Tennis" style="width: 140px; height: auto;" />
           </div>
-          <div class="report-badge">
-            <div class="report-label">Attendance Report</div>
-            <div class="report-title">${reportDate}</div>
+          <div style="display: flex; align-items: center;">
+            <div class="report-badge">
+              <div class="report-label">Attendance Report</div>
+              <div class="report-title">${reportDate}</div>
+            </div>
+            <button class="download-btn" onclick="window.print()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Download PDF
+            </button>
           </div>
         </div>
+        
+        <!-- RAINBOW DEBUG INDICATOR - V3 CODE LOADED -->
+        <div style="height: 8px; background: linear-gradient(90deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #8f00ff); border-radius: 4px; margin-bottom: 24px;"></div>
 
         <div class="player-section">
           <div class="player-name">${player?.name || stats.player?.name || "Player"}</div>
-          <div class="player-email">${player?.email || stats.player?.email || ""}</div>
+          <div style="font-size: 14px; color: #6b7280;">${player?.email || stats.player?.email || ""}</div>
         </div>
 
         <div class="stats-grid">
           <div class="stat-card">
-            <div class="stat-value" style="color: #fff;">${stats.sessions.length}</div>
+            <div class="stat-value" style="color: #00D4FF;">${pastSessions.length}</div>
             <div class="stat-label">Total Sessions</div>
           </div>
           <div class="stat-card">
@@ -238,22 +284,12 @@ const generateAttendanceReportPDF = (stats: any, player: any) => {
           </div>
         </div>
 
-        <div class="sessions-section">
-          <div class="sessions-header">
-            <div class="sessions-title">Session Details</div>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Date & Time</th>
-                <th>Session Type</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${sessionRows}
-            </tbody>
-          </table>
+        <div style="margin-bottom: 16px;">
+          ${monthTabsHtml}
+        </div>
+
+        <div style="background: #14171C; border-radius: 16px; padding: 20px; border: 1px solid #2a2d35;">
+          ${monthSectionsHtml}
         </div>
 
         <div class="footer">
