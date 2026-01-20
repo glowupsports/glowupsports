@@ -724,9 +724,9 @@ export default function CreateInvoiceModal({
     { id: "semi_5", label: "5 Semi-Private Lessons", description: "Semi-Private Tennis Lessons (5 sessions)", quantity: 5, unitPrice: 160 },
     { id: "semi_10", label: "10 Semi-Private Lessons", description: "Semi-Private Tennis Lessons (10 sessions)", quantity: 10, unitPrice: 160 },
     { id: "semi_20", label: "20 Semi-Private Lessons", description: "Semi-Private Tennis Lessons (20 sessions)", quantity: 20, unitPrice: 160 },
-    { id: "group_10", label: "10 Group Lessons", description: "Group Tennis Lessons (10 sessions)", quantity: 10, unitPrice: 75 },
-    { id: "group_20", label: "20 Group Lessons", description: "Group Tennis Lessons (20 sessions)", quantity: 20, unitPrice: 75 },
-    { id: "group_40", label: "40 Group Lessons", description: "Group Tennis Lessons (40 sessions)", quantity: 40, unitPrice: 75 },
+    { id: "group_10", label: "10 Group Lessons", description: "Group Tennis Lessons (10 sessions)", quantity: 10, unitPrice: 95 },
+    { id: "group_20", label: "20 Group Lessons", description: "Group Tennis Lessons (20 sessions)", quantity: 20, unitPrice: 95 },
+    { id: "group_40", label: "40 Group Lessons", description: "Group Tennis Lessons (40 sessions)", quantity: 40, unitPrice: 95 },
   ];
   
   const selectPackageTemplate = (templateId: string) => {

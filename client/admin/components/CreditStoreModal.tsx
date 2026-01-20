@@ -33,10 +33,16 @@ const CREDIT_TYPES: { key: CreditType; label: string; icon: keyof typeof Ionicon
 
 const QUANTITIES: CreditQuantity[] = [1, 5, 10, 20];
 
+const CREDIT_PRICES: Record<CreditType, number> = {
+  group: 95,
+  semi_private: 160,
+  private: 280,
+};
+
 export default function CreditStoreModal({ visible, onClose, playerId, playerName }: CreditStoreModalProps) {
   const [selectedType, setSelectedType] = useState<CreditType>("group");
   const [selectedQuantity, setSelectedQuantity] = useState<CreditQuantity>(5);
-  const [pricePerCredit, setPricePerCredit] = useState("");
+  const pricePerCredit = CREDIT_PRICES[selectedType];
   const queryClient = useQueryClient();
 
   const grantCreditsMutation = useMutation({
@@ -71,11 +77,11 @@ export default function CreditStoreModal({ visible, onClose, playerId, playerNam
       playerId,
       creditType: selectedType,
       quantity: selectedQuantity,
-      pricePerCredit: parseFloat(pricePerCredit) || 0,
+      pricePerCredit: pricePerCredit,
     });
   };
   
-  const totalPrice = (parseFloat(pricePerCredit) || 0) * selectedQuantity;
+  const totalPrice = pricePerCredit * selectedQuantity;
 
   const selectedTypeInfo = CREDIT_TYPES.find(t => t.key === selectedType);
 
@@ -167,14 +173,7 @@ export default function CreditStoreModal({ visible, onClose, playerId, playerNam
               <Text style={styles.sectionTitle}>Price per Credit (AED)</Text>
               <View style={styles.priceInputContainer}>
                 <Text style={styles.currencyPrefix}>AED</Text>
-                <TextInput
-                  style={styles.priceInput}
-                  value={pricePerCredit}
-                  onChangeText={setPricePerCredit}
-                  keyboardType="decimal-pad"
-                  placeholder="0"
-                  placeholderTextColor={Colors.dark.textMuted}
-                />
+                <Text style={[styles.priceInput, { color: Colors.dark.successNeon }]}>{pricePerCredit}</Text>
               </View>
               {totalPrice > 0 && (
                 <View style={styles.totalPriceRow}>
