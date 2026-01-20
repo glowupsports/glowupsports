@@ -1677,16 +1677,16 @@ export default function AdminPlayersScreen() {
                     flexDirection: 'row',
                     alignItems: 'center',
                     gap: 6,
-                    backgroundColor: `${Colors.dark.xpCyan}15`,
+                    backgroundColor: '#FF0000',
                     paddingHorizontal: 14,
                     paddingVertical: 8,
                     borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: `${Colors.dark.xpCyan}40`,
+                    borderWidth: 2,
+                    borderColor: '#FF0000',
                   }}
                 >
-                  <Ionicons name="download-outline" size={16} color={Colors.dark.xpCyan} />
-                  <Text style={{ color: Colors.dark.xpCyan, fontSize: 13, fontWeight: '600' }}>Report</Text>
+                  <Ionicons name="download-outline" size={16} color="#FFFFFF" />
+                  <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>Report</Text>
                 </Pressable>
               </View>
               {stats.sessions && Array.isArray(stats.sessions) && stats.sessions.length > 0 ? (
