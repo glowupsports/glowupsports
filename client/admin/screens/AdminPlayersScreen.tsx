@@ -417,151 +417,49 @@ export default function AdminPlayersScreen() {
     return Colors.dark.successNeon;
   };
 
-  const renderPlayer = ({ item }: { item: Player }) => {
-    const isExpanded = selectedPlayerId === item.id && showDetailModal;
-    const stats = isExpanded ? playerStats : null;
-    
-    return (
-      <View style={styles.playerCardWrapper}>
-        <Pressable
-          style={[
-            styles.playerCard, 
-            CardStyles.elevated,
-            isExpanded && styles.playerCardExpanded
-          ]}
-          onPress={() => togglePlayerExpansion(item.id)}
-        >
-          <View style={[styles.playerAvatar, { borderColor: getBallLevelColor(item.ballLevel) }]}>
-            <Text style={styles.avatarText}>{item.name?.charAt(0).toUpperCase() || "?"}</Text>
-          </View>
-          <View style={styles.playerInfo}>
-            <Text style={styles.playerName}>{item.name}</Text>
-            <Text style={styles.playerEmail}>{item.email || "No email"}</Text>
-            <View style={styles.playerMeta}>
-              <View style={[styles.ballBadge, { backgroundColor: `${getBallLevelColor(item.ballLevel)}20` }]}>
-                <View style={[styles.ballDot, { backgroundColor: getBallLevelColor(item.ballLevel) }]} />
-                <Text style={[styles.ballText, { color: getBallLevelColor(item.ballLevel) }]}>
-                  {item.ballLevel || "N/A"}
-                </Text>
-              </View>
-              {item.level ? (
-                <Text style={styles.levelText}>Level {item.level}</Text>
-              ) : null}
-              {item.coachName ? (
-                <Text style={styles.coachText}>{item.coachName}</Text>
-              ) : null}
-            </View>
-          </View>
-          <View style={styles.creditsContainer}>
-            {item.totalCredits && item.totalCredits > 0 ? (
-              <View style={[styles.creditsBadge, { backgroundColor: `${getCreditsColor(item.remainingCredits, item.totalCredits)}15` }]}>
-                <Ionicons 
-                  name="ticket-outline" 
-                  size={14} 
-                  color={getCreditsColor(item.remainingCredits, item.totalCredits)} 
-                />
-                <Text style={[styles.creditsText, { color: getCreditsColor(item.remainingCredits, item.totalCredits) }]}>
-                  {item.remainingCredits || 0}
-                </Text>
-              </View>
-            ) : null}
-            <Ionicons 
-              name={isExpanded ? "chevron-down" : "chevron-forward"} 
-              size={20} 
-              color={Colors.dark.textMuted} 
-            />
-          </View>
-        </Pressable>
-        
-        {isExpanded && (
-          <View style={[styles.expandedContent, CardStyles.elevated]}>
-            {statsLoading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={Colors.dark.primary} />
-                <Text style={styles.loadingText}>Loading player details...</Text>
-              </View>
-            ) : stats ? (
-              <>
-                {/* Quick Stats Row */}
-                <View style={styles.quickStatsRow}>
-                  <View style={styles.quickStat}>
-                    <Text style={styles.quickStatValue}>{stats.sessions?.totalSessions || 0}</Text>
-                    <Text style={styles.quickStatLabel}>Sessions</Text>
-                  </View>
-                  <View style={styles.quickStat}>
-                    <Text style={[styles.quickStatValue, { color: Colors.dark.successNeon }]}>
-                      {stats.credits?.remaining || 0}
-                    </Text>
-                    <Text style={styles.quickStatLabel}>Credits Left</Text>
-                  </View>
-                  <View style={styles.quickStat}>
-                    <Text style={[styles.quickStatValue, { color: Colors.dark.warningNeon }]}>
-                      AED {stats.payments?.totalOwed?.toFixed(0) || 0}
-                    </Text>
-                    <Text style={styles.quickStatLabel}>Owed</Text>
-                  </View>
-                </View>
-
-                {/* Action Buttons */}
-                <View style={styles.expandedActions}>
-                  <Pressable 
-                    style={styles.actionButton}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                      setShowInvoiceModal(true);
-                    }}
-                  >
-                    <Ionicons name="document-text-outline" size={16} color={Colors.dark.successNeon} />
-                    <Text style={styles.actionButtonText}>Create Invoice</Text>
-                  </Pressable>
-                  <Pressable 
-                    style={styles.actionButton}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                      setShowCreditStoreModal(true);
-                    }}
-                  >
-                    <Ionicons name="add-circle-outline" size={16} color={Colors.dark.successNeon} />
-                    <Text style={styles.actionButtonText}>Add Credits</Text>
-                  </Pressable>
-                  <Pressable 
-                    style={styles.viewMoreButton}
-                    onPress={() => {
-                      setShowFullDetailsModal(true);
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    }}
-                  >
-                    <Text style={styles.viewMoreText}>Full Details</Text>
-                    <Ionicons name="open-outline" size={14} color={Colors.dark.primary} />
-                  </Pressable>
-                </View>
-
-                {/* Packages Summary */}
-                {stats.packages && stats.packages.length > 0 && (
-                  <View style={styles.packagesSummary}>
-                    <Text style={styles.packagesSummaryTitle}>Active Packages</Text>
-                    {stats.packages.slice(0, 2).map((pkg: PlayerPackage) => (
-                      <View key={pkg.id} style={styles.packageSummaryRow}>
-                        <Text style={styles.packageSummaryName}>{pkg.packageName || pkg.creditType}</Text>
-                        <Text style={[
-                          styles.packageSummaryCredits,
-                          { color: pkg.remaining > 0 ? Colors.dark.successNeon : Colors.dark.textMuted }
-                        ]}>
-                          {pkg.remaining}/{pkg.totalCredits}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </>
-            ) : (
-              <Text style={styles.noDataText}>No data available</Text>
-            )}
-          </View>
-        )}
+  const renderPlayer = ({ item }: { item: Player }) => (
+    <Pressable
+      style={[styles.playerCard, CardStyles.elevated]}
+      onPress={() => togglePlayerExpansion(item.id)}
+    >
+      <View style={[styles.playerAvatar, { borderColor: getBallLevelColor(item.ballLevel) }]}>
+        <Text style={styles.avatarText}>{item.name?.charAt(0).toUpperCase() || "?"}</Text>
       </View>
-    );
-  };
+      <View style={styles.playerInfo}>
+        <Text style={styles.playerName}>{item.name}</Text>
+        <Text style={styles.playerEmail}>{item.email || "No email"}</Text>
+        <View style={styles.playerMeta}>
+          <View style={[styles.ballBadge, { backgroundColor: `${getBallLevelColor(item.ballLevel)}20` }]}>
+            <View style={[styles.ballDot, { backgroundColor: getBallLevelColor(item.ballLevel) }]} />
+            <Text style={[styles.ballText, { color: getBallLevelColor(item.ballLevel) }]}>
+              {item.ballLevel || "N/A"}
+            </Text>
+          </View>
+          {item.level ? (
+            <Text style={styles.levelText}>Level {item.level}</Text>
+          ) : null}
+          {item.coachName ? (
+            <Text style={styles.coachText}>{item.coachName}</Text>
+          ) : null}
+        </View>
+      </View>
+      <View style={styles.creditsContainer}>
+        {item.totalCredits && item.totalCredits > 0 ? (
+          <View style={[styles.creditsBadge, { backgroundColor: `${getCreditsColor(item.remainingCredits, item.totalCredits)}15` }]}>
+            <Ionicons 
+              name="ticket-outline" 
+              size={14} 
+              color={getCreditsColor(item.remainingCredits, item.totalCredits)} 
+            />
+            <Text style={[styles.creditsText, { color: getCreditsColor(item.remainingCredits, item.totalCredits) }]}>
+              {item.remainingCredits || 0}
+            </Text>
+          </View>
+        ) : null}
+        <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+      </View>
+    </Pressable>
+  );
 
   const closeFullDetailsModal = () => {
     setShowFullDetailsModal(false);
@@ -1142,6 +1040,372 @@ export default function AdminPlayersScreen() {
     );
   }
 
+  const renderInlinePlayerProfile = () => {
+    const stats = playerStats;
+    
+    return (
+      <ScrollView 
+        style={styles.inlineProfileScroll}
+        contentContainerStyle={[styles.inlineProfileContent, { paddingBottom: insets.bottom + 40 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Back Button Header */}
+        <View style={styles.inlineProfileHeader}>
+          <Pressable 
+            style={styles.backButton}
+            onPress={() => {
+              closeDetailModal();
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          >
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+            <Text style={styles.backButtonText}>Back to Players</Text>
+          </Pressable>
+          <Pressable onPress={() => {
+            if (stats?.player) {
+              setEditingPlayer({
+                id: stats.player.id,
+                name: stats.player.name,
+                email: stats.player.email,
+                phone: stats.player.phone,
+                ballLevel: stats.player.ballLevel,
+              });
+              setFormData({
+                name: stats.player.name || "",
+                email: stats.player.email || "",
+                phone: stats.player.phone || "",
+                ballLevel: stats.player.ballLevel || "green",
+                parentName: stats.player.parentName || "",
+                parentPhone: stats.player.parentPhone || "",
+              });
+              closeDetailModal();
+              setShowAddModal(true);
+            }
+          }}>
+            <Ionicons name="pencil" size={20} color={Colors.dark.orange} />
+          </Pressable>
+        </View>
+
+        {statsLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.dark.orange} />
+            <Text style={styles.loadingText}>Loading player details...</Text>
+          </View>
+        ) : statsError ? (
+          <View style={styles.loadingContainer}>
+            <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.error} />
+            <Text style={styles.errorText}>Failed to load player details</Text>
+            <Pressable style={styles.retryButton} onPress={() => refetchStats()}>
+              <Text style={styles.retryButtonText}>Try Again</Text>
+            </Pressable>
+          </View>
+        ) : stats ? (
+          <>
+            {/* Profile Section */}
+            <View style={styles.profileSection}>
+              <View style={[styles.profileAvatar, { borderColor: getBallLevelColor(stats.player.ballLevel) }]}>
+                <Text style={styles.profileAvatarText}>
+                  {stats.player.name?.charAt(0).toUpperCase() || "?"}
+                </Text>
+              </View>
+              <Text style={styles.profileName}>{stats.player.name}</Text>
+              <View style={[styles.ballBadgeLarge, { backgroundColor: `${getBallLevelColor(stats.player.ballLevel)}20` }]}>
+                <View style={[styles.ballDotLarge, { backgroundColor: getBallLevelColor(stats.player.ballLevel) }]} />
+                <Text style={[styles.ballTextLarge, { color: getBallLevelColor(stats.player.ballLevel) }]}>
+                  {stats.player.ballLevel || "N/A"} Ball
+                </Text>
+              </View>
+              {stats.player.coachName ? (
+                <Text style={styles.coachAssignment}>Coach: {stats.player.coachName}</Text>
+              ) : null}
+            </View>
+
+            {/* Attendance Section */}
+            <View style={[styles.section, CardStyles.elevated]}>
+              <Text style={styles.sectionTitle}>Attendance</Text>
+              <View style={styles.statsGrid}>
+                <StatItem 
+                  icon="checkmark-circle" 
+                  label="Attended" 
+                  value={stats.attendance.attended}
+                  color={Colors.dark.successNeon}
+                />
+                <StatItem 
+                  icon="close-circle" 
+                  label="Missed" 
+                  value={stats.attendance.missed}
+                  color={Colors.dark.error}
+                />
+                <StatItem 
+                  icon="trending-up" 
+                  label="Rate" 
+                  value={`${stats.attendance.rate}%`}
+                  color={Colors.dark.orange}
+                />
+                <StatItem 
+                  icon="flame" 
+                  label="Streak" 
+                  value={stats.attendance.streak}
+                  color={Colors.dark.gold}
+                />
+              </View>
+            </View>
+
+            {/* Progress Section */}
+            <View style={[styles.section, CardStyles.elevated]}>
+              <Text style={styles.sectionTitle}>Progress</Text>
+              <View style={styles.progressHeader}>
+                <View style={styles.levelBadge}>
+                  <Text style={styles.levelNumber}>{stats.progress.level}</Text>
+                  <Text style={styles.levelLabel}>Level</Text>
+                </View>
+                <View style={styles.xpInfo}>
+                  <Text style={styles.xpText}>{stats.progress.xp} / {stats.progress.xpToNextLevel} XP</Text>
+                  <View style={styles.xpBar}>
+                    <View 
+                      style={[
+                        styles.xpFill, 
+                        { width: `${(stats.progress.xp / stats.progress.xpToNextLevel) * 100}%` }
+                      ]} 
+                    />
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.skillsSection}>
+                <SkillBar label="Technical" value={stats.progress.skills.technical} color={Colors.dark.xpCyan} />
+                <SkillBar label="Tactical" value={stats.progress.skills.tactical} color={Colors.dark.primary} />
+                <SkillBar label="Physical" value={stats.progress.skills.physical} color={Colors.dark.orange} />
+                <SkillBar label="Mental" value={stats.progress.skills.mental} color={Colors.dark.gold} />
+                <SkillBar label="Social" value={stats.progress.skills.social} color={Colors.dark.successNeon} />
+              </View>
+            </View>
+
+            {/* Payments Section */}
+            <View style={[styles.section, CardStyles.elevated]}>
+              <Text style={styles.sectionTitle}>Payments</Text>
+              <View style={styles.paymentSummary}>
+                <View style={[
+                  styles.paymentStatusBadge, 
+                  { backgroundColor: `${getPaymentStatusColor(stats.payments.status)}20` }
+                ]}>
+                  <Text style={[styles.paymentStatusText, { color: getPaymentStatusColor(stats.payments.status) }]}>
+                    {stats.payments.status?.toUpperCase() || "N/A"}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.financeRow}>
+                <Text style={styles.financeLabel}>Total Owed</Text>
+                <Text style={[styles.financeValue, { color: Colors.dark.error }]}>
+                  {stats.payments.currency} {stats.payments.totalOwed}
+                </Text>
+              </View>
+              <View style={styles.financeRow}>
+                <Text style={styles.financeLabel}>Total Paid</Text>
+                <Text style={[styles.financeValue, { color: Colors.dark.successNeon }]}>
+                  {stats.payments.currency} {stats.payments.totalPaid}
+                </Text>
+              </View>
+              {stats.payments.lastPaymentDate ? (
+                <View style={styles.financeRow}>
+                  <Text style={styles.financeLabel}>Last Payment</Text>
+                  <Text style={styles.financeValue}>{stats.payments.lastPaymentDate}</Text>
+                </View>
+              ) : null}
+              <View style={styles.paymentActions}>
+                <Pressable 
+                  style={styles.recordPaymentButton}
+                  onPress={async () => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    const unpaidPackages = stats.packages?.filter((p: PlayerPackage) => !p.isPaid) || [];
+                    if (unpaidPackages.length === 0) {
+                      return;
+                    }
+                    try {
+                      await Promise.all(
+                        unpaidPackages.map((pkg: PlayerPackage) => 
+                          apiRequest("PATCH", `/api/packages/${pkg.id}`, { isPaid: true })
+                        )
+                      );
+                      queryClient.invalidateQueries({ queryKey: [`/api/admin/players/${selectedPlayer?.id}/stats`] });
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    } catch (error) {
+                      console.error("Failed to record payment:", error);
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                    }
+                  }}
+                >
+                  <Text style={styles.recordPaymentText}>Record Payment</Text>
+                </Pressable>
+                <Pressable 
+                  style={styles.createInvoiceButton}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setShowInvoiceModal(true);
+                  }}
+                >
+                  <Ionicons name="document-text-outline" size={16} color={Colors.dark.successNeon} />
+                  <Text style={styles.createInvoiceText}>Create Invoice</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            {/* Packages Section */}
+            <View style={[styles.section, CardStyles.elevated]}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionTitleRow}>
+                  <Ionicons name="ticket-outline" size={18} color={Colors.dark.primary} />
+                  <Text style={styles.sectionTitle}>Packages</Text>
+                </View>
+                <Pressable 
+                  style={styles.addCreditsButtonSmall}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setShowCreditStoreModal(true);
+                  }}
+                >
+                  <Ionicons name="add-circle" size={16} color={Colors.dark.successNeon} />
+                  <Text style={styles.addCreditsTextSmall}>Add</Text>
+                </Pressable>
+              </View>
+              
+              {stats.packages && stats.packages.length > 0 ? (
+                <View style={styles.packagesGrid}>
+                  {stats.packages.map((pkg: PlayerPackage) => (
+                    <View 
+                      key={pkg.id} 
+                      style={[
+                        styles.packageCard,
+                        !pkg.isPaid && styles.packageCardUnpaid
+                      ]}
+                    >
+                      <View style={styles.packageHeader}>
+                        <Text style={styles.packageName}>{pkg.packageName || pkg.creditType}</Text>
+                        {!pkg.isPaid && (
+                          <View style={styles.unpaidBadge}>
+                            <Text style={styles.unpaidBadgeText}>UNPAID</Text>
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.packageCredits}>
+                        <Text style={[
+                          styles.packageCreditsValue,
+                          { color: pkg.remaining > 0 ? Colors.dark.successNeon : Colors.dark.textMuted }
+                        ]}>
+                          {pkg.remaining}
+                        </Text>
+                        <Text style={styles.packageCreditsLabel}>/ {pkg.totalCredits} credits</Text>
+                      </View>
+                      {pkg.expiresAt && (
+                        <Text style={styles.packageExpiry}>
+                          Expires: {new Date(pkg.expiresAt).toLocaleDateString()}
+                        </Text>
+                      )}
+                      {!pkg.isPaid && (
+                        <Pressable
+                          style={styles.markPaidButton}
+                          onPress={async () => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                            try {
+                              await apiRequest("PATCH", `/api/packages/${pkg.id}`, { isPaid: true });
+                              queryClient.invalidateQueries({ queryKey: [`/api/admin/players/${selectedPlayer?.id}/stats`] });
+                              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            } catch (error) {
+                              console.error("Failed to mark as paid:", error);
+                            }
+                          }}
+                        >
+                          <Text style={styles.markPaidButtonText}>Mark as Paid</Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.emptyPackages}>
+                  <Ionicons name="ticket-outline" size={32} color={Colors.dark.textMuted} />
+                  <Text style={styles.emptyPackagesText}>No packages yet</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Attendance History Section */}
+            <View style={[styles.section, CardStyles.elevated]}>
+              <Text style={styles.sectionTitle}>Attendance History</Text>
+              {stats.sessions && stats.sessions.recentSessions && stats.sessions.recentSessions.length > 0 ? (
+                <View style={styles.sessionsListContainer}>
+                  {stats.sessions.recentSessions.slice(0, 10).map((session: { id: string; date: string; sessionType: string; status: string }) => (
+                    <View key={session.id} style={styles.sessionRow}>
+                      <View style={styles.sessionInfo}>
+                        <Text style={styles.sessionDate}>{session.date}</Text>
+                        <Text style={styles.sessionType}>{session.sessionType}</Text>
+                      </View>
+                      <View style={[
+                        styles.sessionStatusBadge,
+                        { backgroundColor: session.status === 'present' ? `${Colors.dark.successNeon}20` : 
+                          session.status === 'absent' ? `${Colors.dark.error}20` : `${Colors.dark.orange}20` }
+                      ]}>
+                        <Text style={[
+                          styles.sessionStatusText,
+                          { color: session.status === 'present' ? Colors.dark.successNeon : 
+                            session.status === 'absent' ? Colors.dark.error : Colors.dark.orange }
+                        ]}>
+                          {session.status === 'present' ? 'Present' : 
+                           session.status === 'absent' ? 'Absent' : 'Pending'}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.noSessionsText}>No sessions recorded yet</Text>
+              )}
+            </View>
+
+            {/* Invite Link Section */}
+            <View style={[styles.section, CardStyles.elevated]}>
+              <Text style={styles.sectionTitle}>Player Invite</Text>
+              {inviteLoading ? (
+                <ActivityIndicator size="small" color={Colors.dark.orange} />
+              ) : playerInvite?.inviteLink ? (
+                <View style={styles.inviteContainer}>
+                  <Text style={styles.inviteCode}>{playerInvite.inviteCode}</Text>
+                  <Pressable
+                    style={[styles.copyButton, inviteCopied && styles.copyButtonCopied]}
+                    onPress={handleCopyInviteLink}
+                  >
+                    <Ionicons 
+                      name={inviteCopied ? "checkmark" : "copy-outline"} 
+                      size={16} 
+                      color={inviteCopied ? Colors.dark.successNeon : Colors.dark.text} 
+                    />
+                    <Text style={[styles.copyButtonText, inviteCopied && styles.copyButtonTextCopied]}>
+                      {inviteCopied ? "Copied!" : "Copy Link"}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <Text style={styles.noInviteText}>No invite link available</Text>
+              )}
+            </View>
+
+            {/* Delete Player Button */}
+            <Pressable 
+              style={styles.deletePlayerButton}
+              onPress={() => setShowDeleteModal(true)}
+            >
+              <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+              <Text style={styles.deletePlayerText}>Delete Player</Text>
+            </Pressable>
+          </>
+        ) : null}
+      </ScrollView>
+    );
+  };
+
+  // Check if we should show inline profile
+  const showInlineProfile = selectedPlayerId && showDetailModal;
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <LinearGradient
@@ -1149,9 +1413,13 @@ export default function AdminPlayersScreen() {
         style={styles.headerGradient}
       />
 
-      <View style={styles.header}>
-        <Text style={styles.title}>Manage Players</Text>
-        <Pressable style={styles.addButton} onPress={openAddModal}>
+      {showInlineProfile ? (
+        renderInlinePlayerProfile()
+      ) : (
+        <>
+          <View style={styles.header}>
+            <Text style={styles.title}>Manage Players</Text>
+            <Pressable style={styles.addButton} onPress={openAddModal}>
           <Ionicons name="add" size={24} color={Colors.dark.text} />
         </Pressable>
       </View>
@@ -1406,6 +1674,8 @@ export default function AdminPlayersScreen() {
           </View>
         }
       />
+        </>
+      )}
 
       {renderDetailModal()}
 
@@ -2053,6 +2323,46 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     textAlign: "center",
     padding: Spacing.md,
+  },
+  inlineProfileScroll: {
+    flex: 1,
+  },
+  inlineProfileContent: {
+    padding: Spacing.lg,
+  },
+  inlineProfileHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.lg,
+    paddingBottom: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.06)",
+  },
+  backButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  backButtonText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  deletePlayerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    marginTop: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.error + "40",
+  },
+  deletePlayerText: {
+    ...Typography.body,
+    color: Colors.dark.error,
   },
   emptyState: {
     alignItems: "center",
