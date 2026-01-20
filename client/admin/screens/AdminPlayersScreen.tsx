@@ -53,6 +53,17 @@ interface PlayerSession {
   isPaid: boolean;
 }
 
+interface PlayerPackage {
+  id: string;
+  creditType: string;
+  totalCredits: number;
+  remainingCredits: number;
+  status: string;
+  expiryDate?: string;
+  createdAt?: string;
+  pricePerCredit?: number;
+}
+
 interface PlayerStats {
   player: {
     id: string;
@@ -102,6 +113,7 @@ interface PlayerStats {
     private: number;
     activePackages: number;
   };
+  packages?: PlayerPackage[];
   sessions?: PlayerSession[];
 }
 
@@ -680,6 +692,60 @@ export default function AdminPlayersScreen() {
                   <Ionicons name="add-circle-outline" size={18} color={Colors.dark.primary} />
                   <Text style={styles.grantCreditsText}>Grant Credits</Text>
                 </Pressable>
+
+                {/* Package Cards */}
+                {stats.packages && stats.packages.length > 0 ? (
+                  <View style={styles.packageCardsList}>
+                    {stats.packages.map((pkg) => {
+                      const isDepleted = pkg.remainingCredits <= 0;
+                      const isExpired = pkg.expiryDate && new Date(pkg.expiryDate) < new Date();
+                      const typeColor = pkg.creditType === "private" ? Colors.dark.orange : 
+                                       pkg.creditType === "semi_private" ? Colors.dark.primary : Colors.dark.xpCyan;
+                      const typeLabel = pkg.creditType === "private" ? "Private" : 
+                                       pkg.creditType === "semi_private" ? "Semi-Private" : "Group";
+                      const expiryDate = pkg.expiryDate ? new Date(pkg.expiryDate) : null;
+                      
+                      return (
+                        <View key={pkg.id} style={[styles.packageCard, { borderColor: `${typeColor}40` }]}>
+                          <View style={styles.packageCardHeader}>
+                            <View style={[styles.packageTypeBadge, { backgroundColor: `${typeColor}20` }]}>
+                              <Text style={[styles.packageTypeText, { color: typeColor }]}>{typeLabel}</Text>
+                            </View>
+                            <View style={[
+                              styles.packageStatusBadge, 
+                              { backgroundColor: isDepleted ? `${Colors.dark.error}20` : `${Colors.dark.successNeon}20` }
+                            ]}>
+                              <Text style={[
+                                styles.packageStatusText, 
+                                { color: isDepleted ? Colors.dark.error : Colors.dark.successNeon }
+                              ]}>
+                                {isDepleted ? "Depleted" : "Active"}
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={styles.packageCardBody}>
+                            <Text style={styles.packageCreditsLabel}>Credits</Text>
+                            <Text style={[styles.packageCreditsValue, { color: typeColor }]}>
+                              {pkg.remainingCredits} / {pkg.totalCredits}
+                            </Text>
+                          </View>
+                          {expiryDate ? (
+                            <View style={styles.packageCardFooter}>
+                              <Ionicons name="calendar-outline" size={12} color={Colors.dark.textMuted} />
+                              <Text style={[
+                                styles.packageExpiryText,
+                                isExpired && { color: Colors.dark.error }
+                              ]}>
+                                {isExpired ? "Expired " : "Valid until "}
+                                {expiryDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      );
+                    })}
+                  </View>
+                ) : null}
               </View>
 
               {/* Attendance History Section */}
@@ -2410,6 +2476,63 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   emptySessionsText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  packageCardsList: {
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  packageCard: {
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    padding: Spacing.md,
+  },
+  packageCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.sm,
+  },
+  packageTypeBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  packageTypeText: {
+    ...Typography.caption,
+    fontWeight: "600",
+  },
+  packageStatusBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  packageStatusText: {
+    ...Typography.caption,
+    fontWeight: "600",
+  },
+  packageCardBody: {
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  packageCreditsLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginBottom: 2,
+  },
+  packageCreditsValue: {
+    ...Typography.h2,
+    fontWeight: "700",
+  },
+  packageCardFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  packageExpiryText: {
     ...Typography.caption,
     color: Colors.dark.textMuted,
   },

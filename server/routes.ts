@@ -16237,7 +16237,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalCredits = creditBalance.group + creditBalance.semi_private + creditBalance.private;
       
       // Get active packages count
-      const playerPackages = await storage.getActivePlayerPackages(playerId, player.academyId ?? undefined);
+      const playerPackages = await storage.getPlayerPackages(playerId, player.academyId ?? undefined);
 
       res.json({
         player: {
@@ -16286,8 +16286,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           group: creditBalance.group,
           semiPrivate: creditBalance.semi_private,
           private: creditBalance.private,
-          activePackages: playerPackages.length,
+          activePackages: playerPackages.filter((p: any) => p.status === "active").length,
         },
+        packages: playerPackages.map((pkg: any) => ({
+          id: pkg.id,
+          creditType: pkg.creditType || "group",
+          totalCredits: pkg.totalCredits,
+          remainingCredits: pkg.remainingCredits,
+          status: pkg.status,
+          expiryDate: pkg.expiryDate,
+          createdAt: pkg.createdAt,
+          pricePerCredit: pkg.pricePerCredit || 0,
+        })),
         sessions: sessions.slice(0, 50).map((s: any) => ({
           id: s.id,
           sessionId: s.sessionId,
@@ -16754,7 +16764,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const streak = attendedSessions.length;
       
       // Get player credits by type
-      const playerPackages = await storage.getActivePlayerPackages(playerId, player.academyId ?? undefined);
+      const playerPackages = await storage.getPlayerPackages(playerId, player.academyId ?? undefined);
       const creditsByType = { group: 0, private: 0, semi_private: 0 };
       let totalCredits = 0;
       for (const pkg of playerPackages) {
