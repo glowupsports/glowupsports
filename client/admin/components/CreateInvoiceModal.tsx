@@ -1,0 +1,1090 @@
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Modal,
+  Pressable,
+  TextInput,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+  Platform,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import * as Haptics from "expo-haptics";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
+import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { apiRequest } from "@/lib/query-client";
+
+interface LineItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+interface PlayerInfo {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  parentName?: string;
+  parentEmail?: string;
+  parentPhone?: string;
+}
+
+interface AcademyInfo {
+  id: string;
+  name: string;
+  address?: string;
+  email?: string;
+  phone?: string;
+  logo?: string;
+}
+
+interface CreateInvoiceModalProps {
+  visible: boolean;
+  onClose: () => void;
+  player: PlayerInfo | null;
+  academy?: AcademyInfo;
+  onSuccess?: () => void;
+}
+
+const generateInvoiceNumber = () => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `INV-${year}${month}-${random}`;
+};
+
+const formatDate = (date: Date) => {
+  return date.toISOString().split("T")[0];
+};
+
+const generateInvoicePDF = (invoice: {
+  invoiceNumber: string;
+  playerName: string;
+  playerEmail?: string;
+  academyName: string;
+  academyAddress?: string;
+  academyEmail?: string;
+  academyPhone?: string;
+  issueDate: string;
+  dueDate: string;
+  lineItems: LineItem[];
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
+  discount: number;
+  total: number;
+  currency: string;
+  notes?: string;
+}) => {
+  const lineItemsHTML = invoice.lineItems.map((item, index) => `
+    <tr style="border-bottom: 1px solid #2a2d35;">
+      <td style="padding: 16px; color: #ffffff; font-size: 14px;">${index + 1}</td>
+      <td style="padding: 16px; color: #ffffff; font-size: 14px;">${item.description}</td>
+      <td style="padding: 16px; color: #ffffff; font-size: 14px; text-align: center;">${item.quantity}</td>
+      <td style="padding: 16px; color: #ffffff; font-size: 14px; text-align: right;">${invoice.currency} ${item.unitPrice.toFixed(2)}</td>
+      <td style="padding: 16px; color: #C8FF3D; font-size: 14px; text-align: right; font-weight: 600;">${invoice.currency} ${item.total.toFixed(2)}</td>
+    </tr>
+  `).join("");
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Invoice ${invoice.invoiceNumber}</title>
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+          background: linear-gradient(180deg, #0B0D10 0%, #12151A 100%);
+          color: #ffffff;
+          padding: 40px;
+          min-height: 100vh;
+        }
+        .invoice-container {
+          max-width: 800px;
+          margin: 0 auto;
+          background: linear-gradient(180deg, #1a1d24 0%, #0f1115 100%);
+          border-radius: 24px;
+          padding: 48px;
+          border: 1px solid #2a2d35;
+          box-shadow: 0 24px 48px rgba(0,0,0,0.4);
+        }
+        .header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 48px;
+          padding-bottom: 32px;
+          border-bottom: 1px solid #2a2d35;
+        }
+        .logo-section h1 {
+          font-size: 28px;
+          font-weight: 700;
+          color: #C8FF3D;
+          margin-bottom: 8px;
+        }
+        .logo-section p {
+          color: #8a8f9c;
+          font-size: 14px;
+          line-height: 1.5;
+        }
+        .invoice-badge {
+          background: linear-gradient(135deg, #C8FF3D20 0%, #C8FF3D10 100%);
+          border: 1px solid #C8FF3D40;
+          border-radius: 12px;
+          padding: 16px 24px;
+          text-align: right;
+        }
+        .invoice-badge h2 {
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 2px;
+          color: #C8FF3D;
+          margin-bottom: 8px;
+        }
+        .invoice-badge .number {
+          font-size: 20px;
+          font-weight: 700;
+          color: #ffffff;
+        }
+        .info-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 32px;
+          margin-bottom: 40px;
+        }
+        .info-box {
+          background: #12151a;
+          border-radius: 16px;
+          padding: 24px;
+          border: 1px solid #1e2128;
+        }
+        .info-box h3 {
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 1.5px;
+          color: #6b7280;
+          margin-bottom: 16px;
+        }
+        .info-box p {
+          color: #ffffff;
+          font-size: 14px;
+          line-height: 1.6;
+          margin-bottom: 4px;
+        }
+        .info-box p.highlight {
+          color: #C8FF3D;
+          font-weight: 600;
+          font-size: 16px;
+        }
+        .dates-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+          margin-bottom: 32px;
+        }
+        .date-box {
+          background: #12151a;
+          border-radius: 12px;
+          padding: 16px 20px;
+          border: 1px solid #1e2128;
+        }
+        .date-box label {
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          color: #6b7280;
+          display: block;
+          margin-bottom: 6px;
+        }
+        .date-box span {
+          color: #ffffff;
+          font-size: 14px;
+          font-weight: 500;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 32px;
+        }
+        th {
+          background: #12151a;
+          padding: 16px;
+          text-align: left;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          color: #6b7280;
+          border-bottom: 2px solid #2a2d35;
+        }
+        th:nth-child(3), th:nth-child(4), th:nth-child(5) {
+          text-align: center;
+        }
+        th:last-child {
+          text-align: right;
+        }
+        .totals-section {
+          display: flex;
+          justify-content: flex-end;
+          margin-bottom: 40px;
+        }
+        .totals-box {
+          width: 320px;
+          background: #12151a;
+          border-radius: 16px;
+          padding: 24px;
+          border: 1px solid #1e2128;
+        }
+        .total-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 8px 0;
+          border-bottom: 1px solid #1e2128;
+        }
+        .total-row:last-child {
+          border-bottom: none;
+          padding-top: 16px;
+          margin-top: 8px;
+          border-top: 2px solid #C8FF3D40;
+        }
+        .total-row label {
+          color: #8a8f9c;
+          font-size: 14px;
+        }
+        .total-row span {
+          color: #ffffff;
+          font-size: 14px;
+          font-weight: 500;
+        }
+        .total-row.grand label, .total-row.grand span {
+          font-size: 18px;
+          font-weight: 700;
+        }
+        .total-row.grand span {
+          color: #C8FF3D;
+        }
+        .notes-section {
+          background: #12151a;
+          border-radius: 16px;
+          padding: 24px;
+          border: 1px solid #1e2128;
+          margin-bottom: 32px;
+        }
+        .notes-section h4 {
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          color: #6b7280;
+          margin-bottom: 12px;
+        }
+        .notes-section p {
+          color: #8a8f9c;
+          font-size: 14px;
+          line-height: 1.6;
+        }
+        .footer {
+          text-align: center;
+          padding-top: 32px;
+          border-top: 1px solid #2a2d35;
+        }
+        .footer p {
+          color: #6b7280;
+          font-size: 12px;
+        }
+        .footer .brand {
+          color: #C8FF3D;
+          font-weight: 600;
+          font-size: 14px;
+          margin-top: 8px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="invoice-container">
+        <div class="header">
+          <div class="logo-section">
+            <h1>${invoice.academyName}</h1>
+            <p>${invoice.academyAddress || ""}<br/>
+            ${invoice.academyEmail || ""}<br/>
+            ${invoice.academyPhone || ""}</p>
+          </div>
+          <div class="invoice-badge">
+            <h2>Invoice</h2>
+            <div class="number">${invoice.invoiceNumber}</div>
+          </div>
+        </div>
+
+        <div class="info-grid">
+          <div class="info-box">
+            <h3>Bill To</h3>
+            <p class="highlight">${invoice.playerName}</p>
+            <p>${invoice.playerEmail || ""}</p>
+          </div>
+          <div class="info-box">
+            <h3>Invoice Details</h3>
+            <p><strong>Issue Date:</strong> ${invoice.issueDate}</p>
+            <p><strong>Due Date:</strong> ${invoice.dueDate}</p>
+            <p><strong>Currency:</strong> ${invoice.currency}</p>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Description</th>
+              <th>Qty</th>
+              <th>Unit Price</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${lineItemsHTML}
+          </tbody>
+        </table>
+
+        <div class="totals-section">
+          <div class="totals-box">
+            <div class="total-row">
+              <label>Subtotal</label>
+              <span>${invoice.currency} ${invoice.subtotal.toFixed(2)}</span>
+            </div>
+            ${invoice.taxRate > 0 ? `
+            <div class="total-row">
+              <label>Tax (${invoice.taxRate}%)</label>
+              <span>${invoice.currency} ${invoice.taxAmount.toFixed(2)}</span>
+            </div>
+            ` : ""}
+            ${invoice.discount > 0 ? `
+            <div class="total-row">
+              <label>Discount</label>
+              <span>-${invoice.currency} ${invoice.discount.toFixed(2)}</span>
+            </div>
+            ` : ""}
+            <div class="total-row grand">
+              <label>Total Due</label>
+              <span>${invoice.currency} ${invoice.total.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        ${invoice.notes ? `
+        <div class="notes-section">
+          <h4>Notes</h4>
+          <p>${invoice.notes}</p>
+        </div>
+        ` : ""}
+
+        <div class="footer">
+          <p>Thank you for choosing ${invoice.academyName}</p>
+          <p class="brand">Powered by Glow Up Sports</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
+export default function CreateInvoiceModal({
+  visible,
+  onClose,
+  player,
+  academy,
+  onSuccess,
+}: CreateInvoiceModalProps) {
+  const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+  
+  const [invoiceNumber] = useState(generateInvoiceNumber());
+  const [issueDate, setIssueDate] = useState(formatDate(new Date()));
+  const [dueDate, setDueDate] = useState(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + 14);
+    return formatDate(date);
+  });
+  const [lineItems, setLineItems] = useState<LineItem[]>([
+    { id: "1", description: "", quantity: 1, unitPrice: 0, total: 0 }
+  ]);
+  const [taxRate, setTaxRate] = useState(0);
+  const [discount, setDiscount] = useState(0);
+  const [notes, setNotes] = useState("");
+  const [currency] = useState("AED");
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+  const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
+  const taxAmount = (subtotal * taxRate) / 100;
+  const total = subtotal + taxAmount - discount;
+
+  const updateLineItem = (id: string, field: keyof LineItem, value: string | number) => {
+    setLineItems(items => items.map(item => {
+      if (item.id !== id) return item;
+      const updated = { ...item, [field]: value };
+      if (field === "quantity" || field === "unitPrice") {
+        updated.total = updated.quantity * updated.unitPrice;
+      }
+      return updated;
+    }));
+  };
+
+  const addLineItem = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setLineItems(items => [
+      ...items,
+      { id: Date.now().toString(), description: "", quantity: 1, unitPrice: 0, total: 0 }
+    ]);
+  };
+
+  const removeLineItem = (id: string) => {
+    if (lineItems.length === 1) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setLineItems(items => items.filter(item => item.id !== id));
+  };
+
+  const createInvoiceMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest("POST", "/api/billing/invoices", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onSuccess?.();
+      onClose();
+    },
+    onError: (err: Error) => {
+      if (Platform.OS === "web") {
+        window.alert(`Error: ${err.message}`);
+      } else {
+        Alert.alert("Error", err.message);
+      }
+    },
+  });
+
+  const handleGeneratePDF = async () => {
+    if (lineItems.every(item => !item.description || item.total === 0)) {
+      if (Platform.OS === "web") {
+        window.alert("Please add at least one line item");
+      } else {
+        Alert.alert("Error", "Please add at least one line item");
+      }
+      return;
+    }
+
+    setIsGeneratingPDF(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    try {
+      const html = generateInvoicePDF({
+        invoiceNumber,
+        playerName: player?.name || "",
+        playerEmail: player?.email,
+        academyName: academy?.name || "Tennis Academy",
+        academyAddress: academy?.address,
+        academyEmail: academy?.email,
+        academyPhone: academy?.phone,
+        issueDate,
+        dueDate,
+        lineItems: lineItems.filter(item => item.description && item.total > 0),
+        subtotal,
+        taxRate,
+        taxAmount,
+        discount,
+        total,
+        currency,
+        notes,
+      });
+
+      const { uri } = await Print.printToFileAsync({ html });
+      
+      if (Platform.OS === "web") {
+        const link = document.createElement("a");
+        link.href = uri;
+        link.download = `Invoice-${invoiceNumber}.pdf`;
+        link.click();
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(uri, {
+            mimeType: "application/pdf",
+            dialogTitle: `Invoice ${invoiceNumber}`,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("PDF generation error:", error);
+      if (Platform.OS === "web") {
+        window.alert("Failed to generate PDF");
+      } else {
+        Alert.alert("Error", "Failed to generate PDF");
+      }
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
+  const handleSaveInvoice = async () => {
+    if (lineItems.every(item => !item.description || item.total === 0)) {
+      if (Platform.OS === "web") {
+        window.alert("Please add at least one line item");
+      } else {
+        Alert.alert("Error", "Please add at least one line item");
+      }
+      return;
+    }
+
+    createInvoiceMutation.mutate({
+      playerId: player?.id,
+      amount: total,
+      currency,
+      dueDate,
+      lineItems: lineItems.filter(item => item.description && item.total > 0),
+      notes,
+    });
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <LinearGradient
+          colors={["#C8FF3D20", "transparent"]}
+          style={styles.headerGradient}
+        />
+        
+        <View style={styles.header}>
+          <Pressable onPress={onClose} style={styles.closeButton}>
+            <Ionicons name="close" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <Text style={styles.title}>Create Invoice</Text>
+          <View style={styles.placeholder} />
+        </View>
+
+        <ScrollView 
+          style={styles.content}
+          contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 120 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.invoiceHeader}>
+            <View style={styles.invoiceBadge}>
+              <Text style={styles.invoiceBadgeLabel}>Invoice</Text>
+              <Text style={styles.invoiceNumber}>{invoiceNumber}</Text>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Bill To</Text>
+            <View style={styles.playerCard}>
+              <View style={styles.playerAvatar}>
+                <Text style={styles.playerAvatarText}>
+                  {player?.name?.charAt(0).toUpperCase() || "?"}
+                </Text>
+              </View>
+              <View style={styles.playerInfo}>
+                <Text style={styles.playerName}>{player?.name || "Unknown"}</Text>
+                {player?.email && <Text style={styles.playerEmail}>{player.email}</Text>}
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Dates</Text>
+            <View style={styles.dateRow}>
+              <View style={styles.dateField}>
+                <Text style={styles.dateLabel}>Issue Date</Text>
+                <TextInput
+                  style={styles.dateInput}
+                  value={issueDate}
+                  onChangeText={setIssueDate}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor={Colors.dark.textMuted}
+                />
+              </View>
+              <View style={styles.dateField}>
+                <Text style={styles.dateLabel}>Due Date</Text>
+                <TextInput
+                  style={styles.dateInput}
+                  value={dueDate}
+                  onChangeText={setDueDate}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor={Colors.dark.textMuted}
+                />
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Line Items</Text>
+              <Pressable onPress={addLineItem} style={styles.addButton}>
+                <Ionicons name="add-circle" size={24} color={Colors.dark.successNeon} />
+              </Pressable>
+            </View>
+            
+            {lineItems.map((item, index) => (
+              <View key={item.id} style={styles.lineItem}>
+                <View style={styles.lineItemHeader}>
+                  <Text style={styles.lineItemNumber}>#{index + 1}</Text>
+                  {lineItems.length > 1 && (
+                    <Pressable onPress={() => removeLineItem(item.id)}>
+                      <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+                    </Pressable>
+                  )}
+                </View>
+                
+                <TextInput
+                  style={styles.descriptionInput}
+                  value={item.description}
+                  onChangeText={(text) => updateLineItem(item.id, "description", text)}
+                  placeholder="Description (e.g., Tennis lessons - January)"
+                  placeholderTextColor={Colors.dark.textMuted}
+                />
+                
+                <View style={styles.lineItemRow}>
+                  <View style={styles.quantityField}>
+                    <Text style={styles.fieldLabel}>Qty</Text>
+                    <TextInput
+                      style={styles.smallInput}
+                      value={item.quantity.toString()}
+                      onChangeText={(text) => updateLineItem(item.id, "quantity", parseInt(text) || 0)}
+                      keyboardType="numeric"
+                      placeholderTextColor={Colors.dark.textMuted}
+                    />
+                  </View>
+                  <View style={styles.priceField}>
+                    <Text style={styles.fieldLabel}>Unit Price ({currency})</Text>
+                    <TextInput
+                      style={styles.smallInput}
+                      value={item.unitPrice.toString()}
+                      onChangeText={(text) => updateLineItem(item.id, "unitPrice", parseFloat(text) || 0)}
+                      keyboardType="numeric"
+                      placeholderTextColor={Colors.dark.textMuted}
+                    />
+                  </View>
+                  <View style={styles.totalField}>
+                    <Text style={styles.fieldLabel}>Total</Text>
+                    <Text style={styles.lineItemTotal}>{currency} {item.total.toFixed(2)}</Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Additional Options</Text>
+            <View style={styles.optionsRow}>
+              <View style={styles.optionField}>
+                <Text style={styles.fieldLabel}>Tax Rate (%)</Text>
+                <TextInput
+                  style={styles.optionInput}
+                  value={taxRate.toString()}
+                  onChangeText={(text) => setTaxRate(parseFloat(text) || 0)}
+                  keyboardType="numeric"
+                  placeholderTextColor={Colors.dark.textMuted}
+                />
+              </View>
+              <View style={styles.optionField}>
+                <Text style={styles.fieldLabel}>Discount ({currency})</Text>
+                <TextInput
+                  style={styles.optionInput}
+                  value={discount.toString()}
+                  onChangeText={(text) => setDiscount(parseFloat(text) || 0)}
+                  keyboardType="numeric"
+                  placeholderTextColor={Colors.dark.textMuted}
+                />
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Notes</Text>
+            <TextInput
+              style={styles.notesInput}
+              value={notes}
+              onChangeText={setNotes}
+              placeholder="Add any notes or payment instructions..."
+              placeholderTextColor={Colors.dark.textMuted}
+              multiline
+              numberOfLines={3}
+            />
+          </View>
+
+          <View style={styles.totalsSection}>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Subtotal</Text>
+              <Text style={styles.totalValue}>{currency} {subtotal.toFixed(2)}</Text>
+            </View>
+            {taxRate > 0 && (
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Tax ({taxRate}%)</Text>
+                <Text style={styles.totalValue}>{currency} {taxAmount.toFixed(2)}</Text>
+              </View>
+            )}
+            {discount > 0 && (
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Discount</Text>
+                <Text style={[styles.totalValue, { color: Colors.dark.error }]}>
+                  -{currency} {discount.toFixed(2)}
+                </Text>
+              </View>
+            )}
+            <View style={[styles.totalRow, styles.grandTotal]}>
+              <Text style={styles.grandTotalLabel}>Total Due</Text>
+              <Text style={styles.grandTotalValue}>{currency} {total.toFixed(2)}</Text>
+            </View>
+          </View>
+        </ScrollView>
+
+        <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]}>
+          <Pressable
+            style={styles.downloadButton}
+            onPress={handleGeneratePDF}
+            disabled={isGeneratingPDF}
+          >
+            {isGeneratingPDF ? (
+              <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+            ) : (
+              <>
+                <Ionicons name="download-outline" size={20} color={Colors.dark.backgroundRoot} />
+                <Text style={styles.downloadButtonText}>Download PDF</Text>
+              </>
+            )}
+          </Pressable>
+          <Pressable
+            style={styles.saveButton}
+            onPress={handleSaveInvoice}
+            disabled={createInvoiceMutation.isPending}
+          >
+            {createInvoiceMutation.isPending ? (
+              <ActivityIndicator size="small" color={Colors.dark.text} />
+            ) : (
+              <>
+                <Ionicons name="save-outline" size={20} color={Colors.dark.text} />
+                <Text style={styles.saveButtonText}>Save Invoice</Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  headerGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 150,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundTertiary,
+  },
+  closeButton: {
+    padding: Spacing.xs,
+  },
+  title: {
+    fontSize: Typography.h3.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  placeholder: {
+    width: 32,
+  },
+  content: {
+    flex: 1,
+  },
+  contentContainer: {
+    padding: Spacing.lg,
+  },
+  invoiceHeader: {
+    alignItems: "center",
+    marginBottom: Spacing.xl,
+  },
+  invoiceBadge: {
+    backgroundColor: Colors.dark.successNeon + "20",
+    borderWidth: 1,
+    borderColor: Colors.dark.successNeon + "40",
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    alignItems: "center",
+  },
+  invoiceBadgeLabel: {
+    fontSize: Typography.small.fontSize,
+    textTransform: "uppercase",
+    letterSpacing: 2,
+    color: Colors.dark.successNeon,
+    marginBottom: 4,
+  },
+  invoiceNumber: {
+    fontSize: Typography.h3.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  section: {
+    marginBottom: Spacing.xl,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+  },
+  sectionTitle: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: Spacing.md,
+  },
+  playerCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+  },
+  playerAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.dark.orange + "30",
+    borderWidth: 2,
+    borderColor: Colors.dark.orange,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playerAvatarText: {
+    fontSize: Typography.h3.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.orange,
+  },
+  playerInfo: {
+    marginLeft: Spacing.md,
+    flex: 1,
+  },
+  playerName: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  playerEmail: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  dateRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  dateField: {
+    flex: 1,
+  },
+  dateLabel: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    marginBottom: 6,
+  },
+  dateInput: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    color: Colors.dark.text,
+    fontSize: Typography.body.fontSize,
+  },
+  addButton: {
+    padding: Spacing.xs,
+  },
+  lineItem: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  lineItemHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  lineItemNumber: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.successNeon,
+  },
+  descriptionInput: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.sm,
+    color: Colors.dark.text,
+    fontSize: Typography.body.fontSize,
+    marginBottom: Spacing.sm,
+  },
+  lineItemRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  quantityField: {
+    flex: 1,
+  },
+  priceField: {
+    flex: 2,
+  },
+  totalField: {
+    flex: 1.5,
+    alignItems: "flex-end",
+  },
+  fieldLabel: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.textMuted,
+    marginBottom: 4,
+  },
+  smallInput: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.sm,
+    color: Colors.dark.text,
+    fontSize: Typography.body.fontSize,
+  },
+  lineItemTotal: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.successNeon,
+    paddingVertical: Spacing.sm,
+  },
+  optionsRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  optionField: {
+    flex: 1,
+  },
+  optionInput: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    color: Colors.dark.text,
+    fontSize: Typography.body.fontSize,
+  },
+  notesInput: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    color: Colors.dark.text,
+    fontSize: Typography.body.fontSize,
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
+  totalsSection: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginTop: Spacing.md,
+  },
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundTertiary,
+  },
+  totalLabel: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.textMuted,
+  },
+  totalValue: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "500",
+    color: Colors.dark.text,
+  },
+  grandTotal: {
+    borderBottomWidth: 0,
+    borderTopWidth: 2,
+    borderTopColor: Colors.dark.successNeon + "40",
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.md,
+  },
+  grandTotalLabel: {
+    fontSize: Typography.h3.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  grandTotalValue: {
+    fontSize: Typography.h3.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.successNeon,
+  },
+  footer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    gap: Spacing.md,
+    padding: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.backgroundTertiary,
+  },
+  downloadButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.successNeon,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+  },
+  downloadButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.backgroundRoot,
+  },
+  saveButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.backgroundTertiary,
+  },
+  saveButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+});

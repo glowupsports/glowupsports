@@ -22,6 +22,7 @@ import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, Glo
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { ReportIssueModal } from "@/components/ReportIssueModal";
+import CreateInvoiceModal from "@/admin/components/CreateInvoiceModal";
 
 interface Player {
   id: string;
@@ -136,6 +137,7 @@ export default function AdminPlayersScreen() {
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showReportIssueModal, setShowReportIssueModal] = useState(false);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
   const [ballLevelFilter, setBallLevelFilter] = useState<string>("all");
@@ -587,9 +589,21 @@ export default function AdminPlayersScreen() {
                     <Text style={styles.financeValue}>{stats.payments.lastPaymentDate}</Text>
                   </View>
                 ) : null}
-                <Pressable style={styles.recordPaymentButton}>
-                  <Text style={styles.recordPaymentText}>Record Payment</Text>
-                </Pressable>
+                <View style={styles.paymentActions}>
+                  <Pressable style={styles.recordPaymentButton}>
+                    <Text style={styles.recordPaymentText}>Record Payment</Text>
+                  </Pressable>
+                  <Pressable 
+                    style={styles.createInvoiceButton}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      setShowInvoiceModal(true);
+                    }}
+                  >
+                    <Ionicons name="document-text-outline" size={16} color={Colors.dark.successNeon} />
+                    <Text style={styles.createInvoiceText}>Create Invoice</Text>
+                  </Pressable>
+                </View>
               </View>
 
               {stats.player.parentName || stats.player.parentPhone ? (
@@ -1244,6 +1258,23 @@ export default function AdminPlayersScreen() {
         onClose={() => setShowReportIssueModal(false)}
         currentScreen="AdminPlayersScreen - Player Details"
       />
+
+      <CreateInvoiceModal
+        visible={showInvoiceModal}
+        onClose={() => setShowInvoiceModal(false)}
+        player={playerStats?.player ? {
+          id: playerStats.player.id,
+          name: playerStats.player.name,
+          email: playerStats.player.email,
+          phone: playerStats.player.phone,
+          parentName: playerStats.player.parentName,
+          parentEmail: undefined,
+          parentPhone: playerStats.player.parentPhone,
+        } : null}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/players", selectedPlayerId, "stats"] });
+        }}
+      />
     </View>
   );
 }
@@ -1841,16 +1872,38 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     fontWeight: "600",
   },
+  paymentActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.lg,
+  },
   recordPaymentButton: {
+    flex: 1,
     backgroundColor: Colors.dark.orange,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.md,
     alignItems: "center",
-    marginTop: Spacing.lg,
   },
   recordPaymentText: {
     ...Typography.body,
     color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  createInvoiceButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.successNeon + "20",
+    borderWidth: 1,
+    borderColor: Colors.dark.successNeon + "40",
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  createInvoiceText: {
+    ...Typography.body,
+    color: Colors.dark.successNeon,
     fontWeight: "600",
   },
   contactRow: {
