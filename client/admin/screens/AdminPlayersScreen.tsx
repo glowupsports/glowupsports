@@ -427,6 +427,10 @@ export default function AdminPlayersScreen() {
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showCreditStoreModal, setShowCreditStoreModal] = useState(false);
   const [showRecordPaymentModal, setShowRecordPaymentModal] = useState(false);
+  const [showMarkPaidModal, setShowMarkPaidModal] = useState(false);
+  const [selectedPackageForPayment, setSelectedPackageForPayment] = useState<PlayerPackage | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "bank_transfer">("cash");
+  const [paymentDate, setPaymentDate] = useState(new Date());
   const [inviteCopied, setInviteCopied] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [ballLevelFilter, setBallLevelFilter] = useState<string>("all");
@@ -1625,15 +1629,12 @@ export default function AdminPlayersScreen() {
                         {!pkg.isPaid && (
                           <Pressable
                             style={styles.premiumMarkPaidButton}
-                            onPress={async () => {
+                            onPress={() => {
                               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                              try {
-                                await apiRequest("PATCH", `/api/packages/${pkg.id}`, { isPaid: true });
-                                queryClient.invalidateQueries({ queryKey: [`/api/admin/players/${selectedPlayer?.id}/stats`] });
-                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                              } catch (error) {
-                                console.error("Failed to mark as paid:", error);
-                              }
+                              setSelectedPackageForPayment(pkg);
+                              setPaymentMethod("cash");
+                              setPaymentDate(new Date());
+                              setShowMarkPaidModal(true);
                             }}
                           >
                             <Ionicons name="checkmark-circle" size={14} color={Colors.dark.successNeon} />
@@ -2370,6 +2371,149 @@ export default function AdminPlayersScreen() {
         playerId={selectedPlayerId || ""}
         playerName={playerStats?.player?.name || ""}
       />
+
+      {/* Mark Package as Paid Modal */}
+      <Modal
+        visible={showMarkPaidModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowMarkPaidModal(false)}
+      >
+        <Pressable 
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' }}
+          onPress={() => setShowMarkPaidModal(false)}
+        >
+          <Pressable 
+            style={{
+              backgroundColor: Colors.dark.backgroundCard,
+              borderRadius: 16,
+              padding: 24,
+              width: '90%',
+              maxWidth: 400,
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.1)',
+            }}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: `${Colors.dark.successNeon}15`, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="card" size={20} color={Colors.dark.successNeon} />
+                </View>
+                <Text style={{ color: Colors.dark.text, fontSize: 18, fontWeight: '700' }}>Record Payment</Text>
+              </View>
+              <Pressable onPress={() => setShowMarkPaidModal(false)}>
+                <Ionicons name="close" size={24} color={Colors.dark.textMuted} />
+              </Pressable>
+            </View>
+
+            {selectedPackageForPayment && (
+              <View style={{ backgroundColor: 'rgba(200,255,61,0.08)', padding: 16, borderRadius: 12, marginBottom: 20 }}>
+                <Text style={{ color: Colors.dark.textMuted, fontSize: 12, marginBottom: 4 }}>Package</Text>
+                <Text style={{ color: Colors.dark.text, fontSize: 16, fontWeight: '600' }}>
+                  {(selectedPackageForPayment.packageName || selectedPackageForPayment.creditType || 'Package').charAt(0).toUpperCase() + 
+                   (selectedPackageForPayment.packageName || selectedPackageForPayment.creditType || 'Package').slice(1)}
+                </Text>
+                <Text style={{ color: Colors.dark.successNeon, fontSize: 14, marginTop: 4 }}>
+                  {selectedPackageForPayment.totalCredits} credits
+                </Text>
+              </View>
+            )}
+
+            <Text style={{ color: Colors.dark.text, fontSize: 14, fontWeight: '600', marginBottom: 12 }}>Payment Method</Text>
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+              <Pressable
+                style={{
+                  flex: 1,
+                  padding: 16,
+                  borderRadius: 12,
+                  borderWidth: 2,
+                  borderColor: paymentMethod === 'cash' ? Colors.dark.successNeon : 'rgba(255,255,255,0.1)',
+                  backgroundColor: paymentMethod === 'cash' ? `${Colors.dark.successNeon}15` : 'transparent',
+                  alignItems: 'center',
+                }}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setPaymentMethod('cash');
+                }}
+              >
+                <Ionicons name="cash" size={24} color={paymentMethod === 'cash' ? Colors.dark.successNeon : Colors.dark.textMuted} />
+                <Text style={{ color: paymentMethod === 'cash' ? Colors.dark.successNeon : Colors.dark.textMuted, marginTop: 8, fontWeight: '600' }}>Cash</Text>
+              </Pressable>
+              <Pressable
+                style={{
+                  flex: 1,
+                  padding: 16,
+                  borderRadius: 12,
+                  borderWidth: 2,
+                  borderColor: paymentMethod === 'bank_transfer' ? Colors.dark.xpCyan : 'rgba(255,255,255,0.1)',
+                  backgroundColor: paymentMethod === 'bank_transfer' ? `${Colors.dark.xpCyan}15` : 'transparent',
+                  alignItems: 'center',
+                }}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setPaymentMethod('bank_transfer');
+                }}
+              >
+                <Ionicons name="business" size={24} color={paymentMethod === 'bank_transfer' ? Colors.dark.xpCyan : Colors.dark.textMuted} />
+                <Text style={{ color: paymentMethod === 'bank_transfer' ? Colors.dark.xpCyan : Colors.dark.textMuted, marginTop: 8, fontWeight: '600' }}>Bank</Text>
+              </Pressable>
+            </View>
+
+            <Text style={{ color: Colors.dark.text, fontSize: 14, fontWeight: '600', marginBottom: 12 }}>Payment Date</Text>
+            <Pressable
+              style={{
+                padding: 16,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.1)',
+                backgroundColor: 'rgba(255,255,255,0.05)',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+                marginBottom: 24,
+              }}
+            >
+              <Ionicons name="calendar" size={20} color={Colors.dark.orange} />
+              <Text style={{ color: Colors.dark.text, fontSize: 16 }}>
+                {paymentDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={{
+                backgroundColor: Colors.dark.successNeon,
+                padding: 16,
+                borderRadius: 12,
+                alignItems: 'center',
+                flexDirection: 'row',
+                justifyContent: 'center',
+                gap: 8,
+              }}
+              onPress={async () => {
+                if (!selectedPackageForPayment) return;
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                try {
+                  await apiRequest("PATCH", `/api/packages/${selectedPackageForPayment.id}`, { 
+                    isPaid: true,
+                    paymentMethod,
+                    paymentDate: paymentDate.toISOString(),
+                  });
+                  queryClient.invalidateQueries({ queryKey: [`/api/admin/players/${selectedPlayer?.id}/stats`] });
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  setShowMarkPaidModal(false);
+                  setSelectedPackageForPayment(null);
+                } catch (error) {
+                  console.error("Failed to mark as paid:", error);
+                }
+              }}
+            >
+              <Ionicons name="checkmark-circle" size={20} color="#0B0D10" />
+              <Text style={{ color: '#0B0D10', fontSize: 16, fontWeight: '700' }}>Confirm Payment</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Record Payment Modal */}
       <Modal
