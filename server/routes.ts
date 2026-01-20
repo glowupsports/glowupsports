@@ -4225,6 +4225,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
         }
+
+          // Auto-assign coach to present players if not already assigned
+          for (const presentPlayer of presentPlayers) {
+            try {
+              await storage.autoAssignCoachFromSession(presentPlayer.playerId, id);
+            } catch (coachError) {
+              console.error(`[AutoAssign] Error assigning coach to player ${presentPlayer.playerId}:`, coachError);
+            }
+          }
         
         return res.json({ 
           success: true, 
@@ -9082,6 +9091,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               });
               assignedPackageId = pkg.id;
               console.log(`[AddPlayer] Assigned package ${pkg.id} (${template.name}) to player ${playerId}`);
+              
+              // Settle any outstanding debts for this player
+              const addPlayerCreditType = template.sessionType || 'group';
+              const addPlayerDebtSettlement = await storage.settlePlayerDebts(playerId, addPlayerCreditType, pkg.id);
+              if (addPlayerDebtSettlement.settledCount > 0) {
+                console.log(`[AddPlayer] Settled ${addPlayerDebtSettlement.settledCount} debt(s) for player ${playerId}`);
+              }
             }
           }
         } catch (pkgError) {
@@ -9123,6 +9139,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           assignedPackageId = pkg.id;
           console.log(`[AddPlayer] Created credit package ${pkg.id} (${credits} ${creditType} credits) for player ${playerId}`);
+          
+          // Settle any outstanding debts for this player
+          const creditPkgDebtSettlement = await storage.settlePlayerDebts(playerId, sessionType, pkg.id);
+          if (creditPkgDebtSettlement.settledCount > 0) {
+            console.log(`[AddPlayer] Settled ${creditPkgDebtSettlement.settledCount} debts from credit package for player ${playerId}`);
+          }
         } catch (pkgError) {
           console.error("[AddPlayer] Failed to create credit package:", pkgError);
           // Continue without package - don't fail the enrollment
@@ -13055,6 +13077,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         expiryDate: expiryDate.toISOString().split('T')[0],
         status: 'active',
       });
+
+      // Settle any outstanding debts for this player
+      const pkgCreditType = template.sessionType || 'group';
+      const pkgDebtSettlement = await storage.settlePlayerDebts(playerId, pkgCreditType, pkg.id);
+      if (pkgDebtSettlement.settledCount > 0) {
+        console.log(`[AssignPackage] Settled ${pkgDebtSettlement.settledCount} debt(s) for player ${playerId}`);
+      }
       
       // Generate invoice for the package
       const invoiceNumber = await storage.generateInvoiceNumber(academyId);
@@ -23617,6 +23646,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         currency: templateData.currency,
         status: "active",
       });
+
+      // Settle any outstanding debts for this player
+      const playerPkgDebtSettlement = await storage.settlePlayerDebts(playerId, templateData.creditType, pkg.id);
+      if (playerPkgDebtSettlement.settledCount > 0) {
+        console.log(`[PlayerPackage] Settled ${playerPkgDebtSettlement.settledCount} debts for player ${playerId}`);
+      }
 
       const totalAmount = (parseFloat(templateData.pricePerCredit) * templateData.credits).toFixed(2);
       const invoiceNumber = await storage.generateInvoiceNumber(player.academyId);

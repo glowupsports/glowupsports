@@ -9736,4 +9736,44 @@ export const storage = {
       percentComplete: Math.round((stats.assessed / stats.total) * 100),
     }));
   },
+
+  // Auto-assign coach to player based on session attendance
+  // If player has no assigned coach, assigns the coach from the session they attended
+  async autoAssignCoachFromSession(playerId: string, sessionId: string): Promise<{ assigned: boolean; coachId?: string }> {
+    try {
+      // Get the player to check if they already have a coach assigned
+      const player = await db.select().from(players).where(eq(players.id, playerId)).limit(1);
+      if (!player.length) {
+        return { assigned: false };
+      }
+      
+      // If player already has a coach, do not override
+      if (player[0].coachId) {
+        return { assigned: false };
+      }
+      
+      // Get the session to find the coach
+      const session = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+      if (!session.length || !session[0].coachId) {
+        // Try to get coach from the series
+        if (session[0]?.seriesId) {
+          const series = await db.select().from(coachingSeries).where(eq(coachingSeries.id, session[0].seriesId)).limit(1);
+          if (series.length && series[0].coachId) {
+            await db.update(players).set({ coachId: series[0].coachId }).where(eq(players.id, playerId));
+            console.log(`[AutoAssign] Assigned coach ${series[0].coachId} to player ${playerId} from series ${series[0].id}`);
+            return { assigned: true, coachId: series[0].coachId };
+          }
+        }
+        return { assigned: false };
+      }
+      
+      // Assign the sessions coach to the player
+      await db.update(players).set({ coachId: session[0].coachId }).where(eq(players.id, playerId));
+      console.log(`[AutoAssign] Assigned coach ${session[0].coachId} to player ${playerId} from session ${sessionId}`);
+      return { assigned: true, coachId: session[0].coachId };
+    } catch (error) {
+      console.error(`[AutoAssign] Error assigning coach to player ${playerId}:`, error);
+      return { assigned: false };
+    }
+  },
 };
